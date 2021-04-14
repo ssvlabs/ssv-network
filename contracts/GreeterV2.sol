@@ -2,7 +2,7 @@ pragma solidity ^0.7.0;
 
 import "hardhat/console.sol";
 
-contract Greeter {
+contract GreeterV2 {
 
   string greeting;
 
@@ -18,5 +18,10 @@ contract Greeter {
   function setGreeting(string memory _greeting) public {
     console.log("Changing greeting from '%s' to '%s'", greeting, _greeting);
     greeting = _greeting;
+  }
+
+  function resetGreeting() public {
+    console.log("Reset greeting from '%s' to default", greeting);
+    greeting = 'Hello World';
   }
 }

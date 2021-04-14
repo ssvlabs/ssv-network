@@ -9,6 +9,9 @@ This project is intended to be used with the
 able to follow it by yourself by reading the README and exploring its
 `contracts`, `test`, `scripts`  directories.
 
+Decision to use Hardhat was based on research best practices to develop smart contracts.
+One of the topic about it is [here](https://rahulsethuram.medium.com/the-new-solidity-dev-stack-buidler-ethers-waffle-typescript-tutorial-f07917de48ae)
+
 ## Quick start
 
 The first things you need to do are cloning this repository and installing its
