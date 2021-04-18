@@ -23,22 +23,24 @@ cd ssv-network
 npm install
 ```
 
-### Running test network node
+### Run locally HardHat TestNetwork node 
 Once installed, to run Hardhat's testing network:
 
 ```sh
 npx hardhat node
 ```
 
-### Compiling contracts
-Take a look at `contracts/` folder, you should be able to find `Blox.sol` as simple contract example.
+For more details about it and how to use MainNet forking you can find [here](https://hardhat.org/hardhat-network/).
+
+### Compile contracts
+Take a look at `contracts/` folder, you should be able to find `Blox.sol`, `BloxV2.sol` as simple contract example.
 To compile it, simply run:
 
 ```sh
 npx hardhat compile
 ```
 
-### Testing contracts
+### Test contracts
 Take a look at `test/` folder, you should be able to find tests rlated to specific actions.
 It comes with tests that use [Waffle](https://getwaffle.io/) and [Ethers.js](https://github.com/ethers-io/ethers.js/).
 To run tests, run:
@@ -47,7 +49,7 @@ To run tests, run:
 npx hardhat test
 ```
 
-### Deploying contracts
+### Deploy contracts
 We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an ability to upgrade them later.
 To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `deploy.ts` file.
 Run this to deploy the contract:
@@ -117,19 +119,6 @@ https://eth95.dev/?network=1&address=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
 ```
 
 UI dApp [direct link](https://eth95.dev/?network=1&address=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0)
-
-### Running tasks
-Hardhat Runner, the CLI command to interact with Hardhat, is an extensible task runner.
-It's designed around the concepts of tasks and plugins. Every time you're running Hardhat from the CLI you're running a task.
-E.g. `npx hardhat compile` is running the built-in `compile` task
-
-To first get a quick sense of what's available and what's going on, run `npx hardhat` in folder project.
-If you take a look at the `hardhat.config.ts` file, you will find the definition of the task `accounts`.
-To run it, try:
-
-```sh
-npx hardhat accounts
-```
 
 ## User Guide
 
