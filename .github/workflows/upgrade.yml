@@ -1,0 +1,42 @@
+name: Upgrade smart contract
+
+on: push
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - name: Check out Git repository
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+
+      - name: install dependencies
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: npm install
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+
+      - name: create env file
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          touch .env
+          echo OWNER_PRIVATE_KEY =${{ secrets.OWNER_PRIVATE_KEY }} >> .env
+          echo ALCHEMYAPI_KEY =${{ secrets.ALCHEMYAPI_KEY }} >> .env
+          echo PROXY_ADDRESS =${{ secrets.PROXY_ADDRESS }} >> .env
+
+      - name: upgrade proxy address
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          npx hardhat run --network goerli scripts/upgrade.ts
+

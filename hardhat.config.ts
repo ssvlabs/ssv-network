@@ -21,12 +21,10 @@ task('accounts', 'Prints the list of accounts', async (args, hre) => {
  */
 module.exports = {
   solidity: '0.7.3',
-  /*
   networks: {
-    rinkeby: {
-      url: `https://eth-rinkeby.alchemyapi.io/v2/YtzmOto-UtAjURmUjT_lGl4flEpEAkQl`,
-      accounts:[`0x***REMOVED***`]
+    goerli: {
+      url: `https://eth-goerli.alchemyapi.io/v2/${process.env.ALCHEMYAPI_KEY}`,
+      accounts:[`0x${process.env.OWNER_PRIVATE_KEY}`]
     }
   }
-  */
 };
