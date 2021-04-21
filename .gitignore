@@ -1,5 +1,4 @@
 node_modules
-.openzeppelin
 .env
 #Hardhat files
 cache

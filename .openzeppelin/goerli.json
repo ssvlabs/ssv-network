@@ -1,0 +1,28 @@
+{
+  "manifestVersion": "3.1",
+  "impls": {
+    "a65cdfa308566facef6065beb9e631bc7782c0699e2093fd7f5bc24c50583bce": {
+      "address": "0xd360F577fFE066ba413E99c011cD306A6C9b0c71",
+      "txHash": "0x077417aceb084dcd7b635a0aa45e013ce7eebccea27912cd0c8a89c0630e5930",
+      "layout": {
+        "storage": [
+          {
+            "contract": "SSVNetwork",
+            "label": "value",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:6"
+          }
+        ],
+        "types": {
+          "t_uint256": {
+            "label": "uint256"
+          }
+        }
+      }
+    }
+  },
+  "admin": {
+    "address": "0x71E075e2387708267BAbC726c3BdD48c2b5AC2be",
+    "txHash": "0x527fa7bdcc4c9e13879f9c77633aa8ebb5aef9ebff21d9c06a71595dbd2d5aaf"
+  }
+}
