@@ -29,13 +29,13 @@ module.exports = {
   },
   networks: {
     goerli: {
-      url: `http://eth1.stage.bloxinfra.com`, // ${process.env.ALCHEMYAPI_KEY}`,
-      accounts: ['0x***REMOVED***'], //[`0x${process.env.OWNER_PRIVATE_KEY}`]
+      url: `http://${process.env.ALCHEMYAPI_KEY}`,
+      accounts: [`0x${process.env.OWNER_PRIVATE_KEY}`]
     }
   },
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
-    apiKey: '***REMOVED***'
+    apiKey: process.env.ETHERSCAN_KEY
   }
 };
