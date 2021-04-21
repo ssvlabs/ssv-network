@@ -43,7 +43,7 @@ npx hardhat compile
 ## CI/CD Workflow
 
 ### Step 1: Test contracts
-Take a look at `test/` folder, you should be able to find tests rlated to specific actions.
+Take a look at `test/` folder, you should be able to find tests related to specific actions.
 It comes with tests that use [Waffle](https://getwaffle.io/) and [Ethers.js](https://github.com/ethers-io/ethers.js/).
 To run tests, run:
 
@@ -69,7 +69,6 @@ Output of this action will be smart contract proxy address.
 
 ### Step 3: Verify implementation contract on etherscan (each time after upgrade)
 Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is implementation smart contract address.
-Go to
 We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an ability to upgrade them later.
 To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `deploy.ts` file.
 Run this:
