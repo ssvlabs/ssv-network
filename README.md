@@ -33,14 +33,16 @@ npx hardhat node
 For more details about it and how to use MainNet forking you can find [here](https://hardhat.org/hardhat-network/).
 
 ### Compile contracts
-Take a look at `contracts/` folder, you should be able to find `Blox.sol`, `BloxV2.sol` as simple contract example.
+Take a look at `contracts/` folder, you should be able to find `SSVNetwork.sol`, `SSVNetworkV2.sol` as simple contract example.
 To compile it, simply run:
 
 ```sh
 npx hardhat compile
 ```
 
-### Test contracts
+## CI/CD Workflow
+
+### Step 1: Test contracts
 Take a look at `test/` folder, you should be able to find tests rlated to specific actions.
 It comes with tests that use [Waffle](https://getwaffle.io/) and [Ethers.js](https://github.com/ethers-io/ethers.js/).
 To run tests, run:
@@ -49,7 +51,7 @@ To run tests, run:
 npx hardhat test
 ```
 
-### Deploy contracts
+### Step 2: Deploy new contracts
 We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an ability to upgrade them later.
 To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `deploy.ts` file.
 Run this to deploy the contract:
@@ -63,6 +65,60 @@ As general rule, you can target any network configured in the `hardhat.config.ts
 ```sh
 npx hardhat run --network <your-network> scripts/deploy.ts
 ```
+Output of this action will be smart contract proxy address.
+
+### Step 3: Verify implementation contract on etherscan (each time after upgrade)
+Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is implementation smart contract address.
+Go to
+We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an ability to upgrade them later.
+To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `deploy.ts` file.
+Run this:
+```sh
+npx hardhat  verify --network <network> <implementation-address>
+```
+
+### Step 4: Link proxy contract with implementation on etherscan (each time after upgrade)
+Go to `https://<network>.etherscan.io/address/<proxy-address>` and click on `Contract` tab.
+On a right side click `More Options` dropbox and select `Is this a proxy?`. On a verification page enter proxy address inside field and click `Verify` button. As result you will see the message:
+```sh
+The proxy contract verification completed with the message:
+The proxy\'s (<proxy-address) implementation contract is found at: <implementation-address>
+```
+To be sure that values are correct and click `Save` button. As result on etherscan proxy address page in `Contract` tab you will find two new buttons:
+`Write as Proxy` and `Read as Proxy` which will represent implementation smart contract functions interface and the actual state.
+
+### Step 5: Upgrade contract
+Once we have tested our new implementation, for example `contracts/SSVNetworkV2.sol` we can prepare the upgrade.
+This will validate and deploy our new implementation contract.
+Note: For testnet and mainnet  we will use Openzeppelin Defender to manage our upgrades and Gnosis Safe for mainnet safe signiture process.
+
+To upgrade in local HardHat Testing Network:
+```sh
+PROXY_ADDRESS=0x... npx hardhat run --network localhost scripts/prepare-upgrade.ts
+```
+
+For mainnet and testnet:
+#### 1. Prepare for upgrade:
+```sh
+PROXY_ADDRESS=<proxy-address> npx hardhat run --network localhost scripts/upgrade.ts
+```
+#### 2. Complete upgrade in testnet:
+Go to [OpenZeppelin Defender Admin](https://defender.openzeppelin.com/), select proxy address, which you added before, point new implementation address and abi json object which you can find in `artifacts/contracts/<contract-name>.json`. Sigh by your wallet which was used in deployment fist contract release.
+
+More details in [documentation](https://docs.openzeppelin.com/defender/admin#upgrades).
+#### 3. Complete upgrade in mainnet:
+For mainnet to manage our upgrade in [Gnosis Safe](https://gnosis-safe.io) we use the OpenZeppelin app.
+In the Apps tab, select the OpenZeppelin application and paste the address of the proxy in the Contract address field, and paste the address of the new implementation in the New implementation address field. The app should show that the contract is EIP1967-compatible.
+
+Double check the addresses, and then press the Upgrade button.
+We will be shown a confirmation dialog to Submit the transaction.
+
+We then need to sign the transaction in MetaMask (or the wallet that you are using).
+
+## Extra tips
+### Create a new contract version
+Note: We cannot change the storage layout of our implementation contract, see [Upgrading](https://docs.openzeppelin.com/learn/upgrading-smart-contracts#upgrading) for more details on the technical limitations.
+
 
 ### Transfer control of upgrades
 The admin (who can perform upgrades) for our proxy is a ProxyAdmin contract. Only the owner of the ProxyAdmin can upgrade our proxy.
@@ -75,42 +131,6 @@ To transfer ownership run:
 ```sh
 GNOSIS_SAFE_ADDRESS=0x..... npx hardhat run scripts/transfer-ownership.ts --network <your-network/localhost>
 ```
-
-### Create a new contract version
-After a period of time, we decide that we want to add functionality to our contract which are described in `contracts/BloxV2.sol`.
-
-Note: We cannot change the storage layout of our implementation contract, see [Upgrading](https://docs.openzeppelin.com/learn/upgrading-smart-contracts#upgrading) for more details on the technical limitations.
-
-### Local Testing Network deploy the new implementation
-Once we have tested our new implementation, we can upgrade it.
-
-To upgrade in HardHat Testing Network:
-
-```sh
-PROXY_ADDRESS=0x... npx hardhat run --network localhost scripts/prepare-upgrade.ts
-```
-
-### Upgrade the contract in TestNet or MainNet
-Once we have tested our new implementation, we can prepare the upgrade. This will validate and deploy our new implementation contract.
-Note: For mainnet we are only preparing the upgrade. We will use our Gnosis Safe to perform the actual upgrade.
-
-To prepare for upgrade:
-
-```sh
-PROXY_ADDRESS=0x... npx hardhat run --network localhost scripts/upgrade.ts
-```
-
-To manage our upgrade in Gnosis Safe we use the OpenZeppelin app.
-In the Apps tab, select the OpenZeppelin application and paste the address of the proxy in the Contract address field, and paste the address of the new implementation in the New implementation address field.
-The app should show that the contract is EIP1967-compatible.
-
-Double check the addresses, and then press the Upgrade button.
-We will be shown a confirmation dialog to Submit the transaction.
-
-We then need to sign the transaction in MetaMask (or the wallet that you are using).
-
-We can also manage the upgrade using [OpenZeppelin Defender Admin](https://defender.openzeppelin.com/)
-More details in [documentation](https://docs.openzeppelin.com/defender/admin#upgrades)
 
 ### dApp UI to interact with smart contract
 

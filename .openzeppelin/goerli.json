@@ -19,6 +19,25 @@
           }
         }
       }
+    },
+    "a8c34e30dd42bfa0d900135a30dbc42f877332f6d3aa29d69727e5d34d15e657": {
+      "address": "0x548444f8dCC156475f40b97f34D307FF55708eD2",
+      "txHash": "0xfa358e6edc23698d4ef6b579fdf5e04d2f46a9fe6c68c70c7f55a4204103ddd9",
+      "layout": {
+        "storage": [
+          {
+            "contract": "SSVNetworkV2",
+            "label": "value",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetworkV2.sol:5"
+          }
+        ],
+        "types": {
+          "t_uint256": {
+            "label": "uint256"
+          }
+        }
+      }
     }
   },
   "admin": {
