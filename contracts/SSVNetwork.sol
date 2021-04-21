@@ -1,7 +1,8 @@
+// File: contracts/Blox.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
  
-contract Blox {
+contract SSVNetwork {
   uint256 private value;
 
   // Emitted when the stored value changes

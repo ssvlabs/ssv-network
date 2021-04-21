@@ -2,10 +2,10 @@ import { ethers, upgrades } from 'hardhat';
 
 async function main() {
   const proxyAddress = process.env.PROXY_ADDRESS;
-  const BloxV2 = await ethers.getContractFactory('BloxV2');
+  const ContractUpgraded = await ethers.getContractFactory('SSVNetworkV2');
   console.log('Running upgrade...');
-  const bloxV2 = await upgrades.upgradeProxy(proxyAddress, BloxV2);
-  console.log(`BloxV2 upgraded at: ${bloxV2.address}`);
+  const newContract = await upgrades.upgradeProxy(proxyAddress, ContractUpgraded);
+  console.log(`New contract upgraded at: ${newContract.address}`);
 }
 
 main()

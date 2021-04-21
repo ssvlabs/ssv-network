@@ -1,33 +1,33 @@
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
 
-let BloxV2;
-let bloxV2;
+let ContractV2;
+let contractV2;
 
-describe('BloxV2', function() {
+describe('SSVNetworkV2', function() {
   beforeEach(async function () {
-    BloxV2 = await ethers.getContractFactory('BloxV2');
-    bloxV2 = await BloxV2.deploy();
-    await bloxV2.deployed();
+    ContractV2 = await ethers.getContractFactory('SSVNetworkV2');
+    contractV2 = await ContractV2.deploy();
+    await contractV2.deployed();
   });
  
   // Test case
   it('retrieve returns a value previously stored', async function () {
     // Store a value
-    await bloxV2.store(42);
+    await contractV2.store(42);
  
     // Test if the returned value is the same one
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await bloxV2.retrieve()).toString()).to.equal('42');
+    expect((await contractV2.retrieve()).toString()).to.equal('42');
   });
 
   // Test case
   it('retrieve returns a value previously incremented', async function () {
     // Increment
-    await bloxV2.increment();
+    await contractV2.increment();
  
     // Test if the returned value is the same one
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await bloxV2.retrieve()).toString()).to.equal('1');
+    expect((await contractV2.retrieve()).toString()).to.equal('1');
   });
 });

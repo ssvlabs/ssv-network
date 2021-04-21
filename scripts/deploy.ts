@@ -1,11 +1,11 @@
 import { ethers, upgrades } from 'hardhat';
 
 async function main() {
-  const Blox = await ethers.getContractFactory('Blox');
-  console.log('Deploying Blox...');
-  const blox = await upgrades.deployProxy(Blox, [42], { initializer: 'store' });
-  await blox.deployed();
-  console.log(`Blox deployed to: ${blox.address}`);
+  const Contract = await ethers.getContractFactory('SSVNetwork');
+  console.log('Deploying SSVNetwork...');
+  const contract = await upgrades.deployProxy(Contract, [42], { initializer: 'store' });
+  await contract.deployed();
+  console.log(`Contract deployed to: ${contract.address}`);
 }
 
 main()
