@@ -1,23 +1,23 @@
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
 
-let Blox;
-let blox;
+let Contract;
+let contract;
 
-describe('Blox', function() {
+describe('SSVNetwork', function() {
   beforeEach(async function () {
-    Blox = await ethers.getContractFactory('Blox');
-    blox = await Blox.deploy();
-    await blox.deployed();
+    Contract = await ethers.getContractFactory('SSVNetwork');
+    contract = await Contract.deploy();
+    await contract.deployed();
   });
  
   // Test case
   it('retrieve returns a value previously stored', async function () {
     // Store a value
-    await blox.store(42);
+    await contract.store(42);
  
     // Test if the returned value is the same one
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await blox.retrieve()).toString()).to.equal('42');
+    expect((await contract.retrieve()).toString()).to.equal('42');
   });
 });
