@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import { task } from 'hardhat/config';
 import '@nomiclabs/hardhat-waffle';
 import '@nomiclabs/hardhat-ethers';
@@ -29,7 +31,7 @@ module.exports = {
   },
   networks: {
     goerli: {
-      url: `http://${process.env.ALCHEMYAPI_KEY}`,
+      url: process.env.ETH_NODE_URL,
       accounts: [`0x${process.env.OWNER_PRIVATE_KEY}`]
     }
   },
