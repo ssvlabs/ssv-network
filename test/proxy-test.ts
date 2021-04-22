@@ -7,13 +7,12 @@ let contract;
 describe('SSVNetwork (proxy)', function() {
   beforeEach(async function () {
     Contract = await ethers.getContractFactory('SSVNetwork');
-    contract = await upgrades.deployProxy(Contract, [42], { initializer: 'store' });
+    contract = await upgrades.deployProxy(Contract);
   });
  
   // Test case
   it('retrieve returns a value previously initialized', async function () {
-    // Test if the returned value is the same one
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await contract.retrieve()).toString()).to.equal('42');
+    expect((await contract.operatorCount).toString());
   });
 });
