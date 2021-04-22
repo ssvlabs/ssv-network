@@ -10,9 +10,10 @@ contract SSVNetwork {
     address pubkey;
     uint256 score;
     address paymentAddress;
+    bool isExists;
   }
 
-  mapping(uint => Operator) private operators;
+  mapping(address => Operator) private operators;
 
   /**
    * @dev Emitted when the operator has been added.
@@ -31,7 +32,8 @@ contract SSVNetwork {
    * @param _paymentAddress Operator's ethereum address that can collect fees.
    */
   function addOperator(string memory _name, address _pubkey, uint256 _score, address _paymentAddress) public {
-    operators[operatorCount] = Operator(_name, _pubkey, _score, _paymentAddress);
+    if (operators[_pubkey].isExists) { revert(); } // duplicate key
+    operators[_pubkey] = Operator(_name, _pubkey, _score, _paymentAddress, true);
     emit OperatorAdded(_name, _pubkey, _score, _paymentAddress);
     operatorCount++;
   }
