@@ -1,5 +1,6 @@
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
+import { solidity } from "ethereum-waffle";
 import * as chaiAsPromised from "chai-as-promised";
 
 let Contract;
@@ -13,12 +14,20 @@ describe('Operators', function() {
   });
  
   // Test case
-  it('Add first operator', async function () {
+  it('Add first operator and emit the event', async function () {
     // Store a value
-    const pubKey = 'b2ccdebe84ff181bcb07f5d9a14bd5153bccee494cd4af587a7e3e814a8a6c9e7ede5efa493e47c9fe6491ed79ed2a6a';
-    await contract.addOperator('stakefish', pubKey, '0xe52350A8335192905359c4c3C2149976dCC3D8bF'); 
+    const [name, pubKey, paymentAddress] = [
+      'stakefish',
+      'b2ccdebe84ff181bcb07f5d9a14bd5153bccee494cd4af587a7e3e814a8a6c9e7ede5efa493e47c9fe6491ed79ed2a6a',
+      '0xe52350A8335192905359c4c3C2149976dCC3D8bF'
+    ];
+    // Add new operator and check if event was emitted
+    await expect(contract.addOperator(name, pubKey, paymentAddress))
+      .to.emit(contract, 'OperatorAdded')
+      .withArgs(name, pubKey, paymentAddress);
+
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await contract.operatorCount()).toString()).to.equal('1');
+    expect((await contract.operatorCount()).toString()).to.equal('1');    
   });
 
   // Test case
