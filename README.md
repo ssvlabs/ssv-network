@@ -162,3 +162,29 @@ Your environment will have everything you need to build a Dapp powered by Hardha
   followed by `Settings > Advanced > Reset Account`.
 
 **Happy _buidling_!**
+
+## Functionality
+
+### Add new operator function
+```sh
+  /**
+   * @dev Add new operator to the list.
+   * @param _name Opeator's display name.
+   * @param _pubkey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
+   * @param _paymentAddress Operator's ethereum address that can collect fees.
+   */
+  function addOperator(string memory _name, string _pubkey, address _paymentAddress) public {
+```
+It stores into the storage the operator data with unque `_pubkey` validation.
+
+### Fire event when operator is added
+```sh
+  /**
+   * @dev Emitted when the operator has been added.
+   * @param name Opeator's display name.
+   * @param pubkey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
+   * @param paymentAddress Operator's ethereum address that can collect fees.
+   */
+  event OperatorAdded(string name, string pubkey, address paymentAddress);
+```
+It emits the event each time when new operator is added

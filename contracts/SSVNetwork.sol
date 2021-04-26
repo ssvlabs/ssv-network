@@ -7,34 +7,34 @@ contract SSVNetwork {
 
   struct Operator {
     string name;
-    address pubkey;
+    string pubkey;
     uint256 score;
     address paymentAddress;
     bool isExists;
   }
 
-  mapping(address => Operator) private operators;
+  mapping(string => Operator) private operators;
 
   /**
    * @dev Emitted when the operator has been added.
    * @param name Opeator's display name.
    * @param pubkey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
-   * @param score A rating parameter to evaluate operators by.
    * @param paymentAddress Operator's ethereum address that can collect fees.
    */
-  event OperatorAdded(string name, address pubkey, uint256 score, address paymentAddress);
+  event OperatorAdded(string name, string pubkey, address paymentAddress);
 
   /**
    * @dev Add new operator to the list.
    * @param _name Opeator's display name.
    * @param _pubkey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
-   * @param _score A rating parameter to evaluate operators by.
    * @param _paymentAddress Operator's ethereum address that can collect fees.
    */
-  function addOperator(string memory _name, address _pubkey, uint256 _score, address _paymentAddress) public {
-    if (operators[_pubkey].isExists) { revert(); } // duplicate key
-    operators[_pubkey] = Operator(_name, _pubkey, _score, _paymentAddress, true);
-    emit OperatorAdded(_name, _pubkey, _score, _paymentAddress);
+  function addOperator(string memory _name, string memory _pubkey, address _paymentAddress) public {
+    if (operators[_pubkey].isExists) {
+      revert('Operator with same public key already added.');
+    }
+    operators[_pubkey] = Operator(_name, _pubkey, 0, _paymentAddress, true);
+    emit OperatorAdded(_name, _pubkey, _paymentAddress);
     operatorCount++;
   }
 }
