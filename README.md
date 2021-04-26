@@ -175,7 +175,7 @@ Your environment will have everything you need to build a Dapp powered by Hardha
    */
   function addOperator(string memory _name, string _pubkey, address _paymentAddress) public {
 ```
-It stores into the storage the operator data with unque `_pubkey` validation.
+It stores operator data with unque `_pubkey` validation into a blockchain storage.
 
 ### Fire event when operator is added
 ```sh
@@ -187,4 +187,4 @@ It stores into the storage the operator data with unque `_pubkey` validation.
    */
   event OperatorAdded(string name, string pubkey, address paymentAddress);
 ```
-It emits the event each time when new operator is added
+It emits the event each time when new operator is added.

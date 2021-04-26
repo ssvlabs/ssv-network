@@ -31,7 +31,7 @@ contract SSVNetwork {
    */
   function addOperator(string memory _name, string memory _pubkey, address _paymentAddress) public {
     if (operators[_pubkey].isExists) {
-      revert('Operator with same public key already added.');
+      revert('Operator with same public key already exists');
     }
     operators[_pubkey] = Operator(_name, _pubkey, 0, _paymentAddress, true);
     emit OperatorAdded(_name, _pubkey, _paymentAddress);
