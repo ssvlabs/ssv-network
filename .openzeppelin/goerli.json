@@ -1,47 +1,119 @@
 {
   "manifestVersion": "3.1",
   "impls": {
-    "a65cdfa308566facef6065beb9e631bc7782c0699e2093fd7f5bc24c50583bce": {
-      "address": "0xd360F577fFE066ba413E99c011cD306A6C9b0c71",
-      "txHash": "0x077417aceb084dcd7b635a0aa45e013ce7eebccea27912cd0c8a89c0630e5930",
+    "1c1a33c09a0fcb34b1856e53b3bc6e11bdae580b0b5e89a4579a577012a2d9c8": {
+      "address": "0xdc0e0960db9628ab1de79C5B328F04488346F155",
+      "txHash": "0xb56de9744b87356280a997f7c8e8d5a06e4e8dde7e9d3201e7ade20cc84fddb0",
       "layout": {
         "storage": [
           {
             "contract": "SSVNetwork",
-            "label": "value",
+            "label": "operatorCount",
             "type": "t_uint256",
             "src": "contracts/SSVNetwork.sol:6"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "operators",
+            "type": "t_mapping(t_uint256,t_struct(Operator)12_storage)",
+            "src": "contracts/SSVNetwork.sol:15"
           }
         ],
         "types": {
           "t_uint256": {
             "label": "uint256"
+          },
+          "t_mapping(t_uint256,t_struct(Operator)12_storage)": {
+            "label": "mapping(uint256 => struct SSVNetwork.Operator)"
+          },
+          "t_struct(Operator)12_storage": {
+            "label": "struct SSVNetwork.Operator",
+            "members": [
+              {
+                "label": "name",
+                "type": "t_string_storage"
+              },
+              {
+                "label": "pubkey",
+                "type": "t_address"
+              },
+              {
+                "label": "score",
+                "type": "t_uint256"
+              },
+              {
+                "label": "paymentAddress",
+                "type": "t_address"
+              }
+            ]
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_address": {
+            "label": "address"
           }
         }
       }
     },
-    "a8c34e30dd42bfa0d900135a30dbc42f877332f6d3aa29d69727e5d34d15e657": {
-      "address": "0x548444f8dCC156475f40b97f34D307FF55708eD2",
-      "txHash": "0xfa358e6edc23698d4ef6b579fdf5e04d2f46a9fe6c68c70c7f55a4204103ddd9",
+    "c3729cfa99a6a5667dd123328f019ceba0e12a583833658ea5f401a11b4d7f7a": {
+      "address": "0x8b3d89D1Bdb347E194B220201507C43DE971Ee1E",
+      "txHash": "0x2ca73c35fb70c6fd58c355d4938ffd1f387330fd115eef2954ca388a91f9ffbe",
       "layout": {
         "storage": [
           {
-            "contract": "SSVNetworkV2",
-            "label": "value",
+            "contract": "SSVNetwork",
+            "label": "operatorCount",
             "type": "t_uint256",
-            "src": "contracts/SSVNetworkV2.sol:5"
+            "src": "contracts/SSVNetwork.sol:6"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "operators",
+            "type": "t_mapping(t_uint256,t_struct(Operator)12_storage)",
+            "src": "contracts/SSVNetwork.sol:15"
           }
         ],
         "types": {
           "t_uint256": {
             "label": "uint256"
+          },
+          "t_mapping(t_uint256,t_struct(Operator)12_storage)": {
+            "label": "mapping(uint256 => struct SSVNetwork.Operator)"
+          },
+          "t_struct(Operator)12_storage": {
+            "label": "struct SSVNetwork.Operator",
+            "members": [
+              {
+                "label": "name",
+                "type": "t_string_storage"
+              },
+              {
+                "label": "pubkey",
+                "type": "t_address"
+              },
+              {
+                "label": "score",
+                "type": "t_uint256"
+              },
+              {
+                "label": "paymentAddress",
+                "type": "t_address"
+              }
+            ]
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_address": {
+            "label": "address"
           }
         }
       }
     }
   },
   "admin": {
-    "address": "0x71E075e2387708267BAbC726c3BdD48c2b5AC2be",
-    "txHash": "0x527fa7bdcc4c9e13879f9c77633aa8ebb5aef9ebff21d9c06a71595dbd2d5aaf"
+    "address": "0xEf74F354CE96D537f352aF9Ce543322c9f9d5b4F",
+    "txHash": "0xb4cfb1bcaeb0ac44b4250aa68f0fc163f6a802a4b19a4381b1ec0be32de4cdde"
   }
 }
