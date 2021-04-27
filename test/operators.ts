@@ -1,7 +1,15 @@
 import { ethers } from 'hardhat';
-import { expect } from 'chai';
 import { solidity } from 'ethereum-waffle';
+
+import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
+
+before(() => {
+    chai.should();
+    chai.use(chaiAsPromised);
+});
+
+const { expect } = chai;
 
 let Contract;
 let contract;
@@ -45,8 +53,11 @@ describe('Operators', function() {
     const pubKey = 'e3c1ad14a84ac273f627e08f961f81211bc2dcce730f40db6e06b6c9adf57598fe1c4b2b7d94bac46b380b67ac9f75dec5e0683bbe063be0bc831c988e48c1a8';
     // Store new
     await contract.addOperator('stakefish', pubKey, '0xe52350A8335192905359c4c3C2149976dCC3D8bF');
+
     // Try to sttore with duplicated public key
-    await expect(contract.addOperator('stakefishRenamed', pubKey, '0x8b3d89d1bdb347e194b220201507c43de971ee1e')).to.be.throw;
+    await contract.addOperator('stakefishRenamed', pubKey, '0x8b3d89d1bdb347e194b220201507c43de971ee1e')
+      .should.eventually.be.rejectedWith('Operator with same public key already exists');
+
     // Note that we need to use strings to compare the 256 bit integers
     expect((await contract.operatorCount()).toString()).to.equal('1');
   });
