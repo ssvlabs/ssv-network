@@ -1,10 +1,20 @@
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
-import { solidity } from "ethereum-waffle";
-import * as chaiAsPromised from "chai-as-promised";
+import { solidity } from 'ethereum-waffle';
+import * as chaiAsPromised from 'chai-as-promised';
 
 let Contract;
 let contract;
+
+/*
+const hexToString = (hex) => {
+  var str = '';
+	for (var n = 0; n < hex.length; n += 2) {
+		str += String.fromCharCode(parseInt(hex.substr(n, 2), 16));
+	}
+  return;
+}
+*/
 
 describe('Operators', function() {
   beforeEach(async function () {
@@ -18,13 +28,13 @@ describe('Operators', function() {
     // Store a value
     const [name, pubKey, paymentAddress] = [
       'stakefish',
-      'b2ccdebe84ff181bcb07f5d9a14bd5153bccee494cd4af587a7e3e814a8a6c9e7ede5efa493e47c9fe6491ed79ed2a6a',
+      'e3c1ad14a84ac273f627e08f961f81211bc2dcce730f40db6e06b6c9adf57598fe1c4b2b7d94bac46b380b67ac9f75dec5e0683bbe063be0bc831c988e48c1a8',
       '0xe52350A8335192905359c4c3C2149976dCC3D8bF'
     ];
     // Add new operator and check if event was emitted
     await expect(contract.addOperator(name, pubKey, paymentAddress))
       .to.emit(contract, 'OperatorAdded')
-      .withArgs(name, pubKey, paymentAddress);
+      .withArgs(name, `0x${Buffer.from(pubKey, 'utf8').toString('hex')}`, paymentAddress);
 
     // Note that we need to use strings to compare the 256 bit integers
     expect((await contract.operatorCount()).toString()).to.equal('1');    
@@ -32,7 +42,7 @@ describe('Operators', function() {
 
   // Test case
   it('Revert adding new operator with same pubkey', async function () {
-    const pubKey = 'b2ccdebe84ff181bcb07f5d9a14bd5153bccee494cd4af587a7e3e814a8a6c9e7ede5efa493e47c9fe6491ed79ed2a6a';
+    const pubKey = 'e3c1ad14a84ac273f627e08f961f81211bc2dcce730f40db6e06b6c9adf57598fe1c4b2b7d94bac46b380b67ac9f75dec5e0683bbe063be0bc831c988e48c1a8';
     // Store new
     await contract.addOperator('stakefish', pubKey, '0xe52350A8335192905359c4c3C2149976dCC3D8bF');
     // Try to sttore with duplicated public key
