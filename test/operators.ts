@@ -5,8 +5,8 @@ import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 
 before(() => {
-    chai.should();
-    chai.use(chaiAsPromised);
+  chai.should();
+  chai.use(chaiAsPromised);
 });
 
 const { expect } = chai;
