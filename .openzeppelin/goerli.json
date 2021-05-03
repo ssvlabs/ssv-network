@@ -190,6 +190,131 @@
           }
         }
       }
+    },
+    "bdec2976154ca406112dcdf84242256d53e1e022862ae4ed66c51848434c7143": {
+      "address": "0x534f40b86E92c8006A2aE52A496ACeBE1d55E5c8",
+      "txHash": "0x5e3a3dc3e7bbd78801eb6526cb48796dc6021394cfb8b3534a78b01384c47700",
+      "layout": {
+        "storage": [
+          {
+            "contract": "SSVNetwork",
+            "label": "operatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:6"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "operators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)14_storage)",
+            "src": "contracts/SSVNetwork.sol:16"
+          },
+          {
+            "contract": "SSVNetworkV2",
+            "label": "validatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetworkV2.sol:8"
+          },
+          {
+            "contract": "SSVNetworkV2",
+            "label": "validators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)105_storage)",
+            "src": "contracts/SSVNetworkV2.sol:24"
+          }
+        ],
+        "types": {
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)105_storage)": {
+            "label": "mapping(bytes => struct SSVNetworkV2.Validator)"
+          },
+          "t_bytes_storage": {
+            "label": "bytes"
+          },
+          "t_struct(Validator)105_storage": {
+            "label": "struct SSVNetworkV2.Validator",
+            "members": [
+              {
+                "label": "pubkey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "oess",
+                "type": "t_mapping(t_uint256,t_struct(Oess)94_storage)"
+              },
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "isExists",
+                "type": "t_bool"
+              }
+            ]
+          },
+          "t_mapping(t_uint256,t_struct(Oess)94_storage)": {
+            "label": "mapping(uint256 => struct SSVNetworkV2.Oess)"
+          },
+          "t_struct(Oess)94_storage": {
+            "label": "struct SSVNetworkV2.Oess",
+            "members": [
+              {
+                "label": "operatorPubKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "sharePubKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "encryptedKey",
+                "type": "t_bytes_storage"
+              }
+            ]
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_bool": {
+            "label": "bool"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)14_storage)": {
+            "label": "mapping(bytes => struct SSVNetwork.Operator)"
+          },
+          "t_struct(Operator)14_storage": {
+            "label": "struct SSVNetwork.Operator",
+            "members": [
+              {
+                "label": "name",
+                "type": "t_string_storage"
+              },
+              {
+                "label": "pubkey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "score",
+                "type": "t_uint256"
+              },
+              {
+                "label": "paymentAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "isExists",
+                "type": "t_bool"
+              }
+            ]
+          },
+          "t_string_storage": {
+            "label": "string"
+          }
+        }
+      }
     }
   },
   "admin": {

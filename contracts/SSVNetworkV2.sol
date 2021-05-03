@@ -21,14 +21,14 @@ contract SSVNetworkV2 is SSVNetwork {
     bool isExists;
   }
 
-  mapping(bytes => Validator) private validators;
+  mapping(bytes => Validator) internal validators;
 
   /**
    * @dev Emitted when the validator has been added.
    * @param pubkey The public key of a validator.
    * @param ownerAddress The user's ethereum address that is the owner of the validator.
    */
-  event ValidatorAdded(bytes pubkey, address ownerAddress);
+  event ValidatorAdded(bytes pubkey, address ownerAddress, bytes oess);
 
   function fromHexChar(uint8 c) public pure returns (uint8) {
     if (bytes1(c) >= bytes1('0') && bytes1(c) <= bytes1('9')) {
@@ -43,7 +43,7 @@ contract SSVNetworkV2 is SSVNetwork {
   }
 
   // Convert an hexadecimal string to raw bytes
-  function fromHex(string memory s) public pure returns (bytes memory) {
+  function fromHex(string memory s) internal pure returns (bytes memory) {
     bytes memory ss = bytes(s);
     require(ss.length%2 == 0); // length must be even
     bytes memory r = new bytes(ss.length/2);
@@ -81,11 +81,13 @@ contract SSVNetworkV2 is SSVNetwork {
     Validator storage validatorItem = validators[publicKey];
     validatorItem.pubkey = publicKey;
     validatorItem.ownerAddress = ownerAddress;
+    bytes memory oessList;
     for(uint i=0; i< operatorPubKeys.length; i++) {
       validatorItem.oess[i] = Oess(fromHex(operatorPubKeys[i]), indexes[i], fromHex(sharePubKeys[i]), fromHex(encryptedKeys[i]));
-    }     
-
-    emit ValidatorAdded(publicKey, ownerAddress);
+      // that manipulation allows to merge into one string all oess struct items and split them with separator
+      oessList = abi.encodePacked(oessList, 'oess-separator' , abi.encode(validatorItem.oess[i]));
+    }
+    emit ValidatorAdded(publicKey, ownerAddress, oessList);
 
     validatorCount++;
   }
