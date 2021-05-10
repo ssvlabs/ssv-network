@@ -1,0 +1,6 @@
+type Operator @entity {
+  id: ID!
+  name: String!
+  pubkey: Bytes!
+  paymentAddress: Bytes!
+}
