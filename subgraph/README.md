@@ -9,7 +9,9 @@ To setup `graph-cli` as global package:
 ```sh
 npm install -g @graphprotocol/graph-cli
 ```
-
+## Smart contract dependencies
+For each data structure update in smart contract, need to update `abi.json` file based on updated ABI json schema.
+And run deployment.
 ## Deploy steps
 First, need to pass authorization
 
