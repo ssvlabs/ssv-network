@@ -41,7 +41,8 @@ module.exports = {
   networks: {
     goerli: {
       url: process.env.ETH_NODE_URL,
-      accounts: [`0x${process.env.OWNER_PRIVATE_KEY}`]
+      accounts: [`0x${process.env.OWNER_PRIVATE_KEY}`],
+      gasPrice: 98000000000
     }
   },
   etherscan: {

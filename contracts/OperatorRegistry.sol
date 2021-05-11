@@ -7,14 +7,7 @@ import './IOperatorRegistry.sol';
 contract OperatorRegistry is IOperatorRegistry {
   uint256 public operatorCount;
 
-  struct Operator {
-    string name;
-    address ownerAddress;
-    bytes publicKey;
-    uint256 score;
-  }
-
-  mapping(bytes => Operator) private operators;
+  mapping(bytes => Operator) public override operators;
 
   /**
    * @dev See {IOperatorRegistry-addOperator}.
