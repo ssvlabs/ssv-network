@@ -26,7 +26,7 @@ const hexToString = (hex) => {
 
 describe('Operators', function() {
   beforeEach(async function () {
-    Contract = await ethers.getContractFactory('SSVNetworkV2');
+    Contract = await ethers.getContractFactory('SSVNetwork');
     contract = await Contract.deploy();
     await contract.deployed();
   });
@@ -61,4 +61,21 @@ describe('Operators', function() {
     // Note that we need to use strings to compare the 256 bit integers
     expect((await contract.operatorCount()).toString()).to.equal('1');
   });
+
+  // Test case
+  it('Get operator by public key', async function () {
+    const [name, pubKey, paymentAddress] = [
+      'stakefish2',
+      'ab53226da4e3ff35eab810b0dea331732d29baf4d93217f14367bc885adfdde30345a94d494c74cf1f7671b6150f15cf',
+      '0xe52350A8335192905359c4c3C2149976dCC3D8bF'
+    ];
+    // Add new operator and check if event was emitted
+    await expect(contract.addOperator(name, pubKey, paymentAddress))
+      .to.emit(contract, 'OperatorAdded')
+      .withArgs(name, `0x${Buffer.from(pubKey, 'utf8').toString('hex')}`, paymentAddress);
+
+    // Add new operator and check if event was emitted
+    expect((await contract.getOperator(pubKey))).not.empty;
+  });
+
 });
