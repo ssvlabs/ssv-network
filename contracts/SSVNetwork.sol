@@ -2,22 +2,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import './OperatorRegistry.sol';
-import './IValidatorRegistry.sol';
+import './ISSVNetwork.sol';
 
-contract SSVNetwork is OperatorRegistry, IValidatorRegistry {
+contract SSVNetwork is ISSVNetwork {
+  uint256 public operatorCount;
   uint256 public validatorCount;
 
-  struct Validator {
-    address ownerAddress;
-    bytes publicKey;
-    Oess[] oess;
-  }
-
+  mapping(bytes => Operator) public override operators;
   mapping(bytes => Validator) internal validators;
 
   /**
-   * @dev See {IValidatorRegistry-addValidator}.
+   * @dev See {ISSVNetwork-addOperator}.
+   */
+  function addOperator(string calldata _name, address _ownerAddress, bytes calldata _publicKey) virtual override public {
+    require(operators[_publicKey].ownerAddress == address(0), 'Operator with same public key already exists');
+
+    operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0);
+
+    emit OperatorAdded(_name, _ownerAddress, _publicKey);
+
+    operatorCount++;
+  }
+
+  /**
+   * @dev See {ISSVNetwork-addValidator}.
    */
   function addValidator(
     address _ownerAddress,
