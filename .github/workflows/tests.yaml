@@ -21,5 +21,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.github_token }}
 
-      - name: Run tests
+      - name: Run tests & Gas reporter
         run: npx hardhat test
+
+      - name: Solidity code coverage
+        run: npx hardhat coverage
