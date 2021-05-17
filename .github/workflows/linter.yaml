@@ -4,7 +4,7 @@ on:
   push:
 
 jobs:
-  Solidity linter:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -13,28 +13,3 @@ jobs:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-review # Change reporter.
           solhint_input: 'contracts/*.sol'
-
-  Runs tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '12.x'
-      - run: npm install
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
-      - run: npx hardhat test
-
-  Solidity code coverage:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '12.x'
-      - run: npm install
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
-      - run: npx hardhat coverage

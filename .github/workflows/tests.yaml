@@ -1,10 +1,10 @@
-name: Tests
+name: Run tests
 
 on:
   push:
 
 jobs:
-  release:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
