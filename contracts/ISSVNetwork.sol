@@ -1,6 +1,6 @@
 // File: contracts/ISSVNetwork.sol
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.2;
 
 interface ISSVNetwork {
   struct Oess {

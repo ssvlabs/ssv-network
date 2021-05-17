@@ -24,11 +24,11 @@ task('accounts', 'Prints the list of accounts', async (args, hre) => {
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
-module.exports = {
+const config = {
   solidity: {
     compilers: [
       {
-        version: '0.7.0',
+        version: '0.8.2',
         settings: {
           optimizer: {
             enabled: true,
@@ -38,16 +38,19 @@ module.exports = {
       }
     ],
   },
-  networks: {
-    goerli: {
-      url: process.env.ETH_NODE_URL,
-      accounts: [`0x${process.env.OWNER_PRIVATE_KEY}`],
-      gasPrice: 98000000000
-    }
-  },
+  networks: {},
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
     apiKey: process.env.ETHERSCAN_KEY
   }
-};
+}
+
+if (process.env.GOERLI_ETH_NODE_URL) {
+  config.networks['goerli'] = {
+    url: process.env.GOERLI_ETH_NODE_URL,
+    accounts: [`0x${process.env.GOERLI_OWNER_PRIVATE_KEY}`],
+    gasPrice: 98000000000
+  }
+}
+module.exports = config;
