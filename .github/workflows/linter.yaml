@@ -4,7 +4,29 @@ on:
   push:
 
 jobs:
-  release:
+  Solidity linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: contractshark/inject-solhint-ci@latest
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review # Change reporter.
+          solhint_input: 'contracts/*.sol'
+
+  Runs tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+      - run: npm install
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+      - run: npx hardhat test
+
+  Solidity code coverage:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,4 +37,4 @@ jobs:
       - run: npm install
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-      - run: npx hardhat check --verbose
+      - run: npx hardhat coverage
