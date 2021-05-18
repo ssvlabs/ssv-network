@@ -6,3 +6,4 @@ coverage
 coverage.json
 artifacts/build-info
 .openzeppelin/unknown-*
+subgraph/build
