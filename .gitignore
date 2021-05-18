@@ -2,4 +2,8 @@ node_modules
 .env
 #Hardhat files
 cache
+coverage
+coverage.json
+artifacts/build-info
+.openzeppelin/unknown-*
 subgraph/build

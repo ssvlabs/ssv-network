@@ -1,42 +1,74 @@
 // File: contracts/SSVNetwork.sol
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0;
- 
-contract SSVNetwork {
-  uint256 public operatorCount;
+pragma solidity ^0.8.2;
 
-  struct Operator {
-    string name;
-    bytes pubkey;
-    uint256 score;
-    address paymentAddress;
-    bool isExists;
-  }
+import "./ISSVNetwork.sol";
 
-  mapping(bytes => Operator) private operators;
+contract SSVNetwork is ISSVNetwork {
+    uint256 public operatorCount;
+    uint256 public validatorCount;
 
-  /**
-   * @dev Emitted when the operator has been added.
-   * @param name Opeator's display name.
-   * @param pubkey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
-   * @param paymentAddress Operator's ethereum address that can collect fees.
-   */
-  event OperatorAdded(string name, bytes pubkey, address paymentAddress);
+    mapping(bytes => Operator) public override operators;
+    mapping(bytes => Validator) internal validators;
 
-  /**
-   * @dev Add new operator to the list.
-   * @param _name Opeator's display name.
-   * @param _pubkey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
-   * @param _paymentAddress Operator's ethereum address that can collect fees.
-   */
-  function addOperator(string calldata _name, string calldata _pubkey, address _paymentAddress) public {
-    bytes memory publicKey = bytes(_pubkey);
+    /**
+     * @dev See {ISSVNetwork-addOperator}.
+     */
+    function addOperator(
+        string calldata _name,
+        address _ownerAddress,
+        bytes calldata _publicKey
+    ) public virtual override {
+        require(
+            operators[_publicKey].ownerAddress == address(0),
+            "Operator with same public key already exists"
+        );
 
-    if (operators[publicKey].isExists) {
-      revert('Operator with same public key already exists');
+        operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0);
+
+        emit OperatorAdded(_name, _ownerAddress, _publicKey);
+
+        operatorCount++;
     }
-    operators[publicKey] = Operator(_name, publicKey, 0, _paymentAddress, true);
-    emit OperatorAdded(_name, publicKey, _paymentAddress);
-    operatorCount++;
-  }
+
+    /**
+     * @dev See {ISSVNetwork-addValidator}.
+     */
+    function addValidator(
+        address _ownerAddress,
+        bytes calldata _publicKey,
+        bytes[] calldata _operatorPublicKeys,
+        bytes[] calldata _sharesPublicKeys,
+        bytes[] calldata _encryptedKeys
+    ) public virtual override {
+        require(_publicKey.length == 48, "Invalid public key length");
+        require(
+            _operatorPublicKeys.length == _sharesPublicKeys.length &&
+                _operatorPublicKeys.length == _encryptedKeys.length,
+            "OESS data structure is not valid"
+        );
+        require(_ownerAddress != address(0), "Owner address invalid");
+        require(
+            validators[_publicKey].ownerAddress == address(0),
+            "Validator with same public key already exists"
+        );
+
+        Validator storage validatorItem = validators[_publicKey];
+        validatorItem.publicKey = _publicKey;
+        validatorItem.ownerAddress = _ownerAddress;
+
+        for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
+            validatorItem.oess.push(
+                Oess(
+                    index,
+                    _operatorPublicKeys[index],
+                    _sharesPublicKeys[index],
+                    _encryptedKeys[index]
+                )
+            );
+        }
+
+        validatorCount++;
+        emit ValidatorAdded(_ownerAddress, _publicKey, validatorItem.oess);
+    }
 }
