@@ -5,6 +5,10 @@ import '@nomiclabs/hardhat-waffle';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-etherscan';
 import '@openzeppelin/hardhat-upgrades';
+import 'hardhat-gas-reporter';
+import 'hardhat-tracer';
+import 'solidity-coverage';
+import '@nomiclabs/hardhat-solhint';
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -22,24 +26,33 @@ task('accounts', 'Prints the list of accounts', async (args, hre) => {
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
-module.exports = {
+const config = {
   solidity: {
     compilers: [
-      { version: '0.6.8' },
-      { version: '0.7.3' },
-      { version: '0.8.0' }
+      {
+        version: '0.8.2',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          }
+        }
+      }
     ],
   },
-  networks: {
-    goerli: {
-      url: process.env.ETH_NODE_URL,
-      accounts: [`0x${process.env.OWNER_PRIVATE_KEY}`],
-      gasPrice: 98000000000
-    }
-  },
+  networks: {},
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
     apiKey: process.env.ETHERSCAN_KEY
   }
-};
+}
+
+if (process.env.GOERLI_ETH_NODE_URL) {
+  config.networks['goerli'] = {
+    url: process.env.GOERLI_ETH_NODE_URL,
+    accounts: [`0x${process.env.GOERLI_OWNER_PRIVATE_KEY}`],
+    gasPrice: 98000000000
+  }
+}
+module.exports = config;

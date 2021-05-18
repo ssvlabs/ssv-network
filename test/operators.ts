@@ -11,51 +11,37 @@ before(() => {
 
 const { expect } = chai;
 
-let Contract;
+const [name1, name2] = ["stakefish", "stakefish2"];
+const publicKey = '0xe3c1ad14a84ac273f627e08f961f81211bc2dcce730f40db6e06b6c9adf57598fe1c4b2b7d94bac46b380b67ac9f75dec5e0683bbe063be0bc831c988e48c1a8';
+const publicKey2 = '0xab53226da4e3ff35eab810b0dea331732d29baf4d93217f14367bc885adfdde30345a94d494c74cf1f7671b6150f15cf';
 let contract;
-
-/*
-const hexToString = (hex) => {
-  var str = '';
-	for (var n = 0; n < hex.length; n += 2) {
-		str += String.fromCharCode(parseInt(hex.substr(n, 2), 16));
-	}
-  return;
-}
-*/
+let account1, account2, account3;
 
 describe('Operators', function() {
   beforeEach(async function () {
-    Contract = await ethers.getContractFactory('SSVNetwork');
-    contract = await Contract.deploy();
+    [account1, account2, account3] = await ethers.getSigners();
+    const contractFactory = await ethers.getContractFactory('SSVNetwork');
+    contract = await contractFactory.deploy();
     await contract.deployed();
   });
- 
-  // Test case
+
   it('Add first operator and emit the event', async function () {
-    // Store a value
-    const [name, pubKey, paymentAddress] = [
-      'stakefish',
-      'e3c1ad14a84ac273f627e08f961f81211bc2dcce730f40db6e06b6c9adf57598fe1c4b2b7d94bac46b380b67ac9f75dec5e0683bbe063be0bc831c988e48c1a8',
-      '0xe52350A8335192905359c4c3C2149976dCC3D8bF'
-    ];
     // Add new operator and check if event was emitted
-    await expect(contract.addOperator(name, pubKey, paymentAddress))
+    await expect(contract.addOperator(name1, account1.address, publicKey))
       .to.emit(contract, 'OperatorAdded')
-      .withArgs(name, `0x${Buffer.from(pubKey, 'utf8').toString('hex')}`, paymentAddress);
+      .withArgs(name1, account1.address, publicKey);
 
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await contract.operatorCount()).toString()).to.equal('1');    
+    expect((await contract.operatorCount()).toString()).to.equal('1');
   });
 
   // Test case
-  it('Revert adding new operator with same pubkey', async function () {
-    const pubKey = 'e3c1ad14a84ac273f627e08f961f81211bc2dcce730f40db6e06b6c9adf57598fe1c4b2b7d94bac46b380b67ac9f75dec5e0683bbe063be0bc831c988e48c1a8';
-    // Store new
-    await contract.addOperator('stakefish', pubKey, '0xe52350A8335192905359c4c3C2149976dCC3D8bF');
+  it('Revert adding new operator with same public key', async function () {
+    // Add new operator
+    await contract.addOperator(name1, account1.address, publicKey);
 
     // Try to sttore with duplicated public key
-    await contract.addOperator('stakefishRenamed', pubKey, '0x8b3d89d1bdb347e194b220201507c43de971ee1e')
+    await contract.addOperator(name2, account2.address, publicKey)
       .should.eventually.be.rejectedWith('Operator with same public key already exists');
 
     // Note that we need to use strings to compare the 256 bit integers
@@ -64,34 +50,25 @@ describe('Operators', function() {
 
   // Test case
   it('Get operator by public key', async function () {
-    const [name, pubKey, paymentAddress] = [
-      'stakefish2',
-      'ab53226da4e3ff35eab810b0dea331732d29baf4d93217f14367bc885adfdde30345a94d494c74cf1f7671b6150f15cf',
-      '0xe52350A8335192905359c4c3C2149976dCC3D8bF'
-    ];
     // Add new operator and check if event was emitted
-    await expect(contract.addOperator(name, pubKey, paymentAddress))
+    await expect(contract.addOperator(name2, account2.address, publicKey2 ))
       .to.emit(contract, 'OperatorAdded')
-      .withArgs(name, `0x${Buffer.from(pubKey, 'utf8').toString('hex')}`, paymentAddress);
+      .withArgs(name2, account2.address, publicKey2);
 
     // Add new operator and check if event was emitted
-    expect((await contract.getOperator(pubKey))).not.empty;
+    expect((await contract.operators(publicKey2))).not.empty;
   });
 
   it('Get operator fails for not existed public key', async function () {
-    const [name, pubKey, paymentAddress] = [
-      'stakefish2',
-      'ab53226da4e3ff35eab810b0dea331732d29baf4d93217f14367bc885adfdde30345a94d494c74cf1f7671b6150f15cf',
-      '0xe52350A8335192905359c4c3C2149976dCC3D8bF'
-    ];
     // Add new operator and check if event was emitted
-    await expect(contract.addOperator(name, pubKey, paymentAddress))
+    await expect(contract.addOperator(name2, account2.address, publicKey2))
       .to.emit(contract, 'OperatorAdded')
-      .withArgs(name, `0x${Buffer.from(pubKey, 'utf8').toString('hex')}`, paymentAddress);
+      .withArgs(name2, account2.address, publicKey2);
 
     // Add new operator and check if event was emitted
-    await contract.getOperator('ab53226da4e3ff35eab810b0dea331732d29baf4d93217f14367bc885adfdde30345a94d494c74cf1f7671b6150f15cs')
-      .should.eventually.be.rejectedWith('Operator with public key not exists');
+    const [,address,,] = await contract.operators(publicKey);
+
+    expect(address).to.equal('0x0000000000000000000000000000000000000000');
   });
 
 });

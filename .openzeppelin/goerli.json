@@ -1,68 +1,64 @@
 {
-  "manifestVersion": "3.1",
+  "manifestVersion": "3.2",
   "impls": {
-    "ce26e9df7661ec8cc8ca70c6e9e94130263549f047186abbc174b5fed7191aed": {
-      "address": "0xB93Ff488098C297665541CAd70319537172dc698",
-      "txHash": "0xecd3d873862366abc20dffa300f72eb9aef8ae8a0b760d6e40723a51a333f699",
+    "d2a5b538b00692f725ac7cdadd40b03311b2132b926476f00becba13f146c2ed": {
+      "address": "0xfB29D5A3Ce60F41f24aC6BBbd82Df3343F06bA99",
+      "txHash": "0x953cd86f04405954b984831ef5376f025f8c2f9c4820ea25b08a857743c0516c",
       "layout": {
         "storage": [
           {
             "contract": "SSVNetwork",
             "label": "operatorCount",
             "type": "t_uint256",
-            "src": "contracts/SSVNetwork.sol:7"
+            "src": "contracts/SSVNetwork.sol:8"
           },
           {
             "contract": "SSVNetwork",
             "label": "validatorCount",
             "type": "t_uint256",
-            "src": "contracts/SSVNetwork.sol:8"
+            "src": "contracts/SSVNetwork.sol:9"
           },
           {
             "contract": "SSVNetwork",
             "label": "operators",
-            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)17_storage)",
-            "src": "contracts/SSVNetwork.sol:32"
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)19_storage)",
+            "src": "contracts/SSVNetwork.sol:11"
           },
           {
             "contract": "SSVNetwork",
             "label": "validators",
-            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)37_storage)",
-            "src": "contracts/SSVNetwork.sol:34"
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)28_storage)",
+            "src": "contracts/SSVNetwork.sol:12"
           }
         ],
         "types": {
           "t_uint256": {
             "label": "uint256"
           },
-          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)17_storage)": {
-            "label": "mapping(bytes => struct SSVNetwork.Operator)"
+          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)19_storage)": {
+            "label": "mapping(bytes => struct ISSVNetwork.Operator)"
           },
           "t_bytes_storage": {
             "label": "bytes"
           },
-          "t_struct(Operator)17_storage": {
-            "label": "struct SSVNetwork.Operator",
+          "t_struct(Operator)19_storage": {
+            "label": "struct ISSVNetwork.Operator",
             "members": [
               {
                 "label": "name",
                 "type": "t_string_storage"
               },
               {
-                "label": "pubkey",
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
                 "type": "t_bytes_storage"
               },
               {
                 "label": "score",
                 "type": "t_uint256"
-              },
-              {
-                "label": "paymentAddress",
-                "type": "t_address"
-              },
-              {
-                "label": "isExists",
-                "type": "t_bool"
               }
             ]
           },
@@ -72,49 +68,42 @@
           "t_address": {
             "label": "address"
           },
-          "t_bool": {
-            "label": "bool"
+          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)28_storage)": {
+            "label": "mapping(bytes => struct ISSVNetwork.Validator)"
           },
-          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)37_storage)": {
-            "label": "mapping(bytes => struct SSVNetwork.Validator)"
-          },
-          "t_struct(Validator)37_storage": {
-            "label": "struct SSVNetwork.Validator",
+          "t_struct(Validator)28_storage": {
+            "label": "struct ISSVNetwork.Validator",
             "members": [
-              {
-                "label": "pubkey",
-                "type": "t_bytes_storage"
-              },
-              {
-                "label": "oess",
-                "type": "t_mapping(t_uint256,t_struct(Oess)26_storage)"
-              },
               {
                 "label": "ownerAddress",
                 "type": "t_address"
               },
               {
-                "label": "isExists",
-                "type": "t_bool"
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "oess",
+                "type": "t_array(t_struct(Oess)10_storage)dyn_storage"
               }
             ]
           },
-          "t_mapping(t_uint256,t_struct(Oess)26_storage)": {
-            "label": "mapping(uint256 => struct SSVNetwork.Oess)"
+          "t_array(t_struct(Oess)10_storage)dyn_storage": {
+            "label": "struct ISSVNetwork.Oess[]"
           },
-          "t_struct(Oess)26_storage": {
-            "label": "struct SSVNetwork.Oess",
+          "t_struct(Oess)10_storage": {
+            "label": "struct ISSVNetwork.Oess",
             "members": [
-              {
-                "label": "operatorPubKey",
-                "type": "t_bytes_storage"
-              },
               {
                 "label": "index",
                 "type": "t_uint256"
               },
               {
-                "label": "sharePubKey",
+                "label": "operatorPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "sharedPublicKey",
                 "type": "t_bytes_storage"
               },
               {
@@ -127,8 +116,15 @@
       }
     }
   },
+  "proxies": [
+    {
+      "address": "0x1970F94e594b28b3c4C19eF1DC83621b58304cCa",
+      "kind": "transparent",
+      "txHash": "0xfbbec3774387bfd2708ed204ef5815a68e9f7cf779f45b67caa6a8f9d4e082af"
+    }
+  ],
   "admin": {
-    "address": "0xbDC32E5BE74E4A746D1642bB84D16129BAd174E6",
-    "txHash": "0x5647325aa5574415fa1a457237940eb853e9a0e9ea5c084836882bcdafcc544e"
+    "address": "0x388f3BB2416B0019269d1465cEd44578DFdd4afd",
+    "txHash": "0xa4f60515e6106bf81ecf29f877f797b6b6560d9dcf66ea9bc40eeb5e7473c636"
   }
 }
