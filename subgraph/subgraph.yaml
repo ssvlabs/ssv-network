@@ -5,10 +5,10 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum/contract
-    name: SSVNetworkV2
+    name: SSVNetwork
     network: goerli
     source:
-      address: '0x555fe4a050Bb5f392fD80dCAA2b6FCAf829f21e9'
+      address: '0x9640256dc8b8ae0be84B1a2885277Bc4F26869D7'
       abi: SSVNetwork
     mapping:
       kind: ethereum/events
@@ -20,6 +20,6 @@ dataSources:
         - name: SSVNetwork
           file: ./abi.json
       eventHandlers:
-        - event: OperatorAdded(string,bytes,address)
+        - event: OperatorAdded(string,address,bytes)
           handler: handleNewOperator
       file: ./mapping.ts

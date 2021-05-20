@@ -22,7 +22,7 @@ export class NewOperator__Params {
   }
 
   get id(): Bytes {
-    return this._event.parameters[1].value.toBytes();
+    return this._event.parameters[2].value.toBytes();
   }
 
   get name(): string {
@@ -30,10 +30,10 @@ export class NewOperator__Params {
   }
 
   get pubkey(): Bytes {
-    return this._event.parameters[1].value.toBytes();
+    return this._event.parameters[2].value.toBytes();
   }
 
   get paymentAddress(): Address {
-    return this._event.parameters[2].value.toAddress();
+    return this._event.parameters[1].value.toAddress();
   }
 }
