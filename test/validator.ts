@@ -110,4 +110,54 @@ describe('Validators', function() {
     await contract.deleteValidator(pubKey)
       .should.eventually.be.rejectedWith('Caller is not validator owner');
   });
+
+
+  it('Update validator', async function () {
+    const pubKey = '0xab53226da4e3ff35eab810b0dea331732d29baf4d93217f14367bc885adfdde30345a94d494c74cf1f7671b6150f15cf';
+    const operatorPubKeys = ['0x011111111111111111111111111111111111111111111111111112'];
+    const sharePubKeys = ['0xaddb812ada642ea3d5b12c66f085c536e40143db764e95d496f33af77b06aa84047970cdb883202768f552f3e4997d80'];
+    const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
+    const [owner] = await ethers.getSigners();
+    await contract.addValidator(
+      owner.address,
+      pubKey,
+      operatorPubKeys,
+      sharePubKeys,
+      encryptedKeys
+    );
+
+    await expect(contract.updateValidator(
+      pubKey,
+      operatorPubKeys,
+      sharePubKeys,
+      encryptedKeys
+    ))
+      .to.emit(contract, 'ValidatorUpdated');
+  });
+
+  it('Update validator fails if tx was sent not by owner', async function () {
+    const pubKey = '0xab53226da4e3ff35eab810b0dea331732d29baf4d93217f14367bc885adfdde30345a94d494c74cf1f7671b6150f15cf';
+    const operatorPubKeys = ['0x011111111111111111111111111111111111111111111111111112'];
+    const sharePubKeys = ['0xaddb812ada642ea3d5b12c66f085c536e40143db764e95d496f33af77b06aa84047970cdb883202768f552f3e4997d80'];
+    const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
+    const ownerAddress = '0xe52350A8335192905359c4c3C2149976dCC3D8bF';
+
+    await contract.addValidator(
+      ownerAddress,
+      pubKey,
+      operatorPubKeys,
+      sharePubKeys,
+      encryptedKeys
+    );
+
+    await contract.updateValidator(
+      pubKey,
+      operatorPubKeys,
+      sharePubKeys,
+      encryptedKeys
+    )
+      .should.eventually.be.rejectedWith('Caller is not validator owner');
+
+  });
+
 });
