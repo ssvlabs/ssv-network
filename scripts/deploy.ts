@@ -5,7 +5,9 @@ async function main() {
   console.log('Deploying SSVNetwork...');
   const contract = await upgrades.deployProxy(Contract);
   await contract.deployed();
-  console.log(`Contract deployed to: ${contract.address}`);
+  const contractDev = await upgrades.deployProxy(Contract);
+  await contractDev.deployed();
+  console.log(`Contract deployed to: ${contract.address}, ${contractDev.address}`);
 }
 
 main()
