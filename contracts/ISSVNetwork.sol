@@ -73,6 +73,12 @@ interface ISSVNetwork {
     event OperatorAdded(string name, address ownerAddress, bytes publicKey);
 
     /**
+     * @dev Emitted when the operator has been deleted.
+     * @param publicKey Operator's Public Key.
+     */
+    event OperatorDeleted(bytes publicKey);
+
+    /**
      * @dev Emitted when the validator has been added.
      * @param ownerAddress The user's ethereum address that is the owner of the validator.
      * @param publicKey The public key of a validator.
@@ -83,6 +89,24 @@ interface ISSVNetwork {
         bytes publicKey,
         Oess[] oessList
     );
+
+    /**
+     * @dev Emitted when the validator has been updated.
+     * @param ownerAddress The user's ethereum address that is the owner of the validator.
+     * @param publicKey The public key of a validator.
+     * @param oessList The OESS list for this validator.
+     */
+    event ValidatorUpdated(
+        address ownerAddress,
+        bytes publicKey,
+        Oess[] oessList
+    );
+
+    /**
+     * @dev Emitted when the validator has been deleted.
+     * @param publicKey Operator's Public Key.
+     */
+    event ValidatorDeleted(bytes publicKey);
 
     /**
      * @param validatorPublicKey The public key of a validator.
@@ -98,4 +122,34 @@ interface ISSVNetwork {
         bytes sharedPublicKey,
         bytes encryptedKey
     );
+
+    /**
+     * @dev Updates a validator in the list.
+     * @param _publicKey Validator public key.
+     * @param _operatorPublicKeys Operator public keys.
+     * @param _sharesPublicKeys Shares public keys.
+     * @param _encryptedKeys Encrypted private keys.
+     */
+    function updateValidator(
+        bytes calldata _publicKey,
+        bytes[] calldata _operatorPublicKeys,
+        bytes[] calldata _sharesPublicKeys,
+        bytes[] calldata _encryptedKeys
+    ) external;
+
+    /**
+     * @dev [Ownable] Deletes a validator from the list.
+     * @param _publicKey Validator public key.
+     */
+    function deleteValidator(
+        bytes calldata _publicKey
+    ) external;
+
+    /**
+     * @dev [Ownable] Deletes an operator from the list.
+     * @param _publicKey Operator public key.
+     */
+    function deleteOperator(
+        bytes calldata _publicKey
+    ) external;
 }
