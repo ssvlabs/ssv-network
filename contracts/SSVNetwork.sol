@@ -126,7 +126,7 @@ contract SSVNetwork is ISSVNetwork {
             "Validator with public key is not exists"
         );
         delete validators[_publicKey];
-        operatorCount--;
+        validatorCount--;
         emit ValidatorDeleted(_publicKey);
     }
 

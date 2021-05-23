@@ -85,7 +85,7 @@ describe('Operators', function() {
     expect((await contract.operatorCount()).toString()).to.equal('0');
   });
 
-  it('Delete operator fails if tx sends not by owner', async function () {
+  it('Delete operator fails if tx was sentnot by owner', async function () {
     // Add new operator
     await contract.addOperator(name1, account2.address, publicKey);
 
