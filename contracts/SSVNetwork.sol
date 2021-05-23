@@ -12,12 +12,12 @@ contract SSVNetwork is ISSVNetwork {
     mapping(bytes => Validator) internal validators;
 
     modifier onlyValidator(bytes calldata _publicKey) {
-        require(msg.sender == validators[_publicKey].ownerAddress, "Caller is not validator");
+        require(msg.sender == validators[_publicKey].ownerAddress, "Caller is not validator owner");
         _;
     }
 
-    modifier onlyOwner {
-        require(owner == msg.sender, "Caller is not owner");
+    modifier onlyOperator(bytes calldata _publicKey) {
+        require(msg.sender == operators[_publicKey].ownerAddress, "Caller is not operator owner");
         _;
     }
 
@@ -99,7 +99,7 @@ contract SSVNetwork is ISSVNetwork {
         );
 
         Validator storage validatorItem = validators[_publicKey];
-        validatorItem.oess.length = 0;
+        delete validatorItem.oess;
 
         for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
             validatorItem.oess.push(
@@ -118,7 +118,9 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-deleteValidator}.
      */
-    function deleteValidator() onlyOwner public virtual override {
+    function deleteValidator(
+        bytes calldata _publicKey
+    ) onlyValidator(_publicKey) public virtual override {
         require(
             validators[_publicKey].ownerAddress != address(0),
             "Validator with public key is not exists"
@@ -131,13 +133,15 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-deleteOperator}.
      */
-    function deleteOperator() onlyOwner public virtual override {
+    function deleteOperator(
+        bytes calldata _publicKey
+    ) onlyOperator(_publicKey) public virtual override {
         require(
             operators[_publicKey].ownerAddress != address(0),
             "Operator with public key is not exists"
         );
         delete operators[_publicKey];
-        validatorCount--;
+        operatorCount--;
         emit OperatorDeleted(_publicKey);
     }
 }
