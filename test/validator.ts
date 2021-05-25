@@ -85,7 +85,7 @@ describe('Validators', function() {
 
     await expect(contract.deleteValidator(pubKey))
       .to.emit(contract, 'ValidatorDeleted')
-      .withArgs(pubKey);
+      .withArgs(owner.address, pubKey);
 
     // Note that we need to use strings to compare the 256 bit integers
     expect((await contract.validatorCount()).toString()).to.equal('0');

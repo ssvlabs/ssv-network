@@ -29,20 +29,18 @@ contract SSVNetwork is ISSVNetwork {
         _;
     }
 
-    modifier validateValidatorParams(
+    function _validateValidatorParams(
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
-    ) {
+    ) private view {
         require(_publicKey.length == 48, "Invalid public key length");
         require(
             _operatorPublicKeys.length == _sharesPublicKeys.length &&
                 _operatorPublicKeys.length == _encryptedKeys.length,
             "OESS data structure is not valid"
         );
-        require(msg.sender == operators[_publicKey].ownerAddress, "Caller is not operator owner");
-        _;
     }
 
     /**
@@ -74,12 +72,13 @@ contract SSVNetwork is ISSVNetwork {
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
-    ) validateValidatorParams(
-        _publicKey,
-        _operatorPublicKeys,
-        _sharesPublicKeys,
-        _encryptedKeys
     ) public virtual override {
+        _validateValidatorParams(
+            _publicKey,
+            _operatorPublicKeys,
+            _sharesPublicKeys,
+            _encryptedKeys
+        );
         require(_ownerAddress != address(0), "Owner address invalid");
         require(
             validators[_publicKey].ownerAddress == address(0),
@@ -113,12 +112,13 @@ contract SSVNetwork is ISSVNetwork {
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
-    ) validateValidatorParams(
-        _publicKey,
-        _operatorPublicKeys,
-        _sharesPublicKeys,
-        _encryptedKeys
     ) onlyValidator(_publicKey) public virtual override {
+        _validateValidatorParams(
+            _publicKey,
+            _operatorPublicKeys,
+            _sharesPublicKeys,
+            _encryptedKeys
+        );
         Validator storage validatorItem = validators[_publicKey];
         delete validatorItem.oess;
 

@@ -79,7 +79,7 @@ describe('Operators', function() {
     // Delete new operator and check if event was emitted
     await expect(contract.deleteOperator(publicKey))
       .to.emit(contract, 'OperatorDeleted')
-      .withArgs(publicKey);
+      .withArgs(name1, publicKey);
 
     // Note that we need to use strings to compare the 256 bit integers
     expect((await contract.operatorCount()).toString()).to.equal('0');

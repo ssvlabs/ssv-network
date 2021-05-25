@@ -70,6 +70,12 @@
       "inputs": [
         {
           "indexed": false,
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "indexed": false,
           "internalType": "bytes",
           "name": "publicKey",
           "type": "bytes"
@@ -128,6 +134,12 @@
     {
       "anonymous": false,
       "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "ownerAddress",
+          "type": "address"
+        },
         {
           "indexed": false,
           "internalType": "bytes",
