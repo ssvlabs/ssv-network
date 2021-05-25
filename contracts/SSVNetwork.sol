@@ -12,11 +12,35 @@ contract SSVNetwork is ISSVNetwork {
     mapping(bytes => Validator) internal validators;
 
     modifier onlyValidator(bytes calldata _publicKey) {
+        require(
+            validators[_publicKey].ownerAddress != address(0),
+            "Validator with public key is not exists"
+        );
         require(msg.sender == validators[_publicKey].ownerAddress, "Caller is not validator owner");
         _;
     }
 
     modifier onlyOperator(bytes calldata _publicKey) {
+        require(
+            operators[_publicKey].ownerAddress != address(0),
+            "Operator with public key is not exists"
+        );
+        require(msg.sender == operators[_publicKey].ownerAddress, "Caller is not operator owner");
+        _;
+    }
+
+    modifier validateValidatorParams(
+        bytes calldata _publicKey,
+        bytes[] calldata _operatorPublicKeys,
+        bytes[] calldata _sharesPublicKeys,
+        bytes[] calldata _encryptedKeys
+    ) {
+        require(_publicKey.length == 48, "Invalid public key length");
+        require(
+            _operatorPublicKeys.length == _sharesPublicKeys.length &&
+                _operatorPublicKeys.length == _encryptedKeys.length,
+            "OESS data structure is not valid"
+        );
         require(msg.sender == operators[_publicKey].ownerAddress, "Caller is not operator owner");
         _;
     }
@@ -50,13 +74,12 @@ contract SSVNetwork is ISSVNetwork {
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
+    ) validateValidatorParams(
+        _publicKey,
+        _operatorPublicKeys,
+        _sharesPublicKeys,
+        _encryptedKeys
     ) public virtual override {
-        require(_publicKey.length == 48, "Invalid public key length");
-        require(
-            _operatorPublicKeys.length == _sharesPublicKeys.length &&
-                _operatorPublicKeys.length == _encryptedKeys.length,
-            "OESS data structure is not valid"
-        );
         require(_ownerAddress != address(0), "Owner address invalid");
         require(
             validators[_publicKey].ownerAddress == address(0),
@@ -90,14 +113,12 @@ contract SSVNetwork is ISSVNetwork {
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
+    ) validateValidatorParams(
+        _publicKey,
+        _operatorPublicKeys,
+        _sharesPublicKeys,
+        _encryptedKeys
     ) onlyValidator(_publicKey) public virtual override {
-        require(_publicKey.length == 48, "Invalid public key length");
-        require(
-            _operatorPublicKeys.length == _sharesPublicKeys.length &&
-                _operatorPublicKeys.length == _encryptedKeys.length,
-            "OESS data structure is not valid"
-        );
-
         Validator storage validatorItem = validators[_publicKey];
         delete validatorItem.oess;
 
@@ -121,13 +142,10 @@ contract SSVNetwork is ISSVNetwork {
     function deleteValidator(
         bytes calldata _publicKey
     ) onlyValidator(_publicKey) public virtual override {
-        require(
-            validators[_publicKey].ownerAddress != address(0),
-            "Validator with public key is not exists"
-        );
+        address ownerAddress = validators[_publicKey].ownerAddress;
         delete validators[_publicKey];
         validatorCount--;
-        emit ValidatorDeleted(_publicKey);
+        emit ValidatorDeleted(ownerAddress, _publicKey);
     }
 
     /**
@@ -136,12 +154,9 @@ contract SSVNetwork is ISSVNetwork {
     function deleteOperator(
         bytes calldata _publicKey
     ) onlyOperator(_publicKey) public virtual override {
-        require(
-            operators[_publicKey].ownerAddress != address(0),
-            "Operator with public key is not exists"
-        );
+        string memory name = operators[_publicKey].name;
         delete operators[_publicKey];
         operatorCount--;
-        emit OperatorDeleted(_publicKey);
+        emit OperatorDeleted(name, _publicKey);
     }
 }

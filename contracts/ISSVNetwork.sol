@@ -76,7 +76,7 @@ interface ISSVNetwork {
      * @dev Emitted when the operator has been deleted.
      * @param publicKey Operator's Public Key.
      */
-    event OperatorDeleted(bytes publicKey);
+    event OperatorDeleted(string name, bytes publicKey);
 
     /**
      * @dev Emitted when the validator has been added.
@@ -106,7 +106,7 @@ interface ISSVNetwork {
      * @dev Emitted when the validator has been deleted.
      * @param publicKey Operator's Public Key.
      */
-    event ValidatorDeleted(bytes publicKey);
+    event ValidatorDeleted(address ownerAddress, bytes publicKey);
 
     /**
      * @param validatorPublicKey The public key of a validator.
@@ -138,7 +138,7 @@ interface ISSVNetwork {
     ) external;
 
     /**
-     * @dev [Ownable] Deletes a validator from the list.
+     * @dev Deletes a validator from the list.
      * @param _publicKey Validator public key.
      */
     function deleteValidator(
@@ -146,7 +146,7 @@ interface ISSVNetwork {
     ) external;
 
     /**
-     * @dev [Ownable] Deletes an operator from the list.
+     * @dev Deletes an operator from the list.
      * @param _publicKey Operator public key.
      */
     function deleteOperator(
