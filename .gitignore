@@ -4,6 +4,6 @@ node_modules
 cache
 coverage
 coverage.json
-artifacts/build-info
+artifacts
 .openzeppelin/unknown-*
 subgraph/build
