@@ -33,7 +33,7 @@ export class NewOperator__Params {
     return this._event.parameters[2].value.toBytes();
   }
 
-  get paymentAddress(): Address {
+  get ownerAddress(): Address {
     return this._event.parameters[1].value.toAddress();
   }
 }

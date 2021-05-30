@@ -41,13 +41,13 @@ export class Operator extends Entity {
     this.set('pubkey', Value.fromBytes(value));
   }
 
-  get paymentAddress(): Bytes {
-    let value = this.get('paymentAddress');
+  get ownerAddress(): Bytes {
+    let value = this.get('ownerAddress');
     return value.toBytes();
   }
 
-  set paymentAddress(value: Bytes) {
-    this.set('paymentAddress', Value.fromBytes(value));
+  set ownerAddress(value: Bytes) {
+    this.set('ownerAddress', Value.fromBytes(value));
   }
 
   get name(): string {
