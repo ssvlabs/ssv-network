@@ -4,6 +4,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DEX {
     event CDTToSSVConverted(uint256 amount);
+    event SSVToCDTConverted(uint256 amount);
 
     IERC20 public cdtToken;
     IERC20 public ssvToken;
@@ -21,5 +22,12 @@ contract DEX {
         cdtToken.transferFrom(msg.sender, address(this), amount);
         ssvToken.transfer(msg.sender, ssvAmount);
         emit CDTToSSVConverted(ssvAmount);
+    }
+
+    function convertSSVToCDT(uint256 amount) public {
+        uint256 cdtAmount = amount * rate;
+        ssvToken.transferFrom(msg.sender, address(this), amount);
+        cdtToken.transfer(msg.sender, cdtAmount);
+        emit SSVToCDTConverted(cdtAmount);
     }
 }
