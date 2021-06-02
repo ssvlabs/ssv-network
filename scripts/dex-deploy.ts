@@ -10,9 +10,9 @@ async function main() {
 
   console.log('Account balance:', (await deployer.getBalance()).toString());
 
-  const Contract = await ethers.getContractFactory('DEX');
+  const ContractFactory = await ethers.getContractFactory('DEX');
   const contract = await upgrades.deployProxy(
-    Contract,
+    ContractFactory,
     [process.env.CDT_TOKEN_ADDRESS, process.env.SSV_TOKEN_ADDRESS, 10],
     { initializer: 'initialize' }
   );

@@ -40,13 +40,7 @@ const config = {
       }
     ],
   },
-  networks: {
-    ganashe: {
-      url: 'http://127.0.0.1:7545',
-      accounts: [`0x15da52959efa15bc7a7b3c7bc293425e2e493a626a7c51e77b2b4326adcbe822`],
-      gasPrice: 320000000000  
-    }
-  },
+  networks: {},
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
@@ -54,11 +48,19 @@ const config = {
   }
 }
 
+if (process.env.GANACHE_ETH_NODE_URL) {
+  config.networks['ganache'] = {
+    url: process.env.GANACHE_ETH_NODE_URL,
+    accounts: [`0x${process.env.GANACHE_OWNER_PRIVATE_KEY}`],
+    gasPrice: process.env.GAS_PRICE
+  }
+}
+
 if (process.env.GOERLI_ETH_NODE_URL) {
   config.networks['goerli'] = {
     url: process.env.GOERLI_ETH_NODE_URL,
     accounts: [`0x${process.env.GOERLI_OWNER_PRIVATE_KEY}`],
-    gasPrice: 320000000000
+    gasPrice: process.env.GAS_PRICE
   }
 }
 module.exports = config;
