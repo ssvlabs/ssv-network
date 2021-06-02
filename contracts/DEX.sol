@@ -11,13 +11,13 @@ contract DEX {
 
     uint public rate;
 
-    function init(address _cdtTokenAddress, address _ssvTokenAddress) public {
-        cdtToken = IERC20(_cdtTokenAddress);
-        ssvToken = IERC20(_ssvTokenAddress);
-        rate = 10;
+    function initialize(IERC20 _cdtTokenAddress, IERC20 _ssvTokenAddress, uint256 _rate) public {
+        cdtToken = _cdtTokenAddress;
+        ssvToken = _ssvTokenAddress;
+        rate = _rate;
     }
 
-    function convertCDTToSSV(uint256 amount) public {
+    function convertCDTToSSV(uint256 amount) public {   
         uint256 ssvAmount = amount / rate;
         cdtToken.transferFrom(msg.sender, address(this), amount);
         ssvToken.transfer(msg.sender, ssvAmount);
