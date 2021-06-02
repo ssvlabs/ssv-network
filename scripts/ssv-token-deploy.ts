@@ -10,11 +10,11 @@ async function main() {
 
   console.log('Account balance:', (await deployer.getBalance()).toString());
 
-  const Token = await ethers.getContractFactory('NEWToken');
+  const Token = await ethers.getContractFactory('SSVToken');
   const token = await Token.deploy();
   await token.deployed();
 
-  console.log('NEWToken address:', token.address);
+  console.log('SSVToken address:', token.address);
 }
 
 main()

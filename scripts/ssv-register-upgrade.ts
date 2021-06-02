@@ -5,7 +5,7 @@ async function main() {
   const ContractUpgraded = await ethers.getContractFactory('SSVNetwork');
   console.log('Running upgrade...');
   const newContract = await upgrades.upgradeProxy(proxyAddress, ContractUpgraded);
-  console.log(`New contract upgraded at: ${newContract.address}`);
+  console.log(`SSV Register upgraded at: ${newContract.address}`);
 }
 
 main()

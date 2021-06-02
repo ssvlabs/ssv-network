@@ -40,7 +40,13 @@ const config = {
       }
     ],
   },
-  networks: {},
+  networks: {
+    ganashe: {
+      url: 'http://127.0.0.1:7545',
+      accounts: [`0x15da52959efa15bc7a7b3c7bc293425e2e493a626a7c51e77b2b4326adcbe822`],
+      gasPrice: 320000000000  
+    }
+  },
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
@@ -52,7 +58,7 @@ if (process.env.GOERLI_ETH_NODE_URL) {
   config.networks['goerli'] = {
     url: process.env.GOERLI_ETH_NODE_URL,
     accounts: [`0x${process.env.GOERLI_OWNER_PRIVATE_KEY}`],
-    gasPrice: 98000000000
+    gasPrice: 320000000000
   }
 }
 module.exports = config;
