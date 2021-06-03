@@ -7,7 +7,7 @@ async function main() {
   await contract.deployed();
   const contractDev = await upgrades.deployProxy(Contract);
   await contractDev.deployed();
-  console.log(`Contract deployed to: ${contract.address}, ${contractDev.address}`);
+  console.log(`SSV Register deployed to: ${contract.address}, ${contractDev.address}`);
 }
 
 main()

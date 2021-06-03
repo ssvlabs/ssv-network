@@ -114,6 +114,65 @@
           }
         }
       }
+    },
+    "c1ee74414fca4094704708cd9a02ad7b47cb6fe06fb71f5640693ae2ec915959": {
+      "address": "0xe28E008Bf3603789c95C24363cecbA5e2486264F",
+      "txHash": "0xef3fcc40290b72448b16e0ea93f87b17174e38711afddf3bbdb4b4975abf22a3",
+      "layout": {
+        "storage": [
+          {
+            "contract": "DEX",
+            "label": "cdtToken",
+            "type": "t_contract(IERC20)584",
+            "src": "contracts/DEX.sol:9"
+          },
+          {
+            "contract": "DEX",
+            "label": "ssvToken",
+            "type": "t_contract(IERC20)584",
+            "src": "contracts/DEX.sol:10"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)584": {
+            "label": "contract IERC20"
+          }
+        }
+      }
+    },
+    "c0ae4eb6fbc77749ec0add2eb694b8b1029a357fa2ef3be48ec53bfb42f0b2ba": {
+      "address": "0xf270B21f5e4E6E89365082e2b9A3aF08Bdf15435",
+      "txHash": "0x74cddad6e1516e2d1e3816d4d44f1c508b0fc711e0f22b9df272c2f9363fa728",
+      "layout": {
+        "storage": [
+          {
+            "contract": "DEX",
+            "label": "cdtToken",
+            "type": "t_contract(IERC20)584",
+            "src": "contracts/DEX.sol:8"
+          },
+          {
+            "contract": "DEX",
+            "label": "ssvToken",
+            "type": "t_contract(IERC20)584",
+            "src": "contracts/DEX.sol:9"
+          },
+          {
+            "contract": "DEX",
+            "label": "rate",
+            "type": "t_uint256",
+            "src": "contracts/DEX.sol:11"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)584": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          }
+        }
+      }
     }
   },
   "proxies": [
