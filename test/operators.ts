@@ -71,4 +71,26 @@ describe('Operators', function() {
     expect(address).to.equal('0x0000000000000000000000000000000000000000');
   });
 
+  it('Delete operator and emit the event', async function () {
+    // Add new operator
+    const [owner] = await ethers.getSigners();
+    await contract.addOperator(name1, owner.address, publicKey);
+
+    // Delete new operator and check if event was emitted
+    await expect(contract.deleteOperator(publicKey))
+      .to.emit(contract, 'OperatorDeleted')
+      .withArgs(name1, publicKey);
+
+    // Note that we need to use strings to compare the 256 bit integers
+    expect((await contract.operatorCount()).toString()).to.equal('0');
+  });
+
+  it('Delete operator fails if tx was sent not by owner', async function () {
+    // Add new operator
+    await contract.addOperator(name1, account2.address, publicKey);
+
+    await contract.deleteOperator(publicKey)
+      .should.eventually.be.rejectedWith('Caller is not operator owner');
+  });
+
 });
