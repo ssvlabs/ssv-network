@@ -1,8 +1,11 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract DEX {
+    using SafeMath for uint256;
+
     event CDTToSSVConverted(uint256 amount);
     event SSVToCDTConverted(uint256 amount);
 
