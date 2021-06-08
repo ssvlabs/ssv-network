@@ -5,11 +5,11 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum/contract
-    name: SSVSSVRegister
+    name: SSVRegister
     network: goerli
     source:
       address: '0x1cfFB88C8fa7A3D4e806Ac4597d88F1DdD6A01A3'
-      abi: SSVSSVRegister
+      abi: SSVRegister
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.4
@@ -17,7 +17,7 @@ dataSources:
       entities:
         - Operator
       abis:
-        - name: SSVSSVRegister
+        - name: SSVRegister
           file: ./abi.json
       eventHandlers:
         - event: OperatorAdded(string,address,bytes)
