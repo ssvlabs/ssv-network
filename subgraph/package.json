@@ -1,10 +1,10 @@
 {
-  "name": "ssv-network-demo",
+  "name": "ssv-register-graph",
   "version": "0.1.0",
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
-    "deploy": "graph deploy vadiminc/ssv-network-demo --ipfs https://api.thegraph.com/ipfs/ --node https://api.thegraph.com/deploy/"
+    "deploy": "graph deploy vadiminc/ssv-register-graph --ipfs https://api.thegraph.com/ipfs/ --node https://api.thegraph.com/deploy/"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "^0.20.0",

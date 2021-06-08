@@ -1,15 +1,15 @@
 specVersion: 0.0.2
-description: SSV Network Demo
-repository: https://github.com/bloxapp/ssv-network/subgraph
+description: SSV Register Graph
+repository: https://github.com/bloxapp/ssv-register/subgraph
 schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum/contract
-    name: SSVNetwork
+    name: SSVSSVRegister
     network: goerli
     source:
       address: '0x1cfFB88C8fa7A3D4e806Ac4597d88F1DdD6A01A3'
-      abi: SSVNetwork
+      abi: SSVSSVRegister
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.4
@@ -17,7 +17,7 @@ dataSources:
       entities:
         - Operator
       abis:
-        - name: SSVNetwork
+        - name: SSVSSVRegister
           file: ./abi.json
       eventHandlers:
         - event: OperatorAdded(string,address,bytes)
