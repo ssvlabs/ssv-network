@@ -9,6 +9,8 @@ contract DEX {
     event CDTToSSVConverted(uint256 amount);
     event SSVToCDTConverted(uint256 amount);
 
+    mapping(address => uint256) public cdtAllowance;
+
     IERC20 public cdtToken;
     IERC20 public ssvToken;
 
@@ -24,13 +26,19 @@ contract DEX {
         uint256 ssvAmount = amount / rate;
         cdtToken.transferFrom(msg.sender, address(this), amount);
         ssvToken.transfer(msg.sender, ssvAmount);
+        cdtAllowance[msg.sender] += amount;
         emit CDTToSSVConverted(ssvAmount);
     }
 
     function convertSSVToCDT(uint256 amount) public {
         uint256 cdtAmount = amount * rate;
+        require(
+            cdtAllowance[msg.sender] >= cdtAmount,
+            "You can't get back amount of CDT tokens more than exchanged before"
+        );
         ssvToken.transferFrom(msg.sender, address(this), amount);
         cdtToken.transfer(msg.sender, cdtAmount);
+        cdtAllowance[msg.sender] -= cdtAmount;
         emit SSVToCDTConverted(cdtAmount);
     }
 }
