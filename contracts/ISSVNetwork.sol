@@ -32,7 +32,7 @@ interface ISSVNetwork {
      * @dev Get operator's fee by address.
      * @param _operatorAddress The operators's ethereum address.
      */
-    function getOperatorFee(address _operatorAddress) external;
+    function getOperatorFee(address _operatorAddress) external returns (uint256);
 
     /**
      * @dev Updates operator's fee by address.

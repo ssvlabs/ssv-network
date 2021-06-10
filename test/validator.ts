@@ -19,7 +19,7 @@ let contract;
 
 describe('Validators', function() {
   beforeEach(async function () {
-    Contract = await ethers.getContractFactory('SSVNetwork');
+    Contract = await ethers.getContractFactory('SSVRegister');
     contract = await Contract.deploy();
     await contract.deployed();
   });

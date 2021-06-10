@@ -20,7 +20,7 @@ let account1, account2, account3;
 describe('Operators', function() {
   beforeEach(async function () {
     [account1, account2, account3] = await ethers.getSigners();
-    const contractFactory = await ethers.getContractFactory('SSVNetwork');
+    const contractFactory = await ethers.getContractFactory('SSVRegister');
     contract = await contractFactory.deploy();
     await contract.deployed();
   });

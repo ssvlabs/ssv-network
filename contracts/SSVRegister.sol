@@ -11,6 +11,8 @@ contract SSVRegister is ISSVRegister {
     mapping(bytes => Operator) public override operators;
     mapping(bytes => Validator) internal validators;
 
+    mapping(address => uint256) public operatorFees;
+
     modifier onlyValidator(bytes calldata _publicKey) {
         require(
             validators[_publicKey].ownerAddress != address(0),
@@ -158,5 +160,12 @@ contract SSVRegister is ISSVRegister {
         delete operators[_publicKey];
         operatorCount--;
         emit OperatorDeleted(name, _publicKey);
+    }
+
+    /**
+     * @dev See {ISSVRegister-updateOperatorFee}.
+     */
+    function updateOperatorFee(address _ownerAddress, uint256 fee) public override {
+        operatorFees[_ownerAddress] = fee;
     }
 }

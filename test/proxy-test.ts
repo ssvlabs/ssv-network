@@ -4,9 +4,9 @@ import { expect } from 'chai';
 let Contract;
 let contract;
 
-describe('SSVNetwork (proxy)', function() {
+describe('SSVRegister (proxy)', function() {
   beforeEach(async function () {
-    Contract = await ethers.getContractFactory('SSVNetwork');
+    Contract = await ethers.getContractFactory('SSVRegister');
     contract = await upgrades.deployProxy(Contract);
   });
  

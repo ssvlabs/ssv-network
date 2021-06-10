@@ -152,4 +152,19 @@ interface ISSVRegister {
     function deleteOperator(
         bytes calldata _publicKey
     ) external;
+
+    /**
+     * @dev Gets an operator fee by address.
+     * @param _ownerAddress The user's ethereum address that is the owner of the operator.
+     */
+    function operatorFees(address _ownerAddress) external returns (uint256);
+
+    /**
+     * @dev Update an operator fee.
+     * @param _ownerAddress The user's ethereum address that is the owner of the operator.
+     */
+    function updateOperatorFee(
+        address _ownerAddress,
+        uint256 fee
+    ) external;
 }

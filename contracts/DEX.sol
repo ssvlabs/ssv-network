@@ -9,12 +9,12 @@ contract DEX {
     event CDTToSSVConverted(uint256 amount);
     event SSVToCDTConverted(uint256 amount);
 
-    IERC20 public cdtToken;
-    IERC20 public ssvToken;
+    IERC20 private cdtToken;
+    IERC20 private ssvToken;
 
     uint public rate;
 
-    function initialize(IERC20 _cdtTokenAddress, IERC20 _ssvTokenAddress, uint256 _rate) public {
+    function initialize(IERC20 _cdtTokenAddress, IERC20 _ssvTokenAddress, uint256 _rate) private {
         cdtToken = _cdtTokenAddress;
         ssvToken = _ssvTokenAddress;
         rate = _rate;
