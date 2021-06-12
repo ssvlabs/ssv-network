@@ -59,6 +59,6 @@ describe('DEX', function() {
     await ssvToken.approve(dex.address, ssvToExchange);
 
     await dex.convertSSVToCDT(ssvToExchange)
-      .should.eventually.be.rejectedWith("You can't get back amount of CDT tokens more than exchanged before");
+      .should.eventually.be.rejectedWith("Exchange SSV to CDT tokens in requested amount not allowed.");
   });
 });
