@@ -13,16 +13,26 @@ before(() => {
 const { expect } = chai;
 
 let ssvNetwork, ssvRegister;
-let owner, account2, account3;
+let account2;
 
 describe('SSVNetwork', function() {
   beforeEach(async function () {
-    [owner, account2, account3] = await ethers.getSigners();
-    const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+    [account2] = await ethers.getSigners();
     const ssvRegisterFactory = await ethers.getContractFactory('SSVRegister');
-    ssvNetwork = await ssvNetworkFactory.deploy();
     ssvRegister = await ssvRegisterFactory.deploy();
-    await ssvNetwork.deployed();
     await ssvRegister.deployed();
+
+    const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+    ssvNetwork = await upgrades.deployProxy(
+      ssvNetworkFactory,
+      [ssvRegister.address],
+      { initializer: 'initialize' }
+    );
+    await ssvNetwork.deployed();
+  });
+
+  it('Update operator fee', async function () {
+    const fee = '1000';
+    await ssvNetwork.updateOperatorFee(account2.address, fee);
   });
 });

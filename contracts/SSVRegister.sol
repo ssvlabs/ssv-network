@@ -11,7 +11,7 @@ contract SSVRegister is ISSVRegister {
     mapping(bytes => Operator) public override operators;
     mapping(bytes => Validator) internal validators;
 
-    mapping(address => uint256) public operatorFees;
+    mapping(address => uint256) public override operatorFees;
 
     modifier onlyValidator(bytes calldata _publicKey) {
         require(

@@ -14,7 +14,7 @@ contract DEX {
 
     uint public rate;
 
-    function initialize(IERC20 _cdtTokenAddress, IERC20 _ssvTokenAddress, uint256 _rate) private {
+    function initialize(IERC20 _cdtTokenAddress, IERC20 _ssvTokenAddress, uint256 _rate) public {
         cdtToken = _cdtTokenAddress;
         ssvToken = _ssvTokenAddress;
         rate = _rate;
