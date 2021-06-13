@@ -34,7 +34,7 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-balanceOf}.
      */
-    function balanceOf(address _ownerAddress) public override returns(uint256) {
+    function balanceOf(address _ownerAddress) public view override returns(uint256) {
         console.log("Trying to get balance for %s is %s", _ownerAddress, balances[_ownerAddress].balance);
         return balances[_ownerAddress].balance;
     }
@@ -43,11 +43,10 @@ contract SSVNetwork is ISSVNetwork {
      * @dev See {ISSVNetwork-updateBalance}.
      */
     function updateBalance(address _ownerAddress) public override {
-        uint256 blockNumber = block.number;
-        uint256 numValidators = balances[_ownerAddress].numValidators;
+        console.log("%s, %s, %s", balances[_ownerAddress].blockNumber, balances[_ownerAddress].numValidators, balances[_ownerAddress].balance);
         uint256 fee = getOperatorFee(_ownerAddress); // will be used get after PR will be merged
-        uint256 balance = balanceOf(_ownerAddress) + (blockNumber - balances[_ownerAddress].blockNumber) * numValidators;
-        balances[_ownerAddress] = BalanceInfo(balance, blockNumber, numValidators + 1);
+        uint256 balance = balanceOf(_ownerAddress) + (block.number - balances[_ownerAddress].blockNumber) * balances[_ownerAddress].numValidators * fee;
+        balances[_ownerAddress] = BalanceInfo(balance, block.number, balances[_ownerAddress].numValidators + 1);
     }
 
     /**

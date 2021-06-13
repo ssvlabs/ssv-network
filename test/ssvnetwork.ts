@@ -32,11 +32,24 @@ describe('SSVNetwork', function() {
   });
 
   it('Update operator fee', async function () {
-    const fee = '1000';
-    await ssvNetwork.updateOperatorFee(account2.address, fee);
+    await ssvNetwork.updateOperatorFee(account2.address, '10');
   });
 
   it('Update operator balance', async function () {
+    // set fee for operator
+    await ssvNetwork.updateOperatorFee(account2.address, '10');
+
+    await ssvNetwork.updateBalance(account2.address);
+    await ethers.provider.send('evm_setNextBlockTimestamp', [Date.now() + 86400]);
+    await ethers.provider.send('evm_mine', []);
+    await ssvNetwork.updateBalance(account2.address);
+
+    await ethers.provider.send('evm_setNextBlockTimestamp', [Date.now() + 86400]);
+    await ethers.provider.send('evm_mine', []);
+    await ssvNetwork.updateBalance(account2.address);
+
+    await ethers.provider.send('evm_setNextBlockTimestamp', [Date.now() + 86400]);
+    await ethers.provider.send('evm_mine', []);
     await ssvNetwork.updateBalance(account2.address);
   });
 
