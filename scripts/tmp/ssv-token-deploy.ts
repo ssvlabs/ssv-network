@@ -1,4 +1,4 @@
-import { ethers } from 'hardhat';
+import { ethers, upgrades } from 'hardhat';
 
 async function main() {
   // ethers is avaialble in the global scope
@@ -10,8 +10,8 @@ async function main() {
 
   console.log('Account balance:', (await deployer.getBalance()).toString());
 
-  const Token = await ethers.getContractFactory('SSVToken');
-  const token = await Token.deploy();
+  const tokenContract = await ethers.getContractFactory('SSVTokenMock');
+  const token = await upgrades.deployProxy(tokenContract);
   await token.deployed();
 
   console.log('SSVToken address:', token.address);

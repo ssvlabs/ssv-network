@@ -1,13 +1,12 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract DEX {
-    using SafeMath for uint256;
+    event CDTToSSVConverted(address sender, uint256 cdtAmount, uint256 ssvAmount);
+    event SSVToCDTConverted(address sender, uint256 ssvAmount, uint256 cdtAmount);
 
-    event CDTToSSVConverted(uint256 amount);
-    event SSVToCDTConverted(uint256 amount);
+    mapping(address => uint256) public cdtAllowance;
 
     IERC20 public cdtToken;
     IERC20 public ssvToken;
@@ -20,17 +19,24 @@ contract DEX {
         rate = _rate;
     }
 
-    function convertCDTToSSV(uint256 amount) public {   
-        uint256 ssvAmount = amount / rate;
-        cdtToken.transferFrom(msg.sender, address(this), amount);
+    function convertCDTToSSV(uint256 _amount) public {
+        uint256 ssvAmount = _amount / rate;
+        uint256 cdtAmount = ssvAmount * rate;
+        cdtToken.transferFrom(msg.sender, address(this), cdtAmount);
         ssvToken.transfer(msg.sender, ssvAmount);
-        emit CDTToSSVConverted(ssvAmount);
+        cdtAllowance[msg.sender] += cdtAmount;
+        emit CDTToSSVConverted(msg.sender, cdtAmount, ssvAmount);
     }
 
-    function convertSSVToCDT(uint256 amount) public {
-        uint256 cdtAmount = amount * rate;
-        ssvToken.transferFrom(msg.sender, address(this), amount);
+    function convertSSVToCDT(uint256 _amount) public {
+        uint256 cdtAmount = _amount * rate;
+        require(
+            cdtAllowance[msg.sender] >= cdtAmount,
+            "DEX: Can't exceed original CDT amount"
+        );
+        cdtAllowance[msg.sender] -= cdtAmount;
+        ssvToken.transferFrom(msg.sender, address(this), _amount);
         cdtToken.transfer(msg.sender, cdtAmount);
-        emit SSVToCDTConverted(cdtAmount);
+        emit SSVToCDTConverted(msg.sender, _amount, cdtAmount);
     }
 }
