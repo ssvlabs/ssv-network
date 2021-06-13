@@ -11,9 +11,9 @@ interface ISSVNetwork {
 
     /**
      * @dev Get operator balance by address.
-     * @param _operatorAddress The operators's ethereum address that is the owner of created operators.
+     * @param _ownerAddress The operators's ethereum address that is the owner of created operators.
      */
-    function balanceOf(address _operatorAddress) external;
+    function balanceOf(address _ownerAddress) external returns (uint256);
 
     /**
      * @dev Registers a new operator.
@@ -30,21 +30,28 @@ interface ISSVNetwork {
 
     /**
      * @dev Get operator's fee by address.
-     * @param _operatorAddress The operators's ethereum address.
+     * @param _ownerAddress Operator's ethereum address that can collect fees.
      */
-    function getOperatorFee(address _operatorAddress) external returns (uint256);
+    function getOperatorFee(address _ownerAddress) external returns (uint256);
 
     /**
      * @dev Updates operator's fee by address.
-     * @param _operatorAddress The operators's ethereum address.
+     * @param _ownerAddress Operator's ethereum address that can collect fees.
      * @param _fee The operators's updated fee.
      */
-    function updateOperatorFee(address _operatorAddress, uint256 _fee) external;
+    function updateOperatorFee(address _ownerAddress, uint256 _fee) external;
 
     /**
      * @dev Emitted when the operator has been updated the fee.
-     * @param operatorAddress The operators's ethereum addres.
+     * @param ownerAddress Operator's ethereum address that can collect fees.
      * @param fee The operators's updated fee.
      */
-    event OperatorFeeUpdated(address operatorAddress, uint256 fee);
+    event OperatorFeeUpdated(address ownerAddress, uint256 fee);
+
+    /**
+     * @dev Updates operator's balance.
+     * @param _ownerAddress Operator's ethereum address that can collect fees.
+     */
+    function updateBalance(address _ownerAddress) external;
+
 }

@@ -3,14 +3,13 @@
 pragma solidity ^0.8.2;
 import "hardhat/console.sol";
 
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./ISSVNetwork.sol";
 import "./ISSVRegister.sol";
 
 contract SSVNetwork is ISSVNetwork {
-    // using SafeMath for uint256;
-
     ISSVRegister private SSVRegisterContract;
+
+    mapping(address => BalanceInfo) internal balances;
 
     function initialize(ISSVRegister _SSVRegisterAddress) public {
         SSVRegisterContract = _SSVRegisterAddress;
@@ -21,6 +20,7 @@ contract SSVNetwork is ISSVNetwork {
      */
     function updateOperatorFee(address _ownerAddress, uint256 fee) public override {
         SSVRegisterContract.updateOperatorFee(_ownerAddress, fee);
+        emit OperatorFeeUpdated(_ownerAddress, fee);
     }
 
     /**
@@ -34,7 +34,21 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-balanceOf}.
      */
-    function balanceOf(address _operatorAddress) public override {}
+    function balanceOf(address _ownerAddress) public override returns(uint256) {
+        console.log("Trying to get balance for %s is %s", _ownerAddress, balances[_ownerAddress].balance);
+        return balances[_ownerAddress].balance;
+    }
+
+    /**
+     * @dev See {ISSVNetwork-updateBalance}.
+     */
+    function updateBalance(address _ownerAddress) public override {
+        uint256 blockNumber = block.number;
+        uint256 numValidators = balances[_ownerAddress].numValidators;
+        uint256 fee = getOperatorFee(_ownerAddress); // will be used get after PR will be merged
+        uint256 balance = balanceOf(_ownerAddress) + (blockNumber - balances[_ownerAddress].blockNumber) * numValidators;
+        balances[_ownerAddress] = BalanceInfo(balance, blockNumber, numValidators + 1);
+    }
 
     /**
      * @dev See {ISSVNetwork-registerOperator}.

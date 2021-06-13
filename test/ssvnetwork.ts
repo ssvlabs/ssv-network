@@ -35,4 +35,9 @@ describe('SSVNetwork', function() {
     const fee = '1000';
     await ssvNetwork.updateOperatorFee(account2.address, fee);
   });
+
+  it('Update operator balance', async function () {
+    await ssvNetwork.updateBalance(account2.address);
+  });
+
 });
