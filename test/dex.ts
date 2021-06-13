@@ -20,10 +20,10 @@ const oldToExchange = '1000000000';
 describe('DEX', function() {
   beforeEach(async function () {
     [owner, account2, account3] = await ethers.getSigners();
-    const oldTonenFactory = await ethers.getContractFactory('OldToken');
-    const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
-    oldToken = await oldTonenFactory.deploy();
-    ssvToken = await ssvTokenFactory.deploy();
+    const oldTokenFactory = await ethers.getContractFactory('OldTokenMock');
+    const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
+    oldToken = await upgrades.deployProxy(oldTokenFactory);
+    ssvToken = await upgrades.deployProxy(ssvTokenFactory);
     await oldToken.deployed();
     await ssvToken.deployed();
     const dexFactory = await ethers.getContractFactory('DEX');
@@ -31,7 +31,7 @@ describe('DEX', function() {
       dexFactory,
       [oldToken.address, ssvToken.address, RATE],
       { initializer: 'initialize' }
-    );  
+    );
     await dex.deployed();
     await ssvToken.transfer(dex.address, ssvBalance);
   });
@@ -59,6 +59,6 @@ describe('DEX', function() {
     await ssvToken.approve(dex.address, ssvToExchange);
 
     await dex.convertSSVToCDT(ssvToExchange)
-      .should.eventually.be.rejectedWith("Exchange SSV to CDT tokens in requested amount not allowed.");
+      .should.eventually.be.rejectedWith(" Can't exceed original CDT amount");
   });
 });

@@ -34,7 +34,7 @@ contract SSVNetwork is ISSVNetwork {
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
-    ) private view {
+    ) private pure {
         require(_publicKey.length == 48, "Invalid public key length");
         require(
             _operatorPublicKeys.length == _sharesPublicKeys.length &&
