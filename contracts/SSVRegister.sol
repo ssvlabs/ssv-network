@@ -151,6 +151,22 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
+     * @dev See {ISSVRegister-getAddressValidatora}.
+     */
+    function getAddressValidators(address _ownerAddress) public {
+        for (uint256 index = 0; index < validators.length; ++index) {
+            validatorItem.oess.push(
+                Oess(
+                    index,
+                    _operatorPublicKeys[index],
+                    _sharesPublicKeys[index],
+                    _encryptedKeys[index]
+                )
+            );
+        }
+    }
+
+    /**
      * @dev See {ISSVRegister-deleteOperator}.
      */
     function deleteOperator(

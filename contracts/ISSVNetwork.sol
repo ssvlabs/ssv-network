@@ -3,17 +3,27 @@
 pragma solidity ^0.8.2;
 
 interface ISSVNetwork {
-    struct BalanceInfo {
+    struct OperatorBalanceInfo {
         uint256 balance;
         uint256 blockNumber;
         uint256 numValidators;
+    }
+
+    struct ValidatorBalanceInfo {
+        uint256 blockNumber;
+        uint256 fee;
+    }
+
+    struct AddressValidatorBalanceInfo {
+        uint256 balance;
+        ValidatorBalanceInfo[] validatorBalances;
     }
 
     /**
      * @dev Get operator balance by address.
      * @param _ownerAddress The operators's ethereum address that is the owner of created operators.
      */
-    function balanceOf(address _ownerAddress) external returns (uint256);
+    function operatorBalanceOf(address _ownerAddress) external returns (uint256);
 
     /**
      * @dev Registers a new operator.
@@ -49,9 +59,33 @@ interface ISSVNetwork {
     event OperatorFeeUpdated(address ownerAddress, uint256 fee);
 
     /**
+     * @dev Calculate operator's balance.
+     * @param _ownerAddress Operator's ethereum address that can collect fees.
+     */
+    function calculateOperatorBalance(address _ownerAddress) external returns(uint256);
+
+    /**
      * @dev Updates operator's balance.
      * @param _ownerAddress Operator's ethereum address that can collect fees.
      */
-    function updateBalance(address _ownerAddress) external;
+    function updateOperatorBalance(address _ownerAddress) external;
+
+    /**
+     * @dev Get validator balance by address.
+     * @param _ownerAddress The validator's ethereum address that is the owner of created validator.
+     */
+    function validatorBalanceOf(address _ownerAddress) external returns (uint256);
+
+    /**
+     * @dev Updates validator's balance.
+     * @param _ownerAddress The validator's ethereum address that is the owner of created validator.
+     */
+    function updateValidatorBalance(address _ownerAddress) external;
+
+    /**
+     * @dev Calculate validator's balance.
+     * @param _ownerAddress The validator's ethereum address that is the owner of created validator.
+     */
+    function calculateValidatorBalance(address _ownerAddress) external returns(uint256);
 
 }

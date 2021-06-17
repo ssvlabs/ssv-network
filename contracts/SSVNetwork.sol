@@ -9,7 +9,8 @@ import "./ISSVRegister.sol";
 contract SSVNetwork is ISSVNetwork {
     ISSVRegister private SSVRegisterContract;
 
-    mapping(address => BalanceInfo) internal balances;
+    mapping(address => OperatorBalanceInfo) internal operatorBalances;
+    mapping(address => AddressValidatorBalanceInfo) internal addressValidatorBalanceInfo;
 
     function initialize(ISSVRegister _SSVRegisterAddress) public {
         SSVRegisterContract = _SSVRegisterAddress;
@@ -32,21 +33,27 @@ contract SSVNetwork is ISSVNetwork {
     }
 
     /**
-     * @dev See {ISSVNetwork-balanceOf}.
+     * @dev See {ISSVNetwork-operatorBalanceOf}.
      */
-    function balanceOf(address _ownerAddress) public view override returns(uint256) {
-        console.log("Trying to get balance for %s is %s", _ownerAddress, balances[_ownerAddress].balance);
-        return balances[_ownerAddress].balance;
+    function operatorBalanceOf(address _ownerAddress) public view override returns(uint256) {
+        return calculateOperatorBalance(_ownerAddress);
     }
 
     /**
-     * @dev See {ISSVNetwork-updateBalance}.
+     * @dev See {ISSVNetwork-calculateOperatorBalance}.
      */
-    function updateBalance(address _ownerAddress) public override {
-        console.log("%s, %s, %s", balances[_ownerAddress].blockNumber, balances[_ownerAddress].numValidators, balances[_ownerAddress].balance);
+    function calculateOperatorBalance(address _ownerAddress) public override returns(uint256) {
         uint256 fee = getOperatorFee(_ownerAddress); // will be used get after PR will be merged
-        uint256 balance = balanceOf(_ownerAddress) + (block.number - balances[_ownerAddress].blockNumber) * balances[_ownerAddress].numValidators * fee;
-        balances[_ownerAddress] = BalanceInfo(balance, block.number, balances[_ownerAddress].numValidators + 1);
+        uint256 balance = operatorBalanceOf(_ownerAddress) + (block.number - operatorBalances[_ownerAddress].blockNumber) * operatorBalances[_ownerAddress].numValidators * fee;
+        return balance;
+    }
+
+    /**
+     * @dev See {ISSVNetwork-updateOperatorBalance}.
+     */
+    function updateOperatorBalance(address _ownerAddress) public override {
+        uint256 balance = calculateOperatorBalance(_ownerAddress);
+        operatorBalances[_ownerAddress] = OperatorBalanceInfo(balance, block.number, operatorBalances[_ownerAddress].numValidators + 1);
     }
 
     /**
@@ -57,4 +64,30 @@ contract SSVNetwork is ISSVNetwork {
         address _ownerAddress,
         bytes calldata _publicKey
     ) public override {}
+
+    /**
+     * @dev See {ISSVNetwork-validatorBalanceOf}.
+     */
+    function validatorBalanceOf(address _ownerAddress) public view override returns(uint256) {
+        return calculateValidatorBalance(_ownerAddress);
+    }
+
+    /**
+     * @dev See {ISSVNetwork-calculateOperatorBalance}.
+     */
+    function calculateValidatorBalance(address _ownerAddress) public view override returns(uint256) {
+        uint256 totalUsed = 0;
+        AddressValidatorBalanceInfo storage addressItem = addressValidatorBalanceInfo[_ownerAddress];
+        for (uint256 index = 0; index < addressItem.validatorBalances.length; ++index) {
+            totalUsed += (block.number - addressItem.validatorBalances[index].blockNumber) * addressItem.validatorBalances[index].fee;
+        }
+        return addressItem.balance - totalUsed;
+    }
+
+    /**
+     * @dev See {ISSVNetwork-updateValidatorBalance}.
+     */
+    function updateValidatorBalance(address _ownerAddress) public override {
+        addressValidatorBalanceInfo[_ownerAddress].balance = calculateValidatorBalance(_ownerAddress);
+    }
 }
