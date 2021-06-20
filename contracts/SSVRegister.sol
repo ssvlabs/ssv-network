@@ -11,7 +11,7 @@ contract SSVRegister is ISSVRegister {
     mapping(bytes => Operator) public override operators;
     mapping(bytes => Validator) internal validators;
 
-    mapping(address => uint256) public override operatorFees;
+    mapping(address => OperatorFee[]) public override operatorFees;
 
     modifier onlyValidator(bytes calldata _publicKey) {
         require(
@@ -57,11 +57,8 @@ contract SSVRegister is ISSVRegister {
             operators[_publicKey].ownerAddress == address(0),
             "Operator with same public key already exists"
         );
-
         operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0);
-
         emit OperatorAdded(_name, _ownerAddress, _publicKey);
-
         operatorCount++;
     }
 
@@ -151,22 +148,6 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
-     * @dev See {ISSVRegister-getAddressValidatora}.
-     */
-    function getAddressValidators(address _ownerAddress) public {
-        for (uint256 index = 0; index < validators.length; ++index) {
-            validatorItem.oess.push(
-                Oess(
-                    index,
-                    _operatorPublicKeys[index],
-                    _sharesPublicKeys[index],
-                    _encryptedKeys[index]
-                )
-            );
-        }
-    }
-
-    /**
      * @dev See {ISSVRegister-deleteOperator}.
      */
     function deleteOperator(
@@ -181,7 +162,11 @@ contract SSVRegister is ISSVRegister {
     /**
      * @dev See {ISSVRegister-updateOperatorFee}.
      */
-    function updateOperatorFee(address _ownerAddress, uint256 fee) public override {
-        operatorFees[_ownerAddress] = fee;
+    function updateOperatorFee(address _ownerAddress, uint256 blockNumber, uint256 fee) public override {
+        OperatorFee[] storage fees = operatorFees[_ownerAddress];
+        fees.push(
+            OperatorFee(block.number, fee)
+        );
+        emit OperatorFeeUpdated(_ownerAddress, blockNumber, fee);
     }
 }

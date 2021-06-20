@@ -3,20 +3,24 @@
 pragma solidity ^0.8.2;
 
 interface ISSVNetwork {
-    struct OperatorBalanceInfo {
-        uint256 balance;
+    struct OperatorValidators {
         uint256 blockNumber;
-        uint256 numValidators;
+        uint256 amountValidators;
     }
 
-    struct ValidatorBalanceInfo {
+    struct ValidatorsInBlock {
         uint256 blockNumber;
-        uint256 fee;
+        address operatorAddress;
     }
 
     struct AddressValidatorBalanceInfo {
         uint256 balance;
-        ValidatorBalanceInfo[] validatorBalances;
+        ValidatorsInBlock[] validatorsInBlock;
+    }
+
+    struct OperatorFee {
+        uint256 fromBlockNumber;
+        uint256 fee;
     }
 
     /**
@@ -42,7 +46,7 @@ interface ISSVNetwork {
      * @dev Get operator's fee by address.
      * @param _ownerAddress Operator's ethereum address that can collect fees.
      */
-    function getOperatorFee(address _ownerAddress) external returns (uint256);
+    function getOperatorFee(address _ownerAddress) external;
 
     /**
      * @dev Updates operator's fee by address.
@@ -59,16 +63,26 @@ interface ISSVNetwork {
     event OperatorFeeUpdated(address ownerAddress, uint256 fee);
 
     /**
-     * @dev Calculate operator's balance.
+     * @dev Calculate operator's payback.
      * @param _ownerAddress Operator's ethereum address that can collect fees.
      */
-    function calculateOperatorBalance(address _ownerAddress) external returns(uint256);
+    function calculateOperatorPayback(address _ownerAddress) external returns(uint256);
 
     /**
-     * @dev Updates operator's balance.
+     * @dev Add validators to operator.
      * @param _ownerAddress Operator's ethereum address that can collect fees.
+     * @param _blockNumber Block number for changes.
+     * @param _amountValidators Amount of new validators.
      */
-    function updateOperatorBalance(address _ownerAddress) external;
+    function addOperatorValidator(address _ownerAddress, uint256 _blockNumber, uint256 _amountValidators) external;
+
+    /**
+     * @dev Calculate operator's payback.
+     * @param _ownerAddress Operator's ethereum address that can collect fees.
+     * @param _blockNumber Block number for changes.
+     * @param _amountValidators Amount of new validators.
+     */
+    function deductOperatorValidator(address _ownerAddress, uint256 _blockNumber, uint256 _amountValidators) external;
 
     /**
      * @dev Get validator balance by address.
@@ -83,9 +97,24 @@ interface ISSVNetwork {
     function updateValidatorBalance(address _ownerAddress) external;
 
     /**
-     * @dev Calculate validator's balance.
+     * @dev Calculate validator's charges.
      * @param _ownerAddress The validator's ethereum address that is the owner of created validator.
      */
-    function calculateValidatorBalance(address _ownerAddress) external returns(uint256);
+    function calculateValidatorCharges(address _ownerAddress) external returns(uint256);
 
+    /**
+     * @dev Add new validator to the list.
+     * @param _ownerAddress The user's ethereum address that is the owner of the validator.
+     * @param _publicKey Validator public key.
+     * @param _operatorPublicKeys Operator public keys.
+     * @param _sharesPublicKeys Shares public keys.
+     * @param _encryptedKeys Encrypted private keys.
+     */
+    function addValidator(
+        address _ownerAddress,
+        bytes calldata _publicKey,
+        bytes[] calldata _operatorPublicKeys,
+        bytes[] calldata _sharesPublicKeys,
+        bytes[] calldata _encryptedKeys
+    ) external;
 }

@@ -23,6 +23,11 @@ interface ISSVRegister {
         Oess[] oess;
     }
 
+    struct OperatorFee {
+        uint256 blockNumber;
+        uint256 fee;
+    }
+
     /**
      * @dev Add new validator to the list.
      * @param _ownerAddress The user's ethereum address that is the owner of the validator.
@@ -154,17 +159,35 @@ interface ISSVRegister {
     ) external;
 
     /**
-     * @dev Gets an operator fee by address.
+     * @dev Gets operator fees by address.
      * @param _ownerAddress The user's ethereum address that is the owner of the operator.
      */
-    function operatorFees(address _ownerAddress) external returns (uint256);
+    function operatorFees(address _ownerAddress)
+        external
+        returns(
+            OperatorFee[] calldata
+        );
 
     /**
      * @dev Update an operator fee.
      * @param _ownerAddress The user's ethereum address that is the owner of the operator.
+     * @param _blockNumber from which block number.
+     * @param _fee new operator fee.
      */
     function updateOperatorFee(
         address _ownerAddress,
-        uint256 fee
+        uint256 _blockNumber,
+        uint256 _fee
     ) external;
+
+    /**
+     * @param ownerAddress The user's ethereum address that is the owner of the operator.
+     * @param blockNumber from which block number.
+     * @param fee updated fee value.
+     */
+    event OperatorFeeUpdated(
+        address ownerAddress,
+        uint256 blockNumber,
+        uint256 fee
+    );
 }
