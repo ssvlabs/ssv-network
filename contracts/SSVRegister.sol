@@ -11,7 +11,7 @@ contract SSVRegister is ISSVRegister {
     mapping(bytes => Operator) public override operators;
     mapping(bytes => Validator) internal validators;
 
-    mapping(address => OperatorFee[]) public override operatorFees;
+    mapping(address => OperatorFee[]) private operatorFees; // override
 
     modifier onlyValidator(bytes calldata _publicKey) {
         require(
@@ -160,9 +160,23 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
+     * @dev See {ISSVRegister-getOperatorFees}.
+     */
+    function getOperatorFee(address _ownerAddress, uint256 _blockNumber) public view override returns (uint256) {
+        require(operatorFees[_ownerAddress].length > 0, "Operator fees not found");
+        uint256 fee;
+        for (uint256 index = 0; index < operatorFees[_ownerAddress].length; ++index) {
+            if (operatorFees[_ownerAddress][index].blockNumber <= _blockNumber) {
+                fee = operatorFees[_ownerAddress][index].fee;
+            }
+        }
+        return fee;
+    }
+
+    /**
      * @dev See {ISSVRegister-updateOperatorFee}.
      */
-    function updateOperatorFee(address _ownerAddress, uint256 blockNumber, uint256 fee) public override {
+    function updateOperatorFee(address _ownerAddress, uint256 blockNumber, uint256 fee) public virtual override {
         OperatorFee[] storage fees = operatorFees[_ownerAddress];
         fees.push(
             OperatorFee(block.number, fee)

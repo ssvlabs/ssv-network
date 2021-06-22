@@ -19,43 +19,29 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-updateOperatorFee}.
      */
-    function updateOperatorFee(address _ownerAddress, uint256 fee) public override {
+    function updateOperatorFee(address _ownerAddress, uint256 fee) public virtual override {
         SSVRegisterContract.updateOperatorFee(_ownerAddress, block.number, fee);
-    }
-
-    /**
-     * @dev See {ISSVNetwork-getOperatorFee}.
-     */
-    function getOperatorFee(address _ownerAddress) public override returns(OperatorFee[] calldata) {
-        return SSVRegisterContract.operatorFees(_ownerAddress);
     }
 
     /**
      * @dev See {ISSVNetwork-operatorBalanceOf}.
      */
-    function operatorBalanceOf(address _ownerAddress) public view override returns(uint256) {
+    function operatorBalanceOf(address _ownerAddress) public override returns(uint256) {
         return calculateOperatorPayback(_ownerAddress);
     }
 
     /**
      * @dev See {ISSVNetwork-calculateOperatorPayback}.
      */
-    function calculateOperatorPayback(address _ownerAddress) internal override returns(uint256) {
-        OperatorFee[] memory fees = getOperatorFee(_ownerAddress);
-        require(fees.length > 0, "Operator fees not found");
-
+    function calculateOperatorPayback(address _ownerAddress) public virtual override returns(uint256) {
         if (operatorValidators[_ownerAddress].length == 0) {
             return 0;
         }
         uint256 balance;
         for (uint256 index = 0; index < operatorValidators[_ownerAddress].length; ++index) {
             OperatorValidators memory validatorsInBlock = operatorValidators[_ownerAddress][index];
-            uint256 blockBalance;
-            for (uint256 feeIndex = 0; feeIndex < fees.length; ++feeIndex) {
-                if (fees[feeIndex].blockNumber <= validatorsInBlock.blockNumber) {
-                    blockBalance = fees[feeIndex].fee * validatorsInBlock.amountValidators;
-                }
-            }
+            uint256 fee = SSVRegisterContract.getOperatorFee(_ownerAddress, validatorsInBlock.blockNumber);
+            uint256 blockBalance = fee * validatorsInBlock.amountValidators;
             balance += blockBalance;
         }
         return balance;
@@ -64,27 +50,27 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-addOperatorValidator}.
      */
-    function addOperatorValidator(address _operatorAddress, uint256 blockNumber) internal override {
+    function addOperatorValidator(address _operatorAddress, uint256 _blockNumber) public virtual override {
         uint256 latestTotalValidators = 0;
         if (operatorValidators[_operatorAddress].length > 0) {
-            latestTotalValidators = operatorValidators[_operatorAddress][operatorValidators[_operatorAddress].length - 1];
+            latestTotalValidators = operatorValidators[_operatorAddress][operatorValidators[_operatorAddress].length - 1].amountValidators;
         }
         operatorValidators[_operatorAddress].push(
-            OperatorValidators(blockNumber, latestTotalValidators + 1)
+            OperatorValidators(_blockNumber, latestTotalValidators + 1)
         );
     }
 
     /**
      * @dev See {ISSVNetwork-deductOperatorValidator}.
      */
-    function deductOperatorValidator(address _ownerAddress, uint256 blockNumber, uint256 amountValidators) internal override {
+    function deductOperatorValidator(address _ownerAddress, uint256 _blockNumber, uint256 _amountValidators) public override {
         uint256 latestTotalValidators = 0;
         if (operatorValidators[_ownerAddress].length > 0) {
-            latestTotalValidators = operatorValidators[_ownerAddress][operatorValidators[_ownerAddress].length - 1];
+            latestTotalValidators = operatorValidators[_ownerAddress][operatorValidators[_ownerAddress].length - 1].amountValidators;
         }
-        require(latestTotalValidators - amountValidators < 0, "Requested validators not found for current block");
+        require(latestTotalValidators - _amountValidators < 0, "Requested validators not found for current block");
         operatorValidators[_ownerAddress].push(
-            OperatorValidators(blockNumber, latestTotalValidators - amountValidators)
+            OperatorValidators(_blockNumber, latestTotalValidators - _amountValidators)
         );
     }
 
@@ -100,38 +86,19 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-validatorBalanceOf}.
      */
-    function validatorBalanceOf(address _ownerAddress) public view override returns(uint256) {
+    function validatorBalanceOf(address _ownerAddress) public override returns(uint256) {
         return calculateValidatorCharges(_ownerAddress);
     }
 
     /**
      * @dev See {ISSVNetwork-calculateOperatorCharges}.
-     Example:
-     in block #1 registered 1 vaildator => 
-        0x000 - operator
-        0x001 - operator
-        0x002 - operator
-        0x003 - operator
-     in block #10 registered 1 vaildator => 
-        0x011 - operator
-        0x014 - operator
-     in block #12 registered 1 vaildator => 
-        0x021 - operator
-        0x022 - operator
-        0x023 - operator
      */
-    function calculateValidatorCharges(address _ownerAddress) internal override returns(uint256) {
+    function calculateValidatorCharges(address _ownerAddress) public override returns(uint256) {
         AddressValidatorBalanceInfo storage validatorItem = addressValidatorBalanceInfo[_ownerAddress];
         uint256 totalUsed;
         for (uint256 index = 0; index < validatorItem.validatorsInBlock.length; ++index) {
-            OperatorFee[] memory fees = getOperatorFee(validatorItem.validatorsInBlock[index].operatorAddress);
-            uint256 blockBalance;
-            for (uint256 feeIndex = 0; feeIndex < fees.length; ++feeIndex) {
-                if (fees[feeIndex].blockNumber <= validatorItem.validatorsInBlock[index].blockNumber) {
-                    blockBalance = fees[feeIndex].fee * validatorItem.validatorsInBlock[index].amountValidators;
-                }
-            }
-            totalUsed += blockBalance;
+            uint256 fee = SSVRegisterContract.getOperatorFee(_ownerAddress, validatorItem.validatorsInBlock[index].blockNumber);
+            totalUsed += fee;
         }
         return totalUsed;
     }
@@ -151,7 +118,7 @@ contract SSVNetwork is ISSVNetwork {
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
-    ) public virtual {
+    ) public virtual override {
         address ownerAddress = msg.sender;
         SSVRegisterContract.addValidator(
             ownerAddress,
@@ -161,9 +128,16 @@ contract SSVNetwork is ISSVNetwork {
             _encryptedKeys
         );
         uint256 blockNumber = block.number;
+        AddressValidatorBalanceInfo storage validatorItem = addressValidatorBalanceInfo[ownerAddress];
+
         for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
-            address operatorAddress = SSVRegisterContract.operators(_operatorPublicKeys[index]).ownerAddress;
-            AddressValidatorBalanceInfo[ownerAddress].validatorsInBlock.push(
+            string memory name;
+            address operatorAddress;
+            bytes memory publicKey;
+            uint256 score;
+            (name, operatorAddress, publicKey, score) = SSVRegisterContract.operators(_operatorPublicKeys[index]);
+
+            validatorItem.validatorsInBlock.push(
                 ValidatorsInBlock(blockNumber, operatorAddress)
             );
             addOperatorValidator(operatorAddress, blockNumber);

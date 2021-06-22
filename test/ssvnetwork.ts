@@ -32,7 +32,10 @@ describe('SSVNetwork', function() {
   });
 
   it('Update operator fee', async function () {
-    await ssvNetwork.updateOperatorFee(account2.address, '10');
+    const fee = '10';
+    await ssvNetwork.updateOperatorFee(account2.address, fee);
+    const blockNumber = await ethers.provider.getBlockNumber();
+    expect((await ssvRegister.getOperatorFee(account2.address, `${blockNumber}`)).toString()).to.equal(fee);
   });
 
   it('Update operator balance', async function () {

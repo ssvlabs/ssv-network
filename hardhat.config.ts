@@ -52,7 +52,7 @@ if (process.env.GANACHE_ETH_NODE_URL) {
   config.networks['ganache'] = {
     url: process.env.GANACHE_ETH_NODE_URL,
     accounts: [`0x${process.env.GANACHE_OWNER_PRIVATE_KEY}`],
-    gasPrice: process.env.GAS_PRICE
+    gasPrice: +process.env.GAS_PRICE
   }
 }
 
@@ -60,7 +60,7 @@ if (process.env.GOERLI_ETH_NODE_URL) {
   config.networks['goerli'] = {
     url: process.env.GOERLI_ETH_NODE_URL,
     accounts: [`0x${process.env.GOERLI_OWNER_PRIVATE_KEY}`],
-    gasPrice: process.env.GAS_PRICE
+    gasPrice: +process.env.GAS_PRICE
   }
 }
 module.exports = config;

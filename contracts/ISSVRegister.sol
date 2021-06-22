@@ -159,14 +159,13 @@ interface ISSVRegister {
     ) external;
 
     /**
-     * @dev Gets operator fees by address.
+     * @dev Gets operator fee by address and block number.
      * @param _ownerAddress The user's ethereum address that is the owner of the operator.
+     * @param _blockNumber for which block number.
      */
-    function operatorFees(address _ownerAddress)
+    function getOperatorFee(address _ownerAddress, uint256 _blockNumber)
         external
-        returns(
-            OperatorFee[] calldata
-        );
+        returns (uint256);
 
     /**
      * @dev Update an operator fee.
