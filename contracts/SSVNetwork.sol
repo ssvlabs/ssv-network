@@ -58,6 +58,8 @@ contract SSVNetwork is ISSVNetwork {
         operatorValidators[_operatorAddress].push(
             OperatorValidators(_blockNumber, latestTotalValidators + 1)
         );
+
+        emit OperatorValidatorAdded(_operatorAddress, _blockNumber);
     }
 
     /**

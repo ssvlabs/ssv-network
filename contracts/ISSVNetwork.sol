@@ -19,6 +19,13 @@ interface ISSVNetwork {
     }
 
     /**
+     * @dev Emitted when the operator validator added.
+     * @param ownerAddress The user's ethereum address that is the owner of the operator.
+     * @param blockNumber Block number for changes.
+     */
+    event OperatorValidatorAdded(address ownerAddress, uint256 blockNumber);
+
+    /**
      * @dev Get operator balance by address.
      * @param _ownerAddress The operators's ethereum address that is the owner of created operators.
      */
@@ -42,13 +49,6 @@ interface ISSVNetwork {
      * @param _fee The operators's updated fee.
      */
     function updateOperatorFee(address _ownerAddress, uint256 _fee) external;
-
-    /**
-     * @dev Emitted when the operator has been updated the fee.
-     * @param ownerAddress Operator's ethereum address that can collect fees.
-     * @param fee The operators's updated fee.
-     */
-    event OperatorFeeUpdated(address ownerAddress, uint256 fee);
 
     /**
      * @dev Calculate operator's payback.

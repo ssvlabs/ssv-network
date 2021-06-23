@@ -38,22 +38,15 @@ describe('SSVNetwork', function() {
     expect((await ssvRegister.getOperatorFee(account2.address, `${blockNumber}`)).toString()).to.equal(fee);
   });
 
-  it('Update operator balance', async function () {
+  it('Get operator balance', async function () {
     // set fee for operator
     await ssvNetwork.updateOperatorFee(account2.address, '10');
 
-    await ssvNetwork.updateBalance(account2.address);
+    const blockNumber = await ethers.provider.getBlockNumber();
+    await ssvNetwork.addOperatorValidator(account2.address, blockNumber);
     await ethers.provider.send('evm_setNextBlockTimestamp', [Date.now() + 86400]);
     await ethers.provider.send('evm_mine', []);
-    await ssvNetwork.updateBalance(account2.address);
-
-    await ethers.provider.send('evm_setNextBlockTimestamp', [Date.now() + 86400]);
-    await ethers.provider.send('evm_mine', []);
-    await ssvNetwork.updateBalance(account2.address);
-
-    await ethers.provider.send('evm_setNextBlockTimestamp', [Date.now() + 86400]);
-    await ethers.provider.send('evm_mine', []);
-    await ssvNetwork.updateBalance(account2.address);
+    const balance = await ssvNetwork.operatorBalanceOf(account2.address);
   });
 
 });
