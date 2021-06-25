@@ -29,8 +29,7 @@ describe('DEX', function() {
     const dexFactory = await ethers.getContractFactory('DEX');
     dex = await upgrades.deployProxy(
       dexFactory,
-      [oldToken.address, ssvToken.address, RATE],
-      { initializer: 'initialize' }
+      [oldToken.address, ssvToken.address, RATE]
     );
     await dex.deployed();
     await ssvToken.transfer(dex.address, ssvBalance);
