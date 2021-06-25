@@ -16,6 +16,7 @@ contract SSVToken is Initializable, ContextUpgradeable, OwnableUpgradeable, ERC2
         __Ownable_init_unchained();
         __ERC20_init_unchained("SSV Token", "SSV");
         __ERC20Burnable_init_unchained();
+        __SSVToken_init_unchained();
     }
 
     function __SSVToken_init_unchained() internal initializer {
