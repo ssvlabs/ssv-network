@@ -10,7 +10,7 @@ contract SSVNetwork is ISSVNetwork {
     ISSVRegister private SSVRegisterContract;
 
     mapping(address => OperatorValidators[]) internal operatorValidators;
-    mapping(address => AddressValidatorBalanceInfo) internal addressValidatorBalanceInfo;
+    mapping(address => AddressValidatorBalanceInfo) internal addressValidatorBalances;
 
     function initialize(ISSVRegister _SSVRegisterAddress) public {
         SSVRegisterContract = _SSVRegisterAddress;
@@ -96,10 +96,10 @@ contract SSVNetwork is ISSVNetwork {
      * @dev See {ISSVNetwork-calculateOperatorCharges}.
      */
     function calculateValidatorCharges(address _ownerAddress) public override returns(uint256) {
-        AddressValidatorBalanceInfo storage validatorItem = addressValidatorBalanceInfo[_ownerAddress];
+        AddressValidatorBalanceInfo storage validatorItem = addressValidatorBalances[_ownerAddress];
         uint256 totalUsed;
         for (uint256 index = 0; index < validatorItem.validatorsInBlock.length; ++index) {
-            uint256 fee = SSVRegisterContract.getOperatorFee(_ownerAddress, validatorItem.validatorsInBlock[index].blockNumber);
+            uint256 fee = SSVRegisterContract.getOperatorFee(validatorItem.validatorsInBlock[index].operatorAddress, validatorItem.validatorsInBlock[index].blockNumber);
             totalUsed += fee;
         }
         return totalUsed;
@@ -109,7 +109,7 @@ contract SSVNetwork is ISSVNetwork {
      * @dev See {ISSVNetwork-updateValidatorBalance}.
      */
     function updateValidatorBalance(address _ownerAddress) public override {
-        addressValidatorBalanceInfo[_ownerAddress].balance -= calculateValidatorCharges(_ownerAddress);
+        addressValidatorBalances[_ownerAddress].balance -= calculateValidatorCharges(_ownerAddress);
     }
 
     /**
@@ -130,7 +130,7 @@ contract SSVNetwork is ISSVNetwork {
             _encryptedKeys
         );
         uint256 blockNumber = block.number;
-        AddressValidatorBalanceInfo storage validatorItem = addressValidatorBalanceInfo[ownerAddress];
+        AddressValidatorBalanceInfo storage validatorItem = addressValidatorBalances[ownerAddress];
 
         for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
             string memory name;
