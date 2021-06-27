@@ -100,7 +100,7 @@
           }
         ],
         "indexed": false,
-        "internalType": "struct ISSVRegister.Oess[]",
+        "internalType": "struct ISSVRegistry.Oess[]",
         "name": "oessList",
         "type": "tuple[]"
       }

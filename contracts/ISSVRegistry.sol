@@ -1,8 +1,8 @@
-// File: contracts/ISSVRegister.sol
+// File: contracts/ISSVRegistry.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
-interface ISSVRegister {
+interface ISSVRegistry {
     struct Oess {
         uint256 index;
         bytes operatorPublicKey;

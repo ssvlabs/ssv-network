@@ -4,23 +4,23 @@ pragma solidity ^0.8.2;
 import "hardhat/console.sol";
 
 import "./ISSVNetwork.sol";
-import "./ISSVRegister.sol";
+import "./ISSVRegistry.sol";
 
 contract SSVNetwork is ISSVNetwork {
-    ISSVRegister private SSVRegisterContract;
+    ISSVRegistry private SSVRegistryContract;
 
     mapping(address => OperatorValidators[]) internal operatorValidators;
     mapping(address => AddressValidatorBalanceInfo) internal addressValidatorBalances;
 
-    function initialize(ISSVRegister _SSVRegisterAddress) public {
-        SSVRegisterContract = _SSVRegisterAddress;
+    function initialize(ISSVRegistry _SSVRegistryAddress) public {
+        SSVRegistryContract = _SSVRegistryAddress;
     }
 
     /**
      * @dev See {ISSVNetwork-updateOperatorFee}.
      */
     function updateOperatorFee(address _ownerAddress, uint256 fee) public virtual override {
-        SSVRegisterContract.updateOperatorFee(_ownerAddress, block.number, fee);
+        SSVRegistryContract.updateOperatorFee(_ownerAddress, block.number, fee);
     }
 
     /**
@@ -40,7 +40,7 @@ contract SSVNetwork is ISSVNetwork {
         uint256 balance;
         for (uint256 index = 0; index < operatorValidators[_ownerAddress].length; ++index) {
             OperatorValidators memory validatorsInBlock = operatorValidators[_ownerAddress][index];
-            uint256 fee = SSVRegisterContract.getOperatorFee(_ownerAddress, validatorsInBlock.blockNumber);
+            uint256 fee = SSVRegistryContract.getOperatorFee(_ownerAddress, validatorsInBlock.blockNumber);
             uint256 blockBalance = fee * validatorsInBlock.amountValidators;
             balance += blockBalance;
         }
@@ -99,7 +99,7 @@ contract SSVNetwork is ISSVNetwork {
         AddressValidatorBalanceInfo storage validatorItem = addressValidatorBalances[_ownerAddress];
         uint256 totalUsed;
         for (uint256 index = 0; index < validatorItem.validatorsInBlock.length; ++index) {
-            uint256 fee = SSVRegisterContract.getOperatorFee(validatorItem.validatorsInBlock[index].operatorAddress, validatorItem.validatorsInBlock[index].blockNumber);
+            uint256 fee = SSVRegistryContract.getOperatorFee(validatorItem.validatorsInBlock[index].operatorAddress, validatorItem.validatorsInBlock[index].blockNumber);
             totalUsed += fee;
         }
         return totalUsed;
@@ -122,7 +122,7 @@ contract SSVNetwork is ISSVNetwork {
         bytes[] calldata _encryptedKeys
     ) public virtual override {
         address ownerAddress = msg.sender;
-        SSVRegisterContract.addValidator(
+        SSVRegistryContract.addValidator(
             ownerAddress,
             _publicKey,
             _operatorPublicKeys,
@@ -137,7 +137,7 @@ contract SSVNetwork is ISSVNetwork {
             address operatorAddress;
             bytes memory publicKey;
             uint256 score;
-            (name, operatorAddress, publicKey, score) = SSVRegisterContract.operators(_operatorPublicKeys[index]);
+            (name, operatorAddress, publicKey, score) = SSVRegistryContract.operators(_operatorPublicKeys[index]);
 
             validatorItem.validatorsInBlock.push(
                 ValidatorsInBlock(blockNumber, operatorAddress)

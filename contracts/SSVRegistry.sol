@@ -1,10 +1,10 @@
-// File: contracts/SSVRegister.sol
+// File: contracts/SSVRegistry.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
-import "./ISSVRegister.sol";
+import "./ISSVRegistry.sol";
 
-contract SSVRegister is ISSVRegister {
+contract SSVRegistry is ISSVRegistry {
     uint256 public operatorCount;
     uint256 public validatorCount;
 
@@ -46,7 +46,7 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
-     * @dev See {ISSVRegister-addOperator}.
+     * @dev See {ISSVRegistry-addOperator}.
      */
     function addOperator(
         string calldata _name,
@@ -63,7 +63,7 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
-     * @dev See {ISSVRegister-addValidator}.
+     * @dev See {ISSVRegistry-addValidator}.
      */
     function addValidator(
         address _ownerAddress,
@@ -104,7 +104,7 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
-     * @dev See {ISSVRegister-updateValidator}.
+     * @dev See {ISSVRegistry-updateValidator}.
      */
     function updateValidator(
         bytes calldata _publicKey,
@@ -136,7 +136,7 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
-     * @dev See {ISSVRegister-deleteValidator}.
+     * @dev See {ISSVRegistry-deleteValidator}.
      */
     function deleteValidator(
         bytes calldata _publicKey
@@ -148,7 +148,7 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
-     * @dev See {ISSVRegister-deleteOperator}.
+     * @dev See {ISSVRegistry-deleteOperator}.
      */
     function deleteOperator(
         bytes calldata _publicKey
@@ -160,7 +160,7 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
-     * @dev See {ISSVRegister-getOperatorFees}.
+     * @dev See {ISSVRegistry-getOperatorFees}.
      */
     function getOperatorFee(address _ownerAddress, uint256 _blockNumber) public view override returns (uint256) {
         require(operatorFees[_ownerAddress].length > 0, "Operator fees not found");
@@ -174,7 +174,7 @@ contract SSVRegister is ISSVRegister {
     }
 
     /**
-     * @dev See {ISSVRegister-updateOperatorFee}.
+     * @dev See {ISSVRegistry-updateOperatorFee}.
      */
     function updateOperatorFee(address _ownerAddress, uint256 blockNumber, uint256 fee) public virtual override {
         OperatorFee[] storage fees = operatorFees[_ownerAddress];

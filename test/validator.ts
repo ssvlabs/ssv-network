@@ -13,20 +13,20 @@ before(() => {
 
 const { expect } = chai;
 
-let ssvRegister;
+let SSVRegistry;
 let ssvNetwork;
 
 
 describe('Validators', function() {
   beforeEach(async function () {
-    const ssvRegisterFactory = await ethers.getContractFactory('SSVRegister');
-    ssvRegister = await ssvRegisterFactory.deploy();
-    await ssvRegister.deployed();
+    const SSVRegistryFactory = await ethers.getContractFactory('SSVRegistry');
+    SSVRegistry = await SSVRegistryFactory.deploy();
+    await SSVRegistry.deployed();
 
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
     ssvNetwork = await upgrades.deployProxy(
       ssvNetworkFactory,
-      [ssvRegister.address],
+      [SSVRegistry.address],
       { initializer: 'initialize' }
     );
     await ssvNetwork.deployed();
@@ -48,7 +48,7 @@ describe('Validators', function() {
       sharePubKeys,
       encryptedKeys
     ))
-      .to.emit(ssvRegister, 'ValidatorAdded')
+      .to.emit(SSVRegistry, 'ValidatorAdded')
       .to.emit(ssvNetwork, 'OperatorValidatorAdded');
 
     /*
@@ -73,7 +73,7 @@ describe('Validators', function() {
     */
 
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await ssvRegister.validatorCount()).toString()).to.equal('1');
+    expect((await SSVRegistry.validatorCount()).toString()).to.equal('1');
   });
 
   // Test case
@@ -86,14 +86,14 @@ describe('Validators', function() {
     const ownerAddress = '0xe52350A8335192905359c4c3C2149976dCC3D8bF';
 
     // Add new operator and check if event was emitted
-    await expect(ssvRegister.addValidator(
+    await expect(SSVRegistry.addValidator(
       ownerAddress,
       pubKey,
       operatorPubKeys,
       sharePubKeys,
       encryptedKeys
     ))
-      .to.emit(ssvRegister, 'ValidatorAdded');
+      .to.emit(SSVRegistry, 'ValidatorAdded');
 
     /*
       Hot To Work with Event Payloads
@@ -117,7 +117,7 @@ describe('Validators', function() {
     */
 
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await ssvRegister.validatorCount()).toString()).to.equal('1');
+    expect((await SSVRegistry.validatorCount()).toString()).to.equal('1');
   });
 
   it('Delete validator and emit the event', async function () {
@@ -127,7 +127,7 @@ describe('Validators', function() {
     const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195544', '0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
 
     const [owner] = await ethers.getSigners();
-    await ssvRegister.addValidator(
+    await SSVRegistry.addValidator(
       owner.address,
       pubKey,
       operatorPubKeys,
@@ -135,12 +135,12 @@ describe('Validators', function() {
       encryptedKeys
     );
 
-    await expect(ssvRegister.deleteValidator(pubKey))
-      .to.emit(ssvRegister, 'ValidatorDeleted')
+    await expect(SSVRegistry.deleteValidator(pubKey))
+      .to.emit(SSVRegistry, 'ValidatorDeleted')
       .withArgs(owner.address, pubKey);
 
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await ssvRegister.validatorCount()).toString()).to.equal('0');
+    expect((await SSVRegistry.validatorCount()).toString()).to.equal('0');
   });
 
 
@@ -151,7 +151,7 @@ describe('Validators', function() {
     const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195544', '0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
     const ownerAddress = '0xe52350A8335192905359c4c3C2149976dCC3D8bF';
 
-    await ssvRegister.addValidator(
+    await SSVRegistry.addValidator(
       ownerAddress,
       pubKey,
       operatorPubKeys,
@@ -159,7 +159,7 @@ describe('Validators', function() {
       encryptedKeys
     );
 
-    await ssvRegister.deleteValidator(pubKey)
+    await SSVRegistry.deleteValidator(pubKey)
       .should.eventually.be.rejectedWith('Caller is not validator owner');
   });
 
@@ -170,7 +170,7 @@ describe('Validators', function() {
     const sharePubKeys = ['0xaddb812ada642ea3d5b12c66f085c536e40143db764e95d496f33af77b06aa84047970cdb883202768f552f3e4997d80'];
     const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
     const [owner] = await ethers.getSigners();
-    await ssvRegister.addValidator(
+    await SSVRegistry.addValidator(
       owner.address,
       pubKey,
       operatorPubKeys,
@@ -178,13 +178,13 @@ describe('Validators', function() {
       encryptedKeys
     );
 
-    await expect(ssvRegister.updateValidator(
+    await expect(SSVRegistry.updateValidator(
       pubKey,
       operatorPubKeys,
       sharePubKeys,
       encryptedKeys
     ))
-      .to.emit(ssvRegister, 'ValidatorUpdated');
+      .to.emit(SSVRegistry, 'ValidatorUpdated');
   });
 
   it('Update validator fails if tx was sent not by owner', async function () {
@@ -194,7 +194,7 @@ describe('Validators', function() {
     const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
     const ownerAddress = '0xe52350A8335192905359c4c3C2149976dCC3D8bF';
 
-    await ssvRegister.addValidator(
+    await SSVRegistry.addValidator(
       ownerAddress,
       pubKey,
       operatorPubKeys,
@@ -202,7 +202,7 @@ describe('Validators', function() {
       encryptedKeys
     );
 
-    await ssvRegister.updateValidator(
+    await SSVRegistry.updateValidator(
       pubKey,
       operatorPubKeys,
       sharePubKeys,

@@ -12,20 +12,20 @@ before(() => {
 
 const { expect } = chai;
 
-let ssvNetwork, ssvRegister;
+let ssvNetwork, SSVRegistry;
 let account2;
 
 describe('SSVNetwork', function() {
   beforeEach(async function () {
     [account2] = await ethers.getSigners();
-    const ssvRegisterFactory = await ethers.getContractFactory('SSVRegister');
-    ssvRegister = await ssvRegisterFactory.deploy();
-    await ssvRegister.deployed();
+    const SSVRegistryFactory = await ethers.getContractFactory('SSVRegistry');
+    SSVRegistry = await SSVRegistryFactory.deploy();
+    await SSVRegistry.deployed();
 
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
     ssvNetwork = await upgrades.deployProxy(
       ssvNetworkFactory,
-      [ssvRegister.address],
+      [SSVRegistry.address],
       { initializer: 'initialize' }
     );
     await ssvNetwork.deployed();
@@ -35,7 +35,7 @@ describe('SSVNetwork', function() {
     const fee = '10';
     await ssvNetwork.updateOperatorFee(account2.address, fee);
     const blockNumber = await ethers.provider.getBlockNumber();
-    expect((await ssvRegister.getOperatorFee(account2.address, `${blockNumber}`)).toString()).to.equal(fee);
+    expect((await SSVRegistry.getOperatorFee(account2.address, `${blockNumber}`)).toString()).to.equal(fee);
   });
 
   it('Get operator balance', async function () {
