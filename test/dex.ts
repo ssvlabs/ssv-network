@@ -40,24 +40,4 @@ describe('DEX', function() {
     await dex.convertCDTToSSV(oldToExchange);
     expect(await oldToken.balanceOf(dex.address)).to.equal(oldToExchange);
   });
-
-  it('Exchange CDT to SSV and back to CDT', async function () {
-    await oldToken.approve(dex.address, oldToExchange);
-    await dex.convertCDTToSSV(oldToExchange);
-
-    const ssvToExchange = `${+oldToExchange / RATE}`;
-    await ssvToken.approve(dex.address, ssvToExchange);
-    await dex.convertSSVToCDT(ssvToExchange);
-  });
-
-  it('Exchange SSV to CDT fails with not allowed amount', async function () {
-    await oldToken.approve(dex.address, oldToExchange);
-    await dex.convertCDTToSSV(oldToExchange);
-
-    const ssvToExchange = oldToExchange;
-    await ssvToken.approve(dex.address, ssvToExchange);
-
-    await dex.convertSSVToCDT(ssvToExchange)
-      .should.eventually.be.rejectedWith(" Can't exceed original CDT amount");
-  });
 });
