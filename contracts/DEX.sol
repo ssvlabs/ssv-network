@@ -10,10 +10,16 @@ contract DEX {
 
     uint public rate;
 
+    bool initialized = false;
+
     function initialize(IERC20 _cdtTokenAddress, IERC20 _ssvTokenAddress, uint256 _rate) public {
+        require(!initialized, "Already initialized");
+
         cdtToken = _cdtTokenAddress;
         ssvToken = _ssvTokenAddress;
         rate = _rate;
+
+        initialized = true;
     }
 
     function convertCDTToSSV(uint256 _amount) public {
