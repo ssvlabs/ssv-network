@@ -11,23 +11,23 @@ contract SSVRegistry is ISSVRegistry {
     mapping(bytes => Operator) public override operators;
     mapping(bytes => Validator) internal validators;
 
-    mapping(address => OperatorFee[]) private operatorFees; // override
+    mapping(bytes => OperatorFee[]) private operatorFees; // override
 
-    modifier onlyValidator(bytes calldata _publicKey) {
+    modifier onlyValidator(bytes calldata _publicKey, address _ownerAddress) {
         require(
             validators[_publicKey].ownerAddress != address(0),
             "Validator with public key is not exists"
         );
-        require(msg.sender == validators[_publicKey].ownerAddress, "Caller is not validator owner");
+        require(_ownerAddress == validators[_publicKey].ownerAddress, "Caller is not validator owner");
         _;
     }
 
-    modifier onlyOperator(bytes calldata _publicKey) {
+    modifier onlyOperator(bytes calldata _publicKey, address _ownerAddress) {
         require(
             operators[_publicKey].ownerAddress != address(0),
             "Operator with public key is not exists"
         );
-        require(msg.sender == operators[_publicKey].ownerAddress, "Caller is not operator owner");
+        require(_ownerAddress == operators[_publicKey].ownerAddress, "Caller is not operator owner");
         _;
     }
 
@@ -46,9 +46,9 @@ contract SSVRegistry is ISSVRegistry {
     }
 
     /**
-     * @dev See {ISSVRegistry-addOperator}.
+     * @dev See {ISSVRegistry-registerOperator}.
      */
-    function addOperator(
+    function registerOperator(
         string calldata _name,
         address _ownerAddress,
         bytes calldata _publicKey
@@ -63,9 +63,9 @@ contract SSVRegistry is ISSVRegistry {
     }
 
     /**
-     * @dev See {ISSVRegistry-addValidator}.
+     * @dev See {ISSVRegistry-registerValidator}.
      */
-    function addValidator(
+    function registerValidator(
         address _ownerAddress,
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
@@ -107,11 +107,12 @@ contract SSVRegistry is ISSVRegistry {
      * @dev See {ISSVRegistry-updateValidator}.
      */
     function updateValidator(
+        address _ownerAddress,
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
-    ) onlyValidator(_publicKey) public virtual override {
+    ) onlyValidator(_publicKey, _ownerAddress) public virtual override {
         _validateValidatorParams(
             _publicKey,
             _operatorPublicKeys,
@@ -139,8 +140,9 @@ contract SSVRegistry is ISSVRegistry {
      * @dev See {ISSVRegistry-deleteValidator}.
      */
     function deleteValidator(
+        address _ownerAddress,
         bytes calldata _publicKey
-    ) onlyValidator(_publicKey) public virtual override {
+    ) onlyValidator(_publicKey, _ownerAddress) public virtual override {
         address ownerAddress = validators[_publicKey].ownerAddress;
         delete validators[_publicKey];
         validatorCount--;
@@ -151,8 +153,9 @@ contract SSVRegistry is ISSVRegistry {
      * @dev See {ISSVRegistry-deleteOperator}.
      */
     function deleteOperator(
+        address _ownerAddress,
         bytes calldata _publicKey
-    ) onlyOperator(_publicKey) public virtual override {
+    ) onlyOperator(_publicKey, _ownerAddress) public virtual override {
         string memory name = operators[_publicKey].name;
         delete operators[_publicKey];
         operatorCount--;
@@ -160,27 +163,61 @@ contract SSVRegistry is ISSVRegistry {
     }
 
     /**
-     * @dev See {ISSVRegistry-getOperatorFees}.
+     * @dev See {ISSVRegistry-getOperatorFee}.
      */
-    function getOperatorFee(address _ownerAddress, uint256 _blockNumber) public view override returns (uint256) {
-        require(operatorFees[_ownerAddress].length > 0, "Operator fees not found");
+    function getOperatorFee(bytes calldata _operatorPubKey, uint256 _blockNumber) public view override returns (uint256) {
+        require(operatorFees[_operatorPubKey].length > 0, "Operator fees not found");
         uint256 fee;
-        for (uint256 index = 0; index < operatorFees[_ownerAddress].length; ++index) {
-            if (operatorFees[_ownerAddress][index].blockNumber <= _blockNumber) {
-                fee = operatorFees[_ownerAddress][index].fee;
+        for (uint256 index = 0; index < operatorFees[_operatorPubKey].length; ++index) {
+            if (operatorFees[_operatorPubKey][index].blockNumber <= _blockNumber) {
+                fee = operatorFees[_operatorPubKey][index].fee;
             }
         }
         return fee;
     }
 
     /**
+     * @dev See {ISSVRegistry-getValidatorUsage}.
+     */
+    function getValidatorUsage(bytes calldata _pubKey, uint256 _fromBlockNumber, uint256 _toBlockNumber) public view override returns (uint256 usage) {
+        uint256 usage = 0;
+        for (uint256 index = 0; index < validators[_pubKey].oess.length; ++index) {
+            Oess memory oessItem = validators[_pubKey].oess[index];
+            uint256 lastBlockNumber = _toBlockNumber;
+            uint oldestFeeUsed = 0;
+            for (uint256 feeIndex = operatorFees[oessItem.operatorPublicKey].length - 1; feeIndex >= 0; feeIndex--) {
+                if (oldestFeeUsed == 0 && operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber < lastBlockNumber) {
+                    uint256 startBlockNumber = _fromBlockNumber;
+                    if (operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber > _fromBlockNumber) {
+                        startBlockNumber = operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber;
+                    }
+                    usage += (lastBlockNumber - startBlockNumber) * operatorFees[oessItem.operatorPublicKey][feeIndex].fee;
+                    lastBlockNumber = startBlockNumber;
+                    if (startBlockNumber == _fromBlockNumber) {
+                        oldestFeeUsed = 1;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * @dev See {ISSVRegistry-updateOperatorFee}.
      */
-    function updateOperatorFee(address _ownerAddress, uint256 blockNumber, uint256 fee) public virtual override {
-        OperatorFee[] storage fees = operatorFees[_ownerAddress];
+    function updateOperatorFee(bytes calldata _pubKey, uint256 blockNumber, uint256 fee) public virtual override {
+        OperatorFee[] storage fees = operatorFees[_pubKey];
         fees.push(
             OperatorFee(block.number, fee)
         );
-        emit OperatorFeeUpdated(_ownerAddress, blockNumber, fee);
+        emit OperatorFeeUpdated(_pubKey, blockNumber, fee);
+    }
+
+    function getOperatorPubKeysInUse(bytes calldata _validatorPubKey) public virtual override returns (bytes[] memory operatorPubKeys) {
+        Validator storage validatorItem = validators[_validatorPubKey];
+
+        bytes[] memory operatorPubKeys = new bytes[](validatorItem.oess.length);
+        for (uint256 index = 0; index < validatorItem.oess.length; ++index) {
+            operatorPubKeys[index] = validatorItem.oess[index].operatorPublicKey;
+        }
     }
 }

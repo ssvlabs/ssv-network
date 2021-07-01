@@ -9,8 +9,8 @@ import "./ISSVRegistry.sol";
 contract SSVNetwork is ISSVNetwork {
     ISSVRegistry private SSVRegistryContract;
 
-    mapping(address => OperatorValidators[]) internal operatorValidators;
-    mapping(address => AddressValidatorBalanceInfo) internal addressValidatorBalances;
+    mapping(bytes => OperatorBalanceSnapshot) internal operatorBalances;
+    mapping(bytes => ValidatorBalanceSnapshot) internal validatorBalances;
 
     function initialize(ISSVRegistry _SSVRegistryAddress) public {
         SSVRegistryContract = _SSVRegistryAddress;
@@ -19,61 +19,34 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-updateOperatorFee}.
      */
-    function updateOperatorFee(address _ownerAddress, uint256 fee) public virtual override {
-        SSVRegistryContract.updateOperatorFee(_ownerAddress, block.number, fee);
+    function updateOperatorFee(bytes calldata _pubKey, uint256 fee) public virtual override {
+        SSVRegistryContract.updateOperatorFee(_pubKey, block.number, fee);
     }
 
     /**
      * @dev See {ISSVNetwork-operatorBalanceOf}.
      */
-    function operatorBalanceOf(address _ownerAddress) public override returns(uint256) {
-        return calculateOperatorPayback(_ownerAddress);
+    function operatorBalanceOf(bytes calldata _pubKey) public override returns(uint256) {
+        return calculateOperatorPayback(_pubKey, block.number);
     }
 
     /**
      * @dev See {ISSVNetwork-calculateOperatorPayback}.
      */
-    function calculateOperatorPayback(address _ownerAddress) public virtual override returns(uint256) {
-        if (operatorValidators[_ownerAddress].length == 0) {
-            return 0;
-        }
-        uint256 balance;
-        for (uint256 index = 0; index < operatorValidators[_ownerAddress].length; ++index) {
-            OperatorValidators memory validatorsInBlock = operatorValidators[_ownerAddress][index];
-            uint256 fee = SSVRegistryContract.getOperatorFee(_ownerAddress, validatorsInBlock.blockNumber);
-            uint256 blockBalance = fee * validatorsInBlock.amountValidators;
-            balance += blockBalance;
-        }
-        return balance;
+    function calculateOperatorPayback(bytes calldata _pubKey, uint256 _currentBlockNumber) private override returns(uint256) {
+        uint256 fee = getOpeatorCurrentFee();
+        return operatorBalances[_publicKey].balance + fee * (_currentBlockNumber - operatorBalances[_publicKey].blockNumber) * operatorBalances[_publicKey].validatorCount;
     }
 
     /**
-     * @dev See {ISSVNetwork-addOperatorValidator}.
+     * @dev See {ISSVNetwork-updateOperatorBalance}.
      */
-    function addOperatorValidator(address _operatorAddress, uint256 _blockNumber) public virtual override {
-        uint256 latestTotalValidators = 0;
-        if (operatorValidators[_operatorAddress].length > 0) {
-            latestTotalValidators = operatorValidators[_operatorAddress][operatorValidators[_operatorAddress].length - 1].amountValidators;
-        }
-        operatorValidators[_operatorAddress].push(
-            OperatorValidators(_blockNumber, latestTotalValidators + 1)
-        );
-
-        emit OperatorValidatorAdded(_operatorAddress, _blockNumber);
-    }
-
-    /**
-     * @dev See {ISSVNetwork-deductOperatorValidator}.
-     */
-    function deductOperatorValidator(address _ownerAddress, uint256 _blockNumber, uint256 _amountValidators) public override {
-        uint256 latestTotalValidators = 0;
-        if (operatorValidators[_ownerAddress].length > 0) {
-            latestTotalValidators = operatorValidators[_ownerAddress][operatorValidators[_ownerAddress].length - 1].amountValidators;
-        }
-        require(latestTotalValidators - _amountValidators < 0, "Requested validators not found for current block");
-        operatorValidators[_ownerAddress].push(
-            OperatorValidators(_blockNumber, latestTotalValidators - _amountValidators)
-        );
+    function updateOperatorBalance(bytes calldata _pubKey) public override {
+        uint256 currentBlockNumber = block.number;
+        uint256 totalPayback = calculateOperatorPayback(_pubKey, currentBlockNumber);
+        OperatorBalanceSnapshot storage balanceSnapshot = operatorBalances[_pubKey];
+        operatorBalances.blockNumber = currentBlockNumber;
+        operatorBalances.balance = totalPayback;
     }
 
     /**
@@ -81,68 +54,124 @@ contract SSVNetwork is ISSVNetwork {
      */
     function registerOperator(
         string calldata _name,
-        address _ownerAddress,
         bytes calldata _publicKey
-    ) public override {}
+    ) public override {
+        SSVRegistryContract.registerOperator(
+            _name,
+            msg.sender,
+            _publicKey
+        );
+        operatorBalances[_publicKey] = OperatorBalanceSnapshot(block.number, 0, 0);
+    }
 
     /**
      * @dev See {ISSVNetwork-validatorBalanceOf}.
      */
-    function validatorBalanceOf(address _ownerAddress) public override returns(uint256) {
-        return calculateValidatorCharges(_ownerAddress);
+    function validatorBalanceOf(bytes calldata _pubKey) public override returns(uint256) {
+        uint256 currentBlockNumber = block.number;
+        return calculateValidatorUsage(_pubKey, currentBlockNumber);
     }
 
     /**
-     * @dev See {ISSVNetwork-calculateOperatorCharges}.
+     * @dev See {ISSVNetwork-calculateValidatorUsage}.
      */
-    function calculateValidatorCharges(address _ownerAddress) public override returns(uint256) {
-        AddressValidatorBalanceInfo storage validatorItem = addressValidatorBalances[_ownerAddress];
-        uint256 totalUsed;
-        for (uint256 index = 0; index < validatorItem.validatorsInBlock.length; ++index) {
-            uint256 fee = SSVRegistryContract.getOperatorFee(validatorItem.validatorsInBlock[index].operatorAddress, validatorItem.validatorsInBlock[index].blockNumber);
-            totalUsed += fee;
-        }
-        return totalUsed;
+    function calculateValidatorUsage(bytes calldata _pubKey, uint256 _currentBlockNumber) private override returns(uint256) {
+        ValidatorBalanceSnapshot storage balanceSnapshot = validatorBalances[_pubKey];
+        uint256 usage = balanceSnapshot.balance + SSVRegistryContract.getValidatorUsage(_pubKey, balanceSnapshot.blockNumber, _currentBlockNumber);
     }
 
     /**
      * @dev See {ISSVNetwork-updateValidatorBalance}.
      */
-    function updateValidatorBalance(address _ownerAddress) public override {
-        addressValidatorBalances[_ownerAddress].balance -= calculateValidatorCharges(_ownerAddress);
+    function updateValidatorBalance(bytes calldata _pubKey) public override {
+        uint256 currentBlockNumber = block.number;
+        uint256 totalUsage = calculateValidatorUsage(_pubKey, currentBlockNumber);
+        ValidatorBalanceSnapshot storage balanceSnapshot = validatorBalances[_pubKey];
+        balanceSnapshot.blockNumber = currentBlockNumber;
+        balanceSnapshot.balance = totalUsage;
     }
 
     /**
-     * @dev See {ISSVNetwork-addValidator}.
+     * @dev See {ISSVNetwork-registerValidator}.
      */
-    function addValidator(
+    function registerValidator(
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
     ) public virtual override {
-        address ownerAddress = msg.sender;
-        SSVRegistryContract.addValidator(
-            ownerAddress,
+        SSVRegistryContract.registerValidator(
+            msg.sender,
             _publicKey,
             _operatorPublicKeys,
             _sharesPublicKeys,
             _encryptedKeys
         );
-        uint256 blockNumber = block.number;
-        AddressValidatorBalanceInfo storage validatorItem = addressValidatorBalances[ownerAddress];
+        validatorBalances[_publicKey] = ValidatorBalanceSnapshot(block.number, 0);
 
         for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
-            string memory name;
-            address operatorAddress;
-            bytes memory publicKey;
-            uint256 score;
-            (name, operatorAddress, publicKey, score) = SSVRegistryContract.operators(_operatorPublicKeys[index]);
+            address operatorPubKey = _operatorPublicKeys[index];
+            updateOperatorBalance(operatorPubKey);
+            operatorBalances[operatorPubKey].validatorCount++;
+-       }
+    }
 
-            validatorItem.validatorsInBlock.push(
-                ValidatorsInBlock(blockNumber, operatorAddress)
-            );
-            addOperatorValidator(operatorAddress, blockNumber);
-        }
+    /**
+     * @dev See {ISSVNetwork-updateValidator}.
+     */
+    function updateValidator(
+        bytes calldata _publicKey,
+        bytes[] calldata _operatorPublicKeys,
+        bytes[] calldata _sharesPublicKeys,
+        bytes[] calldata _encryptedKeys
+    ) public virtual override {
+        updateValidatorBalance(_publicKey);
+        bytes[] memory currentOperatorPubKeys = SSVRegistryContract.getOperatorPubKeysInUse(_publicKey);
+        // calculate balances for current operators in use
+        for (uint256 index = 0; index < currentOperatorPubKeys.length; ++index) {
+            address operatorPubKey = currentOperatorPubKeys[index];
+            updateOperatorBalance(operatorPubKey);
+            operatorBalances[operatorPubKey].validatorCount--;
+-       }
+
+        // calculate balances for new operators in use
+        for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
+            address operatorPubKey = _operatorPublicKeys[index];
+            updateOperatorBalance(operatorPubKey);
+            operatorBalances[operatorPubKey].validatorCount++;
+-       }
+
+        SSVRegistryContract.updateValidator(
+            msg.sender,
+            _publicKey,
+            _operatorPublicKeys,
+            _sharesPublicKeys,
+            _encryptedKeys
+        );
+    }
+
+    /**
+     * @dev See {ISSVNetwork-deleteValidator}.
+     */
+    function deleteValidator(bytes calldata _publicKey) public virtual override {
+        updateValidatorBalance(_publicKey);
+
+        // calculate balances for current operators in use and update their balances
+        bytes[] memory currentOperatorPubKeys = SSVRegistryContract.getOperatorPubKeysInUse(_publicKey);
+        for (uint256 index = 0; index < currentOperatorPubKeys.length; ++index) {
+            address operatorPubKey = currentOperatorPubKeys[index];
+            updateOperatorBalance(operatorPubKey);
+            operatorBalances[operatorPubKey].validatorCount--;
+-       }
+
+        SSVRegistryContract.deleteValidator(_publicKey, msg.sender);
+    }
+
+    /**
+     * @dev See {ISSVNetwork-deleteValidator}.
+     */
+    function deleteOperator(bytes calldata _publicKey) public virtual override {
+        updateOperatorBalance(_publicKey);
+        SSVRegistryContract.deleteOperator(_publicKey, msg.sender);
     }
 }

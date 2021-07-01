@@ -3,19 +3,15 @@
 pragma solidity ^0.8.2;
 
 interface ISSVNetwork {
-    struct OperatorValidators {
+    struct OperatorBalanceSnapshot {
         uint256 blockNumber;
-        uint256 amountValidators;
-    }
-
-    struct ValidatorsInBlock {
-        uint256 blockNumber;
-        address operatorAddress;
-    }
-
-    struct AddressValidatorBalanceInfo {
+        uint256 validatorCount;
         uint256 balance;
-        ValidatorsInBlock[] validatorsInBlock;
+    }
+
+    struct ValidatorBalanceSnapshot {
+        uint256 blockNumber;
+        uint256 balance;
     }
 
     /**
@@ -27,12 +23,12 @@ interface ISSVNetwork {
 
     /**
      * @dev Get operator balance by address.
-     * @param _ownerAddress The operators's ethereum address that is the owner of created operators.
+     * @param _publicKey Operator's Public Key.
      */
-    function operatorBalanceOf(address _ownerAddress) external returns (uint256);
+    function operatorBalanceOf(bytes calldata _publicKey) external returns (uint256);
 
     /**
-     * @dev Registers a new operator.
+     * @dev Registers new operator.
      * @param _name Operator's display name.
      * @param _ownerAddress Operator's ethereum address that can collect fees.
      * @param _publicKey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
@@ -45,16 +41,17 @@ interface ISSVNetwork {
 
     /**
      * @dev Updates operator's fee by address.
-     * @param _ownerAddress Operator's ethereum address that can collect fees.
+     * @param _publicKey Operator's Public Key.
      * @param _fee The operators's updated fee.
      */
-    function updateOperatorFee(address _ownerAddress, uint256 _fee) external;
+    function updateOperatorFee(bytes calldata _publicKey, uint256 _fee) external;
 
     /**
      * @dev Calculate operator's payback.
-     * @param _ownerAddress Operator's ethereum address that can collect fees.
+     * @param _publicKey Operator's public key.
+     * @param _currentBlockNumber block number.
      */
-    function calculateOperatorPayback(address _ownerAddress) external returns(uint256);
+    function calculateOperatorPayback(bytes calldata _publicKey, uint256 _currentBlockNumber) external returns(uint256);
 
     /**
      * @dev Add validators to operator.
@@ -73,33 +70,62 @@ interface ISSVNetwork {
 
     /**
      * @dev Get validator balance by address.
-     * @param _ownerAddress The validator's ethereum address that is the owner of created validator.
+     * @param _pubKey The validator's public key.
      */
-    function validatorBalanceOf(address _ownerAddress) external returns (uint256);
+    function validatorBalanceOf(bytes calldata _pubKey) external returns (uint256);
 
     /**
      * @dev Updates validator's balance.
-     * @param _ownerAddress The validator's ethereum address that is the owner of created validator.
+     * @param _pubKey The validator's public key.
      */
-    function updateValidatorBalance(address _ownerAddress) external;
+    function updateValidatorBalance(bytes calldata _pubKey) external;
 
     /**
-     * @dev Calculate validator's charges.
-     * @param _ownerAddress The validator's ethereum address that is the owner of created validator.
+     * @dev Calculate validator's usage.
+     * @param _pubKey The validator's public key.
+     * @param _currentBlockNumber block number.
      */
-    function calculateValidatorCharges(address _ownerAddress) external returns(uint256);
+    function calculateValidatorUsage(bytes calldata _pubKey, uint256 _currentBlockNumber) external returns(uint256);
 
     /**
-     * @dev Add new validator to the list.
+     * @dev Register new validator.
      * @param _publicKey Validator public key.
      * @param _operatorPublicKeys Operator public keys.
      * @param _sharesPublicKeys Shares public keys.
      * @param _encryptedKeys Encrypted private keys.
      */
-    function addValidator(
+    function registerValidator(
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
     ) external;
+
+    /**
+     * @dev Update validator.
+     * @param _publicKey Validator public key.
+     * @param _operatorPublicKeys Operator public keys.
+     * @param _sharesPublicKeys Shares public keys.
+     * @param _encryptedKeys Encrypted private keys.
+     */
+    function updateValidator(
+        bytes calldata _publicKey,
+        bytes[] calldata _operatorPublicKeys,
+        bytes[] calldata _sharesPublicKeys,
+        bytes[] calldata _encryptedKeys
+    ) external;
+
+    /**
+     * @dev Delete validator.
+     * @param _publicKey Validator's public key.
+     * @param _ownerAddress Validator's owner address.
+     */
+    function deleteValidator(bytes calldata _publicKey, address _ownerAddress) external;
+
+    /**
+     * @dev Delete operator.
+     * @param _publicKey Validator's public key.
+     * @param _ownerAddress Validator's owner address.
+     */
+    function deleteOperator(bytes calldata _publicKey, address _ownerAddress) external;
 }
