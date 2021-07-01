@@ -9,12 +9,18 @@ contract TokenVestingController {
     mapping (address => TokenVesting[]) public vestings;
     mapping (TokenVesting => address) public owners;
 
+    bool initialized;
+
     /**
      * @dev Create a vesting controller for a token.
      * @param _token The token.
      */
-    constructor(IERC20 _token) {
+    function initialize(IERC20 _token) public {
+        require(!initialized, "Already initialized");
+
         token = _token;
+
+        initialized = true;
     }
 
     /**
@@ -31,6 +37,7 @@ contract TokenVestingController {
     function createVesting(address _beneficiary, uint256 _amount, uint256 _start, uint256 _cliffDuration, uint256 _duration, bool _revocable) public {
         TokenVesting tokenVesting = new TokenVesting(_beneficiary, _start, _cliffDuration, _duration, _revocable);
         vestings[_beneficiary].push(tokenVesting);
+        owners[tokenVesting] = msg.sender;
         token.safeTransferFrom(msg.sender, address(tokenVesting), _amount);
     }
 
@@ -86,7 +93,9 @@ contract TokenVestingController {
      */
     function revokeAll(address _beneficiary) public {
         for (uint index = 0; index < vestings[_beneficiary].length; ++index) {
-            if (owners[vestings[_beneficiary][index]] == msg.sender) {
+            if (owners[vestings[_beneficiary][index]] == msg.sender &&
+                vestings[_beneficiary][index].revocable() &&
+                !vestings[_beneficiary][index].revoked(address(token))) {
                 _safeRevoke(vestings[_beneficiary][index]);
             }
         }
