@@ -165,11 +165,10 @@ interface ISSVRegistry {
     ) external;
 
     /**
-     * @dev Gets operator fee by address and block number.
+     * @dev Gets operator current fee.
      * @param _operatorPublicKey Operator public key.
-     * @param _blockNumber for which block number.
      */
-    function getOperatorFee(bytes calldata _operatorPublicKey, uint256 _blockNumber)
+    function getOperatorCurrentFee(bytes calldata _operatorPublicKey)
         external
         returns (uint256);
 

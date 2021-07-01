@@ -30,12 +30,10 @@ interface ISSVNetwork {
     /**
      * @dev Registers new operator.
      * @param _name Operator's display name.
-     * @param _ownerAddress Operator's ethereum address that can collect fees.
      * @param _publicKey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
      */
     function registerOperator(
         string calldata _name,
-        address _ownerAddress,
         bytes calldata _publicKey
     ) external;
 
@@ -54,25 +52,16 @@ interface ISSVNetwork {
     function calculateOperatorPayback(bytes calldata _publicKey, uint256 _currentBlockNumber) external returns(uint256);
 
     /**
-     * @dev Add validators to operator.
-     * @param _ownerAddress Operator's ethereum address that can collect fees.
-     * @param _blockNumber Block number for changes.
-     */
-    function addOperatorValidator(address _ownerAddress, uint256 _blockNumber) external;
-
-    /**
-     * @dev Calculate operator's payback.
-     * @param _ownerAddress Operator's ethereum address that can collect fees.
-     * @param _blockNumber Block number for changes.
-     * @param _amountValidators Amount of new validators.
-     */
-    function deductOperatorValidator(address _ownerAddress, uint256 _blockNumber, uint256 _amountValidators) external;
-
-    /**
      * @dev Get validator balance by address.
      * @param _pubKey The validator's public key.
      */
     function validatorBalanceOf(bytes calldata _pubKey) external returns (uint256);
+
+    /**
+     * @dev Updates operators's balance.
+     * @param _pubKey The operators's public key.
+     */
+    function updateOperatorBalance(bytes calldata _pubKey) external;
 
     /**
      * @dev Updates validator's balance.
@@ -118,14 +107,12 @@ interface ISSVNetwork {
     /**
      * @dev Delete validator.
      * @param _publicKey Validator's public key.
-     * @param _ownerAddress Validator's owner address.
      */
-    function deleteValidator(bytes calldata _publicKey, address _ownerAddress) external;
+    function deleteValidator(bytes calldata _publicKey) external;
 
     /**
      * @dev Delete operator.
-     * @param _publicKey Validator's public key.
-     * @param _ownerAddress Validator's owner address.
+     * @param _publicKey Operator's public key.
      */
-    function deleteOperator(bytes calldata _publicKey, address _ownerAddress) external;
+    function deleteOperator(bytes calldata _publicKey) external;
 }

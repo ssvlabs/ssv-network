@@ -163,17 +163,11 @@ contract SSVRegistry is ISSVRegistry {
     }
 
     /**
-     * @dev See {ISSVRegistry-getOperatorFee}.
+     * @dev See {ISSVRegistry-getOperatorCurrentFee}.
      */
-    function getOperatorFee(bytes calldata _operatorPubKey, uint256 _blockNumber) public view override returns (uint256) {
+    function getOperatorCurrentFee(bytes calldata _operatorPubKey) public view override returns (uint256) {
         require(operatorFees[_operatorPubKey].length > 0, "Operator fees not found");
-        uint256 fee;
-        for (uint256 index = 0; index < operatorFees[_operatorPubKey].length; ++index) {
-            if (operatorFees[_operatorPubKey][index].blockNumber <= _blockNumber) {
-                fee = operatorFees[_operatorPubKey][index].fee;
-            }
-        }
-        return fee;
+        return operatorFees[_operatorPubKey][operatorFees[_operatorPubKey].length - 1].fee;
     }
 
     /**
