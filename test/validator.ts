@@ -42,7 +42,7 @@ describe('Validators', function() {
     // const ownerAddress = '0xe52350A8335192905359c4c3C2149976dCC3D8bF';
 
     // Add new operator and check if event was emitted
-    await expect(ssvNetwork.addValidator(
+    await expect(ssvNetwork.registerOperator(
       pubKey,
       operatorPubKeys,
       sharePubKeys,
@@ -86,7 +86,7 @@ describe('Validators', function() {
     const ownerAddress = '0xe52350A8335192905359c4c3C2149976dCC3D8bF';
 
     // Add new operator and check if event was emitted
-    await expect(SSVRegistry.addValidator(
+    await expect(SSVRegistry.registerOperator(
       ownerAddress,
       pubKey,
       operatorPubKeys,
@@ -127,7 +127,7 @@ describe('Validators', function() {
     const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195544', '0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
 
     const [owner] = await ethers.getSigners();
-    await SSVRegistry.addValidator(
+    await SSVRegistry.registerOperator(
       owner.address,
       pubKey,
       operatorPubKeys,
@@ -151,7 +151,7 @@ describe('Validators', function() {
     const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195544', '0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
     const ownerAddress = '0xe52350A8335192905359c4c3C2149976dCC3D8bF';
 
-    await SSVRegistry.addValidator(
+    await SSVRegistry.registerOperator(
       ownerAddress,
       pubKey,
       operatorPubKeys,
@@ -170,7 +170,7 @@ describe('Validators', function() {
     const sharePubKeys = ['0xaddb812ada642ea3d5b12c66f085c536e40143db764e95d496f33af77b06aa84047970cdb883202768f552f3e4997d80'];
     const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
     const [owner] = await ethers.getSigners();
-    await SSVRegistry.addValidator(
+    await SSVRegistry.registerOperator(
       owner.address,
       pubKey,
       operatorPubKeys,
@@ -194,7 +194,7 @@ describe('Validators', function() {
     const encryptedKeys = ['0x60900ad04cb043c54a8aedbcefb4cb936edd5e337e622cd55e82fe9235195545'];
     const ownerAddress = '0xe52350A8335192905359c4c3C2149976dCC3D8bF';
 
-    await SSVRegistry.addValidator(
+    await SSVRegistry.registerOperator(
       ownerAddress,
       pubKey,
       operatorPubKeys,

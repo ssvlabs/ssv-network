@@ -16,6 +16,9 @@ contract SSVNetwork is ISSVNetwork {
         SSVRegistryContract = _SSVRegistryAddress;
     }
 
+
+    // uint256 minValidatorBlockSubscription;
+
     /**
      * @dev See {ISSVNetwork-updateOperatorFee}.
      */
@@ -34,6 +37,7 @@ contract SSVNetwork is ISSVNetwork {
      * @dev See {ISSVNetwork-calculateOperatorPayback}.
      */
     // TODO: private doesn't work. Need to fix it
+    // TODO: rename function to calculateOperatorBalance
     function calculateOperatorPayback(bytes memory _pubKey, uint256 _currentBlockNumber) public override returns(uint256) {
         uint256 fee = SSVRegistryContract.getOperatorCurrentFee(_pubKey);
         return operatorBalances[_pubKey].balance + fee * (_currentBlockNumber - operatorBalances[_pubKey].blockNumber) * operatorBalances[_pubKey].validatorCount;
@@ -62,46 +66,45 @@ contract SSVNetwork is ISSVNetwork {
             msg.sender,
             _publicKey
         );
+        // trigger update operator fee function
         operatorBalances[_publicKey] = OperatorBalanceSnapshot(block.number, 0, 0);
     }
 
     /**
      * @dev See {ISSVNetwork-validatorBalanceOf}.
      */
-    function validatorBalanceOf(bytes calldata _pubKey) public override returns(uint256) {
+    function validatorBalanceOf(bytes calldata _pubKey) public override returns(uint256, uint256) {
         uint256 currentBlockNumber = block.number;
-        return calculateValidatorUsage(_pubKey, currentBlockNumber);
-    }
-
-    /**
-     * @dev See {ISSVNetwork-calculateValidatorUsage}.
-     */
-    // TODO: private doesn't work. Need to fix it
-    function calculateValidatorUsage(bytes calldata _pubKey, uint256 _currentBlockNumber) public override returns(uint256) {
         ValidatorBalanceSnapshot storage balanceSnapshot = validatorBalances[_pubKey];
-        uint256 usage = balanceSnapshot.balance + SSVRegistryContract.getValidatorUsage(_pubKey, balanceSnapshot.blockNumber, _currentBlockNumber);
+        uint256 usage = balanceSnapshot.balance + SSVRegistryContract.getValidatorUsage(_pubKey, balanceSnapshot.blockNumber, currentBlockNumber);
+        return (usage, currentBlockNumber);
     }
 
     /**
      * @dev See {ISSVNetwork-updateValidatorBalance}.
      */
     function updateValidatorBalance(bytes calldata _pubKey) public override {
-        uint256 currentBlockNumber = block.number;
-        uint256 totalUsage = calculateValidatorUsage(_pubKey, currentBlockNumber);
+        (uint256 totalUsage, uint256 blockNumber) = validatorBalanceOf(_pubKey);
         ValidatorBalanceSnapshot storage balanceSnapshot = validatorBalances[_pubKey];
-        balanceSnapshot.blockNumber = currentBlockNumber;
+        balanceSnapshot.blockNumber = blockNumber;
         balanceSnapshot.balance = totalUsage;
+        // 1 - get owner address by pubkey
+        // 2 owemrAddressBalance -= totalUsage;
     }
 
     /**
      * @dev See {ISSVNetwork-registerValidator}.
      */
+    // TODO: add transfer tokens logic here based on passed value in function params
     function registerValidator(
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
+        // uint256 tokensAmount
     ) public virtual override {
+        // TODO: tokensAmount validation based on calculation operator pub key and minimum period of time
+        // for each operatorPubKey: minValidatorBlockSubscription * (fee1 + fee2 + fee3)
         SSVRegistryContract.registerValidator(
             msg.sender,
             _publicKey,
@@ -117,6 +120,12 @@ contract SSVNetwork is ISSVNetwork {
             operatorBalances[operatorPubKey].validatorCount++;
         }
     }
+
+    /*
+    function totalBalanceOf(address _ownerAddress) {
+        // TODO: store sum balances just return it
+    }
+    */
 
     /**
      * @dev See {ISSVNetwork-updateValidator}.

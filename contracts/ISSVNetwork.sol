@@ -55,7 +55,7 @@ interface ISSVNetwork {
      * @dev Get validator balance by address.
      * @param _pubKey The validator's public key.
      */
-    function validatorBalanceOf(bytes calldata _pubKey) external returns (uint256);
+    function validatorBalanceOf(bytes calldata _pubKey) external returns (uint256, uint256);
 
     /**
      * @dev Updates operators's balance.
@@ -68,13 +68,6 @@ interface ISSVNetwork {
      * @param _pubKey The validator's public key.
      */
     function updateValidatorBalance(bytes calldata _pubKey) external;
-
-    /**
-     * @dev Calculate validator's usage.
-     * @param _pubKey The validator's public key.
-     * @param _currentBlockNumber block number.
-     */
-    function calculateValidatorUsage(bytes calldata _pubKey, uint256 _currentBlockNumber) external returns(uint256);
 
     /**
      * @dev Register new validator.
