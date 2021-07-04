@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
+import "./ISSVRegistry.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 interface ISSVNetwork {
     struct OperatorBalanceSnapshot {
         uint256 blockNumber;
@@ -19,6 +22,8 @@ interface ISSVNetwork {
         uint256 used;
         uint256 withdrawn;
     }
+
+    function initialize(ISSVRegistry _SSVRegistryAddress, IERC20 _token) external;
 
     /**
      * @dev Emitted when the operator validator added.
@@ -40,7 +45,8 @@ interface ISSVNetwork {
      */
     function registerOperator(
         string calldata _name,
-        bytes calldata _publicKey
+        bytes calldata _publicKey,
+        uint256 _fee
     ) external;
 
     /**

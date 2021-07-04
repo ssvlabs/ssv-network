@@ -3,19 +3,32 @@
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./ISSVRegistry.sol";
 
-contract SSVRegistry is ISSVRegistry {
+contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     uint256 public operatorCount;
     uint256 public validatorCount;
 
     mapping(bytes => Operator) public override operators;
     mapping(bytes => Validator) internal validators;
 
-    mapping(bytes => OperatorFee[]) private operatorFees; // override
+    mapping(bytes => OperatorFee[]) private operatorFees;
 
-    mapping(address => bytes[]) private operatorsByAddress; //TODO Adam array bytes[] not working with override
-    mapping(address => bytes[]) private validatorsByAddress; //TODO Adam array bytes[] not working with override
+    mapping(address => bytes[]) private operatorsByAddress;
+    mapping(address => bytes[]) private validatorsByAddress;
+
+    function initialize() public virtual override initializer {
+        __SSVRegistry_init();
+    }
+
+    function __SSVRegistry_init() internal initializer {
+        __Ownable_init_unchained();
+        __SSVRegistry_init_unchained();
+    }
+
+    function __SSVRegistry_init_unchained() internal initializer {
+    }
 
     modifier onlyValidator(bytes calldata _publicKey, address _ownerAddress) {
         require(
@@ -59,7 +72,8 @@ contract SSVRegistry is ISSVRegistry {
     function registerOperator(
         string calldata _name,
         address _ownerAddress,
-        bytes calldata _publicKey
+        bytes calldata _publicKey,
+        uint256 _fee
     ) public virtual override {
         require(
             operators[_publicKey].ownerAddress == address(0),
@@ -69,6 +83,7 @@ contract SSVRegistry is ISSVRegistry {
         operatorsByAddress[_ownerAddress].push(_publicKey);
         emit OperatorAdded(_name, _ownerAddress, _publicKey);
         operatorCount++;
+        updateOperatorFee(_publicKey, _fee);
     }
 
     /**
@@ -219,12 +234,11 @@ contract SSVRegistry is ISSVRegistry {
     /**
      * @dev See {ISSVRegistry-updateOperatorFee}.
      */
-    function updateOperatorFee(bytes calldata _pubKey, uint256 blockNumber, uint256 fee) public virtual override {
-        OperatorFee[] storage fees = operatorFees[_pubKey];
-        fees.push(
-            OperatorFee(block.number, fee)
+    function updateOperatorFee(bytes calldata _pubKey, uint256 _fee) public virtual override {
+        operatorFees[_pubKey].push(
+            OperatorFee(block.number, _fee)
         );
-        emit OperatorFeeUpdated(_pubKey, blockNumber, fee);
+        emit OperatorFeeUpdated(_pubKey, block.number, _fee);
     }
 
     function getOperatorPubKeysInUse(bytes calldata _validatorPubKey) public virtual override returns (bytes[] memory operatorPubKeys) {

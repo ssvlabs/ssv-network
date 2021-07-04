@@ -4,11 +4,11 @@ pragma solidity ^0.8.2;
 import "hardhat/console.sol";
 
 import "./ISSVNetwork.sol";
-import "./ISSVRegistry.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract SSVNetwork is ISSVNetwork {
+contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     ISSVRegistry private SSVRegistryContract;
     IERC20 token;
 
@@ -19,13 +19,19 @@ contract SSVNetwork is ISSVNetwork {
 
     bool initialized;
 
-    function initialize(ISSVRegistry _SSVRegistryAddress, IERC20 _token) public {
-        require(!initialized, 'already initialized');
+    function initialize(ISSVRegistry _SSVRegistryAddress, IERC20 _token) public virtual override initializer {
+        __SSVNetwork_init(_SSVRegistryAddress, _token);
+    }
 
+    function __SSVNetwork_init(ISSVRegistry _SSVRegistryAddress, IERC20 _token) internal initializer {
+        __Ownable_init_unchained();
+        __SSVNetwork_init_unchained(_SSVRegistryAddress, _token);
+    }
+
+    function __SSVNetwork_init_unchained(ISSVRegistry _SSVRegistryAddress, IERC20 _token) internal initializer {
         SSVRegistryContract = _SSVRegistryAddress;
         token = _token;
-
-        initialized = true;
+        SSVRegistryContract.initialize();
     }
 
 
@@ -34,8 +40,9 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-updateOperatorFee}.
      */
-    function updateOperatorFee(bytes calldata _pubKey, uint256 fee) public virtual override {
-        SSVRegistryContract.updateOperatorFee(_pubKey, block.number, fee);
+    function updateOperatorFee(bytes calldata _pubKey, uint256 _fee) public virtual override {
+        updateOperatorBalance(_pubKey);
+        SSVRegistryContract.updateOperatorFee(_pubKey, _fee);
     }
 
     /**
@@ -81,12 +88,14 @@ contract SSVNetwork is ISSVNetwork {
      */
     function registerOperator(
         string calldata _name,
-        bytes calldata _publicKey
+        bytes calldata _publicKey,
+        uint256 _fee
     ) public override {
         SSVRegistryContract.registerOperator(
             _name,
             msg.sender,
-            _publicKey
+            _publicKey,
+            _fee
         );
         // trigger update operator fee function
         operatorBalances[_publicKey] = OperatorBalanceSnapshot(block.number, 0, 0);

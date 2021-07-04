@@ -31,6 +31,8 @@ interface ISSVRegistry {
         uint256 fee;
     }
 
+    function initialize() external;
+
     /**
      * @dev Register new validator.
      * @param _ownerAddress The user's ethereum address that is the owner of the validator.
@@ -56,7 +58,8 @@ interface ISSVRegistry {
     function registerOperator(
         string calldata _name,
         address _ownerAddress,
-        bytes calldata _publicKey
+        bytes calldata _publicKey,
+        uint256 _fee
     ) external;
 
     /**
@@ -210,12 +213,10 @@ interface ISSVRegistry {
     /**
      * @dev Update an operator fee.
      * @param _pubKey Operator's public key.
-     * @param _blockNumber from which block number.
      * @param _fee new operator fee.
      */
     function updateOperatorFee(
         bytes calldata _pubKey,
-        uint256 _blockNumber,
         uint256 _fee
     ) external;
 
