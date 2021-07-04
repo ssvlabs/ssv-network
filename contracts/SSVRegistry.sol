@@ -175,6 +175,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         validators[validatorsByAddress[_ownerAddress][validatorItem.index]].index = validatorItem.index;
         delete validators[_publicKey];
 
+        --validatorCount;
+
         emit ValidatorDeleted(_ownerAddress, _publicKey);
     }
 
@@ -185,20 +187,16 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         address _ownerAddress,
         bytes calldata _publicKey
     ) onlyOperator(_publicKey, _ownerAddress) public virtual override {
-        // TODO
-        string memory name = operators[_publicKey].name;
-        // delete operators[_publicKey];
+        Operator storage operatorItem = operators[_publicKey];
+        operatorsByAddress[_ownerAddress][operatorItem.index] = operatorsByAddress[_ownerAddress][operatorsByAddress[_ownerAddress].length - 1];
 
-        // // delete from operatorsByAddress
-        // // TODO: Adam please review
-        // uint pos = 0;
-        // while (operatorsByAddress[_ownerAddress][pos] != _publicKey) {
-        //     pos++;
-        // }
-        // delete operatorsByAddress[_ownerAddress][pos];
+        operatorsByAddress[_ownerAddress].pop();
+        operators[operatorsByAddress[_ownerAddress][operatorItem.index]].index = operatorItem.index;
+        delete operators[_publicKey];
 
-        // operatorCount--;
-        emit OperatorDeleted(name, _publicKey);
+        --operatorCount;
+
+        emit OperatorDeleted(operatorItem.name, _publicKey);
     }
 
     /**
