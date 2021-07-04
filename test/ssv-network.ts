@@ -5,6 +5,8 @@ import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import { rawListeners } from 'process';
 
+declare var network: any;
+
 before(() => {
   chai.should();
   chai.use(chaiAsPromised);
@@ -19,6 +21,24 @@ let ssvToken, ssvRegistry, ssvNetwork;
 let owner, account1, account2, account3;
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
+
+const DAY = 86400;
+const YEAR = 365 * DAY;
+
+async function snapshot(time, func) {
+  const snapshot = await network.provider.send("evm_snapshot");
+  await network.provider.send("evm_increaseTime", [time]);
+  await network.provider.send("evm_mine", []);
+  await func();
+  await network.provider.send("evm_revert", [snapshot]);
+}
+
+async function progressBlocks(blocks) {
+  for (let i = 0; i < blocks; ++i) {
+    await network.provider.send("evm_mine", []);
+  }
+}
+
 describe('SSV Network', function() {
   before(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
@@ -38,12 +58,18 @@ describe('SSV Network', function() {
     await ssvNetwork.connect(account2).registerOperator("testOperator 0", operatorsPub[0], 1);
   });
   it('register more operators', async function() {
-    for (let index = 1; index < 4; ++index) {
-      await ssvNetwork.connect(account2).registerOperator(`testOperator ${index}`, operatorsPub[index], index + 1);
-    }
+    await ssvNetwork.connect(account2).registerOperator("testOperator 1", operatorsPub[1], 2);
+    await ssvNetwork.connect(account3).registerOperator("testOperator 2", operatorsPub[2], 3);
+    await ssvNetwork.connect(account3).registerOperator("testOperator 3", operatorsPub[3], 4);
   });
   it('register validator', async function() {
     await ssvToken.connect(account1).approve(ssvNetwork.address, '10000');
     await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), '10000');
+  });
+  it('balances should be correct after 1 day', async function() {
+    await progressBlocks(100);
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(9000);
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(300);
+    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(700);
   });
 });

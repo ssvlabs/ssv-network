@@ -217,7 +217,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
             Oess memory oessItem = validators[_pubKey].oess[index];
             uint256 lastBlockNumber = _toBlockNumber;
             bool oldestFeeUsed = false;
-            for (uint256 feeIndex = operatorFees[oessItem.operatorPublicKey].length - 1; !oldestFeeUsed && feeIndex >= 0; feeIndex--) {
+            for (uint256 feeReverseIndex = 0; !oldestFeeUsed && feeReverseIndex < operatorFees[oessItem.operatorPublicKey].length; ++feeReverseIndex) {
+                uint256 feeIndex = operatorFees[oessItem.operatorPublicKey].length - feeReverseIndex - 1;
                 if (operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber < lastBlockNumber) {
                     uint256 startBlockNumber = Math.max(_fromBlockNumber, operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber);
                     usage += (lastBlockNumber - startBlockNumber) * operatorFees[oessItem.operatorPublicKey][feeIndex].fee;

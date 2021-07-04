@@ -1,7 +1,6 @@
 // File: contracts/SSVNetwork.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
-import "hardhat/console.sol";
 
 import "./ISSVNetwork.sol";
 
@@ -67,7 +66,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     function totalBalanceOf(address _ownerAddress) public override view returns (uint256) {
         bytes[] memory validators = SSVRegistryContract.getValidatorsByAddress(_ownerAddress);
         bytes[] memory operators = SSVRegistryContract.getOperatorsByAddress(_ownerAddress);
-
         uint balance = addressBalances[_ownerAddress].deposited;
 
         for (uint256 index = 0; index < operators.length; ++index) {
