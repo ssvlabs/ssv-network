@@ -14,6 +14,11 @@ interface ISSVNetwork {
         uint256 balance;
     }
 
+    struct Balance {
+        uint256 withdrawn;
+        uint256 charged;
+    }
+
     /**
      * @dev Emitted when the operator validator added.
      * @param ownerAddress The user's ethereum address that is the owner of the operator.
@@ -25,7 +30,7 @@ interface ISSVNetwork {
      * @dev Get operator balance by address.
      * @param _publicKey Operator's Public Key.
      */
-    function operatorBalanceOf(bytes calldata _publicKey) external returns (uint256);
+    function operatorBalanceOf(bytes calldata _publicKey) external returns (uint256, uint256);
 
     /**
      * @dev Registers new operator.
@@ -43,13 +48,6 @@ interface ISSVNetwork {
      * @param _fee The operators's updated fee.
      */
     function updateOperatorFee(bytes calldata _publicKey, uint256 _fee) external;
-
-    /**
-     * @dev Calculate operator's payback.
-     * @param _publicKey Operator's public key.
-     * @param _currentBlockNumber block number.
-     */
-    function calculateOperatorPayback(bytes calldata _publicKey, uint256 _currentBlockNumber) external returns(uint256);
 
     /**
      * @dev Get validator balance by address.

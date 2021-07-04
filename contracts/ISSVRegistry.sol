@@ -69,6 +69,23 @@ interface ISSVRegistry {
             uint256
         );
 
+    
+    /**
+     * @dev Gets an operator public keys by owner address.
+     * @param _ownerAddress Owner Address.
+     */
+    function operatorsByAddress(address _ownerAddress)
+        external
+        returns (bytes[] calldata);
+
+    /**
+     * @dev Gets a validator public keys by owner address.
+     * @param _ownerAddress Owner Address.
+     */
+    function validatorsByAddress(address _ownerAddress)
+        external
+        returns (bytes[] calldata);
+
     /**
      * @dev Emitted when the operator has been added.
      * @param name Opeator's display name.

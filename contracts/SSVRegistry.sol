@@ -13,6 +13,9 @@ contract SSVRegistry is ISSVRegistry {
 
     mapping(bytes => OperatorFee[]) private operatorFees; // override
 
+    mapping(address => bytes[]) public override operatorsByAddress; //TODO Adam array bytes[] not working with override
+    mapping(address => bytes[]) public override validatorsByAddress; //TODO Adam array bytes[] not working with override
+
     modifier onlyValidator(bytes calldata _publicKey, address _ownerAddress) {
         require(
             validators[_publicKey].ownerAddress != address(0),
@@ -58,6 +61,7 @@ contract SSVRegistry is ISSVRegistry {
             "Operator with same public key already exists"
         );
         operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0);
+        operatorsByAddress[_ownerAddress].push(_publicKey);
         emit OperatorAdded(_name, _ownerAddress, _publicKey);
         operatorCount++;
     }
@@ -98,7 +102,7 @@ contract SSVRegistry is ISSVRegistry {
                 )
             );
         }
-
+        validatorsByAddress[_ownerAddress].push(_publicKey);
         validatorCount++;
         emit ValidatorAdded(_ownerAddress, _publicKey, validatorItem.oess);
     }
@@ -145,6 +149,15 @@ contract SSVRegistry is ISSVRegistry {
     ) onlyValidator(_publicKey, _ownerAddress) public virtual override {
         address ownerAddress = validators[_publicKey].ownerAddress;
         delete validators[_publicKey];
+
+        // delete from validatorsByAddress
+        // TODO: Adam please review
+        uint pos = 0;
+        while (validatorsByAddress[_ownerAddress][pos] != _publicKey) {
+            pos++;
+        }
+        delete validatorsByAddress[_ownerAddress][pos];
+
         validatorCount--;
         emit ValidatorDeleted(ownerAddress, _publicKey);
     }
@@ -158,6 +171,15 @@ contract SSVRegistry is ISSVRegistry {
     ) onlyOperator(_publicKey, _ownerAddress) public virtual override {
         string memory name = operators[_publicKey].name;
         delete operators[_publicKey];
+
+        // delete from operatorsByAddress
+        // TODO: Adam please review
+        uint pos = 0;
+        while (operatorsByAddress[_ownerAddress][pos] != _publicKey) {
+            pos++;
+        }
+        delete operatorsByAddress[_ownerAddress][pos];
+
         operatorCount--;
         emit OperatorDeleted(name, _publicKey);
     }
