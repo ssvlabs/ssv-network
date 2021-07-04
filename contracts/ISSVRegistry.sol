@@ -69,22 +69,22 @@ interface ISSVRegistry {
             uint256
         );
 
-    
+
     /**
      * @dev Gets an operator public keys by owner address.
      * @param _ownerAddress Owner Address.
      */
-    function operatorsByAddress(address _ownerAddress)
-        external
-        returns (bytes[] calldata);
+    function getOperatorsByAddress(address _ownerAddress)
+        external view
+        returns (bytes[] memory);
 
     /**
      * @dev Gets a validator public keys by owner address.
      * @param _ownerAddress Owner Address.
      */
-    function validatorsByAddress(address _ownerAddress)
-        external
-        returns (bytes[] calldata);
+    function getValidatorsByAddress(address _ownerAddress)
+        external view
+        returns (bytes[] memory);
 
     /**
      * @dev Emitted when the operator has been added.
@@ -186,7 +186,7 @@ interface ISSVRegistry {
      * @param _operatorPublicKey Operator public key.
      */
     function getOperatorCurrentFee(bytes calldata _operatorPublicKey)
-        external
+        external view
         returns (uint256);
 
     /**
@@ -196,7 +196,7 @@ interface ISSVRegistry {
      * @param _toBlockNumber to which block number.
      */
     function getValidatorUsage(bytes calldata _pubKey, uint256 _fromBlockNumber, uint256 _toBlockNumber)
-        external
+        external view
         returns (uint256);
 
     /**

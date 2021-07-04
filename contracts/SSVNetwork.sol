@@ -14,8 +14,14 @@ contract SSVNetwork is ISSVNetwork {
 
     mapping(address => Balance) public addressBalances;
 
+    bool initialized;
+
     function initialize(ISSVRegistry _SSVRegistryAddress) public {
+        require(!initialized, 'already initialized');
+
         SSVRegistryContract = _SSVRegistryAddress;
+
+        initialized = true;
     }
 
 
@@ -31,37 +37,35 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-operatorBalanceOf}.
      */
-    function operatorBalanceOf(bytes calldata _pubKey) public override returns(uint256, uint256) {
-        uint256 currentBlockNumber = block.number;
-        uint256 fee = SSVRegistryContract.getOperatorCurrentFee(_pubKey);
-        uint256 balance = operatorBalances[_pubKey].balance + fee * (currentBlockNumber - operatorBalances[_pubKey].blockNumber) * operatorBalances[_pubKey].validatorCount;
-        return (balance, currentBlockNumber);
+    function operatorBalanceOf(bytes memory _pubKey) public view override returns (uint256) {
+        return operatorBalances[_pubKey].balance +
+               SSVRegistryContract.getOperatorCurrentFee(_pubKey) *
+               (block.number - operatorBalances[_pubKey].blockNumber) *
+               operatorBalances[_pubKey].validatorCount;
     }
 
     /**
      * @dev See {ISSVNetwork-updateOperatorBalance}.
      */
-    function updateOperatorBalance(bytes calldata _pubKey) public override {
-        (uint256 totalPayback, uint256 blockNumber) = operatorBalanceOf(_pubKey);
+    function updateOperatorBalance(bytes memory _pubKey) public override {
         OperatorBalanceSnapshot storage balanceSnapshot = operatorBalances[_pubKey];
-        balanceSnapshot.blockNumber = blockNumber;
-        balanceSnapshot.balance = totalPayback;
+        balanceSnapshot.balance = operatorBalanceOf(_pubKey);
+        balanceSnapshot.blockNumber = block.number;
     }
 
-    function totalBalanceOf(address _ownerAddress) public view returns(uint256) {
+    function totalBalanceOf(address _ownerAddress) public view returns (uint256 balance) {
         // TODO: store sum balances just return it
-        bytes[] calldata validators = SSVRegistryContract.validatorsByAddress(_ownerAddress);
-        bytes[] calldata operators = SSVRegistryContract.operatorsByAddress(_ownerAddress);
-        uint256 balance = 0;
+        bytes[] memory validators = SSVRegistryContract.getValidatorsByAddress(_ownerAddress);
+        bytes[] memory operators = SSVRegistryContract.getOperatorsByAddress(_ownerAddress);
+
         for (uint256 index = 0; index < validators.length; ++index) {
-            (uint256 value, uint256 blockNumber) = validatorBalanceOf(validators[index]);
-            balance -= value;
+            balance += validatorBalanceOf(validators[index]);
         }
         for (uint256 index = 0; index < operators.length; ++index) {
-            (uint256 value, uint256 blockNumber) = operatorBalanceOf(validators[index]);
-            balance += value;
+            balance += operatorBalanceOf(operators[index]);
         }
-        return balance + addressBalances[_ownerAddress].charged - addressBalances[_ownerAddress].withdrawn;
+
+        return balance + addressBalances[_ownerAddress].deposited - addressBalances[_ownerAddress].withdrawn;
     }
 
     /**
@@ -83,21 +87,18 @@ contract SSVNetwork is ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-validatorBalanceOf}.
      */
-    function validatorBalanceOf(bytes calldata _pubKey) public override returns(uint256, uint256) {
-        uint256 currentBlockNumber = block.number;
+    function validatorBalanceOf(bytes memory _pubKey) public view override returns (uint256) {
         ValidatorBalanceSnapshot storage balanceSnapshot = validatorBalances[_pubKey];
-        uint256 usage = balanceSnapshot.balance + SSVRegistryContract.getValidatorUsage(_pubKey, balanceSnapshot.blockNumber, currentBlockNumber);
-        return (usage, currentBlockNumber);
+        return balanceSnapshot.balance + SSVRegistryContract.getValidatorUsage(_pubKey, balanceSnapshot.blockNumber, block.number);
     }
 
     /**
      * @dev See {ISSVNetwork-updateValidatorBalance}.
      */
-    function updateValidatorBalance(bytes calldata _pubKey) public override {
-        (uint256 totalUsage, uint256 blockNumber) = validatorBalanceOf(_pubKey);
+    function updateValidatorBalance(bytes memory _pubKey) public override {
         ValidatorBalanceSnapshot storage balanceSnapshot = validatorBalances[_pubKey];
-        balanceSnapshot.blockNumber = blockNumber;
-        balanceSnapshot.balance = totalUsage;
+        balanceSnapshot.balance = validatorBalanceOf(_pubKey);
+        balanceSnapshot.blockNumber = block.number;
         // 1 - get owner address by pubkey
         // 2 owemrAddressBalance -= totalUsage;
     }
@@ -144,14 +145,14 @@ contract SSVNetwork is ISSVNetwork {
         bytes[] memory currentOperatorPubKeys = SSVRegistryContract.getOperatorPubKeysInUse(_publicKey);
         // calculate balances for current operators in use
         for (uint256 index = 0; index < currentOperatorPubKeys.length; ++index) {
-            bytes calldata operatorPubKey = currentOperatorPubKeys[index];
+            bytes memory operatorPubKey = currentOperatorPubKeys[index];
             updateOperatorBalance(operatorPubKey);
             operatorBalances[operatorPubKey].validatorCount--;
         }
 
         // calculate balances for new operators in use
         for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
-            bytes calldata operatorPubKey = _operatorPublicKeys[index];
+            bytes memory operatorPubKey = _operatorPublicKeys[index];
             updateOperatorBalance(operatorPubKey);
             operatorBalances[operatorPubKey].validatorCount++;
         }
@@ -174,7 +175,7 @@ contract SSVNetwork is ISSVNetwork {
         // calculate balances for current operators in use and update their balances
         bytes[] memory currentOperatorPubKeys = SSVRegistryContract.getOperatorPubKeysInUse(_publicKey);
         for (uint256 index = 0; index < currentOperatorPubKeys.length; ++index) {
-            bytes calldata operatorPubKey = currentOperatorPubKeys[index];
+            bytes memory operatorPubKey = currentOperatorPubKeys[index];
             updateOperatorBalance(operatorPubKey);
             operatorBalances[operatorPubKey].validatorCount--;
         }

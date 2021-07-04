@@ -15,8 +15,8 @@ interface ISSVNetwork {
     }
 
     struct Balance {
+        uint256 deposited;
         uint256 withdrawn;
-        uint256 charged;
     }
 
     /**
@@ -30,7 +30,7 @@ interface ISSVNetwork {
      * @dev Get operator balance by address.
      * @param _publicKey Operator's Public Key.
      */
-    function operatorBalanceOf(bytes calldata _publicKey) external returns (uint256, uint256);
+    function operatorBalanceOf(bytes memory _publicKey) external view returns (uint256);
 
     /**
      * @dev Registers new operator.
@@ -53,13 +53,13 @@ interface ISSVNetwork {
      * @dev Get validator balance by address.
      * @param _pubKey The validator's public key.
      */
-    function validatorBalanceOf(bytes calldata _pubKey) external returns (uint256, uint256);
+    function validatorBalanceOf(bytes memory _pubKey) external view returns (uint256);
 
     /**
      * @dev Updates operators's balance.
      * @param _pubKey The operators's public key.
      */
-    function updateOperatorBalance(bytes calldata _pubKey) external;
+    function updateOperatorBalance(bytes memory _pubKey) external;
 
     /**
      * @dev Updates validator's balance.

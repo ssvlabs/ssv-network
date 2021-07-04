@@ -13,8 +13,8 @@ contract SSVRegistry is ISSVRegistry {
 
     mapping(bytes => OperatorFee[]) private operatorFees; // override
 
-    mapping(address => bytes[]) public override operatorsByAddress; //TODO Adam array bytes[] not working with override
-    mapping(address => bytes[]) public override validatorsByAddress; //TODO Adam array bytes[] not working with override
+    mapping(address => bytes[]) private operatorsByAddress; //TODO Adam array bytes[] not working with override
+    mapping(address => bytes[]) private validatorsByAddress; //TODO Adam array bytes[] not working with override
 
     modifier onlyValidator(bytes calldata _publicKey, address _ownerAddress) {
         require(
@@ -39,7 +39,7 @@ contract SSVRegistry is ISSVRegistry {
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
-    ) private view {
+    ) private pure {
         require(_publicKey.length == 48, "Invalid public key length");
         require(
             _operatorPublicKeys.length == _sharesPublicKeys.length &&
@@ -147,18 +147,19 @@ contract SSVRegistry is ISSVRegistry {
         address _ownerAddress,
         bytes calldata _publicKey
     ) onlyValidator(_publicKey, _ownerAddress) public virtual override {
+        // TODO: update
         address ownerAddress = validators[_publicKey].ownerAddress;
-        delete validators[_publicKey];
+        // delete validators[_publicKey];
 
-        // delete from validatorsByAddress
-        // TODO: Adam please review
-        uint pos = 0;
-        while (validatorsByAddress[_ownerAddress][pos] != _publicKey) {
-            pos++;
-        }
-        delete validatorsByAddress[_ownerAddress][pos];
+        // // delete from validatorsByAddress
+        // // TODO: Adam please review
+        // uint pos = 0;
+        // while (validatorsByAddress[_ownerAddress][pos] != _publicKey) {
+        //     pos++;
+        // }
+        // delete validatorsByAddress[_ownerAddress][pos];
 
-        validatorCount--;
+        // validatorCount--;
         emit ValidatorDeleted(ownerAddress, _publicKey);
     }
 
@@ -169,18 +170,19 @@ contract SSVRegistry is ISSVRegistry {
         address _ownerAddress,
         bytes calldata _publicKey
     ) onlyOperator(_publicKey, _ownerAddress) public virtual override {
+        // TODO
         string memory name = operators[_publicKey].name;
-        delete operators[_publicKey];
+        // delete operators[_publicKey];
 
-        // delete from operatorsByAddress
-        // TODO: Adam please review
-        uint pos = 0;
-        while (operatorsByAddress[_ownerAddress][pos] != _publicKey) {
-            pos++;
-        }
-        delete operatorsByAddress[_ownerAddress][pos];
+        // // delete from operatorsByAddress
+        // // TODO: Adam please review
+        // uint pos = 0;
+        // while (operatorsByAddress[_ownerAddress][pos] != _publicKey) {
+        //     pos++;
+        // }
+        // delete operatorsByAddress[_ownerAddress][pos];
 
-        operatorCount--;
+        // operatorCount--;
         emit OperatorDeleted(name, _publicKey);
     }
 
@@ -196,7 +198,6 @@ contract SSVRegistry is ISSVRegistry {
      * @dev See {ISSVRegistry-getValidatorUsage}.
      */
     function getValidatorUsage(bytes calldata _pubKey, uint256 _fromBlockNumber, uint256 _toBlockNumber) public view override returns (uint256 usage) {
-        uint256 usage = 0;
         for (uint256 index = 0; index < validators[_pubKey].oess.length; ++index) {
             Oess memory oessItem = validators[_pubKey].oess[index];
             uint256 lastBlockNumber = _toBlockNumber;
@@ -231,9 +232,17 @@ contract SSVRegistry is ISSVRegistry {
     function getOperatorPubKeysInUse(bytes calldata _validatorPubKey) public virtual override returns (bytes[] memory operatorPubKeys) {
         Validator storage validatorItem = validators[_validatorPubKey];
 
-        bytes[] memory operatorPubKeys = new bytes[](validatorItem.oess.length);
+        operatorPubKeys = new bytes[](validatorItem.oess.length);
         for (uint256 index = 0; index < validatorItem.oess.length; ++index) {
             operatorPubKeys[index] = validatorItem.oess[index].operatorPublicKey;
         }
+    }
+
+    function getOperatorsByAddress(address _ownerAddress) external view virtual override returns (bytes[] memory) {
+        return operatorsByAddress[_ownerAddress];
+    }
+
+    function getValidatorsByAddress(address _ownerAddress) external view virtual override returns (bytes[] memory) {
+        return validatorsByAddress[_ownerAddress];
     }
 }
