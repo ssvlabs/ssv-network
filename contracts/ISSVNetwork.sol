@@ -9,7 +9,7 @@ interface ISSVNetwork {
         uint256 balance;
     }
 
-    struct ValidatorBalanceSnapshot {
+    struct ValidatorUsageSnapshot {
         uint256 blockNumber;
         uint256 balance;
     }
@@ -50,10 +50,10 @@ interface ISSVNetwork {
     function updateOperatorFee(bytes calldata _publicKey, uint256 _fee) external;
 
     /**
-     * @dev Get validator balance by address.
+     * @dev Get validator usage by address.
      * @param _pubKey The validator's public key.
      */
-    function validatorBalanceOf(bytes memory _pubKey) external view returns (uint256);
+    function validatorUsageOf(bytes memory _pubKey) external view returns (uint256);
 
     /**
      * @dev Updates operators's balance.
@@ -62,10 +62,10 @@ interface ISSVNetwork {
     function updateOperatorBalance(bytes memory _pubKey) external;
 
     /**
-     * @dev Updates validator's balance.
+     * @dev Updates validator's usage.
      * @param _pubKey The validator's public key.
      */
-    function updateValidatorBalance(bytes calldata _pubKey) external;
+    function updateValidatorUsage(bytes calldata _pubKey) external;
 
     /**
      * @dev Register new validator.
