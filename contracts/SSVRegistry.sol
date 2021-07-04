@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./ISSVRegistry.sol";
 
 contract SSVRegistry is ISSVRegistry {
@@ -34,6 +35,10 @@ contract SSVRegistry is ISSVRegistry {
         _;
     }
 
+    function getValidatorOwner(bytes calldata _publicKey) external override view returns (address) {
+        return validators[_publicKey].ownerAddress;
+    }
+
     function _validateValidatorParams(
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
@@ -60,7 +65,7 @@ contract SSVRegistry is ISSVRegistry {
             operators[_publicKey].ownerAddress == address(0),
             "Operator with same public key already exists"
         );
-        operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0);
+        operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0, operatorsByAddress[_ownerAddress].length);
         operatorsByAddress[_ownerAddress].push(_publicKey);
         emit OperatorAdded(_name, _ownerAddress, _publicKey);
         operatorCount++;
@@ -102,9 +107,11 @@ contract SSVRegistry is ISSVRegistry {
                 )
             );
         }
+        validatorItem.index = validatorsByAddress[_ownerAddress].length;
         validatorsByAddress[_ownerAddress].push(_publicKey);
         validatorCount++;
         emit ValidatorAdded(_ownerAddress, _publicKey, validatorItem.oess);
+        this.activate(_publicKey);
     }
 
     /**
@@ -147,20 +154,13 @@ contract SSVRegistry is ISSVRegistry {
         address _ownerAddress,
         bytes calldata _publicKey
     ) onlyValidator(_publicKey, _ownerAddress) public virtual override {
-        // TODO: update
-        address ownerAddress = validators[_publicKey].ownerAddress;
-        // delete validators[_publicKey];
+        Validator storage validatorItem = validators[_publicKey];
+        validatorsByAddress[_ownerAddress][validatorItem.index] = validatorsByAddress[_ownerAddress][validatorsByAddress[_ownerAddress].length - 1];
+        validatorsByAddress[_ownerAddress].pop();
+        validators[validatorsByAddress[_ownerAddress][validatorItem.index]].index = validatorItem.index;
+        delete validators[_publicKey];
 
-        // // delete from validatorsByAddress
-        // // TODO: Adam please review
-        // uint pos = 0;
-        // while (validatorsByAddress[_ownerAddress][pos] != _publicKey) {
-        //     pos++;
-        // }
-        // delete validatorsByAddress[_ownerAddress][pos];
-
-        // validatorCount--;
-        emit ValidatorDeleted(ownerAddress, _publicKey);
+        emit ValidatorDeleted(_ownerAddress, _publicKey);
     }
 
     /**
@@ -201,17 +201,15 @@ contract SSVRegistry is ISSVRegistry {
         for (uint256 index = 0; index < validators[_pubKey].oess.length; ++index) {
             Oess memory oessItem = validators[_pubKey].oess[index];
             uint256 lastBlockNumber = _toBlockNumber;
-            uint oldestFeeUsed = 0;
-            for (uint256 feeIndex = operatorFees[oessItem.operatorPublicKey].length - 1; feeIndex >= 0; feeIndex--) {
-                if (oldestFeeUsed == 0 && operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber < lastBlockNumber) {
-                    uint256 startBlockNumber = _fromBlockNumber;
-                    if (operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber > _fromBlockNumber) {
-                        startBlockNumber = operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber;
-                    }
+            bool oldestFeeUsed = false;
+            for (uint256 feeIndex = operatorFees[oessItem.operatorPublicKey].length - 1; !oldestFeeUsed && feeIndex >= 0; feeIndex--) {
+                if (operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber < lastBlockNumber) {
+                    uint256 startBlockNumber = Math.max(_fromBlockNumber, operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber);
                     usage += (lastBlockNumber - startBlockNumber) * operatorFees[oessItem.operatorPublicKey][feeIndex].fee;
-                    lastBlockNumber = startBlockNumber;
                     if (startBlockNumber == _fromBlockNumber) {
-                        oldestFeeUsed = 1;
+                        oldestFeeUsed = true;
+                    } else {
+                        lastBlockNumber = startBlockNumber;
                     }
                 }
             }
@@ -244,5 +242,19 @@ contract SSVRegistry is ISSVRegistry {
 
     function getValidatorsByAddress(address _ownerAddress) external view virtual override returns (bytes[] memory) {
         return validatorsByAddress[_ownerAddress];
+    }
+
+    function deactivate(bytes calldata _pubKey) override external {
+        require(validators[_pubKey].active, "already inactive");
+        validators[_pubKey].active = false;
+
+        emit ValidatorInactive(validators[_pubKey].ownerAddress, _pubKey);
+    }
+
+    function activate(bytes calldata _pubKey) override external {
+        require(!validators[_pubKey].active, "already active");
+        validators[_pubKey].active = true;
+
+        emit ValidatorActive(validators[_pubKey].ownerAddress, _pubKey);
     }
 }

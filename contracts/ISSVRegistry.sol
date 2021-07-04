@@ -15,12 +15,15 @@ interface ISSVRegistry {
         address ownerAddress;
         bytes publicKey;
         uint256 score;
+        uint256 index;
     }
 
     struct Validator {
         address ownerAddress;
         bytes publicKey;
         Oess[] oess;
+        bool active;
+        uint256 index;
     }
 
     struct OperatorFee {
@@ -66,9 +69,11 @@ interface ISSVRegistry {
             string memory,
             address,
             bytes memory,
+            uint256,
             uint256
         );
 
+    function getValidatorOwner(bytes calldata _publicKey) external view returns (address);
 
     /**
      * @dev Gets an operator public keys by owner address.
@@ -144,6 +149,9 @@ interface ISSVRegistry {
         bytes sharedPublicKey,
         bytes encryptedKey
     );
+
+    event ValidatorActive(address ownerAddress, bytes publicKey);
+    event ValidatorInactive(address ownerAddress, bytes publicKey);
 
     /**
      * @dev Updates a validator in the list.
@@ -230,4 +238,7 @@ interface ISSVRegistry {
         external
         returns (bytes[] memory);
 
+    function deactivate(bytes calldata _pubKey) external;
+
+    function activate(bytes calldata _pubKey) external;
 }

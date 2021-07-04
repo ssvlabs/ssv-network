@@ -16,6 +16,7 @@ interface ISSVNetwork {
 
     struct Balance {
         uint256 deposited;
+        uint256 used;
         uint256 withdrawn;
     }
 
@@ -67,6 +68,8 @@ interface ISSVNetwork {
      */
     function updateValidatorUsage(bytes calldata _pubKey) external;
 
+    function totalBalanceOf(address _ownerAddress) external view returns (uint256);
+
     /**
      * @dev Register new validator.
      * @param _publicKey Validator public key.
@@ -78,8 +81,13 @@ interface ISSVNetwork {
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
-        bytes[] calldata _encryptedKeys
+        bytes[] calldata _encryptedKeys,
+        uint256 _tokenAmount
     ) external;
+
+    function deposit(uint256 _tokenAmount) external;
+
+    function withdraw(uint256 _tokenAmount) external;
 
     /**
      * @dev Update validator.
@@ -92,7 +100,8 @@ interface ISSVNetwork {
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
-        bytes[] calldata _encryptedKeys
+        bytes[] calldata _encryptedKeys,
+        uint256 _tokenAmount
     ) external;
 
     /**
@@ -106,4 +115,8 @@ interface ISSVNetwork {
      * @param _publicKey Operator's public key.
      */
     function deleteOperator(bytes calldata _publicKey) external;
+
+    function deactivate(bytes calldata _pubKey) external;
+
+    function activate(bytes calldata _pubKey) external;
 }
