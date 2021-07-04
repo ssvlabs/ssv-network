@@ -66,7 +66,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     function totalBalanceOf(address _ownerAddress) public override view returns (uint256) {
         bytes[] memory validators = SSVRegistryContract.getValidatorsByAddress(_ownerAddress);
         bytes[] memory operators = SSVRegistryContract.getOperatorsByAddress(_ownerAddress);
-        uint balance = addressBalances[_ownerAddress].deposited;
+        uint balance = addressBalances[_ownerAddress].deposited + addressBalances[_ownerAddress].earned;
 
         for (uint256 index = 0; index < operators.length; ++index) {
             balance += operatorBalanceOf(operators[index]);
@@ -222,17 +222,24 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @dev See {ISSVNetwork-deleteValidator}.
      */
     function deleteOperator(bytes calldata _publicKey) public virtual override {
-        updateOperatorBalance(_publicKey);
+        require(operatorBalances[_publicKey].validatorCount == 0, "operator has validators");
+
+        address owner = SSVRegistryContract.getOperatorOwner(_publicKey);
+
+        addressBalances[owner].earned += operatorBalances[_publicKey].balance;
+
+        delete operatorBalances[_publicKey];
+
         SSVRegistryContract.deleteOperator(msg.sender, _publicKey);
     }
 
-    function deactivate(bytes calldata _pubKey) override external {
+    function deactivateValidator(bytes calldata _pubKey) override external {
         unregisterValidator(_pubKey);
 
-        SSVRegistryContract.deactivate(_pubKey);
+        SSVRegistryContract.deactivateValidator(_pubKey);
     }
 
-    function activate(bytes calldata _pubKey) override external {
+    function activateValidator(bytes calldata _pubKey) override external {
         validatorUsages[_pubKey].blockNumber = block.number;
         // calculate balances for current operators in use and update their balances
         bytes[] memory currentOperatorPubKeys = SSVRegistryContract.getOperatorPubKeysInUse(_pubKey);
@@ -242,7 +249,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             operatorBalances[operatorPubKey].validatorCount++;
         }
 
-        SSVRegistryContract.activate(_pubKey);
+        SSVRegistryContract.activateValidator(_pubKey);
     }
 
     function withdraw(uint256 _tokenAmount) override public {

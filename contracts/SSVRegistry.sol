@@ -52,6 +52,10 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         return validators[_publicKey].ownerAddress;
     }
 
+    function getOperatorOwner(bytes calldata _publicKey) external override view returns (address) {
+        return operators[_publicKey].ownerAddress;
+    }
+
     function _validateValidatorParams(
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
@@ -126,7 +130,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         validatorsByAddress[_ownerAddress].push(_publicKey);
         validatorCount++;
         emit ValidatorAdded(_ownerAddress, _publicKey, validatorItem.oess);
-        this.activate(_publicKey);
+        activateValidator(_publicKey);
     }
 
     /**
@@ -257,14 +261,14 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         return validatorsByAddress[_ownerAddress];
     }
 
-    function deactivate(bytes calldata _pubKey) override external {
+    function deactivateValidator(bytes calldata _pubKey) override external {
         require(validators[_pubKey].active, "already inactive");
         validators[_pubKey].active = false;
 
         emit ValidatorInactive(validators[_pubKey].ownerAddress, _pubKey);
     }
 
-    function activate(bytes calldata _pubKey) override external {
+    function activateValidator(bytes calldata _pubKey) override public {
         require(!validators[_pubKey].active, "already active");
         validators[_pubKey].active = true;
 

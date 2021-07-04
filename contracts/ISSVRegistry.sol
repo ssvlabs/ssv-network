@@ -78,6 +78,8 @@ interface ISSVRegistry {
 
     function getValidatorOwner(bytes calldata _publicKey) external view returns (address);
 
+    function getOperatorOwner(bytes calldata _publicKey) external view returns (address);
+
     /**
      * @dev Gets an operator public keys by owner address.
      * @param _ownerAddress Owner Address.
@@ -239,7 +241,7 @@ interface ISSVRegistry {
         external
         returns (bytes[] memory);
 
-    function deactivate(bytes calldata _pubKey) external;
+    function deactivateValidator(bytes calldata _pubKey) external;
 
-    function activate(bytes calldata _pubKey) external;
+    function activateValidator(bytes calldata _pubKey) external;
 }

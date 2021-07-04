@@ -19,8 +19,9 @@ interface ISSVNetwork {
 
     struct Balance {
         uint256 deposited;
-        uint256 used;
         uint256 withdrawn;
+        uint256 earned;
+        uint256 used;
     }
 
     function initialize(ISSVRegistry _SSVRegistryAddress, IERC20 _token) external;
@@ -122,7 +123,7 @@ interface ISSVNetwork {
      */
     function deleteOperator(bytes calldata _publicKey) external;
 
-    function deactivate(bytes calldata _pubKey) external;
+    function deactivateValidator(bytes calldata _pubKey) external;
 
-    function activate(bytes calldata _pubKey) external;
+    function activateValidator(bytes calldata _pubKey) external;
 }
