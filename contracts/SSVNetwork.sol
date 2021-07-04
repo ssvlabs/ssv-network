@@ -233,12 +233,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         SSVRegistryContract.deleteOperator(msg.sender, _publicKey);
     }
 
-    function deactivateValidator(bytes calldata _pubKey) override external {
-        unregisterValidator(_pubKey);
-
-        SSVRegistryContract.deactivateValidator(_pubKey);
-    }
-
     function activateValidator(bytes calldata _pubKey) override external {
         validatorUsages[_pubKey].blockNumber = block.number;
         // calculate balances for current operators in use and update their balances
@@ -250,6 +244,22 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
 
         SSVRegistryContract.activateValidator(_pubKey);
+    }
+
+    function deactivateValidator(bytes calldata _pubKey) override external {
+        unregisterValidator(_pubKey);
+
+        SSVRegistryContract.deactivateValidator(_pubKey);
+    }
+
+    function activateOperator(bytes calldata _pubKey) override external {
+        SSVRegistryContract.activateOperator(_pubKey);
+    }
+
+    function deactivateOperator(bytes calldata _pubKey) override external {
+        require(operatorBalances[_pubKey].validatorCount == 0, "operator has validators");
+
+        SSVRegistryContract.deactivateOperator(_pubKey);
     }
 
     function withdraw(uint256 _tokenAmount) override public {

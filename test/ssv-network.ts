@@ -66,6 +66,7 @@ describe('SSV Network', function() {
     await ssvToken.connect(account1).approve(ssvNetwork.address, '10000');
     await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), '10000');
   });
+
   it('balances should be correct after 1 day', async function() {
     await progressBlocks(100);
     expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(9000);

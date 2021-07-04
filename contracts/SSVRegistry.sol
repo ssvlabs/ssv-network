@@ -83,11 +83,12 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
             operators[_publicKey].ownerAddress == address(0),
             "Operator with same public key already exists"
         );
-        operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0, operatorsByAddress[_ownerAddress].length);
+        operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0, false, operatorsByAddress[_ownerAddress].length);
         operatorsByAddress[_ownerAddress].push(_publicKey);
         emit OperatorAdded(_name, _ownerAddress, _publicKey);
         operatorCount++;
         updateOperatorFee(_publicKey, _fee);
+        activateOperator(_publicKey);
     }
 
     /**
@@ -261,17 +262,32 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         return validatorsByAddress[_ownerAddress];
     }
 
-    function deactivateValidator(bytes calldata _pubKey) override external {
-        require(validators[_pubKey].active, "already inactive");
-        validators[_pubKey].active = false;
+    function activateOperator(bytes calldata _pubKey) override public {
+        require(!operators[_pubKey].active, "already active");
+        operators[_pubKey].active = true;
 
-        emit ValidatorInactive(validators[_pubKey].ownerAddress, _pubKey);
+        emit OperatorActive(operators[_pubKey].ownerAddress, _pubKey);
     }
+
+    function deactivateOperator(bytes calldata _pubKey) override external {
+        require(operators[_pubKey].active, "already inactive");
+        operators[_pubKey].active = false;
+
+        emit OperatorInactive(operators[_pubKey].ownerAddress, _pubKey);
+    }
+
 
     function activateValidator(bytes calldata _pubKey) override public {
         require(!validators[_pubKey].active, "already active");
         validators[_pubKey].active = true;
 
         emit ValidatorActive(validators[_pubKey].ownerAddress, _pubKey);
+    }
+
+    function deactivateValidator(bytes calldata _pubKey) override external {
+        require(validators[_pubKey].active, "already inactive");
+        validators[_pubKey].active = false;
+
+        emit ValidatorInactive(validators[_pubKey].ownerAddress, _pubKey);
     }
 }

@@ -15,6 +15,7 @@ interface ISSVRegistry {
         address ownerAddress;
         bytes publicKey;
         uint256 score;
+        bool active;
         uint256 index;
     }
 
@@ -73,6 +74,7 @@ interface ISSVRegistry {
             address,
             bytes memory,
             uint256,
+            bool,
             uint256
         );
 
@@ -158,6 +160,9 @@ interface ISSVRegistry {
     event ValidatorActive(address ownerAddress, bytes publicKey);
     event ValidatorInactive(address ownerAddress, bytes publicKey);
 
+    event OperatorActive(address ownerAddress, bytes publicKey);
+    event OperatorInactive(address ownerAddress, bytes publicKey);
+
     /**
      * @dev Updates a validator in the list.
      * @param _ownerAddress The user's ethereum address that is the owner of the validator.
@@ -241,7 +246,9 @@ interface ISSVRegistry {
         external
         returns (bytes[] memory);
 
+    function activateValidator(bytes calldata _pubKey) external;
     function deactivateValidator(bytes calldata _pubKey) external;
 
-    function activateValidator(bytes calldata _pubKey) external;
+    function activateOperator(bytes calldata _pubKey) external;
+    function deactivateOperator(bytes calldata _pubKey) external;
 }

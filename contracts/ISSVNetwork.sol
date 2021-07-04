@@ -123,7 +123,9 @@ interface ISSVNetwork {
      */
     function deleteOperator(bytes calldata _publicKey) external;
 
+    function activateValidator(bytes calldata _pubKey) external;
     function deactivateValidator(bytes calldata _pubKey) external;
 
-    function activateValidator(bytes calldata _pubKey) external;
+    function activateOperator(bytes calldata _pubKey) external;
+    function deactivateOperator(bytes calldata _pubKey) external;
 }
