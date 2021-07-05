@@ -99,14 +99,6 @@ interface ISSVRegistry {
         returns (bytes[] memory);
 
     /**
-     * @dev Gets an operator public keys by owner address.
-     * @param _publicKey Operator's Public Key.
-     */
-    function getOperatorFee(bytes calldata _publicKey)
-        external view
-        returns (OperatorFee[] memory);
-
-    /**
      * @dev Emitted when the operator has been added.
      * @param name Opeator's display name.
      * @param ownerAddress Operator's ethereum address that can collect fees.
