@@ -16,8 +16,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     mapping(address => Balance) public addressBalances;
 
-    bool initialized;
-
     function initialize(ISSVRegistry _SSVRegistryAddress, IERC20 _token) public virtual override initializer {
         __SSVNetwork_init(_SSVRegistryAddress, _token);
     }
