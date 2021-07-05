@@ -57,6 +57,7 @@ describe('SSV Network', function() {
   it('register operator', async function() {
     await ssvNetwork.connect(account2).registerOperator("testOperator 0", operatorsPub[0], 1);
   });
+
   it('register more operators', async function() {
     await ssvNetwork.connect(account2).registerOperator("testOperator 1", operatorsPub[1], 2);
     await ssvNetwork.connect(account3).registerOperator("testOperator 2", operatorsPub[2], 3);

@@ -99,6 +99,14 @@ interface ISSVRegistry {
         returns (bytes[] memory);
 
     /**
+     * @dev Gets an operator public keys by owner address.
+     * @param _publicKey Operator's Public Key.
+     */
+    function getOperatorFee(bytes calldata _publicKey)
+        external view
+        returns (OperatorFee[] memory);
+
+    /**
      * @dev Emitted when the operator has been added.
      * @param name Opeator's display name.
      * @param ownerAddress Operator's ethereum address that can collect fees.
@@ -165,14 +173,12 @@ interface ISSVRegistry {
 
     /**
      * @dev Updates a validator in the list.
-     * @param _ownerAddress The user's ethereum address that is the owner of the validator.
      * @param _publicKey Validator public key.
      * @param _operatorPublicKeys Operator public keys.
      * @param _sharesPublicKeys Shares public keys.
      * @param _encryptedKeys Encrypted private keys.
      */
     function updateValidator(
-        address _ownerAddress,
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,

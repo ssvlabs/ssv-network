@@ -30,24 +30,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function __SSVRegistry_init_unchained() internal initializer {
     }
 
-    modifier onlyValidator(bytes calldata _publicKey, address _ownerAddress) {
-        require(
-            validators[_publicKey].ownerAddress != address(0),
-            "Validator with public key is not exists"
-        );
-        require(_ownerAddress == validators[_publicKey].ownerAddress, "Caller is not validator owner");
-        _;
-    }
-
-    modifier onlyOperator(bytes calldata _publicKey, address _ownerAddress) {
-        require(
-            operators[_publicKey].ownerAddress != address(0),
-            "Operator with public key is not exists"
-        );
-        require(_ownerAddress == operators[_publicKey].ownerAddress, "Caller is not operator owner");
-        _;
-    }
-
     function getValidatorOwner(bytes calldata _publicKey) external override view returns (address) {
         return validators[_publicKey].ownerAddress;
     }
@@ -138,12 +120,11 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
      * @dev See {ISSVRegistry-updateValidator}.
      */
     function updateValidator(
-        address _ownerAddress,
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
-    ) onlyValidator(_publicKey, _ownerAddress) public virtual override {
+    ) public virtual override {
         _validateValidatorParams(
             _publicKey,
             _operatorPublicKeys,
@@ -173,7 +154,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function deleteValidator(
         address _ownerAddress,
         bytes calldata _publicKey
-    ) onlyValidator(_publicKey, _ownerAddress) public virtual override {
+    ) public virtual override {
         Validator storage validatorItem = validators[_publicKey];
         validatorsByAddress[_ownerAddress][validatorItem.index] = validatorsByAddress[_ownerAddress][validatorsByAddress[_ownerAddress].length - 1];
         validatorsByAddress[_ownerAddress].pop();
@@ -191,7 +172,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function deleteOperator(
         address _ownerAddress,
         bytes calldata _publicKey
-    ) onlyOperator(_publicKey, _ownerAddress) public virtual override {
+    ) public virtual override {
         Operator storage operatorItem = operators[_publicKey];
         operatorsByAddress[_ownerAddress][operatorItem.index] = operatorsByAddress[_ownerAddress][operatorsByAddress[_ownerAddress].length - 1];
 
@@ -276,7 +257,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         emit OperatorInactive(operators[_pubKey].ownerAddress, _pubKey);
     }
 
-
     function activateValidator(bytes calldata _pubKey) override public {
         require(!validators[_pubKey].active, "already active");
         validators[_pubKey].active = true;
@@ -289,5 +269,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         validators[_pubKey].active = false;
 
         emit ValidatorInactive(validators[_pubKey].ownerAddress, _pubKey);
+    }
+
+    function getOperatorFee(bytes calldata _pubKey) external view virtual override returns (OperatorFee[] memory) {
+        return operatorFees[_pubKey];
     }
 }

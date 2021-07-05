@@ -33,13 +33,32 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         SSVRegistryContract.initialize();
     }
 
+    modifier onlyValidator(bytes calldata _publicKey) {
+        address owner = SSVRegistryContract.getValidatorOwner(_publicKey);
+        require(
+            owner != address(0),
+            "Validator with public key is not exists"
+        );
+        require(msg.sender == owner, "Caller is not validator owner");
+        _;
+    }
+
+    modifier onlyOperator(bytes calldata _publicKey) {
+        address owner = SSVRegistryContract.getOperatorOwner(_publicKey);
+        require(
+            owner != address(0),
+            "Operator with public key is not exists"
+        );
+        require(msg.sender == owner, "Caller is not operator owner");
+        _;
+    }
 
     // uint256 minValidatorBlockSubscription;
 
     /**
      * @dev See {ISSVNetwork-updateOperatorFee}.
      */
-    function updateOperatorFee(bytes calldata _pubKey, uint256 _fee) public virtual override {
+    function updateOperatorFee(bytes calldata _pubKey, uint256 _fee) onlyOperator(_pubKey) public virtual override {
         updateOperatorBalance(_pubKey);
         SSVRegistryContract.updateOperatorFee(_pubKey, _fee);
     }
@@ -158,10 +177,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     function updateValidator(
         bytes calldata _publicKey,
         bytes[] calldata _operatorPublicKeys,
-        bytes[] calldata _sharesPublicKeys,
+        bytes[] calldata _sharesPublicKeys, 
         bytes[] calldata _encryptedKeys,
         uint256 _tokenAmount
-    ) public virtual override {
+    ) onlyValidator(_publicKey) public virtual override {
         updateValidatorUsage(_publicKey);
         bytes[] memory currentOperatorPubKeys = SSVRegistryContract.getOperatorPubKeysInUse(_publicKey);
         // calculate balances for current operators in use
@@ -179,7 +198,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
 
         SSVRegistryContract.updateValidator(
-            msg.sender,
             _publicKey,
             _operatorPublicKeys,
             _sharesPublicKeys,
@@ -204,32 +222,23 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-deleteValidator}.
      */
-    function deleteValidator(bytes calldata _publicKey) public virtual override {
+    function deleteValidator(bytes calldata _publicKey) onlyValidator(_publicKey) public virtual override {
         unregisterValidator(_publicKey);
-
         address owner = SSVRegistryContract.getValidatorOwner(_publicKey);
-
         require(totalBalanceOf(owner) > validatorUsageOf(_publicKey), "Not enough balance");
-
         addressBalances[owner].used += validatorUsageOf(_publicKey);
-
         delete validatorUsages[_publicKey];
-
         SSVRegistryContract.deleteValidator(msg.sender, _publicKey);
     }
 
     /**
-     * @dev See {ISSVNetwork-deleteValidator}.
+     * @dev See {ISSVNetwork-deleteOperator}.
      */
-    function deleteOperator(bytes calldata _publicKey) public virtual override {
+    function deleteOperator(bytes calldata _publicKey) onlyOperator(_publicKey) public virtual override {
         require(operatorBalances[_publicKey].validatorCount == 0, "operator has validators");
-
         address owner = SSVRegistryContract.getOperatorOwner(_publicKey);
-
         addressBalances[owner].earned += operatorBalances[_publicKey].balance;
-
         delete operatorBalances[_publicKey];
-
         SSVRegistryContract.deleteOperator(msg.sender, _publicKey);
     }
 
