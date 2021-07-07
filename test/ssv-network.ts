@@ -52,20 +52,18 @@ describe('SSV Network', function() {
     ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address]);
     await ssvNetwork.deployed();
     await ssvToken.mint(account1.address, '1000000');
-  });
 
-  it('register operator', async function() {
-    await ssvNetwork.connect(account2).registerOperator("testOperator 0", operatorsPub[0], 1);
-  });
+    // register operators
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1);
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 2);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 3);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 4);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 5);
 
-  it('register more operators', async function() {
-    await ssvNetwork.connect(account2).registerOperator("testOperator 1", operatorsPub[1], 2);
-    await ssvNetwork.connect(account3).registerOperator("testOperator 2", operatorsPub[2], 3);
-    await ssvNetwork.connect(account3).registerOperator("testOperator 3", operatorsPub[3], 4);
-  });
-  it('register validator', async function() {
-    await ssvToken.connect(account1).approve(ssvNetwork.address, '10000');
-    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), '10000');
+    // register validators
+    const tokens = '10000';
+    await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
+    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens);
   });
 
   it('balances should be correct after 1 day', async function() {
@@ -73,5 +71,17 @@ describe('SSV Network', function() {
     expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(9000);
     expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(300);
     expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(700);
+  });
+
+  it('withdraw', async function() {
+    await progressBlocks(100);
+    await ssvNetwork.connect(account1).withdraw('1000');
+  });
+
+  it('revert withdraw: not enough balance', async function() {
+    await progressBlocks(100);
+    await ssvNetwork.connect(account1)
+      .withdraw('10000')
+      .should.eventually.be.rejectedWith('not enough balance');;
   });
 });

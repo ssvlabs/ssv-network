@@ -6,6 +6,7 @@ import "./ISSVNetwork.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "hardhat/console.sol";
 
 contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     ISSVRegistry private SSVRegistryContract;
@@ -144,8 +145,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         bytes[] calldata _encryptedKeys,
         uint256 _tokenAmount
     ) public virtual override {
-        // TODO: tokensAmount validation based on calculation operator pub key and minimum period of time
-        // for each operatorPubKey: minValidatorBlockSubscription * (fee1 + fee2 + fee3)
+        allowance(msg.sender, _tokenAmount);
+
         SSVRegistryContract.registerValidator(
             msg.sender,
             _publicKey,
@@ -164,6 +165,13 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         deposit(_tokenAmount);
     }
 
+    function allowance(address ownerAddress, uint _tokenAmount) public view override {
+        // TODO: tokensAmount validation based on calculation operator pub key and minimum period of time
+        // for each operatorPubKey: minValidatorBlockSubscription * (fee1 + fee2 + fee3)
+        uint256 approved = token.allowance(ownerAddress, address(this));
+        require(approved >= _tokenAmount, "Not enough approved tokes to transfer");
+    }
+
     function deposit(uint _tokenAmount) public override {
         token.transferFrom(msg.sender, address(this), _tokenAmount);
         addressBalances[msg.sender].deposited += _tokenAmount;
@@ -179,6 +187,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         bytes[] calldata _encryptedKeys,
         uint256 _tokenAmount
     ) onlyValidator(_publicKey) public virtual override {
+        allowance(msg.sender, _tokenAmount);
+
         updateValidatorUsage(_publicKey);
         bytes[] memory currentOperatorPubKeys = SSVRegistryContract.getOperatorPubKeysInUse(_publicKey);
         // calculate balances for current operators in use

@@ -5,6 +5,7 @@ pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./ISSVRegistry.sol";
+import "hardhat/console.sol";
 
 contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     uint256 public operatorCount;
@@ -157,12 +158,10 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     ) onlyOwner public virtual override {
         Validator storage validatorItem = validators[_publicKey];
         validatorsByAddress[_ownerAddress][validatorItem.index] = validatorsByAddress[_ownerAddress][validatorsByAddress[_ownerAddress].length - 1];
-        validatorsByAddress[_ownerAddress].pop();
         validators[validatorsByAddress[_ownerAddress][validatorItem.index]].index = validatorItem.index;
+        validatorsByAddress[_ownerAddress].pop();
         delete validators[_publicKey];
-
         --validatorCount;
-
         emit ValidatorDeleted(_ownerAddress, _publicKey);
     }
 
@@ -174,21 +173,21 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         bytes calldata _publicKey
     ) onlyOwner public virtual override {
         Operator storage operatorItem = operators[_publicKey];
+        string memory name = operatorItem.name;
         operatorsByAddress[_ownerAddress][operatorItem.index] = operatorsByAddress[_ownerAddress][operatorsByAddress[_ownerAddress].length - 1];
-
-        operatorsByAddress[_ownerAddress].pop();
         operators[operatorsByAddress[_ownerAddress][operatorItem.index]].index = operatorItem.index;
+        operatorsByAddress[_ownerAddress].pop();
         delete operators[_publicKey];
 
         --operatorCount;
 
-        emit OperatorDeleted(operatorItem.name, _publicKey);
+        emit OperatorDeleted(name, _publicKey);
     }
 
     /**
      * @dev See {ISSVRegistry-getOperatorCurrentFee}.
      */
-    function getOperatorCurrentFee(bytes calldata _operatorPubKey) onlyOwner public view override returns (uint256) {
+    function getOperatorCurrentFee(bytes calldata _operatorPubKey) public view override returns (uint256) {
         require(operatorFees[_operatorPubKey].length > 0, "Operator fees not found");
         return operatorFees[_operatorPubKey][operatorFees[_operatorPubKey].length - 1].fee;
     }
