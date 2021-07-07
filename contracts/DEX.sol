@@ -8,8 +8,8 @@ contract DEX {
 
     mapping(address => uint256) public cdtAllowance;
 
-    IERC20 private cdtToken;
-    IERC20 private ssvToken;
+    IERC20 public cdtToken;
+    IERC20 public ssvToken;
 
     uint public rate;
 
