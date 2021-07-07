@@ -57,7 +57,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     /**
      * @dev See {ISSVNetwork-updateOperatorFee}.
      */
-    function updateOperatorFee(bytes calldata _pubKey, uint256 _fee) onlyOperator(_pubKey) public virtual override {
+    function updateOperatorFee(bytes calldata _pubKey, uint256 _fee) public onlyOperator(_pubKey) virtual override {
         updateOperatorBalance(_pubKey);
         ssvRegistryContract.updateOperatorFee(_pubKey, _fee);
     }
@@ -250,7 +250,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         ssvRegistryContract.deleteOperator(msg.sender, _publicKey);
     }
 
-    function activateValidator(bytes calldata _pubKey) override external {
+    function activateValidator(bytes calldata _pubKey) external override {
         validatorUsages[_pubKey].blockNumber = block.number;
         // calculate balances for current operators in use and update their balances
         bytes[] memory currentOperatorPubKeys = ssvRegistryContract.getOperatorPubKeysInUse(_pubKey);
@@ -263,23 +263,23 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         ssvRegistryContract.activateValidator(_pubKey);
     }
 
-    function deactivateValidator(bytes calldata _pubKey) override external {
+    function deactivateValidator(bytes calldata _pubKey) external override {
         unregisterValidator(_pubKey);
 
         ssvRegistryContract.deactivateValidator(_pubKey);
     }
 
-    function activateOperator(bytes calldata _pubKey) override external {
+    function activateOperator(bytes calldata _pubKey) external override {
         ssvRegistryContract.activateOperator(_pubKey);
     }
 
-    function deactivateOperator(bytes calldata _pubKey) override external {
+    function deactivateOperator(bytes calldata _pubKey) external override {
         require(operatorBalances[_pubKey].validatorCount == 0, "operator has validators");
 
         ssvRegistryContract.deactivateOperator(_pubKey);
     }
 
-    function withdraw(uint256 _tokenAmount) override public {
+    function withdraw(uint256 _tokenAmount) public override {
         require(totalBalanceOf(msg.sender) > _tokenAmount, "not enough balance");
         addressBalances[msg.sender].withdrawn += _tokenAmount;
         token.transfer(msg.sender, _tokenAmount);
