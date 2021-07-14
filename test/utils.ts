@@ -1,3 +1,5 @@
+declare var network: any;
+
 export const strToHex = str => `0x${Buffer.from(str, 'utf8').toString('hex')}`;
 
 export const asciiToHex = str =>  {
@@ -7,4 +9,35 @@ export const asciiToHex = str =>  {
     arr1.push(hex);
   }
   return arr1.join('');
+}
+
+export const progress = async function(time, blocks, func = null) {
+  const snapshot = await network.provider.send("evm_snapshot");
+  if (time) {
+    await network.provider.send("evm_increaseTime", [time]);
+    if (!blocks) {
+      await network.provider.send("evm_mine", []);
+    }
+  }
+
+  for (let index = 0; index < blocks; ++index) {
+    await network.provider.send("evm_mine", []);
+  }
+
+  if (func) {
+    await func();
+    await network.provider.send("evm_revert", [snapshot]);
+  }
+}
+
+export const progressTime = async function(time, func = null) {
+  return progress(time, 1, func);
+}
+
+export const progressBlocks = async function(blocks, func = null) {
+  return progress(0, blocks, func);
+}
+
+export const snapshot = async function(func) {
+  return progress(0, 0, func);
 }

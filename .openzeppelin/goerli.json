@@ -866,6 +866,572 @@
           }
         }
       }
+    },
+    "481f9a94e688f578ab49c313aef88b6d24d73f7de12f2c8c509baf15d8bcb20d": {
+      "address": "0xd442793f80D20179B9dF8D00237c229cF7f9a1Ab",
+      "txHash": "0x1c5a5003f8da421219b4e865944a859f705ee921c9a16b15c4b18b4b922d9161",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:23"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:28"
+          },
+          {
+            "contract": "ContextUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:31"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_balances",
+            "type": "t_mapping(t_address,t_uint256)",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:35"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_allowances",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:37"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_totalSupply",
+            "type": "t_uint256",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:39"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_name",
+            "type": "t_string_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:41"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_symbol",
+            "type": "t_string_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:42"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)45_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:310"
+          }
+        ],
+        "types": {
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))"
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_array(t_uint256)45_storage": {
+            "label": "uint256[45]"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    },
+    "593c592bc25982f92429e65b4490864b6be183779054e503d668a3d8be8da36e": {
+      "address": "0x81aDF259fa5b931164a099857535AEC732c1eC7D",
+      "txHash": "0xad35669929cac3e34b2ad10dd2656425896a377a85a339c1414ec4ecccd2c320",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:23"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:28"
+          },
+          {
+            "contract": "ContextUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:31"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "_owner",
+            "type": "t_address",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:20"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)49_storage",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:74"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_balances",
+            "type": "t_mapping(t_address,t_uint256)",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:35"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_allowances",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:37"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_totalSupply",
+            "type": "t_uint256",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:39"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_name",
+            "type": "t_string_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:41"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_symbol",
+            "type": "t_string_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:42"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)45_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:310"
+          },
+          {
+            "contract": "ERC20BurnableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol:48"
+          }
+        ],
+        "types": {
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))"
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_array(t_uint256)45_storage": {
+            "label": "uint256[45]"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    },
+    "e26ae718c92fe446cc975c6209c6487d2868235ffca88ebe6349791867a33b30": {
+      "address": "0x747bA73f77E4175A81A8bbEAdDd230e5C1F5d1f2",
+      "txHash": "0x846f83a425d8e9c11d7d5ba782c68d5317f351b3c677beef32bd22b9f2e25a9a",
+      "layout": {
+        "storage": [
+          {
+            "contract": "DEX",
+            "label": "cdtToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:8"
+          },
+          {
+            "contract": "DEX",
+            "label": "ssvToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:9"
+          },
+          {
+            "contract": "DEX",
+            "label": "rate",
+            "type": "t_uint256",
+            "src": "contracts/DEX.sol:11"
+          },
+          {
+            "contract": "DEX",
+            "label": "initialized",
+            "type": "t_bool",
+            "src": "contracts/DEX.sol:13"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)1132": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    },
+    "1d023e2c75038addfe5db7c00a83e5fe9d9fa984d33f8b1f044da29371d7119f": {
+      "address": "0x7B0B54Cfda2d7cDb6A0f8FB046C12CcA35CE55F0",
+      "txHash": "0x5efb7fcda4d589ea9a920c37b11828e604ed60ec90c1b6546e294e79fd7bbb51",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:23"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:28"
+          },
+          {
+            "contract": "ContextUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:31"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_balances",
+            "type": "t_mapping(t_address,t_uint256)",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:35"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_allowances",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:37"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_totalSupply",
+            "type": "t_uint256",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:39"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_name",
+            "type": "t_string_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:41"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_symbol",
+            "type": "t_string_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:42"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)45_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:310"
+          }
+        ],
+        "types": {
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))"
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_array(t_uint256)45_storage": {
+            "label": "uint256[45]"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    },
+    "628f62193b08419126af75c4096ed4b7c6e04b5600fd247128baf42c7fcbbe26": {
+      "address": "0x216D1c59BD85B4b7120E9D4694445089A9A25e7E",
+      "txHash": "0x73249577fcecb3d9cddac7eca18af4368d397732da1256d33f8171a3e10a05e2",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:23"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:28"
+          },
+          {
+            "contract": "ContextUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:31"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "_owner",
+            "type": "t_address",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:20"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)49_storage",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:74"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_balances",
+            "type": "t_mapping(t_address,t_uint256)",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:35"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_allowances",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:37"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_totalSupply",
+            "type": "t_uint256",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:39"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_name",
+            "type": "t_string_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:41"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "_symbol",
+            "type": "t_string_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:42"
+          },
+          {
+            "contract": "ERC20Upgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)45_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:310"
+          },
+          {
+            "contract": "ERC20BurnableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol:48"
+          }
+        ],
+        "types": {
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))"
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_array(t_uint256)45_storage": {
+            "label": "uint256[45]"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    },
+    "f89dd43595f2fc978265d84473433af744086fd9067f713425fb9c03f172ce6c": {
+      "address": "0xa15831B8A547651D9a75aaA5b21C812d77102098",
+      "txHash": "0xaa7bbd08e265de64347ab711d252cae9be3bfb7a9d0f88e3128040f2aa8429a3",
+      "layout": {
+        "storage": [
+          {
+            "contract": "DEX",
+            "label": "cdtToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:8"
+          },
+          {
+            "contract": "DEX",
+            "label": "ssvToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:9"
+          },
+          {
+            "contract": "DEX",
+            "label": "rate",
+            "type": "t_uint256",
+            "src": "contracts/DEX.sol:11"
+          },
+          {
+            "contract": "DEX",
+            "label": "initialized",
+            "type": "t_bool",
+            "src": "contracts/DEX.sol:13"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)1132": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    },
+    "22271bf67ba0b0ff5368fa1b9ec878f6c493733dbf31d546073fc75c88a93d70": {
+      "address": "0xB03688035a18668Fe50f0F68723A4b67C94D500c",
+      "txHash": "0x5ab59a89ed7c049c86a3f886c2911c8b59fd0a3db72b225dc2d97202759672ca",
+      "layout": {
+        "storage": [
+          {
+            "contract": "DEX",
+            "label": "cdtToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:8"
+          },
+          {
+            "contract": "DEX",
+            "label": "ssvToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:9"
+          },
+          {
+            "contract": "DEX",
+            "label": "rate",
+            "type": "t_uint256",
+            "src": "contracts/DEX.sol:11"
+          },
+          {
+            "contract": "DEX",
+            "label": "initialized",
+            "type": "t_bool",
+            "src": "contracts/DEX.sol:13"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)1132": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    },
+    "57854538f54ef694da0ef2adffcac98daf0d98102b20a43de9adccd96a31e18b": {
+      "address": "0x560C3525e203a498c71035Ba6A1a2400aA5C52F7",
+      "txHash": "0x020e3e1b165d8862f04a350155f5f3e5328d679b8406bde90bac47c8dc7986f5",
+      "layout": {
+        "storage": [
+          {
+            "contract": "DEX",
+            "label": "cdtToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:8"
+          },
+          {
+            "contract": "DEX",
+            "label": "ssvToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:9"
+          },
+          {
+            "contract": "DEX",
+            "label": "rate",
+            "type": "t_uint256",
+            "src": "contracts/DEX.sol:11"
+          },
+          {
+            "contract": "DEX",
+            "label": "initialized",
+            "type": "t_bool",
+            "src": "contracts/DEX.sol:13"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)1132": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
     }
   },
   "proxies": [
@@ -923,6 +1489,186 @@
       "address": "0xF9F9C10938b0f0EB4cd7fa33C1b5C5f968f400B7",
       "kind": "transparent",
       "txHash": "0x3eb7d66f9b471355fa9be5eb51b53b409eafec33a18b509aeca86c996d760e36"
+    },
+    {
+      "address": "0x5A6C22637b3688784cD1FF00723f0Ef149D5Bf0D",
+      "kind": "transparent",
+      "txHash": "0xfd0f05fa1a52881d4fb96fe95d54adce7ad00fddb5813c43e9a156f15a5b5eeb"
+    },
+    {
+      "address": "0xa62Ee2823dE91c9Ff3bcC2AAa32B75e181501485",
+      "kind": "transparent",
+      "txHash": "0xcf5e3dea1d869f97b8313300f92a053c2b91ed6237ef1dec3f4c125a264e05ea"
+    },
+    {
+      "address": "0x1b6Ba85ED38e5Afc1C5f6Ae0e02Cc2e3238130a0",
+      "kind": "transparent",
+      "txHash": "0x180a177ab79f2587a135a88e95ee0f5aa36d7a25cff377ea617329bb902e9194"
+    },
+    {
+      "address": "0x71716FBEE778993ef6BE8CFb4eac2d870af24702",
+      "kind": "transparent",
+      "txHash": "0xad2ef933a08562e451471a68fc3cc388bf24f5dac89b7b163bb8146c5865e853"
+    },
+    {
+      "address": "0xd69402a08BAcC014847e0d5A7d4b44376CEA1b65",
+      "kind": "transparent",
+      "txHash": "0x5dd66998be5e78e2dd79b22d18f2b5d82d08e81fc0eecb34d26eae556c539adf"
+    },
+    {
+      "address": "0xb5de04BE7Ceaf476656a4B5a3CEeeAF54B4d40Aa",
+      "kind": "transparent",
+      "txHash": "0xcb224d32ed0fa54acf99101822b1b2c00327818cd0459b79656a8a62dc7e5186"
+    },
+    {
+      "address": "0x0E6dfacc94311Bdd2bABb6AE7630d45b12b55232",
+      "kind": "transparent",
+      "txHash": "0xd9e82cfc515a35d3d14221560046fdee31aea998984b364c6f1edf7c9ae49ecc"
+    },
+    {
+      "address": "0x21aBdbb722c5041DcCb209B36CF2f9d625a64cAD",
+      "kind": "transparent",
+      "txHash": "0x5bcd8b6ebad40634c68082d04b61b35329466a7e424df8d9d0c0e9833bedd9b6"
+    },
+    {
+      "address": "0x0d2702896C737a72Ede32fDB757435a7CC911dC6",
+      "kind": "transparent",
+      "txHash": "0xc7522f0c65caaee063311baed3f1122af76c69a1cc905e7fb0802b63bc6893de"
+    },
+    {
+      "address": "0xD4CC48B6818aD2A0165AeEeE629Bef32674671FC",
+      "kind": "transparent",
+      "txHash": "0xcce2472c72551c3f39e0fe9a1cb63b75d6454a1b6c3f02c08748781df17a3d55"
+    },
+    {
+      "address": "0xf9157168676A411ADC146b366C3F499c69B8fE5B",
+      "kind": "transparent",
+      "txHash": "0x2666254650849c34a2d255574f4833b902474bb87a1d7d99483c9b6d0539cfd1"
+    },
+    {
+      "address": "0x15C75391af9328195bF266E855CACf12517AE4e8",
+      "kind": "transparent",
+      "txHash": "0xcecf0499ce48b8b83ce1d28a245804b37b05cfc87775489b18c2a67df19fe022"
+    },
+    {
+      "address": "0x7f0E5344f9107D7a7e803FB2c8773Ac17C136A79",
+      "kind": "transparent",
+      "txHash": "0x87185c4551c0146dcfd2594dea3d94b81df7839207625667b835c5e836fcbea6"
+    },
+    {
+      "address": "0x5AF921C0178A44164133CEFC6Ba5d4daFc4Cc4D4",
+      "kind": "transparent",
+      "txHash": "0xe993879140bd2638ef86d99843af7b62d17ae4f683ae4bdc3cf7e782977b44f7"
+    },
+    {
+      "address": "0x705413F7CaBd2458fd10a581d3Ea0a0f9A1Ce425",
+      "kind": "transparent",
+      "txHash": "0x3ba7a8461248ba1aeddf1037ae0067ebb8f62b50d6a2b2ca87bd8f79efc3c332"
+    },
+    {
+      "address": "0x60efb88d5354d0FD14eb83E5281c3F02e3280909",
+      "kind": "transparent",
+      "txHash": "0x9bcccc2726869a411050629a97a73dca7b1f37a67fc24382e2d193393724f3cc"
+    },
+    {
+      "address": "0x34399F1cEe7C14d489491D8F14c81A02a0c00F47",
+      "kind": "transparent",
+      "txHash": "0x565e2c7c1a14e51599058d257fa2259cb1fcf373175ca4025054ebef3483c991"
+    },
+    {
+      "address": "0xab253F7313D1064e0172e0093b7BAA593F3763D5",
+      "kind": "transparent",
+      "txHash": "0xd519f5bf1bd024dff4bd30ffb0d72cefe91d6f1ef78ec87124150502055cb4f4"
+    },
+    {
+      "address": "0xF7E4e9a45A2195dE18672d5547e000405251a66C",
+      "kind": "transparent",
+      "txHash": "0x43ef307e3a9f1097d9a5b43e00aceab49e9dcb254f63baa2a35a824c0fbd418a"
+    },
+    {
+      "address": "0xCE3c37585873DaD20AE13A7BecB73A3b812A4D0b",
+      "kind": "transparent",
+      "txHash": "0x7bf8599536e879b3016a1a6ed624ab9ecf2ddcaf27714477d09b67eff7cc2fba"
+    },
+    {
+      "address": "0x57E08E52D9B13b2eD802FEa9c727dc935689471c",
+      "kind": "transparent",
+      "txHash": "0x11b494b707a4faee100dc0c9214642475eae33faf443401a40f43c02634abd1e"
+    },
+    {
+      "address": "0x2f01547fDEa4f48454d81ae3d750390EB018fcaD",
+      "kind": "transparent",
+      "txHash": "0x7bf4e141737f1daaab6008f53569ba311c15a448df79c9640b1eced090d0a29f"
+    },
+    {
+      "address": "0x0BC8b23d576365d24151aC4Abc29EB7736Ef399b",
+      "kind": "transparent",
+      "txHash": "0xf254209678cafeb8a2f8318fb45bf06996c053ffe317909b367e4de536e773ae"
+    },
+    {
+      "address": "0x30Ff1aDf23E073CbA15145CF2D246b1FE84c32A2",
+      "kind": "transparent",
+      "txHash": "0x08f2826ea8daa84414c9e2b9eef4e109329aa156e1d14391735e27b09e5080dc"
+    },
+    {
+      "address": "0x715E0299F651D89259781Cec711702B30be77b57",
+      "kind": "transparent",
+      "txHash": "0x1a79ec238dc457edfe09c2aaaf53b7220b8388067c85c32e2c93b8e5332d1968"
+    },
+    {
+      "address": "0x8aCF3EE51d83a3E2b2994B7aC4D0530b9C115958",
+      "kind": "transparent",
+      "txHash": "0x0a5df0b28cca92f4dd55eb87af3942ae346c2164f632f5e6559583fe37feb8d7"
+    },
+    {
+      "address": "0x8bfd4EBbD150CF7d2c43d1f51e3102B3E62A86a5",
+      "kind": "transparent",
+      "txHash": "0x78ae8bc6164672f16977a72220e11a5b8e61e0ed28865a4b9bab776f2267e805"
+    },
+    {
+      "address": "0x86Fd8E10E29a6e0277932A3Dc2307923D5254Bc0",
+      "kind": "transparent",
+      "txHash": "0x83099bd6ef7ae60de31613d8171db84544c51b00e48c98d7509654efa483aed1"
+    },
+    {
+      "address": "0xfa8ECA527A8D146cCC3A71F8b57B77200d64204b",
+      "kind": "transparent",
+      "txHash": "0xe601433ec1259879001e7be094a9cff8f36802d34eef3b6153e351171814f188"
+    },
+    {
+      "address": "0x5fB86e98F0005Bc9a741211806b13734aA395cab",
+      "kind": "transparent",
+      "txHash": "0xd0ce9541b2e7f09fd320848b916b0a73fdcdfd974e6ca23331a688dacf60dac5"
+    },
+    {
+      "address": "0x2276a6eb71E4e8Ad55b8522E6E7782b8b7222b55",
+      "kind": "transparent",
+      "txHash": "0x26725700c08e0b70ad61c9bc0aaa9d8323fa8d38e7d2ea875dd0e431dca03b46"
+    },
+    {
+      "address": "0xc7153D10A6adfF18818c29C9a8cc5Ac359768730",
+      "kind": "transparent",
+      "txHash": "0x406e35991fbc7996efe14cc035c0e9d85af0f01a1ade82eb72cbc28539e15535"
+    },
+    {
+      "address": "0x298e2EA8De58F08eb64BdA01e7D928537D839673",
+      "kind": "transparent",
+      "txHash": "0x682ce88aa1f7503aab4ce559b4b514577e25ee6426139a6daff79ac5ec4a55d0"
+    },
+    {
+      "address": "0x07015138087772921648d45E8Ed865291d876F0D",
+      "kind": "transparent",
+      "txHash": "0x9467a54b282863a95a6e2ffda32aeda2f44d39fcb49c2d0f1e39f12a089a29a1"
+    },
+    {
+      "address": "0xA52fe9624551318B715381FD3436aC64c204882C",
+      "kind": "transparent",
+      "txHash": "0xc641635b6d905e2d695bcffdccdb5164e29a0a30f636916c6734e124bed2c90a"
+    },
+    {
+      "address": "0x4fC2eC65faeFcec4b3b7829A596A616e8807Fe29",
+      "kind": "transparent",
+      "txHash": "0x5074f86c26101eda14aad2599e29f5717eed41258eaf1e8c5da3ec55c0648217"
     }
   ],
   "admin": {

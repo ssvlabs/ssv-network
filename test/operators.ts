@@ -63,7 +63,7 @@ describe('Operators', function() {
     await ssvNetwork
       .connect(account3)
       .registerOperator('duplicate operator pubkey', operatorsPub[1], 1)
-      .should.eventually.be.rejectedWith('Operator with same public key already exists');
+      .should.eventually.be.rejectedWith('operator with same public key already exists');
 
     expect((await ssvRegistry.operatorCount()).toString()).to.equal('4');
   });
@@ -113,17 +113,21 @@ describe('Operators', function() {
     });
   });
 
-  it('revert delete operator: public key is not exists', async function () {
+  it('revert delete operator: public key does not exist', async function () {
     await ssvNetwork
       .connect(account3)
       .deleteOperator(operatorsPub[6])
-      .should.eventually.be.rejectedWith('Operator with public key is not exists');
+      .should.eventually.be.rejectedWith('operator with public key does not exist');
   });
 
   it('revert delete operator: tx was sent not by owner', async function () {
     await ssvNetwork
       .connect(account3)
       .deleteOperator(operatorsPub[0])
-      .should.eventually.be.rejectedWith('Caller is not operator owner');
+      .should.eventually.be.rejectedWith('caller is not operator owner');
+  });
+
+  it('revert get fee: operator does not exist', async function() {
+    await expect(ssvRegistry.getOperatorCurrentFee(operatorsPub[4])).to.be.revertedWith('operator not found');
   });
 });

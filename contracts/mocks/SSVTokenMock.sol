@@ -9,6 +9,6 @@ contract SSVTokenMock is SSVToken {
     }
 
     function __SSVTokenMock_init_unchained() internal initializer {
-        _mint(msg.sender, 200000000000000000000);
+        _mint(msg.sender, 1000000000000000000000);
     }
 }
