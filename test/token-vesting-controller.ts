@@ -36,7 +36,7 @@ describe('TokenVestingController', function() {
     ssvToken = await upgrades.deployProxy(ssvTokenFactory, []);
     await ssvToken.deployed();
     const tokenVestingControllerFactory = await ethers.getContractFactory('TokenVestingController');
-    tokenVestingController = await upgrades.deployProxy(tokenVestingControllerFactory, [ssvToken.address]);
+    tokenVestingController = await upgrades.deployProxy(tokenVestingControllerFactory, [ssvToken.address, '10000']);
     await tokenVestingController.deployed();
   });
 
@@ -45,8 +45,12 @@ describe('TokenVestingController', function() {
     expect(await ssvToken.balanceOf(firstHolder.address)).to.equal('1000000');
   });
 
-  it('create vesting contract', async function() {
+  it('create vesting contract below minimum', async function() {
     await ssvToken.connect(firstHolder).approve(tokenVestingController.address, '1000000');
+    await expect(tokenVestingController.connect(firstHolder).createVesting(secondHolder.address, '9000', firstStartTime, YEAR, 4 * YEAR, false)).to.be.revertedWith('amount less than minimum');
+  });
+
+  it('create vesting contract', async function() {
     await tokenVestingController.connect(firstHolder).createVesting(secondHolder.address, '10000', firstStartTime, YEAR, 4 * YEAR, false);
     expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
     expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');

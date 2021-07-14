@@ -6,6 +6,7 @@ contract TokenVestingController {
     using SafeERC20 for IERC20;
 
     IERC20 public token;
+    uint256 public minimumAmountPerContract;
     mapping (address => TokenVesting[]) public vestings;
     mapping (TokenVesting => address) public owners;
 
@@ -14,11 +15,14 @@ contract TokenVestingController {
     /**
      * @dev Create a vesting controller for a token.
      * @param _token The token.
+     * @param _minimumAmountPerContract Minimum amount per vesting contract.
      */
-    function initialize(IERC20 _token) public {
-        require(!initialized, "Already initialized");
+    function initialize(IERC20 _token, uint256 _minimumAmountPerContract) public {
+        require(!initialized, "already initialized");
+        require(_minimumAmountPerContract > 0, "minimum amount per contract not set");
 
         token = _token;
+        minimumAmountPerContract = _minimumAmountPerContract;
 
         initialized = true;
     }
@@ -35,6 +39,7 @@ contract TokenVestingController {
      * @param _revocable whether the vesting is revocable or not
      */
     function createVesting(address _beneficiary, uint256 _amount, uint256 _start, uint256 _cliffDuration, uint256 _duration, bool _revocable) public {
+        require(_amount >= minimumAmountPerContract, "amount less than minimum");
         TokenVesting tokenVesting = new TokenVesting(_beneficiary, _start, _cliffDuration, _duration, _revocable);
         vestings[_beneficiary].push(tokenVesting);
         owners[tokenVesting] = msg.sender;
