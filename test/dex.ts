@@ -15,8 +15,8 @@ const { expect } = chai;
 let dex, oldToken, ssvToken;
 let owner, account2, account3;
 const RATE = 10;
-const ssvBalance = '5000000000';
-const oldToExchange = '1000000000';
+const ssvBalance = '1000000000000000000000';
+const oldToExchange = '10000000000000000000';
 describe('DEX', function() {
   beforeEach(async function () {
     [owner, account2, account3] = await ethers.getSigners();

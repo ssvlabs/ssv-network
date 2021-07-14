@@ -68,12 +68,21 @@ interface ISSVRegistry {
      * @param _publicKey Operator's Public Key.
      */
     function operators(bytes calldata _publicKey)
-        external
+        external view
         returns (
             string memory,
             address,
             bytes memory,
             uint256,
+            bool,
+            uint256
+        );
+
+    function validators(bytes calldata _publicKey)
+        external view
+        returns (
+            address,
+            bytes memory,
             bool,
             uint256
         );

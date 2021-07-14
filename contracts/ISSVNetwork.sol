@@ -93,13 +93,6 @@ interface ISSVNetwork {
     ) external;
 
     /**
-     * @dev Validate tokens amount to transfer.
-     * @param _ownerAddress Owner address.
-     * @param _tokenAmount Tokens amount.
-     */
-    function allowance(address _ownerAddress, uint256 _tokenAmount) external;
-
-    /**
      * @dev Deposit tokens.
      * @param _tokenAmount Tokens amount.
      */

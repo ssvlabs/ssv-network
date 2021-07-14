@@ -1,5 +1,6 @@
 import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
+import { progressBlocks, snapshot } from './utils';
 
 before(() => {
   chai.should();
@@ -20,20 +21,6 @@ let ssvToken, ssvRegistry, ssvNetwork;
 let owner, account1, account2, account3;
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
-
-async function snapshot(time, func) {
-  const snapshot = await network.provider.send("evm_snapshot");
-  await network.provider.send("evm_increaseTime", [time]);
-  await network.provider.send("evm_mine", []);
-  await func();
-  await network.provider.send("evm_revert", [snapshot]);
-}
-
-async function progressBlocks(blocks) {
-  for (let i = 0; i < blocks; ++i) {
-    await network.provider.send("evm_mine", []);
-  }
-}
 
 describe('Validators', function() {
   before(async function () {
@@ -79,28 +66,13 @@ describe('Validators', function() {
     await ssvNetwork
       .connect(account2)
       .registerValidator(
-        validatorsPub[0],
+        validatorsPub[1],
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
         '100'
       )
-      .should.eventually.be.rejectedWith('Not enough approved tokes to transfer');
-
-    expect((await ssvRegistry.validatorCount()).toString()).to.equal('1');
-  });
-
-  it('revert register validator: not enough approved tokens to pay', async function() {
-    await ssvNetwork
-      .connect(account2)
-      .registerValidator(
-        validatorsPub[0],
-        operatorsPub.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        '100'
-      )
-      .should.eventually.be.rejectedWith('Not enough approved tokes to transfer');
+      .should.eventually.be.rejectedWith('transfer amount exceeds balance');
 
     expect((await ssvRegistry.validatorCount()).toString()).to.equal('1');
   });
@@ -132,7 +104,7 @@ describe('Validators', function() {
         operatorsPub.slice(0, 4),
         '10000'
       )
-      .should.eventually.be.rejectedWith('Not enough approved tokes to transfer');
+      .should.eventually.be.rejectedWith('transfer amount exceeds allowance');
   });
 
   it('revert update validator: tx was sent not by owner', async function() {
@@ -147,11 +119,11 @@ describe('Validators', function() {
         operatorsPub.slice(0, 4),
         tokens
       )
-      .should.eventually.be.rejectedWith('Caller is not validator owner');
+      .should.eventually.be.rejectedWith('caller is not validator owner');
   });
 
   it('delete validator', async function () {
-    await snapshot(DAY, async() => {
+    await progressBlocks(5, async() => {
       await expect(ssvNetwork.connect(account1).deleteValidator(validatorsPub[0]))
         .to.emit(ssvRegistry, 'ValidatorDeleted')
         .withArgs(account1.address, validatorsPub[0]);
@@ -160,26 +132,26 @@ describe('Validators', function() {
     });
   });
 
-  it('revert delete validator: public key is not exists', async function () {
+  it('revert delete validator: public key does not exist', async function () {
     await ssvNetwork
       .connect(account2)
       .deleteValidator(validatorsPub[1])
-      .should.eventually.be.rejectedWith('Validator with public key is not exists');
+      .should.eventually.be.rejectedWith('validator with public key does not exist');
   });
 
   it('revert delete validator: tx was sent not by owner', async function () {
     await ssvNetwork
       .connect(account2)
       .deleteValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('Caller is not validator owner');
+      .should.eventually.be.rejectedWith('caller is not validator owner');
   });
 
   it('revert delete validator: not enough balance', async function () {
-    await snapshot(DAY, async() => {
+    await progressBlocks(100, async() => {
       await ssvNetwork
         .connect(account1)
         .deleteValidator(validatorsPub[0])
-        .should.eventually.be.rejectedWith('Not enough balance');      
+        .should.eventually.be.rejectedWith('negative balance');
     });
   });
 });

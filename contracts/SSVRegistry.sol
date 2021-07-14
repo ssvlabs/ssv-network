@@ -12,7 +12,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     uint256 public validatorCount;
 
     mapping(bytes => Operator) public override operators;
-    mapping(bytes => Validator) internal validators;
+    mapping(bytes => Validator) public override validators;
 
     mapping(bytes => OperatorFee[]) private operatorFees;
 
@@ -45,7 +45,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         bytes[] calldata _sharesPublicKeys,
         bytes[] calldata _encryptedKeys
     ) private pure {
-        require(_publicKey.length == 48, "Invalid public key length");
+        require(_publicKey.length == 48, "invalid public key length");
         require(
             _operatorPublicKeys.length == _sharesPublicKeys.length &&
                 _operatorPublicKeys.length == _encryptedKeys.length,
@@ -64,7 +64,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     ) onlyOwner public virtual override {
         require(
             operators[_publicKey].ownerAddress == address(0),
-            "Operator with same public key already exists"
+            "operator with same public key already exists"
         );
         operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0, false, operatorsByAddress[_ownerAddress].length);
         operatorsByAddress[_ownerAddress].push(_publicKey);
@@ -90,10 +90,10 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
             _sharesPublicKeys,
             _encryptedKeys
         );
-        require(_ownerAddress != address(0), "Owner address invalid");
+        require(_ownerAddress != address(0), "owner address invalid");
         require(
             validators[_publicKey].ownerAddress == address(0),
-            "Validator with same public key already exists"
+            "validator with same public key already exists"
         );
 
         Validator storage validatorItem = validators[_publicKey];
@@ -188,7 +188,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
      * @dev See {ISSVRegistry-getOperatorCurrentFee}.
      */
     function getOperatorCurrentFee(bytes calldata _operatorPubKey) public view override returns (uint256) {
-        require(operatorFees[_operatorPubKey].length > 0, "Operator fees not found");
+        require(operatorFees[_operatorPubKey].length > 0, "operator not found");
         return operatorFees[_operatorPubKey][operatorFees[_operatorPubKey].length - 1].fee;
     }
 
