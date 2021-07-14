@@ -13,7 +13,8 @@ contract DEX {
     bool initialized;
 
     function initialize(IERC20 _cdtTokenAddress, IERC20 _ssvTokenAddress, uint256 _rate) public {
-        require(!initialized, "Already initialized");
+        require(!initialized, "already initialized");
+        require(_rate > 0, "rate cannot be zero");
 
         cdtToken = _cdtTokenAddress;
         ssvToken = _ssvTokenAddress;
