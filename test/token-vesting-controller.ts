@@ -55,12 +55,16 @@ describe('TokenVestingController', function() {
     expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
     expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');
     expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('10000');
+    expect(await tokenVestingController.totalTokenBalanceOf(secondHolder.address)).to.equal('10000');
     expect(await ssvToken.balanceOf(firstHolder.address)).to.equal('990000');
+    expect(await ssvToken.balanceOf((await tokenVestingController.vestings(secondHolder.address, 0)))).to.equal('10000');
+    expect(await tokenVestingController.totalTokenBalanceOf((await tokenVestingController.vestings(secondHolder.address, 0)))).to.equal('0');
 
     await snapshot(2 * YEAR, async () => {
       expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
       expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('5000');
       expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('5000');
+      expect(await tokenVestingController.totalTokenBalanceOf(secondHolder.address)).to.equal('10000');
     });
   });
 
@@ -70,12 +74,14 @@ describe('TokenVestingController', function() {
     expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('20000');
     expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');
     expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('20000');
+    expect(await tokenVestingController.totalTokenBalanceOf(secondHolder.address)).to.equal('20000');
     expect(await ssvToken.balanceOf(firstHolder.address)).to.equal('980000');
 
     await snapshot(2 * YEAR, async () => {
       expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('20000');
       expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('7500');
       expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('12500');
+      expect(await tokenVestingController.totalTokenBalanceOf(secondHolder.address)).to.equal('20000');
     });
   });
 
@@ -86,6 +92,7 @@ describe('TokenVestingController', function() {
       expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
       expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');
       expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('10000');
+      expect(await tokenVestingController.totalTokenBalanceOf(secondHolder.address)).to.equal('10000');
     });
   });
 
@@ -98,6 +105,7 @@ describe('TokenVestingController', function() {
       expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
       expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');
       expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('10000');
+      expect(await tokenVestingController.totalTokenBalanceOf(secondHolder.address)).to.equal('10000');
     });
   });
 
@@ -109,6 +117,7 @@ describe('TokenVestingController', function() {
       expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
       expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');
       expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('10000');
+      expect(await tokenVestingController.totalTokenBalanceOf(secondHolder.address)).to.equal('10000');
 
       await tokenVestingController.connect(firstHolder).revokeAll(secondHolder.address);
 
@@ -116,6 +125,7 @@ describe('TokenVestingController', function() {
       expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
       expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');
       expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('10000');
+      expect(await tokenVestingController.totalTokenBalanceOf(secondHolder.address)).to.equal('10000');
     });
   });
 
@@ -127,6 +137,7 @@ describe('TokenVestingController', function() {
       expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('12500');
       expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('7500');
       expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('5000');
+      expect(await tokenVestingController.totalTokenBalanceOf(secondHolder.address)).to.equal('12500');
     });
   });
 

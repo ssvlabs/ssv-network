@@ -47,6 +47,18 @@ contract TokenVestingController {
     }
 
     /**
+     * @dev Returns the total tokens of an holder.
+     * @param _holder address of the holder.
+     */
+    function totalTokenBalanceOf(address _holder) public view returns (uint256) {
+        if (owners[TokenVesting(_holder)] != address(0)) {
+            return 0;
+        }
+
+        return token.balanceOf(_holder) + totalVestingBalanceOf(_holder);
+    }
+
+    /**
      * @dev Returns the total amount of tokens held in vesting contracts for a beneficairy.
      * @param _beneficiary address of the beneficiary.
      */
