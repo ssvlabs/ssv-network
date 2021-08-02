@@ -17,7 +17,7 @@ describe('SSVToken', function() {
   before(async function () {
     [owner, owner2, firstHolder, secondHolder, thirdHolder] = await ethers.getSigners();
     const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
-    ssvToken = await upgrades.deployProxy(ssvTokenFactory, []);
+    ssvToken = await ssvTokenFactory.deploy();
     await ssvToken.deployed();
   });
 
