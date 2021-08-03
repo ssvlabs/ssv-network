@@ -1432,6 +1432,49 @@
           }
         }
       }
+    },
+    "59fc59f4faee547cde84b4494007cadbb6563e3fc3564d657090dcaeab684af8": {
+      "address": "0x1e71c3BC73A118aC3AC3d477427edF07D65c53d0",
+      "txHash": "0xc2a2d5b6f8e60a4b2cf468eabe8216a5016b4d6b9907a376920305ed79d5cd41",
+      "layout": {
+        "storage": [
+          {
+            "contract": "DEX",
+            "label": "cdtToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:8"
+          },
+          {
+            "contract": "DEX",
+            "label": "ssvToken",
+            "type": "t_contract(IERC20)1132",
+            "src": "contracts/DEX.sol:9"
+          },
+          {
+            "contract": "DEX",
+            "label": "rate",
+            "type": "t_uint256",
+            "src": "contracts/DEX.sol:11"
+          },
+          {
+            "contract": "DEX",
+            "label": "initialized",
+            "type": "t_bool",
+            "src": "contracts/DEX.sol:13"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)1132": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
     }
   },
   "proxies": [
@@ -1669,6 +1712,16 @@
       "address": "0x4fC2eC65faeFcec4b3b7829A596A616e8807Fe29",
       "kind": "transparent",
       "txHash": "0x5074f86c26101eda14aad2599e29f5717eed41258eaf1e8c5da3ec55c0648217"
+    },
+    {
+      "address": "0xE4e8D7f3323CACAA180C2989ab1e558A3cd49134",
+      "kind": "transparent",
+      "txHash": "0x49bbb68d1c6fed0c99ee5ef93fa2dda9437f38287323708fa6dddfcdfc0c80ca"
+    },
+    {
+      "address": "0x186F4d94fBC9698986CC2b214bF9C1bcf7ec230F",
+      "kind": "transparent",
+      "txHash": "0xda29ddbec9ab4f880ede6a1a29deb5e9cd4d04a72144656776928903a434785e"
     }
   ],
   "admin": {

@@ -13,7 +13,7 @@ async function main() {
   const ContractFactory = await ethers.getContractFactory('DEX');
   const contract = await upgrades.deployProxy(
     ContractFactory,
-    [process.env.CDT_TOKEN_ADDRESS, process.env.SSV_TOKEN_ADDRESS, 10]
+    [process.env.CDT_TOKEN_ADDRESS, process.env.SSV_TOKEN_ADDRESS, 100]
   );
   await contract.deployed();
 
