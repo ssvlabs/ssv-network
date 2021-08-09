@@ -17,6 +17,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     mapping(address => Balance) public addressBalances;
 
+    mapping(address => OperatorInUse[]) private operatorsInUseByAddress;
+
     function initialize(ISSVRegistry _SSVRegistryAddress, IERC20 _token) public virtual override initializer {
         __SSVNetwork_init(_SSVRegistryAddress, _token);
     }
@@ -166,6 +168,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             bytes calldata operatorPubKey = _operatorPublicKeys[index];
             updateOperatorBalance(operatorPubKey);
             operatorBalances[operatorPubKey].validatorCount++;
+
+            operatorsInUseByAddress[msg.sender].push(
+                OperatorInUse(operatorPubKey, 1)
+            );
         }
 
         deposit(_tokenAmount);

@@ -24,6 +24,12 @@ interface ISSVNetwork {
         uint256 used;
     }
 
+    struct OperatorInUse {
+        bytes publicKey;
+        uint256 index;
+        uint256 validators;
+    }
+
     function initialize(ISSVRegistry _SSVRegistryAddress, IERC20 _token) external;
 
     /**
