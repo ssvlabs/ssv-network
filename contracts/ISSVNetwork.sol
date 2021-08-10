@@ -10,6 +10,8 @@ interface ISSVNetwork {
         uint256 blockNumber;
         uint256 validatorCount;
         uint256 balance;
+        uint256 index;
+        uint256 indexBlockNumber;
     }
 
     struct ValidatorUsageSnapshot {
@@ -22,12 +24,14 @@ interface ISSVNetwork {
         uint256 withdrawn;
         uint256 earned;
         uint256 used;
+        uint256 networkFee;
     }
 
     struct OperatorInUse {
         bytes publicKey;
         uint256 index;
-        uint256 validators;
+        uint256 validatorCount;
+        uint256 used;
     }
 
     function initialize(ISSVRegistry _SSVRegistryAddress, IERC20 _token) external;
@@ -44,6 +48,12 @@ interface ISSVNetwork {
      * @param _publicKey Operator's Public Key.
      */
     function operatorBalanceOf(bytes memory _publicKey) external view returns (uint256);
+
+    /**
+     * @dev Get operator index by address.
+     * @param _publicKey Operator's Public Key.
+     */
+    function operatorIndexOf(bytes memory _publicKey) external view returns (uint256);
 
     /**
      * @dev Registers new operator.
@@ -64,6 +74,11 @@ interface ISSVNetwork {
     function updateOperatorFee(bytes calldata _publicKey, uint256 _fee) external;
 
     /**
+     * @dev Update network fee.
+     */
+    function updateNetworkFee(uint256 _fee) external;
+
+    /**
      * @dev Get validator usage by address.
      * @param _pubKey The validator's public key.
      */
@@ -80,6 +95,15 @@ interface ISSVNetwork {
      * @param _pubKey The validator's public key.
      */
     function updateValidatorUsage(bytes calldata _pubKey) external;
+
+
+    /**
+     * @dev Updates or inserts operator in use.
+     * @param _ownerAddress Owner address.
+     * @param _operatorPubKey The operator's public key.
+     * @param _incr Change value for validators amount.
+     */
+    function updateOrInsertOperatorInUse(address _ownerAddress, bytes calldata _operatorPubKey, int256 _incr) external;
 
     function totalBalanceOf(address _ownerAddress) external view returns (uint256);
 
