@@ -55,6 +55,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     // uint256 minValidatorBlockSubscription;
+    uint256 networkFee;
 
     /**
      * @dev See {ISSVNetwork-updateOperatorFee}.
@@ -64,6 +65,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         operatorBalances[_pubKey].indexBlockNumber = block.number;
         updateOperatorBalance(_pubKey);
         ssvRegistryContract.updateOperatorFee(_pubKey, _fee);
+    }
+
+    function updateNetworkFee(uint256 _fee) public virtual override {
+        networkFee = _fee;
     }
 
     /**
@@ -86,12 +91,30 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     /**
-     * @dev See {ISSVNetwork-operatorIndexOf}.
+     * @dev See {ISSVNetwork-addressNetworkFeeIndex}.
      */
-    function addressIndexOf(address _ownerAddress) public view override returns (uint256) {
-        return operatorBalances[_pubKey].index +
-               ssvRegistryContract.getOperatorCurrentFee(_pubKey) *
-               (block.number - operatorBalances[_pubKey].blockNumber);
+    function addressNetworkFeeIndex(address _ownerAddress) public view override returns (uint256) {
+        return addressBalances[_ownerAddress].networkFeeIndex +
+                (block.number - addressBalances[_ownerAddress].networkFeeBlockNumber) * networkFee;
+    }
+
+    /**
+     * @dev See {ISSVNetwork-updateAddressNetworkFee}.
+     */
+    function updateAddressNetworkFee(address _ownerAddress) public override {
+        bytes[] memory validators = ssvRegistryContract.getValidatorsByAddress(_ownerAddress);
+        uint256 activeValidatorsCount;
+        for (uint256 index = 0; index < validators.length; ++index) {
+            (,, bool active,) = ssvRegistryContract.validators(validators[index]);
+            if (active) {
+                activeValidatorsCount++;
+            }
+        }
+
+        addressBalances[_ownerAddress].networkFee += (addressNetworkFeeIndex(_ownerAddress) - addressBalances[_ownerAddress].networkFeeIndex) *
+            activeValidatorsCount;
+        addressBalances[_ownerAddress].networkFeeIndex = addressNetworkFeeIndex(_ownerAddress);
+        addressBalances[_ownerAddress].networkFeeBlockNumber = block.number;
     }
 
     /**
@@ -104,7 +127,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function totalBalanceOf(address _ownerAddress) public override view returns (uint256) {
-        bytes[] memory validators = ssvRegistryContract.getValidatorsByAddress(_ownerAddress);
+        // bytes[] memory validators = ssvRegistryContract.getValidatorsByAddress(_ownerAddress);
         bytes[] memory operators = ssvRegistryContract.getOperatorsByAddress(_ownerAddress);
         uint balance = addressBalances[_ownerAddress].deposited + addressBalances[_ownerAddress].earned;
 
@@ -112,7 +135,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             balance += operatorBalanceOf(operators[index]);
         }
 
-        uint256 usage = addressBalances[_ownerAddress].withdrawn + addressBalances[_ownerAddress].used;
+        uint256 usage = addressBalances[_ownerAddress].withdrawn +
+                addressBalances[_ownerAddress].used +
+                addressBalances[_ownerAddress].networkFee;
         /*
         for (uint256 index = 0; index < validators.length; ++index) {
             usage += validatorUsageOf(validators[index]);
@@ -138,7 +163,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             _fee
         );
         // trigger update operator fee function
-        operatorBalances[_publicKey] = OperatorBalanceSnapshot(block.number, 0, 0);
+        operatorBalances[_publicKey] = OperatorBalanceSnapshot(block.number, 0, 0, 0, 0);
     }
 
     /**
@@ -167,6 +192,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @dev See {ISSNetwork-updateOrInsertOperatorInUse}
      */
     function updateOrInsertOperatorInUse(address _ownerAddress, bytes memory _operatorPubKey, int256 _incr) public override {
+        updateAddressNetworkFee(_ownerAddress);
         uint256 existedIdx;
         for (uint256 oix = 0; oix < operatorsInUseByAddress[_ownerAddress].length; ++oix) {
             if (keccak256(operatorsInUseByAddress[_ownerAddress][oix].publicKey) == keccak256(_operatorPubKey)) {

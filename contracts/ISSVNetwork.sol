@@ -25,6 +25,8 @@ interface ISSVNetwork {
         uint256 earned;
         uint256 used;
         uint256 networkFee;
+        uint256 networkFeeIndex;
+        uint256 networkFeeBlockNumber;
     }
 
     struct OperatorInUse {
@@ -54,6 +56,19 @@ interface ISSVNetwork {
      * @param _publicKey Operator's Public Key.
      */
     function operatorIndexOf(bytes memory _publicKey) external view returns (uint256);
+
+
+    /**
+     * @dev Get network fee index for the address.
+     * @param _ownerAddress Owner address.
+     */
+    function addressNetworkFeeIndex(address _ownerAddress) external view returns (uint256);
+
+    /**
+     * @dev Update network fee for the address.
+     * @param _ownerAddress Owner address.
+     */
+    function updateAddressNetworkFee(address _ownerAddress) external;
 
     /**
      * @dev Registers new operator.
