@@ -90,12 +90,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @dev See {ISSVNetwork-operatorIndexOf}.
      */
     function operatorIndexOf(bytes memory _pubKey) public view override returns (uint256) {
-        // console.log("operatorBalances[_pubKey].index %d", operatorBalances[_pubKey].index);
-        // console.log("ssvRegistryContract.getOperatorCurrentFee(_pubKey) %d", ssvRegistryContract.getOperatorCurrentFee(_pubKey));
-        // console.log("(block.number %d %d", block.number, operatorBalances[_pubKey].blockNumber);
         return operatorBalances[_pubKey].index +
                ssvRegistryContract.getOperatorCurrentFee(_pubKey) *
-               (block.number - operatorBalances[_pubKey].blockNumber);
+               (block.number - operatorBalances[_pubKey].indexBlockNumber);
     }
 
     /**
@@ -141,15 +138,16 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         for (uint256 index = 0; index < operators.length; ++index) {
             balance += operatorBalanceOf(operators[index]);
         }
-        console.log("balance: %d", balance);
 
         uint256 usage = addressBalances[_ownerAddress].withdrawn +
                 addressBalances[_ownerAddress].used +
                 addressBalances[_ownerAddress].networkFee;
 
+        console.log("usage 0: %d", usage);
         for (uint256 index = 0; index < operatorsInUseList[_ownerAddress].length; ++index) {
             usage += operatorInUseUsageOf(_ownerAddress, operatorsInUseList[_ownerAddress][index]);
         }
+        console.log("usage 1: %d", usage);
 
         require(balance >= usage, "negative balance");
         return balance - usage;
@@ -199,7 +197,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         // update operator index and inc amount of validators
         OperatorInUse memory usageSnapshot = operatorsInUseByAddress[_ownerAddress][_operatorPubKey];
         uint256 usedChangedUpTo = (operatorIndexOf(_operatorPubKey) - usageSnapshot.index) * usageSnapshot.validatorCount;
-        console.log("usageSnapshot.index: %d", usageSnapshot.index);
+        // console.log("usageSnapshot.index: %d", usageSnapshot.index);
         console.log("operatorIndexOf(usageSnapshot.publicKey): %d", operatorIndexOf(_operatorPubKey));
         console.log("usageSnapshot.validatorCount: %d", usageSnapshot.validatorCount);
         return usageSnapshot.used + usedChangedUpTo;
@@ -211,9 +209,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         updateAddressNetworkFee(_ownerAddress);
         if (operatorsInUseByAddress[_ownerAddress][_operatorPubKey].exists) {
             // update operator index and inc amount of validators
-            OperatorInUse memory usageSnapshot = operatorsInUseByAddress[_ownerAddress][_operatorPubKey];
+            OperatorInUse storage usageSnapshot = operatorsInUseByAddress[_ownerAddress][_operatorPubKey];
             usageSnapshot.used = operatorInUseUsageOf(_ownerAddress, _operatorPubKey);
             usageSnapshot.index = operatorIndexOf(_operatorPubKey);
+            console.log("===> usageSnapshot.index %d", usageSnapshot.index);
             if (_incr == 1) {
                 usageSnapshot.validatorCount++;
             } else if (_incr == -1) {
