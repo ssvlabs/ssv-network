@@ -66,7 +66,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @dev See {ISSVNetwork-updateOperatorFee}.
      */
     function updateOperatorFee(bytes calldata _pubKey, uint256 _fee) public onlyOperator(_pubKey) virtual override {
-        operatorBalances[_pubKey].index += (block.number - operatorBalances[_pubKey].indexBlockNumber) * _fee;
+        operatorBalances[_pubKey].index = operatorIndexOf(_pubKey);
         operatorBalances[_pubKey].indexBlockNumber = block.number;
         updateOperatorBalance(_pubKey);
         ssvRegistryContract.updateOperatorFee(_pubKey, _fee);
