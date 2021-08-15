@@ -6,9 +6,7 @@ import "./ISSVNetwork.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "hardhat/console.sol";
-
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 
 contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
@@ -90,7 +88,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @dev See {ISSVNetwork-operatorIndexOf}.
      */
     function operatorIndexOf(bytes memory _pubKey) public view override returns (uint256) {
-        // console.log("ooo", operatorBalances[_pubKey].index, block.number, operatorBalances[_pubKey].indexBlockNumber);
         return operatorBalances[_pubKey].index +
                ssvRegistryContract.getOperatorCurrentFee(_pubKey) *
                (block.number - operatorBalances[_pubKey].indexBlockNumber);
@@ -144,12 +141,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
                 addressBalances[_ownerAddress].used +
                 addressBalances[_ownerAddress].networkFee;
 
-        console.log("usage 0: %d", usage);
         for (uint256 index = 0; index < operatorsInUseList[_ownerAddress].length; ++index) {
             usage += operatorInUseUsageOf(_ownerAddress, operatorsInUseList[_ownerAddress][index]);
-            console.log("usage ->: %d", operatorInUseUsageOf(_ownerAddress, operatorsInUseList[_ownerAddress][index]));
         }
-        console.log("usage 1: %d", usage, balance);
 
         require(balance >= usage, "negative balance");
         return balance - usage;
@@ -198,8 +192,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     function operatorInUseUsageOf(address _ownerAddress, bytes memory _operatorPubKey) public view returns (uint256) {
         OperatorInUse memory usageSnapshot = operatorsInUseByAddress[_ownerAddress][_operatorPubKey];
         uint256 usedChangedUpTo = (operatorIndexOf(_operatorPubKey) - operatorBalances[_operatorPubKey].index) * usageSnapshot.validatorCount;
-        console.log("SSV---?", operatorIndexOf(_operatorPubKey), operatorBalances[_operatorPubKey].index, usageSnapshot.validatorCount);
-        console.log("SSV---=", usageSnapshot.used, usedChangedUpTo, usageSnapshot.used + usedChangedUpTo);
         return usageSnapshot.used + usedChangedUpTo;
     }
     /**

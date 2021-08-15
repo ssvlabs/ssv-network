@@ -46,7 +46,6 @@ const operatorIndexOf = async(idx) => {
   const value = operatorIndexes[idx].index +
     (currentBlockNumber - operatorIndexes[idx].blockNumber) *
     operatorIndexes[idx].fee;
-  console.log('xxx', idx, value, operatorIndexes[idx].index, currentBlockNumber, operatorIndexes[idx].blockNumber, operatorIndexes[idx].fee);
   return value;
 }
 
@@ -138,8 +137,8 @@ describe('SSV Network Balances Calculation', function() {
   it('operator indexes with two validators', async function() {
     await ssvToken.connect(account1).approve(ssvNetwork.address, '1000');
     // update operator indexes after validator registration
-    await updateOperatorExpense([0, 1, 2, 3]);
     await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), '1000');
+    await updateOperatorExpense([0, 1, 2, 3]);
     incOperatorValidators([0, 1, 2, 3]);
     // pass blocks
     await progressBlocks(10);
