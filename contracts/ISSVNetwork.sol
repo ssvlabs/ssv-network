@@ -30,7 +30,6 @@ interface ISSVNetwork {
     }
 
     struct OperatorInUse {
-        uint256 index;
         uint256 validatorCount;
         uint256 used;
         bool exists;
