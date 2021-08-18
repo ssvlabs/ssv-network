@@ -1,5 +1,5 @@
 // File: contracts/ISSVNetwork.sol
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.2;
 
 import "./ISSVRegistry.sol";
@@ -19,17 +19,18 @@ interface ISSVNetwork {
         uint256 balance;
     }
 
-    struct Balance {
+    struct OwnerData {
         uint256 deposited;
         uint256 withdrawn;
         uint256 earned;
         uint256 used;
         uint256 networkFee;
-        uint256 networkFeeIndex;
         uint256 networkFeeBlockNumber;
+        uint256 activeValidatorsCount;
     }
 
     struct OperatorInUse {
+        uint256 index;
         uint256 validatorCount;
         uint256 used;
         bool exists;
@@ -51,23 +52,10 @@ interface ISSVNetwork {
     function operatorBalanceOf(bytes memory _publicKey) external view returns (uint256);
 
     /**
-     * @dev Get operator index by address.
-     * @param _publicKey Operator's Public Key.
-     */
-    function operatorIndexOf(bytes memory _publicKey) external view returns (uint256);
-
-
-    /**
      * @dev Get network fee index for the address.
      * @param _ownerAddress Owner address.
      */
-    function addressNetworkFeeIndex(address _ownerAddress) external view returns (uint256);
-
-    /**
-     * @dev Update network fee for the address.
-     * @param _ownerAddress Owner address.
-     */
-    function updateAddressNetworkFee(address _ownerAddress) external;
+    function addressNetworkFee(address _ownerAddress) external view returns (uint256);
 
     /**
      * @dev Registers new operator.
@@ -98,26 +86,7 @@ interface ISSVNetwork {
      */
     function validatorUsageOf(bytes memory _pubKey) external view returns (uint256);
 
-    /**
-     * @dev Updates operators's balance.
-     * @param _pubKey The operators's public key.
-     */
-    function updateOperatorBalance(bytes memory _pubKey) external;
-
-    /**
-     * @dev Updates validator's usage.
-     * @param _pubKey The validator's public key.
-     */
     function updateValidatorUsage(bytes calldata _pubKey) external;
-
-
-    /**
-     * @dev Updates or inserts operator in use.
-     * @param _ownerAddress Owner address.
-     * @param _operatorPubKey The operator's public key.
-     * @param _incr Change value for validators amount.
-     */
-    function updateOrInsertOperatorInUse(address _ownerAddress, bytes calldata _operatorPubKey, int256 _incr) external;
 
     function totalBalanceOf(address _ownerAddress) external view returns (uint256);
 
