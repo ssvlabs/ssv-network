@@ -10,11 +10,13 @@ async function main() {
 
   console.log('Account balance:', (await deployer.getBalance()).toString());
 
-  const tokenContract = await ethers.getContractFactory('SSVToken');
-  const token = await upgrades.deployProxy(tokenContract);
-  await token.deployed();
+  const ContractFactory = await ethers.getContractFactory('TokenVestingController');
 
-  console.log('SSVToken address:', token.address);
+  const contract = await upgrades.deployProxy(ContractFactory, [process.env.SSV_TOKEN_ADDRESS, '100000000000000000000']);
+
+  await contract.deployed();
+
+  console.log('TokenVestingController contract address:', contract.address);
 }
 
 main()

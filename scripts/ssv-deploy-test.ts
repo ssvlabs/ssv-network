@@ -5,10 +5,12 @@ async function main() {
   const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
   const ssvToken = await upgrades.deployProxy(ssvTokenFactory, []);
   await ssvToken.deployed();
+
   console.log('Deploying SSVRegistry...');
   const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
   const ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
   await ssvRegistry.deployed();
+
   console.log('Deploying SSVNetwork...');
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
   const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address]);
