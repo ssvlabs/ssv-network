@@ -12,7 +12,7 @@ async function main() {
 
   const ContractFactory = await ethers.getContractFactory('TokenVestingController');
 
-  const contract = await upgrades.deployProxy(ContractFactory, [process.env.SSV_TOKEN_ADDRESS, '10000']);
+  const contract = await upgrades.deployProxy(ContractFactory, [process.env.SSV_TOKEN_ADDRESS, '100000000000000000000']);
 
   await contract.deployed();
 
