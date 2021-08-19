@@ -1,15 +1,9 @@
-//SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.2;
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+//SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity 0.8.4;
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract OldTokenMock is ERC20Upgradeable {
-    function initialize() public virtual initializer {
-        __Context_init_unchained();
-        __ERC20_init_unchained("CDT Token", "CDT");
-        __OldTokenMock_init_unchained();
-    }
-
-    function __OldTokenMock_init_unchained() internal initializer {
+contract OldTokenMock is ERC20 {
+    constructor() ERC20("CDT Token", "CDT") {
         _mint(msg.sender, 10000000000000000000000);
     }
 }

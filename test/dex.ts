@@ -22,8 +22,8 @@ describe('DEX', function() {
     [owner, account2, account3] = await ethers.getSigners();
     const oldTokenFactory = await ethers.getContractFactory('OldTokenMock');
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
-    oldToken = await upgrades.deployProxy(oldTokenFactory);
-    ssvToken = await upgrades.deployProxy(ssvTokenFactory);
+    oldToken = await oldTokenFactory.deploy();
+    ssvToken = await ssvTokenFactory.deploy();
     await oldToken.deployed();
     await ssvToken.deployed();
     const dexFactory = await ethers.getContractFactory('DEX');

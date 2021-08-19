@@ -28,7 +28,7 @@ describe('Validators', function() {
     const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
-    ssvToken = await upgrades.deployProxy(ssvTokenFactory, []);
+    ssvToken = await ssvTokenFactory.deploy();
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();

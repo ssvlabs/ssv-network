@@ -33,7 +33,7 @@ describe('TokenVestingController', function() {
   before(async function () {
     [owner, owner2, firstHolder, secondHolder, thirdHolder] = await ethers.getSigners();
     const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
-    ssvToken = await upgrades.deployProxy(ssvTokenFactory, []);
+    ssvToken = await ssvTokenFactory.deploy();
     await ssvToken.deployed();
     const tokenVestingControllerFactory = await ethers.getContractFactory('TokenVestingController');
     tokenVestingController = await upgrades.deployProxy(tokenVestingControllerFactory, [ssvToken.address, '10000']);

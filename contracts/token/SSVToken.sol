@@ -1,28 +1,23 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity 0.8.4;
 
-import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import "@openzeppelin/contracts/utils/Context.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
-contract SSVToken is Initializable, ContextUpgradeable, OwnableUpgradeable, ERC20Upgradeable, ERC20BurnableUpgradeable {
-    function initialize() public virtual initializer {
-        __SSVToken_init();
+/**
+ * @title SSV Token
+ */
+contract SSVToken is Ownable, ERC20, ERC20Burnable {
+    constructor() ERC20("SSV Token", "SSV") {
     }
 
-    function __SSVToken_init() internal initializer {
-        __Context_init_unchained();
-        __Ownable_init_unchained();
-        __ERC20_init_unchained("SSV Token", "SSV");
-        __ERC20Burnable_init_unchained();
-        __SSVToken_init_unchained();
-    }
-
-    function __SSVToken_init_unchained() internal initializer {
-    }
-
-    function mint(address to, uint256 amount) public onlyOwner {
+    /**
+     * @dev Mint tokens
+     * @param to The target address
+     * @param amount The amount of token to mint
+     */
+    function mint(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
     }
 }
