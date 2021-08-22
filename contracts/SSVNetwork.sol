@@ -6,7 +6,7 @@ import "./ISSVNetwork.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 
 contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
@@ -104,6 +104,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         bytes[] calldata encryptedKeys,
         uint256 tokenAmount
     ) external virtual override {
+        console.log("reg v block", block.number);
         _ssvRegistryContract.registerValidator(
             msg.sender,
             publicKey,
@@ -251,6 +252,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     function totalBalanceOf(address ownerAddress) public override view returns (uint256) {
         uint balance = _owners[ownerAddress].deposited + _owners[ownerAddress].earned;
+        console.log("total b block", block.number);
 
         bytes[] memory operators = _ssvRegistryContract.getOperatorsByAddress(ownerAddress);
         for (uint256 index = 0; index < operators.length; ++index) {
@@ -261,9 +263,11 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
                 _owners[ownerAddress].used +
                 _owners[ownerAddress].networkFee;
 
+        // console.log("initial usage", usage);
         for (uint256 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
             usage += _operatorInUseUsageOf(ownerAddress, _operatorsInUseList[ownerAddress][index]);
         }
+        console.log("contract total usage", usage);
 
         require(balance >= usage, "negative balance");
 
@@ -321,6 +325,11 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
                (block.number - _operatorBalances[publicKey].indexBlockNumber);
     }
 
+    function test_operatorIndexOf(bytes memory publicKey) public view returns (uint256) {
+        console.log("o index of", _operatorIndexOf(publicKey));
+        return _operatorIndexOf(publicKey);
+    }
+
     function _unregisterValidator(bytes calldata publicKey) private {
         address owner = _ssvRegistryContract.getValidatorOwner(publicKey);
         updateValidatorUsage(publicKey);
@@ -337,8 +346,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     function _operatorInUseUsageOf(address ownerAddress, bytes memory operatorPublicKey) private view returns (uint256) {
         OperatorInUse storage usageSnapshot = _operatorsInUseByAddress[ownerAddress][operatorPublicKey];
-
         uint256 newUsage = (_operatorIndexOf(operatorPublicKey) - usageSnapshot.index) * usageSnapshot.validatorCount;
+        // console.log("oinuse", _operatorIndexOf(operatorPublicKey), usageSnapshot.index, usageSnapshot.validatorCount);
+        // console.log("=>", usageSnapshot.used, newUsage);
 
         return usageSnapshot.used + newUsage;
     }
