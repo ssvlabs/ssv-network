@@ -14,6 +14,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     IERC20 private _token;
 
     uint256 private _networkFee;
+    uint256 private _networkFeePrevIndex;
+    uint256 private _networkFeePrevBlockNumber;
 
     mapping(bytes => OperatorBalanceSnapshot) private _operatorBalances;
     mapping(bytes => ValidatorUsageSnapshot) private _validatorUsages;
@@ -71,9 +73,15 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @dev See {ISSVNetwork-updateNetworkFee}.
      */
     function updateNetworkFee(uint256 networkFee) external onlyOwner virtual override {
+        // console.log("set new fee", _currentNetworkFeeIndex(), _networkFeePrevIndex, block.number);
+        _networkFeePrevIndex = _currentNetworkFeeIndex();
         _networkFee = networkFee;
+        _networkFeePrevBlockNumber = block.number;
     }
 
+    function _currentNetworkFeeIndex() private view returns(uint256) {
+        return _networkFeePrevIndex + (block.number - _networkFeePrevBlockNumber) * _networkFee;
+    }
 
     /**
      * @dev See {ISSVNetwork-registerOperator}.
@@ -104,7 +112,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         bytes[] calldata encryptedKeys,
         uint256 tokenAmount
     ) external virtual override {
-        console.log("reg v block", block.number);
+        // console.log("reg v block", block.number);
         _ssvRegistryContract.registerValidator(
             msg.sender,
             publicKey,
@@ -112,6 +120,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             sharesPublicKeys,
             encryptedKeys
         );
+        _updateAddressNetworkFee(msg.sender);
+        _owners[msg.sender].activeValidatorsCount++;
+
         _validatorUsages[publicKey] = ValidatorUsageSnapshot(block.number, 0);
 
         for (uint256 index = 0; index < operatorPublicKeys.length; ++index) {
@@ -175,6 +186,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         // _owners[owner].used += validatorUsageOf(publicKey);
         // delete _validatorUsages[publicKey];
         _ssvRegistryContract.deleteValidator(msg.sender, publicKey);
+        _updateAddressNetworkFee(msg.sender);
+        _owners[msg.sender].activeValidatorsCount--;
     }
 
     /**
@@ -207,10 +220,15 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _unregisterValidator(publicKey);
 
         _ssvRegistryContract.deactivateValidator(publicKey);
+
+        _updateAddressNetworkFee(msg.sender);
+        _owners[msg.sender].activeValidatorsCount--;
     }
 
     function activateOperator(bytes calldata publicKey) external virtual override {
         _ssvRegistryContract.activateOperator(publicKey);
+        _updateAddressNetworkFee(msg.sender);
+        _owners[msg.sender].activeValidatorsCount++;
     }
 
     function deactivateOperator(bytes calldata publicKey) external virtual override {
@@ -244,15 +262,17 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @dev See {ISSVNetwork-addressNetworkFeeIndex}.
      */
     function addressNetworkFee(address ownerAddress) public view override returns (uint256) {
-        return  _owners[ownerAddress].networkFee +
-                (block.number - _owners[ownerAddress].networkFeeBlockNumber) *
-                _owners[ownerAddress].activeValidatorsCount *
-                _networkFee;
+        // console.log("add netfee init", _owners[ownerAddress].networkFee, _networkFee);
+        // console.log("addr netfee", _currentNetworkFeeIndex(), _networkFeePrevIndex, _owners[ownerAddress].activeValidatorsCount);
+
+        return _owners[ownerAddress].networkFee +
+            (_currentNetworkFeeIndex() - _networkFeePrevIndex) *
+            _owners[ownerAddress].activeValidatorsCount;
     }
 
     function totalBalanceOf(address ownerAddress) public override view returns (uint256) {
         uint balance = _owners[ownerAddress].deposited + _owners[ownerAddress].earned;
-        console.log("total b block", block.number);
+        // console.log("total b block", block.number);
 
         bytes[] memory operators = _ssvRegistryContract.getOperatorsByAddress(ownerAddress);
         for (uint256 index = 0; index < operators.length; ++index) {
@@ -260,14 +280,15 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
 
         uint256 usage = _owners[ownerAddress].withdrawn +
-                _owners[ownerAddress].used +
-                _owners[ownerAddress].networkFee;
+                _owners[ownerAddress].used; // +
+                // _owners[ownerAddress].networkFee;
 
         // console.log("initial usage", usage);
         for (uint256 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
+            // console.log("+", _operatorInUseUsageOf(ownerAddress, _operatorsInUseList[ownerAddress][index]));
             usage += _operatorInUseUsageOf(ownerAddress, _operatorsInUseList[ownerAddress][index]);
         }
-        console.log("contract total usage", usage);
+        // console.log("contract total usage", usage);
 
         require(balance >= usage, "negative balance");
 
@@ -302,7 +323,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      */
     function _updateAddressNetworkFee(address _ownerAddress) private {
         _owners[_ownerAddress].networkFee = addressNetworkFee(_ownerAddress);
-        _owners[_ownerAddress].networkFeeBlockNumber = block.number;
     }
 
     /**
@@ -326,7 +346,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function test_operatorIndexOf(bytes memory publicKey) public view returns (uint256) {
-        console.log("o index of", _operatorIndexOf(publicKey));
+        // console.log("o index of", _operatorIndexOf(publicKey));
         return _operatorIndexOf(publicKey);
     }
 

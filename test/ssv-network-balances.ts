@@ -5,7 +5,9 @@ import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import { rawListeners } from 'process';
 
-import { progressBlocks, snapshot } from './utils';
+import { progressBlocks, snapshot, mine } from './utils';
+
+import * as Table from 'cli-table';
 
 declare var network: any;
 
@@ -96,15 +98,93 @@ describe('SSV Network Balances Calculation', function() {
     ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address]);
     await ssvNetwork.deployed();
     await ssvToken.mint(account1.address, '1000000');
-
-    // register operators
-    await registerOperator(account2, 0, 2);
-    await registerOperator(account2, 1, 1);
-    await registerOperator(account2, 2, 1);
-    await registerOperator(account2, 3, 3);
   });
 
-  it('block +10: balances', async function() {
+  it('Address Balance', async function() {
+    const table = new Table({ head: ["", "Block #", "10", "20", "30", "40", "50", "60", "100"] });
+    const balancesByBlocks = [""];
+    // await network.provider.send("evm_increaseTime", [3]);
+    await snapshot(async () => {
+      const chargedAmount = 4000;
+      await ssvToken.connect(account1).approve(ssvNetwork.address, `${chargedAmount}`);
+
+      await progressBlocks(1);
+      /*
+       block #10
+      */
+      
+      // const cx = await ssvNetwork.updateNetworkFee(1);
+      //  await cx.wait();
+      // register operators
+      await network.provider.send("evm_setAutomine", [false]);
+      await registerOperator(account2, 0, 2);
+      await registerOperator(account2, 1, 1);
+      await registerOperator(account2, 2, 1);
+      await registerOperator(account2, 3, 3);
+
+      await progressBlocks(9);
+      /*
+       block #20
+      */
+      await network.provider.send("evm_setAutomine", [true]);
+      balancesByBlocks.push(`${+await ssvNetwork.totalBalanceOf(account1.address)}`);
+      // register validator
+      const tx = await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount/4}`);
+      await tx.wait();
+
+      balancesByBlocks.push(`${1000 - +await ssvNetwork.totalBalanceOf(account1.address)}`);
+
+      await progressBlocks(9);
+      /*
+       block #30
+      */
+      // register validator
+      const tx2 = await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount/4}`);
+      await tx2.wait();
+
+      balancesByBlocks.push(`${2000 - +await ssvNetwork.totalBalanceOf(account1.address)}`);
+
+      await progressBlocks(9);
+      /*
+       block #40
+      */
+      // register validator
+      const tx3 = await ssvNetwork.connect(account1).registerValidator(validatorsPub[2], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount/4}`);
+      await tx3.wait();
+
+      balancesByBlocks.push(`${3000 - +await ssvNetwork.totalBalanceOf(account1.address)}`);
+
+      await progressBlocks(9);
+      /*
+       block #50
+      */
+      // register validator
+      const tx4 = await ssvNetwork.connect(account1).registerValidator(validatorsPub[3], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount/4}`);
+      await tx4.wait();
+
+      balancesByBlocks.push(`${4000 - +await ssvNetwork.totalBalanceOf(account1.address)}`);
+
+      await progressBlocks(10);
+      /*
+       block #60
+      */
+      balancesByBlocks.push(`${chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)}`);
+
+      await progressBlocks(40);
+      /*
+       block #100
+      */      
+      balancesByBlocks.push(`${chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)}`);
+
+      table.push(
+        { 'Total': balancesByBlocks }
+      );
+
+      console.log(table.toString());
+      expect(chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)).to.equal(1820);
+
+    });
+    /*
     await progressBlocks(10);
     const chargedAmount = 4000;
     await ssvToken.connect(account1).approve(ssvNetwork.address, `${chargedAmount}`);
@@ -136,5 +216,6 @@ describe('SSV Network Balances Calculation', function() {
     await progressBlocks(10);
     // console.log("block", await ethers.provider.getBlockNumber());
     console.log("total balance", +await ssvNetwork.totalBalanceOf(account1.address));
+    */
   });
 });
