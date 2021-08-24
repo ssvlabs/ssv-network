@@ -262,11 +262,12 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @dev See {ISSVNetwork-addressNetworkFeeIndex}.
      */
     function addressNetworkFee(address ownerAddress) public view override returns (uint256) {
-        // console.log("add netfee init", _owners[ownerAddress].networkFee, _networkFee);
+        // console.log("add netfee init", block.number, _owners[ownerAddress].networkFee, _networkFee);
         // console.log("addr netfee", _currentNetworkFeeIndex(), _networkFeePrevIndex, _owners[ownerAddress].activeValidatorsCount);
+        //console.log("addr total", (_currentNetworkFeeIndex() - _networkFeePrevIndex) *
+        //   _owners[ownerAddress].activeValidatorsCount);
 
-        return _owners[ownerAddress].networkFee +
-            (_currentNetworkFeeIndex() - _networkFeePrevIndex) *
+        return (_currentNetworkFeeIndex() - _networkFeePrevIndex) *
             _owners[ownerAddress].activeValidatorsCount;
     }
 
@@ -322,7 +323,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @param _ownerAddress Owner address.
      */
     function _updateAddressNetworkFee(address _ownerAddress) private {
-        _owners[_ownerAddress].networkFee = addressNetworkFee(_ownerAddress);
+        _owners[_ownerAddress].networkFee += (_currentNetworkFeeIndex() - _networkFeePrevIndex) * _owners[_ownerAddress].activeValidatorsCount;
     }
 
     /**
