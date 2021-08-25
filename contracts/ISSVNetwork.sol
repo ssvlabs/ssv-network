@@ -25,7 +25,7 @@ interface ISSVNetwork {
         uint256 earned;
         uint256 used;
         uint256 networkFee;
-        uint256 networkFeeBlockNumber;
+        uint256 networkFeePrevIndex;
         uint256 activeValidatorsCount;
     }
 
