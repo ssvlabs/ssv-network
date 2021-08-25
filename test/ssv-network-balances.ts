@@ -32,7 +32,7 @@ const YEAR = 365 * DAY;
 const operatorIndexes = [];
 
 const registerOperator = async (account, idx, fee) => {
-  (await ssvNetwork.connect(account).registerOperator(`testOperator ${idx}`, operatorsPub[idx], fee)).wait();
+  await ssvNetwork.connect(account).registerOperator(`testOperator ${idx}`, operatorsPub[idx], fee);
   operatorIndexes.push({
     fee,
     blockNumber: await ethers.provider.getBlockNumber(),
@@ -104,6 +104,7 @@ describe('SSV Network Balances Calculation', function() {
     const table = new Table({ head: ["", "Block #", "10", "20", "30", "40", "50", "60", "100"] });
     const balancesByBlocks = [""];
     const networkAddFeeByBlocks = [""];
+    // await network.provider.send("evm_increaseTime", [3]);
     await snapshot(async () => {
       const chargedAmount = 4000;
       await ssvToken.connect(account1).approve(ssvNetwork.address, `${chargedAmount}`);
@@ -112,49 +113,41 @@ describe('SSV Network Balances Calculation', function() {
       /*
        block #10
       */
+      
+      (await ssvNetwork.updateNetworkFee(1)).wait();
       // register operators
       await network.provider.send("evm_setAutomine", [false]);
-      (await ssvNetwork.updateNetworkFee(1)).wait();
       await registerOperator(account2, 0, 2);
       await registerOperator(account2, 1, 1);
       await registerOperator(account2, 2, 1);
       await registerOperator(account2, 3, 3);
-      await network.provider.send("evm_setAutomine", [true]);
       await progressBlocks(9);
-      console.log("=", await ethers.provider.getBlockNumber());
-      console.log("1=", await ethers.provider.getBlockNumber());
       /*
        block #20
       */
-      // await network.provider.send("evm_setAutomine", [true]);
-      (await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount/4}`)).wait();
-      networkAddFeeByBlocks.push(`1-${+await ssvNetwork.addressNetworkFee(account1.address)}`);
-      balancesByBlocks.push(`1-${+await ssvNetwork.totalBalanceOf(account1.address)}`);
-      console.log("2=", await ethers.provider.getBlockNumber());
-      // register validator
-
+      await network.provider.send("evm_setAutomine", [true]);
+      networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
       balancesByBlocks.push(`${+await ssvNetwork.totalBalanceOf(account1.address)}`);
+      // register validator
+      (await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount/4}`)).wait();
+
+      balancesByBlocks.push(`${1000 - +await ssvNetwork.totalBalanceOf(account1.address)}`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
-      await progressBlocks(10);
+      await progressBlocks(9);
       /*
        block #30
       */
-       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount/4}`)).wait();
-       // await network.provider.send("evm_setAutomine", [false]);
-      console.log("31=", await ethers.provider.getBlockNumber());
+      await network.provider.send("evm_setAutomine", [false]);
       (await ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 3)).wait();
-      console.log("32=", await ethers.provider.getBlockNumber());
-      // await network.provider.send("evm_setAutomine", [true]);
+      await network.provider.send("evm_setAutomine", [true]);
       // register validator
-      console.log("33=", await ethers.provider.getBlockNumber());
+      (await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount/4}`)).wait();
 
-      balancesByBlocks.push(`${1000 - +await ssvNetwork.totalBalanceOf(account1.address)}`);
-      console.log("34=", await ethers.provider.getBlockNumber());
+      balancesByBlocks.push(`${2000 - +await ssvNetwork.totalBalanceOf(account1.address)}`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
-      console.log("35=", await ethers.provider.getBlockNumber());
 
-      await progressBlocks(10);
+      await progressBlocks(9);
       /*
        block #40
       */
@@ -164,20 +157,21 @@ describe('SSV Network Balances Calculation', function() {
       balancesByBlocks.push(`${3000 - +await ssvNetwork.totalBalanceOf(account1.address)}`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
-      await progressBlocks(10);
+      await progressBlocks(9);
       /*
        block #50
       */
-      // await network.provider.send("evm_setAutomine", [false]);
+      await network.provider.send("evm_setAutomine", [false]);
       (await ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 1)).wait();
-      // await network.provider.send("evm_setAutomine", [true]);
+      (await ssvNetwork.updateNetworkFee(2)).wait();
+      await network.provider.send("evm_setAutomine", [false]);
       // register validator
       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[3], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount/4}`)).wait();
 
+      await progressBlocks(1);
       balancesByBlocks.push(`${4000 - +await ssvNetwork.totalBalanceOf(account1.address)}`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
-      (await ssvNetwork.updateNetworkFee(2)).wait();
       await progressBlocks(10);
       /*
        block #60
