@@ -154,6 +154,11 @@ Your environment will have everything you need to build a Dapp powered by Hardha
 - [ethers.js](https://docs.ethers.io/ethers.js/html/): A JavaScript library for interacting with Ethereum.
 - [Waffle](https://github.com/EthWorks/Waffle/): To have Ethereum-specific Chai assertions/mathers.
 
+## Security Audit
+
+Full audit report [CoinFabrik Report](./docs/SSV_Token_Dex&Vesting_audit.pdf)
+
+
 ## Troubleshooting
 
 - `Invalid nonce` errors: if you are seeing this error on the `npx hardhat node`
