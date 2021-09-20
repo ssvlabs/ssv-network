@@ -16,6 +16,8 @@ before(() => {
 
 const { expect } = chai;
 
+const minimumBlocksBeforeLiquidation = 50;
+
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
@@ -38,7 +40,7 @@ describe('SSV Network', function() {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation]);
     await ssvNetwork.deployed();
     await ssvToken.mint(account1.address, '1000000');
 
@@ -128,7 +130,7 @@ describe('SSV Network', function() {
   });
 
   it('activate a validator', async function() {
-    await ssvNetwork.connect(account2).activateValidator(validatorsPub[1]);
+    await ssvNetwork.connect(account2).activateValidator(validatorsPub[1], 0);
     await progressBlocks(10);
     expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(3890);
     expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(10656);
