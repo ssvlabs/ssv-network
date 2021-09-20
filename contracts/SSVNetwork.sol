@@ -8,38 +8,63 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "hardhat/console.sol";
 
-
 contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
+    struct OperatorBalanceSnapshot {
+        uint256 blockNumber;
+        uint256 validatorCount;
+        uint256 balance;
+        uint256 index;
+        uint256 indexBlockNumber;
+    }
+
+    struct OwnerData {
+        uint256 deposited;
+        uint256 withdrawn;
+        uint256 earned;
+        uint256 used;
+        uint256 networkFee;
+        uint256 networkFeeIndex;
+        uint256 activeValidatorsCount;
+    }
+
+    struct OperatorInUse {
+        uint256 index;
+        uint256 validatorCount;
+        uint256 used;
+        bool exists;
+        uint256 indexInArray;
+    }
+
     ISSVRegistry private _ssvRegistryContract;
     IERC20 private _token;
+    uint256 public _minimumBlocksBeforeLiquidation;
 
     uint256 private _networkFee;
-    uint256 private _networkFeePrevIndex;
-    uint256 private _networkFeePrevBlockNumber;
+    uint256 private _networkFeeIndex;
+    uint256 private _networkFeeIndexBlockNumber;
 
     mapping(bytes => OperatorBalanceSnapshot) private _operatorBalances;
-    mapping(bytes => ValidatorUsageSnapshot) private _validatorUsages;
     mapping(address => OwnerData) private _owners;
     mapping(address => mapping(bytes => OperatorInUse)) private _operatorsInUseByAddress;
     mapping(address => bytes[]) private _operatorsInUseList;
-    // uint256 minValidatorBlockSubscription;
 
-    function initialize(ISSVRegistry registryAddress, IERC20 token) external initializer virtual override {
-        __SSVNetwork_init(registryAddress, token);
+    function initialize(ISSVRegistry registryAddress, IERC20 token, uint256 minimumBlocksBeforeLiquidation) external initializer virtual override {
+        __SSVNetwork_init(registryAddress, token, minimumBlocksBeforeLiquidation);
     }
 
-    function __SSVNetwork_init(ISSVRegistry registryAddress, IERC20 token) internal initializer {
+    function __SSVNetwork_init(ISSVRegistry registryAddress, IERC20 token, uint256 minimumBlocksBeforeLiquidation) internal initializer {
         __Ownable_init_unchained();
-        __SSVNetwork_init_unchained(registryAddress, token);
+        __SSVNetwork_init_unchained(registryAddress, token, minimumBlocksBeforeLiquidation);
     }
 
-    function __SSVNetwork_init_unchained(ISSVRegistry registryAddress, IERC20 token) internal initializer {
+    function __SSVNetwork_init_unchained(ISSVRegistry registryAddress, IERC20 token, uint256 minimumBlocksBeforeLiquidation) internal initializer {
         _ssvRegistryContract = registryAddress;
         _token = token;
+        _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation;
         _ssvRegistryContract.initialize();
     }
 
-    modifier onlyValidator(bytes calldata publicKey) {
+    modifier onlyValidatorOwner(bytes calldata publicKey) {
         address owner = _ssvRegistryContract.getValidatorOwner(publicKey);
         require(
             owner != address(0),
@@ -49,7 +74,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _;
     }
 
-    modifier onlyOperator(bytes calldata publicKey) {
+    modifier onlyOperatorOwner(bytes calldata publicKey) {
         address owner = _ssvRegistryContract.getOperatorOwner(publicKey);
         require(
             owner != address(0),
@@ -60,10 +85,48 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     /**
-     * @dev See {ISSVNetwork-updateOperatorFee}.
+     * @dev See {ISSVNetwork-registerOperator}.
      */
-    function updateOperatorFee(bytes calldata publicKey, uint256 fee) external onlyOperator(publicKey) virtual override {
-        // console.log("update fee operator block", block.number);
+    function registerOperator(
+        string calldata name,
+        bytes calldata publicKey,
+        uint256 fee
+    ) external override {
+        _ssvRegistryContract.registerOperator(
+            name,
+            msg.sender,
+            publicKey,
+            fee
+        );
+
+        _operatorBalances[publicKey] = OperatorBalanceSnapshot(block.number, 0, 0, 0, block.number);
+    }
+
+    /**
+     * @dev See {ISSVNetwork-deleteOperator}.
+     */
+    function deleteOperator(bytes calldata publicKey) onlyOperatorOwner(publicKey) external virtual override {
+        require(_operatorBalances[publicKey].validatorCount == 0, "operator has validators");
+        address owner = _ssvRegistryContract.getOperatorOwner(publicKey);
+        _owners[owner].earned += _operatorBalances[publicKey].balance;
+        delete _operatorBalances[publicKey];
+        _ssvRegistryContract.deleteOperator(msg.sender, publicKey);
+    }
+
+
+    function activateOperator(bytes calldata publicKey) external virtual override {
+        _ssvRegistryContract.activateOperator(publicKey);
+        _updateAddressNetworkFee(msg.sender);
+        ++_owners[msg.sender].activeValidatorsCount;
+    }
+
+    function deactivateOperator(bytes calldata publicKey) external virtual override {
+        require(_operatorBalances[publicKey].validatorCount == 0, "operator has validators");
+
+        _ssvRegistryContract.deactivateOperator(publicKey);
+    }
+
+    function updateOperatorFee(bytes calldata publicKey, uint256 fee) external onlyOperatorOwner(publicKey) virtual override {
         _operatorBalances[publicKey].index = _operatorIndexOf(publicKey);
         _operatorBalances[publicKey].indexBlockNumber = block.number;
         _updateOperatorBalance(publicKey);
@@ -71,42 +134,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     /**
-     * @dev See {ISSVNetwork-updateNetworkFee}.
-     */
-    function updateNetworkFee(uint256 networkFee) external onlyOwner virtual override {
-        // console.log("set new fee", block.number, networkFee);
-        _networkFeePrevIndex = _currentNetworkFeeIndex();
-        _networkFee = networkFee;
-        _networkFeePrevBlockNumber = block.number;
-    }
-
-    function _currentNetworkFeeIndex() private view returns(uint256) {
-        return _networkFeePrevIndex + (block.number - _networkFeePrevBlockNumber) * _networkFee;
-    }
-
-    /**
-     * @dev See {ISSVNetwork-registerOperator}.
-     */
-    function registerOperator(
-        string calldata _name,
-        bytes calldata _publicKey,
-        uint256 _fee
-    ) external override {
-        _ssvRegistryContract.registerOperator(
-            _name,
-            msg.sender,
-            _publicKey,
-            _fee
-        );
-        // trigger update operator fee function
-        // console.log("reg index block", block.number);
-        _operatorBalances[_publicKey] = OperatorBalanceSnapshot(block.number, 0, 0, 0, block.number);
-    }
-
-    /**
      * @dev See {ISSVNetwork-registerValidator}.
      */
-    // TODO: add transfer tokens logic here based on passed value in function params
     function registerValidator(
         bytes calldata publicKey,
         bytes[] calldata operatorPublicKeys,
@@ -114,7 +143,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         bytes[] calldata encryptedKeys,
         uint256 tokenAmount
     ) external virtual override {
-        // console.log("reg v block", block.number);
         _ssvRegistryContract.registerValidator(
             msg.sender,
             publicKey,
@@ -123,18 +151,20 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             encryptedKeys
         );
         _updateAddressNetworkFee(msg.sender);
-        _owners[msg.sender].activeValidatorsCount++;
-
-        _validatorUsages[publicKey] = ValidatorUsageSnapshot(block.number, 0);
+        ++_owners[msg.sender].activeValidatorsCount;
 
         for (uint256 index = 0; index < operatorPublicKeys.length; ++index) {
-            bytes calldata operatorPubKey = operatorPublicKeys[index];
-            _updateOperatorBalance(operatorPubKey);
-            _operatorBalances[operatorPubKey].validatorCount++;
-            _useOperatorByOwner(msg.sender, operatorPubKey);
+            bytes calldata operatorPublicKey = operatorPublicKeys[index];
+            _updateOperatorBalance(operatorPublicKey);
+            ++_operatorBalances[operatorPublicKey].validatorCount;
+            _useOperatorByOwner(msg.sender, operatorPublicKey);
         }
 
-        deposit(tokenAmount);
+        if (tokenAmount > 0) {
+            _deposit(tokenAmount);
+        }
+
+        require(!_liquidatable(msg.sender), "not enough balance");
     }
 
     /**
@@ -146,26 +176,25 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys,
         uint256 tokenAmount
-    ) onlyValidator(publicKey) external virtual override {
-        updateValidatorUsage(publicKey);
-        bytes[] memory currentOperatorPubKeys = _ssvRegistryContract.getOperatorPubKeysInUse(publicKey);
+    ) onlyValidatorOwner(publicKey) external virtual override {
+        bytes[] memory currentOperatorPublicKeys = _ssvRegistryContract.getOperatorsByValidator(publicKey);
         address owner = _ssvRegistryContract.getValidatorOwner(publicKey);
         // calculate balances for current operators in use
-        for (uint256 index = 0; index < currentOperatorPubKeys.length; ++index) {
-            bytes memory operatorPubKey = currentOperatorPubKeys[index];
-            _updateOperatorBalance(operatorPubKey);
-            _operatorBalances[operatorPubKey].validatorCount--;
+        for (uint256 index = 0; index < currentOperatorPublicKeys.length; ++index) {
+            bytes memory operatorPublicKey = currentOperatorPublicKeys[index];
+            _updateOperatorBalance(operatorPublicKey);
+            --_operatorBalances[operatorPublicKey].validatorCount;
 
-            _stopUsingOperatorByOwner(owner, operatorPubKey);
+            _stopUsingOperatorByOwner(owner, operatorPublicKey);
         }
 
         // calculate balances for new operators in use
         for (uint256 index = 0; index < operatorPublicKeys.length; ++index) {
-            bytes memory operatorPubKey = operatorPublicKeys[index];
-            _updateOperatorBalance(operatorPubKey);
-            ++_operatorBalances[operatorPubKey].validatorCount;
+            bytes memory operatorPublicKey = operatorPublicKeys[index];
+            _updateOperatorBalance(operatorPublicKey);
+            ++_operatorBalances[operatorPublicKey].validatorCount;
 
-            _useOperatorByOwner(owner, operatorPubKey);
+            _useOperatorByOwner(owner, operatorPublicKey);
         }
 
         _ssvRegistryContract.updateValidator(
@@ -175,105 +204,226 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             encryptedKeys
         );
 
-        deposit(tokenAmount);
+        if (tokenAmount > 0) {
+            _deposit(tokenAmount);
+        }
+
+        require(!_liquidatable(msg.sender), "not enough balance");
     }
 
     /**
      * @dev See {ISSVNetwork-deleteValidator}.
      */
-    function deleteValidator(bytes calldata publicKey) onlyValidator(publicKey) external virtual override {
+    function deleteValidator(bytes calldata publicKey) onlyValidatorOwner(publicKey) external virtual override {
         _unregisterValidator(publicKey);
         address owner = _ssvRegistryContract.getValidatorOwner(publicKey);
-        totalBalanceOf(owner); // For assertion
-        // _owners[owner].used += validatorUsageOf(publicKey);
-        // delete _validatorUsages[publicKey];
+        _totalBalanceOf(owner); // For assertion
         _ssvRegistryContract.deleteValidator(msg.sender, publicKey);
         _updateAddressNetworkFee(msg.sender);
-        _owners[msg.sender].activeValidatorsCount--;
+        --_owners[msg.sender].activeValidatorsCount;
     }
 
-    /**
-     * @dev See {ISSVNetwork-deleteOperator}.
-     */
-    function deleteOperator(bytes calldata publicKey) onlyOperator(publicKey) external virtual override {
-        require(_operatorBalances[publicKey].validatorCount == 0, "operator has validators");
-        address owner = _ssvRegistryContract.getOperatorOwner(publicKey);
-        _owners[owner].earned += _operatorBalances[publicKey].balance;
-        delete _operatorBalances[publicKey];
-        _ssvRegistryContract.deleteOperator(msg.sender, publicKey);
-    }
-
-    function activateValidator(bytes calldata publicKey) external virtual override {
+    function activateValidator(bytes calldata publicKey, uint256 tokenAmount) onlyValidatorOwner(publicKey) external virtual override {
         address owner = _ssvRegistryContract.getValidatorOwner(publicKey);
-        _validatorUsages[publicKey].blockNumber = block.number;
         // calculate balances for current operators in use and update their balances
-        bytes[] memory currentOperatorPubKeys = _ssvRegistryContract.getOperatorPubKeysInUse(publicKey);
-        for (uint256 index = 0; index < currentOperatorPubKeys.length; ++index) {
-            bytes memory operatorPubKey = currentOperatorPubKeys[index];
-            _updateOperatorBalance(operatorPubKey);
-            _operatorBalances[operatorPubKey].validatorCount++;
-            _useOperatorByOwner(owner, operatorPubKey);
+        bytes[] memory currentOperatorPublicKeys = _ssvRegistryContract.getOperatorsByValidator(publicKey);
+        for (uint256 index = 0; index < currentOperatorPublicKeys.length; ++index) {
+            bytes memory operatorPublicKey = currentOperatorPublicKeys[index];
+            _updateOperatorBalance(operatorPublicKey);
+            ++_operatorBalances[operatorPublicKey].validatorCount;
+            _useOperatorByOwner(owner, operatorPublicKey);
         }
 
         _ssvRegistryContract.activateValidator(publicKey);
+
+        if (tokenAmount > 0) {
+            _deposit(tokenAmount);
+        }
+
+        require(!_liquidatable(msg.sender), "not enough balance");
     }
 
-    function deactivateValidator(bytes calldata publicKey) external virtual override {
-        _unregisterValidator(publicKey);
-
-        _ssvRegistryContract.deactivateValidator(publicKey);
-
-        _updateAddressNetworkFee(msg.sender);
-        _owners[msg.sender].activeValidatorsCount--;
+    function deactivateValidator(bytes calldata publicKey) onlyValidatorOwner(publicKey) external virtual override {
+        _deactivateValidator(publicKey, msg.sender);
     }
 
-    function activateOperator(bytes calldata publicKey) external virtual override {
-        _ssvRegistryContract.activateOperator(publicKey);
-        _updateAddressNetworkFee(msg.sender);
-        _owners[msg.sender].activeValidatorsCount++;
-    }
-
-    function deactivateOperator(bytes calldata publicKey) external virtual override {
-        require(_operatorBalances[publicKey].validatorCount == 0, "operator has validators");
-
-        _ssvRegistryContract.deactivateOperator(publicKey);
+    function deposit(uint tokenAmount) external override {
+        _deposit(tokenAmount);
     }
 
     function withdraw(uint256 tokenAmount) external virtual override {
-        require(totalBalanceOf(msg.sender) > tokenAmount, "not enough balance");
+        require(_totalBalanceOf(msg.sender) > tokenAmount, "not enough balance");
         _owners[msg.sender].withdrawn += tokenAmount;
+        require(!_liquidatable(msg.sender), "not enough balance");
         _token.transfer(msg.sender, tokenAmount);
     }
 
-    function deposit(uint tokenAmount) public override {
-        _token.transferFrom(msg.sender, address(this), tokenAmount);
-        _owners[msg.sender].deposited += tokenAmount;
+    function liquidate(address ownerAddress) external virtual override {
+        require(_liquidatable(ownerAddress), "owner is not liquidatable");
+
+        _liquidateUnsafe(ownerAddress);
+    }
+
+    function liquidateAll(address[] calldata ownerAddresses) external virtual override {
+        for (uint256 index = 0; index < ownerAddresses.length; ++index) {
+            if (_liquidatable(ownerAddresses[index])) {
+                _liquidateUnsafe(ownerAddresses[index]);
+            }
+        }
+    }
+
+    function updateMinimumBlocksBeforeLiquidation(uint256 minimumBlocksBeforeLiquidation) external onlyOwner virtual override {
+        _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation;
+    }
+
+    /**
+     * @dev See {ISSVNetwork-updateNetworkFee}.
+     */
+    function updateNetworkFee(uint256 fee) external onlyOwner virtual override {
+        _networkFeeIndex = _currentNetworkFeeIndex();
+        _networkFee = fee;
+        _networkFeeIndexBlockNumber = block.number;
+    }
+
+    function totalBalanceOf(address ownerAddress) external override view returns (uint256) {
+        return _totalBalanceOf(ownerAddress);
     }
 
     /**
      * @dev See {ISSVNetwork-operatorBalanceOf}.
      */
-    function operatorBalanceOf(bytes memory publicKey) public view override returns (uint256) {
-        return _operatorBalances[publicKey].balance +
-               _ssvRegistryContract.getOperatorCurrentFee(publicKey) *
-               (block.number - _operatorBalances[publicKey].blockNumber) *
-               _operatorBalances[publicKey].validatorCount;
+    function operatorBalanceOf(bytes memory publicKey) external view override returns (uint256) {
+        return _operatorBalanceOf(publicKey);
     }
 
     /**
-     * @dev See {ISSVNetwork-addressNetworkFeeIndex}.
+     * @dev See {ISSVNetwork-addressNetworkFee}.
      */
-    function addressNetworkFee(address _ownerAddress) public view override returns (uint256) {
-        return _owners[_ownerAddress].networkFee +
-            (_currentNetworkFeeIndex() - _owners[_ownerAddress].networkFeePrevIndex) * _owners[_ownerAddress].activeValidatorsCount;
+    function addressNetworkFee(address ownerAddress) external view override returns (uint256) {
+        return _addressNetworkFee(ownerAddress);
     }
 
-    function totalBalanceOf(address ownerAddress) public override view returns (uint256) {
+
+    function burnRate(address ownerAddress) external view override returns (uint256) {
+        return _burnRate(ownerAddress);
+    }
+
+    function liquidatable(address ownerAddress) external view override returns (bool) {
+        return _liquidatable(ownerAddress);
+    }
+
+    function minimumBlocksBeforeLiquidation() external view override returns (uint256) {
+        return _minimumBlocksBeforeLiquidation;
+    }
+
+    function _deposit(uint tokenAmount) private {
+        _token.transferFrom(msg.sender, address(this), tokenAmount);
+        _owners[msg.sender].deposited += tokenAmount;
+    }
+
+    /**
+     * @dev Update network fee for the address.
+     * @param ownerAddress Owner address.
+     */
+    function _updateAddressNetworkFee(address ownerAddress) private {
+        _owners[ownerAddress].networkFee = _addressNetworkFee(ownerAddress);
+        _owners[ownerAddress].networkFeeIndex = _currentNetworkFeeIndex();
+    }
+
+    /**
+     * @dev Updates operators's balance.
+     * @param publicKey The operators's public key.
+     */
+    function _updateOperatorBalance(bytes memory publicKey) private {
+        OperatorBalanceSnapshot storage balanceSnapshot = _operatorBalances[publicKey];
+        balanceSnapshot.balance = _operatorBalanceOf(publicKey);
+        balanceSnapshot.blockNumber = block.number;
+    }
+
+    function _liquidateUnsafe(address ownerAddress) private {
+        bytes[] memory validators = _ssvRegistryContract.getValidatorsByAddress(ownerAddress);
+
+        for (uint index = 0; index < validators.length; ++index) {
+            _deactivateValidator(validators[index], ownerAddress);
+        }
+
+        uint256 balanceToTransfer = _totalBalanceOf(ownerAddress);
+
+        _owners[ownerAddress].used += balanceToTransfer;
+        _owners[msg.sender].earned += balanceToTransfer;
+    }
+
+    function _deactivateValidator(bytes memory publicKey, address ownerAddress) private {
+        _unregisterValidator(publicKey);
+
+        _ssvRegistryContract.deactivateValidator(publicKey);
+
+        _updateAddressNetworkFee(ownerAddress);
+        --_owners[ownerAddress].activeValidatorsCount;
+    }
+
+    function _unregisterValidator(bytes memory publicKey) private {
+        address ownerAddress = _ssvRegistryContract.getValidatorOwner(publicKey);
+
+        // calculate balances for current operators in use and update their balances
+        bytes[] memory currentOperatorPublicKeys = _ssvRegistryContract.getOperatorsByValidator(publicKey);
+        for (uint256 index = 0; index < currentOperatorPublicKeys.length; ++index) {
+            bytes memory operatorPublicKey = currentOperatorPublicKeys[index];
+            _updateOperatorBalance(operatorPublicKey);
+            --_operatorBalances[operatorPublicKey].validatorCount;
+            _stopUsingOperatorByOwner(ownerAddress, operatorPublicKey);
+        }
+    }
+
+    function _useOperatorByOwner(address ownerAddress, bytes memory operatorPublicKey) private {
+        _updateUsingOperatorByOwner(ownerAddress, operatorPublicKey, true);
+    }
+
+    function _stopUsingOperatorByOwner(address ownerAddress, bytes memory operatorPublicKey) private {
+        _updateUsingOperatorByOwner(ownerAddress, operatorPublicKey, false);
+    }
+
+    /**
+     * @dev Updates the relation between operator and owner
+     * @param ownerAddress Owner address.
+     * @param operatorPublicKey The operator's public key.
+     * @param increase Change value for validators amount.
+     */
+    function _updateUsingOperatorByOwner(address ownerAddress, bytes memory operatorPublicKey, bool increase) private {
+        OperatorInUse storage usageSnapshot = _operatorsInUseByAddress[ownerAddress][operatorPublicKey];
+
+        if (usageSnapshot.exists) {
+            usageSnapshot.used = _operatorInUseUsageOf(ownerAddress, operatorPublicKey);
+            usageSnapshot.index = _operatorIndexOf(operatorPublicKey);
+
+            if (increase) {
+                ++usageSnapshot.validatorCount;
+            } else {
+                if (--usageSnapshot.validatorCount == 0) {
+                    _owners[ownerAddress].used += usageSnapshot.used;
+
+                    // remove from mapping and list;
+
+                    _operatorsInUseList[ownerAddress][usageSnapshot.indexInArray] = _operatorsInUseList[ownerAddress][_operatorsInUseList[ownerAddress].length - 1];
+                    _operatorsInUseByAddress[ownerAddress][_operatorsInUseList[ownerAddress][usageSnapshot.indexInArray]].indexInArray = usageSnapshot.indexInArray;
+                    _operatorsInUseList[ownerAddress].pop();
+
+                    delete _operatorsInUseByAddress[ownerAddress][operatorPublicKey];
+                }
+            }
+        } else {
+            _operatorsInUseByAddress[ownerAddress][operatorPublicKey] = OperatorInUse(_operatorIndexOf(operatorPublicKey), 1, 0, true, _operatorsInUseList[ownerAddress].length);
+            _operatorsInUseList[ownerAddress].push(operatorPublicKey);
+        }
+    }
+
+
+    function _totalBalanceOf(address ownerAddress) private view returns (uint256) {
         uint balance = _owners[ownerAddress].deposited + _owners[ownerAddress].earned;
 
-        bytes[] memory operators = _ssvRegistryContract.getOperatorsByAddress(ownerAddress);
+        bytes[] memory operators = _ssvRegistryContract.getOperatorsByOwnerAddress(ownerAddress);
         for (uint256 index = 0; index < operators.length; ++index) {
-            balance += operatorBalanceOf(operators[index]);
+            balance += _operatorBalanceOf(operators[index]);
         }
 
         uint256 usage = _owners[ownerAddress].withdrawn +
@@ -289,73 +439,53 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return balance - usage;
     }
 
+    function _operatorEarnRate(bytes memory publicKey) private view returns (uint256) {
+        return _ssvRegistryContract.getOperatorCurrentFee(publicKey) * _operatorBalances[publicKey].validatorCount;
+    }
+
     /**
-     * @dev See {ISSVNetwork-validatorUsageOf}.
+     * @dev See {ISSVNetwork-operatorBalanceOf}.
      */
-    function validatorUsageOf(bytes memory publicKey) public view override returns (uint256) {
-        ValidatorUsageSnapshot storage balanceSnapshot = _validatorUsages[publicKey];
-        (,, bool active,) = _ssvRegistryContract.validators(publicKey);
-        if (!active) {
-            return balanceSnapshot.balance;
+    function _operatorBalanceOf(bytes memory publicKey) private view returns (uint256) {
+        return _operatorBalances[publicKey].balance +
+               (block.number - _operatorBalances[publicKey].blockNumber) *
+               _operatorEarnRate(publicKey);
+    }
+
+    function _addressNetworkFee(address ownerAddress) private view returns (uint256) {
+        return _owners[ownerAddress].networkFee +
+              (_currentNetworkFeeIndex() - _owners[ownerAddress].networkFeeIndex) *
+              _owners[ownerAddress].activeValidatorsCount;
+    }
+
+    function _burnRate(address ownerAddress) private view returns (uint256 burnRate) {
+        bytes[] memory operators = _ssvRegistryContract.getOperatorsByOwnerAddress(ownerAddress);
+
+        for (uint256 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
+            burnRate += _operatorInUseBurnRate(ownerAddress, _operatorsInUseList[ownerAddress][index]);
         }
 
-        return balanceSnapshot.balance + _ssvRegistryContract.getValidatorUsage(publicKey, balanceSnapshot.blockNumber, block.number);
+        for (uint256 index = 0; index < operators.length; ++index) {
+            if (burnRate <= _operatorEarnRate(operators[index])) {
+                return 0;
+            } else {
+                burnRate -= _operatorEarnRate(operators[index]);
+            }
+        }
     }
 
-    /**
-     * @dev See {ISSVNetwork-updateValidatorUsage}.
-     */
-    function updateValidatorUsage(bytes memory publicKey) public override {
-        ValidatorUsageSnapshot storage usageSnapshot = _validatorUsages[publicKey];
-        usageSnapshot.balance = validatorUsageOf(publicKey);
-        usageSnapshot.blockNumber = block.number;
-    }
-
-    /**
-     * @dev Update network fee for the address.
-     * @param _ownerAddress Owner address.
-     */
-    function _updateAddressNetworkFee(address _ownerAddress) private {
-        _owners[_ownerAddress].networkFee = addressNetworkFee(_ownerAddress);
-        _owners[_ownerAddress].networkFeePrevIndex = _currentNetworkFeeIndex();
-    }
-
-    /**
-     * @dev Updates operators's balance.
-     * @param _publicKey The operators's public key.
-     */
-    function _updateOperatorBalance(bytes memory _publicKey) private {
-        OperatorBalanceSnapshot storage balanceSnapshot = _operatorBalances[_publicKey];
-        balanceSnapshot.balance = operatorBalanceOf(_publicKey);
-        balanceSnapshot.blockNumber = block.number;
+    function _liquidatable(address ownerAddress) private view returns (bool) {
+        return _totalBalanceOf(ownerAddress) < _minimumBlocksBeforeLiquidation * _burnRate(ownerAddress);
     }
 
     /**
      * @dev Get operator index by address.
-     * @param publicKey Operator's Public Key.
+     * @param publicKey Operator's public Key.
      */
     function _operatorIndexOf(bytes memory publicKey) private view returns (uint256) {
         return _operatorBalances[publicKey].index +
                _ssvRegistryContract.getOperatorCurrentFee(publicKey) *
                (block.number - _operatorBalances[publicKey].indexBlockNumber);
-    }
-
-    function test_operatorIndexOf(bytes memory publicKey) public view returns (uint256) {
-        return _operatorIndexOf(publicKey);
-    }
-
-    function _unregisterValidator(bytes calldata publicKey) private {
-        address owner = _ssvRegistryContract.getValidatorOwner(publicKey);
-        updateValidatorUsage(publicKey);
-
-        // calculate balances for current operators in use and update their balances
-        bytes[] memory currentOperatorPubKeys = _ssvRegistryContract.getOperatorPubKeysInUse(publicKey);
-        for (uint256 index = 0; index < currentOperatorPubKeys.length; ++index) {
-            bytes memory operatorPubKey = currentOperatorPubKeys[index];
-            _updateOperatorBalance(operatorPubKey);
-            _operatorBalances[operatorPubKey].validatorCount--;
-            _stopUsingOperatorByOwner(owner, operatorPubKey);
-        }
     }
 
     function _operatorInUseUsageOf(address ownerAddress, bytes memory operatorPublicKey) private view returns (uint256) {
@@ -365,35 +495,15 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return usageSnapshot.used + newUsage;
     }
 
-    function _useOperatorByOwner(address ownerAddress, bytes memory operatorPubKey) private {
-        _updateUsingOperatorByOwner(ownerAddress, operatorPubKey, true);
-    }
-
-    function _stopUsingOperatorByOwner(address ownerAddress, bytes memory operatorPubKey) private {
-        _updateUsingOperatorByOwner(ownerAddress, operatorPubKey, false);
+    function _operatorInUseBurnRate(address ownerAddress, bytes memory operatorPublicKey) private view returns (uint256) {
+        OperatorInUse storage usageSnapshot = _operatorsInUseByAddress[ownerAddress][operatorPublicKey];
+        return _ssvRegistryContract.getOperatorCurrentFee(operatorPublicKey) * usageSnapshot.validatorCount;
     }
 
     /**
-     * @dev updates owner and ope
-     * @param ownerAddress Owner address.
-     * @param operatorPublicKey The operator's public key.
-     * @param increase Change value for validators amount.
+     * @dev Returns the current network fee index
      */
-    function _updateUsingOperatorByOwner(address ownerAddress, bytes memory operatorPublicKey, bool increase) private {
-        OperatorInUse storage usageSnapshot = _operatorsInUseByAddress[ownerAddress][operatorPublicKey];
-
-        if (usageSnapshot.exists) {
-            usageSnapshot.used = _operatorInUseUsageOf(ownerAddress, operatorPublicKey);
-            usageSnapshot.index = _operatorIndexOf(operatorPublicKey);
-
-            if (increase) {
-                ++usageSnapshot.validatorCount;
-            } else {
-                --usageSnapshot.validatorCount;
-            }
-        } else {
-            _operatorsInUseByAddress[ownerAddress][operatorPublicKey] = OperatorInUse(_operatorIndexOf(operatorPublicKey), 1, 0, true);
-            _operatorsInUseList[ownerAddress].push(operatorPublicKey);
-        }
+    function _currentNetworkFeeIndex() private view returns(uint256) {
+        return _networkFeeIndex + (block.number - _networkFeeIndexBlockNumber) * _networkFee;
     }
 }
