@@ -99,7 +99,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             _fee
         );
         // trigger update operator fee function
-        // console.log("reg index block", block.number);
+        // console.log("reg o block", block.number);
         _operatorBalances[_publicKey] = OperatorBalanceSnapshot(block.number, 0, 0, 0, block.number);
     }
 
@@ -126,7 +126,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _owners[msg.sender].activeValidatorsCount++;
 
         _validatorUsages[publicKey] = ValidatorUsageSnapshot(block.number, 0);
-
         for (uint256 index = 0; index < operatorPublicKeys.length; ++index) {
             bytes calldata operatorPubKey = operatorPublicKeys[index];
             _updateOperatorBalance(operatorPubKey);
@@ -277,8 +276,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
 
         uint256 usage = _owners[ownerAddress].withdrawn +
-                _owners[ownerAddress].used; // +
-                // _owners[ownerAddress].networkFee;
+                _owners[ownerAddress].used +
+                _owners[ownerAddress].networkFee;
 
         for (uint256 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
             usage += _operatorInUseUsageOf(ownerAddress, _operatorsInUseList[ownerAddress][index]);
