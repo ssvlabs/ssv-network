@@ -427,9 +427,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
 
         uint256 usage = _owners[ownerAddress].withdrawn +
-                _owners[ownerAddress].used; // +
-                // _owners[ownerAddress].networkFee;
-
+                _owners[ownerAddress].used +
+                _owners[ownerAddress].networkFee;
         for (uint256 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
             usage += _operatorInUseUsageOf(ownerAddress, _operatorsInUseList[ownerAddress][index]);
         }
@@ -486,6 +485,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return _operatorBalances[publicKey].index +
                _ssvRegistryContract.getOperatorCurrentFee(publicKey) *
                (block.number - _operatorBalances[publicKey].indexBlockNumber);
+    }
+
+    function test_operatorIndexOf(bytes memory publicKey) public view returns (uint256) {
+        return _operatorIndexOf(publicKey);
     }
 
     function _operatorInUseUsageOf(address ownerAddress, bytes memory operatorPublicKey) private view returns (uint256) {
