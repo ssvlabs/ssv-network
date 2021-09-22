@@ -44,6 +44,7 @@ const initAddressData = (address) => {
   addressData[address] = {
     operatorIdxs: [],
     operatorsInUse: {},
+    validatorOperators: {},
     used: 0,
     withdrawn: 0,
     deposited: 0,
@@ -102,7 +103,7 @@ export const addressBalanceOf = async(address) => {
     withdrawn,
     networkFee,
     used,
-    operatorsInUse
+    operatorsInUse,
   } = addressData[address];
   let total = deposited + earned;
 
@@ -147,13 +148,46 @@ export const registerValidator = async (account, validatorIdx, operatorIdxs, dep
   await progressBlocks(1);
   for (const oidx of operatorIdxs) {
     await updateOperatorBalance(oidx);
+    operatorData[oidx].validatorsCount += 1;
+    addressData[account.address].operatorsInUse[oidx] = addressData[account.address].operatorsInUse[oidx] || { validatorsCount: 0, index: 0, used: 0 };
+    addressData[account.address].operatorsInUse[oidx].used = await operatorExpenseOf(account.address, oidx);
+    addressData[account.address].operatorsInUse[oidx].validatorsCount += 1;
+    addressData[account.address].operatorsInUse[oidx].index = await operatorIndexOf(oidx);
+    //
+    addressData[account.address].validatorOperators[validatorIdx] = addressData[account.address].validatorOperators[validatorIdx] || [];
+    addressData[account.address].validatorOperators[validatorIdx].push(oidx);
+  };
+  addressData[account.address].activeValidators++;
+  addressData[account.address].deposited += depositAmount;
+}
+
+export const updateValidator = async (account, validatorIdx, operatorIdxs, depositAmount) => {
+  await ssvToken.connect(account).approve(ssvNetwork.address, depositAmount);
+  await ssvNetwork.connect(account).updateValidator(
+    validatorsPub[validatorIdx],
+    operatorIdxs.map(oidx => operatorsPub[oidx]),
+    operatorIdxs.map(oidx => operatorsPub[oidx]),
+    operatorIdxs.map(oidx => operatorsPub[oidx]),
+    `${depositAmount}`,
+  );
+  await progressBlocks(1);
+  for (const oidx of addressData[account.address].validatorOperators[validatorIdx]) {
+    await updateOperatorBalance(oidx);
+    operatorData[oidx].validatorsCount -= 1;
+    addressData[account.address].operatorsInUse[oidx].used = await operatorExpenseOf(account.address, oidx);
+    addressData[account.address].operatorsInUse[oidx].validatorsCount -= 1;
+    addressData[account.address].operatorsInUse[oidx].index = await operatorIndexOf(oidx);
+  }
+  addressData[account.address].validatorOperators[validatorIdx] = [];
+
+  for (const oidx of operatorIdxs) {
+    await updateOperatorBalance(oidx);
     operatorData[oidx].validatorsCount += 1
     addressData[account.address].operatorsInUse[oidx] = addressData[account.address].operatorsInUse[oidx] || { validatorsCount: 0, index: 0, used: 0 };
     addressData[account.address].operatorsInUse[oidx].used = await operatorExpenseOf(account.address, oidx);
     addressData[account.address].operatorsInUse[oidx].validatorsCount += 1;
     addressData[account.address].operatorsInUse[oidx].index = await operatorIndexOf(oidx);
   };
-  addressData[account.address].activeValidators++;
   addressData[account.address].deposited += depositAmount;
 }
 
