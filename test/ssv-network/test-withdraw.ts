@@ -56,16 +56,15 @@ describe('SSV Network', function() {
           () => checkTotalBalance(account2.address),
         ],
       },
-      /*
       110: {
         asserts: [
           () => checkWithdrawFail(account2, 1000),
         ],
       },
-      */
       120: {
         asserts: [
           () => checkTotalBalance(account2.address),
+          () => checkWithdrawFail(account2, 1000),
         ],
       },
     };

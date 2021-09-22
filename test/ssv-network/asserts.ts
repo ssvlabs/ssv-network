@@ -10,6 +10,9 @@ import {
   ssvNetwork,
 } from './setup';
 
+import { progressBlocks } from '../utils';
+
+
 export const checkOperatorBalances = async(operatorIdxs) => {
   for (const oidx of operatorIdxs) {
     expect(+await ssvNetwork.operatorBalanceOf(operatorsPub[oidx])).to.equal(+await operatorBalanceOf(oidx));

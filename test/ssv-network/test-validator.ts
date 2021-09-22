@@ -6,6 +6,7 @@ import {
   registerOperator,
   registerValidator,
   updateValidator,
+  deleteValidator,
   processTestCase,
   updateNetworkFee,
   account1,
@@ -61,7 +62,18 @@ describe('SSV Network', function() {
           () => checkTotalBalance(account1.address),
           () => checkTotalBalance(account2.address),
         ]
-      }
+      },
+      150: {
+        funcs: [
+          () => deleteValidator(account1, 0),
+        ],
+      },
+      180: {
+        asserts: [
+          () => checkTotalBalance(account1.address),
+          () => checkTotalBalance(account2.address),
+        ]
+      },
     };
 
     await processTestCase(testFlow);

@@ -191,6 +191,10 @@ export const updateValidator = async (account, validatorIdx, operatorIdxs, depos
   addressData[account.address].deposited += depositAmount;
 }
 
+export const deleteValidator = async (account, validatorIdx) => {
+  await ssvNetwork.connect(account).deleteValidator(validatorsPub[validatorIdx]);
+}
+
 export const deposit = async(account, amount) => {
   await ssvToken.connect(account).approve(ssvNetwork.address, `${amount}`);
   await ssvNetwork.connect(account).deposit(`${amount}`);
@@ -237,11 +241,13 @@ export const processTestCase = async (testFlow) => {
     const diffBlocks = +blockNumber - +await ethers.provider.getBlockNumber();
     const { funcs, asserts } = testFlow[blockNumber];
     await progressBlocks(diffBlocks);
-    if (Array.isArray(asserts)) {
+    await network.provider.send('evm_setAutomine', [true]);
+      if (Array.isArray(asserts)) {
       for (const assert of asserts) {
         await assert();
       }
     }
+    await network.provider.send('evm_setAutomine', [false]);
     if (Array.isArray(funcs)) {
       for (const func of funcs) {
         await func();
