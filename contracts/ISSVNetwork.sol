@@ -17,8 +17,15 @@ interface ISSVNetwork {
      * @dev Initializes the contract
      * @param registryAddress The registry address
      * @param token The network token
+     * @param minimumBlocksBeforeLiquidation The minimum blocks befor liquidation
+     * @param minimumBlocksForSufficientBalance The minimum blocks which a user has to have sufficient balance when registering a new validator 
      */
-    function initialize(ISSVRegistry registryAddress, IERC20 token, uint256 minimumBlocksBeforeLiquidation) external;
+    function initialize(
+        ISSVRegistry registryAddress,
+        IERC20 token,
+        uint256 minimumBlocksBeforeLiquidation,
+        uint256 minimumBlocksForSufficientBalance
+    ) external;
 
     /**
      * @dev Registers a new operator.
@@ -112,6 +119,9 @@ interface ISSVNetwork {
     function liquidateAll(address[] calldata ownerAddresses) external;
 
     function updateMinimumBlocksBeforeLiquidation(uint256 minimumBlocksBeforeLiquidation) external;
+
+    function updateMinimumBlocksForSufficientBalance(uint256 minimumBlocksForSufficientBalance) external;
+
     /**
      * @dev Updates the network fee.
      * @param fee the new fee

@@ -72,8 +72,8 @@ describe('SSV Network', function() {
       },
       50: {
         funcs: [
-          () => updateOperatorFee(account2, 0, 1),
-          () => updateNetworkFee(2),
+          // () => updateOperatorFee(account2, 0, 1),
+          // () => updateNetworkFee(2),
           () => registerValidator(account1, 3, [0, 1, 2, 3], 1000),
         ],
         asserts: [

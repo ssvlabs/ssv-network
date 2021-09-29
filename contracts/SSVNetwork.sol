@@ -38,29 +38,48 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     ISSVRegistry private _ssvRegistryContract;
     IERC20 private _token;
     uint256 public _minimumBlocksBeforeLiquidation;
+    uint256 public _minimumBlocksForSufficientBalance;
 
     uint256 private _networkFee;
     uint256 private _networkFeeIndex;
     uint256 private _networkFeeIndexBlockNumber;
+    uint256 private _lastUpdateNetworkFeeRun;
 
     mapping(bytes => OperatorBalanceSnapshot) private _operatorBalances;
     mapping(address => OwnerData) private _owners;
     mapping(address => mapping(bytes => OperatorInUse)) private _operatorsInUseByAddress;
     mapping(address => bytes[]) private _operatorsInUseList;
+    mapping(bytes => uint256) private _lastOperatorUpdateNetworkFeeRun;
 
-    function initialize(ISSVRegistry registryAddress, IERC20 token, uint256 minimumBlocksBeforeLiquidation) external initializer virtual override {
-        __SSVNetwork_init(registryAddress, token, minimumBlocksBeforeLiquidation);
+    function initialize(
+        ISSVRegistry registryAddress,
+        IERC20 token,
+        uint256 minimumBlocksBeforeLiquidation,
+        uint256 minimumBlocksForSufficientBalance
+    ) external initializer virtual override {
+        __SSVNetwork_init(registryAddress, token, minimumBlocksBeforeLiquidation, minimumBlocksForSufficientBalance);
     }
 
-    function __SSVNetwork_init(ISSVRegistry registryAddress, IERC20 token, uint256 minimumBlocksBeforeLiquidation) internal initializer {
+    function __SSVNetwork_init(
+        ISSVRegistry registryAddress,
+        IERC20 token,
+        uint256 minimumBlocksBeforeLiquidation,
+        uint256 minimumBlocksForSufficientBalance
+    ) internal initializer {
         __Ownable_init_unchained();
-        __SSVNetwork_init_unchained(registryAddress, token, minimumBlocksBeforeLiquidation);
+        __SSVNetwork_init_unchained(registryAddress, token, minimumBlocksBeforeLiquidation, minimumBlocksForSufficientBalance);
     }
 
-    function __SSVNetwork_init_unchained(ISSVRegistry registryAddress, IERC20 token, uint256 minimumBlocksBeforeLiquidation) internal initializer {
+    function __SSVNetwork_init_unchained(
+        ISSVRegistry registryAddress,
+        IERC20 token,
+        uint256 minimumBlocksBeforeLiquidation,
+        uint256 minimumBlocksForSufficientBalance
+    ) internal initializer {
         _ssvRegistryContract = registryAddress;
         _token = token;
         _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation;
+        _minimumBlocksForSufficientBalance = minimumBlocksForSufficientBalance;
         _ssvRegistryContract.initialize();
     }
 
@@ -84,6 +103,17 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _;
     }
 
+    modifier onlyOnceIn72Hours() {
+        require(block.timestamp - _lastUpdateNetworkFeeRun > 72 hours , "Executes after 72 hours from last update");
+        _lastUpdateNetworkFeeRun = block.timestamp;
+        _;
+    }
+
+    modifier onlyOnceIn72HoursByOperator(bytes calldata publicKey) {
+        require(block.timestamp - _lastOperatorUpdateNetworkFeeRun[publicKey] > 72 hours , "Executes after 72 hours from last update");
+        _lastOperatorUpdateNetworkFeeRun[publicKey] = block.timestamp;
+        _;
+    }
     /**
      * @dev See {ISSVNetwork-registerOperator}.
      */
@@ -126,7 +156,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _ssvRegistryContract.deactivateOperator(publicKey);
     }
 
-    function updateOperatorFee(bytes calldata publicKey, uint256 fee) external onlyOperatorOwner(publicKey) virtual override {
+    function updateOperatorFee(bytes calldata publicKey, uint256 fee) external onlyOperatorOwner(publicKey) onlyOnceIn72HoursByOperator(publicKey) virtual override {
         _operatorBalances[publicKey].index = _operatorIndexOf(publicKey);
         _operatorBalances[publicKey].indexBlockNumber = block.number;
         _updateOperatorBalance(publicKey);
@@ -153,13 +183,16 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _updateAddressNetworkFee(msg.sender);
         ++_owners[msg.sender].activeValidatorsCount;
 
+        uint256 totalFeePerBlock;
         for (uint256 index = 0; index < operatorPublicKeys.length; ++index) {
             bytes calldata operatorPublicKey = operatorPublicKeys[index];
             _updateOperatorBalance(operatorPublicKey);
             ++_operatorBalances[operatorPublicKey].validatorCount;
             _useOperatorByOwner(msg.sender, operatorPublicKey);
+            totalFeePerBlock += _ssvRegistryContract.getOperatorCurrentFee(operatorPublicKey);
         }
 
+        require(tokenAmount >= totalFeePerBlock * _minimumBlocksForSufficientBalance, "not enough tokens");
         if (tokenAmount > 0) {
             _deposit(tokenAmount);
         }
@@ -276,10 +309,14 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation;
     }
 
+    function updateMinimumBlocksForSufficientBalance(uint256 minimumBlocksForSufficientBalance) external onlyOwner virtual ovveride {
+        _minimumBlocksForSufficientBalance = minimumBlocksForSufficientBalance;
+    }
+
     /**
      * @dev See {ISSVNetwork-updateNetworkFee}.
      */
-    function updateNetworkFee(uint256 fee) external onlyOwner virtual override {
+    function updateNetworkFee(uint256 fee) external onlyOwner onlyOnceIn72Hours virtual override {
         _networkFeeIndex = _currentNetworkFeeIndex();
         _networkFee = fee;
         _networkFeeIndexBlockNumber = block.number;
@@ -314,6 +351,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     function minimumBlocksBeforeLiquidation() external view override returns (uint256) {
         return _minimumBlocksBeforeLiquidation;
+    }
+
+    function minimumBlocksForSufficientBalance() external view override returns (uint256) {
+        return _minimumBlocksForSufficientBalance;
     }
 
     function _deposit(uint tokenAmount) private {
