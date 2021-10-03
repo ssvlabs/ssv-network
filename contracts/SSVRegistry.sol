@@ -109,11 +109,20 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     /**
      * @dev See {ISSVRegistry-updateOperatorFee}.
      */
-    function updateOperatorFee(bytes calldata _publicKey, uint256 _fee) onlyOwner public virtual override {
-        operatorFees[_publicKey].push(
-            OperatorFee(block.number, _fee)
+    function updateOperatorFee(bytes calldata publicKey, uint256 fee) onlyOwner public virtual override {
+        operatorFees[publicKey].push(
+            OperatorFee(block.number, fee)
         );
-        emit OperatorFeeUpdated(_publicKey, block.number, _fee);
+        emit OperatorFeeUpdated(publicKey, block.number, fee);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-updateOperatorScore}.
+     */
+    function updateOperatorScore(bytes calldata publicKey, uint256 score) onlyOwner public virtual override {
+        Operator storage operatorItem = operators[publicKey];
+        operatorItem.score = score;
+        emit OperatorScoreUpdated(publicKey, block.number, score);
     }
 
     /**

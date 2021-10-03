@@ -49,11 +49,18 @@ interface ISSVNetwork {
     function deactivateOperator(bytes calldata publicKey) external;
 
     /**
-     * @dev Updates operator's fee by address.
-     * @param publicKey Operator's Public Key.
+     * @dev Updates operator's fee by public key.
+     * @param publicKey Operator's public Key.
      * @param fee The operators's updated fee.
      */
     function updateOperatorFee(bytes calldata publicKey, uint256 fee) external;
+
+    /**
+     * @dev Updates operator's score by public key.
+     * @param publicKey Operator's public Key.
+     * @param score The operators's updated score.
+     */
+    function updateOperatorScore(bytes calldata publicKey, uint256 score) external;
 
     /**
      * @dev Registers a new validator.
@@ -152,4 +159,6 @@ interface ISSVNetwork {
     function liquidatable(address ownerAddress) external view returns (bool);
 
     function minimumBlocksBeforeLiquidation() external view returns (uint256);
+
+    function minimumBlocksForSufficientBalance() external view returns (uint256);
 }

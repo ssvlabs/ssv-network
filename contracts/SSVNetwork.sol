@@ -163,6 +163,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _ssvRegistryContract.updateOperatorFee(publicKey, fee);
     }
 
+    function updateOperatorScore(bytes calldata publicKey, uint256 score) external onlyOwner virtual override {
+        _ssvRegistryContract.updateOperatorScore(publicKey, score);
+    }
+
     /**
      * @dev See {ISSVNetwork-registerValidator}.
      */
@@ -309,7 +313,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation;
     }
 
-    function updateMinimumBlocksForSufficientBalance(uint256 minimumBlocksForSufficientBalance) external onlyOwner virtual ovveride {
+    function updateMinimumBlocksForSufficientBalance(uint256 minimumBlocksForSufficientBalance) external onlyOwner virtual override {
         _minimumBlocksForSufficientBalance = minimumBlocksForSufficientBalance;
     }
 
@@ -458,6 +462,13 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
     }
 
+    function _expensesOf(address ownerAddress) private view returns(uint256) {
+        uint256 usage =  _owners[ownerAddress].used + _owners[ownerAddress].networkFee;
+        for (uint256 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
+            usage += _operatorInUseUsageOf(ownerAddress, _operatorsInUseList[ownerAddress][index]);
+        }
+        return usage;
+    }
 
     function _totalBalanceOf(address ownerAddress) private view returns (uint256) {
         uint balance = _owners[ownerAddress].deposited + _owners[ownerAddress].earned;
@@ -467,12 +478,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             balance += _operatorBalanceOf(operators[index]);
         }
 
-        uint256 usage = _owners[ownerAddress].withdrawn +
-                _owners[ownerAddress].used +
-                _owners[ownerAddress].networkFee;
-        for (uint256 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
-            usage += _operatorInUseUsageOf(ownerAddress, _operatorsInUseList[ownerAddress][index]);
-        }
+        uint256 usage = _owners[ownerAddress].withdrawn + _expensesOf(ownerAddress);
 
         require(balance >= usage, "negative balance");
 

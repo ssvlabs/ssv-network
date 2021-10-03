@@ -6,6 +6,7 @@ declare var network: any;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 const minimumBlocksBeforeLiquidation = 50;
+const minimumBlocksForSufficientBalance = 4;
 
 export let ssvToken, ssvRegistry, ssvNetwork;
 export let owner, account1, account2, account3;
@@ -35,7 +36,7 @@ export const initContracts = async() => {
   ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
   await ssvToken.deployed();
   await ssvRegistry.deployed();
-  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation]);
+  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, minimumBlocksForSufficientBalance]);
   await ssvNetwork.deployed();
   await ssvToken.mint(account1.address, '1000000');
 }
@@ -193,6 +194,18 @@ export const updateValidator = async (account, validatorIdx, operatorIdxs, depos
 
 export const deleteValidator = async (account, validatorIdx) => {
   await ssvNetwork.connect(account).deleteValidator(validatorsPub[validatorIdx]);
+  await progressBlocks(1);
+  await updateAddressNetworkFee(account.address);
+  await progressBlocks(1);
+  for (const oidx of addressData[account.address].validatorOperators[validatorIdx]) {
+    await updateOperatorBalance(oidx);
+    operatorData[oidx].validatorsCount -= 1;
+    addressData[account.address].operatorsInUse[oidx].used = await operatorExpenseOf(account.address, oidx);
+    addressData[account.address].operatorsInUse[oidx].validatorsCount -= 1;
+    addressData[account.address].operatorsInUse[oidx].index = await operatorIndexOf(oidx);
+  }
+  addressData[account.address].validatorOperators[validatorIdx] = [];
+  addressData[account.address].activeValidators--;
 }
 
 export const deposit = async(account, amount) => {

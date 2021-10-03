@@ -16,6 +16,8 @@ import {
   checkOperatorIndexes,
   checkOperatorBalances,
   checkTotalBalance,
+  checkUpdateNetworkFeeFail,
+  checkUpdateOperatorFeeFail,
 } from './asserts';
 
 before(() => {
@@ -72,11 +74,11 @@ describe('SSV Network', function() {
       },
       50: {
         funcs: [
-          // () => updateOperatorFee(account2, 0, 1),
-          // () => updateNetworkFee(2),
           () => registerValidator(account1, 3, [0, 1, 2, 3], 1000),
         ],
         asserts: [
+          () => checkUpdateOperatorFeeFail(account2, 0, 1),
+          () => checkUpdateNetworkFeeFail(5),
           () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
         ],

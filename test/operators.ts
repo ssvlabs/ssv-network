@@ -15,6 +15,7 @@ const { expect } = chai;
 const DAY = 86400;
 
 const minimumBlocksBeforeLiquidation = 50;
+const minimumBlocksForSufficientBalance = 50;
 
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
@@ -42,7 +43,7 @@ describe('Operators', function() {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, minimumBlocksForSufficientBalance]);
     await ssvNetwork.deployed();
     await ssvToken.mint(account1.address, '1000000');
   });
@@ -71,10 +72,6 @@ describe('Operators', function() {
     expect((await ssvRegistry.operatorCount()).toString()).to.equal('4');
   });
 
-  it('get operator by public key', async function () {
-    expect((await ssvRegistry.operators(operatorsPub[1]))).not.empty;
-  });
-
   it('get operator returns zero address for not existed public key', async function () {
     const [,address,,] = await ssvRegistry.operators(operatorsPub[8]);
     expect(address).to.equal('0x0000000000000000000000000000000000000000');
@@ -84,6 +81,18 @@ describe('Operators', function() {
     await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 5))
       .to.emit(ssvRegistry, 'OperatorFeeUpdated');
     expect((await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])).toString()).to.equal('5');
+  });
+
+  it('update operators score fails for not owner', async function () {
+    await ssvNetwork
+      .connect(account2)
+      .updateOperatorScore(operatorsPub[0], 105)
+      .should.eventually.be.rejectedWith('caller is not the owner');
+  });
+
+  it('update operators score', async function () {
+    await expect(ssvNetwork.connect(owner).updateOperatorScore(operatorsPub[0], 105))
+      .to.emit(ssvRegistry, 'OperatorScoreUpdated');
   });
 
   it('delete operator', async function () {

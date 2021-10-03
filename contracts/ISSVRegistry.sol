@@ -38,6 +38,16 @@ interface ISSVRegistry {
         uint256 fee
     );
 
+    /**
+     * @param publicKey Operator's public key.
+     * @param blockNumber from which block number.
+     * @param score updated score value.
+     */
+    event OperatorScoreUpdated(
+        bytes publicKey,
+        uint256 blockNumber,
+        uint256 score
+    );
 
     /**
      * @dev Emitted when the validator has been added.
@@ -124,6 +134,16 @@ interface ISSVRegistry {
     function updateOperatorFee(
         bytes calldata publicKey,
         uint256 fee
+    ) external;
+
+    /**
+     * @dev Update an operator fee.
+     * @param publicKey Operator's public key.
+     * @param score new operator score.
+     */
+    function updateOperatorScore(
+        bytes calldata publicKey,
+        uint256 score
     ) external;
 
     /**
