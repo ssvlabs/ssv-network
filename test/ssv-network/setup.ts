@@ -255,7 +255,8 @@ export const processTestCase = async (testFlow) => {
     const { funcs, asserts } = testFlow[blockNumber];
     await progressBlocks(diffBlocks);
     await network.provider.send('evm_setAutomine', [true]);
-      if (Array.isArray(asserts)) {
+    if (Array.isArray(asserts)) {
+      console.log(`[BLOCK] ${+await ethers.provider.getBlockNumber()}`);
       for (const assert of asserts) {
         await assert();
       }

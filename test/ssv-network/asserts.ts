@@ -1,3 +1,4 @@
+import { ethers, upgrades } from 'hardhat';
 import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 const { expect } = chai;
@@ -15,17 +16,20 @@ import { progressBlocks } from '../utils';
 
 export const checkOperatorBalances = async(operatorIdxs) => {
   for (const oidx of operatorIdxs) {
-    expect(+await ssvNetwork.operatorBalanceOf(operatorsPub[oidx])).to.equal(+await operatorBalanceOf(oidx));
+    console.log(`      | Operator Balance >  [OPERATOR] ${oidx} | [VALUE] ${+await operatorBalanceOf(oidx)}`);
+    expect(+await ssvNetwork.operatorBalanceOf(operatorsPub[oidx])).to.equal(+await operatorBalanceOf(oidx), "balance is ok");
   }
 }
 
 export const checkOperatorIndexes = async(operatorIdxs) => {
   for (const oidx of operatorIdxs) {
+    console.log(`      | Operator Index >  [OPERATOR] ${oidx} | [VALUE] ${+await operatorIndexOf(oidx)}`);
     expect(+await ssvNetwork.test_operatorIndexOf(operatorsPub[oidx])).to.equal(+await operatorIndexOf(oidx));
   }
 }
 
 export const checkTotalBalance = async(address) => {
+  console.log(`      | Total balance >  [ADDRESS] ${address} | [VALUE] ${+await addressBalanceOf(address)}`);
   expect(+await ssvNetwork.totalBalanceOf(address)).to.equal(+await addressBalanceOf(address));
 }
 
