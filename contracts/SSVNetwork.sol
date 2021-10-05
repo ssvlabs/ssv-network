@@ -157,6 +157,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function updateOperatorFee(bytes calldata publicKey, uint256 fee) external onlyOperatorOwner(publicKey) onlyOnceIn72HoursByOperator(publicKey) virtual override {
+        uint256 currentFee = _ssvRegistryContract.getOperatorCurrentFee(publicKey);
+        require(currentFee + currentFee / 100 * 10 >= fee , "New fee shouldn't be bigger than 10%");
         _operatorBalances[publicKey].index = _operatorIndexOf(publicKey);
         _operatorBalances[publicKey].indexBlockNumber = block.number;
         _updateOperatorBalance(publicKey);

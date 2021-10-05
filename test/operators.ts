@@ -49,7 +49,7 @@ describe('Operators', function() {
   });
 
   it('register operator', async function() {
-    await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1))
+    await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100))
       .to.emit(ssvRegistry, 'OperatorAdded')
       .withArgs('testOperator 0', account2.address, operatorsPub[0]);
     expect((await ssvRegistry.operatorCount()).toString()).to.equal('1');
@@ -78,9 +78,30 @@ describe('Operators', function() {
   });
 
   it('update operators fee', async function () {
-    await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 5))
-      .to.emit(ssvRegistry, 'OperatorFeeUpdated');
-    expect((await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])).toString()).to.equal('5');
+    await snapshot(DAY, async() => {
+      await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 105))
+        .to.emit(ssvRegistry, 'OperatorFeeUpdated');
+        expect((await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])).toString()).to.equal('105');
+    });
+  });
+
+  it('update operators fee in 72 hours for 10% more', async function () {
+    await snapshot(DAY, async() => {
+      await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 105));
+      await network.provider.send("evm_increaseTime", [DAY * 4]);
+      await network.provider.send("evm_mine", []);
+      await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 110));
+      expect((await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])).toString()).to.equal('110');
+    });
+  });
+
+  it('update operators fee less than in 72 hours fail', async function () {
+    await snapshot(DAY, async() => {
+      await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 105));
+      await network.provider.send("evm_increaseTime", [100]);
+      await network.provider.send("evm_mine", []);
+      await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 110));
+    });
   });
 
   it('update operators score fails for not owner', async function () {

@@ -46,7 +46,7 @@ describe('SSV Network', function() {
       },
       20: {
         funcs: [
-          () => registerValidator(account2, 0, [0, 1, 2, 3], 1000),
+          () => registerValidator(account1, 0, [0, 1, 2, 3], 1000),
         ],
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
