@@ -195,7 +195,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             _useOperatorByOwner(msg.sender, operatorPublicKey);
             totalFeePerBlock += _ssvRegistryContract.getOperatorCurrentFee(operatorPublicKey);
         }
-
         require(tokenAmount >= totalFeePerBlock * _minimumBlocksForSufficientBalance, "not enough tokens");
         if (tokenAmount > 0) {
             _deposit(tokenAmount);
@@ -472,7 +471,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     function _totalBalanceOf(address ownerAddress) private view returns (uint256) {
         uint balance = _owners[ownerAddress].deposited + _owners[ownerAddress].earned;
-
         bytes[] memory operators = _ssvRegistryContract.getOperatorsByOwnerAddress(ownerAddress);
         for (uint256 index = 0; index < operators.length; ++index) {
             balance += _operatorBalanceOf(operators[index]);

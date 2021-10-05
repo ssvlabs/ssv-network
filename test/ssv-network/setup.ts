@@ -39,6 +39,7 @@ export const initContracts = async() => {
   ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, minimumBlocksForSufficientBalance]);
   await ssvNetwork.deployed();
   await ssvToken.mint(account1.address, '1000000');
+  await ssvToken.mint(account2.address, '1000000');
 }
 
 const initAddressData = (address) => {
@@ -134,6 +135,7 @@ export const registerOperator = async (account, idx, fee) => {
   };
 
   addressData[account.address].operatorIdxs.push(idx);
+  console.log(`      | Register operator ${idx} >  [ACTUAL_BLOCK] ${await ethers.provider.getBlockNumber()}`);
 }
 
 export const registerValidator = async (account, validatorIdx, operatorIdxs, depositAmount) => {
@@ -160,6 +162,8 @@ export const registerValidator = async (account, validatorIdx, operatorIdxs, dep
   };
   addressData[account.address].activeValidators++;
   addressData[account.address].deposited += depositAmount;
+
+  console.log(`      | Register validator ${validatorIdx} >  [ACTUAL_BLOCK] ${await ethers.provider.getBlockNumber()}`);
 }
 
 export const updateValidator = async (account, validatorIdx, operatorIdxs, depositAmount) => {
@@ -190,6 +194,7 @@ export const updateValidator = async (account, validatorIdx, operatorIdxs, depos
     addressData[account.address].operatorsInUse[oidx].index = await operatorIndexOf(oidx);
   };
   addressData[account.address].deposited += depositAmount;
+  console.log(`      | Update validator ${validatorIdx} >  [ACTUAL_BLOCK] ${await ethers.provider.getBlockNumber()}`);
 }
 
 export const deleteValidator = async (account, validatorIdx) => {
@@ -206,6 +211,7 @@ export const deleteValidator = async (account, validatorIdx) => {
   }
   addressData[account.address].validatorOperators[validatorIdx] = [];
   addressData[account.address].activeValidators--;
+  console.log(`      | Delete validator ${validatorIdx} >  [ACTUAL_BLOCK] ${await ethers.provider.getBlockNumber()}`);
 }
 
 export const deposit = async(account, amount) => {
@@ -228,6 +234,7 @@ export const updateOperatorFee = async (account, idx, fee) => {
   operatorData[idx].index = +await operatorIndexOf(idx);
   operatorData[idx].indexBlockNumber = await ethers.provider.getBlockNumber();
   operatorData[idx].fee = fee;
+  console.log(`      | Update operator fee ${idx} > [VALUE] ${fee} [ACTUAL_BLOCK] ${await ethers.provider.getBlockNumber()}`);
 }
 
 const updateAddressNetworkFee = async (address) => {
@@ -241,6 +248,7 @@ export const updateNetworkFee = async (fee) => {
   globalData.networkFeeIndex = await globalNetworkFeeIndex();
   globalData.networkFee = fee;
   globalData.networkFeeIndexBlockNumber = await ethers.provider.getBlockNumber();
+  console.log(`      | Update network fee > [VALUE] ${fee} [ACTUAL_BLOCK] ${await ethers.provider.getBlockNumber()}`);
 }
 
 export const updateOperatorBalance = async (idx) => {
@@ -254,9 +262,9 @@ export const processTestCase = async (testFlow) => {
     const diffBlocks = +blockNumber - +await ethers.provider.getBlockNumber();
     const { funcs, asserts } = testFlow[blockNumber];
     await progressBlocks(diffBlocks);
+    console.log(`[BLOCK] ${+await ethers.provider.getBlockNumber()}`);
     await network.provider.send('evm_setAutomine', [true]);
     if (Array.isArray(asserts)) {
-      console.log(`[BLOCK] ${+await ethers.provider.getBlockNumber()}`);
       for (const assert of asserts) {
         await assert();
       }
