@@ -15,7 +15,6 @@ import { progressBlocks } from '../utils';
 
 
 export const checkOperatorBalances = async(operatorIdxs) => {
-  console.log("chov");
   for (const oidx of operatorIdxs) {
     console.log(`      | Operator Balance >  [OPERATOR] ${oidx} | [VALUE] ${+await operatorBalanceOf(oidx)}`);
     expect(+await ssvNetwork.operatorBalanceOf(operatorsPub[oidx])).to.equal(+await operatorBalanceOf(oidx));
