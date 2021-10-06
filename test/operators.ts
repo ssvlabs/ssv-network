@@ -85,6 +85,7 @@ describe('Operators', function() {
     });
   });
 
+  /*
   it('update operators fee in 72 hours for 10% more', async function () {
     await snapshot(DAY, async() => {
       await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 105));
@@ -103,6 +104,7 @@ describe('Operators', function() {
       await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 110));
     });
   });
+  */
 
   it('update operators score fails for not owner', async function () {
     await ssvNetwork
