@@ -1,5 +1,6 @@
 const Web3 = require('web3');
 const fs = require('fs');
+const crypto = require('crypto');
 const { readFile } = require('fs').promises;
 const stringify = require('csv-stringify');
 require('dotenv').config();
@@ -10,11 +11,10 @@ const CONTRACT_ADDRESS = "0x687fb596f3892904f879118e2113e1eee8746c2e";
 const CONTRACT_ABI = require('./abi.json');
 const contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
 const filteredFields = {
-  'validators': ['oess']
+  'validators': ['oessList']
 };
 
-async function getEvents(dataType, fromBlock) {
-  const latestBlock = await web3.eth.getBlockNumber();
+async function getEvents(dataType, fromBlock, latestBlock) {
   const eventName = dataType === 'operators' ? 'OperatorAdded' : 'ValidatorAdded';
   const filters = {
     fromBlock: fromBlock && fromBlock + 1,
@@ -26,7 +26,6 @@ async function getEvents(dataType, fromBlock) {
   }, (err, output) => {
     fs.appendFile(`${__dirname}/${dataType}.csv`, output, () => { console.log('saved!') });
   });
-  return latestBlock;
 };
 
 async function getEventDetails(events, dataType) {
@@ -35,19 +34,23 @@ async function getEventDetails(events, dataType) {
     .filter(key => !(filteredFields[dataType] && filteredFields[dataType].indexOf(key) !== -1))
     .reduce((aggr, key) => {
       aggr[key] = row.returnValues[key];
+      if (dataType === 'operators' && key === 'publicKey') {
+        const decoded = web3.eth.abi.decodeParameter('string', aggr[key].replace('0x', ''));
+        aggr[key] = crypto.createHash('sha256').update(decoded).digest('hex');
+      }
       return aggr;
     }, {})
   );
 };
 
 const cacheFile = `${__dirname}/.process.cache`;
-const args = process.argv.slice(2);
-const dataType = args.indexOf('operators') !== -1 ? 'operators' : 'validators';
-
 fs.stat(cacheFile, async(err, stat) => {
   let blockFromCache;
   if (err == null) {
     blockFromCache = +(await readFile(cacheFile, 'utf8'));
   }
-  fs.writeFile(cacheFile, `${await getEvents(dataType, blockFromCache)}`, () => {});
+  const latestBlock = await web3.eth.getBlockNumber();
+  await getEvents('operators', blockFromCache, latestBlock);
+  await getEvents('validators', blockFromCache, latestBlock);
+  fs.writeFile(cacheFile, `${latestBlock}`, () => {});
 });
