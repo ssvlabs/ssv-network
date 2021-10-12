@@ -38,9 +38,5 @@ export const checkWithdrawFail = async(account, amount) => {
 }
 
 export const checkUpdateOperatorFeeFail = async(account, idx, fee) => {
-  await expect(ssvNetwork.connect(account).updateOperatorFee(operatorsPub[idx], fee)).to.be.revertedWith('Executes after 72 hours from last update');
-}
-
-export const checkUpdateNetworkFeeFail = async(fee) => {
-  await expect(ssvNetwork.updateNetworkFee(fee)).to.be.revertedWith('Executes after 72 hours from last update');
+  await expect(ssvNetwork.connect(account).updateOperatorFee(operatorsPub[idx], fee)).to.be.revertedWith('fee updated in last 72 hours');
 }

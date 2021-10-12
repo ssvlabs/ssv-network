@@ -71,7 +71,7 @@ describe('SSV Network', function() {
       180: {
         asserts: [
           () => checkTotalBalance(account1.address),
-          // () => checkTotalBalance(account2.address),
+          () => checkTotalBalance(account2.address),
         ]
       },
     };

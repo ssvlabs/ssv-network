@@ -16,7 +16,6 @@ import {
   checkOperatorIndexes,
   checkOperatorBalances,
   checkTotalBalance,
-  checkUpdateNetworkFeeFail,
   checkUpdateOperatorFeeFail,
 } from './asserts';
 
@@ -37,16 +36,16 @@ describe('SSV Network', function() {
       10: {
         funcs: [
           () => updateNetworkFee(1),
-          () => registerOperator(account2, 0, 2),
-          () => registerOperator(account2, 1, 1),
-          () => registerOperator(account2, 2, 1),
-          () => registerOperator(account2, 3, 3),
+          () => registerOperator(account2, 0, 20),
+          () => registerOperator(account2, 1, 10),
+          () => registerOperator(account2, 2, 10),
+          () => registerOperator(account2, 3, 30),
         ],
         asserts: [],
       },
       20: {
         funcs: [
-          () => registerValidator(account1, 0, [0, 1, 2, 3], 1000),
+          () => registerValidator(account1, 0, [0, 1, 2, 3], 10000),
         ],
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
@@ -55,8 +54,8 @@ describe('SSV Network', function() {
       },
       30: {
         funcs: [
-          () => updateOperatorFee(account2, 0, 3),
-          () => registerValidator(account1, 1, [0, 1, 2, 3], 1000),
+          () => updateOperatorFee(account2, 0, 11),
+          () => registerValidator(account1, 1, [0, 1, 2, 3], 10000),
         ],
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
@@ -65,7 +64,7 @@ describe('SSV Network', function() {
       },
       40: {
         funcs: [
-          () => registerValidator(account1, 2, [0, 1, 2, 3], 1000),
+          () => registerValidator(account1, 2, [0, 1, 2, 3], 10000),
         ],
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
@@ -74,11 +73,10 @@ describe('SSV Network', function() {
       },
       50: {
         funcs: [
-          () => registerValidator(account1, 3, [0, 1, 2, 3], 1000),
+          () => registerValidator(account1, 3, [0, 1, 2, 3], 10000),
         ],
         asserts: [
-          () => checkUpdateOperatorFeeFail(account2, 0, 1),
-          () => checkUpdateNetworkFeeFail(5),
+          () => checkUpdateOperatorFeeFail(account2, 0, 12),
           () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
         ],

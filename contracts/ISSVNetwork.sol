@@ -14,17 +14,15 @@ interface ISSVNetwork {
     event OperatorValidatorAdded(address ownerAddress, uint256 blockNumber);
 
     /**
-     * @dev Initializes the contract
-     * @param registryAddress The registry address
-     * @param token The network token
-     * @param minimumBlocksBeforeLiquidation The minimum blocks befor liquidation
-     * @param minimumBlocksForSufficientBalance The minimum blocks which a user has to have sufficient balance when registering a new validator 
+     * @dev Initializes the contract.
+     * @param registryAddress The registry address.
+     * @param token The network token.
+     * @param minimumBlocksBeforeLiquidation The minimum blocks before liquidation.
      */
     function initialize(
         ISSVRegistry registryAddress,
         IERC20 token,
-        uint256 minimumBlocksBeforeLiquidation,
-        uint256 minimumBlocksForSufficientBalance
+        uint256 minimumBlocksBeforeLiquidation
     ) external;
 
     /**
@@ -44,8 +42,16 @@ interface ISSVNetwork {
      */
     function deleteOperator(bytes calldata publicKey) external;
 
+    /**
+     * @dev Activates an operator.
+     * @param publicKey Operator's public key.
+     */
     function activateOperator(bytes calldata publicKey) external;
 
+    /**
+     * @dev Deactivates an operator.
+     * @param publicKey Operator's public key.
+     */
     function deactivateOperator(bytes calldata publicKey) external;
 
     /**
@@ -121,13 +127,19 @@ interface ISSVNetwork {
      */
     function withdraw(uint256 tokenAmount) external;
 
+    /**
+     * @dev liquidates an operator.
+     * @param ownerAddress Owner's address.
+     */
     function liquidate(address ownerAddress) external;
 
+    /**
+     * @dev liquidates multiple owners.
+     * @param ownerAddresses Owners' addresses.
+     */
     function liquidateAll(address[] calldata ownerAddresses) external;
 
     function updateMinimumBlocksBeforeLiquidation(uint256 minimumBlocksBeforeLiquidation) external;
-
-    function updateMinimumBlocksForSufficientBalance(uint256 minimumBlocksForSufficientBalance) external;
 
     /**
      * @dev Updates the network fee.
@@ -138,7 +150,7 @@ interface ISSVNetwork {
 
     /**
      * @dev Gets total balance for an owner.
-     * @param ownerAddress Owner address.
+     * @param ownerAddress Owner's address.
      */
     function totalBalanceOf(address ownerAddress) external view returns (uint256);
 
@@ -150,15 +162,24 @@ interface ISSVNetwork {
 
     /**
      * @dev Gets the network fee for an address.
-     * @param ownerAddress Owner address.
+     * @param ownerAddress Owner's address.
      */
     function addressNetworkFee(address ownerAddress) external view returns (uint256);
 
+    /**
+     * @dev Returns the burn rate of an owner, returns 0 if negative.
+     * @param ownerAddress Owner's address.
+     */
     function burnRate(address ownerAddress) external view returns (uint256);
 
+    /**
+     * @dev Check if an owner is liquidatable.
+     * @param ownerAddress Owner's address.
+     */
     function liquidatable(address ownerAddress) external view returns (bool);
 
+    /**
+     * @dev Return the number of blocks left for an owner before they can be liquidated.
+     */
     function minimumBlocksBeforeLiquidation() external view returns (uint256);
-
-    function minimumBlocksForSufficientBalance() external view returns (uint256);
 }

@@ -4,6 +4,8 @@ import { solidity } from 'ethereum-waffle';
 import * as chai from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 
+declare var network: any;
+
 before(() => {
   chai.should();
   chai.use(chaiAsPromised);
@@ -15,6 +17,7 @@ let ssvToken;
 let owner, owner2, firstHolder, secondHolder, thirdHolder;
 describe('SSVToken', function() {
   before(async function () {
+    await network.provider.send("hardhat_reset", []);
     [owner, owner2, firstHolder, secondHolder, thirdHolder] = await ethers.getSigners();
     const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
     ssvToken = await ssvTokenFactory.deploy();

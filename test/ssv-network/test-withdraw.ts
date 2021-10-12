@@ -58,7 +58,7 @@ describe('SSV Network', function() {
       },
       110: {
         asserts: [
-          () => checkWithdrawFail(account2, 1000),
+          () => checkWithdrawFail(account2, 10000000),
         ],
       },
       120: {

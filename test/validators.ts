@@ -16,7 +16,6 @@ const { expect } = chai;
 const DAY = 86400;
 
 const minimumBlocksBeforeLiquidation = 50;
-const minimumBlocksForSufficientBalance = 50;
 
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
@@ -28,6 +27,7 @@ const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublic
 
 describe('Validators', function() {
   before(async function () {
+    await network.provider.send("hardhat_reset", []);
     [owner, account1, account2, account3] = await ethers.getSigners();
     const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
@@ -36,7 +36,7 @@ describe('Validators', function() {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, minimumBlocksForSufficientBalance]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation]);
     await ssvNetwork.deployed();
     await ssvToken.mint(account1.address, '1000000');
 
