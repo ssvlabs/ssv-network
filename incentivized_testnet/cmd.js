@@ -11,20 +11,26 @@ const CONTRACT_ADDRESS = "0x687fb596f3892904f879118e2113e1eee8746c2e";
 const CONTRACT_ABI = require('./abi.json');
 const contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
 const filteredFields = {
-  'validators': ['oessList']
+  // 'validators': ['oessList']
 };
+
+function convertPublickey(rawValue) {
+  const decoded = web3.eth.abi.decodeParameter('string', rawValue.replace('0x', ''));
+  return crypto.createHash('sha256').update(decoded).digest('hex');
+}
 
 async function getEvents(dataType, fromBlock, latestBlock) {
   const eventName = dataType === 'operators' ? 'OperatorAdded' : 'ValidatorAdded';
   const filters = {
-    fromBlock: fromBlock && fromBlock + 1,
+    fromBlock: fromBlock ? fromBlock + 1 : 0,
     toBlock: latestBlock
   };
+  console.log(`fetching ${dataType}`, filters);
   const events = await contract.getPastEvents(eventName, filters);
   stringify(await getEventDetails(events, dataType), {
     header: !!!fromBlock
   }, (err, output) => {
-    fs.appendFile(`${__dirname}/${dataType}.csv`, output, () => { console.log('saved!') });
+    fs.appendFile(`${__dirname}/${dataType}.csv`, output, () => { console.log(`exported ${events.length} ${dataType}`) });
   });
 };
 
@@ -33,10 +39,17 @@ async function getEventDetails(events, dataType) {
     .filter(key => isNaN(key))
     .filter(key => !(filteredFields[dataType] && filteredFields[dataType].indexOf(key) !== -1))
     .reduce((aggr, key) => {
-      aggr[key] = row.returnValues[key];
       if (dataType === 'operators' && key === 'publicKey') {
-        const decoded = web3.eth.abi.decodeParameter('string', aggr[key].replace('0x', ''));
-        aggr[key] = crypto.createHash('sha256').update(decoded).digest('hex');
+        aggr[key] = convertPublickey(row.returnValues[key]);
+      } else if (dataType === 'validators' && key === 'oessList') {
+        aggr['operatorPublicKeys'] = row.returnValues[key]
+          .reduce((aggr, value) => {
+            aggr.push(convertPublickey(value.operatorPublicKey));
+            return aggr;
+          }, [])
+          .join(';');
+      } else {
+        aggr[key] = row.returnValues[key];
       }
       return aggr;
     }, {})
