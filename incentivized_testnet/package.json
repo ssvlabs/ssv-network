@@ -2,8 +2,12 @@
     "name": "cli-client",
     "devDependencies": {},
     "dependencies": {
+        "command-line-args": "^5.2.0",
+        "csv-parse": "^4.16.3",
         "csv-stringify": "^5.6.5",
         "dotenv": "^10.0.0",
+        "form-data": "^4.0.0",
+        "got": "^11.8.2",
         "web3": "^1.6.0"
     }
 }
