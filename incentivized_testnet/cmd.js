@@ -37,7 +37,20 @@ async function exportEventsData(dataType, fromBlock, latestBlock) {
   });
 };
 
-async function fetchWithMetrics(records, fromEpoch, toEpoch) {  
+async function extractOperatorsWithMetrics(operators, validatorsWithMetrics) {
+  return operators.reduce((aggr, operator) => {
+    const validators = validatorsWithMetrics.filter((validator) => {
+      const operatorsPubkeys = validator.operatorPublicKeys.split(';');
+      return !!!operatorsPubkeys.find(okey => okey === operator.publicKey);
+    });
+    operator.effectiveness = (validators.reduce((a, b) => a + +b.effectiveness, 0) / validators.length).toFixed(0);
+    operator.attestations = (validators.reduce((a, b) => a + +b.attestations, 0) / validators.length).toFixed(0);
+    aggr.push(operator);
+    return aggr;
+  }, []);
+}
+
+async function extractValidatorsWithMetrics(records, fromEpoch, toEpoch) {  
   const totalEpochs = toEpoch - fromEpoch;
   const MAX_EPOCHS_PER_REQUEST = 2;
   let epochsAmount = 0;
@@ -158,23 +171,14 @@ async function fetchValidatorMetrics(fromEpoch, toEpoch) {
     operators.push(record);
   }
   
-  const validatorsWithMetrics = await fetchWithMetrics(validators, fromEpoch, toEpoch);
+  const validatorsWithMetrics = await extractValidatorsWithMetrics(validators, fromEpoch, toEpoch);
+  const operatorsWithMetrics = await extractOperatorsWithMetrics(operators, validatorsWithMetrics);
+
   stringify(validatorsWithMetrics, {
     header: true
   }, (err, output) => {
     fs.writeFile(`${__dirname}/validators_extra.csv`, output, () => { console.log(`exported ${validatorsWithMetrics.length} validator metrics records`) });
   });
-
-  const operatorsWithMetrics = operators.reduce((aggr, operator) => {
-    const validators = validatorsWithMetrics.filter((validator) => {
-      const operatorsPubkeys = validator.operatorPublicKeys.split(';');
-      return !!!operatorsPubkeys.find(okey => okey === operator.publicKey);
-    });
-    operator.effectiveness = (validators.reduce((a, b) => a + +b.effectiveness, 0) / validators.length).toFixed(0);
-    operator.attestations = (validators.reduce((a, b) => a + +b.attestations, 0) / validators.length).toFixed(0);
-    aggr.push(operator);
-    return aggr;
-  }, []);
 
   stringify(operatorsWithMetrics, {
     header: true
