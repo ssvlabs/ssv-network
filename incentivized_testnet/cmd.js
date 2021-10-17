@@ -4,16 +4,15 @@ const fs = require('fs');
 const got = require('got');
 const FormData = require('form-data');
 const crypto = require('crypto');
-const { readFile } = require('fs').promises;
+const { readFile, stat } = require('fs').promises;
 const parse = require('csv-parse');
 const stringify = require('csv-stringify');
 require('dotenv').config();
 
 const web3 = new Web3(process.env.NODE_URL);
 
-const CONTRACT_ADDRESS = "0x687fb596f3892904f879118e2113e1eee8746c2e";
 const CONTRACT_ABI = require('./abi.json');
-const contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+const contract = new web3.eth.Contract(CONTRACT_ABI, process.env.CONTRACT_ADDRESS);
 const filteredFields = {
   // 'validators': ['oessList']
 };
@@ -38,27 +37,26 @@ async function exportEventsData(dataType, fromBlock, latestBlock) {
   });
 };
 
-async function exportValidatorMetrics(records, fromEpoc, toEpoc) {  
-  const totalEpocs = toEpoc - fromEpoc;
-  const MAX_EPOCS_PER_REQUEST = 2;
-  let epocsAmount = 0;
-  let lastEpoc = fromEpoc;
-  while (lastEpoc + epocsAmount <= toEpoc) {
-    if (epocsAmount === MAX_EPOCS_PER_REQUEST - 1 || (lastEpoc + epocsAmount >= toEpoc)) {
-      console.log(`fetching metrics for ${lastEpoc}-${lastEpoc + epocsAmount} epocs`, epocsAmount, fromEpoc, toEpoc);
+async function fetchWithMetrics(records, fromEpoch, toEpoch) {  
+  const totalEpochs = toEpoch - fromEpoch;
+  const MAX_EPOCHS_PER_REQUEST = 2;
+  let epochsAmount = 0;
+  let lastEpoch = fromEpoch;
+  while (lastEpoch + epochsAmount <= toEpoch) {
+    if (epochsAmount === MAX_EPOCHS_PER_REQUEST - 1 || (lastEpoch + epochsAmount >= toEpoch)) {
+      console.log(`fetching metrics for ${lastEpoch}-${lastEpoch + epochsAmount} epochs`, epochsAmount, fromEpoch, toEpoch);
       const form = new FormData();
-      form.append('from', lastEpoc);
-      form.append('to', lastEpoc + epocsAmount);
+      form.append('from', lastEpoch);
+      form.append('to', lastEpoch + epochsAmount);
       form.append('keys', records.map(item => item.publicKey.replace('0x', '')).join(','));
       let response;
       try {
-        const { body } = await got.post('http://e2m-prater.stage.bloxinfra.com/api/validators/details', {
+        const { body } = await got.post(`http://${process.env.BACKEND_URI}/api/validators/details`, {
           body: form,
           responseType: 'json'
         });
         response = body;
       } catch (e) {
-        console.log(e.response.body);
         throw new Error(e.response.body);
       }
       records.forEach((item) => {
@@ -73,26 +71,27 @@ async function exportValidatorMetrics(records, fromEpoc, toEpoc) {
           att && item.attestations.push(att);  
         }
       });
-      lastEpoc += epocsAmount;
-      epocsAmount = 0;
+      lastEpoch += epochsAmount;
+      epochsAmount = 0;
     }
-    epocsAmount++;
+    epochsAmount++;
   }
   
   records.forEach(item => {
     if (Array.isArray(item.effectiveness)) {
-      item.effectiveness = item.effectiveness.reduce((a, b) => a + b, 0) / item.effectiveness.length;
+      item.effectiveness = (item.effectiveness.reduce((a, b) => a + b, 0) / item.effectiveness.length * 100).toFixed(0);
+    } else {
+      item.effectiveness = 0;
     }
+
     if (Array.isArray(item.attestations)) {
-      item.attestations = item.attestations.reduce((a, b) => a + b, 0) / item.attestations.length;
+      item.attestations = (item.attestations.reduce((a, b) => a + b, 0) / item.attestations.length * 100).toFixed(0);
+    } else {
+      item.attestations = 0;
     }
   });
 
-  stringify(records, {
-    header: true
-  }, (err, output) => {
-    fs.writeFile(`${__dirname}/validators_extra.csv`, output, () => { console.log(`exported ${records.length} validator metricks records`) });
-  });
+  return records;
 }
 
 async function getEventDetails(events, dataType) {
@@ -131,39 +130,68 @@ async function fetch() {
   });
 }
 
-async function fetchValidatorMetrics(fromEpoc, toEpoc) {
+async function fetchValidatorMetrics(fromEpoch, toEpoch) {
+  const operatorsFile = `${__dirname}/operators.csv`;
   const validatorsFile = `${__dirname}/validators.csv`;
-  fs.stat(validatorsFile, async(err, stat) => {
-    if (err == null) {
-      const records = [];
-      const parser = fs
-        .createReadStream(validatorsFile)
-        .pipe(parse({
-          columns: true
-        }));
-    
-      for await (const record of parser) {
-        records.push(record);
-      }
-      await exportValidatorMetrics(records, fromEpoc, toEpoc);
-    } else {
-      console.error('validators.csv not found');
-    }
+  await stat(validatorsFile);
+  await stat(operatorsFile);
+
+  const validators = [];
+  const valdatorParser = fs
+    .createReadStream(validatorsFile)
+    .pipe(parse({
+      columns: true
+    }));
+
+  for await (const record of valdatorParser) {
+    validators.push(record);
+  }
+
+  const operators = [];
+  const operatorParser = fs
+    .createReadStream(operatorsFile)
+    .pipe(parse({
+      columns: true
+    }));
+
+  for await (const record of operatorParser) {
+    operators.push(record);
+  }
+  
+  const validatorsWithMetrics = await fetchWithMetrics(validators, fromEpoch, toEpoch);
+  stringify(validatorsWithMetrics, {
+    header: true
+  }, (err, output) => {
+    fs.writeFile(`${__dirname}/validators_extra.csv`, output, () => { console.log(`exported ${validatorsWithMetrics.length} validator metrics records`) });
+  });
+
+  const operatorsWithMetrics = operators.reduce((aggr, operator) => {
+    const validators = validatorsWithMetrics.filter((validator) => {
+      const operatorsPubkeys = validator.operatorPublicKeys.split(';');
+      return !!!operatorsPubkeys.find(okey => okey === operator.publicKey);
+    });
+    operator.effectiveness = (validators.reduce((a, b) => a + +b.effectiveness, 0) / validators.length).toFixed(0);
+    operator.attestations = (validators.reduce((a, b) => a + +b.attestations, 0) / validators.length).toFixed(0);
+    aggr.push(operator);
+    return aggr;
+  }, []);
+
+  stringify(operatorsWithMetrics, {
+    header: true
+  }, (err, output) => {
+    fs.writeFile(`${__dirname}/operators_extra.csv`, output, () => { console.log(`exported ${operatorsWithMetrics.length} operators metrics records`) });
   });
 }
 
-// fetch();
-const fromEpoc = 45889;
-const toEpoc = 45893;
 const argsDefinitions = [
   { name: 'command', type: String },
-  { name: 'epocs', type: Number, multiple: true },
+  { name: 'epochs', type: Number, multiple: true },
 ];
 
-const { command, epocs } = commandLineArgs(argsDefinitions);
+const { command, epochs } = commandLineArgs(argsDefinitions);
 
 if (command === 'fetch') {
   fetch();
 } else if (command === 'metrics') {
-  fetchValidatorMetrics(epocs[0], epocs[1]);
+  fetchValidatorMetrics(epochs[0], epochs[1]);
 }
