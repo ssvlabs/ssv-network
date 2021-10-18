@@ -70,7 +70,7 @@ async function extractValidatorsWithMetrics(records, fromEpoch, toEpoch) {
         });
         response = body;
       } catch (e) {
-        throw new Error(e.response.body);
+        throw new Error(JSON.stringify(e.response.body));
       }
       records.forEach((item) => {
         const eff = response.find(value => value.PubKey === item.publicKey.replace('0x', ''))?.Effectiveness || 0;
