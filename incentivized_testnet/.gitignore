@@ -1,0 +1,6 @@
+operators.csv
+validators.csv
+operators_extra.csv
+validators_extra.csv
+.process.cache
+.env
