@@ -1,25 +1,49 @@
 // File: contracts/SSVRegistry.sol
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./ISSVRegistry.sol";
-import "hardhat/console.sol";
 
 contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
-    uint256 public operatorCount;
-    uint256 public validatorCount;
+    struct Operator {
+        string name;
+        address ownerAddress;
+        bytes publicKey;
+        uint256 score;
+        bool active;
+        uint256 index;
+    }
 
-    mapping(bytes => Operator) public override operators;
-    mapping(bytes => Validator) public override validators;
+    struct Validator {
+        address ownerAddress;
+        bytes publicKey;
+        Oess[] oess;
+        bool active;
+        uint256 index;
+    }
 
-    mapping(bytes => OperatorFee[]) private operatorFees;
+    struct OperatorFee {
+        uint256 blockNumber;
+        uint256 fee;
+    }
 
-    mapping(address => bytes[]) private operatorsByAddress;
-    mapping(address => bytes[]) private validatorsByAddress;
+    uint256 private _operatorCount;
+    uint256 private _validatorCount;
 
-    function initialize() public virtual override initializer {
+    mapping(bytes => Operator) private _operators;
+    mapping(bytes => Validator) private _validators;
+
+    mapping(bytes => OperatorFee[]) private _operatorFees;
+
+    mapping(address => bytes[]) private _operatorsByOwnerAddress;
+    mapping(address => bytes[]) private _validatorsByAddress;
+
+    /**
+     * @dev See {ISSVRegistry-initialize}.
+     */
+    function initialize() external override initializer {
         __SSVRegistry_init();
     }
 
@@ -31,246 +55,335 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function __SSVRegistry_init_unchained() internal initializer {
     }
 
-    function getValidatorOwner(bytes calldata _publicKey) onlyOwner external override view returns (address) {
-        return validators[_publicKey].ownerAddress;
-    }
-
-    function getOperatorOwner(bytes calldata _publicKey) onlyOwner external override view returns (address) {
-        return operators[_publicKey].ownerAddress;
-    }
-
-    function _validateValidatorParams(
-        bytes calldata _publicKey,
-        bytes[] calldata _operatorPublicKeys,
-        bytes[] calldata _sharesPublicKeys,
-        bytes[] calldata _encryptedKeys
-    ) private pure {
-        require(_publicKey.length == 48, "invalid public key length");
-        require(
-            _operatorPublicKeys.length == _sharesPublicKeys.length &&
-                _operatorPublicKeys.length == _encryptedKeys.length,
-            "OESS data structure is not valid"
-        );
-    }
-
     /**
      * @dev See {ISSVRegistry-registerOperator}.
      */
     function registerOperator(
-        string calldata _name,
-        address _ownerAddress,
-        bytes calldata _publicKey,
-        uint256 _fee
-    ) onlyOwner public virtual override {
+        string calldata name,
+        address ownerAddress,
+        bytes calldata publicKey,
+        uint256 fee
+    ) external onlyOwner override {
         require(
-            operators[_publicKey].ownerAddress == address(0),
+            _operators[publicKey].ownerAddress == address(0),
             "operator with same public key already exists"
         );
-        operators[_publicKey] = Operator(_name, _ownerAddress, _publicKey, 0, false, operatorsByAddress[_ownerAddress].length);
-        operatorsByAddress[_ownerAddress].push(_publicKey);
-        emit OperatorAdded(_name, _ownerAddress, _publicKey);
-        operatorCount++;
-        updateOperatorFee(_publicKey, _fee);
-        activateOperator(_publicKey);
-    }
+        _operators[publicKey] = Operator(name, ownerAddress, publicKey, 0, false, _operatorsByOwnerAddress[ownerAddress].length);
+        _operatorsByOwnerAddress[ownerAddress].push(publicKey);
+        ++_operatorCount;
+        _updateOperatorFeeUnsafe(publicKey, fee);
+        _activateOperatorUnsafe(publicKey);
 
-    /**
-     * @dev See {ISSVRegistry-registerValidator}.
-     */
-    function registerValidator(
-        address _ownerAddress,
-        bytes calldata _publicKey,
-        bytes[] calldata _operatorPublicKeys,
-        bytes[] calldata _sharesPublicKeys,
-        bytes[] calldata _encryptedKeys
-    ) onlyOwner public virtual override {
-        _validateValidatorParams(
-            _publicKey,
-            _operatorPublicKeys,
-            _sharesPublicKeys,
-            _encryptedKeys
-        );
-        require(_ownerAddress != address(0), "owner address invalid");
-        require(
-            validators[_publicKey].ownerAddress == address(0),
-            "validator with same public key already exists"
-        );
-
-        Validator storage validatorItem = validators[_publicKey];
-        validatorItem.publicKey = _publicKey;
-        validatorItem.ownerAddress = _ownerAddress;
-
-        for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
-            validatorItem.oess.push(
-                Oess(
-                    index,
-                    _operatorPublicKeys[index],
-                    _sharesPublicKeys[index],
-                    _encryptedKeys[index]
-                )
-            );
-        }
-        validatorItem.index = validatorsByAddress[_ownerAddress].length;
-        validatorsByAddress[_ownerAddress].push(_publicKey);
-        validatorCount++;
-        emit ValidatorAdded(_ownerAddress, _publicKey, validatorItem.oess);
-        activateValidator(_publicKey);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-updateValidator}.
-     */
-    function updateValidator(
-        bytes calldata _publicKey,
-        bytes[] calldata _operatorPublicKeys,
-        bytes[] calldata _sharesPublicKeys,
-        bytes[] calldata _encryptedKeys
-    ) onlyOwner public virtual override {
-        _validateValidatorParams(
-            _publicKey,
-            _operatorPublicKeys,
-            _sharesPublicKeys,
-            _encryptedKeys
-        );
-        Validator storage validatorItem = validators[_publicKey];
-        delete validatorItem.oess;
-
-        for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
-            validatorItem.oess.push(
-                Oess(
-                    index,
-                    _operatorPublicKeys[index],
-                    _sharesPublicKeys[index],
-                    _encryptedKeys[index]
-                )
-            );
-        }
-
-        emit ValidatorUpdated(validatorItem.ownerAddress, _publicKey, validatorItem.oess);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-deleteValidator}.
-     */
-    function deleteValidator(
-        address _ownerAddress,
-        bytes calldata _publicKey
-    ) onlyOwner public virtual override {
-        Validator storage validatorItem = validators[_publicKey];
-        validatorsByAddress[_ownerAddress][validatorItem.index] = validatorsByAddress[_ownerAddress][validatorsByAddress[_ownerAddress].length - 1];
-        validators[validatorsByAddress[_ownerAddress][validatorItem.index]].index = validatorItem.index;
-        validatorsByAddress[_ownerAddress].pop();
-        delete validators[_publicKey];
-        --validatorCount;
-        emit ValidatorDeleted(_ownerAddress, _publicKey);
+        emit OperatorAdded(name, ownerAddress, publicKey);
     }
 
     /**
      * @dev See {ISSVRegistry-deleteOperator}.
      */
     function deleteOperator(
-        address _ownerAddress,
-        bytes calldata _publicKey
-    ) onlyOwner public virtual override {
-        Operator storage operatorItem = operators[_publicKey];
-        string memory name = operatorItem.name;
-        operatorsByAddress[_ownerAddress][operatorItem.index] = operatorsByAddress[_ownerAddress][operatorsByAddress[_ownerAddress].length - 1];
-        operators[operatorsByAddress[_ownerAddress][operatorItem.index]].index = operatorItem.index;
-        operatorsByAddress[_ownerAddress].pop();
-        delete operators[_publicKey];
+        bytes calldata publicKey
+    ) external onlyOwner override {
+        Operator storage operator = _operators[publicKey];
+        _operatorsByOwnerAddress[operator.ownerAddress][operator.index] = _operatorsByOwnerAddress[operator.ownerAddress][_operatorsByOwnerAddress[operator.ownerAddress].length - 1];
+        _operators[_operatorsByOwnerAddress[operator.ownerAddress][operator.index]].index = operator.index;
+        _operatorsByOwnerAddress[operator.ownerAddress].pop();
 
-        --operatorCount;
+        emit OperatorDeleted(operator.ownerAddress, publicKey);
 
-        emit OperatorDeleted(name, _publicKey);
+        delete _operators[publicKey];
+        --_operatorCount;
+
     }
 
     /**
-     * @dev See {ISSVRegistry-getOperatorCurrentFee}.
+     * @dev See {ISSVRegistry-activateOperator}.
      */
-    function getOperatorCurrentFee(bytes calldata _operatorPubKey) public view override returns (uint256) {
-        require(operatorFees[_operatorPubKey].length > 0, "operator not found");
-        return operatorFees[_operatorPubKey][operatorFees[_operatorPubKey].length - 1].fee;
+    function activateOperator(bytes calldata publicKey) external onlyOwner override {
+        _activateOperatorUnsafe(publicKey);
     }
 
     /**
-     * @dev See {ISSVRegistry-getValidatorUsage}.
+     * @dev See {ISSVRegistry-deactivateOperator}.
      */
-    function getValidatorUsage(
-        bytes calldata _pubKey,
-        uint256 _fromBlockNumber,
-        uint256 _toBlockNumber
-    ) onlyOwner public view override returns (uint256 usage) {
-        for (uint256 index = 0; index < validators[_pubKey].oess.length; ++index) {
-            Oess memory oessItem = validators[_pubKey].oess[index];
-            uint256 lastBlockNumber = _toBlockNumber;
-            bool oldestFeeUsed = false;
-            for (uint256 feeReverseIndex = 0; !oldestFeeUsed && feeReverseIndex < operatorFees[oessItem.operatorPublicKey].length; ++feeReverseIndex) {
-                uint256 feeIndex = operatorFees[oessItem.operatorPublicKey].length - feeReverseIndex - 1;
-                if (operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber < lastBlockNumber) {
-                    uint256 startBlockNumber = Math.max(_fromBlockNumber, operatorFees[oessItem.operatorPublicKey][feeIndex].blockNumber);
-                    usage += (lastBlockNumber - startBlockNumber) * operatorFees[oessItem.operatorPublicKey][feeIndex].fee;
-                    if (startBlockNumber == _fromBlockNumber) {
-                        oldestFeeUsed = true;
-                    } else {
-                        lastBlockNumber = startBlockNumber;
-                    }
-                }
-            }
-        }
+    function deactivateOperator(bytes calldata publicKey) external onlyOwner override {
+        _deactivateOperatorUnsafe(publicKey);
     }
 
     /**
      * @dev See {ISSVRegistry-updateOperatorFee}.
      */
-    function updateOperatorFee(bytes calldata _pubKey, uint256 _fee) onlyOwner public virtual override {
-        operatorFees[_pubKey].push(
-            OperatorFee(block.number, _fee)
-        );
-        emit OperatorFeeUpdated(_pubKey, block.number, _fee);
+    function updateOperatorFee(bytes calldata publicKey, uint256 fee) external onlyOwner override {
+        _updateOperatorFeeUnsafe(publicKey, fee);
     }
 
-    function getOperatorPubKeysInUse(bytes calldata _validatorPubKey) onlyOwner public virtual override returns (bytes[] memory operatorPubKeys) {
-        Validator storage validatorItem = validators[_validatorPubKey];
+    /**
+     * @dev See {ISSVRegistry-updateOperatorScore}.
+     */
+    function updateOperatorScore(bytes calldata publicKey, uint256 score) external onlyOwner override {
+        Operator storage operator = _operators[publicKey];
+        operator.score = score;
 
-        operatorPubKeys = new bytes[](validatorItem.oess.length);
-        for (uint256 index = 0; index < validatorItem.oess.length; ++index) {
-            operatorPubKeys[index] = validatorItem.oess[index].operatorPublicKey;
+        emit OperatorScoreUpdated(operator.ownerAddress, publicKey, block.number, score);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-registerValidator}.
+     */
+    function registerValidator(
+        address ownerAddress,
+        bytes calldata publicKey,
+        bytes[] calldata operatorPublicKeys,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedKeys
+    ) external onlyOwner override {
+        _validateValidatorParams(
+            publicKey,
+            operatorPublicKeys,
+            sharesPublicKeys,
+            encryptedKeys
+        );
+        require(ownerAddress != address(0), "owner address invalid");
+        require(
+            _validators[publicKey].ownerAddress == address(0),
+            "validator with same public key already exists"
+        );
+
+        Validator storage validator = _validators[publicKey];
+        validator.publicKey = publicKey;
+        validator.ownerAddress = ownerAddress;
+
+        for (uint256 index = 0; index < operatorPublicKeys.length; ++index) {
+            validator.oess.push(
+                Oess(
+                    operatorPublicKeys[index],
+                    sharesPublicKeys[index],
+                    encryptedKeys[index]
+                )
+            );
+        }
+
+        validator.index = _validatorsByAddress[ownerAddress].length;
+        _validatorsByAddress[ownerAddress].push(publicKey);
+
+        ++_validatorCount;
+
+        emit ValidatorAdded(ownerAddress, publicKey, validator.oess);
+
+        _activateValidatorUnsafe(publicKey);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-updateValidator}.
+     */
+    function updateValidator(
+        bytes calldata publicKey,
+        bytes[] calldata operatorPublicKeys,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedKeys
+    ) external onlyOwner override {
+        _validateValidatorParams(
+            publicKey,
+            operatorPublicKeys,
+            sharesPublicKeys,
+            encryptedKeys
+        );
+        Validator storage validator = _validators[publicKey];
+        delete validator.oess;
+
+        for (uint256 index = 0; index < operatorPublicKeys.length; ++index) {
+            validator.oess.push(
+                Oess(
+                    operatorPublicKeys[index],
+                    sharesPublicKeys[index],
+                    encryptedKeys[index]
+                )
+            );
+        }
+
+        emit ValidatorUpdated(validator.ownerAddress, publicKey, validator.oess);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-deleteValidator}.
+     */
+    function deleteValidator(
+        bytes calldata publicKey
+    ) external onlyOwner override {
+        Validator storage validator = _validators[publicKey];
+        _validatorsByAddress[validator.ownerAddress][validator.index] = _validatorsByAddress[validator.ownerAddress][_validatorsByAddress[validator.ownerAddress].length - 1];
+        _validators[_validatorsByAddress[validator.ownerAddress][validator.index]].index = validator.index;
+        _validatorsByAddress[validator.ownerAddress].pop();
+
+        emit ValidatorDeleted(validator.ownerAddress, publicKey);
+
+        delete _validators[publicKey];
+        --_validatorCount;
+
+    }
+
+    /**
+     * @dev See {ISSVRegistry-activateValidator}.
+     */
+    function activateValidator(bytes calldata publicKey) external onlyOwner override {
+        _activateValidatorUnsafe(publicKey);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-deactivateValidator}.
+     */
+    function deactivateValidator(bytes calldata publicKey) external onlyOwner override {
+        _deactivateValidatorUnsafe(publicKey);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-operatorCount}.
+     */
+    function operatorCount() external view override returns (uint256) {
+        return _operatorCount;
+    }
+
+    /**
+     * @dev See {ISSVRegistry-operators}.
+     */
+    function operators(bytes calldata publicKey) external view override returns (string memory, address, bytes memory, uint256, bool, uint256) {
+        Operator storage operator = _operators[publicKey];
+        return (operator.name, operator.ownerAddress, operator.publicKey, operator.score, operator.active, operator.index);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-getOperatorsByOwnerAddress}.
+     */
+    function getOperatorsByOwnerAddress(address ownerAddress) external view override returns (bytes[] memory) {
+        return _operatorsByOwnerAddress[ownerAddress];
+    }
+
+    /**
+     * @dev See {ISSVRegistry-getOperatorsByValidator}.
+     */
+    function getOperatorsByValidator(bytes calldata validatorPublicKey) external view override returns (bytes[] memory operatorPublicKeys) {
+        Validator storage validator = _validators[validatorPublicKey];
+
+        operatorPublicKeys = new bytes[](validator.oess.length);
+        for (uint256 index = 0; index < validator.oess.length; ++index) {
+            operatorPublicKeys[index] = validator.oess[index].operatorPublicKey;
         }
     }
 
-    function getOperatorsByAddress(address _ownerAddress) onlyOwner external view virtual override returns (bytes[] memory) {
-        return operatorsByAddress[_ownerAddress];
+    /**
+     * @dev See {ISSVRegistry-getOperatorOwner}.
+     */
+    function getOperatorOwner(bytes calldata publicKey) onlyOwner external override view returns (address) {
+        return _operators[publicKey].ownerAddress;
     }
 
-    function getValidatorsByAddress(address _ownerAddress) onlyOwner external view virtual override returns (bytes[] memory) {
-        return validatorsByAddress[_ownerAddress];
+    /**
+     * @dev See {ISSVRegistry-getOperatorCurrentFee}.
+     */
+    function getOperatorCurrentFee(bytes calldata operatorPublicKey) external view override returns (uint256) {
+        require(_operatorFees[operatorPublicKey].length > 0, "operator not found");
+        return _operatorFees[operatorPublicKey][_operatorFees[operatorPublicKey].length - 1].fee;
     }
 
-    function activateOperator(bytes calldata _pubKey) onlyOwner override public {
-        require(!operators[_pubKey].active, "already active");
-        operators[_pubKey].active = true;
-
-        emit OperatorActive(operators[_pubKey].ownerAddress, _pubKey);
+    /**
+     * @dev See {ISSVRegistry-validatorCount}.
+     */
+    function validatorCount() external view override returns (uint256) {
+        return _validatorCount;
     }
 
-    function deactivateOperator(bytes calldata _pubKey) onlyOwner override external {
-        require(operators[_pubKey].active, "already inactive");
-        operators[_pubKey].active = false;
+    /**
+     * @dev See {ISSVRegistry-validators}.
+     */
+    function validators(bytes calldata publicKey) external view override returns (address, bytes memory, bool, uint256) {
+        Validator storage validator = _validators[publicKey];
 
-        emit OperatorInactive(operators[_pubKey].ownerAddress, _pubKey);
+        return (validator.ownerAddress, validator.publicKey, validator.active, validator.index);
     }
 
-    function activateValidator(bytes calldata _pubKey) onlyOwner override public {
-        require(!validators[_pubKey].active, "already active");
-        validators[_pubKey].active = true;
-
-        emit ValidatorActive(validators[_pubKey].ownerAddress, _pubKey);
+    /**
+     * @dev See {ISSVRegistry-getValidatorsByAddress}.
+     */
+    function getValidatorsByAddress(address ownerAddress) external view override returns (bytes[] memory) {
+        return _validatorsByAddress[ownerAddress];
     }
 
-    function deactivateValidator(bytes calldata _pubKey) onlyOwner override external {
-        require(validators[_pubKey].active, "already inactive");
-        validators[_pubKey].active = false;
+    /**
+     * @dev See {ISSVRegistry-getValidatorOwner}.
+     */
+    function getValidatorOwner(bytes calldata publicKey) external view override returns (address) {
+        return _validators[publicKey].ownerAddress;
+    }
 
-        emit ValidatorInactive(validators[_pubKey].ownerAddress, _pubKey);
+    /**
+     * @dev See {ISSVRegistry-activateOperator}.
+     */
+    function _activateOperatorUnsafe(bytes calldata publicKey) private {
+        require(!_operators[publicKey].active, "already active");
+        _operators[publicKey].active = true;
+
+        emit OperatorActivated(_operators[publicKey].ownerAddress, publicKey);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-deactivateOperator}.
+     */
+    function _deactivateOperatorUnsafe(bytes calldata publicKey) private {
+        require(_operators[publicKey].active, "already inactive");
+        _operators[publicKey].active = false;
+
+        emit OperatorInactivated(_operators[publicKey].ownerAddress, publicKey);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-updateOperatorFee}.
+     */
+    function _updateOperatorFeeUnsafe(bytes calldata publicKey, uint256 fee) private {
+        _operatorFees[publicKey].push(
+            OperatorFee(block.number, fee)
+        );
+
+        emit OperatorFeeUpdated(_operators[publicKey].ownerAddress, publicKey, block.number, fee);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-activateValidator}.
+     */
+    function _activateValidatorUnsafe(bytes calldata publicKey) private {
+        require(!_validators[publicKey].active, "already active");
+        _validators[publicKey].active = true;
+
+        emit ValidatorActivated(_validators[publicKey].ownerAddress, publicKey);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-deactivateValidator}.
+     */
+    function _deactivateValidatorUnsafe(bytes calldata publicKey) private {
+        require(_validators[publicKey].active, "already inactive");
+        _validators[publicKey].active = false;
+
+        emit ValidatorInactivated(_validators[publicKey].ownerAddress, publicKey);
+    }
+
+    /**
+     * @dev Validates the paramss for a validator.
+     * @param publicKey Validator public key.
+     * @param operatorPublicKeys Operator public keys.
+     * @param sharesPublicKeys Shares public keys.
+     * @param encryptedKeys Encrypted private keys.
+     */
+    function _validateValidatorParams(
+        bytes calldata publicKey,
+        bytes[] calldata operatorPublicKeys,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedKeys
+    ) private pure {
+        require(publicKey.length == 48, "invalid public key length");
+        require(
+            operatorPublicKeys.length == sharesPublicKeys.length &&
+            operatorPublicKeys.length == encryptedKeys.length &&
+            operatorPublicKeys.length % 3 == 1,
+            "OESS data structure is not valid"
+        );
     }
 }

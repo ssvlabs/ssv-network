@@ -1,0 +1,95 @@
+import * as chai from 'chai';
+import * as chaiAsPromised from 'chai-as-promised';
+
+import {
+  initContracts,
+  registerOperator,
+  registerValidator,
+  updateOperatorFee,
+  processTestCase,
+  updateNetworkFee,
+  account1,
+  account2,
+} from './setup';
+
+import {
+  checkOperatorIndexes,
+  checkOperatorBalances,
+  checkTotalBalance,
+  checkUpdateOperatorFeeFail,
+} from './asserts';
+
+before(() => {
+  chai.should();
+  chai.use(chaiAsPromised);
+});
+
+const { expect } = chai;
+
+describe('SSV Network', function() {
+  before(async function () {
+    await initContracts();
+  });
+
+  it('Operator and validator balances', async function() {
+    const testFlow = {
+      10: {
+        funcs: [
+          () => updateNetworkFee(1),
+          () => registerOperator(account2, 0, 20),
+          () => registerOperator(account2, 1, 10),
+          () => registerOperator(account2, 2, 10),
+          () => registerOperator(account2, 3, 30),
+        ],
+        asserts: [],
+      },
+      20: {
+        funcs: [
+          () => registerValidator(account1, 0, [0, 1, 2, 3], 10000),
+        ],
+        asserts: [
+          () => checkOperatorIndexes([0, 1, 2, 3]),
+          () => checkOperatorBalances([0, 1, 2, 3]),
+        ],
+      },
+      30: {
+        funcs: [
+          () => updateOperatorFee(account2, 0, 11),
+          () => registerValidator(account1, 1, [0, 1, 2, 3], 10000),
+        ],
+        asserts: [
+          () => checkOperatorIndexes([0, 1, 2, 3]),
+          () => checkOperatorBalances([0, 1, 2, 3]),
+        ],
+      },
+      40: {
+        funcs: [
+          () => registerValidator(account1, 2, [0, 1, 2, 3], 10000),
+        ],
+        asserts: [
+          () => checkOperatorIndexes([0, 1, 2, 3]),
+          () => checkOperatorBalances([0, 1, 2, 3]),
+        ],
+      },
+      50: {
+        funcs: [
+          () => registerValidator(account1, 3, [0, 1, 2, 3], 10000),
+        ],
+        asserts: [
+          () => checkUpdateOperatorFeeFail(account2, 0, 12),
+          () => checkOperatorIndexes([0, 1, 2, 3]),
+          () => checkOperatorBalances([0, 1, 2, 3]),
+        ],
+      },
+      100: {
+        asserts: [
+          () => checkOperatorBalances([0, 1, 2, 3]),
+          () => checkTotalBalance(account1.address),
+          () => checkTotalBalance(account2.address),
+        ]
+      }
+    };
+
+    await processTestCase(testFlow);
+  });
+});

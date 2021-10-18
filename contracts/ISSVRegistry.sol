@@ -1,125 +1,70 @@
 // File: contracts/ISSVRegistry.sol
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.2;
 
 interface ISSVRegistry {
     struct Oess {
-        uint256 index;
         bytes operatorPublicKey;
         bytes sharedPublicKey;
         bytes encryptedKey;
     }
 
-    struct Operator {
-        string name;
-        address ownerAddress;
-        bytes publicKey;
-        uint256 score;
-        bool active;
-        uint256 index;
-    }
-
-    struct Validator {
-        address ownerAddress;
-        bytes publicKey;
-        Oess[] oess;
-        bool active;
-        uint256 index;
-    }
-
-    struct OperatorFee {
-        uint256 blockNumber;
-        uint256 fee;
-    }
-
-    function initialize() external;
-
-    /**
-     * @dev Register new validator.
-     * @param _ownerAddress The user's ethereum address that is the owner of the validator.
-     * @param _publicKey Validator public key.
-     * @param _operatorPublicKeys Operator public keys.
-     * @param _sharesPublicKeys Shares public keys.
-     * @param _encryptedKeys Encrypted private keys.
-     */
-    function registerValidator(
-        address _ownerAddress,
-        bytes calldata _publicKey,
-        bytes[] calldata _operatorPublicKeys,
-        bytes[] calldata _sharesPublicKeys,
-        bytes[] calldata _encryptedKeys
-    ) external;
-
-    /**
-     * @dev Register new operator.
-     * @param _name Operator's display name.
-     * @param _ownerAddress Operator's ethereum address that can collect fees.
-     * @param _publicKey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
-     */
-    function registerOperator(
-        string calldata _name,
-        address _ownerAddress,
-        bytes calldata _publicKey,
-        uint256 _fee
-    ) external;
-
-    /**
-     * @dev Gets an operator by public key.
-     * @param _publicKey Operator's Public Key.
-     */
-    function operators(bytes calldata _publicKey)
-        external view
-        returns (
-            string memory,
-            address,
-            bytes memory,
-            uint256,
-            bool,
-            uint256
-        );
-
-    function validators(bytes calldata _publicKey)
-        external view
-        returns (
-            address,
-            bytes memory,
-            bool,
-            uint256
-        );
-
-    function getValidatorOwner(bytes calldata _publicKey) external view returns (address);
-
-    function getOperatorOwner(bytes calldata _publicKey) external view returns (address);
-
-    /**
-     * @dev Gets an operator public keys by owner address.
-     * @param _ownerAddress Owner Address.
-     */
-    function getOperatorsByAddress(address _ownerAddress)
-        external view
-        returns (bytes[] memory);
-
-    /**
-     * @dev Gets a validator public keys by owner address.
-     * @param _ownerAddress Owner Address.
-     */
-    function getValidatorsByAddress(address _ownerAddress)
-        external view
-        returns (bytes[] memory);
-
     /**
      * @dev Emitted when the operator has been added.
-     * @param name Opeator's display name.
+     * @param name Operator's display name.
      * @param ownerAddress Operator's ethereum address that can collect fees.
-     * @param publicKey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
+     * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      */
-    event OperatorAdded(string name, address ownerAddress, bytes publicKey);
+    event OperatorAdded(string name, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been deleted.
-     * @param publicKey Operator's Public Key.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
      */
-    event OperatorDeleted(string name, bytes publicKey);
+    event OperatorDeleted(address indexed ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when the operator has been activated.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
+     */
+    event OperatorActivated(address indexed ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when the operator has been deactivated.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
+     */
+    event OperatorInactivated(address indexed ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when an operator's fee is updated.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
+     * @param blockNumber from which block number.
+     * @param fee updated fee value.
+     */
+    event OperatorFeeUpdated(
+        address indexed ownerAddress,
+        bytes publicKey,
+        uint256 blockNumber,
+        uint256 fee
+    );
+
+    /**
+     * @dev Emitted when an operator's score is updated.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
+     * @param blockNumber from which block number.
+     * @param score updated score value.
+     */
+    event OperatorScoreUpdated(
+        address indexed ownerAddress,
+        bytes publicKey,
+        uint256 blockNumber,
+        uint256 score
+    );
 
     /**
      * @dev Emitted when the validator has been added.
@@ -146,116 +91,206 @@ interface ISSVRegistry {
     );
 
     /**
-     * @dev Emitted when the validator has been deleted.
-     * @param publicKey Operator's Public Key.
+     * @dev Emitted when the validator is deleted.
+     * @param ownerAddress Validator's owner.
+     * @param publicKey The public key of a validator.
      */
     event ValidatorDeleted(address ownerAddress, bytes publicKey);
 
     /**
-     * @param validatorPublicKey The public key of a validator.
-     * @param index Operator index.
-     * @param operatorPublicKey Operator public key.
-     * @param sharedPublicKey Share public key.
-     * @param encryptedKey Encrypted private key.
+     * @dev Emitted when the validator is activated.
+     * @param ownerAddress Validator's owner.
+     * @param publicKey The public key of a validator.
      */
-    event OessAdded(
-        bytes validatorPublicKey,
-        uint256 index,
-        bytes operatorPublicKey,
-        bytes sharedPublicKey,
-        bytes encryptedKey
-    );
-
-    event ValidatorActive(address ownerAddress, bytes publicKey);
-    event ValidatorInactive(address ownerAddress, bytes publicKey);
-
-    event OperatorActive(address ownerAddress, bytes publicKey);
-    event OperatorInactive(address ownerAddress, bytes publicKey);
+    event ValidatorActivated(address ownerAddress, bytes publicKey);
 
     /**
-     * @dev Updates a validator in the list.
-     * @param _publicKey Validator public key.
-     * @param _operatorPublicKeys Operator public keys.
-     * @param _sharesPublicKeys Shares public keys.
-     * @param _encryptedKeys Encrypted private keys.
+     * @dev Emitted when the validator is deactivated.
+     * @param ownerAddress Validator's owner.
+     * @param publicKey The public key of a validator.
+     */
+    event ValidatorInactivated(address ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Initializes the contract
+     */
+    function initialize() external;
+
+    /**
+     * @dev Registers a new operator.
+     * @param name Operator's display name.
+     * @param ownerAddress Operator's ethereum address that can collect fees.
+     * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
+     * @param fee The fee which the operator charges for each block.
+     */
+    function registerOperator( string calldata name, address ownerAddress, bytes calldata publicKey, uint256 fee) external;
+
+    /**
+     * @dev Deletes an operator.
+     * @param publicKey Operator public key.
+     */
+    function deleteOperator(bytes calldata publicKey) external;
+
+    /**
+     * @dev Activates an operator.
+     * @param publicKey Operator public key.
+     */
+    function activateOperator(bytes calldata publicKey) external;
+
+    /**
+     * @dev Deactivates an operator.
+     * @param publicKey Operator public key.
+     */
+    function deactivateOperator(bytes calldata publicKey) external;
+
+    /**
+     * @dev Updates an operator fee.
+     * @param publicKey Operator's public key.
+     * @param fee new operator fee.
+     */
+    function updateOperatorFee(
+        bytes calldata publicKey,
+        uint256 fee
+    ) external;
+
+    /**
+     * @dev Updates an operator fee.
+     * @param publicKey Operator's public key.
+     * @param score New score.
+     */
+    function updateOperatorScore(
+        bytes calldata publicKey,
+        uint256 score
+    ) external;
+
+    /**
+     * @dev Registers a new validator.
+     * @param ownerAddress The user's ethereum address that is the owner of the validator.
+     * @param publicKey Validator public key.
+     * @param operatorPublicKeys Operator public keys.
+     * @param sharesPublicKeys Shares public keys.
+     * @param encryptedKeys Encrypted private keys.
+     */
+    function registerValidator(
+        address ownerAddress,
+        bytes calldata publicKey,
+        bytes[] calldata operatorPublicKeys,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedKeys
+    ) external;
+
+    /**
+     * @dev Updates a validator.
+     * @param publicKey Validator public key.
+     * @param operatorPublicKeys Operator public keys.
+     * @param sharesPublicKeys Shares public keys.
+     * @param encryptedKeys Encrypted private keys.
      */
     function updateValidator(
-        bytes calldata _publicKey,
-        bytes[] calldata _operatorPublicKeys,
-        bytes[] calldata _sharesPublicKeys,
-        bytes[] calldata _encryptedKeys
+        bytes calldata publicKey,
+        bytes[] calldata operatorPublicKeys,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedKeys
     ) external;
 
     /**
-     * @dev Deletes a validator from the list.
-     * @param _ownerAddress The user's ethereum address that is the owner of the validator.
-     * @param _publicKey Validator public key.
+     * @dev Deletes a validator.
+     * @param publicKey Validator's public key.
      */
-    function deleteValidator(
-        address _ownerAddress,
-        bytes calldata _publicKey
-    ) external;
+    function deleteValidator(bytes calldata publicKey) external;
 
     /**
-     * @dev Deletes an operator from the list.
-     * @param _ownerAddress The user's ethereum address that is the owner of the operator.
-     * @param _publicKey Operator public key.
+     * @dev Activates a validator.
+     * @param publicKey Validator's public key.
      */
-    function deleteOperator(
-        address _ownerAddress,
-        bytes calldata _publicKey
-    ) external;
+    function activateValidator(bytes calldata publicKey) external;
+
+    /**
+     * @dev Deactivates a validator.
+     * @param publicKey Validator's public key.
+     */
+    function deactivateValidator(bytes calldata publicKey) external;
+
+
+    /**
+     * @dev Returns the operator count.
+     */
+    function operatorCount() external view returns (uint256);
+
+    /**
+     * @dev Gets an operator by public key.
+     * @param publicKey Operator's public key.
+     */
+    function operators(bytes calldata publicKey)
+        external view
+        returns (
+            string memory,
+            address,
+            bytes memory,
+            uint256,
+            bool,
+            uint256
+        );
+
+    /**
+     * @dev Returns operators for owner.
+     * @param ownerAddress Owner's address.
+     */
+    function getOperatorsByOwnerAddress(address ownerAddress)
+        external view
+        returns (bytes[] memory);
+
+    /**
+     * @dev Gets operators list which are in use by validator.
+     * @param validatorPublicKey Validator's public key.
+     */
+    function getOperatorsByValidator(bytes calldata validatorPublicKey)
+        external view
+        returns (bytes[] memory);
+
+    /**
+     * @dev Gets operator's owner.
+     * @param publicKey Operator's public key.
+     */
+    function getOperatorOwner(bytes calldata publicKey) external view returns (address);
 
     /**
      * @dev Gets operator current fee.
-     * @param _operatorPublicKey Operator public key.
+     * @param publicKey Operator's public key.
      */
-    function getOperatorCurrentFee(bytes calldata _operatorPublicKey)
+    function getOperatorCurrentFee(bytes calldata publicKey)
         external view
         returns (uint256);
 
     /**
-     * @dev Gets validator usage fees.
-     * @param _pubKey Validator public key.
-     * @param _fromBlockNumber from which block number.
-     * @param _toBlockNumber to which block number.
+     * @dev Gets validators count.
      */
-    function getValidatorUsage(bytes calldata _pubKey, uint256 _fromBlockNumber, uint256 _toBlockNumber)
+    function validatorCount() external view returns (uint256);
+
+    /**
+     * @dev Gets an validator by public key.
+     * @param publicKey Validator's public key.
+     */
+    function validators(bytes calldata publicKey)
         external view
-        returns (uint256);
+        returns (
+            address,
+            bytes memory,
+            bool,
+            uint256
+        );
 
     /**
-     * @dev Update an operator fee.
-     * @param _pubKey Operator's public key.
-     * @param _fee new operator fee.
+     * @dev Gets a validator public keys by owner's address.
+     * @param ownerAddress Owner's Address.
      */
-    function updateOperatorFee(
-        bytes calldata _pubKey,
-        uint256 _fee
-    ) external;
-
-    /**
-     * @param pubKey Operator's public key.
-     * @param blockNumber from which block number.
-     * @param fee updated fee value.
-     */
-    event OperatorFeeUpdated(
-        bytes pubKey,
-        uint256 blockNumber,
-        uint256 fee
-    );
-
-    /**
-     * @dev Get operators list which are in use of validator.
-     * @param _validatorPubKey Validator public key.
-     */
-    function getOperatorPubKeysInUse(bytes calldata _validatorPubKey)
-        external
+    function getValidatorsByAddress(address ownerAddress)
+        external view
         returns (bytes[] memory);
 
-    function activateValidator(bytes calldata _pubKey) external;
-    function deactivateValidator(bytes calldata _pubKey) external;
-
-    function activateOperator(bytes calldata _pubKey) external;
-    function deactivateOperator(bytes calldata _pubKey) external;
+    /**
+     * @dev Get validator's owner.
+     * @param publicKey Validator's public key.
+     */
+    function getValidatorOwner(bytes calldata publicKey) external view returns (address);
 }

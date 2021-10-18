@@ -1,31 +1,11 @@
 // File: contracts/ISSVNetwork.sol
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.2;
 
 import "./ISSVRegistry.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork {
-    struct OperatorBalanceSnapshot {
-        uint256 blockNumber;
-        uint256 validatorCount;
-        uint256 balance;
-    }
-
-    struct ValidatorUsageSnapshot {
-        uint256 blockNumber;
-        uint256 balance;
-    }
-
-    struct Balance {
-        uint256 deposited;
-        uint256 withdrawn;
-        uint256 earned;
-        uint256 used;
-    }
-
-    function initialize(ISSVRegistry _SSVRegistryAddress, IERC20 _token) external;
-
     /**
      * @dev Emitted when the operator validator added.
      * @param ownerAddress The user's ethereum address that is the owner of the operator.
@@ -34,110 +14,172 @@ interface ISSVNetwork {
     event OperatorValidatorAdded(address ownerAddress, uint256 blockNumber);
 
     /**
-     * @dev Get operator balance by address.
-     * @param _publicKey Operator's Public Key.
+     * @dev Initializes the contract.
+     * @param registryAddress The registry address.
+     * @param token The network token.
+     * @param minimumBlocksBeforeLiquidation The minimum blocks before liquidation.
      */
-    function operatorBalanceOf(bytes memory _publicKey) external view returns (uint256);
+    function initialize(
+        ISSVRegistry registryAddress,
+        IERC20 token,
+        uint256 minimumBlocksBeforeLiquidation
+    ) external;
 
     /**
-     * @dev Registers new operator.
-     * @param _name Operator's display name.
-     * @param _publicKey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
+     * @dev Registers a new operator.
+     * @param name Operator's display name.
+     * @param publicKey Operator's public key. Used to encrypt secret shares of validators keys.
      */
     function registerOperator(
-        string calldata _name,
-        bytes calldata _publicKey,
-        uint256 _fee
+        string calldata name,
+        bytes calldata publicKey,
+        uint256 fee
     ) external;
 
     /**
-     * @dev Updates operator's fee by address.
-     * @param _publicKey Operator's Public Key.
-     * @param _fee The operators's updated fee.
+     * @dev Deletes an operator.
+     * @param publicKey Operator's public key.
      */
-    function updateOperatorFee(bytes calldata _publicKey, uint256 _fee) external;
+    function deleteOperator(bytes calldata publicKey) external;
 
     /**
-     * @dev Get validator usage by address.
-     * @param _pubKey The validator's public key.
+     * @dev Activates an operator.
+     * @param publicKey Operator's public key.
      */
-    function validatorUsageOf(bytes memory _pubKey) external view returns (uint256);
+    function activateOperator(bytes calldata publicKey) external;
 
     /**
-     * @dev Updates operators's balance.
-     * @param _pubKey The operators's public key.
+     * @dev Deactivates an operator.
+     * @param publicKey Operator's public key.
      */
-    function updateOperatorBalance(bytes memory _pubKey) external;
+    function deactivateOperator(bytes calldata publicKey) external;
 
     /**
-     * @dev Updates validator's usage.
-     * @param _pubKey The validator's public key.
+     * @dev Updates operator's fee by public key.
+     * @param publicKey Operator's public Key.
+     * @param fee The operators's updated fee.
      */
-    function updateValidatorUsage(bytes calldata _pubKey) external;
-
-    function totalBalanceOf(address _ownerAddress) external view returns (uint256);
+    function updateOperatorFee(bytes calldata publicKey, uint256 fee) external;
 
     /**
-     * @dev Register new validator.
-     * @param _publicKey Validator public key.
-     * @param _operatorPublicKeys Operator public keys.
-     * @param _sharesPublicKeys Shares public keys.
-     * @param _encryptedKeys Encrypted private keys.
+     * @dev Updates operator's score by public key.
+     * @param publicKey Operator's public Key.
+     * @param score The operators's updated score.
+     */
+    function updateOperatorScore(bytes calldata publicKey, uint256 score) external;
+
+    /**
+     * @dev Registers a new validator.
+     * @param publicKey Validator public key.
+     * @param operatorPublicKeys Operator public keys.
+     * @param sharesPublicKeys Shares public keys.
+     * @param encryptedKeys Encrypted private keys.
      */
     function registerValidator(
-        bytes calldata _publicKey,
-        bytes[] calldata _operatorPublicKeys,
-        bytes[] calldata _sharesPublicKeys,
-        bytes[] calldata _encryptedKeys,
-        uint256 _tokenAmount
+        bytes calldata publicKey,
+        bytes[] calldata operatorPublicKeys,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedKeys,
+        uint256 tokenAmount
     ) external;
 
     /**
-     * @dev Deposit tokens.
-     * @param _tokenAmount Tokens amount.
-     */
-    function deposit(uint256 _tokenAmount) external;
-
-    /**
-     * @dev Withdraw tokens.
-     * @param _tokenAmount Tokens amount.
-     */
-    /**
-     * @dev Validate tokens amount to transfer.
-     * @param _tokenAmount Tokens amount.
-     */
-    function withdraw(uint256 _tokenAmount) external;
-
-    /**
-     * @dev Update validator.
-     * @param _publicKey Validator public key.
-     * @param _operatorPublicKeys Operator public keys.
-     * @param _sharesPublicKeys Shares public keys.
-     * @param _encryptedKeys Encrypted private keys.
+     * @dev Updates a validator.
+     * @param publicKey Validator public key.
+     * @param operatorPublicKeys Operator public keys.
+     * @param sharesPublicKeys Shares public keys.
+     * @param encryptedKeys Encrypted private keys.
      */
     function updateValidator(
-        bytes calldata _publicKey,
-        bytes[] calldata _operatorPublicKeys,
-        bytes[] calldata _sharesPublicKeys,
-        bytes[] calldata _encryptedKeys,
-        uint256 _tokenAmount
+        bytes calldata publicKey,
+        bytes[] calldata operatorPublicKeys,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedKeys,
+        uint256 tokenAmount
     ) external;
 
     /**
-     * @dev Delete validator.
-     * @param _publicKey Validator's public key.
+     * @dev Deletes a validator.
+     * @param publicKey Validator's public key.
      */
-    function deleteValidator(bytes calldata _publicKey) external;
+    function deleteValidator(bytes calldata publicKey) external;
 
     /**
-     * @dev Delete operator.
-     * @param _publicKey Operator's public key.
+     * @dev Activates a validator.
+     * @param publicKey Validator's public key.
      */
-    function deleteOperator(bytes calldata _publicKey) external;
+    function activateValidator(bytes calldata publicKey, uint256 tokenAmount) external;
 
-    function activateValidator(bytes calldata _pubKey) external;
-    function deactivateValidator(bytes calldata _pubKey) external;
+    /**
+     * @dev Deactivates a validator.
+     * @param publicKey Validator's public key.
+     */
+    function deactivateValidator(bytes calldata publicKey) external;
+    /**
+     * @dev Deposits tokens for the sender.
+     * @param tokenAmount Tokens amount.
+     */
+    function deposit(uint256 tokenAmount) external;
 
-    function activateOperator(bytes calldata _pubKey) external;
-    function deactivateOperator(bytes calldata _pubKey) external;
+    /**
+     * @dev Withdraw tokens for the sender.
+     * @param tokenAmount Tokens amount.
+     */
+    function withdraw(uint256 tokenAmount) external;
+
+    /**
+     * @dev liquidates an operator.
+     * @param ownerAddress Owner's address.
+     */
+    function liquidate(address ownerAddress) external;
+
+    /**
+     * @dev liquidates multiple owners.
+     * @param ownerAddresses Owners' addresses.
+     */
+    function liquidateAll(address[] calldata ownerAddresses) external;
+
+    function updateMinimumBlocksBeforeLiquidation(uint256 minimumBlocksBeforeLiquidation) external;
+
+    /**
+     * @dev Updates the network fee.
+     * @param fee the new fee
+     */
+    function updateNetworkFee(uint256 fee) external;
+
+
+    /**
+     * @dev Gets total balance for an owner.
+     * @param ownerAddress Owner's address.
+     */
+    function totalBalanceOf(address ownerAddress) external view returns (uint256);
+
+    /**
+     * @dev Gets operator balance by address.
+     * @param publicKey Operator's public key.
+     */
+    function operatorBalanceOf(bytes memory publicKey) external view returns (uint256);
+
+    /**
+     * @dev Gets the network fee for an address.
+     * @param ownerAddress Owner's address.
+     */
+    function addressNetworkFee(address ownerAddress) external view returns (uint256);
+
+    /**
+     * @dev Returns the burn rate of an owner, returns 0 if negative.
+     * @param ownerAddress Owner's address.
+     */
+    function burnRate(address ownerAddress) external view returns (uint256);
+
+    /**
+     * @dev Check if an owner is liquidatable.
+     * @param ownerAddress Owner's address.
+     */
+    function liquidatable(address ownerAddress) external view returns (bool);
+
+    /**
+     * @dev Return the number of blocks left for an owner before they can be liquidated.
+     */
+    function minimumBlocksBeforeLiquidation() external view returns (uint256);
 }

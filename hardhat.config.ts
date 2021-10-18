@@ -51,7 +51,7 @@ const config = {
 if (process.env.GANACHE_ETH_NODE_URL) {
   config.networks['ganache'] = {
     url: process.env.GANACHE_ETH_NODE_URL,
-    accounts: [`0x${process.env.GANACHE_OWNER_PRIVATE_KEY}`],
+    mnemonic: [`0x${process.env.GANACHE_MNEMONIC}`],
     gasPrice: +process.env.GAS_PRICE
   }
 }
