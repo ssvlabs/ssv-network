@@ -52,15 +52,15 @@ async function extractOperatorsWithMetrics(operators, validatorsWithMetrics) {
 
 async function extractValidatorsWithMetrics(records, fromEpoch, toEpoch) {  
   const totalEpochs = toEpoch - fromEpoch;
-  const MAX_EPOCHS_PER_REQUEST = 2;
-  let epochsAmount = 0;
+  const MAX_EPOCHS_PER_REQUEST = +process.env.MAX_EPOCHS_PER_REQUEST || 100;
+  let epochsPerRequest = 0;
   let lastEpoch = fromEpoch;
-  while (lastEpoch + epochsAmount <= toEpoch) {
-    if (epochsAmount === MAX_EPOCHS_PER_REQUEST - 1 || (lastEpoch + epochsAmount >= toEpoch)) {
-      console.log(`fetching metrics for ${lastEpoch}-${lastEpoch + epochsAmount} epochs`, epochsAmount, fromEpoch, toEpoch);
+  while (lastEpoch + epochsPerRequest <= toEpoch) {
+    if (epochsPerRequest === MAX_EPOCHS_PER_REQUEST || (lastEpoch + epochsPerRequest >= toEpoch)) {
+      console.log(`fetching metrics for ${lastEpoch}-${lastEpoch + epochsPerRequest} epochs`, epochsPerRequest, fromEpoch, toEpoch);
       const form = new FormData();
       form.append('from', lastEpoch);
-      form.append('to', lastEpoch + epochsAmount);
+      form.append('to', lastEpoch + epochsPerRequest);
       form.append('keys', records.map(item => item.publicKey.replace('0x', '')).join(','));
       let response;
       try {
@@ -84,10 +84,15 @@ async function extractValidatorsWithMetrics(records, fromEpoch, toEpoch) {
           att && item.attestations.push(att);  
         }
       });
-      lastEpoch += epochsAmount;
-      epochsAmount = 0;
+      if (epochsPerRequest + 1 < toEpoch) {
+        lastEpoch +=  epochsPerRequest + 1
+      } else {
+        lastEpoch = toEpoch;
+      }
+      epochsPerRequest = 0;
+    } else {
+      epochsPerRequest++;
     }
-    epochsAmount++;
   }
   
   records.forEach(item => {
