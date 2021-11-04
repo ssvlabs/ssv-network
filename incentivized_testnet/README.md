@@ -25,7 +25,7 @@ Next runs the data will be grabed from the block which was saved in that file.
 node cmd.js --command fetch
 ```
 
-## Fill att and eff for validators and export to validators_extra csv file
+## Fill att and eff for validators and export to validators_extra_<from epoch>-<to epoch> csv file
 
 ```sh
 node cmd.js --epochs 45891 45893 --command metrics
