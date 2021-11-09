@@ -147,12 +147,32 @@ interface ISSVNetwork {
      */
     function updateNetworkFee(uint256 fee) external;
 
-
     /**
      * @dev Gets total balance for an owner.
      * @param ownerAddress Owner's address.
      */
     function totalBalanceOf(address ownerAddress) external view returns (uint256);
+
+    /**
+     * @dev Gets an operator by public key.
+     * @param publicKey Operator's public key.
+     */
+    function operators(bytes calldata publicKey)
+        external view
+        returns (
+            string memory,
+            address,
+            bytes memory,
+            uint256,
+            bool,
+            uint256
+        );
+
+    /**
+     * @dev Gets operator current fee.
+     * @param publicKey Operator's public key.
+     */
+    function getOperatorCurrentFee(bytes calldata publicKey) external view returns (uint256);
 
     /**
      * @dev Gets operator balance by address.
