@@ -182,13 +182,13 @@ async function fetchValidatorMetrics(fromEpoch, toEpoch) {
   stringify(validatorsWithMetrics, {
     header: true
   }, (err, output) => {
-    fs.writeFile(`${__dirname}/validators_extra.csv`, output, () => { console.log(`exported ${validatorsWithMetrics.length} validator metrics records`) });
+    fs.writeFile(`${__dirname}/validators_extra_${fromEpoch}-${toEpoch}.csv`, output, () => { console.log(`exported ${validatorsWithMetrics.length} validator metrics records`) });
   });
 
   stringify(operatorsWithMetrics, {
     header: true
   }, (err, output) => {
-    fs.writeFile(`${__dirname}/operators_extra.csv`, output, () => { console.log(`exported ${operatorsWithMetrics.length} operators metrics records`) });
+    fs.writeFile(`${__dirname}/operators_extra_${fromEpoch}-${toEpoch}.csv`, output, () => { console.log(`exported ${operatorsWithMetrics.length} operators metrics records`) });
   });
 }
 
