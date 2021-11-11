@@ -23,7 +23,7 @@ async function main() {
 
   console.log('Deploying SSVNetwork...');
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
-  const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address]);
+  const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION, process.env.OPERATOR_MAX_FEE_INCREASE]);
   await ssvNetwork.deployed();
   console.log(`OldToken: ${oldToken.address}\nSSVToken: ${ssvToken.address}\nSSVRegistry: ${ssvRegistry.address}\nSSVNetwork: ${ssvNetwork.address}\nDEX: ${dex.address}`);
 }

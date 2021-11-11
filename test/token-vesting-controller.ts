@@ -16,7 +16,7 @@ const { expect } = chai;
 const DAY = 86400;
 const YEAR = 365 * DAY;
 
-const firstStartTime = Math.floor(Date.now() / 1000);
+let firstStartTime;
 
 async function snapshot(time, func) {
   const snapshot = await network.provider.send("evm_snapshot");
@@ -26,19 +26,22 @@ async function snapshot(time, func) {
   await network.provider.send("evm_revert", [snapshot]);
 }
 
-let ssvToken;
+let utils, ssvToken;
 let tokenVestingController;
 let owner, owner2, firstHolder, secondHolder, thirdHolder;
 describe('TokenVestingController', function() {
   before(async function () {
-    await network.provider.send("hardhat_reset", []);
     [owner, owner2, firstHolder, secondHolder, thirdHolder] = await ethers.getSigners();
+    const utilsFactory = await ethers.getContractFactory('Utils');
     const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
+    utils = await utilsFactory.deploy();
     ssvToken = await ssvTokenFactory.deploy();
+    await utils.deployed();
     await ssvToken.deployed();
     const tokenVestingControllerFactory = await ethers.getContractFactory('TokenVestingController');
     tokenVestingController = await upgrades.deployProxy(tokenVestingControllerFactory, [ssvToken.address, '10000']);
     await tokenVestingController.deployed();
+    firstStartTime = parseInt(await utils.blockTimestamp());
   });
 
   it('mint tokens', async function () {

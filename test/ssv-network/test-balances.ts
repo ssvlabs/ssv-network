@@ -16,7 +16,9 @@ import {
   checkOperatorIndexes,
   checkOperatorBalances,
   checkTotalBalance,
+  checkTotalEarnings,
   checkUpdateOperatorFeeFail,
+  checkNetworkTreasury,
 } from './asserts';
 
 before(() => {
@@ -41,7 +43,9 @@ describe('SSV Network', function() {
           () => registerOperator(account2, 2, 10),
           () => registerOperator(account2, 3, 30),
         ],
-        asserts: [],
+        asserts: [
+          () => checkNetworkTreasury(),
+        ],
       },
       20: {
         funcs: [
@@ -50,6 +54,7 @@ describe('SSV Network', function() {
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
+          () => checkNetworkTreasury(),
         ],
       },
       30: {
@@ -60,6 +65,7 @@ describe('SSV Network', function() {
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
+          () => checkNetworkTreasury(),
         ],
       },
       40: {
@@ -69,6 +75,7 @@ describe('SSV Network', function() {
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
+          () => checkNetworkTreasury(),
         ],
       },
       50: {
@@ -79,6 +86,11 @@ describe('SSV Network', function() {
           () => checkUpdateOperatorFeeFail(account2, 0, 12),
           () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
+          () => checkTotalBalance(account1.address),
+          () => checkTotalBalance(account2.address),
+          () => checkTotalEarnings(account1.address),
+          () => checkTotalEarnings(account2.address),
+          () => checkNetworkTreasury(),
         ],
       },
       100: {
@@ -86,6 +98,9 @@ describe('SSV Network', function() {
           () => checkOperatorBalances([0, 1, 2, 3]),
           () => checkTotalBalance(account1.address),
           () => checkTotalBalance(account2.address),
+          () => checkTotalEarnings(account1.address),
+          () => checkTotalEarnings(account2.address),
+          () => checkNetworkTreasury(),
         ]
       }
     };

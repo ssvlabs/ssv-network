@@ -15,6 +15,7 @@ import {
 import {
   checkWithdrawFail,
   checkTotalBalance,
+  checkTotalEarnings,
 } from './asserts';
 
 before(() => {
@@ -46,6 +47,7 @@ describe('SSV Network', function() {
         ],
         asserts: [
           () => checkTotalBalance(account1.address),
+          () => checkTotalEarnings(account2.address),
         ],
       },
       100: {
@@ -54,6 +56,7 @@ describe('SSV Network', function() {
         ],
         asserts: [
           () => checkTotalBalance(account2.address),
+          () => checkTotalEarnings(account2.address),
         ],
       },
       110: {
@@ -63,6 +66,7 @@ describe('SSV Network', function() {
       },
       120: {
         asserts: [
+          () => checkTotalEarnings(account2.address),
           () => checkTotalBalance(account2.address),
           () => checkWithdrawFail(account2, 1000),
         ],

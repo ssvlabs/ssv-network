@@ -31,6 +31,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
 
     uint256 private _operatorCount;
     uint256 private _validatorCount;
+    uint256 private _activeValidatorCount;
 
     mapping(bytes => Operator) private _operators;
     mapping(bytes => Validator) private _validators;
@@ -70,7 +71,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         );
         _operators[publicKey] = Operator(name, ownerAddress, publicKey, 0, false, _operatorsByOwnerAddress[ownerAddress].length);
         _operatorsByOwnerAddress[ownerAddress].push(publicKey);
-        ++_operatorCount;
         _updateOperatorFeeUnsafe(publicKey, fee);
         _activateOperatorUnsafe(publicKey);
 
@@ -167,9 +167,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
 
         ++_validatorCount;
 
-        emit ValidatorAdded(ownerAddress, publicKey, validator.oess);
-
         _activateValidatorUnsafe(publicKey);
+
+        emit ValidatorAdded(ownerAddress, publicKey, validator.oess);
     }
 
     /**
@@ -214,11 +214,12 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         _validators[_validatorsByAddress[validator.ownerAddress][validator.index]].index = validator.index;
         _validatorsByAddress[validator.ownerAddress].pop();
 
+        --_validatorCount;
+        --_activeValidatorCount;
+
         emit ValidatorDeleted(validator.ownerAddress, publicKey);
 
         delete _validators[publicKey];
-        --_validatorCount;
-
     }
 
     /**
@@ -320,6 +321,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function _activateOperatorUnsafe(bytes calldata publicKey) private {
         require(!_operators[publicKey].active, "already active");
         _operators[publicKey].active = true;
+        ++_operatorCount;
 
         emit OperatorActivated(_operators[publicKey].ownerAddress, publicKey);
     }
@@ -330,6 +332,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function _deactivateOperatorUnsafe(bytes calldata publicKey) private {
         require(_operators[publicKey].active, "already inactive");
         _operators[publicKey].active = false;
+        --_operatorCount;
 
         emit OperatorInactivated(_operators[publicKey].ownerAddress, publicKey);
     }
@@ -351,6 +354,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function _activateValidatorUnsafe(bytes calldata publicKey) private {
         require(!_validators[publicKey].active, "already active");
         _validators[publicKey].active = true;
+        ++_activeValidatorCount;
 
         emit ValidatorActivated(_validators[publicKey].ownerAddress, publicKey);
     }
@@ -361,6 +365,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function _deactivateValidatorUnsafe(bytes calldata publicKey) private {
         require(_validators[publicKey].active, "already inactive");
         _validators[publicKey].active = false;
+        --_activeValidatorCount;
 
         emit ValidatorInactivated(_validators[publicKey].ownerAddress, publicKey);
     }
@@ -382,7 +387,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         require(
             operatorPublicKeys.length == sharesPublicKeys.length &&
             operatorPublicKeys.length == encryptedKeys.length &&
-            operatorPublicKeys.length % 3 == 1,
+            operatorPublicKeys.length >= 4 && operatorPublicKeys.length % 3 == 1,
             "OESS data structure is not valid"
         );
     }

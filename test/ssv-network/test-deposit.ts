@@ -13,6 +13,7 @@ import {
 
 import {
   checkTotalBalance,
+  checkTotalEarnings,
 } from './asserts';
 
 before(() => {
@@ -43,6 +44,8 @@ describe('SSV Network', function() {
           () => registerValidator(account1, 0, [0, 1, 2, 3], 1000),
         ],
         asserts: [
+          () => checkTotalEarnings(account1.address),
+          () => checkTotalEarnings(account2.address),
           () => checkTotalBalance(account1.address),
         ],
       },
@@ -51,11 +54,15 @@ describe('SSV Network', function() {
           () => deposit(account1, 500),
         ],
         asserts: [
+          () => checkTotalEarnings(account1.address),
+          () => checkTotalEarnings(account2.address),
           () => checkTotalBalance(account1.address),
         ],
       },
       40: {
         asserts: [
+          () => checkTotalEarnings(account1.address),
+          () => checkTotalEarnings(account2.address),
           () => checkTotalBalance(account1.address),
         ],
       },
