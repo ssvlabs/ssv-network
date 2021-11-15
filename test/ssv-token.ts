@@ -17,7 +17,6 @@ let ssvToken;
 let owner, owner2, firstHolder, secondHolder, thirdHolder;
 describe('SSVToken', function() {
   before(async function () {
-    await network.provider.send("hardhat_reset", []);
     [owner, owner2, firstHolder, secondHolder, thirdHolder] = await ethers.getSigners();
     const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
     ssvToken = await ssvTokenFactory.deploy();

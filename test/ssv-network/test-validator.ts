@@ -17,6 +17,8 @@ import {
   checkOperatorIndexes,
   checkOperatorBalances,
   checkTotalBalance,
+  checkTotalEarnings,
+  checkNetworkTreasury,
 } from './asserts';
 
 before(() => {
@@ -41,7 +43,9 @@ describe('SSV Network', function() {
           () => registerOperator(account2, 2, 1),
           () => registerOperator(account2, 3, 3),
         ],
-        asserts: [],
+        asserts: [
+          () => checkNetworkTreasury(),
+        ],
       },
       20: {
         funcs: [
@@ -50,6 +54,7 @@ describe('SSV Network', function() {
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
+          () => checkNetworkTreasury(),
         ],
       },
       100: {
@@ -61,6 +66,7 @@ describe('SSV Network', function() {
         asserts: [
           () => checkTotalBalance(account1.address),
           () => checkTotalBalance(account2.address),
+          () => checkNetworkTreasury(),
         ]
       },
       150: {
@@ -72,6 +78,9 @@ describe('SSV Network', function() {
         asserts: [
           () => checkTotalBalance(account1.address),
           () => checkTotalBalance(account2.address),
+          () => checkTotalEarnings(account1.address),
+          () => checkTotalEarnings(account2.address),
+          () => checkNetworkTreasury(),
         ]
       },
     };

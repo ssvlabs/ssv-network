@@ -123,7 +123,7 @@ interface ISSVRegistry {
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee The fee which the operator charges for each block.
      */
-    function registerOperator( string calldata name, address ownerAddress, bytes calldata publicKey, uint256 fee) external;
+    function registerOperator(string calldata name, address ownerAddress, bytes calldata publicKey, uint256 fee) external;
 
     /**
      * @dev Deletes an operator.

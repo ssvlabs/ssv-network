@@ -19,6 +19,7 @@ before(() => {
 const { expect } = chai;
 
 const minimumBlocksBeforeLiquidation = 50;
+const operatorMaxFeeIncrease = 10;
 
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
@@ -96,7 +97,7 @@ describe('SSV Network Balances Calculation', function() {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease]);
     await ssvNetwork.deployed();
     await ssvToken.mint(account1.address, '10000000');
   });
@@ -206,14 +207,8 @@ describe('SSV Network Balances Calculation', function() {
 
   it('Revenue', async function() {
     const table = new Table({ head: ["", "Block #", "10", "20", "30", "40", "50", "60", "100"] });
-    const operator0Balances = [""];
-    const operator1Balances = [""];
-    const operator2Balances = [""];
-    const operator3Balances = [""];
-    const operator0Fees = [""];
-    const operator1Fees = [""];
-    const operator2Fees = [""];
-    const operator3Fees = [""];
+    const operatorEarnings = [[""],[""],[""],[""]];
+    const operatorFees = [[""],[""],[""],[""]];
 
     const networkAddFeeByBlocks = [""];
     // await network.provider.send("evm_increaseTime", [3]);
@@ -239,26 +234,26 @@ describe('SSV Network Balances Calculation', function() {
        block #20
       */
       await network.provider.send("evm_setAutomine", [true]);
-      operator0Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[0])}`);
-      operator1Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[1])}`);
-      operator2Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[2])}`);
-      operator3Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[3])}`);
-      operator0Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
-      operator1Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
-      operator2Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
-      operator3Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
+      operatorEarnings[0].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[0])}`);
+      operatorEarnings[1].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[1])}`);
+      operatorEarnings[2].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[2])}`);
+      operatorEarnings[3].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[3])}`);
+      operatorFees[0].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
+      operatorFees[1].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
+      operatorFees[2].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
+      operatorFees[3].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
 
       // register validator
       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount}`)).wait();
 
-      operator0Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[0])}`);
-      operator1Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[1])}`);
-      operator2Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[2])}`);
-      operator3Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[3])}`);
-      operator0Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
-      operator1Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
-      operator2Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
-      operator3Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
+      operatorEarnings[0].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[0])}`);
+      operatorEarnings[1].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[1])}`);
+      operatorEarnings[2].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[2])}`);
+      operatorEarnings[3].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[3])}`);
+      operatorFees[0].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
+      operatorFees[1].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
+      operatorFees[2].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
+      operatorFees[3].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
 
       await progressBlocks(9);
       /*
@@ -271,14 +266,14 @@ describe('SSV Network Balances Calculation', function() {
       await network.provider.send("evm_setAutomine", [true]);
       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount}`)).wait();
       
-      operator0Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[0])}`);
-      operator1Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[1])}`);
-      operator2Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[2])}`);
-      operator3Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[3])}`);
-      operator0Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
-      operator1Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
-      operator2Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
-      operator3Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
+      operatorEarnings[0].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[0])}`);
+      operatorEarnings[1].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[1])}`);
+      operatorEarnings[2].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[2])}`);
+      operatorEarnings[3].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[3])}`);
+      operatorFees[0].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
+      operatorFees[1].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
+      operatorFees[2].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
+      operatorFees[3].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
 
 
       await progressBlocks(9);
@@ -288,14 +283,14 @@ describe('SSV Network Balances Calculation', function() {
       // register validator
       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[2], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount}`)).wait();
 
-      operator0Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[0])}`);
-      operator1Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[1])}`);
-      operator2Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[2])}`);
-      operator3Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[3])}`);
-      operator0Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
-      operator1Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
-      operator2Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
-      operator3Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
+      operatorEarnings[0].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[0])}`);
+      operatorEarnings[1].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[1])}`);
+      operatorEarnings[2].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[2])}`);
+      operatorEarnings[3].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[3])}`);
+      operatorFees[0].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
+      operatorFees[1].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
+      operatorFees[2].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
+      operatorFees[3].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
 
       await progressBlocks(9);
       /*
@@ -308,57 +303,57 @@ describe('SSV Network Balances Calculation', function() {
       // register validator
       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[3], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount}`)).wait();
 
-      operator0Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[0])}`);
-      operator1Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[1])}`);
-      operator2Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[2])}`);
-      operator3Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[3])}`);
-      operator0Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
-      operator1Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
-      operator2Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
-      operator3Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
+      operatorEarnings[0].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[0])}`);
+      operatorEarnings[1].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[1])}`);
+      operatorEarnings[2].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[2])}`);
+      operatorEarnings[3].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[3])}`);
+      operatorFees[0].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
+      operatorFees[1].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
+      operatorFees[2].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
+      operatorFees[3].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
 
       await progressBlocks(10);
       /*
        block #60
       */
-      operator0Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[0])}`);
-      operator1Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[1])}`);
-      operator2Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[2])}`);
-      operator3Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[3])}`);
-      operator0Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
-      operator1Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
-      operator2Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
-      operator3Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
+      operatorEarnings[0].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[0])}`);
+      operatorEarnings[1].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[1])}`);
+      operatorEarnings[2].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[2])}`);
+      operatorEarnings[3].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[3])}`);
+      operatorFees[0].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
+      operatorFees[1].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
+      operatorFees[2].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
+      operatorFees[3].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
 
       await progressBlocks(40);
       /*
        block #100
-      */      
-      operator0Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[0])}`);
-      operator1Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[1])}`);
-      operator2Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[2])}`);
-      operator3Balances.push(`${+await ssvNetwork.operatorBalanceOf(operatorsPub[3])}`);
-      operator0Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
-      operator1Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
-      operator2Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
-      operator3Fees.push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
+      */
+      operatorEarnings[0].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[0])}`);
+      operatorEarnings[1].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[1])}`);
+      operatorEarnings[2].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[2])}`);
+      operatorEarnings[3].push(`${+await ssvNetwork.operatorEarningsOf(operatorsPub[3])}`);
+      operatorFees[0].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])}`);
+      operatorFees[1].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[1])}`);
+      operatorFees[2].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[2])}`);
+      operatorFees[3].push(`${+await ssvRegistry.getOperatorCurrentFee(operatorsPub[3])}`);
 
       table.push(
-        { 'Operator #1 earnings': operator0Balances },
-        { 'Operator #1 fee': operator0Fees },
-        { 'Operator #2 earnings': operator1Balances },
-        { 'Operator #2 fee': operator1Fees },
-        { 'Operator #3 earnings': operator2Balances },
-        { 'Operator #3 fee': operator2Fees },
-        { 'Operator #4 earnings': operator3Balances },
-        { 'Operator #4 fee': operator3Fees },
+        { 'Operator #1 earnings': operatorEarnings[0] },
+        { 'Operator #1 fee': operatorFees[0] },
+        { 'Operator #2 earnings': operatorEarnings[1] },
+        { 'Operator #2 fee': operatorFees[1] },
+        { 'Operator #3 earnings': operatorEarnings[2] },
+        { 'Operator #3 fee': operatorFees[2] },
+        { 'Operator #4 earnings': operatorEarnings[3] },
+        { 'Operator #4 fee': operatorFees[3] },
       );
 
       console.log(table.toString());
-      expect(+await ssvNetwork.operatorBalanceOf(operatorsPub[0])).to.equal(528);
-      expect(+await ssvNetwork.operatorBalanceOf(operatorsPub[1])).to.equal(264);
-      expect(+await ssvNetwork.operatorBalanceOf(operatorsPub[2])).to.equal(264);
-      expect(+await ssvNetwork.operatorBalanceOf(operatorsPub[3])).to.equal(792);
+      expect(+await ssvNetwork.operatorEarningsOf(operatorsPub[0])).to.equal(528);
+      expect(+await ssvNetwork.operatorEarningsOf(operatorsPub[1])).to.equal(264);
+      expect(+await ssvNetwork.operatorEarningsOf(operatorsPub[2])).to.equal(264);
+      expect(+await ssvNetwork.operatorEarningsOf(operatorsPub[3])).to.equal(792);
 
     });
   });

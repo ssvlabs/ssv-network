@@ -12,7 +12,12 @@ export const asciiToHex = str =>  {
 }
 
 export const progress = async function(time, blocks, func = null) {
-  const snapshot = await network.provider.send("evm_snapshot");
+  let snapshot;
+
+  if (func) {
+    snapshot = await network.provider.send("evm_snapshot");
+  }
+
   if (time) {
     await network.provider.send("evm_increaseTime", [time]);
     if (!blocks) {
