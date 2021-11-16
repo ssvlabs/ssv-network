@@ -73,6 +73,7 @@ async function extractValidatorsWithMetrics(records, fromEpoch, toEpoch) {
         throw new Error(JSON.stringify(e.response.body));
       }
       records.forEach((item) => {
+        item.active = `${!!response.find(value => value.PubKey === item.publicKey.replace('0x', ''))}`;
         const eff = response.find(value => value.PubKey === item.publicKey.replace('0x', ''))?.Effectiveness || 0;
         const att = response.find(value => value.PubKey === item.publicKey.replace('0x', ''))?.Attestations?.Rate || 0;
         if (eff) {
