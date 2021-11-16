@@ -139,7 +139,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorDeleted(owner, publicKey);
     }
 
-    function activateOperator(bytes calldata publicKey) external override {
+    function activateOperator(bytes calldata publicKey) onlyOperatorOwner(publicKey) external override {
         _ssvRegistryContract.activateOperator(publicKey);
         _updateAddressNetworkFee(msg.sender);
         ++_owners[msg.sender].activeValidatorsCount;
@@ -147,10 +147,12 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorActivated(msg.sender, publicKey);
     }
 
-    function deactivateOperator(bytes calldata publicKey) external override {
+    function deactivateOperator(bytes calldata publicKey) onlyOperatorOwner(publicKey) external override {
         require(_operatorDatas[publicKey].validatorCount == 0, "operator has validators");
 
         _ssvRegistryContract.deactivateOperator(publicKey);
+
+        emit OperatorInactivated(msg.sender, publicKey);
     }
 
     function updateOperatorFee(bytes calldata publicKey, uint256 fee) external onlyOperatorOwner(publicKey) override {
@@ -161,10 +163,14 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _updateOperatorBalance(publicKey);
         _ssvRegistryContract.updateOperatorFee(publicKey, fee);
         _operatorDatas[publicKey].lastFeeUpdate = block.timestamp;
+
+        emit OperatorFeeUpdated(msg.sender, publicKey, block.number, fee);
     }
 
     function updateOperatorScore(bytes calldata publicKey, uint256 score) external onlyOwner override {
         _ssvRegistryContract.updateOperatorScore(publicKey, score);
+
+        emit OperatorScoreUpdated(msg.sender, publicKey, block.number, score);
     }
 
     /**
@@ -291,6 +297,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     function deactivateValidator(bytes calldata publicKey) onlyValidatorOwner(publicKey) external override {
         _deactivateValidator(publicKey, msg.sender);
+
+        emit ValidatorInactivated(msg.sender, publicKey);
     }
 
     function deposit(uint256 tokenAmount) external override {
