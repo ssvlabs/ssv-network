@@ -199,6 +199,22 @@ interface ISSVNetwork {
         );
 
     /**
+     * @dev Gets a validator public keys by owner's address.
+     * @param ownerAddress Owner's Address.
+     */
+    function getValidatorsByOwnerAddress(address ownerAddress)
+        external view
+        returns (bytes[] memory);
+
+    /**
+     * @dev Returns operators for owner.
+     * @param ownerAddress Owner's address.
+     */
+    function getOperatorsByOwnerAddress(address ownerAddress)
+        external view
+        returns (bytes[] memory);
+
+    /**
      * @dev Gets operator current fee.
      * @param publicKey Operator's public key.
      */

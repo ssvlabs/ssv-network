@@ -361,6 +361,20 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     /**
+     * @dev See {ISSVNetwork-getOperatorsByOwnerAddress}.
+     */
+    function getOperatorsByOwnerAddress(address ownerAddress) external view override returns (bytes[] memory) {
+        return _ssvRegistryContract.getOperatorsByOwnerAddress(ownerAddress);
+    }
+
+    /**
+     * @dev See {ISSVNetwork-getValidatorsByAddress}.
+     */
+    function getValidatorsByOwnerAddress(address ownerAddress) external view override returns (bytes[] memory) {
+        return _ssvRegistryContract.getValidatorsByAddress(ownerAddress);
+    }
+
+    /**
      * @dev See {ISSVNetwork-addressNetworkFee}.
      */
     function addressNetworkFee(address ownerAddress) external view override returns (uint256) {
