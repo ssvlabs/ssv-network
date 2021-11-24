@@ -318,6 +318,14 @@ interface ISSVNetwork {
         returns (bytes[] memory);
 
     /**
+     * @dev Gets operators list which are in use by validator.
+     * @param validatorPublicKey Validator's public key.
+     */
+    function getOperatorsByValidator(bytes calldata validatorPublicKey)
+        external view
+        returns (bytes[] memory);
+
+    /**
      * @dev Gets operator current fee.
      * @param publicKey Operator's public key.
      */
