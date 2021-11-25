@@ -7,18 +7,121 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork {
     /**
-     * @dev Emitted when the operator validator added.
-     * @param ownerAddress The user's ethereum address that is the owner of the operator.
-     * @param blockNumber Block number for changes.
-     */
-    event OperatorValidatorAdded(address ownerAddress, uint256 blockNumber);
-
-    /**
      * @dev Emitted when the network fee is updated.
      * @param oldFee The old fee
      * @param newFee The new fee
      */
     event NetworkFeeUpdated(uint256 oldFee, uint256 newFee);
+
+    /**
+     * @dev Emitted when the operator has been added.
+     * @param name Operator's display name.
+     * @param ownerAddress Operator's ethereum address that can collect fees.
+     * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
+     */
+    event OperatorAdded(string name, address indexed ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when the operator has been deleted.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
+     */
+    event OperatorDeleted(address indexed ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when the operator has been activated.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
+     */
+    event OperatorActivated(address indexed ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when the operator has been deactivated.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
+     */
+    event OperatorInactivated(address indexed ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when an operator's fee is updated.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
+     * @param blockNumber from which block number.
+     * @param fee updated fee value.
+     */
+    event OperatorFeeUpdated(
+        address indexed ownerAddress,
+        bytes publicKey,
+        uint256 blockNumber,
+        uint256 fee
+    );
+
+    /**
+     * @dev Emitted when an operator's score is updated.
+     * @param ownerAddress Operator's owner.
+     * @param publicKey Operator's public key.
+     * @param blockNumber from which block number.
+     * @param score updated score value.
+     */
+    event OperatorScoreUpdated(
+        address indexed ownerAddress,
+        bytes publicKey,
+        uint256 blockNumber,
+        uint256 score
+    );
+
+    /**
+     * @dev Emitted when the validator has been added.
+     * @param ownerAddress The user's ethereum address that is the owner of the validator.
+     * @param publicKey The public key of a validator.
+     * @param operatorPublicKeys The operators public keys list for this validator.
+     * @param sharesPublicKeys The shared publick keys list for this validator.
+     * @param encryptedKeys The encrypted keys list for this validator.
+     */
+    event ValidatorAdded(
+        address ownerAddress,
+        bytes publicKey,
+        bytes[] operatorPublicKeys,
+        bytes[] sharesPublicKeys,
+        bytes[] encryptedKeys
+    );
+
+    /**
+     * @dev Emitted when the validator has been updated.
+     * @param ownerAddress The user's ethereum address that is the owner of the validator.
+     * @param publicKey The public key of a validator.
+     * @param operatorPublicKeys The operators public keys list for this validator.
+     * @param sharesPublicKeys The shared publick keys list for this validator.
+     * @param encryptedKeys The encrypted keys list for this validator.
+     */
+    event ValidatorUpdated(
+        address ownerAddress,
+        bytes publicKey,
+        bytes[] operatorPublicKeys,
+        bytes[] sharesPublicKeys,
+        bytes[] encryptedKeys
+    );
+
+    /**
+     * @dev Emitted when the validator is deleted.
+     * @param ownerAddress Validator's owner.
+     * @param publicKey The public key of a validator.
+     */
+    event ValidatorDeleted(address ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when the validator is activated.
+     * @param ownerAddress Validator's owner.
+     * @param publicKey The public key of a validator.
+     */
+    event ValidatorActivated(address ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when the validator is deactivated.
+     * @param ownerAddress Validator's owner.
+     * @param publicKey The public key of a validator.
+     */
+    event ValidatorInactivated(address ownerAddress, bytes publicKey);
 
     /**
      * @dev Initializes the contract.
@@ -197,6 +300,30 @@ interface ISSVNetwork {
             bool,
             uint256
         );
+
+    /**
+     * @dev Gets a validator public keys by owner's address.
+     * @param ownerAddress Owner's Address.
+     */
+    function getValidatorsByOwnerAddress(address ownerAddress)
+        external view
+        returns (bytes[] memory);
+
+    /**
+     * @dev Returns operators for owner.
+     * @param ownerAddress Owner's address.
+     */
+    function getOperatorsByOwnerAddress(address ownerAddress)
+        external view
+        returns (bytes[] memory);
+
+    /**
+     * @dev Gets operators list which are in use by validator.
+     * @param validatorPublicKey Validator's public key.
+     */
+    function getOperatorsByValidator(bytes calldata validatorPublicKey)
+        external view
+        returns (bytes[] memory);
 
     /**
      * @dev Gets operator current fee.

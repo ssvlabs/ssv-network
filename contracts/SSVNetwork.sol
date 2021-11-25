@@ -122,6 +122,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         );
 
         _operatorDatas[publicKey] = OperatorData(block.number, 0, 0, 0, block.number, block.timestamp);
+
+        emit OperatorAdded(name, msg.sender, publicKey);
     }
 
     /**
@@ -133,19 +135,24 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _owners[owner].earned += _operatorDatas[publicKey].earnings;
         delete _operatorDatas[publicKey];
         _ssvRegistryContract.deleteOperator(publicKey);
+
+        emit OperatorDeleted(owner, publicKey);
     }
 
-
-    function activateOperator(bytes calldata publicKey) external override {
+    function activateOperator(bytes calldata publicKey) onlyOperatorOwner(publicKey) external override {
         _ssvRegistryContract.activateOperator(publicKey);
         _updateAddressNetworkFee(msg.sender);
         ++_owners[msg.sender].activeValidatorsCount;
+
+        emit OperatorActivated(msg.sender, publicKey);
     }
 
-    function deactivateOperator(bytes calldata publicKey) external override {
+    function deactivateOperator(bytes calldata publicKey) onlyOperatorOwner(publicKey) external override {
         require(_operatorDatas[publicKey].validatorCount == 0, "operator has validators");
 
         _ssvRegistryContract.deactivateOperator(publicKey);
+
+        emit OperatorInactivated(msg.sender, publicKey);
     }
 
     function updateOperatorFee(bytes calldata publicKey, uint256 fee) external onlyOperatorOwner(publicKey) override {
@@ -156,10 +163,14 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _updateOperatorBalance(publicKey);
         _ssvRegistryContract.updateOperatorFee(publicKey, fee);
         _operatorDatas[publicKey].lastFeeUpdate = block.timestamp;
+
+        emit OperatorFeeUpdated(msg.sender, publicKey, block.number, fee);
     }
 
     function updateOperatorScore(bytes calldata publicKey, uint256 score) external onlyOwner override {
         _ssvRegistryContract.updateOperatorScore(publicKey, score);
+
+        emit OperatorScoreUpdated(msg.sender, publicKey, block.number, score);
     }
 
     /**
@@ -196,6 +207,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
 
         require(!_liquidatable(msg.sender), "not enough balance");
+
+        emit ValidatorAdded(msg.sender, publicKey, operatorPublicKeys, sharesPublicKeys, encryptedKeys);
     }
 
     /**
@@ -240,6 +253,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
 
         require(!_liquidatable(msg.sender), "not enough balance");
+
+        emit ValidatorUpdated(msg.sender, publicKey, operatorPublicKeys, sharesPublicKeys, encryptedKeys);
     }
 
     /**
@@ -253,6 +268,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _ssvRegistryContract.deleteValidator(publicKey);
         _updateAddressNetworkFee(msg.sender);
         --_owners[msg.sender].activeValidatorsCount;
+
+        emit ValidatorDeleted(msg.sender, publicKey);
     }
 
     function activateValidator(bytes calldata publicKey, uint256 tokenAmount) onlyValidatorOwner(publicKey) external override {
@@ -274,10 +291,14 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
 
         require(!_liquidatable(msg.sender), "not enough balance");
+
+        emit ValidatorActivated(msg.sender, publicKey);
     }
 
     function deactivateValidator(bytes calldata publicKey) onlyValidatorOwner(publicKey) external override {
         _deactivateValidator(publicKey, msg.sender);
+
+        emit ValidatorInactivated(msg.sender, publicKey);
     }
 
     function deposit(uint256 tokenAmount) external override {
@@ -358,6 +379,27 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      */
     function operatorEarningsOf(bytes memory publicKey) external view override returns (uint256) {
         return _operatorEarningsOf(publicKey);
+    }
+
+    /**
+     * @dev See {ISSVNetwork-getOperatorsByOwnerAddress}.
+     */
+    function getOperatorsByOwnerAddress(address ownerAddress) external view override returns (bytes[] memory) {
+        return _ssvRegistryContract.getOperatorsByOwnerAddress(ownerAddress);
+    }
+
+    /**
+     * @dev See {ISSVNetwork-getOperatorsByValidator}.
+     */
+    function getOperatorsByValidator(bytes memory publicKey) external view override returns (bytes[] memory) {
+        return _ssvRegistryContract.getOperatorsByValidator(publicKey);
+    }
+
+    /**
+     * @dev See {ISSVNetwork-getValidatorsByAddress}.
+     */
+    function getValidatorsByOwnerAddress(address ownerAddress) external view override returns (bytes[] memory) {
+        return _ssvRegistryContract.getValidatorsByAddress(ownerAddress);
     }
 
     /**
