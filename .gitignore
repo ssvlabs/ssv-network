@@ -8,3 +8,5 @@ artifacts
 .openzeppelin/unknown-*
 subgraph/build
 .idea
+/incentivized_testnet/operators*
+/incentivized_testnet/validators*
