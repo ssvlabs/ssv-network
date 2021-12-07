@@ -511,13 +511,13 @@
             "contract": "Initializable",
             "label": "_initialized",
             "type": "t_bool",
-            "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:23"
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:23"
           },
           {
             "contract": "Initializable",
             "label": "_initializing",
             "type": "t_bool",
-            "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:28"
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:28"
           },
           {
             "contract": "ContextUpgradeable",
@@ -558,19 +558,19 @@
           {
             "contract": "SSVRegistry",
             "label": "_operators",
-            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)4839_storage)",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)618_storage)",
             "src": "contracts/SSVRegistry.sol:36"
           },
           {
             "contract": "SSVRegistry",
             "label": "_validators",
-            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)4852_storage)",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)631_storage)",
             "src": "contracts/SSVRegistry.sol:37"
           },
           {
             "contract": "SSVRegistry",
             "label": "_operatorFees",
-            "type": "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)4857_storage)dyn_storage)",
+            "type": "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)636_storage)dyn_storage)",
             "src": "contracts/SSVRegistry.sol:39"
           },
           {
@@ -590,13 +590,13 @@
           "t_uint256": {
             "label": "uint256"
           },
-          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)4839_storage)": {
+          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)618_storage)": {
             "label": "mapping(bytes => struct SSVRegistry.Operator)"
           },
           "t_bytes_storage": {
             "label": "bytes"
           },
-          "t_struct(Operator)4839_storage": {
+          "t_struct(Operator)618_storage": {
             "label": "struct SSVRegistry.Operator",
             "members": [
               {
@@ -634,10 +634,10 @@
           "t_bool": {
             "label": "bool"
           },
-          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)4852_storage)": {
+          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)631_storage)": {
             "label": "mapping(bytes => struct SSVRegistry.Validator)"
           },
-          "t_struct(Validator)4852_storage": {
+          "t_struct(Validator)631_storage": {
             "label": "struct SSVRegistry.Validator",
             "members": [
               {
@@ -650,7 +650,7 @@
               },
               {
                 "label": "oess",
-                "type": "t_array(t_struct(Oess)2443_storage)dyn_storage"
+                "type": "t_array(t_struct(Oess)303_storage)dyn_storage"
               },
               {
                 "label": "active",
@@ -662,10 +662,10 @@
               }
             ]
           },
-          "t_array(t_struct(Oess)2443_storage)dyn_storage": {
+          "t_array(t_struct(Oess)303_storage)dyn_storage": {
             "label": "struct ISSVRegistry.Oess[]"
           },
-          "t_struct(Oess)2443_storage": {
+          "t_struct(Oess)303_storage": {
             "label": "struct ISSVRegistry.Oess",
             "members": [
               {
@@ -682,13 +682,13 @@
               }
             ]
           },
-          "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)4857_storage)dyn_storage)": {
+          "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)636_storage)dyn_storage)": {
             "label": "mapping(bytes => struct SSVRegistry.OperatorFee[])"
           },
-          "t_array(t_struct(OperatorFee)4857_storage)dyn_storage": {
+          "t_array(t_struct(OperatorFee)636_storage)dyn_storage": {
             "label": "struct SSVRegistry.OperatorFee[]"
           },
-          "t_struct(OperatorFee)4857_storage": {
+          "t_struct(OperatorFee)636_storage": {
             "label": "struct SSVRegistry.OperatorFee",
             "members": [
               {
@@ -1778,6 +1778,242 @@
           },
           "t_mapping(t_bytes_memory_ptr,t_uint256)": {
             "label": "mapping(bytes => uint256)"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          }
+        }
+      }
+    },
+    "f66337b2c14955b2001a36175d40bb64cd2d94582ad15c67473cb56386a60819": {
+      "address": "0x66fea9A226A5076f77dD4663CEE7Bde6D581609B",
+      "txHash": "0x400b65333bcfa24b9f020996ba6d48c9ae4e36bdba06ecba58bdb3e55aef2979",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:23"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:28"
+          },
+          {
+            "contract": "ContextUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:31"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "_owner",
+            "type": "t_address",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:20"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)49_storage",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:74"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_operatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVRegistry.sol:37"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_validatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVRegistry.sol:38"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_activeValidatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVRegistry.sol:39"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_operators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)5503_storage)",
+            "src": "contracts/SSVRegistry.sol:41"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_validators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)5516_storage)",
+            "src": "contracts/SSVRegistry.sol:42"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_operatorFees",
+            "type": "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)5521_storage)dyn_storage)",
+            "src": "contracts/SSVRegistry.sol:44"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_operatorsByOwnerAddress",
+            "type": "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)",
+            "src": "contracts/SSVRegistry.sol:46"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_validatorsByAddress",
+            "type": "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)",
+            "src": "contracts/SSVRegistry.sol:47"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_owners",
+            "type": "t_mapping(t_address,t_struct(OwnerData)5526_storage)",
+            "src": "contracts/SSVRegistry.sol:48"
+          }
+        ],
+        "types": {
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)5503_storage)": {
+            "label": "mapping(bytes => struct SSVRegistry.Operator)"
+          },
+          "t_bytes_storage": {
+            "label": "bytes"
+          },
+          "t_struct(Operator)5503_storage": {
+            "label": "struct SSVRegistry.Operator",
+            "members": [
+              {
+                "label": "name",
+                "type": "t_string_storage"
+              },
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "score",
+                "type": "t_uint256"
+              },
+              {
+                "label": "active",
+                "type": "t_bool"
+              },
+              {
+                "label": "index",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_bool": {
+            "label": "bool"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)5516_storage)": {
+            "label": "mapping(bytes => struct SSVRegistry.Validator)"
+          },
+          "t_struct(Validator)5516_storage": {
+            "label": "struct SSVRegistry.Validator",
+            "members": [
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "oess",
+                "type": "t_array(t_struct(Oess)2605_storage)dyn_storage"
+              },
+              {
+                "label": "active",
+                "type": "t_bool"
+              },
+              {
+                "label": "index",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_array(t_struct(Oess)2605_storage)dyn_storage": {
+            "label": "struct ISSVRegistry.Oess[]"
+          },
+          "t_struct(Oess)2605_storage": {
+            "label": "struct ISSVRegistry.Oess",
+            "members": [
+              {
+                "label": "operatorPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "sharedPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "encryptedKey",
+                "type": "t_bytes_storage"
+              }
+            ]
+          },
+          "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)5521_storage)dyn_storage)": {
+            "label": "mapping(bytes => struct SSVRegistry.OperatorFee[])"
+          },
+          "t_array(t_struct(OperatorFee)5521_storage)dyn_storage": {
+            "label": "struct SSVRegistry.OperatorFee[]"
+          },
+          "t_struct(OperatorFee)5521_storage": {
+            "label": "struct SSVRegistry.OperatorFee",
+            "members": [
+              {
+                "label": "blockNumber",
+                "type": "t_uint256"
+              },
+              {
+                "label": "fee",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)": {
+            "label": "mapping(address => bytes[])"
+          },
+          "t_array(t_bytes_storage)dyn_storage": {
+            "label": "bytes[]"
+          },
+          "t_mapping(t_address,t_struct(OwnerData)5526_storage)": {
+            "label": "mapping(address => struct SSVRegistry.OwnerData)"
+          },
+          "t_struct(OwnerData)5526_storage": {
+            "label": "struct SSVRegistry.OwnerData",
+            "members": [
+              {
+                "label": "activeValidatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "validatorsDisabled",
+                "type": "t_bool"
+              }
+            ]
           },
           "t_array(t_uint256)49_storage": {
             "label": "uint256[49]"
