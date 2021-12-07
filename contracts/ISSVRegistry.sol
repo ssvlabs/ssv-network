@@ -36,7 +36,7 @@ interface ISSVRegistry {
      * @param ownerAddress Operator's owner.
      * @param publicKey Operator's public key.
      */
-    event OperatorInactivated(address indexed ownerAddress, bytes publicKey);
+    event OperatorDeactivated(address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -109,7 +109,11 @@ interface ISSVRegistry {
      * @param ownerAddress Validator's owner.
      * @param publicKey The public key of a validator.
      */
-    event ValidatorInactivated(address ownerAddress, bytes publicKey);
+    event ValidatorDeactivated(address ownerAddress, bytes publicKey);
+
+    event OwnerValidatorsDisabled(address ownerAddress);
+
+    event OwnerValidatorsEnabled(address ownerAddress);
 
     /**
      * @dev Initializes the contract
@@ -211,6 +215,11 @@ interface ISSVRegistry {
      */
     function deactivateValidator(bytes calldata publicKey) external;
 
+    function enableOwnerValidators(address ownerAddress) external;
+
+    function disableOwnerValidators(address ownerAddress) external;
+
+    function isOwnerValidatorsDisabled(address ownerAddress) external view returns (bool);
 
     /**
      * @dev Returns the operator count.
@@ -263,9 +272,14 @@ interface ISSVRegistry {
         returns (uint256);
 
     /**
-     * @dev Gets validators count.
+     * @dev Gets validator count.
      */
     function validatorCount() external view returns (uint256);
+
+    /**
+     * @dev Gets active validator count.
+     */
+    function activeValidatorCount() external view returns (uint256);
 
     /**
      * @dev Gets an validator by public key.

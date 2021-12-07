@@ -7,13 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork {
     /**
-     * @dev Emitted when the network fee is updated.
-     * @param oldFee The old fee
-     * @param newFee The new fee
-     */
-    event NetworkFeeUpdated(uint256 oldFee, uint256 newFee);
-
-    /**
      * @dev Emitted when the operator has been added.
      * @param name Operator's display name.
      * @param ownerAddress Operator's ethereum address that can collect fees.
@@ -40,7 +33,7 @@ interface ISSVNetwork {
      * @param ownerAddress Operator's owner.
      * @param publicKey Operator's public key.
      */
-    event OperatorInactivated(address indexed ownerAddress, bytes publicKey);
+    event OperatorDeactivated(address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -121,7 +114,35 @@ interface ISSVNetwork {
      * @param ownerAddress Validator's owner.
      * @param publicKey The public key of a validator.
      */
-    event ValidatorInactivated(address ownerAddress, bytes publicKey);
+    event ValidatorDeactivated(address ownerAddress, bytes publicKey);
+
+    /**
+     * @dev Emitted when an owner deposits funds.
+     * @param value Amount of tokens.
+     * @param ownerAddress Owner's address.
+     */
+    event FundsDeposited(uint256 value, address ownerAddress);
+
+    /**
+     * @dev Emitted when an owner withdraws funds.
+     * @param value Amount of tokens.
+     * @param ownerAddress Owner's address.
+     */
+    event FundsWithdrawn(uint256 value, address ownerAddress);
+
+    /**
+     * @dev Emitted when the network fee is updated.
+     * @param oldFee The old fee
+     * @param newFee The new fee
+     */
+    event NetworkFeeUpdated(uint256 oldFee, uint256 newFee);
+
+    /**
+     * @dev Emitted when transfer fees are withdrawn.
+     * @param value The amount of tokens withdrawn.
+     * @param recipient The recipient address.
+     */
+    event NetworkFeesWithdrawn(uint256 value, address recipient);
 
     /**
      * @dev Initializes the contract.
@@ -239,6 +260,11 @@ interface ISSVNetwork {
     function withdraw(uint256 tokenAmount) external;
 
     /**
+     * @dev Withdraw total balance to the sender, deactivating their validators if necessary.
+     */
+    function withdrawAll() external;
+
+    /**
      * @dev Liquidates an operator.
      * @param ownerAddress Owner's address.
      */
@@ -249,6 +275,8 @@ interface ISSVNetwork {
      * @param ownerAddresses Owners' addresses.
      */
     function liquidateAll(address[] calldata ownerAddresses) external;
+
+    function enableAccount(uint256 tokenAmount) external;
 
     /**
      * @dev Updates the number of blocks left for an owner before they can be liquidated.
@@ -272,19 +300,21 @@ interface ISSVNetwork {
      * @dev Withdraws network fees.
      * @param amount Amount to withdraw
      */
-     function withdrawNetworkFees(uint256 amount) external;
+    function withdrawNetworkFees(uint256 amount) external;
 
     /**
      * @dev Gets total earnings for an owner
      * @param ownerAddress Owner's address.
      */
-     function totalEarningsOf(address ownerAddress) external view returns (uint256);
+    function totalEarningsOf(address ownerAddress) external view returns (uint256);
 
     /**
      * @dev Gets total balance for an owner.
      * @param ownerAddress Owner's address.
      */
     function totalBalanceOf(address ownerAddress) external view returns (uint256);
+
+    function isOwnerValidatorsDisabled(address ownerAddress) external view returns (bool);
 
     /**
      * @dev Gets an operator by public key.

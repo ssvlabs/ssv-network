@@ -85,4 +85,16 @@ describe('SSV Registry', function() {
     expect(await ssvRegistry.getValidatorOwner(validatorsPub[0])).to.equal(account1.address);
     expect(await ssvRegistry.getValidatorOwner(validatorsPub[2])).to.equal(account2.address);
   });
+
+  it('disable owner validators', async () => {
+    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(false);
+    await ssvRegistry.disableOwnerValidators(account1.address);
+    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(true);
+  })
+
+  it('enable owner validators', async () => {
+    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(true);
+    await ssvRegistry.enableOwnerValidators(account1.address);
+    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(false);
+  })
 });
