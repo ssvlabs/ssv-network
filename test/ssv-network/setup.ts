@@ -190,7 +190,7 @@ export const registerValidator = async (account, validatorIdx, operatorIdxs, dep
   addressData[account.address].deposited += depositAmount;
   globalData.validatorCount++;
 
-  console.log(`      | Register validator ${validatorIdx} >  [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
+  console.log(`      | Register validator ${validatorIdx} > [ADDRESS] ${account.address} [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
 
 export const updateValidator = async (account, validatorIdx, operatorIdxs, depositAmount) => {
