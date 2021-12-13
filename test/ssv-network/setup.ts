@@ -158,7 +158,7 @@ export const registerOperator = async (account, idx, fee) => {
   };
 
   addressData[account.address].operatorIdxs.push(idx);
-  console.log(`      | Register operator ${idx} >  [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
+  console.log(`      | Register operator ${idx} > [ADDRESS] ${account.address} | [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
 
 export const registerValidator = async (account, validatorIdx, operatorIdxs, depositAmount) => {
