@@ -36,7 +36,7 @@ export const checkTotalBalance = async(address) => {
 }
 
 export const checkTotalEarnings = async (address) => {
-  console.log(`      | Total balance >  [ADDRESS] ${address} | [VALUE] ${+await totalEarningsOf(address)} | [BLOCKCHAIN] ${await ssvNetwork.totalEarningsOf(address)}`);
+  console.log(`      | Total Earnings >  [ADDRESS] ${address} | [VALUE] ${+await totalEarningsOf(address)} | [BLOCKCHAIN] ${await ssvNetwork.totalEarningsOf(address)}`);
   expect(+await ssvNetwork.totalEarningsOf(address)).to.equal(+await totalEarningsOf(address));
 }
 
