@@ -248,6 +248,7 @@ export const deposit = async(account, amount) => {
   await ssvToken.connect(account).approve(ssvNetwork.address, `${amount}`);
   await ssvNetwork.connect(account).deposit(`${amount}`);
   addressData[account.address].deposited += amount;
+  console.log(`      | Deposited: ${amount}`);
 }
 
 export const withdraw = async(account, amount) => {
