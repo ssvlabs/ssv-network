@@ -7,6 +7,18 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork {
     /**
+     * @dev Emitted when the account has been enabled.
+     * @param ownerAddress Operator's owner.
+     */
+    event AccountEnabled(address indexed ownerAddress);
+
+    /**
+     * @dev Emitted when the account has been liquidated.
+     * @param ownerAddress Operator's owner.
+     */
+    event AccountLiquidated(address indexed ownerAddress);
+
+    /**
      * @dev Emitted when the operator has been added.
      * @param name Operator's display name.
      * @param ownerAddress Operator's ethereum address that can collect fees.
@@ -101,20 +113,6 @@ interface ISSVNetwork {
      * @param publicKey The public key of a validator.
      */
     event ValidatorDeleted(address ownerAddress, bytes publicKey);
-
-    /**
-     * @dev Emitted when the validator is activated.
-     * @param ownerAddress Validator's owner.
-     * @param publicKey The public key of a validator.
-     */
-    event ValidatorActivated(address ownerAddress, bytes publicKey);
-
-    /**
-     * @dev Emitted when the validator is deactivated.
-     * @param ownerAddress Validator's owner.
-     * @param publicKey The public key of a validator.
-     */
-    event ValidatorDeactivated(address ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an owner deposits funds.
@@ -236,17 +234,6 @@ interface ISSVNetwork {
      */
     function deleteValidator(bytes calldata publicKey) external;
 
-    /**
-     * @dev Activates a validator.
-     * @param publicKey Validator's public key.
-     */
-    function activateValidator(bytes calldata publicKey, uint256 tokenAmount) external;
-
-    /**
-     * @dev Deactivates a validator.
-     * @param publicKey Validator's public key.
-     */
-    function deactivateValidator(bytes calldata publicKey) external;
     /**
      * @dev Deposits tokens for the sender.
      * @param tokenAmount Tokens amount.

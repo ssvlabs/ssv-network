@@ -99,17 +99,19 @@ describe('SSV Network Liquidation', function() {
     });
   });
 
+  /*
   it('activate validator in liquitable status', async function() {
     await snapshot(async function() {
       await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0);
-      await ssvNetwork.connect(account1).deactivateValidator(validatorsPub[1]);
+      // await ssvNetwork.connect(account1).deactivateValidator(validatorsPub[1]);
       await progressBlocks(800);
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      await expect(ssvNetwork.connect(account1).activateValidator(validatorsPub[1], 0)).to.be.revertedWith('not enough balance');
+      // await expect(ssvNetwork.connect(account1).activateValidator(validatorsPub[1], 0)).to.be.revertedWith('not enough balance');
       await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
-      await ssvNetwork.connect(account1).activateValidator(validatorsPub[1], tokens);
+      // await ssvNetwork.connect(account1).activateValidator(validatorsPub[1], tokens);
     });
   });
+  */
 
   it('liquidate', async function() {
     await progressBlocks(847, async function () {
