@@ -1844,19 +1844,19 @@
           {
             "contract": "SSVRegistry",
             "label": "_operators",
-            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)5503_storage)",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)5714_storage)",
             "src": "contracts/SSVRegistry.sol:41"
           },
           {
             "contract": "SSVRegistry",
             "label": "_validators",
-            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)5516_storage)",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)5727_storage)",
             "src": "contracts/SSVRegistry.sol:42"
           },
           {
             "contract": "SSVRegistry",
             "label": "_operatorFees",
-            "type": "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)5521_storage)dyn_storage)",
+            "type": "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)5732_storage)dyn_storage)",
             "src": "contracts/SSVRegistry.sol:44"
           },
           {
@@ -1874,7 +1874,7 @@
           {
             "contract": "SSVRegistry",
             "label": "_owners",
-            "type": "t_mapping(t_address,t_struct(OwnerData)5526_storage)",
+            "type": "t_mapping(t_address,t_struct(OwnerData)5737_storage)",
             "src": "contracts/SSVRegistry.sol:48"
           }
         ],
@@ -1882,13 +1882,13 @@
           "t_uint256": {
             "label": "uint256"
           },
-          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)5503_storage)": {
+          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)5714_storage)": {
             "label": "mapping(bytes => struct SSVRegistry.Operator)"
           },
           "t_bytes_storage": {
             "label": "bytes"
           },
-          "t_struct(Operator)5503_storage": {
+          "t_struct(Operator)5714_storage": {
             "label": "struct SSVRegistry.Operator",
             "members": [
               {
@@ -1926,10 +1926,10 @@
           "t_bool": {
             "label": "bool"
           },
-          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)5516_storage)": {
+          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)5727_storage)": {
             "label": "mapping(bytes => struct SSVRegistry.Validator)"
           },
-          "t_struct(Validator)5516_storage": {
+          "t_struct(Validator)5727_storage": {
             "label": "struct SSVRegistry.Validator",
             "members": [
               {
@@ -1974,13 +1974,13 @@
               }
             ]
           },
-          "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)5521_storage)dyn_storage)": {
+          "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)5732_storage)dyn_storage)": {
             "label": "mapping(bytes => struct SSVRegistry.OperatorFee[])"
           },
-          "t_array(t_struct(OperatorFee)5521_storage)dyn_storage": {
+          "t_array(t_struct(OperatorFee)5732_storage)dyn_storage": {
             "label": "struct SSVRegistry.OperatorFee[]"
           },
-          "t_struct(OperatorFee)5521_storage": {
+          "t_struct(OperatorFee)5732_storage": {
             "label": "struct SSVRegistry.OperatorFee",
             "members": [
               {
@@ -1999,10 +1999,10 @@
           "t_array(t_bytes_storage)dyn_storage": {
             "label": "bytes[]"
           },
-          "t_mapping(t_address,t_struct(OwnerData)5526_storage)": {
+          "t_mapping(t_address,t_struct(OwnerData)5737_storage)": {
             "label": "mapping(address => struct SSVRegistry.OwnerData)"
           },
-          "t_struct(OwnerData)5526_storage": {
+          "t_struct(OwnerData)5737_storage": {
             "label": "struct SSVRegistry.OwnerData",
             "members": [
               {
@@ -2027,6 +2027,272 @@
     "f3ca074e211bfab6f27b634a56e2a4eb7d7ac368910af7d266465034477a2410": {
       "address": "0x97bECf9Dc48405c6F5C0CAbD300cB08E0D25cFF1",
       "txHash": "0x1d05364076721622a163e361183274fbc766abbf09ed60f4905a67fe71f9e49e",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:23"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:28"
+          },
+          {
+            "contract": "ContextUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:31"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "_owner",
+            "type": "t_address",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:20"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)49_storage",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:74"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_ssvRegistryContract",
+            "type": "t_contract(ISSVRegistry)1070",
+            "src": "contracts/SSVNetwork.sol:39"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_token",
+            "type": "t_contract(IERC20)299",
+            "src": "contracts/SSVNetwork.sol:40"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_minimumBlocksBeforeLiquidation",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:41"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorMaxFeeIncrease",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:42"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkFee",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:44"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkFeeIndex",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:45"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkFeeIndexBlockNumber",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:46"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkEarnings",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:47"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkEarningsBlockNumber",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:48"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_withdrawnFromTreasury",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:49"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorDatas",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(OperatorData)1094_storage)",
+            "src": "contracts/SSVNetwork.sol:51"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_owners",
+            "type": "t_mapping(t_address,t_struct(OwnerData)1111_storage)",
+            "src": "contracts/SSVNetwork.sol:52"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorsInUseByAddress",
+            "type": "t_mapping(t_address,t_mapping(t_bytes_memory_ptr,t_struct(OperatorInUse)1122_storage))",
+            "src": "contracts/SSVNetwork.sol:53"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorsInUseList",
+            "type": "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)",
+            "src": "contracts/SSVNetwork.sol:54"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_lastOperatorUpdateNetworkFeeRun",
+            "type": "t_mapping(t_bytes_memory_ptr,t_uint256)",
+            "src": "contracts/SSVNetwork.sol:55"
+          }
+        ],
+        "types": {
+          "t_contract(ISSVRegistry)1070": {
+            "label": "contract ISSVRegistry"
+          },
+          "t_contract(IERC20)299": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(OperatorData)1094_storage)": {
+            "label": "mapping(bytes => struct SSVNetwork.OperatorData)"
+          },
+          "t_bytes_storage": {
+            "label": "bytes"
+          },
+          "t_struct(OperatorData)1094_storage": {
+            "label": "struct SSVNetwork.OperatorData",
+            "members": [
+              {
+                "label": "blockNumber",
+                "type": "t_uint256"
+              },
+              {
+                "label": "activeValidatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "earnings",
+                "type": "t_uint256"
+              },
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "indexBlockNumber",
+                "type": "t_uint256"
+              },
+              {
+                "label": "lastFeeUpdate",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_mapping(t_address,t_struct(OwnerData)1111_storage)": {
+            "label": "mapping(address => struct SSVNetwork.OwnerData)"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_struct(OwnerData)1111_storage": {
+            "label": "struct SSVNetwork.OwnerData",
+            "members": [
+              {
+                "label": "deposited",
+                "type": "t_uint256"
+              },
+              {
+                "label": "withdrawn",
+                "type": "t_uint256"
+              },
+              {
+                "label": "earned",
+                "type": "t_uint256"
+              },
+              {
+                "label": "used",
+                "type": "t_uint256"
+              },
+              {
+                "label": "networkFee",
+                "type": "t_uint256"
+              },
+              {
+                "label": "networkFeeIndex",
+                "type": "t_uint256"
+              },
+              {
+                "label": "activeValidatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "validatorsDisabled",
+                "type": "t_bool"
+              }
+            ]
+          },
+          "t_bool": {
+            "label": "bool"
+          },
+          "t_mapping(t_address,t_mapping(t_bytes_memory_ptr,t_struct(OperatorInUse)1122_storage))": {
+            "label": "mapping(address => mapping(bytes => struct SSVNetwork.OperatorInUse))"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(OperatorInUse)1122_storage)": {
+            "label": "mapping(bytes => struct SSVNetwork.OperatorInUse)"
+          },
+          "t_struct(OperatorInUse)1122_storage": {
+            "label": "struct SSVNetwork.OperatorInUse",
+            "members": [
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "validatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "used",
+                "type": "t_uint256"
+              },
+              {
+                "label": "exists",
+                "type": "t_bool"
+              },
+              {
+                "label": "indexInArray",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)": {
+            "label": "mapping(address => bytes[])"
+          },
+          "t_array(t_bytes_storage)dyn_storage": {
+            "label": "bytes[]"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_uint256)": {
+            "label": "mapping(bytes => uint256)"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          }
+        }
+      }
+    },
+    "63c2818eeeb6de1336874be44fb0e9d5ca81fe0c4dffa29cf5a13438b2fa0125": {
+      "address": "0x7e9B800984fa874e96c93406A0742A8cf8B1DF04",
+      "txHash": "0x2a13ecda3e6bf2127f0006be0184eada6ec9653c9ecb6f7e80922eb02a67bf03",
       "layout": {
         "storage": [
           {
@@ -2289,6 +2555,774 @@
           }
         }
       }
+    },
+    "39be4898e477410a3ad816f254675839281b5b9fe13703c1764a53720c4fb2d7": {
+      "address": "0x3a21966e34ac0B031621C3c3F8063200A35E0FFd",
+      "txHash": "0x9b0940c255f370f6b3d0e29fb47b796bf18bd0edb3a9b871ffc8d570515ad2b6",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:23"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:28"
+          },
+          {
+            "contract": "ContextUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:31"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "_owner",
+            "type": "t_address",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:20"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)49_storage",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:74"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_ssvRegistryContract",
+            "type": "t_contract(ISSVRegistry)1070",
+            "src": "contracts/SSVNetwork.sol:39"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_token",
+            "type": "t_contract(IERC20)299",
+            "src": "contracts/SSVNetwork.sol:40"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_minimumBlocksBeforeLiquidation",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:41"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorMaxFeeIncrease",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:42"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkFee",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:44"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkFeeIndex",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:45"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkFeeIndexBlockNumber",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:46"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkEarnings",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:47"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkEarningsBlockNumber",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:48"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_withdrawnFromTreasury",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:49"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorDatas",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(OperatorData)1094_storage)",
+            "src": "contracts/SSVNetwork.sol:51"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_owners",
+            "type": "t_mapping(t_address,t_struct(OwnerData)1111_storage)",
+            "src": "contracts/SSVNetwork.sol:52"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorsInUseByAddress",
+            "type": "t_mapping(t_address,t_mapping(t_bytes_memory_ptr,t_struct(OperatorInUse)1122_storage))",
+            "src": "contracts/SSVNetwork.sol:53"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorsInUseList",
+            "type": "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)",
+            "src": "contracts/SSVNetwork.sol:54"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_lastOperatorUpdateNetworkFeeRun",
+            "type": "t_mapping(t_bytes_memory_ptr,t_uint256)",
+            "src": "contracts/SSVNetwork.sol:55"
+          }
+        ],
+        "types": {
+          "t_contract(ISSVRegistry)1070": {
+            "label": "contract ISSVRegistry"
+          },
+          "t_contract(IERC20)299": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(OperatorData)1094_storage)": {
+            "label": "mapping(bytes => struct SSVNetwork.OperatorData)"
+          },
+          "t_bytes_storage": {
+            "label": "bytes"
+          },
+          "t_struct(OperatorData)1094_storage": {
+            "label": "struct SSVNetwork.OperatorData",
+            "members": [
+              {
+                "label": "blockNumber",
+                "type": "t_uint256"
+              },
+              {
+                "label": "activeValidatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "earnings",
+                "type": "t_uint256"
+              },
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "indexBlockNumber",
+                "type": "t_uint256"
+              },
+              {
+                "label": "lastFeeUpdate",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_mapping(t_address,t_struct(OwnerData)1111_storage)": {
+            "label": "mapping(address => struct SSVNetwork.OwnerData)"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_struct(OwnerData)1111_storage": {
+            "label": "struct SSVNetwork.OwnerData",
+            "members": [
+              {
+                "label": "deposited",
+                "type": "t_uint256"
+              },
+              {
+                "label": "withdrawn",
+                "type": "t_uint256"
+              },
+              {
+                "label": "earned",
+                "type": "t_uint256"
+              },
+              {
+                "label": "used",
+                "type": "t_uint256"
+              },
+              {
+                "label": "networkFee",
+                "type": "t_uint256"
+              },
+              {
+                "label": "networkFeeIndex",
+                "type": "t_uint256"
+              },
+              {
+                "label": "activeValidatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "validatorsDisabled",
+                "type": "t_bool"
+              }
+            ]
+          },
+          "t_bool": {
+            "label": "bool"
+          },
+          "t_mapping(t_address,t_mapping(t_bytes_memory_ptr,t_struct(OperatorInUse)1122_storage))": {
+            "label": "mapping(address => mapping(bytes => struct SSVNetwork.OperatorInUse))"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(OperatorInUse)1122_storage)": {
+            "label": "mapping(bytes => struct SSVNetwork.OperatorInUse)"
+          },
+          "t_struct(OperatorInUse)1122_storage": {
+            "label": "struct SSVNetwork.OperatorInUse",
+            "members": [
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "validatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "used",
+                "type": "t_uint256"
+              },
+              {
+                "label": "exists",
+                "type": "t_bool"
+              },
+              {
+                "label": "indexInArray",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)": {
+            "label": "mapping(address => bytes[])"
+          },
+          "t_array(t_bytes_storage)dyn_storage": {
+            "label": "bytes[]"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_uint256)": {
+            "label": "mapping(bytes => uint256)"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          }
+        }
+      }
+    },
+    "16ce6205801704c716fb7e4f210622bc3492167e4c83208cea879ae381eef3bc": {
+      "address": "0x27cC1891D439845231904F71dF365523C76A19C7",
+      "txHash": "0x712be24c9b03ac00a2c22daf6563669b61e07ebe50b7e26754bf957ebfaf6914",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:23"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:28"
+          },
+          {
+            "contract": "ContextUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:31"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "_owner",
+            "type": "t_address",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:20"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)49_storage",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:74"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_operatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVRegistry.sol:37"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_validatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVRegistry.sol:38"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_activeValidatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVRegistry.sol:39"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_operators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)5304_storage)",
+            "src": "contracts/SSVRegistry.sol:41"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_validators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)5317_storage)",
+            "src": "contracts/SSVRegistry.sol:42"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_operatorFees",
+            "type": "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)5322_storage)dyn_storage)",
+            "src": "contracts/SSVRegistry.sol:44"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_operatorsByOwnerAddress",
+            "type": "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)",
+            "src": "contracts/SSVRegistry.sol:46"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_validatorsByAddress",
+            "type": "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)",
+            "src": "contracts/SSVRegistry.sol:47"
+          },
+          {
+            "contract": "SSVRegistry",
+            "label": "_owners",
+            "type": "t_mapping(t_address,t_struct(OwnerData)5327_storage)",
+            "src": "contracts/SSVRegistry.sol:48"
+          }
+        ],
+        "types": {
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)5304_storage)": {
+            "label": "mapping(bytes => struct SSVRegistry.Operator)"
+          },
+          "t_bytes_storage": {
+            "label": "bytes"
+          },
+          "t_struct(Operator)5304_storage": {
+            "label": "struct SSVRegistry.Operator",
+            "members": [
+              {
+                "label": "name",
+                "type": "t_string_storage"
+              },
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "score",
+                "type": "t_uint256"
+              },
+              {
+                "label": "active",
+                "type": "t_bool"
+              },
+              {
+                "label": "index",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_bool": {
+            "label": "bool"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)5317_storage)": {
+            "label": "mapping(bytes => struct SSVRegistry.Validator)"
+          },
+          "t_struct(Validator)5317_storage": {
+            "label": "struct SSVRegistry.Validator",
+            "members": [
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "oess",
+                "type": "t_array(t_struct(Oess)2587_storage)dyn_storage"
+              },
+              {
+                "label": "active",
+                "type": "t_bool"
+              },
+              {
+                "label": "index",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_array(t_struct(Oess)2587_storage)dyn_storage": {
+            "label": "struct ISSVRegistry.Oess[]"
+          },
+          "t_struct(Oess)2587_storage": {
+            "label": "struct ISSVRegistry.Oess",
+            "members": [
+              {
+                "label": "operatorPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "sharedPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "encryptedKey",
+                "type": "t_bytes_storage"
+              }
+            ]
+          },
+          "t_mapping(t_bytes_memory_ptr,t_array(t_struct(OperatorFee)5322_storage)dyn_storage)": {
+            "label": "mapping(bytes => struct SSVRegistry.OperatorFee[])"
+          },
+          "t_array(t_struct(OperatorFee)5322_storage)dyn_storage": {
+            "label": "struct SSVRegistry.OperatorFee[]"
+          },
+          "t_struct(OperatorFee)5322_storage": {
+            "label": "struct SSVRegistry.OperatorFee",
+            "members": [
+              {
+                "label": "blockNumber",
+                "type": "t_uint256"
+              },
+              {
+                "label": "fee",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)": {
+            "label": "mapping(address => bytes[])"
+          },
+          "t_array(t_bytes_storage)dyn_storage": {
+            "label": "bytes[]"
+          },
+          "t_mapping(t_address,t_struct(OwnerData)5327_storage)": {
+            "label": "mapping(address => struct SSVRegistry.OwnerData)"
+          },
+          "t_struct(OwnerData)5327_storage": {
+            "label": "struct SSVRegistry.OwnerData",
+            "members": [
+              {
+                "label": "activeValidatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "validatorsDisabled",
+                "type": "t_bool"
+              }
+            ]
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          }
+        }
+      }
+    },
+    "446e8b352eb2db74b9635d90579d222f983ecf9979b9aeb6e851209469ea2763": {
+      "address": "0x6E034CC5dfA0B68fDe9881681ad32C3179952501",
+      "txHash": "0xb4abaf6b54c40ea8d9eeb0711c0ba6c0986861fc356625ba410fa0193f6f68c2",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:23"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:28"
+          },
+          {
+            "contract": "ContextUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:31"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "_owner",
+            "type": "t_address",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:20"
+          },
+          {
+            "contract": "OwnableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)49_storage",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:74"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_ssvRegistryContract",
+            "type": "t_contract(ISSVRegistry)2883",
+            "src": "contracts/SSVNetwork.sol:39"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_token",
+            "type": "t_contract(IERC20)962",
+            "src": "contracts/SSVNetwork.sol:40"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_minimumBlocksBeforeLiquidation",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:41"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorMaxFeeIncrease",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:42"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkFee",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:44"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkFeeIndex",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:45"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkFeeIndexBlockNumber",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:46"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkEarnings",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:47"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_networkEarningsBlockNumber",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:48"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_withdrawnFromTreasury",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:49"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorDatas",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(OperatorData)2907_storage)",
+            "src": "contracts/SSVNetwork.sol:51"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_owners",
+            "type": "t_mapping(t_address,t_struct(OwnerData)2924_storage)",
+            "src": "contracts/SSVNetwork.sol:52"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorsInUseByAddress",
+            "type": "t_mapping(t_address,t_mapping(t_bytes_memory_ptr,t_struct(OperatorInUse)2935_storage))",
+            "src": "contracts/SSVNetwork.sol:53"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_operatorsInUseList",
+            "type": "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)",
+            "src": "contracts/SSVNetwork.sol:54"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "_lastOperatorUpdateNetworkFeeRun",
+            "type": "t_mapping(t_bytes_memory_ptr,t_uint256)",
+            "src": "contracts/SSVNetwork.sol:55"
+          }
+        ],
+        "types": {
+          "t_contract(ISSVRegistry)2883": {
+            "label": "contract ISSVRegistry"
+          },
+          "t_contract(IERC20)962": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(OperatorData)2907_storage)": {
+            "label": "mapping(bytes => struct SSVNetwork.OperatorData)"
+          },
+          "t_bytes_storage": {
+            "label": "bytes"
+          },
+          "t_struct(OperatorData)2907_storage": {
+            "label": "struct SSVNetwork.OperatorData",
+            "members": [
+              {
+                "label": "blockNumber",
+                "type": "t_uint256"
+              },
+              {
+                "label": "activeValidatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "earnings",
+                "type": "t_uint256"
+              },
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "indexBlockNumber",
+                "type": "t_uint256"
+              },
+              {
+                "label": "lastFeeUpdate",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_mapping(t_address,t_struct(OwnerData)2924_storage)": {
+            "label": "mapping(address => struct SSVNetwork.OwnerData)"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_struct(OwnerData)2924_storage": {
+            "label": "struct SSVNetwork.OwnerData",
+            "members": [
+              {
+                "label": "deposited",
+                "type": "t_uint256"
+              },
+              {
+                "label": "withdrawn",
+                "type": "t_uint256"
+              },
+              {
+                "label": "earned",
+                "type": "t_uint256"
+              },
+              {
+                "label": "used",
+                "type": "t_uint256"
+              },
+              {
+                "label": "networkFee",
+                "type": "t_uint256"
+              },
+              {
+                "label": "networkFeeIndex",
+                "type": "t_uint256"
+              },
+              {
+                "label": "activeValidatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "validatorsDisabled",
+                "type": "t_bool"
+              }
+            ]
+          },
+          "t_bool": {
+            "label": "bool"
+          },
+          "t_mapping(t_address,t_mapping(t_bytes_memory_ptr,t_struct(OperatorInUse)2935_storage))": {
+            "label": "mapping(address => mapping(bytes => struct SSVNetwork.OperatorInUse))"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(OperatorInUse)2935_storage)": {
+            "label": "mapping(bytes => struct SSVNetwork.OperatorInUse)"
+          },
+          "t_struct(OperatorInUse)2935_storage": {
+            "label": "struct SSVNetwork.OperatorInUse",
+            "members": [
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "validatorCount",
+                "type": "t_uint256"
+              },
+              {
+                "label": "used",
+                "type": "t_uint256"
+              },
+              {
+                "label": "exists",
+                "type": "t_bool"
+              },
+              {
+                "label": "indexInArray",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_mapping(t_address,t_array(t_bytes_storage)dyn_storage)": {
+            "label": "mapping(address => bytes[])"
+          },
+          "t_array(t_bytes_storage)dyn_storage": {
+            "label": "bytes[]"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_uint256)": {
+            "label": "mapping(bytes => uint256)"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          }
+        }
+      }
     }
   },
   "proxies": [
@@ -2346,6 +3380,36 @@
       "address": "0xF1E8f1b98D6B05Dcc27E93B1b501c89e286EEbA9",
       "kind": "transparent",
       "txHash": "0x9253e46eec12dfb5749ee3917b7e7f839fe1e778ac89af38407a071114538b7f"
+    },
+    {
+      "address": "0x3a6c1995586D4d6827e8D8dA9F5F89Ba4Ab58a1f",
+      "kind": "transparent",
+      "txHash": "0x6bf582eb758b7066402efdfc20e1ace5de636812ad7cb41d65ba780dc86128fa"
+    },
+    {
+      "address": "0x862afFa4f2D055f7a33E6137d7B94C42b929B20C",
+      "kind": "transparent",
+      "txHash": "0x0f65d8956703f10cc16f4aa31f3862e4581f508a0512622a873b15829bbcebc7"
+    },
+    {
+      "address": "0x79AFd88A8DD393D8F3dCB89323246E9Cd5E2d87a",
+      "kind": "transparent",
+      "txHash": "0x7e11278c8c9f8507eb396f2a10cf10a8240d48c45753e7667adbe1acadabd578"
+    },
+    {
+      "address": "0xF2f7e10F48319fa1BFf8b52920beAc251174B84F",
+      "kind": "transparent",
+      "txHash": "0x7906e5f39ed7c2c9162b2fd8f1530109b4cd844ca4091b3f39a91b92ef85ec38"
+    },
+    {
+      "address": "0x6D8741Ec680f01DAD35355F6c7c8378E90e1cd66",
+      "kind": "transparent",
+      "txHash": "0x048dc955f725fbb144a6a97c4b6a64eb5a8251ca38f10e97fb72154426511c80"
+    },
+    {
+      "address": "0xd594C1ef4845713e86658cb42227A811625A285b",
+      "kind": "transparent",
+      "txHash": "0xc1f43dbfc796cded2d0ea3748828c569d9841a928d2554d6f1de11637da42586"
     }
   ],
   "admin": {
