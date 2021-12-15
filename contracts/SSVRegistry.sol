@@ -229,20 +229,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         delete _validators[publicKey];
     }
 
-    /**
-     * @dev See {ISSVRegistry-activateValidator}.
-     */
-    function activateValidator(bytes calldata publicKey) external onlyOwner override {
-        _activateValidatorUnsafe(publicKey);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-deactivateValidator}.
-     */
-    function deactivateValidator(bytes calldata publicKey) external onlyOwner override {
-        _deactivateValidatorUnsafe(publicKey);
-    }
-
     function enableOwnerValidators(address ownerAddress) external onlyOwner override {
         _activeValidatorCount += _owners[ownerAddress].activeValidatorCount;
         _owners[ownerAddress].validatorsDisabled = false;
@@ -388,20 +374,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         _validators[publicKey].active = true;
         ++_activeValidatorCount;
         ++_owners[_validators[publicKey].ownerAddress].activeValidatorCount;
-
-        emit ValidatorActivated(_validators[publicKey].ownerAddress, publicKey);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-deactivateValidator}.
-     */
-    function _deactivateValidatorUnsafe(bytes calldata publicKey) private {
-        require(_validators[publicKey].active, "already inactive");
-        _validators[publicKey].active = false;
-        --_activeValidatorCount;
-        --_owners[_validators[publicKey].ownerAddress].activeValidatorCount;
-
-        emit ValidatorDeactivated(_validators[publicKey].ownerAddress, publicKey);
     }
 
     /**

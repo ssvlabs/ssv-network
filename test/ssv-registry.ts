@@ -62,6 +62,7 @@ describe('SSV Registry', function() {
     await expect(ssvRegistry.activateOperator(operatorsPub[0])).to.be.revertedWith('already active');
   });
 
+  /*
   it('deactivate an operator', async () => {
     await expect(ssvRegistry.activateValidator(validatorsPub[0])).to.be.revertedWith('already active');
     await ssvRegistry.deactivateValidator(validatorsPub[0]);
@@ -69,6 +70,7 @@ describe('SSV Registry', function() {
     await ssvRegistry.activateValidator(validatorsPub[0]);
     await expect(ssvRegistry.activateValidator(validatorsPub[0])).to.be.revertedWith('already active');
   });
+  */
 
   it('validators getter', async () => {
     expect((await ssvRegistry.validators(validatorsPub[0])).map(v => v.toString())).to.eql([account1.address, validatorsPub[0], 'true', '0']);

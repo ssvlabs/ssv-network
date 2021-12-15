@@ -97,20 +97,6 @@ interface ISSVRegistry {
      */
     event ValidatorDeleted(address ownerAddress, bytes publicKey);
 
-    /**
-     * @dev Emitted when the validator is activated.
-     * @param ownerAddress Validator's owner.
-     * @param publicKey The public key of a validator.
-     */
-    event ValidatorActivated(address ownerAddress, bytes publicKey);
-
-    /**
-     * @dev Emitted when the validator is deactivated.
-     * @param ownerAddress Validator's owner.
-     * @param publicKey The public key of a validator.
-     */
-    event ValidatorDeactivated(address ownerAddress, bytes publicKey);
-
     event OwnerValidatorsDisabled(address ownerAddress);
 
     event OwnerValidatorsEnabled(address ownerAddress);
@@ -202,18 +188,6 @@ interface ISSVRegistry {
      * @param publicKey Validator's public key.
      */
     function deleteValidator(bytes calldata publicKey) external;
-
-    /**
-     * @dev Activates a validator.
-     * @param publicKey Validator's public key.
-     */
-    function activateValidator(bytes calldata publicKey) external;
-
-    /**
-     * @dev Deactivates a validator.
-     * @param publicKey Validator's public key.
-     */
-    function deactivateValidator(bytes calldata publicKey) external;
 
     function enableOwnerValidators(address ownerAddress) external;
 
