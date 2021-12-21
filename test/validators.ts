@@ -66,6 +66,10 @@ describe('Validators', function() {
     expect((await ssvRegistry.validatorCount()).toString()).to.equal('1');
   });
 
+  it('get operators by validator', async function() {
+    expect(await ssvNetwork.getOperatorsByValidator(validatorsPub[0])).to.eql(operatorsPub.slice(0, 4));
+  });
+
   it('revert register validator: not enough approved tokens to pay', async function() {
     await ssvNetwork
       .connect(account2)
@@ -126,35 +130,35 @@ describe('Validators', function() {
       .should.eventually.be.rejectedWith('caller is not validator owner');
   });
 
-  it('delete validator', async function () {
+  it('remove validator', async function () {
     await progressBlocks(5, async() => {
-      await expect(ssvNetwork.connect(account1).deleteValidator(validatorsPub[0]))
-        .to.emit(ssvRegistry, 'ValidatorDeleted')
+      await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
+        .to.emit(ssvRegistry, 'ValidatorRemoved')
         .withArgs(account1.address, validatorsPub[0]);
 
       expect((await ssvRegistry.validatorCount()).toString()).to.equal('0');
     });
   });
 
-  it('revert delete validator: public key does not exist', async function () {
+  it('revert remove validator: public key does not exist', async function () {
     await ssvNetwork
       .connect(account2)
-      .deleteValidator(validatorsPub[1])
+      .removeValidator(validatorsPub[1])
       .should.eventually.be.rejectedWith('validator with public key does not exist');
   });
 
-  it('revert delete validator: tx was sent not by owner', async function () {
+  it('revert remove validator: tx was sent not by owner', async function () {
     await ssvNetwork
       .connect(account2)
-      .deleteValidator(validatorsPub[0])
+      .removeValidator(validatorsPub[0])
       .should.eventually.be.rejectedWith('caller is not validator owner');
   });
 
-  it('revert delete validator: not enough balance', async function () {
+  it('revert remove validator: not enough balance', async function () {
     await progressBlocks(10000, async() => {
       await ssvNetwork
         .connect(account1)
-        .deleteValidator(validatorsPub[0])
+        .removeValidator(validatorsPub[0])
         .should.eventually.be.rejectedWith('negative balance');
     });
   });

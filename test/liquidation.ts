@@ -70,7 +70,8 @@ describe('SSV Network Liquidation', function() {
   });
 
   it('try to liquidate a valid account', async function() {
-    await expect(ssvNetwork.connect(account4).liquidate(account1.address)).to.be.revertedWith('owner is not liquidatable');
+    await ssvNetwork.connect(account4).liquidate([account1.address]);
+    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false);
   });
 
   it('burn rate', async function() {
@@ -117,31 +118,37 @@ describe('SSV Network Liquidation', function() {
     await progressBlocks(847, async function () {
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(510);
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      await expect(ssvNetwork.connect(account4).liquidate(account1.address)).to.be.revertedWith('owner is not liquidatable');
+      await ssvNetwork.connect(account4).liquidate([account1.address]);
+      expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false);
       await progressBlocks(1);
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(true);
-      await ssvNetwork.connect(account4).liquidate(account1.address);
+      expect(await ssvToken.balanceOf(account4.address)).to.equal(0);
+      await ssvNetwork.connect(account4).liquidate([account1.address]);
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      await expect(ssvNetwork.connect(account4).liquidate(account1.address)).to.be.revertedWith('owner is not liquidatable');
+      await ssvNetwork.connect(account4).liquidate([account1.address]);
+      expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true);
       expect(await ssvNetwork.burnRate(account1.address)).to.equal(0);
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0);
-      expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(480);
+      expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0);
+      expect(await ssvToken.balanceOf(account4.address)).to.equal(480);
     });
   });
 
-  it('liquidateAll', async function() {
+  it('liquidate multiple accounts', async function() {
     await progressBlocks(847, async function () {
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(510);
       expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(2847);
       expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0);
-      await ssvNetwork.connect(account4).liquidateAll([account1.address, account2.address]);
+      expect(await ssvToken.balanceOf(account4.address)).to.equal(0);
+      await ssvNetwork.connect(account4).liquidate([account1.address, account2.address]);
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(500);
       expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(2850);
       expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0);
-      await ssvNetwork.connect(account4).liquidateAll([account1.address, account2.address]);
+      await ssvNetwork.connect(account4).liquidate([account1.address, account2.address]);
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0);
       expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(2853);
-      expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(490);
+      expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0);
+      expect(await ssvToken.balanceOf(account4.address)).to.equal(490);
     });
   });
 });

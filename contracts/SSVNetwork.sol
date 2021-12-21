@@ -127,16 +127,16 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     /**
-     * @dev See {ISSVNetwork-deleteOperator}.
+     * @dev See {ISSVNetwork-removeOperator}.
      */
-    function deleteOperator(bytes calldata publicKey) onlyOperatorOwner(publicKey) external override {
+    function removeOperator(bytes calldata publicKey) onlyOperatorOwner(publicKey) external override {
         require(_operatorDatas[publicKey].activeValidatorCount == 0, "operator has validators");
         address owner = _ssvRegistryContract.getOperatorOwner(publicKey);
         _owners[owner].earned += _operatorDatas[publicKey].earnings;
         delete _operatorDatas[publicKey];
-        _ssvRegistryContract.deleteOperator(publicKey);
+        _ssvRegistryContract.removeOperator(publicKey);
 
-        emit OperatorDeleted(owner, publicKey);
+        emit OperatorRemoved(owner, publicKey);
     }
 
     function activateOperator(bytes calldata publicKey) onlyOperatorOwner(publicKey) external override {
@@ -271,21 +271,21 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     /**
-     * @dev See {ISSVNetwork-deleteValidator}.
+     * @dev See {ISSVNetwork-removeValidator}.
      */
-    function deleteValidator(bytes calldata publicKey) onlyValidatorOwner(publicKey) external override {
+    function removeValidator(bytes calldata publicKey) onlyValidatorOwner(publicKey) external override {
         _updateNetworkEarnings();
         _unregisterValidator(publicKey);
         address owner = _ssvRegistryContract.getValidatorOwner(publicKey);
         _totalBalanceOf(owner); // For assertion
-        _ssvRegistryContract.deleteValidator(publicKey);
+        _ssvRegistryContract.removeValidator(publicKey);
         _updateAddressNetworkFee(msg.sender);
 
         if (!_owners[msg.sender].validatorsDisabled) {
             --_owners[msg.sender].activeValidatorCount;
         }
 
-        emit ValidatorDeleted(msg.sender, publicKey);
+        emit ValidatorRemoved(msg.sender, publicKey);
     }
 
     function deposit(uint256 tokenAmount) external override {
@@ -301,25 +301,21 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function withdrawAll() external override {
-        if (_burnRate(msg.sender) > 0) {
-            _disableOwnerValidatorsUnsafe(msg.sender);
-        }
+        require(_burnRate(msg.sender) == 0, "burn rate positive");
 
         _withdrawUnsafe(_totalBalanceOf(msg.sender));
     }
 
-    function liquidate(address ownerAddress) external override {
-        require(_liquidatable(ownerAddress), "owner is not liquidatable");
+    function liquidate(address[] calldata ownerAddresses) external override {
+        uint balanceToTransfer = 0;
 
-        _liquidateUnsafe(ownerAddress);
-    }
-
-    function liquidateAll(address[] calldata ownerAddresses) external override {
         for (uint256 index = 0; index < ownerAddresses.length; ++index) {
-            if (_liquidatable(ownerAddresses[index])) {
-                _liquidateUnsafe(ownerAddresses[index]);
+            if (_canLiquidate(ownerAddresses[index])) {
+                balanceToTransfer += _liquidateUnsafe(ownerAddresses[index]);
             }
         }
+
+        _token.transfer(msg.sender, balanceToTransfer);
     }
 
     function enableAccount(uint256 tokenAmount) external override {
@@ -483,15 +479,16 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         operatorData.blockNumber = block.number;
     }
 
-    function _liquidateUnsafe(address ownerAddress) private {
+    function _liquidateUnsafe(address ownerAddress) private returns (uint256) {
         _disableOwnerValidatorsUnsafe(ownerAddress);
 
         uint256 balanceToTransfer = _totalBalanceOf(ownerAddress);
 
         _owners[ownerAddress].used += balanceToTransfer;
-        _owners[msg.sender].earned += balanceToTransfer;
 
         emit AccountLiquidated(ownerAddress);
+
+        return balanceToTransfer;
     }
 
     function _updateNetworkEarnings() private {
@@ -671,8 +668,16 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
     }
 
+    function _overdue(address ownerAddress) private view returns (bool) {
+        return _totalBalanceOf(ownerAddress) < _minimumBlocksBeforeLiquidation * _burnRate(ownerAddress);
+    }
+
     function _liquidatable(address ownerAddress) private view returns (bool) {
-        return !_owners[msg.sender].validatorsDisabled && _totalBalanceOf(ownerAddress) < _minimumBlocksBeforeLiquidation * _burnRate(ownerAddress);
+        return !_owners[msg.sender].validatorsDisabled && _overdue(ownerAddress);
+    }
+
+    function _canLiquidate(address ownerAddress) private view returns (bool) {
+        return !_owners[msg.sender].validatorsDisabled && (msg.sender == ownerAddress || _overdue(ownerAddress));
     }
 
     function _getNetworkEarnings() private view returns (uint256) {

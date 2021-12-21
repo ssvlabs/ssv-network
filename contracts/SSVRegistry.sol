@@ -84,9 +84,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     }
 
     /**
-     * @dev See {ISSVRegistry-deleteOperator}.
+     * @dev See {ISSVRegistry-removeOperator}.
      */
-    function deleteOperator(
+    function removeOperator(
         bytes calldata publicKey
     ) external onlyOwner override {
         Operator storage operator = _operators[publicKey];
@@ -94,7 +94,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         _operators[_operatorsByOwnerAddress[operator.ownerAddress][operator.index]].index = operator.index;
         _operatorsByOwnerAddress[operator.ownerAddress].pop();
 
-        emit OperatorDeleted(operator.ownerAddress, publicKey);
+        emit OperatorRemoved(operator.ownerAddress, publicKey);
 
         delete _operators[publicKey];
         --_operatorCount;
@@ -171,9 +171,11 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         validator.index = _validatorsByAddress[ownerAddress].length;
         _validatorsByAddress[ownerAddress].push(publicKey);
 
-        ++_validatorCount;
+        _validators[publicKey].active = true;
 
-        _activateValidatorUnsafe(publicKey);
+        ++_validatorCount;
+        ++_activeValidatorCount;
+        ++_owners[_validators[publicKey].ownerAddress].activeValidatorCount;
 
         emit ValidatorAdded(ownerAddress, publicKey, validator.oess);
     }
@@ -210,9 +212,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     }
 
     /**
-     * @dev See {ISSVRegistry-deleteValidator}.
+     * @dev See {ISSVRegistry-removeValidator}.
      */
-    function deleteValidator(
+    function removeValidator(
         bytes calldata publicKey
     ) external onlyOwner override {
         Validator storage validator = _validators[publicKey];
@@ -224,7 +226,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         --_activeValidatorCount;
         --_owners[validator.ownerAddress].activeValidatorCount;
 
-        emit ValidatorDeleted(validator.ownerAddress, publicKey);
+        emit ValidatorRemoved(validator.ownerAddress, publicKey);
 
         delete _validators[publicKey];
     }
@@ -364,16 +366,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         );
 
         emit OperatorFeeUpdated(_operators[publicKey].ownerAddress, publicKey, block.number, fee);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-activateValidator}.
-     */
-    function _activateValidatorUnsafe(bytes calldata publicKey) private {
-        require(!_validators[publicKey].active, "already active");
-        _validators[publicKey].active = true;
-        ++_activeValidatorCount;
-        ++_owners[_validators[publicKey].ownerAddress].activeValidatorCount;
     }
 
     /**

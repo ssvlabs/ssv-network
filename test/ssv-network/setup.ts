@@ -226,8 +226,8 @@ export const updateValidator = async (account, validatorIdx, operatorIdxs, depos
   console.log(`      | Update validator ${validatorIdx} >  [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
 
-export const deleteValidator = async (account, validatorIdx) => {
-  await ssvNetwork.connect(account).deleteValidator(validatorsPub[validatorIdx]);
+export const removeValidator = async (account, validatorIdx) => {
+  await ssvNetwork.connect(account).removeValidator(validatorsPub[validatorIdx]);
   await progressBlocks(1);
   await updateNetworkEarnings();
   await updateAddressNetworkFee(account.address);
@@ -241,7 +241,7 @@ export const deleteValidator = async (account, validatorIdx) => {
   addressData[account.address].validatorOperators[validatorIdx] = [];
   addressData[account.address].activeValidators--;
   globalData.validatorCount--;
-  console.log(`      | Delete validator ${validatorIdx} >  [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
+  console.log(`      | Remove validator ${validatorIdx} >  [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
 
 export const deposit = async(account, amount) => {

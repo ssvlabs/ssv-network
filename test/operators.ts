@@ -111,17 +111,17 @@ describe('Operators', function() {
       .to.emit(ssvRegistry, 'OperatorScoreUpdated');
   });
 
-  it('delete operator', async function () {
+  it('remove operator', async function () {
     await progressTime(DAY, async() => {
-      await expect(ssvNetwork.connect(account2).deleteOperator(operatorsPub[0]))
-        .to.emit(ssvRegistry, 'OperatorDeleted')
+      await expect(ssvNetwork.connect(account2).removeOperator(operatorsPub[0]))
+        .to.emit(ssvRegistry, 'OperatorRemoved')
         .withArgs(account2.address, operatorsPub[0]);
 
       expect((await ssvRegistry.operatorCount()).toString()).to.equal('3');
     });
   });
 
-  it('revert delete operator: operator has validators', async function () {
+  it('revert remove operator: operator has validators', async function () {
     await progressTime(DAY, async() => {
       await ssvToken.connect(account1).approve(ssvNetwork.address, '10000');
       await ssvNetwork.connect(account1).registerValidator(
@@ -134,24 +134,24 @@ describe('Operators', function() {
 
       await ssvNetwork
         .connect(account2)
-        .deleteOperator(operatorsPub[0])
+        .removeOperator(operatorsPub[0])
         .should.eventually.be.rejectedWith('operator has validators');
 
       expect((await ssvRegistry.operatorCount()).toString()).to.equal('4');
     });
   });
 
-  it('revert delete operator: public key does not exist', async function () {
+  it('revert remove operator: public key does not exist', async function () {
     await ssvNetwork
       .connect(account3)
-      .deleteOperator(operatorsPub[6])
+      .removeOperator(operatorsPub[6])
       .should.eventually.be.rejectedWith('operator with public key does not exist');
   });
 
-  it('revert delete operator: tx was sent not by owner', async function () {
+  it('revert remove operator: tx was sent not by owner', async function () {
     await ssvNetwork
       .connect(account3)
-      .deleteOperator(operatorsPub[0])
+      .removeOperator(operatorsPub[0])
       .should.eventually.be.rejectedWith('caller is not operator owner');
   });
 

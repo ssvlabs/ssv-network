@@ -27,11 +27,11 @@ interface ISSVNetwork {
     event OperatorAdded(string name, address indexed ownerAddress, bytes publicKey);
 
     /**
-     * @dev Emitted when the operator has been deleted.
+     * @dev Emitted when the operator has been removed.
      * @param ownerAddress Operator's owner.
      * @param publicKey Operator's public key.
      */
-    event OperatorDeleted(address indexed ownerAddress, bytes publicKey);
+    event OperatorRemoved(address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been activated.
@@ -108,11 +108,11 @@ interface ISSVNetwork {
     );
 
     /**
-     * @dev Emitted when the validator is deleted.
+     * @dev Emitted when the validator is removed.
      * @param ownerAddress Validator's owner.
      * @param publicKey The public key of a validator.
      */
-    event ValidatorDeleted(address ownerAddress, bytes publicKey);
+    event ValidatorRemoved(address ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an owner deposits funds.
@@ -167,10 +167,10 @@ interface ISSVNetwork {
     ) external;
 
     /**
-     * @dev Deletes an operator.
+     * @dev Removes an operator.
      * @param publicKey Operator's public key.
      */
-    function deleteOperator(bytes calldata publicKey) external;
+    function removeOperator(bytes calldata publicKey) external;
 
     /**
      * @dev Activates an operator.
@@ -229,10 +229,10 @@ interface ISSVNetwork {
     ) external;
 
     /**
-     * @dev Deletes a validator.
+     * @dev Removes a validator.
      * @param publicKey Validator's public key.
      */
-    function deleteValidator(bytes calldata publicKey) external;
+    function removeValidator(bytes calldata publicKey) external;
 
     /**
      * @dev Deposits tokens for the sender.
@@ -252,17 +252,15 @@ interface ISSVNetwork {
     function withdrawAll() external;
 
     /**
-     * @dev Liquidates an operator.
-     * @param ownerAddress Owner's address.
-     */
-    function liquidate(address ownerAddress) external;
-
-    /**
      * @dev Liquidates multiple owners.
      * @param ownerAddresses Owners' addresses.
      */
-    function liquidateAll(address[] calldata ownerAddresses) external;
+    function liquidate(address[] calldata ownerAddresses) external;
 
+    /**
+     * @dev Enables msg.sender account.
+     * @param tokenAmount Tokens amount.
+     */
     function enableAccount(uint256 tokenAmount) external;
 
     /**

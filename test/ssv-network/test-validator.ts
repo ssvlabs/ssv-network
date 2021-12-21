@@ -6,7 +6,7 @@ import {
   registerOperator,
   registerValidator,
   updateValidator,
-  deleteValidator,
+  removeValidator,
   processTestCase,
   updateNetworkFee,
   account1,
@@ -71,7 +71,7 @@ describe('SSV Network', function() {
       },
       150: {
         funcs: [
-          () => deleteValidator(account1, 0),
+          () => removeValidator(account1, 0),
         ],
       },
       180: {
