@@ -1,7 +1,6 @@
 import { ethers, upgrades } from 'hardhat';
 
 async function main() {
-  /*
   console.log('Deploying OLDToken...');
   const oldTokenFactory = await ethers.getContractFactory('OldTokenMock');
   const oldToken = await oldTokenFactory.deploy();
@@ -17,16 +16,15 @@ async function main() {
     [oldToken.address, ssvToken.address, 100]
   );
   await dex.deployed();
-  */
   console.log('Deploying SSVRegistry...');
   const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
   const ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
   await ssvRegistry.deployed();
   console.log('Deploying SSVNetwork...');
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
-  const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, '0x3651c03A8546da82afFAef8c644d4E3EfdD37718', process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION, process.env.OPERATOR_MAX_FEE_INCREASE]);
+  const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION, process.env.OPERATOR_MAX_FEE_INCREASE]);
   await ssvNetwork.deployed();
-  console.log(`SSVToken: ${'0x3651c03A8546da82afFAef8c644d4E3EfdD37718'}\nSSVRegistry: ${ssvRegistry.address}\nSSVNetwork: ${ssvNetwork.address}\n`);
+  console.log(`SSVToken: ${ssvToken.address}\nSSVRegistry: ${ssvRegistry.address}\nSSVNetwork: ${ssvNetwork.address}\n`);
 }
 
 main()
