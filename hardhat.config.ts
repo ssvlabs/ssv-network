@@ -56,6 +56,10 @@ if (process.env.GANACHE_ETH_NODE_URL) {
   }
 }
 
+config.networks['localhost'] = {
+  gasPrice: +process.env.GAS_PRICE
+}
+
 if (process.env.GOERLI_ETH_NODE_URL) {
   config.networks['goerli'] = {
     url: process.env.GOERLI_ETH_NODE_URL,
