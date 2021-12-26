@@ -11,6 +11,10 @@ contract SSVNetwork is ISSVNetwork {
     mapping(bytes => Operator) public override operators;
     mapping(bytes => Validator) internal validators;
 
+    mapping(bytes => uint256) internal validatorsPerOperator;
+
+    uint256 public validatorsPerOperatorLimit;
+
     modifier onlyValidator(bytes calldata _publicKey) {
         require(
             validators[_publicKey].ownerAddress != address(0),
@@ -98,6 +102,8 @@ contract SSVNetwork is ISSVNetwork {
                     _encryptedKeys[index]
                 )
             );
+
+            require(++validatorsPerOperator[_operatorPublicKeys[index]] <= validatorsPerOperatorLimit, "exceed validator limit");
         }
 
         validatorCount++;
@@ -120,6 +126,13 @@ contract SSVNetwork is ISSVNetwork {
             _encryptedKeys
         );
         Validator storage validatorItem = validators[_publicKey];
+
+        for (uint256 index = 0; index < validatorItem.oess.length; ++index) {
+            if (validatorsPerOperator[validatorItem.oess[index].operatorPublicKey] > 0) {
+                --validatorsPerOperator[validatorItem.oess[index].operatorPublicKey];
+            }
+        }
+
         delete validatorItem.oess;
 
         for (uint256 index = 0; index < _operatorPublicKeys.length; ++index) {
@@ -131,6 +144,8 @@ contract SSVNetwork is ISSVNetwork {
                     _encryptedKeys[index]
                 )
             );
+
+            require(++validatorsPerOperator[_operatorPublicKeys[index]] <= validatorsPerOperatorLimit, "exceed validator limit");
         }
 
         emit ValidatorUpdated(validatorItem.ownerAddress, _publicKey, validatorItem.oess);
@@ -142,10 +157,17 @@ contract SSVNetwork is ISSVNetwork {
     function deleteValidator(
         bytes calldata _publicKey
     ) onlyValidator(_publicKey) public virtual override {
-        address ownerAddress = validators[_publicKey].ownerAddress;
+        Validator storage validatorItem = validators[_publicKey];
+
+        for (uint256 index = 0; index < validatorItem.oess.length; ++index) {
+            if (validatorsPerOperator[validatorItem.oess[index].operatorPublicKey] > 0) {
+                --validatorsPerOperator[validatorItem.oess[index].operatorPublicKey];
+            }
+        }
+
         delete validators[_publicKey];
         validatorCount--;
-        emit ValidatorDeleted(ownerAddress, _publicKey);
+        emit ValidatorDeleted(msg.sender, _publicKey);
     }
 
     /**
@@ -158,5 +180,17 @@ contract SSVNetwork is ISSVNetwork {
         delete operators[_publicKey];
         operatorCount--;
         emit OperatorDeleted(name, _publicKey);
+    }
+
+    function setValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) external {
+        // TODO: set real addresses
+        require(msg.sender == address(0), "no permission");
+        validatorsPerOperatorLimit = _validatorsPerOperatorLimit;
+    }
+
+    function setValidatorsPerOperator(bytes calldata _operatorPublicKey, uint256 _validatorsPerOperator) external {
+        // TODO: set real addresses
+        require(msg.sender == address(0), "no permission");
+        validatorsPerOperator[_operatorPublicKey] = _validatorsPerOperator;
     }
 }

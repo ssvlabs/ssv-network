@@ -22,6 +22,8 @@ describe('Validators', function() {
     Contract = await ethers.getContractFactory('SSVNetwork');
     contract = await Contract.deploy();
     await contract.deployed();
+
+    await contract.setValidatorsPerOperatorLimit(2000);
   });
 
   // Test case
