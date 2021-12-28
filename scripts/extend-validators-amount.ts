@@ -1,5 +1,5 @@
 import {ethers, upgrades} from 'hardhat';
-import {fetchOperators} from '../helpers/utilis';
+import {fetchOperators} from './utilis';
 
 const _crypto = require('crypto');
 const Web3 = require('web3');
