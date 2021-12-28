@@ -29,7 +29,7 @@ async function main() {
     const operators = fetchOperators();
     for (let publicKey of Object.keys(operators)) {
         const operator = operators[publicKey];
-        const tx = await ssvNetwork.batchRegisterOperator(
+        const tx = await ssvNetwork.setValidatorsPerOperator(
             publicKey,
             operator.validatorsManaged
         );
