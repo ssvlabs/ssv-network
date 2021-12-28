@@ -1,4 +1,5 @@
 import {ethers, upgrades} from 'hardhat';
+import {fetchOperators} from '../helpers/utilis';
 
 const _crypto = require('crypto');
 const Web3 = require('web3');
@@ -25,10 +26,12 @@ function convertPublickey(rawValue) {
 async function main() {
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
     const ssvNetwork = await ssvNetworkFactory.attach(process.env.CONTRACT);
-    for (let index = 0; index < 3; index++) {
+    const operators = fetchOperators();
+    for (let publicKey of Object.keys(operators)) {
+        const operator = operators[publicKey];
         const tx = await ssvNetwork.batchRegisterOperator(
             publicKey,
-            validatorsAmount
+            operator.validatorsManaged
         );
         await tx.wait();
     }
