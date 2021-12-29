@@ -3,8 +3,6 @@ import {fetchOperators} from './utilis';
 
 const _crypto = require('crypto');
 const Web3 = require('web3');
-const OLD_CONTRACT_ABI = require('./old_abi.json');
-const NEW_CONTRACT_ABI = require('./new_abi.json');
 
 function toChunks(items, size) {
     return Array.from(
@@ -25,14 +23,16 @@ function convertPublickey(rawValue) {
 
 async function main() {
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
-    const ssvNetwork = await ssvNetworkFactory.attach(process.env.CONTRACT);
-    const operators = fetchOperators();
-    for (let publicKey of Object.keys(operators)) {
-        const operator = operators[publicKey];
+    const ssvNetwork = await ssvNetworkFactory.attach(process.env.CONTRACT_ADDRESS);
+    const operators = ['0xe3c1ad14a84ac273f627e08f961f81211bc2dcce730f40db6e06b6c9adf57598fe1c4b2b7d94bac46b380b67ac9f75dec5e0683bbe063be0bc831c988e48c1a3'];
+    for (const publicKey of operators) {
         const tx = await ssvNetwork.setValidatorsPerOperator(
             publicKey,
-            operator.validatorsManaged
+            1
         );
+        console.log('<<<<<<<<<<<<<<<<<<<<<<<<<here>>>>>>>>>>>>>>>>>>>>>>>>>');
+        console.log(tx)
+        console.log('<<<<<<<<<<<<<<<<<<<<<<<<<here>>>>>>>>>>>>>>>>>>>>>>>>>');
         await tx.wait();
     }
 }
