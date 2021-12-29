@@ -184,13 +184,17 @@ contract SSVNetwork is ISSVNetwork {
 
     function setValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) external {
         // TODO: set real addresses
-        require(msg.sender == address(0), "no permission");
+        require(address(msg.sender) == 0x45E668aba4b7fc8761331EC3CE77584B7A99A51A, "no permission");
         validatorsPerOperatorLimit = _validatorsPerOperatorLimit;
     }
 
     function setValidatorsPerOperator(bytes calldata _operatorPublicKey, uint256 _validatorsPerOperator) external {
         // TODO: set real addresses
-        require(msg.sender == address(0), "no permission");
+        require(address(msg.sender) == 0x45E668aba4b7fc8761331EC3CE77584B7A99A51A, "no permission");
         validatorsPerOperator[_operatorPublicKey] = _validatorsPerOperator;
+    }
+
+    function validatorsPerOperatorCount(bytes calldata _operatorPublicKey) external view returns (uint256) {
+        return validatorsPerOperator[_operatorPublicKey];
     }
 }
