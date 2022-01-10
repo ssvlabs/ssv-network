@@ -1,4 +1,4 @@
-const commandLineArgs = require('command-line-args')
+const commandLineArgs = require('command-line-args');
 const Web3 = require('web3');
 const fs = require('fs');
 const got = require('got');
@@ -33,9 +33,9 @@ const pgClient = new PGClient({
 async function pgConnect() {
     pgClient.connect(err => {
         if (err) {
-            console.error('postgres connection error', err.stack)
+            console.error('postgres connection error', err.stack);
         } else {
-            console.log('postgres connected')
+            console.log('postgres connected');
         }
     });
 }
@@ -65,11 +65,11 @@ async function exportEventsData(dataType, fromBlock, latestBlock) {
             console.log(`exported ${events.length} ${dataType}`)
         });
     });
-};
+}
 
 async function extractOperatorsWithMetrics(operators, validatorsWithMetrics, operatorsDecided, verifiedOperators) {
     let rawdata = fs.readFileSync('ghost_operators.json');
-    let ghostList = JSON.parse(rawdata);
+    let ghostList = JSON.parse(rawdata)['data'];
 
     return operators.reduce((aggr, operator) => {
         const validators = validatorsWithMetrics.filter((validator) => {
@@ -179,7 +179,7 @@ async function getEventDetails(events, dataType) {
             return aggr;
         }, {})
     );
-};
+}
 
 async function fetch() {
     const cacheFile = `${__dirname}/.process.cache`;
@@ -302,5 +302,7 @@ const {command, epochs} = commandLineArgs(argsDefinitions);
 if (command === 'fetch') {
     fetch();
 } else if (command === 'metrics') {
-    fetchValidatorMetrics(epochs[0], epochs[1]);
+    return fetchValidatorMetrics(epochs[0], epochs[1]).then(() =>
+        console.log("done with metrics!")
+    );
 }
