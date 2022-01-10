@@ -351,6 +351,135 @@
           }
         }
       }
+    },
+    "b41075650d16ff5a07485280f53b6f00b0d6b15658221b2baf73984c51436276": {
+      "address": "0xb982aDE381bf3B704c17dF18f1C55406188C004f",
+      "txHash": "0x2af0c01d455303b8b06f9cea948973904a77c461c15dc3692df8cae488d0913a",
+      "layout": {
+        "storage": [
+          {
+            "contract": "SSVNetwork",
+            "label": "operatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:8"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "validatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:9"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "operators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)19_storage)",
+            "src": "contracts/SSVNetwork.sol:11"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "validators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)28_storage)",
+            "src": "contracts/SSVNetwork.sol:12"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "validatorsPerOperator",
+            "type": "t_mapping(t_bytes_memory_ptr,t_uint256)",
+            "src": "contracts/SSVNetwork.sol:14"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "validatorsPerOperatorLimit",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:16"
+          }
+        ],
+        "types": {
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)19_storage)": {
+            "label": "mapping(bytes => struct ISSVNetwork.Operator)"
+          },
+          "t_bytes_storage": {
+            "label": "bytes"
+          },
+          "t_struct(Operator)19_storage": {
+            "label": "struct ISSVNetwork.Operator",
+            "members": [
+              {
+                "label": "name",
+                "type": "t_string_storage"
+              },
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "score",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)28_storage)": {
+            "label": "mapping(bytes => struct ISSVNetwork.Validator)"
+          },
+          "t_struct(Validator)28_storage": {
+            "label": "struct ISSVNetwork.Validator",
+            "members": [
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "oess",
+                "type": "t_array(t_struct(Oess)10_storage)dyn_storage"
+              }
+            ]
+          },
+          "t_array(t_struct(Oess)10_storage)dyn_storage": {
+            "label": "struct ISSVNetwork.Oess[]"
+          },
+          "t_struct(Oess)10_storage": {
+            "label": "struct ISSVNetwork.Oess",
+            "members": [
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "operatorPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "sharedPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "encryptedKey",
+                "type": "t_bytes_storage"
+              }
+            ]
+          },
+          "t_mapping(t_bytes_memory_ptr,t_uint256)": {
+            "label": "mapping(bytes => uint256)"
+          }
+        }
+      }
     }
   },
   "proxies": [
