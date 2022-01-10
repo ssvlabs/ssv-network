@@ -1,4 +1,4 @@
-const commandLineArgs = require('command-line-args')
+const commandLineArgs = require('command-line-args');
 const Web3 = require('web3');
 const fs = require('fs');
 const got = require('got');
@@ -8,6 +8,7 @@ const {readFile, stat} = require('fs').promises;
 const parse = require('csv-parse');
 const stringify = require('csv-stringify');
 const {Client} = require('@elastic/elasticsearch');
+const {Client: PGClient} = require('pg');
 require('dotenv').config();
 
 const web3 = new Web3(process.env.NODE_URL);
@@ -21,10 +22,32 @@ const client = new Client({
     node: process.env.ELASTICSEARCH_URI
 });
 
+const pgClient = new PGClient({
+    host: process.env.POSTGRES_HOST,
+    port: process.env.POSTGRES_PORT,
+    user: process.env.POSTGRES_USER,
+    password: process.env.POSTGRES_PASSWORD,
+    database: process.env.POSTGRES_DB
+});
+
+async function pgConnect() {
+    pgClient.connect(err => {
+        if (err) {
+            console.error('postgres connection error', err.stack);
+        } else {
+            console.log('postgres connected');
+        }
+    });
+}
 
 function convertPublickey(rawValue) {
-    const decoded = web3.eth.abi.decodeParameter('string', rawValue.replace('0x', ''));
-    return crypto.createHash('sha256').update(decoded).digest('hex');
+    try {
+        const decoded = web3.eth.abi.decodeParameter('string', rawValue.replace('0x', ''));
+        return crypto.createHash('sha256').update(decoded).digest('hex');
+    } catch (e) {
+        console.error(`convertPublickey err: ${e}`);
+        return ""
+    }
 }
 
 async function exportEventsData(dataType, fromBlock, latestBlock) {
@@ -42,9 +65,12 @@ async function exportEventsData(dataType, fromBlock, latestBlock) {
             console.log(`exported ${events.length} ${dataType}`)
         });
     });
-};
+}
 
-async function extractOperatorsWithMetrics(operators, validatorsWithMetrics, operatorsDecided) {
+async function extractOperatorsWithMetrics(operators, validatorsWithMetrics, operatorsDecided, verifiedOperators) {
+    let rawdata = fs.readFileSync('ghost_operators.json');
+    let ghostList = JSON.parse(rawdata)['data'];
+
     return operators.reduce((aggr, operator) => {
         const validators = validatorsWithMetrics.filter((validator) => {
             const operatorsPubkeys = validator.operatorPublicKeys.split(';');
@@ -52,6 +78,8 @@ async function extractOperatorsWithMetrics(operators, validatorsWithMetrics, ope
         });
         const attestationsAvg = (v) => (v.reduce((a, b) => a + +b.attestations, 0) / v.length).toFixed(0);
         operator.active = `${!!operatorsDecided.find(value => value.key === operator.name)}`;
+        operator.verified = `${!!verifiedOperators.find(value => value.name === operator.name)}`;
+        operator.ghost = `${!!ghostList.find(value => value === operator.name)}`;
         operator.validatorsCount = validators.length;
         operator.effectiveness = (validators.reduce((a, b) => a + +b.effectiveness, 0) / validators.length).toFixed(0);
         operator.attestations = attestationsAvg(validators);
@@ -151,7 +179,7 @@ async function getEventDetails(events, dataType) {
             return aggr;
         }, {})
     );
-};
+}
 
 async function fetch() {
     const cacheFile = `${__dirname}/.process.cache`;
@@ -169,6 +197,7 @@ async function fetch() {
 }
 
 async function fetchValidatorMetrics(fromEpoch, toEpoch) {
+    await pgConnect();
     const operatorsFile = `${__dirname}/operators.csv`;
     const validatorsFile = `${__dirname}/validators.csv`;
     await stat(validatorsFile);
@@ -196,9 +225,10 @@ async function fetchValidatorMetrics(fromEpoch, toEpoch) {
         operators.push(record);
     }
 
+    const verifiedOperators = await extractVerifiedOperators();
     const operatorsDecided = await extractOperatorsDecided(fromEpoch, toEpoch);
     const validatorsWithMetrics = await extractValidatorsWithMetrics(validators, operators, operatorsDecided, fromEpoch, toEpoch);
-    const operatorsWithMetrics = await extractOperatorsWithMetrics(operators, validatorsWithMetrics, operatorsDecided);
+    const operatorsWithMetrics = await extractOperatorsWithMetrics(operators, validatorsWithMetrics, operatorsDecided, verifiedOperators);
 
     stringify(validatorsWithMetrics, {
         header: true
@@ -247,6 +277,21 @@ function extractOperatorsDecided(fromEpoch, toEpoch) {
     })
 }
 
+function extractVerifiedOperators() {
+    const query = {
+        // give the query a unique name
+        name: 'fetch-user',
+        text: 'SELECT name FROM operators_operator WHERE type = $1',
+        values: ['verified_operator'],
+    };
+    const res = pgClient.query(query);
+    return res.catch(err => {
+        throw new Error(JSON.stringify(err));
+    }).then(res => {
+        return res.rows
+    })
+}
+
 const argsDefinitions = [
     {name: 'command', type: String},
     {name: 'epochs', type: Number, multiple: true},
@@ -257,5 +302,7 @@ const {command, epochs} = commandLineArgs(argsDefinitions);
 if (command === 'fetch') {
     fetch();
 } else if (command === 'metrics') {
-    fetchValidatorMetrics(epochs[0], epochs[1]);
+    return fetchValidatorMetrics(epochs[0], epochs[1]).then(() =>
+        console.log("done with metrics!")
+    );
 }
