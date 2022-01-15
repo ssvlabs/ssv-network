@@ -1,9 +1,360 @@
 {
   "manifestVersion": "3.2",
   "impls": {
-    "5689a8a9c79252db32d38b079f81bff9b0cc9022dbf2d161c82fa5804e132ae4": {
-      "address": "0x0D24307888Dc744a6bcBD80C21D8ec62185C4afb",
-      "txHash": "0x7bcb4db7762a7a104b259fe088f97890efd68916db684feb8e52c120557b4d33",
+    "b96d28be99ba1808470b0374775e5d49167198895d07a71ff8b0cefa6f8ba30b": {
+      "address": "0x2349568E0D7dcE922Ee8EE044D7e0FD5FE2D3b38",
+      "txHash": "0xe8373502047410c725b3a6b86f5ba0e5158e5bd70425a691acb3cd79ffd8f474",
+      "layout": {
+        "storage": [
+          {
+            "contract": "SSVNetwork",
+            "label": "operatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:8"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "validatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:9"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "operators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)19_storage)",
+            "src": "contracts/SSVNetwork.sol:11"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "validators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)28_storage)",
+            "src": "contracts/SSVNetwork.sol:12"
+          }
+        ],
+        "types": {
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)19_storage)": {
+            "label": "mapping(bytes => struct ISSVNetwork.Operator)"
+          },
+          "t_bytes_storage": {
+            "label": "bytes"
+          },
+          "t_struct(Operator)19_storage": {
+            "label": "struct ISSVNetwork.Operator",
+            "members": [
+              {
+                "label": "name",
+                "type": "t_string_storage"
+              },
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "score",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)28_storage)": {
+            "label": "mapping(bytes => struct ISSVNetwork.Validator)"
+          },
+          "t_struct(Validator)28_storage": {
+            "label": "struct ISSVNetwork.Validator",
+            "members": [
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "oess",
+                "type": "t_array(t_struct(Oess)10_storage)dyn_storage"
+              }
+            ]
+          },
+          "t_array(t_struct(Oess)10_storage)dyn_storage": {
+            "label": "struct ISSVNetwork.Oess[]"
+          },
+          "t_struct(Oess)10_storage": {
+            "label": "struct ISSVNetwork.Oess",
+            "members": [
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "operatorPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "sharedPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "encryptedKey",
+                "type": "t_bytes_storage"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "c1ee74414fca4094704708cd9a02ad7b47cb6fe06fb71f5640693ae2ec915959": {
+      "address": "0xe28E008Bf3603789c95C24363cecbA5e2486264F",
+      "txHash": "0xef3fcc40290b72448b16e0ea93f87b17174e38711afddf3bbdb4b4975abf22a3",
+      "layout": {
+        "storage": [
+          {
+            "contract": "DEX",
+            "label": "cdtToken",
+            "type": "t_contract(IERC20)584",
+            "src": "contracts/DEX.sol:9"
+          },
+          {
+            "contract": "DEX",
+            "label": "ssvToken",
+            "type": "t_contract(IERC20)584",
+            "src": "contracts/DEX.sol:10"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)584": {
+            "label": "contract IERC20"
+          }
+        }
+      }
+    },
+    "c0ae4eb6fbc77749ec0add2eb694b8b1029a357fa2ef3be48ec53bfb42f0b2ba": {
+      "address": "0xf270B21f5e4E6E89365082e2b9A3aF08Bdf15435",
+      "txHash": "0x74cddad6e1516e2d1e3816d4d44f1c508b0fc711e0f22b9df272c2f9363fa728",
+      "layout": {
+        "storage": [
+          {
+            "contract": "DEX",
+            "label": "cdtToken",
+            "type": "t_contract(IERC20)584",
+            "src": "contracts/DEX.sol:8"
+          },
+          {
+            "contract": "DEX",
+            "label": "ssvToken",
+            "type": "t_contract(IERC20)584",
+            "src": "contracts/DEX.sol:9"
+          },
+          {
+            "contract": "DEX",
+            "label": "rate",
+            "type": "t_uint256",
+            "src": "contracts/DEX.sol:11"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)584": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          }
+        }
+      }
+    },
+    "882022e309594364ba9ff19fbef348cf5fad6ccf9b2b3c8efa97aa1e819e9e48": {
+      "address": "0x3bdBcB87c92539810f7d103f79B154E8756f7C52",
+      "txHash": "0xd02ff00e2f0187e224011e8119115963a09f7ba726b297d5b88d69a5cedb7db8",
+      "layout": {
+        "storage": [
+          {
+            "contract": "SSVNetwork",
+            "label": "operatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:8"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "validatorCount",
+            "type": "t_uint256",
+            "src": "contracts/SSVNetwork.sol:9"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "operators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Operator)19_storage)",
+            "src": "contracts/SSVNetwork.sol:11"
+          },
+          {
+            "contract": "SSVNetwork",
+            "label": "validators",
+            "type": "t_mapping(t_bytes_memory_ptr,t_struct(Validator)28_storage)",
+            "src": "contracts/SSVNetwork.sol:12"
+          }
+        ],
+        "types": {
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Operator)19_storage)": {
+            "label": "mapping(bytes => struct ISSVNetwork.Operator)"
+          },
+          "t_bytes_storage": {
+            "label": "bytes"
+          },
+          "t_struct(Operator)19_storage": {
+            "label": "struct ISSVNetwork.Operator",
+            "members": [
+              {
+                "label": "name",
+                "type": "t_string_storage"
+              },
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "score",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_string_storage": {
+            "label": "string"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_mapping(t_bytes_memory_ptr,t_struct(Validator)28_storage)": {
+            "label": "mapping(bytes => struct ISSVNetwork.Validator)"
+          },
+          "t_struct(Validator)28_storage": {
+            "label": "struct ISSVNetwork.Validator",
+            "members": [
+              {
+                "label": "ownerAddress",
+                "type": "t_address"
+              },
+              {
+                "label": "publicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "oess",
+                "type": "t_array(t_struct(Oess)10_storage)dyn_storage"
+              }
+            ]
+          },
+          "t_array(t_struct(Oess)10_storage)dyn_storage": {
+            "label": "struct ISSVNetwork.Oess[]"
+          },
+          "t_struct(Oess)10_storage": {
+            "label": "struct ISSVNetwork.Oess",
+            "members": [
+              {
+                "label": "index",
+                "type": "t_uint256"
+              },
+              {
+                "label": "operatorPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "sharedPublicKey",
+                "type": "t_bytes_storage"
+              },
+              {
+                "label": "encryptedKey",
+                "type": "t_bytes_storage"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "3f4905401e9b6271d88f1ad89be41eef44ce2cf0ec977da07aaa6d8e8334048b": {
+      "address": "0x0b1EfAD92D804d580DFf45c8E16894067A1eb9CF",
+      "txHash": "0xe457c1b9bb1ca006e0e711989cf09e677d84cc2e2b186de06b0da4ca38de5644",
+      "layout": {
+        "storage": [
+          {
+            "contract": "TokenVestingController",
+            "label": "token",
+            "type": "t_contract(IERC20)187",
+            "src": "contracts/vesting/TokenVestingController.sol:8"
+          },
+          {
+            "contract": "TokenVestingController",
+            "label": "minimumAmountPerContract",
+            "type": "t_uint256",
+            "src": "contracts/vesting/TokenVestingController.sol:9"
+          },
+          {
+            "contract": "TokenVestingController",
+            "label": "vestings",
+            "type": "t_mapping(t_address,t_array(t_contract(TokenVesting)1557)dyn_storage)",
+            "src": "contracts/vesting/TokenVestingController.sol:10"
+          },
+          {
+            "contract": "TokenVestingController",
+            "label": "owners",
+            "type": "t_mapping(t_contract(TokenVesting)1557,t_address)",
+            "src": "contracts/vesting/TokenVestingController.sol:11"
+          },
+          {
+            "contract": "TokenVestingController",
+            "label": "initialized",
+            "type": "t_bool",
+            "src": "contracts/vesting/TokenVestingController.sol:13"
+          }
+        ],
+        "types": {
+          "t_contract(IERC20)187": {
+            "label": "contract IERC20"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_mapping(t_address,t_array(t_contract(TokenVesting)1557)dyn_storage)": {
+            "label": "mapping(address => contract TokenVesting[])"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_array(t_contract(TokenVesting)1557)dyn_storage": {
+            "label": "contract TokenVesting[]"
+          },
+          "t_contract(TokenVesting)1557": {
+            "label": "contract TokenVesting"
+          },
+          "t_mapping(t_contract(TokenVesting)1557,t_address)": {
+            "label": "mapping(contract TokenVesting => address)"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    },
+    "b41075650d16ff5a07485280f53b6f00b0d6b15658221b2baf73984c51436276": {
+      "address": "0xb982aDE381bf3B704c17dF18f1C55406188C004f",
+      "txHash": "0x2af0c01d455303b8b06f9cea948973904a77c461c15dc3692df8cae488d0913a",
       "layout": {
         "storage": [
           {
@@ -131,8 +482,8 @@
       }
     },
     "8e93369b652931850f8adfc021fd3c7cad71b9fcd47f2eda47741b4bf3ec51bb": {
-      "address": "0x275515c886191707EA3E19a3662b54b333624D70",
-      "txHash": "0xfebedfa60002ae20f78f7a3574a1a6f97e0e43176a9118710e33c41c757b5280",
+      "address": "0x95411f0eff85D03368f88c9B52246d1b0f4acb74",
+      "txHash": "0x37e32067d38ac012a3ea0d2982f7b51509b973031de456df6880df9f73a53193",
       "layout": {
         "storage": [
           {
@@ -262,18 +613,33 @@
   },
   "proxies": [
     {
-      "address": "0xD945bC3AFA9C1FF39cD4B19E56DF7B73f9aB3547",
+      "address": "0x1cfFB88C8fa7A3D4e806Ac4597d88F1DdD6A01A3",
       "kind": "transparent",
-      "txHash": "0x77df09a7993dea4fe7dfedbab3ddebcf9772e781a5493fae5c2b17962719f9d1"
+      "txHash": "0x983f6ba2e6bf597527c93b337de3a55e1f82c3f99ed9abe5ff76279782ff72ef"
     },
     {
-      "address": "0x5935E8F094F1e38f5082283B63f4763640Ea9F53",
+      "address": "0x9573C41F0Ed8B72f3bD6A9bA6E3e15426A0aa65B",
       "kind": "transparent",
-      "txHash": "0x8885673391203b76f23938e1dbabb908ccebabebeda99dcdf91ece0e0145755f"
+      "txHash": "0xf365304a71519182f0ffd196fdcd3671e46433afe2d12a9b3fb86013e30c1bd6"
+    },
+    {
+      "address": "0x687fb596F3892904F879118e2113e1EEe8746C2E",
+      "kind": "transparent",
+      "txHash": "0x9c1ffcc82b46702a43e409c370c07f265185a1d35e4a26036b1d45229cd6a962"
+    },
+    {
+      "address": "0x084Cdf587e7F44bA49E45D63644e191A504CE50B",
+      "kind": "transparent",
+      "txHash": "0x75989d00b7db0cec1eb0da2fe2055c416d3c79d5b8625e6550b801f436103699"
+    },
+    {
+      "address": "0xe3DCeE3E4Fbd60a4214dB32d939925c93d734CfC",
+      "kind": "transparent",
+      "txHash": "0xd2f84c3940d0815ee33045466e4a793b7154e3518f7080102e6e7737c998cd17"
     }
   ],
   "admin": {
-    "address": "0x56B49DFE0fE01a49170aa11618Cc5e47dD26c4b8",
-    "txHash": "0x07f8ba3bec5e42feab7dd4c167b57cafd972f0223d60b97e9e18c5031bcc7580"
+    "address": "0xB031Cd5e440a84e7837319cB7923291B07c401DA",
+    "txHash": "0x2d74bedd86d4548e39e65372ff1202d8358e62f4b35735b526c6217a2cd68a51"
   }
 }
