@@ -1,41 +1,34 @@
 const got = require('got');
 
-function uniq(a) {
-    return [...new Set(a)];
-}
-
 const hashedOperators = {};
 const hashedValidators = {};
 
 async function fetchOperators() {
-    return new Promise(resolve => {
-        got.get(process.env.EXPLORER_URI + '/operators/graph/').then(async (response) => {
+    return new Promise((resolve, reject) => {
+        getOperators().then(async (operators) => {
             let counter = 1;
-            const data = JSON.parse(response.body)
-            const operators = data.operators;
             const operatorsCount = operators.length;
             const batches = new Array(Math.ceil(operators.length / process.env.RATE_LIMIT)).fill().map(_ => operators.splice(0, process.env.RATE_LIMIT))
             for (const batch of batches) {
-                const batchOperators = await Promise.all(batch.map(cell => {
-                    return new Promise((resolveOperators) => {
+                for (const subBatch of batch) {
+                    await new Promise((resolveOperators) => {
                         console.log(`prepare Operator: ${counter} / ${operatorsCount}`)
                         ++counter
-                        resolveOperators(
-                            {
-                                name: cell.name,
-                                validatorsManaged: 0,
-                                publicKey: cell.address,
-                                ownerAddress: cell.owner_address,
-                                verified: cell.type === 'verified_operator' || cell.type === 'dapp_node'
-                            }
-                        )
+                        hashedOperators[subBatch.address] = {
+                            name: subBatch.name,
+                            validatorsManaged: 0,
+                            publicKey: subBatch.public_key,
+                            ownerAddress: subBatch.owner_address,
+                            verified: subBatch.type === 'verified_operator' || subBatch.type === 'dapp_node'
+                        }
+                        resolveOperators()
                     })
-                }))
-                batchOperators.forEach(operator => hashedOperators[operator.publicKey] = operator)
+                }
             }
             resolve()
-        }).catch(() => {
-            resolve(fetchOperators());
+        }).catch((e) => {
+            console.log('<<<<<<<<<<<error>>>>>>>>>>>');
+            reject(e.message);
         })
     });
 }
@@ -44,11 +37,49 @@ async function getValidators() {
     return new Promise(resolve => {
         got.get(process.env.EXPLORER_URI + '/validators/detailed?perPage=500&page=1').then(async (response) => {
             const data = JSON.parse(response.body)
-            const numOfPages = data.pagination.pages;
-            const validators = await Promise.all(Array(numOfPages).fill(null).map((_, i) => getValidatorsRequest(i + 2)));
+            const numOfPages = data.pagination.pages - 1;
+            const validators = [];
+            for (let i in Array(numOfPages).fill(null)) {
+                const loadValidators = await getValidatorsRequest(Number(i) + 2)
+                validators.push(loadValidators);
+            }
             resolve([...validators.flat(), ...data.validators]);
         }).catch(() => {
             resolve(getValidators());
+        });
+    })
+}
+
+async function getOperators() {
+    return new Promise(async resolve => {
+        got.get(process.env.EXPLORER_URI + '/operators/graph?perPage=200&page=1').then(async (response) => {
+            const data = JSON.parse(response.body)
+            const numOfPages = data.pagination.pages - 1;
+            const operators = [];
+            for (let i in Array(numOfPages).fill(null)) {
+                const loadOperators = await getOperatorsRequest(Number(i) + 2)
+                operators.push(loadOperators);
+            }
+            resolve([...operators.flat(), ...data.operators]);
+        }).catch(() => {
+            resolve(getOperators());
+        });
+    })
+}
+
+async function getOperatorsRequest(page) {
+    return new Promise(resolve => {
+        const start = performance.now();
+        got.get(process.env.EXPLORER_URI + `/operators/graph?perPage=200&page=${page}`).then(async (response) => {
+            const data = JSON.parse(response.body)
+            const duration = performance.now() - start;
+            if (duration > 250) {
+                setTimeout(() => {
+                    resolve(data.operators);
+                }, duration - 250)
+            } else {
+                resolve(data.operators);
+            }
         });
     })
 }
@@ -63,37 +94,34 @@ async function getValidatorsRequest(page) {
 }
 
 async function fetchValidators() {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
         getValidators().then(async (validators) => {
             let counter = 1;
             const validatorsLength = validators.length;
             const batches = new Array(Math.ceil(validators.length / process.env.RATE_LIMIT)).fill().map(_ => validators.splice(0, process.env.RATE_LIMIT))
             for (const batch of batches) {
-                const batchValidators = await Promise.all(batch.map(cell => {
-                    return new Promise((resolveValidators) => {
-                        const validatorPublicKey = cell.publicKey.startsWith('0x') ? cell.publicKey : `0x${cell.publicKey}`;
-                        console.log('prepare Validator: ' + counter + ' / ' + validatorsLength)
-                        cell.operators.forEach(operator => {
-                            if (hashedOperators[operator.address]) hashedOperators[operator.address].validatorsManaged += 1
-                        })
-                        ++counter
-                        resolveValidators({
-                            publicKey: validatorPublicKey,
-                            operators: cell.operators
-                        })
+                for (const subBatch of batch) {
+                    console.log('prepare Validator: ' + counter + ' / ' + validatorsLength);
+                    ++counter
+                    subBatch.operators.forEach((operator)=>{
+                        if(hashedOperators[operator.address]) {
+                            hashedOperators[operator.address].validatorsManaged += 1
+                        }
                     })
-                }))
-                batchValidators.forEach(validator => hashedValidators[validator.publicKey] = validator)
+                }
             }
-            resolve();
+            resolve(true);
+        }).catch((e) => {
+            console.log('<<<<<<<<<<<error>>>>>>>>>>>');
+            reject(e.message);
         })
     })
 }
 
-async function fetchOperators(fromEpoch, toEpoch) {
-    return new Promise(async (resolve => {
-        fetchOperators(fromEpoch, toEpoch).then(() => {
-            fetchValidators(fromEpoch, toEpoch).then(() => {
+async function fetchOperatorsValidators() {
+    return new Promise((resolve => {
+        fetchOperators().then(() => {
+            fetchValidators().then(() => {
                 resolve(hashedOperators);
             });
         })
@@ -102,5 +130,5 @@ async function fetchOperators(fromEpoch, toEpoch) {
 
 
 module.exports = {
-    fetchOperators
+    fetchOperatorsValidators
 }
