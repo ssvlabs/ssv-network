@@ -47,6 +47,15 @@ interface ISSVNetwork {
      */
     event OperatorDeactivated(address indexed ownerAddress, bytes publicKey);
 
+    event OperatorFeeSet(
+        address indexed ownerAddress,
+        bytes publicKey,
+        uint256 blockNumber,
+        uint256 fee
+    );
+
+    event OperatorFeeSetCanceled(address indexed ownerAddress, bytes publicKey);
+
     /**
      * @dev Emitted when an operator's fee is updated.
      * @param ownerAddress Operator's owner.
@@ -54,7 +63,7 @@ interface ISSVNetwork {
      * @param blockNumber from which block number.
      * @param fee updated fee value.
      */
-    event OperatorFeeUpdated(
+    event OperatorFeeApproved(
         address indexed ownerAddress,
         bytes publicKey,
         uint256 blockNumber,
@@ -142,17 +151,25 @@ interface ISSVNetwork {
      */
     event NetworkFeesWithdrawn(uint256 value, address recipient);
 
+    event SetOperatorFeePeriodUpdated(uint256 value);
+
+    event ApproveOperatorFeePeriodUpdated(uint256 value);
+
     /**
      * @dev Initializes the contract.
      * @param registryAddress The registry address.
      * @param token The network token.
      * @param minimumBlocksBeforeLiquidation The minimum blocks before liquidation.
+     * @param setOperatorFeePeriod The period an operator needs to wait before they can approve their fee.
+     * @param approveOperatorFeePeriod The length of the period in which an operator can approve their fee.
      */
     function initialize(
         ISSVRegistry registryAddress,
         IERC20 token,
         uint256 minimumBlocksBeforeLiquidation,
-        uint256 operatorMaxFeeIncrease
+        uint256 operatorMaxFeeIncrease,
+        uint256 setOperatorFeePeriod,
+        uint256 approveOperatorFeePeriod
     ) external;
 
     /**
@@ -185,11 +202,15 @@ interface ISSVNetwork {
     function deactivateOperator(bytes calldata publicKey) external;
 
     /**
-     * @dev Updates operator's fee by public key.
+     * @dev Set operator's fee change request by public key.
      * @param publicKey Operator's public Key.
      * @param fee The operators's updated fee.
      */
-    function updateOperatorFee(bytes calldata publicKey, uint256 fee) external;
+    function setOperatorFee(bytes calldata publicKey, uint256 fee) external;
+
+    function cancelSetOperatorFee(bytes calldata publicKey) external;
+
+    function approveOperatorFee(bytes calldata publicKey) external;
 
     /**
      * @dev Updates operator's score by public key.
@@ -275,6 +296,10 @@ interface ISSVNetwork {
      */
     function updateOperatorMaxFeeIncrease(uint256 operatorMaxFeeIncrease) external;
 
+    function updateSetOperatorFeePeriod(uint256 setOperatorFeePeriod) external;
+
+    function updateApproveOperatorFeePeriod(uint256 approveOperatorFeePeriod) external;
+
     /**
      * @dev Updates the network fee.
      * @param fee the new fee
@@ -340,6 +365,8 @@ interface ISSVNetwork {
         external view
         returns (bytes[] memory);
 
+    function getOperatorFeeChangeRequest(bytes calldata publicKey) external view returns (uint256, uint256, uint256);
+
     /**
      * @dev Gets operator current fee.
      * @param publicKey Operator's public key.
@@ -389,4 +416,8 @@ interface ISSVNetwork {
      * @dev Returns the maximum fee increase in pecentage
      */
      function operatorMaxFeeIncrease() external view returns (uint256);
+
+     function getSetOperatorFeePeriod() external view returns (uint256);
+
+     function getApproveOperatorFeePeriod() external view returns (uint256);
 }

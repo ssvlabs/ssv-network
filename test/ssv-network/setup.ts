@@ -17,6 +17,9 @@ export const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validato
 const DAY = 86400;
 const YEAR = 365 * DAY;
 
+const setOperatorFeePeriod = 0;
+const approveOperatorFeePeriod = DAY;
+
 const operatorData = [];
 const addressData = {};
 const globalData: any = {};
@@ -40,10 +43,10 @@ export const initContracts = async() => {
   await utils.deployed();
   await ssvToken.deployed();
   await ssvRegistry.deployed();
-  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease]);
+  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod]);
   await ssvNetwork.deployed();
-  await ssvToken.mint(account1.address, '1000000');
-  await ssvToken.mint(account2.address, '1000000');
+  await ssvToken.mint(account1.address, '1000000000');
+  await ssvToken.mint(account2.address, '1000000000');
 }
 
 const initGlobalData = () => {
@@ -257,8 +260,8 @@ export const withdraw = async(account, amount) => {
 }
 
 export const updateOperatorFee = async (account, idx, fee) => {
-  await progressTime(4 * DAY);
-  await ssvNetwork.connect(account).updateOperatorFee(operatorsPub[idx], fee);
+  await ssvNetwork.connect(account).setOperatorFee(operatorsPub[idx], fee);
+  await ssvNetwork.connect(account).approveOperatorFee(operatorsPub[idx]);
   await progressBlocks(1);
   // update balance
   await updateOperatorBalance(idx);

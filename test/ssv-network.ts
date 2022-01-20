@@ -22,35 +22,41 @@ const operatorMaxFeeIncrease = 10;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
-let ssvToken, ssvRegistry, ssvNetwork;
+let ssvToken, ssvRegistry, ssvNetwork, utils;
 let owner, account1, account2, account3;
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
-const tokens = '100000';
+const tokens = '100000000';
 
 const DAY = 86400;
 const YEAR = 365 * DAY;
 
+const setOperatorFeePeriod = 0;
+const approveOperatorFeePeriod = DAY;
+
 describe('SSV Network', function() {
   before(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
+    const utilsFactory = await ethers.getContractFactory('Utils');
     const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+
+    utils = await utilsFactory.deploy();
     ssvToken = await ssvTokenFactory.deploy();
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod]);
     await ssvNetwork.deployed();
-    await ssvToken.mint(account1.address, '1000000');
+    await ssvToken.mint(account1.address, '1000000000');
 
     // register operators
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10);
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50);
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000);
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50000);
 
     // register validators
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
@@ -65,38 +71,38 @@ describe('SSV Network', function() {
   });
 
   it('get operator current fee', async function() {
-    expect(await ssvNetwork.getOperatorCurrentFee(operatorsPub[0])).to.equal(10);
-    expect(await ssvNetwork.getOperatorCurrentFee(operatorsPub[1])).to.equal(20);
-    expect(await ssvNetwork.getOperatorCurrentFee(operatorsPub[2])).to.equal(30);
+    expect(await ssvNetwork.getOperatorCurrentFee(operatorsPub[0])).to.equal(10000);
+    expect(await ssvNetwork.getOperatorCurrentFee(operatorsPub[1])).to.equal(20000);
+    expect(await ssvNetwork.getOperatorCurrentFee(operatorsPub[2])).to.equal(30000);
   });
 
   it('balances should be correct after 100 blocks', async function() {
     await progressBlocks(100);
-    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(90000);
-    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(3000);
-    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(7000);
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(90000000);
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(3000000);
+    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(7000000);
   });
 
   it('withdraw', async function() {
     await progressBlocks(100);
-    await ssvNetwork.connect(account1).withdraw('10000');
-    await ssvNetwork.connect(account2).withdraw('1000');
-    await ssvNetwork.connect(account3).withdraw('1000');
-    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(69700);
-    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(5090);
-    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(13210);
+    await ssvNetwork.connect(account1).withdraw('10000000');
+    await ssvNetwork.connect(account2).withdraw('1000000');
+    await ssvNetwork.connect(account3).withdraw('1000000');
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(69700000);
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(5090000);
+    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(13210000);
   });
 
   it('revert withdraw: not enough balance', async function() {
     await progressBlocks(100, async() => {
       await expect(ssvNetwork.connect(account1)
-        .withdraw('80000'))
+        .withdraw('80000000'))
         .to.be.revertedWith('not enough balance');
       await expect(ssvNetwork.connect(account2)
-        .withdraw('9000'))
+        .withdraw('9000000'))
         .to.be.revertedWith('not enough balance');
       await expect(ssvNetwork.connect(account3)
-        .withdraw('25000'))
+        .withdraw('25000000'))
         .to.be.revertedWith('not enough balance');
     });
   });
@@ -107,15 +113,15 @@ describe('SSV Network', function() {
 
   it('register another validator', async function() {
     await progressBlocks(94);
-    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(60200);
-    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(7940);
-    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(19860);
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(60200000);
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(7940000);
+    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(19860000);
     await ssvToken.connect(account2).approve(ssvNetwork.address, tokens);
     await ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens);
     await progressBlocks(100);
-    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(50000);
-    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104000);
-    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(34000);
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(50000000);
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104000000);
+    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(34000000);
   });
 
   it('get operators by owner address', async function() {
@@ -128,57 +134,57 @@ describe('SSV Network', function() {
 
   it('withdraw all when burn rate is positive', async function() {
     await snapshot(async () => {
-      expect(await ssvNetwork.burnRate(account1.address)).to.equal(100);
-      expect(await ssvNetwork.burnRate(account2.address)).to.equal(40);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(50000);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104000);
+      expect(await ssvNetwork.burnRate(account1.address)).to.equal(100000);
+      expect(await ssvNetwork.burnRate(account2.address)).to.equal(40000);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(50000000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104000000);
       await expect(ssvNetwork.connect(account1).withdrawAll()).to.be.revertedWith("burn rate positive");
     });
   });
 
   it('liquidate when burn rate is positive', async function() {
     await snapshot(async () => {
-      expect(await ssvNetwork.burnRate(account1.address)).to.equal(100);
-      expect(await ssvNetwork.burnRate(account2.address)).to.equal(40);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(50000);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104000);
-      await expect(ssvNetwork.connect(account1).liquidate([account1.address])).to.emit(ssvToken, 'Transfer').withArgs(ssvNetwork.address, account1.address, 49900);
-      expect(await ssvToken.balanceOf(account1.address)).to.equal(859900);
+      expect(await ssvNetwork.burnRate(account1.address)).to.equal(100000);
+      expect(await ssvNetwork.burnRate(account2.address)).to.equal(40000);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(50000000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104000000);
+      await expect(ssvNetwork.connect(account1).liquidate([account1.address])).to.emit(ssvToken, 'Transfer').withArgs(ssvNetwork.address, account1.address, 49900000);
+      expect(await ssvToken.balanceOf(account1.address)).to.equal(859900000);
       await ssvNetwork.connect(account1).registerValidator(validatorsPub[2], operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), 0);
       expect(await ssvNetwork.burnRate(account1.address)).to.equal(0);
-      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70);
+      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70000);
       await ssvNetwork.connect(account1).removeValidator(validatorsPub[2]);
       expect(await ssvNetwork.burnRate(account1.address)).to.equal(0);
-      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70);
+      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70000);
       await ssvNetwork.connect(account1).registerValidator(validatorsPub[2], operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), 0);
       expect(await ssvNetwork.burnRate(account1.address)).to.equal(0);
-      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70);
+      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70000);
       await ssvNetwork.connect(account1).removeValidator(validatorsPub[2]);
       expect(await ssvNetwork.burnRate(account1.address)).to.equal(0);
-      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70);
+      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70000);
       await ssvNetwork.connect(account1).registerValidator(validatorsPub[2], operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), 0);
       expect(await ssvNetwork.burnRate(account1.address)).to.equal(0);
-      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70);
+      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70000);
       await ssvNetwork.connect(account1).updateValidator(validatorsPub[2], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0);
       expect(await ssvNetwork.burnRate(account1.address)).to.equal(0);
-      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70);
+      expect(await ssvNetwork.burnRate(account2.address)).to.equal(70000);
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(103540);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(103540000);
 
       await progressBlocks(100, async function() {
-        expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(96540);
+        expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(96540000);
 
         await expect(ssvNetwork.connect(account1).enableAccount(0)).to.be.revertedWith('not enough balance');
-        await ssvToken.connect(account1).approve(ssvNetwork.address, 50000);
-        await ssvNetwork.connect(account1).enableAccount(50000);
+        await ssvToken.connect(account1).approve(ssvNetwork.address, 50000000);
+        await ssvNetwork.connect(account1).enableAccount(50000000);
         await expect(ssvNetwork.connect(account1).enableAccount(0)).to.be.revertedWith('account already enabled');
 
-        expect(await ssvNetwork.burnRate(account1.address)).to.equal(200);
-        expect(await ssvNetwork.burnRate(account2.address)).to.equal(10);
+        expect(await ssvNetwork.burnRate(account1.address)).to.equal(200000);
+        expect(await ssvNetwork.burnRate(account2.address)).to.equal(10000);
 
         await progressBlocks(50, async function() {
-          expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(39800);
-          expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(95820);
+          expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(39800000);
+          expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(95820000);
         });
       })
     });
@@ -188,10 +194,10 @@ describe('SSV Network', function() {
     await snapshot(async () => {
       await ssvNetwork.connect(account3).registerValidator(validatorsPub[2], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0);
       expect(await ssvNetwork.burnRate(account3.address)).to.equal(0);
-      await expect(ssvNetwork.connect(account3).withdrawAll()).to.emit(ssvToken, 'Transfer').withArgs(ssvNetwork.address, account3.address, 34250);
+      await expect(ssvNetwork.connect(account3).withdrawAll()).to.emit(ssvToken, 'Transfer').withArgs(ssvNetwork.address, account3.address, 34250000);
       expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(0);
       expect(await ssvNetwork.isOwnerValidatorsDisabled(account3.address)).to.equal(false);
-      expect(await ssvToken.balanceOf(account3.address)).to.equal(35250);
+      expect(await ssvToken.balanceOf(account3.address)).to.equal(35250000);
     });
   });
 
@@ -199,48 +205,48 @@ describe('SSV Network', function() {
     await snapshot(async () => {
       await ssvNetwork.connect(account2).removeValidator(validatorsPub[1]);
       await progressBlocks(99);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(40000);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(106930);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(41070);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(40000000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(106930000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(41070000);
     });
   });
 
   it('update operator fee', async function() {
     await snapshot(async () => {
-      await progressTime(4 * DAY);
-      await ssvNetwork.connect(account3).updateOperatorFee(operatorsPub[3], "41");
+      await ssvNetwork.connect(account3).setOperatorFee(operatorsPub[3], "41000");
+      await ssvNetwork.connect(account3).approveOperatorFee(operatorsPub[3]);
       await progressBlocks(99);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(39801);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(99861);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(48338);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(39801000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(99861000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(48338000);
     });
   });
 
   it('remove a validator', async function() {
     await ssvNetwork.connect(account2).removeValidator(validatorsPub[1]);
     await progressBlocks(99);
-    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(40000);
-    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(106930);
-    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(41070);
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(40000000);
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(106930000);
+    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(41070000);
   });
 
   it('register a validator with deposit', async function() {
     await snapshot(async () => {
-      await ssvToken.connect(account2).approve(ssvNetwork.address, 1000);
-      await ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 1000);
+      await ssvToken.connect(account2).approve(ssvNetwork.address, 1000000);
+      await ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 1000000);
       await progressBlocks(10);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(38800);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(107590);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(42610);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(38800000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(107590000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(42610000);
     });
   });
 
   it('activate a validator', async function() {
     await ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0);
     await progressBlocks(10);
-    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(38900);
-    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(106560);
-    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(42540);
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(38900000);
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(106560000);
+    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(42540000);
   });
 
   it('remove a validator when overdue', async function() {
@@ -258,7 +264,7 @@ describe('SSV Network', function() {
   });
 
   it('update operator fee not from owner', async function() {
-    await expect(ssvNetwork.connect(account1).updateOperatorFee(operatorsPub[3], 6)).to.be.revertedWith('caller is not operator owner');
+    await expect(ssvNetwork.connect(account1).setOperatorFee(operatorsPub[3], 6)).to.be.revertedWith('caller is not operator owner');
   });
 
   it('deactivate an operator when has validators', async function() {
@@ -286,64 +292,65 @@ describe('SSV Network', function() {
   it('remove an operator', async function() {
     await ssvNetwork.connect(account2).registerValidator(validatorsPub[2], operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), 0);
 
-    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(38200);
-    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(106280);
-    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(43520);
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(38200000);
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(106280000);
+    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(43520000);
     await progressBlocks(10, async () => {
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37200);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104680);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(46120);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37200000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104680000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(46120000);
       await ssvNetwork.connect(account2).removeValidator(validatorsPub[2]);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37100);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104520);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(46380);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37100000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104520000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(46380000);
       await progressBlocks(10);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(36100);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104120);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(47780);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(36100000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104120000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(47780000);
       await ssvNetwork.connect(account3).removeOperator(operatorsPub[4]);
       await progressBlocks(9);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(35100);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(103720);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(49180);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(35100000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(103720000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(49180000);
       expect((await ssvRegistry.operators(operatorsPub[4]))[1]).to.equal("0x0000000000000000000000000000000000000000");
     });
   });
 
   it('deactivate an operator', async function() {
     await progressBlocks(10, async () => {
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37200);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104680);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(46120);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37200000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104680000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(46120000);
       await ssvNetwork.connect(account2).removeValidator(validatorsPub[2]);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37100);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104520);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(46380);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37100000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104520000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(46380000);
       await progressBlocks(10);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(36100);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104120);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(47780);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(36100000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104120000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(47780000);
       await ssvNetwork.connect(account3).deactivateOperator(operatorsPub[4]);
       await progressBlocks(9);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(35100);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(103720);
-      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(49180);
+      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(35100000);
+      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(103720000);
+      expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(49180000);
       expect((await ssvRegistry.operators(operatorsPub[4]))[1]).to.equal(account3.address);
       expect((await ssvRegistry.operators(operatorsPub[4]))[4]).to.equal(false);
     });
   });
 
   it('operator max fee increase', async function() {
-    await progressTime(4 * DAY);
     expect(await ssvNetwork.operatorMaxFeeIncrease()).to.equal(10);
-    await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 12)).to.be.revertedWith('fee exceeds increase limit');
-    await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[1], 24)).to.be.revertedWith('fee exceeds increase limit');
-    await ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 11);
-    expect(await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])).to.equal(11);
+    await expect(ssvNetwork.connect(account2).setOperatorFee(operatorsPub[0], 12000)).to.be.revertedWith('fee exceeds increase limit');
+    await expect(ssvNetwork.connect(account2).setOperatorFee(operatorsPub[1], 24000)).to.be.revertedWith('fee exceeds increase limit');
+    await ssvNetwork.connect(account2).setOperatorFee(operatorsPub[0], 11000);
+    await ssvNetwork.connect(account2).approveOperatorFee(operatorsPub[0]);
+    expect(await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])).to.equal(11000);
     await ssvNetwork.updateOperatorMaxFeeIncrease(20);
     expect(await ssvNetwork.operatorMaxFeeIncrease()).to.equal(20);
-    await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[1], 25)).to.be.revertedWith('fee exceeds increase limit');
-    await ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[1], 24);
+    await expect(ssvNetwork.connect(account2).setOperatorFee(operatorsPub[1], 25000)).to.be.revertedWith('fee exceeds increase limit');
+    await ssvNetwork.connect(account2).setOperatorFee(operatorsPub[1], 24000);
+    await ssvNetwork.connect(account2).approveOperatorFee(operatorsPub[1]);
   });
 
   it('minimum blocks before liquidation', async function() {
@@ -366,5 +373,56 @@ describe('SSV Network', function() {
     await expect(ssvNetwork.withdrawNetworkFees(60)).to.emit(ssvToken, 'Transfer').withArgs(ssvNetwork.address, owner.address, '60');
     expect(await ssvNetwork.getNetworkTreasury()).to.equal(9);
     await expect(ssvNetwork.withdrawNetworkFees(60)).to.be.revertedWith('not enough balance');
+  });
+
+  it('update set operator fee period', async function() {
+    await expect(ssvNetwork.updateSetOperatorFeePeriod(DAY)).to.emit(ssvNetwork, 'SetOperatorFeePeriodUpdated').withArgs(DAY);
+    expect(await ssvNetwork.getSetOperatorFeePeriod()).to.equal(DAY);
+  });
+
+  it('update approve operator fee period', async function() {
+    await expect(ssvNetwork.updateApproveOperatorFeePeriod(DAY)).to.emit(ssvNetwork, 'ApproveOperatorFeePeriodUpdated').withArgs(DAY);
+    expect(await ssvNetwork.getApproveOperatorFeePeriod()).to.equal(DAY);
+  });
+
+  it('create an operator with low fee', async function() {
+    await expect(ssvNetwork.connect(account3).registerOperator('testOperator 5', operatorsPub[5], 1000)).to.be.revertedWith('fee is too low');
+  });
+
+  it('create fee change request', async function() {
+      await ssvNetwork.connect(account3).setOperatorFee(operatorsPub[3], '41000');
+      expect(await ssvNetwork.getOperatorCurrentFee(operatorsPub[3])).to.equal(40000);
+      const currentBlockTime = await utils.blockTimestamp();
+      expect((await ssvNetwork.getOperatorFeeChangeRequest(operatorsPub[3])).map(v => v.toString())).to.eql(['41000', (+currentBlockTime + DAY).toString(), (+currentBlockTime + 2 * DAY).toString()]);
+  });
+
+  it('approve fee too soon', async function() {
+    await expect(ssvNetwork.connect(account3).approveOperatorFee(operatorsPub[3])).to.be.revertedWith('approval not within timeframe');
+  });
+
+  it('approve too late', async function() {
+    progressTime(3 * DAY, async function() {
+      await expect(ssvNetwork.connect(account3).approveOperatorFee(operatorsPub[3])).to.be.revertedWith('approval not within timeframe');
+    });
+  });
+
+  it('cancel set operator fee', async function() {
+    snapshot(async function () {
+      await ssvNetwork.connect(account3).cancelSetOperatorFee(operatorsPub[3]);
+      expect(await ssvNetwork.getOperatorCurrentFee(operatorsPub[3])).to.equal(40000);
+      expect((await ssvNetwork.getOperatorFeeChangeRequest(operatorsPub[3])).map(v => v.toString())).to.eql(['0', '0', '0']);
+    });
+  });
+
+  it('approve fee on time', async function() {
+    progressTime(DAY * 15 / 10, async function() {
+      await expect(ssvNetwork.connect(account3).approveOperatorFee(operatorsPub[3])).to.emit(ssvNetwork, 'OperatorFeeApproved');
+      expect(await ssvNetwork.getOperatorCurrentFee(operatorsPub[3])).to.equal(41000);
+      expect((await ssvNetwork.getOperatorFeeChangeRequest(operatorsPub[3])).map(v => v.toString())).to.eql(['0', '0', '0']);
+    });
+  });
+
+  it('update fee with low fee', async function() {
+    await expect(ssvNetwork.connect(account3).setOperatorFee(operatorsPub[3], 1000)).to.be.revertedWith('fee is too low');
   });
 });

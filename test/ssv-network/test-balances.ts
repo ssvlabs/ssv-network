@@ -17,7 +17,7 @@ import {
   checkOperatorBalances,
   checkTotalBalance,
   checkTotalEarnings,
-  checkUpdateOperatorFeeFail,
+  // checkUpdateOperatorFeeFail,
   checkNetworkTreasury,
 } from './asserts';
 
@@ -37,11 +37,11 @@ describe('SSV Network', function() {
     const testFlow = {
       10: {
         funcs: [
-          () => updateNetworkFee(1),
-          () => registerOperator(account2, 0, 20),
-          () => registerOperator(account2, 1, 10),
-          () => registerOperator(account2, 2, 10),
-          () => registerOperator(account2, 3, 30),
+          () => updateNetworkFee(1000),
+          () => registerOperator(account2, 0, 20000),
+          () => registerOperator(account2, 1, 10000),
+          () => registerOperator(account2, 2, 10000),
+          () => registerOperator(account2, 3, 30000),
         ],
         asserts: [
           () => checkNetworkTreasury(),
@@ -49,7 +49,7 @@ describe('SSV Network', function() {
       },
       20: {
         funcs: [
-          () => registerValidator(account1, 0, [0, 1, 2, 3], 10000),
+          () => registerValidator(account1, 0, [0, 1, 2, 3], 10000000),
         ],
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
@@ -59,8 +59,8 @@ describe('SSV Network', function() {
       },
       30: {
         funcs: [
-          () => updateOperatorFee(account2, 0, 11),
-          () => registerValidator(account1, 1, [0, 1, 2, 3], 10000),
+          () => updateOperatorFee(account2, 0, 11000),
+          () => registerValidator(account1, 1, [0, 1, 2, 3], 10000000),
         ],
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
@@ -70,7 +70,7 @@ describe('SSV Network', function() {
       },
       40: {
         funcs: [
-          () => registerValidator(account1, 2, [0, 1, 2, 3], 10000),
+          () => registerValidator(account1, 2, [0, 1, 2, 3], 10000000),
         ],
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
@@ -80,10 +80,9 @@ describe('SSV Network', function() {
       },
       50: {
         funcs: [
-          () => registerValidator(account1, 3, [0, 1, 2, 3], 10000),
+          () => registerValidator(account1, 3, [0, 1, 2, 3], 10000000),
         ],
         asserts: [
-          () => checkUpdateOperatorFeeFail(account2, 0, 12),
           () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
           () => checkTotalBalance(account1.address),
