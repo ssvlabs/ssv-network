@@ -11,10 +11,10 @@ npm install
 
 Second, describe config settings in `.env` file based on `.env.example`, where:
 ```sh
-NODE_URL= eth1 node url
-BACKEND_URI= backend domain which returns attr for validators and epoch
-CONTRACT_ADDRESS= ssv contract address
-MAX_EPOCHS_PER_REQUEST= max epochs per request, by default is 100
+NODE_URL= #eth1 node url
+BACKEND_URI= #backend domain which returns attr for validators and epoch
+CONTRACT_ADDRESS= #ssv contract address
+MAX_EPOCHS_PER_REQUEST= #max epochs per request, by default is 100
 ```
 
 ## Fetch operators and validators to csv files
