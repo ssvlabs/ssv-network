@@ -243,10 +243,10 @@ function buildReport(operatorsWithMetrics, validatorsWithMetrics, fromEpoch, toE
     }
 
     if (latestMetrics) {
-        metrics.operator.total_chg = changeValueWithSIgn(metrics.operator.total - latestMetrics.operator.total);
-        metrics.operator.active_chg = changeValueWithSIgn(metrics.operator.active - latestMetrics.operator.active);
-        metrics.operator.attr_avg_chg = changeValueWithSIgn(metrics.operator.attr_avg - latestMetrics.operator.attr_avg, 2);
-        metrics.operator.active_gte_90_chg = changeValueWithSIgn(metrics.operator.active_gte_90 - latestMetrics.operator.active_gte_90);
+        metrics.operator.total_chg = changeValueWithSign(metrics.operator.total - latestMetrics.operator.total);
+        metrics.operator.active_chg = changeValueWithSign(metrics.operator.active - latestMetrics.operator.active);
+        metrics.operator.attr_avg_chg = changeValueWithSign(metrics.operator.attr_avg - latestMetrics.operator.attr_avg, 2);
+        metrics.operator.active_gte_90_chg = changeValueWithSign(metrics.operator.active_gte_90 - latestMetrics.operator.active_gte_90);
         metrics = buildMetricsChgValues(metrics, latestMetrics, "validator");
     }
     console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
@@ -301,16 +301,16 @@ function buildReport(operatorsWithMetrics, validatorsWithMetrics, fromEpoch, toE
     });
 }
 
-function changeValueWithSIgn(change, toFix = 0) {
+function changeValueWithSign(change, toFix = 0) {
     return `${change >= 0 ? "+" : ""}${change.toFixed(toFix)}`
 }
 
 function buildMetricsChgValues(metrics, latestMetrics, type) {
-    metrics[type].active_chg = changeValueWithSIgn(metrics[type].attr_avg - latestMetrics[type].attr_avg);
-    metrics[type].should_attest_chg = changeValueWithSIgn(metrics[type].should_attest - latestMetrics[type].should_attest);
-    metrics[type].should_attest_0_chg = changeValueWithSIgn(metrics[type].should_attest_0 - latestMetrics[type].should_attest_0);
-    metrics[type].attr_avg_chg = changeValueWithSIgn(metrics[type].attr_avg - latestMetrics[type].attr_avg, 2);
-    metrics[type].should_attest_gte_90_chg = changeValueWithSIgn(metrics[type].should_attest_gte_90 - latestMetrics[type].should_attest_gte_90);
+    metrics[type].active_chg = changeValueWithSign(metrics[type].active - latestMetrics[type].active);
+    metrics[type].should_attest_chg = changeValueWithSign(metrics[type].should_attest - latestMetrics[type].should_attest);
+    metrics[type].should_attest_0_chg = changeValueWithSign(metrics[type].should_attest_0 - latestMetrics[type].should_attest_0);
+    metrics[type].attr_avg_chg = changeValueWithSign(metrics[type].attr_avg - latestMetrics[type].attr_avg, 2);
+    metrics[type].should_attest_gte_90_chg = changeValueWithSign(metrics[type].should_attest_gte_90 - latestMetrics[type].should_attest_gte_90);
     return metrics
 }
 
