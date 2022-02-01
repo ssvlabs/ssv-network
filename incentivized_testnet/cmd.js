@@ -339,13 +339,11 @@ async function fetch() {
     });
 }
 
-async function fetchValidatorMetrics(fromEpoch, toEpoch) {
+async function fetchValidatorMetrics(fromEpoch, toEpoch, from_file) {
     await pgConnect();
-    const operatorsFile = `${__dirname}/operators.csv`;
-    const validatorsFile = `${__dirname}/validators.csv`;
-    // used to calculate the stats directly from the csv
-    // const operatorsFile = `${__dirname}/operators_extra_67790-67890.csv`;
-    // const validatorsFile = `${__dirname}/validators_extra_67790-67890.csv`;
+    const fromFileSuffix = from_file ? `_extra_${fromEpoch}-${toEpoch}` : "";
+    const operatorsFile = `${__dirname}/operators${fromFileSuffix}.csv`;
+    const validatorsFile = `${__dirname}/validators${fromFileSuffix}.csv`;
     await stat(validatorsFile);
     await stat(operatorsFile);
 
@@ -371,13 +369,16 @@ async function fetchValidatorMetrics(fromEpoch, toEpoch) {
         operators.push(record);
     }
 
-    const verifiedOperators = await extractVerifiedOperators();
-    const operatorsDecided = await extractOperatorsDecided(fromEpoch, toEpoch);
-    const validatorsWithMetrics = await extractValidatorsWithMetrics(validators, operators, operatorsDecided, fromEpoch, toEpoch);
-    const operatorsWithMetrics = await extractOperatorsWithMetrics(operators, validatorsWithMetrics, operatorsDecided, verifiedOperators);
-    // used to calculate the stats directly from the csv
-    // const validatorsWithMetrics = validators;
-    // const operatorsWithMetrics = operators;
+    let verifiedOperators, operatorsDecided, validatorsWithMetrics, operatorsWithMetrics;
+    if (from_file) {
+        validatorsWithMetrics = validators;
+        operatorsWithMetrics = operators;
+    } else {
+        verifiedOperators = await extractVerifiedOperators();
+        operatorsDecided = await extractOperatorsDecided(fromEpoch, toEpoch);
+        validatorsWithMetrics = await extractValidatorsWithMetrics(validators, operators, operatorsDecided, fromEpoch, toEpoch);
+        operatorsWithMetrics = await extractOperatorsWithMetrics(operators, validatorsWithMetrics, operatorsDecided, verifiedOperators);
+    }
     buildReport(operatorsWithMetrics, validatorsWithMetrics, fromEpoch, toEpoch)
 
     stringify(validatorsWithMetrics, {
@@ -445,14 +446,15 @@ function extractVerifiedOperators() {
 const argsDefinitions = [
     {name: 'command', type: String},
     {name: 'epochs', type: Number, multiple: true},
+    {name: 'from_file', alias: 'f', type: Boolean, defaultOption: false},
 ];
 
-const {command, epochs} = commandLineArgs(argsDefinitions);
+const {command, epochs, from_file} = commandLineArgs(argsDefinitions);
 
 if (command === 'fetch') {
     fetch();
 } else if (command === 'metrics') {
-    return fetchValidatorMetrics(epochs[0], epochs[1]).then(() =>
+    return fetchValidatorMetrics(epochs[0], epochs[1], from_file).then(() =>
         console.log("done with metrics!")
     );
 }
