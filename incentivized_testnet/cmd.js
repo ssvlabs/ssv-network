@@ -103,6 +103,7 @@ async function extractValidatorsWithMetrics(records, operators, operatorsDecided
             form.append('from', lastEpoch);
             form.append('to', lastEpoch + epochsPerRequest);
             form.append('keys', records.map(item => item.publicKey.replace('0x', '')).join(','));
+            form.append('types', 'attest');
             let response;
             try {
                 const {body} = await got.post(`http://${process.env.BACKEND_URI}/api/validators/details`, {
