@@ -44,9 +44,9 @@ export const checkWithdrawFail = async(account, amount) => {
   await expect(ssvNetwork.connect(account).withdraw(`${amount}`)).to.be.revertedWith('not enough balance');
 }
 
-export const checkUpdateOperatorFeeFail = async(account, idx, fee) => {
-  await expect(ssvNetwork.connect(account).updateOperatorFee(operatorsPub[idx], fee)).to.be.revertedWith('fee updated in last 72 hours');
-}
+// export const checkUpdateOperatorFeeFail = async(account, idx, fee) => {
+//   await expect(ssvNetwork.connect(account).updateOperatorFee(operatorsPub[idx], fee)).to.be.revertedWith('fee updated in last 72 hours');
+// }
 
 export const checkNetworkTreasury = async() => {
   expect(await ssvNetwork.getNetworkTreasury()).to.equal(await getNetworkTreasury());

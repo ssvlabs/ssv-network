@@ -32,16 +32,16 @@ describe('SSV Network', function() {
     const testFlow = {
       10: {
         funcs: [
-          () => registerOperator(account2, 0, 2),
-          () => registerOperator(account2, 1, 1),
-          () => registerOperator(account2, 2, 1),
-          () => registerOperator(account2, 3, 3),
+          () => registerOperator(account2, 0, 20000),
+          () => registerOperator(account2, 1, 10000),
+          () => registerOperator(account2, 2, 10000),
+          () => registerOperator(account2, 3, 30000),
         ],
         asserts: [],
       },
       20: {
         funcs: [
-          () => registerValidator(account1, 0, [0, 1, 2, 3], 1000),
+          () => registerValidator(account1, 0, [0, 1, 2, 3], 10000000),
         ],
         asserts: [
           () => checkTotalEarnings(account1.address),
@@ -51,7 +51,7 @@ describe('SSV Network', function() {
       },
       30: {
         funcs: [
-          () => deposit(account1, 500),
+          () => deposit(account1, 5000),
         ],
         asserts: [
           () => checkTotalEarnings(account1.address),

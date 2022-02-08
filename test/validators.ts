@@ -18,6 +18,9 @@ const DAY = 86400;
 const minimumBlocksBeforeLiquidation = 50;
 const operatorMaxFeeIncrease = 10;
 
+const setOperatorFeePeriod = 0;
+const approveOperatorFeePeriod = DAY;
+
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
@@ -36,20 +39,20 @@ describe('Validators', function() {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod]);
     await ssvNetwork.deployed();
-    await ssvToken.mint(account1.address, '1000000');
+    await ssvToken.mint(account1.address, '10000000000');
 
     // register operators
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1);
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 2);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 3);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 4);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 5);
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000);
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50000);
   });
 
   it('register validator', async function() {
-    const tokens = '10000';
+    const tokens = '100000000';
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
     await expect(
       ssvNetwork.connect(account1)
@@ -88,8 +91,7 @@ describe('Validators', function() {
   it('update validator', async function() {
     const tokens = '100';
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
-    await expect(
-      ssvNetwork
+    const tx = ssvNetwork
         .connect(account1)
         .updateValidator(
           validatorsPub[0],
@@ -97,9 +99,9 @@ describe('Validators', function() {
           operatorsPub.slice(0, 4),
           operatorsPub.slice(0, 4),
           tokens
-        )
-    )
-    .to.emit(ssvRegistry, 'ValidatorUpdated');
+        );
+    await expect(tx).to.emit(ssvRegistry, 'ValidatorRemoved');
+    await expect(tx).to.emit(ssvRegistry, 'ValidatorAdded');
   });
 
   it('revert update validator: not enough approved tokens to pay', async function() {

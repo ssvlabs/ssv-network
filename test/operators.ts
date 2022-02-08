@@ -17,6 +17,8 @@ const DAY = 86400;
 
 const minimumBlocksBeforeLiquidation = 50;
 const operatorMaxFeeIncrease = 10;
+const setOperatorFeePeriod = 0;
+const approveOperatorFeePeriod = DAY;
 
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
@@ -36,22 +38,22 @@ describe('Operators', function() {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod]);
     await ssvNetwork.deployed();
-    await ssvToken.mint(account1.address, '1000000');
+    await ssvToken.mint(account1.address, '10000000000');
   });
 
   it('register operator', async function() {
-    await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100))
+    await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000))
       .to.emit(ssvRegistry, 'OperatorAdded')
       .withArgs('testOperator 0', account2.address, operatorsPub[0]);
     expect((await ssvRegistry.operatorCount()).toString()).to.equal('1');
   });
 
   it('register more operators', async function() {
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 2);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 3);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 4);
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000);
 
     await progressTime(4 * DAY);
 
@@ -61,7 +63,7 @@ describe('Operators', function() {
   it('revert registry new operator with same public key', async function () {
     await ssvNetwork
       .connect(account3)
-      .registerOperator('duplicate operator pubkey', operatorsPub[1], 1)
+      .registerOperator('duplicate operator pubkey', operatorsPub[1], 10000)
       .should.eventually.be.rejectedWith('operator with same public key already exists');
 
     expect((await ssvRegistry.operatorCount()).toString()).to.equal('4');
@@ -74,9 +76,10 @@ describe('Operators', function() {
 
   it('update operators fee', async function () {
     await progressTime(DAY, async() => {
-      await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 105))
+      await expect(ssvNetwork.connect(account2).setOperatorFee(operatorsPub[0], 1050000));
+      await expect(ssvNetwork.connect(account2).approveOperatorFee(operatorsPub[0]))
         .to.emit(ssvRegistry, 'OperatorFeeUpdated');
-        expect((await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])).toString()).to.equal('105');
+        expect((await ssvRegistry.getOperatorCurrentFee(operatorsPub[0])).toString()).to.equal('1050000');
     });
   });
 
@@ -123,13 +126,13 @@ describe('Operators', function() {
 
   it('revert remove operator: operator has validators', async function () {
     await progressTime(DAY, async() => {
-      await ssvToken.connect(account1).approve(ssvNetwork.address, '10000');
+      await ssvToken.connect(account1).approve(ssvNetwork.address, '100000000');
       await ssvNetwork.connect(account1).registerValidator(
         validatorsPub[0],
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
-        '10000'
+        '100000000'
       );
 
       await ssvNetwork

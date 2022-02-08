@@ -51,7 +51,14 @@ describe('SSV Registry', function() {
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid');
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 1), operatorsPub.slice(0, 1), operatorsPub.slice(0, 1))).to.be.revertedWith('OESS data structure is not valid');
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 3), operatorsPub.slice(0, 3), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid');
+  });
+
+  it('register a valid validator', async () => {
     await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7));
+  });
+
+  it('update a validator', async () => {
+    await ssvRegistry.updateValidator(validatorsPub[3], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
   });
 
   it('deactivate an operator', async () => {

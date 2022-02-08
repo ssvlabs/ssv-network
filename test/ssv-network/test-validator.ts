@@ -37,11 +37,11 @@ describe('SSV Network', function() {
     const testFlow = {
       10: {
         funcs: [
-          () => updateNetworkFee(1),
-          () => registerOperator(account2, 0, 2),
-          () => registerOperator(account2, 1, 1),
-          () => registerOperator(account2, 2, 1),
-          () => registerOperator(account2, 3, 3),
+          () => updateNetworkFee(10000),
+          () => registerOperator(account2, 0, 20000),
+          () => registerOperator(account2, 1, 10000),
+          () => registerOperator(account2, 2, 10000),
+          () => registerOperator(account2, 3, 30000),
         ],
         asserts: [
           () => checkNetworkTreasury(),
@@ -49,7 +49,7 @@ describe('SSV Network', function() {
       },
       20: {
         funcs: [
-          () => registerValidator(account1, 0, [0, 1, 2, 3], 2000),
+          () => registerValidator(account1, 0, [0, 1, 2, 3], 20000000),
         ],
         asserts: [
           () => checkOperatorIndexes([0, 1, 2, 3]),
@@ -59,7 +59,7 @@ describe('SSV Network', function() {
       },
       100: {
         funcs: [
-          () => updateValidator(account1, 0, [0, 1, 2, 3], 2500),
+          () => updateValidator(account1, 0, [0, 1, 2, 3], 25000000),
         ],
       },
       140: {
