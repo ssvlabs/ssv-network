@@ -153,6 +153,26 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorAdded(name, msg.sender, publicKey);
     }
 
+    function batchRegisterOperator(
+        string[] calldata name,
+        address[] calldata ownerAddress,
+        bytes[] calldata publicKey,
+        uint256[] calldata fee
+    ) external {
+        require(name.length == publicKey.length && publicKey.length == fee.length && fee.length == ownerAddress.length);
+        for (uint256 index = 0; index < name.length; ++index) {
+            _ssvRegistryContract.registerOperator(
+                name[index],
+                ownerAddress[index],
+                publicKey[index],
+                fee[index]
+            );
+            _operatorDatas[publicKey[index]] = OperatorData(block.number, 0, 0, 0, block.number, block.timestamp);
+
+            emit OperatorAdded(name[index], ownerAddress[index], publicKey[index]);
+        }
+    }
+
     /**
      * @dev See {ISSVNetwork-removeOperator}.
      */
@@ -230,6 +250,19 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _updateNetworkEarnings();
         _updateAddressNetworkFee(msg.sender);
         _registerValidatorUnsafe(msg.sender, publicKey, operatorPublicKeys, sharesPublicKeys, encryptedKeys, tokenAmount);
+    }
+
+    function batchRegisterValidator(
+        address ownerAddress,
+        bytes calldata publicKey,
+        bytes[] calldata operatorPublicKeys,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedKeys,
+        uint256 tokenAmount
+    ) external {
+        _updateNetworkEarnings();
+        _updateAddressNetworkFee(ownerAddress);
+        _registerValidatorUnsafe(ownerAddress, publicKey, operatorPublicKeys, sharesPublicKeys, encryptedKeys, tokenAmount);
     }
 
     /**
