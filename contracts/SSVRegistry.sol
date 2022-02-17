@@ -47,6 +47,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     mapping(address => bytes[]) private _validatorsByAddress;
     mapping(address => OwnerData) private _owners;
 
+    mapping(bytes => uint256) internal validatorsPerOperator;
+    uint256 public validatorsPerOperatorLimit;
+
     /**
      * @dev See {ISSVRegistry-initialize}.
      */
@@ -166,6 +169,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
                     encryptedKeys[index]
                 )
             );
+
+            require(++validatorsPerOperator[operatorPublicKeys[index]] <= validatorsPerOperatorLimit, "exceed validator limit");
         }
 
         validator.index = _validatorsByAddress[ownerAddress].length;
@@ -196,6 +201,13 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
             encryptedKeys
         );
         Validator storage validator = _validators[publicKey];
+
+        for (uint256 index = 0; index < validator.oess.length; ++index) {
+            if (validatorsPerOperator[validator.oess[index].operatorPublicKey] > 0) {
+                --validatorsPerOperator[validator.oess[index].operatorPublicKey];
+            }
+        }
+
         delete validator.oess;
 
         for (uint256 index = 0; index < operatorPublicKeys.length; ++index) {
@@ -206,6 +218,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
                     encryptedKeys[index]
                 )
             );
+
+            require(++validatorsPerOperator[operatorPublicKeys[index]] <= validatorsPerOperatorLimit, "exceed validator limit");
         }
 
         emit ValidatorUpdated(validator.ownerAddress, publicKey, validator.oess);
@@ -225,6 +239,12 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         --_validatorCount;
         --_activeValidatorCount;
         --_owners[validator.ownerAddress].activeValidatorCount;
+
+        for (uint256 index = 0; index < validator.oess.length; ++index) {
+            if (validatorsPerOperator[validator.oess[index].operatorPublicKey] > 0) {
+                --validatorsPerOperator[validator.oess[index].operatorPublicKey];
+            }
+        }
 
         emit ValidatorRemoved(validator.ownerAddress, publicKey);
 
@@ -333,6 +353,34 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
      */
     function getValidatorOwner(bytes calldata publicKey) external view override returns (address) {
         return _validators[publicKey].ownerAddress;
+    }
+
+    /**
+     * @dev See {ISSVRegistry-setValidatorsPerOperatorLimit}.
+     */
+    function setValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) onlyOwner external override {
+        validatorsPerOperatorLimit = _validatorsPerOperatorLimit;
+    }
+
+    /**
+     * @dev See {ISSVRegistry-getValidatorsPerOperatorLimit}.
+     */
+    function getValidatorsPerOperatorLimit() external view override returns (uint256) {
+        return validatorsPerOperatorLimit;
+    }
+
+    /**
+     * @dev See {ISSVRegistry-getValisetValidatorsPerOperatordatorOwner}.
+     */
+    function setValidatorsPerOperator(bytes calldata _operatorPublicKey, uint256 _validatorsPerOperator) onlyOwner external override {
+        validatorsPerOperator[_operatorPublicKey] = _validatorsPerOperator;
+    }
+
+    /**
+     * @dev See {ISSVRegistry-validatorsPerOperatorCount}.
+     */
+    function validatorsPerOperatorCount(bytes calldata _operatorPublicKey) onlyOwner external override view returns (uint256) {
+        return validatorsPerOperator[_operatorPublicKey];
     }
 
     /**

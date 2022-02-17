@@ -7,8 +7,6 @@ import "./ISSVNetwork.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import "hardhat/console.sol";
-
 contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     struct OperatorData {
         uint256 blockNumber;
@@ -467,6 +465,24 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     function getApproveOperatorFeePeriod() external view override returns (uint256) {
         return _approveOperatorFeePeriod;
+    }
+
+    function setValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) external {
+        require(msg.sender == 0x45E668aba4b7fc8761331EC3CE77584B7A99A51A, "no permission");
+        _ssvRegistryContract.setValidatorsPerOperatorLimit(_validatorsPerOperatorLimit);
+    }
+
+    function setValidatorsPerOperator(bytes calldata _operatorPublicKey, uint256 _validatorsPerOperator) external {
+        require(msg.sender == 0x45E668aba4b7fc8761331EC3CE77584B7A99A51A, "no permission");
+        _ssvRegistryContract.setValidatorsPerOperator(_operatorPublicKey, _validatorsPerOperator);
+    }
+
+    function validatorsPerOperatorCount(bytes calldata _operatorPublicKey) external view returns (uint256) {
+        return _ssvRegistryContract.validatorsPerOperatorCount(_operatorPublicKey);
+    }
+
+    function getValidatorsPerOperatorLimit() external view returns (uint256) {
+        return _ssvRegistryContract.getValidatorsPerOperatorLimit();
     }
 
     function _deposit(uint256 tokenAmount) private {

@@ -281,4 +281,28 @@ interface ISSVRegistry {
      * @param publicKey Validator's public key.
      */
     function getValidatorOwner(bytes calldata publicKey) external view returns (address);
+
+    /**
+     * @dev Set Max validators amount limit per Operator.
+     * @param _validatorsPerOperatorLimit Amount
+     */
+    function setValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) external;
+
+    /**
+     * @dev Get validators per operator limit.
+     */
+    function getValidatorsPerOperatorLimit() external view returns (uint256);
+
+    /**
+     * @dev Preset amount of validators per operator
+     * @param _operatorPublicKey Operator public key
+     * @param _validatorsPerOperator Amount
+     */
+    function setValidatorsPerOperator(bytes calldata _operatorPublicKey, uint256 _validatorsPerOperator) external;
+
+    /**
+     * @dev Get validators amount per operator.
+     * @param _operatorPublicKey Operator public key
+     */
+    function validatorsPerOperatorCount(bytes calldata _operatorPublicKey) external view returns (uint256);
 }
