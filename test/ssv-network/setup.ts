@@ -13,6 +13,7 @@ export let owner, account1, account2, account3;
 
 export const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 export const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
+export const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
 
 const DAY = 86400;
 const YEAR = 365 * DAY;
@@ -168,7 +169,7 @@ export const registerValidator = async (account, validatorIdx, operatorIdxs, dep
   await ssvToken.connect(account).approve(ssvNetwork.address, depositAmount);
   await ssvNetwork.connect(account).registerValidator(
     validatorsPub[validatorIdx],
-    operatorIdxs.map(oidx => operatorsPub[oidx]),
+    operatorIdxs.map(oidx => operatorsIds[oidx]),
     operatorIdxs.map(oidx => operatorsPub[oidx]),
     operatorIdxs.map(oidx => operatorsPub[oidx]),
     `${depositAmount}`,
@@ -200,7 +201,7 @@ export const updateValidator = async (account, validatorIdx, operatorIdxs, depos
   await ssvToken.connect(account).approve(ssvNetwork.address, depositAmount);
   await ssvNetwork.connect(account).updateValidator(
     validatorsPub[validatorIdx],
-    operatorIdxs.map(oidx => operatorsPub[oidx]),
+    operatorIdxs.map(oidx => operatorsIds[oidx]),
     operatorIdxs.map(oidx => operatorsPub[oidx]),
     operatorIdxs.map(oidx => operatorsPub[oidx]),
     `${depositAmount}`,
@@ -260,8 +261,8 @@ export const withdraw = async(account, amount) => {
 }
 
 export const updateOperatorFee = async (account, idx, fee) => {
-  await ssvNetwork.connect(account).setOperatorFee(operatorsPub[idx], fee);
-  await ssvNetwork.connect(account).approveOperatorFee(operatorsPub[idx]);
+  await ssvNetwork.connect(account).setOperatorFee(operatorsIds[idx], fee);
+  await ssvNetwork.connect(account).approveOperatorFee(operatorsIds[idx]);
   await progressBlocks(1);
   // update balance
   await updateOperatorBalance(idx);

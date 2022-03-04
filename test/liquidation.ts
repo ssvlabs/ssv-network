@@ -26,6 +26,7 @@ let ssvToken, ssvRegistry, ssvNetwork;
 let owner, account1, account2, account3, account4;
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
+const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
 const tokens = '100000000';
 
 const DAY = 86400;
@@ -58,11 +59,11 @@ describe('SSV Network Liquidation', function() {
     // register validators
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
     await ssvToken.connect(account1).transfer(account2.address, tokens);
-    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens);
+    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens);
   });
 
   it('register liquidatable validator', async function() {
-    await expect(ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0)).to.be.revertedWith("not enough balance");
+    await expect(ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0)).to.be.revertedWith("not enough balance");
   });
 
   it('balances should be correct after 100 blocks', async function() {
@@ -91,7 +92,7 @@ describe('SSV Network Liquidation', function() {
   it('update to a liquidating state', async function() {
     await progressBlocks(847, async function () {
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      await expect(ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), 0)).to.be.revertedWith('not enough balance');
+      await expect(ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), 0)).to.be.revertedWith('not enough balance');
     });
   });
 
@@ -99,7 +100,7 @@ describe('SSV Network Liquidation', function() {
     await progressBlocks(847, async function () {
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
       await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
-      const tx = ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), tokens);
+      const tx = ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), tokens);
       await expect(tx).to.emit(ssvRegistry, 'ValidatorRemoved');
       await expect(tx).to.emit(ssvRegistry, 'ValidatorAdded');
     });
@@ -108,7 +109,7 @@ describe('SSV Network Liquidation', function() {
   /*
   it('activate validator in liquitable status', async function() {
     await snapshot(async function() {
-      await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0);
+      await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0);
       // await ssvNetwork.connect(account1).deactivateValidator(validatorsPub[1]);
       await progressBlocks(800);
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);

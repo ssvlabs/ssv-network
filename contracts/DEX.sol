@@ -19,12 +19,12 @@ contract DEX is Initializable {
 
     /**
      * @dev Initializes a DEX between two tokens.
-     * @param cdtToken The old (CDT) token
-     * @param ssvToken The new (SSV) token
-     * @param rate Amount of old (CDT) tokens needs to be sent for one new (SSV) token
+     * @param cdtToken_ The old (CDT) token
+     * @param ssvToken_ The new (SSV) token
+     * @param rate_ Amount of old (CDT) tokens needs to be sent for one new (SSV) token
      */
-    function initialize(IERC20 cdtToken, IERC20 ssvToken, uint256 rate) external initializer {
-        __DEX_init(cdtToken, ssvToken, rate);
+    function initialize(IERC20 cdtToken_, IERC20 ssvToken_, uint256 rate_) external initializer {
+        __DEX_init(cdtToken_, ssvToken_, rate_);
     }
 
 
@@ -63,25 +63,25 @@ contract DEX is Initializable {
 
     /**
      * @dev Initializes a DEX between two tokens (chained initializer).
-     * @param cdtToken The old (CDT) token
-     * @param ssvToken The new (SSV) token
-     * @param rate Amount of old (CDT) tokens needs to be sent for one new (SSV) token
+     * @param cdtToken_ The old (CDT) token
+     * @param ssvToken_ The new (SSV) token
+     * @param rate_ Amount of old (CDT) tokens needs to be sent for one new (SSV) token
      */
-    function __DEX_init(IERC20 cdtToken, IERC20 ssvToken, uint256 rate) internal initializer {
-        __DEX_init_unchained(cdtToken, ssvToken, rate);
+    function __DEX_init(IERC20 cdtToken_, IERC20 ssvToken_, uint256 rate_) internal initializer {
+        __DEX_init_unchained(cdtToken_, ssvToken_, rate_);
     }
 
     /**
      * @dev Initializes a DEX between two tokens (unchained initializer).
-     * @param cdtToken The old (CDT) token
-     * @param ssvToken The new (SSV) token
-     * @param rate Amount of old (CDT) tokens needs to be sent for one new (SSV) token
+     * @param cdtToken_ The old (CDT) token
+     * @param ssvToken_ The new (SSV) token
+     * @param rate_ Amount of old (CDT) tokens needs to be sent for one new (SSV) token
      */
-    function __DEX_init_unchained(IERC20 cdtToken, IERC20 ssvToken, uint256 rate) internal initializer {
-        require(rate > 0, "rate cannot be zero");
+    function __DEX_init_unchained(IERC20 cdtToken_, IERC20 ssvToken_, uint256 rate_) internal initializer {
+        require(rate_ > 0, "rate cannot be zero");
 
-        _cdtToken = cdtToken;
-        _ssvToken = ssvToken;
-        _rate = rate;
+        _cdtToken = cdtToken_;
+        _ssvToken = ssvToken_;
+        _rate = rate_;
     }
 }

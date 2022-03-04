@@ -13,6 +13,6 @@ describe('SSVRegistry (proxy)', function() {
   // Test case
   it('retrieve returns a value previously initialized', async function () {
     // Note that we need to use strings to compare the 256 bit integers
-    expect((await contract.operatorCount).toString());
+    expect((await contract.activeValidatorCount).toString());
   });
 });

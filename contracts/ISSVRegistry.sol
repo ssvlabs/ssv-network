@@ -4,7 +4,7 @@ pragma solidity ^0.8.2;
 
 interface ISSVRegistry {
     struct Oess {
-        bytes operatorPublicKey;
+        uint256 operatorId;
         bytes sharedPublicKey;
         bytes encryptedKey;
     }
@@ -15,28 +15,27 @@ interface ISSVRegistry {
      * @param ownerAddress Operator's ethereum address that can collect fees.
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      */
-    event OperatorAdded(string name, address indexed ownerAddress, bytes publicKey);
+    event OperatorAdded(uint256 operatorId, string name, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been removed.
      * @param ownerAddress Operator's owner.
-     * @param publicKey Operator's public key.
      */
-    event OperatorRemoved(address indexed ownerAddress, bytes publicKey);
+    event OperatorRemoved(uint256 operatorId, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been activated.
      * @param ownerAddress Operator's owner.
      * @param publicKey Operator's public key.
      */
-    event OperatorActivated(address indexed ownerAddress, bytes publicKey);
+    event OperatorActivated(uint256 operatorId, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been deactivated.
      * @param ownerAddress Operator's owner.
      * @param publicKey Operator's public key.
      */
-    event OperatorDeactivated(address indexed ownerAddress, bytes publicKey);
+    event OperatorDeactivated(uint256 operatorId, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -46,6 +45,7 @@ interface ISSVRegistry {
      * @param fee updated fee value.
      */
     event OperatorFeeUpdated(
+        uint256 operatorId,
         address indexed ownerAddress,
         bytes publicKey,
         uint256 blockNumber,
@@ -60,6 +60,7 @@ interface ISSVRegistry {
      * @param score updated score value.
      */
     event OperatorScoreUpdated(
+        uint256 operatorId,
         address indexed ownerAddress,
         bytes publicKey,
         uint256 blockNumber,
@@ -70,24 +71,26 @@ interface ISSVRegistry {
      * @dev Emitted when the validator has been added.
      * @param ownerAddress The user's ethereum address that is the owner of the validator.
      * @param publicKey The public key of a validator.
-     * @param oessList The OESS list for this validator.
      */
     event ValidatorAdded(
         address ownerAddress,
         bytes publicKey,
-        Oess[] oessList
+        uint256[] operatorIds,
+        bytes[] sharesPublicKeys,
+        bytes[] encryptedKeys
     );
 
     /**
      * @dev Emitted when the validator has been updated.
      * @param ownerAddress The user's ethereum address that is the owner of the validator.
      * @param publicKey The public key of a validator.
-     * @param oessList The OESS list for this validator.
      */
     event ValidatorUpdated(
         address ownerAddress,
         bytes publicKey,
-        Oess[] oessList
+        uint256[] operatorIds,
+        bytes[] sharesPublicKeys,
+        bytes[] encryptedKeys
     );
 
     /**
@@ -113,43 +116,43 @@ interface ISSVRegistry {
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee The fee which the operator charges for each block.
      */
-    function registerOperator(string calldata name, address ownerAddress, bytes calldata publicKey, uint256 fee) external;
+    function registerOperator(string calldata name, address ownerAddress, bytes calldata publicKey, uint256 fee) external returns (uint256);
 
     /**
      * @dev removes an operator.
-     * @param publicKey Operator public key.
+     * @param operatorId Operator id.
      */
-    function removeOperator(bytes calldata publicKey) external;
+    function removeOperator(uint256 operatorId) external;
 
     /**
      * @dev Activates an operator.
-     * @param publicKey Operator public key.
+     * @param operatorId Operator id.
      */
-    function activateOperator(bytes calldata publicKey) external;
+    function activateOperator(uint256 operatorId) external;
 
     /**
      * @dev Deactivates an operator.
-     * @param publicKey Operator public key.
+     * @param operatorId Operator id.
      */
-    function deactivateOperator(bytes calldata publicKey) external;
+    function deactivateOperator(uint256 operatorId) external;
 
     /**
      * @dev Updates an operator fee.
-     * @param publicKey Operator's public key.
-     * @param fee new operator fee.
+     * @param operatorId Operator id.
+     * @param fee New operator fee.
      */
     function updateOperatorFee(
-        bytes calldata publicKey,
+        uint256 operatorId,
         uint256 fee
     ) external;
 
     /**
      * @dev Updates an operator fee.
-     * @param publicKey Operator's public key.
+     * @param operatorId Operator id.
      * @param score New score.
      */
     function updateOperatorScore(
-        bytes calldata publicKey,
+        uint256 operatorId,
         uint256 score
     ) external;
 
@@ -157,14 +160,14 @@ interface ISSVRegistry {
      * @dev Registers a new validator.
      * @param ownerAddress The user's ethereum address that is the owner of the validator.
      * @param publicKey Validator public key.
-     * @param operatorPublicKeys Operator public keys.
+     * @param operatorIds Operator ids.
      * @param sharesPublicKeys Shares public keys.
      * @param encryptedKeys Encrypted private keys.
      */
     function registerValidator(
         address ownerAddress,
         bytes calldata publicKey,
-        bytes[] calldata operatorPublicKeys,
+        uint256[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys
     ) external;
@@ -172,13 +175,13 @@ interface ISSVRegistry {
     /**
      * @dev Updates a validator.
      * @param publicKey Validator public key.
-     * @param operatorPublicKeys Operator public keys.
+     * @param operatorIds Operator ids.
      * @param sharesPublicKeys Shares public keys.
      * @param encryptedKeys Encrypted private keys.
      */
     function updateValidator(
         bytes calldata publicKey,
-        bytes[] calldata operatorPublicKeys,
+        uint256[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys
     ) external;
@@ -196,23 +199,17 @@ interface ISSVRegistry {
     function isOwnerValidatorsDisabled(address ownerAddress) external view returns (bool);
 
     /**
-     * @dev Returns the operator count.
-     */
-    function operatorCount() external view returns (uint256);
-
-    /**
      * @dev Gets an operator by public key.
-     * @param publicKey Operator's public key.
+     * @param operatorId Operator id.
      */
-    function operators(bytes calldata publicKey)
+    function operators(uint256 operatorId)
         external view
         returns (
             string memory,
             address,
             bytes memory,
             uint256,
-            bool,
-            uint256
+            bool
         );
 
     /**
@@ -221,7 +218,7 @@ interface ISSVRegistry {
      */
     function getOperatorsByOwnerAddress(address ownerAddress)
         external view
-        returns (bytes[] memory);
+        returns (uint256[] memory);
 
     /**
      * @dev Gets operators list which are in use by validator.
@@ -229,26 +226,21 @@ interface ISSVRegistry {
      */
     function getOperatorsByValidator(bytes calldata validatorPublicKey)
         external view
-        returns (bytes[] memory);
+        returns (uint256[] memory);
 
     /**
      * @dev Gets operator's owner.
-     * @param publicKey Operator's public key.
+     * @param operatorId Operator id.
      */
-    function getOperatorOwner(bytes calldata publicKey) external view returns (address);
+    function getOperatorOwner(uint256 operatorId) external view returns (address);
 
     /**
      * @dev Gets operator current fee.
-     * @param publicKey Operator's public key.
+     * @param operatorId Operator id.
      */
-    function getOperatorCurrentFee(bytes calldata publicKey)
+    function getOperatorCurrentFee(uint256 operatorId)
         external view
         returns (uint256);
-
-    /**
-     * @dev Gets validator count.
-     */
-    function validatorCount() external view returns (uint256);
 
     /**
      * @dev Gets active validator count.
@@ -264,8 +256,7 @@ interface ISSVRegistry {
         returns (
             address,
             bytes memory,
-            bool,
-            uint256
+            bool
         );
 
     /**

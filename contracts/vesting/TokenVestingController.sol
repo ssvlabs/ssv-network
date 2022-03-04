@@ -17,11 +17,11 @@ contract TokenVestingController is Initializable {
 
     /**
      * @dev Initializes a vesting controller for a token.
-     * @param token The token
-     * @param minimumAmountPerContract Minimum amount per vesting contract
+     * @param token_ The token
+     * @param minimumAmountPerContract_ Minimum amount per vesting contract
      */
-    function initialize(IERC20 token, uint256 minimumAmountPerContract) external initializer {
-        __TokenVestingController_init(token, minimumAmountPerContract);
+    function initialize(IERC20 token_, uint256 minimumAmountPerContract_) external initializer {
+        __TokenVestingController_init(token_, minimumAmountPerContract_);
     }
 
 
@@ -158,23 +158,23 @@ contract TokenVestingController is Initializable {
 
     /**
      * @dev Initializes a vesting controller for a token (chained initializer).
-     * @param token The token
-     * @param minimumAmountPerContract Minimum amount per vesting contract
+     * @param token_ The token
+     * @param minimumAmountPerContract_ Minimum amount per vesting contract
      */
-    function __TokenVestingController_init(IERC20 token, uint256 minimumAmountPerContract) internal initializer {
-        __TokenVestingController_init_unchained(token, minimumAmountPerContract);
+    function __TokenVestingController_init(IERC20 token_, uint256 minimumAmountPerContract_) internal initializer {
+        __TokenVestingController_init_unchained(token_, minimumAmountPerContract_);
     }
 
     /**
      * @dev Initializes a vesting controller for a token (unchained initializer).
-     * @param token The token
-     * @param minimumAmountPerContract Minimum amount per vesting contract
+     * @param token_ The token
+     * @param minimumAmountPerContract_ Minimum amount per vesting contract
      */
-    function __TokenVestingController_init_unchained(IERC20 token, uint256 minimumAmountPerContract) internal initializer {
-        require(minimumAmountPerContract > 0, "minimum amount per contract not set");
+    function __TokenVestingController_init_unchained(IERC20 token_, uint256 minimumAmountPerContract_) internal initializer {
+        require(minimumAmountPerContract_ > 0, "minimum amount per contract not set");
 
-        _token = token;
-        _minimumAmountPerContract = minimumAmountPerContract;
+        _token = token_;
+        _minimumAmountPerContract = minimumAmountPerContract_;
     }
 
     /**
