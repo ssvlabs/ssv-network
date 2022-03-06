@@ -7,8 +7,6 @@ import "./ISSVNetwork.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import "hardhat/console.sol";
-
 contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     struct OperatorData {
         uint256 blockNumber;
@@ -736,10 +734,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return _operatorDatas[operatorId].index +
                _ssvRegistryContract.getOperatorCurrentFee(operatorId) *
                (block.number - _operatorDatas[operatorId].indexBlockNumber);
-    }
-
-    function test_operatorIndexOf(uint256 operatorId) public view returns (uint256) {
-        return _operatorIndexOf(operatorId);
     }
 
     function _operatorInUseUsageOf(OperatorInUse storage operatorInUseData, address ownerAddress, uint256 operatorId) private view returns (uint256) {
