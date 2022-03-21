@@ -74,7 +74,7 @@ SSVTOKEN_ADDRESS=#SSV Token contract address
 After that:
 
 ```sh
-npx hardhat run --network <your-network> scripts/ssv-registry-deploy.ts
+npx hardhat run --network <your-network> scripts/ssv-network-deploy.ts
 ```
 Output of this action will be smart SSV Network contract proxy address.
 
