@@ -44,6 +44,16 @@ describe('TokenVestingController', function() {
     firstStartTime = parseInt(await utils.blockTimestamp());
   });
 
+  it('minimum amount not set', async function() {
+    const tokenVestingControllerFactory = await ethers.getContractFactory('TokenVestingController');
+    await expect(upgrades.deployProxy(tokenVestingControllerFactory, [ssvToken.address, 0])).to.be.revertedWith('minimum amount per contract not set');
+  })
+
+  it('getters', async function() {
+    expect(await tokenVestingController.token()).to.equal(ssvToken.address);
+    expect(await tokenVestingController.minimumAmountPerContract()).to.equal('10000');
+  })
+
   it('mint tokens', async function () {
     await expect(ssvToken.mint(firstHolder.address, '1000000')).to.emit(ssvToken, 'Transfer').withArgs('0x0000000000000000000000000000000000000000', firstHolder.address, '1000000');
     expect(await ssvToken.balanceOf(firstHolder.address)).to.equal('1000000');
@@ -56,6 +66,9 @@ describe('TokenVestingController', function() {
 
   it('create vesting contract', async function() {
     await tokenVestingController.connect(firstHolder).createVesting(secondHolder.address, '10000', firstStartTime, YEAR, 4 * YEAR, false);
+    const vestingAddress = await tokenVestingController.vestings(secondHolder.address, 0);
+    expect(await tokenVestingController.owners(vestingAddress)).to.equal(firstHolder.address);
+
     expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
     expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');
     expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('10000');
@@ -83,9 +96,28 @@ describe('TokenVestingController', function() {
     });
   });
 
+  it('revoke a contract not by owner', async function() {
+    await snapshot(0, async () => {
+      await expect(tokenVestingController.connect(secondHolder).revoke(secondHolder.address, 1)).to.be.revertedWith('Not owner of contract');
+      const vestingAddress = await tokenVestingController.vestings(secondHolder.address, 1);
+      await expect(tokenVestingController.connect(secondHolder).revokeContract(vestingAddress)).to.be.revertedWith('Not owner of contract');
+    });
+  });
+
   it('revoke a vesting contract by holder and index', async function() {
     await snapshot(0, async () => {
       await tokenVestingController.connect(firstHolder).revoke(secondHolder.address, 1);
+      expect(await ssvToken.balanceOf(firstHolder.address)).to.equal('990000');
+      expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
+      expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');
+      expect(await tokenVestingController.unvestedBalanceOf(secondHolder.address)).to.equal('10000');
+    });
+  });
+
+  it('revoke a vesting contract by contract', async function() {
+    await snapshot(0, async () => {
+      const vestingAddress = await tokenVestingController.vestings(secondHolder.address, 1);
+      await tokenVestingController.connect(firstHolder).revokeContract(vestingAddress);
       expect(await ssvToken.balanceOf(firstHolder.address)).to.equal('990000');
       expect(await tokenVestingController.totalVestingBalanceOf(secondHolder.address)).to.equal('10000');
       expect(await tokenVestingController.vestedBalanceOf(secondHolder.address)).to.equal('0');

@@ -43,6 +43,17 @@ describe('SSV Registry', function() {
     await ssvRegistry.registerValidator(account2.address, validatorsPub[2], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
   });
 
+  it('operator limit', async function() {
+    await snapshot(async () => {
+      expect(await ssvRegistry.validatorsPerOperatorCount(operatorsIds[0])).to.equal(3);
+      expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2000);
+      await ssvRegistry.setValidatorsPerOperatorLimit(2);
+      expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2);
+      await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit');
+      await expect(ssvRegistry.updateValidator(validatorsPub[2], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit');
+    });
+  });
+
   it('register validators with errors', async () => {
     await expect(ssvRegistry.registerValidator(account3.address, "0x12345678", operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('invalid public key length');
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid');

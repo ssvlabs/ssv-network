@@ -98,6 +98,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function removeOperator(
         uint256 operatorId
     ) external onlyOwner override {
+        require(validatorsPerOperator[operatorId] == 0, "operator has validators");
+
         Operator storage operator = _operators[operatorId];
         _operatorsByOwnerAddress[operator.ownerAddress][operator.indexInOwner] = _operatorsByOwnerAddress[operator.ownerAddress][_operatorsByOwnerAddress[operator.ownerAddress].length - 1];
         _operators[_operatorsByOwnerAddress[operator.ownerAddress][operator.indexInOwner]].indexInOwner = operator.indexInOwner;
@@ -105,6 +107,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
 
         emit OperatorRemoved(operatorId, operator.ownerAddress, operator.publicKey);
 
+        delete validatorsPerOperator[operatorId];
         delete _operatorPublicKeyToId[operator.publicKey];
         delete _operators[operatorId];
     }
@@ -192,9 +195,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         Validator storage validator = _validators[publicKey];
 
         for (uint256 index = 0; index < validator.operatorIds.length; ++index) {
-            if (validatorsPerOperator[validator.operatorIds[index]] > 0) {
-                --validatorsPerOperator[validator.operatorIds[index]];
-            }
+            --validatorsPerOperator[validator.operatorIds[index]];
         }
 
         validator.operatorIds = operatorIds;
@@ -213,6 +214,11 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         bytes calldata publicKey
     ) external onlyOwner override {
         Validator storage validator = _validators[publicKey];
+
+        for (uint256 index = 0; index < validator.operatorIds.length; ++index) {
+            --validatorsPerOperator[validator.operatorIds[index]];
+        }
+
         _validatorsByOwnerAddress[validator.ownerAddress][validator.indexInOwner] = _validatorsByOwnerAddress[validator.ownerAddress][_validatorsByOwnerAddress[validator.ownerAddress].length - 1];
         _validators[_validatorsByOwnerAddress[validator.ownerAddress][validator.indexInOwner]].indexInOwner = validator.indexInOwner;
         _validatorsByOwnerAddress[validator.ownerAddress].pop();
@@ -329,8 +335,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     /**
      * @dev See {ISSVRegistry-validatorsPerOperatorCount}.
      */
-    function validatorsPerOperatorCount(uint256 operatorId_) onlyOwner external override view returns (uint256) {
-        return validatorsPerOperator[operatorId_];
+    function validatorsPerOperatorCount(uint256 operatorId) external override view returns (uint256) {
+        return validatorsPerOperator[operatorId];
     }
 
     /**

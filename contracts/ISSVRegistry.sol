@@ -287,7 +287,7 @@ interface ISSVRegistry {
 
     /**
      * @dev Get validators amount per operator.
-     * @param operatorId_ Operator public key
+     * @param operatorId Operator public key
      */
-    function validatorsPerOperatorCount(uint256 operatorId_) external view returns (uint256);
+    function validatorsPerOperatorCount(uint256 operatorId) external view returns (uint256);
 }

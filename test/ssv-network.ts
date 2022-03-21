@@ -66,6 +66,18 @@ describe('SSV Network', function() {
     await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens);
   });
 
+  it('operator limit', async function() {
+    await snapshot(async () => {
+      expect(await ssvNetwork.validatorsPerOperatorCount(operatorsIds[0])).to.equal(1);
+      expect(await ssvNetwork.getValidatorsPerOperatorLimit()).to.equal(2000);
+      await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0);
+      await ssvNetwork.setValidatorsPerOperatorLimit(1);
+      expect(await ssvNetwork.getValidatorsPerOperatorLimit()).to.equal(1);
+      await expect(ssvNetwork.connect(account1).registerValidator(validatorsPub[2], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0)).to.be.revertedWith('exceed validator limit');
+      await expect(ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0)).to.be.revertedWith('exceed validator limit');
+    });
+  });
+
   it('operators getter', async function() {
     expect((await ssvNetwork.operators(operatorsIds[0])).map(v => v.toString())).to.eql(['testOperator 0', account2.address, operatorsPub[0], '0', 'true']);
     expect((await ssvNetwork.operators(operatorsIds[1])).map(v => v.toString())).to.eql(['testOperator 1', account2.address, operatorsPub[1], '0', 'true']);

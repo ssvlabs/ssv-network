@@ -158,7 +158,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      * @dev See {ISSVNetwork-removeOperator}.
      */
     function removeOperator(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
-        require(_operatorDatas[operatorId].activeValidatorCount == 0, "operator has validators");
         address owner = _ssvRegistryContract.getOperatorOwner(operatorId);
         _owners[owner].earned += _operatorDatas[operatorId].earnings;
         delete _operatorDatas[operatorId];

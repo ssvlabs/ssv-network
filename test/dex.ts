@@ -35,6 +35,20 @@ describe('DEX', function() {
     await ssvToken.transfer(dex.address, ssvBalance);
   });
 
+  it('rate 0 error', async function() {
+    const dexFactory = await ethers.getContractFactory('DEX');
+    await expect(upgrades.deployProxy(
+      dexFactory,
+      [oldToken.address, ssvToken.address, 0]
+    )).to.be.revertedWith('rate cannot be zero');
+  })
+
+  it('getters', async function () {
+    expect(await dex.cdtToken()).to.equal(oldToken.address);
+    expect(await dex.ssvToken()).to.equal(ssvToken.address);
+    expect(await dex.rate()).to.equal(RATE);
+  });
+
   it('Exchange CDT to SSV', async function () {
     await oldToken.approve(dex.address, oldToExchange);
     await dex.convertCDTToSSV(oldToExchange);
