@@ -23,50 +23,49 @@ let ssvRegistry;
 let owner, account1, account2, account3;
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
+const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
+
+const validatorsPerOperatorLimit = 2000;
 
 describe('SSV Registry', function() {
   before(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
-    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory);
+    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, [validatorsPerOperatorLimit]);
     await ssvRegistry.deployed();
     await ssvRegistry.registerOperator('testOperator 0', account1.address, operatorsPub[0], 10);
     await ssvRegistry.registerOperator('testOperator 1', account1.address, operatorsPub[1], 20);
     await ssvRegistry.registerOperator('testOperator 2', account1.address, operatorsPub[2], 30);
     await ssvRegistry.registerOperator('testOperator 3', account2.address, operatorsPub[3], 40);
     await ssvRegistry.registerOperator('testOperator 4', account2.address, operatorsPub[4], 50);
-    await ssvRegistry.registerValidator(account1.address, validatorsPub[0], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
-    await ssvRegistry.registerValidator(account1.address, validatorsPub[1], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
-    await ssvRegistry.registerValidator(account2.address, validatorsPub[2], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
-  });
-
-  it('register 0x0 validator', async () => {
-    await expect(ssvRegistry.registerValidator("0x0000000000000000000000000000000000000000", validatorsPub[3], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('owner address invalid');
+    await ssvRegistry.registerValidator(account1.address, validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
+    await ssvRegistry.registerValidator(account1.address, validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
+    await ssvRegistry.registerValidator(account2.address, validatorsPub[2], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
   });
 
   it('register validators with errors', async () => {
-    await expect(ssvRegistry.registerValidator(account3.address, "0x12345678", operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('invalid public key length');
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 3), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid');
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 4), operatorsPub.slice(0, 3), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid');
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid');
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 1), operatorsPub.slice(0, 1), operatorsPub.slice(0, 1))).to.be.revertedWith('OESS data structure is not valid');
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 3), operatorsPub.slice(0, 3), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid');
+    await expect(ssvRegistry.registerValidator(account3.address, "0x12345678", operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('invalid public key length');
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid');
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 3), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid');
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid');
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 1), operatorsPub.slice(0, 1), operatorsPub.slice(0, 1))).to.be.revertedWith('OESS data structure is not valid');
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 3), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid');
   });
 
   it('register a valid validator', async () => {
-    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsPub.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7));
+    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7));
   });
 
   it('update a validator', async () => {
-    await ssvRegistry.updateValidator(validatorsPub[3], operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
+    await ssvRegistry.updateValidator(validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
   });
 
   it('deactivate an operator', async () => {
-    await expect(ssvRegistry.activateOperator(operatorsPub[0])).to.be.revertedWith('already active');
-    await ssvRegistry.deactivateOperator(operatorsPub[0]);
-    await expect(ssvRegistry.deactivateOperator(operatorsPub[0])).to.be.revertedWith('already inactive');
-    await ssvRegistry.activateOperator(operatorsPub[0]);
-    await expect(ssvRegistry.activateOperator(operatorsPub[0])).to.be.revertedWith('already active');
+    await expect(ssvRegistry.activateOperator(operatorsIds[0])).to.be.revertedWith('already active');
+    await ssvRegistry.deactivateOperator(operatorsIds[0]);
+    await expect(ssvRegistry.deactivateOperator(operatorsIds[0])).to.be.revertedWith('already inactive');
+    await ssvRegistry.activateOperator(operatorsIds[0]);
+    await expect(ssvRegistry.activateOperator(operatorsIds[0])).to.be.revertedWith('already active');
   });
 
   /*
@@ -80,9 +79,9 @@ describe('SSV Registry', function() {
   */
 
   it('validators getter', async () => {
-    expect((await ssvRegistry.validators(validatorsPub[0])).map(v => v.toString())).to.eql([account1.address, validatorsPub[0], 'true', '0']);
-    expect((await ssvRegistry.validators(validatorsPub[1])).map(v => v.toString())).to.eql([account1.address, validatorsPub[1], 'true', '1']);
-    expect((await ssvRegistry.validators(validatorsPub[2])).map(v => v.toString())).to.eql([account2.address, validatorsPub[2], 'true', '0']);
+    expect((await ssvRegistry.validators(validatorsPub[0])).map(v => v.toString())).to.eql([account1.address, validatorsPub[0], 'true']);
+    expect((await ssvRegistry.validators(validatorsPub[1])).map(v => v.toString())).to.eql([account1.address, validatorsPub[1], 'true']);
+    expect((await ssvRegistry.validators(validatorsPub[2])).map(v => v.toString())).to.eql([account2.address, validatorsPub[2], 'true']);
   });
 
   it('get validators by address', async () => {

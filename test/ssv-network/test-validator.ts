@@ -14,7 +14,7 @@ import {
 } from './setup';
 
 import {
-  checkOperatorIndexes,
+  // checkOperatorIndexes,
   checkOperatorBalances,
   checkTotalBalance,
   checkTotalEarnings,
@@ -52,7 +52,7 @@ describe('SSV Network', function() {
           () => registerValidator(account1, 0, [0, 1, 2, 3], 20000000),
         ],
         asserts: [
-          () => checkOperatorIndexes([0, 1, 2, 3]),
+          // () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
           () => checkNetworkTreasury(),
         ],

@@ -5,6 +5,7 @@ const { expect } = chai;
 
 import {
   operatorsPub,
+  operatorsIds,
   operatorEarningsOf,
   operatorIndexOf,
   addressBalanceOf,
@@ -19,16 +20,16 @@ import { progressBlocks } from '../utils';
 export const checkOperatorBalances = async(operatorIdxs) => {
   for (const oidx of operatorIdxs) {
     console.log(`      | Operator Balance >  [OPERATOR] ${oidx} | [VALUE] ${+await operatorEarningsOf(oidx)}`);
-    expect(+await ssvNetwork.operatorEarningsOf(operatorsPub[oidx])).to.equal(+await operatorEarningsOf(oidx));
+    expect(+await ssvNetwork.operatorEarningsOf(operatorsIds[oidx])).to.equal(+await operatorEarningsOf(oidx));
   }
 }
 
-export const checkOperatorIndexes = async(operatorIdxs) => {
-  for (const oidx of operatorIdxs) {
-    console.log(`      | Operator Index >  [OPERATOR] ${oidx} | [VALUE] ${+await operatorIndexOf(oidx)}`);
-    expect(+await ssvNetwork.test_operatorIndexOf(operatorsPub[oidx])).to.equal(+await operatorIndexOf(oidx));
-  }
-}
+// export const checkOperatorIndexes = async(operatorIdxs) => {
+//   for (const oidx of operatorIdxs) {
+//     console.log(`      | Operator Index >  [OPERATOR] ${oidx} | [VALUE] ${+await operatorIndexOf(oidx)}`);
+//     expect(+await ssvNetwork.test_operatorIndexOf(operatorsIds[oidx])).to.equal(+await operatorIndexOf(oidx));
+//   }
+// }
 
 export const checkTotalBalance = async(address) => {
   console.log(`      | Total balance >  [ADDRESS] ${address} | [VALUE] ${+await addressBalanceOf(address)} | [BLOCKCHAIN] ${await ssvNetwork.totalBalanceOf(address)}`);

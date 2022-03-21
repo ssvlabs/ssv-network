@@ -20,6 +20,7 @@ const operatorMaxFeeIncrease = 10;
 
 const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;
+const validatorsPerOperatorLimit = 2000;
 
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
@@ -28,6 +29,7 @@ let ssvToken, ssvRegistry, ssvNetwork;
 let owner, account1, account2, account3;
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
+const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
 
 describe('Validators', function() {
   before(async function () {
@@ -39,7 +41,7 @@ describe('Validators', function() {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit]);
     await ssvNetwork.deployed();
     await ssvToken.mint(account1.address, '10000000000');
 
@@ -58,7 +60,7 @@ describe('Validators', function() {
       ssvNetwork.connect(account1)
       .registerValidator(
         validatorsPub[0],
-        operatorsPub.slice(0, 4),
+        operatorsIds.slice(0, 4),
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
         tokens
@@ -66,11 +68,11 @@ describe('Validators', function() {
     )
     .to.emit(ssvRegistry, 'ValidatorAdded');
 
-    expect((await ssvRegistry.validatorCount()).toString()).to.equal('1');
+    expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1');
   });
 
   it('get operators by validator', async function() {
-    expect(await ssvNetwork.getOperatorsByValidator(validatorsPub[0])).to.eql(operatorsPub.slice(0, 4));
+    expect((await ssvNetwork.getOperatorsByValidator(validatorsPub[0])).map(v => v.toString())).to.eql(operatorsIds.slice(0, 4).map(v => v.toString()));
   });
 
   it('revert register validator: not enough approved tokens to pay', async function() {
@@ -78,14 +80,14 @@ describe('Validators', function() {
       .connect(account2)
       .registerValidator(
         validatorsPub[1],
-        operatorsPub.slice(0, 4),
+        operatorsIds.slice(0, 4),
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
         '10000'
       )
       .should.eventually.be.rejectedWith('transfer amount exceeds balance');
 
-    expect((await ssvRegistry.validatorCount()).toString()).to.equal('1');
+    expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1');
   });
 
   it('update validator', async function() {
@@ -95,7 +97,7 @@ describe('Validators', function() {
         .connect(account1)
         .updateValidator(
           validatorsPub[0],
-          operatorsPub.slice(0, 4),
+          operatorsIds.slice(0, 4),
           operatorsPub.slice(0, 4),
           operatorsPub.slice(0, 4),
           tokens
@@ -109,7 +111,7 @@ describe('Validators', function() {
       .connect(account1)
       .updateValidator(
         validatorsPub[0],
-        operatorsPub.slice(0, 4),
+        operatorsIds.slice(0, 4),
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
         '10000'
@@ -124,7 +126,7 @@ describe('Validators', function() {
       .connect(account2)
       .updateValidator(
         validatorsPub[0],
-        operatorsPub.slice(0, 4),
+        operatorsIds.slice(0, 4),
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
         tokens
@@ -138,7 +140,7 @@ describe('Validators', function() {
         .to.emit(ssvRegistry, 'ValidatorRemoved')
         .withArgs(account1.address, validatorsPub[0]);
 
-      expect((await ssvRegistry.validatorCount()).toString()).to.equal('0');
+      expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0');
     });
   });
 
