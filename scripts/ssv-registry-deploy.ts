@@ -5,9 +5,7 @@ async function main() {
   console.log('Deploying ssvRegistryFactory...');
   const contract = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
   await contract.deployed();
-  // const contractDev = await upgrades.deployProxy(Contract);
-  // await contractDev.deployed();
-  console.log(`SSVRegistry deployed to: ${contract.address}`); // , ${contractDev.address}`);
+  console.log(`SSVRegistry deployed to: ${contract.address}`);
 }
 
 main()
