@@ -40,7 +40,7 @@ describe('SSV Network', function() {
   before(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
     const utilsFactory = await ethers.getContractFactory('Utils');
-    const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
+    const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
 

@@ -36,7 +36,7 @@ export const initContracts = async() => {
   initAddressData(account3.address);
   //
   const utilsFactory = await ethers.getContractFactory('Utils');
-  const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
+  const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
   const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
   utils = await utilsFactory.deploy();

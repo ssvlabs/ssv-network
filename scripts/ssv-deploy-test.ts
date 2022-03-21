@@ -6,7 +6,7 @@ async function main() {
   // const oldToken = await oldTokenFactory.deploy();
   // await oldToken.deployed();
   // console.log('Deploying SSVToken...');
-  // const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
+  // const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
   // const ssvToken = await ssvTokenFactory.deploy();
   // await ssvToken.deployed();
   // console.log('Deploying DEX...');

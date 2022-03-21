@@ -10,7 +10,7 @@ async function main() {
 
   console.log('Account balance:', (await deployer.getBalance()).toString());
 
-  const tokenContract = await ethers.getContractFactory('SSVToken');
+  const tokenContract = await ethers.getContractFactory('SSVTokenMock');
   const token = await upgrades.deployProxy(tokenContract);
   await token.deployed();
 

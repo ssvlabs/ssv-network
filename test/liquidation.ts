@@ -39,7 +39,7 @@ const validatorsPerOperatorLimit = 2000;
 describe('SSV Network Liquidation', function() {
   before(async function () {
     [owner, account1, account2, account3, account4] = await ethers.getSigners();
-    const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
+    const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
     ssvToken = await ssvTokenFactory.deploy();

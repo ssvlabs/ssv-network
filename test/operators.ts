@@ -33,7 +33,7 @@ const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
 describe('Operators', function() {
   before(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
-    const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
+    const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
     ssvToken = await ssvTokenFactory.deploy();
