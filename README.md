@@ -53,19 +53,30 @@ npx hardhat test
 
 ### Step 2: Deploy new contracts
 We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an ability to upgrade them later.
-To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `deploy.ts` file.
-Run this to deploy the contract:
-
-```sh
-npx hardhat run scripts/deploy.ts --network localhost
-```
-
+To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `ssv-registry-deploy.ts` and `ssv-network-deploy.ts` files.
 As general rule, you can target any network configured in the `hardhat.config.ts`
 
+#### Deploy SSV Registry
+
 ```sh
-npx hardhat run --network <your-network> scripts/deploy.ts
+npx hardhat run --network <your-network> scripts/ssv-registry-deploy.ts
 ```
-Output of this action will be smart contract proxy address.
+Output of this action will be smart SSV Registry contract proxy address.
+
+#### Deploy SSV Network
+Before run the cli command, in `.env` need to add the following seetings:
+
+```sh
+SSVREGISTRY_ADDRESS=#SSV Registry contract address
+SSVTOKEN_ADDRESS=#SSV Token contract address
+```
+
+After that:
+
+```sh
+npx hardhat run --network <your-network> scripts/ssv-network-deploy.ts
+```
+Output of this action will be smart SSV Network contract proxy address.
 
 ### Step 3: Verify implementation contract on etherscan (each time after upgrade)
 Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is implementation smart contract address.
@@ -87,50 +98,17 @@ To be sure that values are correct and click `Save` button. As result on ethersc
 `Write as Proxy` and `Read as Proxy` which will represent implementation smart contract functions interface and the actual state.
 
 ### Step 5: Upgrade contract
-Once we have tested our new implementation, for example `contracts/SSVNetworkV2.sol` we can prepare the upgrade.
+Once we have tested our new implementation, for example `contracts/SSVNetwork.sol` we can prepare the upgrade.
 This will validate and deploy our new implementation contract.
-Note: For testnet and mainnet  we will use Openzeppelin Defender to manage our upgrades and Gnosis Safe for mainnet safe signiture process.
-
-To upgrade in local HardHat Testing Network:
+#### Upgrade SSV Registry contract:
 ```sh
-PROXY_ADDRESS=0x... npx hardhat run --network localhost scripts/prepare-upgrade.ts
+PROXY_ADDRESS=0x... npx hardhat run --network <network> scripts/ssv-registry-upgrade.ts
 ```
 
-For mainnet and testnet:
-#### 1. Prepare for upgrade:
+#### Upgrade SSV Network contract:
 ```sh
-PROXY_ADDRESS=<proxy-address> npx hardhat run --network localhost scripts/upgrade.ts
+PROXY_ADDRESS=0x... npx hardhat run --network <network> scripts/ssv-network-upgrade.ts
 ```
-#### 2. Complete upgrade in testnet:
-Go to [OpenZeppelin Defender Admin](https://defender.openzeppelin.com/), select proxy address, which you added before, point new implementation address and abi json object which you can find in `artifacts/contracts/<contract-name>.json`. Sigh by your wallet which was used in deployment fist contract release.
-
-More details in [documentation](https://docs.openzeppelin.com/defender/admin#upgrades).
-#### 3. Complete upgrade in mainnet:
-For mainnet to manage our upgrade in [Gnosis Safe](https://gnosis-safe.io) we use the OpenZeppelin app.
-In the Apps tab, select the OpenZeppelin application and paste the address of the proxy in the Contract address field, and paste the address of the new implementation in the New implementation address field. The app should show that the contract is EIP1967-compatible.
-
-Double check the addresses, and then press the Upgrade button.
-We will be shown a confirmation dialog to Submit the transaction.
-
-We then need to sign the transaction in MetaMask (or the wallet that you are using).
-
-## Extra tips
-### Create a new contract version
-Note: We cannot change the storage layout of our implementation contract, see [Upgrading](https://docs.openzeppelin.com/learn/upgrading-smart-contracts#upgrading) for more details on the technical limitations.
-
-
-### Transfer control of upgrades
-The admin (who can perform upgrades) for our proxy is a ProxyAdmin contract. Only the owner of the ProxyAdmin can upgrade our proxy.
-Warning: Ensure to only transfer ownership of the ProxyAdmin to an address we control.
-
-As example, we will use [Gnosis Safe](https://help.gnosis-safe.io/en/articles/3876461-create-a-safe-multisig) to control upgrades of our contracts.
-
-To transfer ownership run:
-
-```sh
-GNOSIS_SAFE_ADDRESS=0x..... npx hardhat run scripts/transfer-ownership.ts --network <your-network/localhost>
-```
-
 ### dApp UI to interact with smart contract
 
 ```sh
@@ -154,10 +132,9 @@ Your environment will have everything you need to build a Dapp powered by Hardha
 - [ethers.js](https://docs.ethers.io/ethers.js/html/): A JavaScript library for interacting with Ethereum.
 - [Waffle](https://github.com/EthWorks/Waffle/): To have Ethereum-specific Chai assertions/mathers.
 
-## Security Audit
+## Security Audit [OLD Version]
 
 Full audit report [CoinFabrik Report](./docs/SSV_Token_Dex&Vesting_audit.pdf)
-
 
 ## Troubleshooting
 
@@ -165,31 +142,3 @@ Full audit report [CoinFabrik Report](./docs/SSV_Token_Dex&Vesting_audit.pdf)
   console, try resetting your Metamask account. This will reset the account's
   transaction history and also the nonce. Open Metamask, click on your account
   followed by `Settings > Advanced > Reset Account`.
-
-**Happy _buidling_!**
-
-## Functionality
-
-### Add new operator function
-```sh
-  /**
-   * @dev Add new operator to the list.
-   * @param _name Opeator's display name.
-   * @param _pubkey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
-   * @param _paymentAddress Operator's ethereum address that can collect fees.
-   */
-  function addOperator(string memory _name, string _pubkey, address _paymentAddress) public {
-```
-It stores operator data with unque `_pubkey` validation into a blockchain storage.
-
-### Fire event when operator is added
-```sh
-  /**
-   * @dev Emitted when the operator has been added.
-   * @param name Opeator's display name.
-   * @param pubkey Operator's Public Key. Will be used to encrypt secret shares of validators keys.
-   * @param paymentAddress Operator's ethereum address that can collect fees.
-   */
-  event OperatorAdded(string name, string pubkey, address paymentAddress);
-```
-It emits the event each time when new operator is added.
