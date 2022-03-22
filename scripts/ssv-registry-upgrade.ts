@@ -1,6 +1,9 @@
 import { ethers, upgrades } from 'hardhat';
+import { publishAbi } from './utils';
 
 async function main() {
+  await publishAbi('SSVNetwork');
+
   const proxyAddress = process.env.PROXY_ADDRESS;
   const ContractUpgraded = await ethers.getContractFactory('SSVRegistry');
   console.log('Running upgrade...');

@@ -1,6 +1,9 @@
 import { ethers, upgrades } from 'hardhat';
+import { publishAbi } from './utils';
 
 async function main() {
+  await publishAbi('SSVNetwork');
+
   const ssvRegistryAddress = process.env.SSVREGISTRY_ADDRESS;
   const ssvTokenAddress = process.env.SSVTOKEN_ADDRESS;
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');

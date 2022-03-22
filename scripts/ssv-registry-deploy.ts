@@ -1,6 +1,9 @@
 import { ethers, upgrades } from 'hardhat';
+import { publishAbi } from './utils';
 
 async function main() {
+  await publishAbi('SSVRegistry');
+
   const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
   console.log('Deploying ssvRegistryFactory...');
   const contract = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });

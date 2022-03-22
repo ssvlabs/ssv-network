@@ -1,16 +1,6 @@
 # SSV Network Project
 
-This repository contains a sample project that you can use as the starting point
-for Ethereum project. It's also a great fit for learning the basics of
-smart contract development.
-
-This project is intended to be used with the
-[Hardhat Beginners Tutorial](https://hardhat.org/tutorial), but you should be
-able to follow it by yourself by reading the README and exploring its
-`contracts`, `test`, `scripts`  directories.
-
-Decision to use Hardhat was based on research best practices to develop smart contracts.
-One of the topic about it is [here](https://rahulsethuram.medium.com/the-new-solidity-dev-stack-buidler-ethers-waffle-typescript-tutorial-f07917de48ae).
+This repository contains a SSVRegistry and SSVNetwork smart contacts project.
 
 ## Quick start
 
