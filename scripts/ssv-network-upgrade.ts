@@ -4,7 +4,7 @@ import { publishAbi } from './utils';
 async function main() {
   await publishAbi('SSVNetwork');
 
-  const proxyAddress = process.env.PROXY_ADDRESS;
+  const proxyAddress = process.env.PROXY_ADDRESS || '';
   const ContractUpgraded = await ethers.getContractFactory('SSVNetwork');
   console.log('Running upgrade...');
   const newContract = await upgrades.upgradeProxy(proxyAddress, ContractUpgraded);
