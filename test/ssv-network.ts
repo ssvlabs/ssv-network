@@ -2,7 +2,7 @@ import { ethers, upgrades } from 'hardhat';
 import { solidity } from 'ethereum-waffle';
 
 import * as chai from 'chai';
-import * as chaiAsPromised from 'chai-as-promised';
+import chaiAsPromised from 'chai-as-promised';
 import { rawListeners } from 'process';
 
 import { progressBlocks, progressTime, snapshot } from './utils';
@@ -22,8 +22,11 @@ const operatorMaxFeeIncrease = 10;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
-let ssvToken, ssvRegistry, ssvNetwork, utils;
-let owner, account1, account2, account3;
+//@ts-ignore
+let ssvToken: any, ssvRegistry: any, ssvNetwork: any, utils: any;
+//@ts-ignore
+let owner: any, account1: any, account2: any, account3: any, account4: any;
+
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
@@ -79,9 +82,9 @@ describe('SSV Network', function() {
   });
 
   it('operators getter', async function() {
-    expect((await ssvNetwork.operators(operatorsIds[0])).map(v => v.toString())).to.eql(['testOperator 0', account2.address, operatorsPub[0], '0', 'true']);
-    expect((await ssvNetwork.operators(operatorsIds[1])).map(v => v.toString())).to.eql(['testOperator 1', account2.address, operatorsPub[1], '0', 'true']);
-    expect((await ssvNetwork.operators(operatorsIds[2])).map(v => v.toString())).to.eql(['testOperator 2', account3.address, operatorsPub[2], '0', 'true']);
+    expect((await ssvNetwork.operators(operatorsIds[0])).map((v: any) => v.toString())).to.eql(['testOperator 0', account2.address, operatorsPub[0], '0', 'true']);
+    expect((await ssvNetwork.operators(operatorsIds[1])).map((v: any) => v.toString())).to.eql(['testOperator 1', account2.address, operatorsPub[1], '0', 'true']);
+    expect((await ssvNetwork.operators(operatorsIds[2])).map((v: any) => v.toString())).to.eql(['testOperator 2', account3.address, operatorsPub[2], '0', 'true']);
   });
 
   it('get operator current fee', async function() {
@@ -108,6 +111,7 @@ describe('SSV Network', function() {
   });
 
   it('revert withdraw: not enough balance', async function() {
+    //@ts-ignore
     await progressBlocks(100, async() => {
       await expect(ssvNetwork.connect(account1)
         .withdraw('80000000'))
@@ -139,7 +143,7 @@ describe('SSV Network', function() {
   });
 
   it('get operators by owner address', async function() {
-    expect((await ssvNetwork.getOperatorsByOwnerAddress(account2.address)).map(v => v.toString())).to.eql(operatorsIds.slice(0, 2).map(v => v.toString()));
+    expect((await ssvNetwork.getOperatorsByOwnerAddress(account2.address)).map((v: any) => v.toString())).to.eql(operatorsIds.slice(0, 2).map(v => v.toString()));
   });
 
   it('get validators by owner address', async function() {
@@ -185,6 +189,7 @@ describe('SSV Network', function() {
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0);
       expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(103540000);
 
+      //@ts-ignore
       await progressBlocks(100, async function() {
         expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(96540000);
 
@@ -195,7 +200,7 @@ describe('SSV Network', function() {
 
         expect(await ssvNetwork.burnRate(account1.address)).to.equal(200000);
         expect(await ssvNetwork.burnRate(account2.address)).to.equal(10000);
-
+        //@ts-ignore
         await progressBlocks(50, async function() {
           expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(39800000);
           expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(95820000);
@@ -314,6 +319,7 @@ describe('SSV Network', function() {
     expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(38200000);
     expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(106280000);
     expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(43520000);
+    //@ts-ignore
     await progressBlocks(10, async () => {
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37200000);
       expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104680000);
@@ -336,6 +342,7 @@ describe('SSV Network', function() {
   });
 
   it('deactivate an operator', async function() {
+    //@ts-ignore
     await progressBlocks(10, async () => {
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(37200000);
       expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(104680000);
@@ -412,7 +419,7 @@ describe('SSV Network', function() {
       await ssvNetwork.connect(account3).setOperatorFee(operatorsIds[3], '41000');
       expect(await ssvNetwork.getOperatorCurrentFee(operatorsIds[3])).to.equal(40000);
       const currentBlockTime = await utils.blockTimestamp();
-      expect((await ssvNetwork.getOperatorFeeChangeRequest(operatorsIds[3])).map(v => v.toString())).to.eql(['41000', (+currentBlockTime + DAY).toString(), (+currentBlockTime + 2 * DAY).toString()]);
+      expect((await ssvNetwork.getOperatorFeeChangeRequest(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['41000', (+currentBlockTime + DAY).toString(), (+currentBlockTime + 2 * DAY).toString()]);
   });
 
   it('approve fee too soon', async function() {
@@ -420,6 +427,7 @@ describe('SSV Network', function() {
   });
 
   it('approve too late', async function() {
+    //@ts-ignore
     progressTime(3 * DAY, async function() {
       await expect(ssvNetwork.connect(account3).approveOperatorFee(operatorsIds[3])).to.be.revertedWith('approval not within timeframe');
     });
@@ -429,15 +437,16 @@ describe('SSV Network', function() {
     snapshot(async function () {
       await ssvNetwork.connect(account3).cancelSetOperatorFee(operatorsIds[3]);
       expect(await ssvNetwork.getOperatorCurrentFee(operatorsIds[3])).to.equal(40000);
-      expect((await ssvNetwork.getOperatorFeeChangeRequest(operatorsIds[3])).map(v => v.toString())).to.eql(['0', '0', '0']);
+      expect((await ssvNetwork.getOperatorFeeChangeRequest(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['0', '0', '0']);
     });
   });
 
   it('approve fee on time', async function() {
+    //@ts-ignore
     progressTime(DAY * 15 / 10, async function() {
       await expect(ssvNetwork.connect(account3).approveOperatorFee(operatorsIds[3])).to.emit(ssvNetwork, 'OperatorFeeApproved');
       expect(await ssvNetwork.getOperatorCurrentFee(operatorsIds[3])).to.equal(41000);
-      expect((await ssvNetwork.getOperatorFeeChangeRequest(operatorsIds[3])).map(v => v.toString())).to.eql(['0', '0', '0']);
+      expect((await ssvNetwork.getOperatorFeeChangeRequest(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['0', '0', '0']);
     });
   });
 

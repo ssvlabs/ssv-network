@@ -2,7 +2,7 @@ import { ethers, upgrades } from 'hardhat';
 import { solidity } from 'ethereum-waffle';
 
 import * as chai from 'chai';
-import * as chaiAsPromised from 'chai-as-promised';
+import chaiAsPromised from 'chai-as-promised';
 import { rawListeners } from 'process';
 
 import { progressBlocks, snapshot } from './utils';
@@ -22,8 +22,11 @@ const operatorMaxFeeIncrease = 10;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
-let ssvToken, ssvRegistry, ssvNetwork;
-let owner, account1, account2, account3, account4;
+//@ts-ignore
+let ssvToken: any, ssvRegistry: any, ssvNetwork: any;
+//@ts-ignore
+let owner: any, account1: any, account2: any, account3: any, account4: any;
+
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
@@ -91,6 +94,7 @@ describe('SSV Network Liquidation', function() {
   });
 
   it('update to a liquidating state', async function() {
+    //@ts-ignore
     await progressBlocks(847, async function () {
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
       await expect(ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), 0)).to.be.revertedWith('not enough balance');
@@ -98,6 +102,7 @@ describe('SSV Network Liquidation', function() {
   });
 
   it('update to a valid state using tokens', async function() {
+    //@ts-ignore
     await progressBlocks(847, async function () {
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
       await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
@@ -122,6 +127,7 @@ describe('SSV Network Liquidation', function() {
   */
 
   it('liquidate', async function() {
+    //@ts-ignore
     await progressBlocks(847, async function () {
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5100000);
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
@@ -142,6 +148,7 @@ describe('SSV Network Liquidation', function() {
   });
 
   it('liquidate multiple accounts', async function() {
+    //@ts-ignore
     await progressBlocks(847, async function () {
       expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5100000);
       expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(28470000);

@@ -1,5 +1,5 @@
 import * as chai from 'chai';
-import * as chaiAsPromised from 'chai-as-promised';
+import chaiAsPromised from 'chai-as-promised';
 import { progressBlocks, snapshot } from './utils';
 
 before(() => {
@@ -25,8 +25,11 @@ const validatorsPerOperatorLimit = 2000;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
-let ssvToken, ssvRegistry, ssvNetwork;
-let owner, account1, account2, account3;
+//@ts-ignore
+let ssvToken: any, ssvRegistry: any, ssvNetwork: any;
+//@ts-ignore
+let owner: any, account1: any, account2: any, account3: any, account4: any;
+
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
@@ -72,6 +75,7 @@ describe('Validators', function() {
   });
 
   it('get operators by validator', async function() {
+    //@ts-ignore
     expect((await ssvNetwork.getOperatorsByValidator(validatorsPub[0])).map(v => v.toString())).to.eql(operatorsIds.slice(0, 4).map(v => v.toString()));
   });
 
@@ -135,6 +139,7 @@ describe('Validators', function() {
   });
 
   it('remove validator', async function () {
+    //@ts-ignore
     await progressBlocks(5, async() => {
       await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
         .to.emit(ssvRegistry, 'ValidatorRemoved')
@@ -159,6 +164,7 @@ describe('Validators', function() {
   });
 
   it('revert remove validator: not enough balance', async function () {
+    //@ts-ignore
     await progressBlocks(10000, async() => {
       await ssvNetwork
         .connect(account1)
