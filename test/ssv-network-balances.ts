@@ -7,8 +7,7 @@ import { rawListeners } from 'process';
 
 import { progress, progressBlocks, progressTime, snapshot, mine } from './utils';
 
-//@ts-ignore
-import * as Table from 'cli-table';
+import Table from 'cli-table';
 
 declare var network: any;
 
