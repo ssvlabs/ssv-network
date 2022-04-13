@@ -1,5 +1,5 @@
 import * as chai from 'chai';
-import * as chaiAsPromised from 'chai-as-promised';
+import chaiAsPromised from 'chai-as-promised';
 import { progressTime } from './utils';
 
 before(() => {
@@ -24,8 +24,10 @@ const validatorsPerOperatorLimit = 2000;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
-let ssvToken, ssvRegistry, ssvNetwork;
-let owner, account1, account2, account3;
+//@ts-ignore
+let ssvToken: any, ssvRegistry: any, ssvNetwork: any;
+//@ts-ignore
+let owner: any, account1: any, account2: any, account3: any, account4: any;
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
@@ -72,6 +74,7 @@ describe('Operators', function() {
   });
 
   it('update operators fee', async function () {
+    //@ts-ignore
     await progressTime(DAY, async() => {
       await expect(ssvNetwork.connect(account2).setOperatorFee(operatorsIds[0], 1050000));
       await expect(ssvNetwork.connect(account2).approveOperatorFee(operatorsIds[0]))
@@ -112,6 +115,7 @@ describe('Operators', function() {
   });
 
   it('remove operator', async function () {
+    //@ts-ignore
     await progressTime(DAY, async() => {
       await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
         .to.emit(ssvRegistry, 'OperatorRemoved')
@@ -120,6 +124,7 @@ describe('Operators', function() {
   });
 
   it('revert remove operator: operator has validators', async function () {
+    //@ts-ignore
     await progressTime(DAY, async() => {
       await ssvToken.connect(account1).approve(ssvNetwork.address, '100000000');
       await ssvNetwork.connect(account1).registerValidator(

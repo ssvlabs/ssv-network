@@ -8,7 +8,7 @@ import '@openzeppelin/hardhat-upgrades';
 import 'hardhat-gas-reporter';
 import 'hardhat-tracer';
 import 'solidity-coverage';
-import '@nomiclabs/hardhat-solhint';  
+import '@nomiclabs/hardhat-solhint';
 
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
@@ -25,22 +25,24 @@ const config: HardhatUserConfig = {
       }
     ],
   },
-  networks: {
-    goerli: {
-      url: process.env.GOERLI_ETH_NODE_URL,
-      accounts: [`0x${process.env.GOERLI_OWNER_PRIVATE_KEY}`],
-      gasPrice: +(process.env.GAS_PRICE || ''),
-      gas: +(process.env.GAS || ''),
-    }
-  },
+  networks: {},
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
     apiKey: process.env.ETHERSCAN_KEY
   }
 };
-//@ts-ignore
-console.log(config.networks.goerli);
+
+if (process.env.GOERLI_ETH_NODE_URL) {
+  //@ts-ignore
+  config.networks.goerli = {
+    url: process.env.GOERLI_ETH_NODE_URL,
+    accounts: [`0x${process.env.GOERLI_OWNER_PRIVATE_KEY}`],
+    gasPrice: +(process.env.GAS_PRICE || ''),
+    gas: +(process.env.GAS || '')
+  };
+}
+
 if (process.env.MAINNET_ETH_NODE_URL) {
   //@ts-ignore
   config.networks.mainnet = {

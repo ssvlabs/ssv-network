@@ -8,8 +8,10 @@ const validatorPublicKeyPrefix = '9876543210987654321098765432109876543210987654
 const minimumBlocksBeforeLiquidation = 50;
 const operatorMaxFeeIncrease = 10;
 
-export let utils, ssvToken, ssvRegistry, ssvNetwork;
-export let owner, account1, account2, account3;
+//@ts-ignore
+export let ssvToken: any, ssvRegistry: any, ssvNetwork: any, utils: any;
+//@ts-ignore
+export let owner: any, account1: any, account2: any, account3: any, account4: any;
 
 export const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 export const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
@@ -22,8 +24,8 @@ const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;
 const validatorsPerOperatorLimit = 2000;
 
-const operatorData = [];
-const addressData = {};
+const operatorData: any = [];
+const addressData: any = {};
 const globalData: any = {};
 
 export const initContracts = async() => {
@@ -60,7 +62,7 @@ const initGlobalData = () => {
   globalData.networkEarningsBlockNumber = 0;
   globalData.withdrawnFromTreasury = 0;
 }
-
+//@ts-ignore
 const initAddressData = (address) => {
   addressData[address] = {
     operatorIdxs: [],
@@ -81,7 +83,7 @@ const globalNetworkFeeIndex = async() => {
     (+await utils.blockNumber() - globalData.networkFeeIndexBlockNumber) *
     globalData.networkFee;
 }
-
+//@ts-ignore
 export const operatorIndexOf = async(idx) => {
   const currentBlockNumber = await utils.blockNumber();
   const value = operatorData[idx].index +
@@ -89,13 +91,13 @@ export const operatorIndexOf = async(idx) => {
     operatorData[idx].fee;
   return value;
 }
-
+//@ts-ignore
 const operatorExpenseOf = async(address, oidx) => {
   return addressData[address].operatorsInUse[oidx].used +
     (await operatorIndexOf(oidx) - addressData[address].operatorsInUse[oidx].index) *
     addressData[address].operatorsInUse[oidx].validatorsCount;
 }
-
+//@ts-ignore
 export const operatorEarningsOf = async(idx) => {
   const currentBlockNumber = await utils.blockNumber();
   const value = operatorData[idx].balance +
@@ -103,7 +105,7 @@ export const operatorEarningsOf = async(idx) => {
     operatorData[idx].fee * operatorData[idx].validatorsCount;
   return value;
 }
-
+//@ts-ignore
 export const addressNetworkFee = async(address) => {
   let {
     activeValidators,
@@ -113,7 +115,7 @@ export const addressNetworkFee = async(address) => {
   return networkFee +
     (+await globalNetworkFeeIndex() - networkFeeIndex) * activeValidators;
 }
-
+//@ts-ignore
 export const addressBalanceOf = async(address) => {
   let {
     deposited,
@@ -134,7 +136,7 @@ export const addressBalanceOf = async(address) => {
 
   return total;
 }
-
+//@ts-ignore
 export const totalEarningsOf = async(address) => {
   let {
     earned,
@@ -149,7 +151,7 @@ export const totalEarningsOf = async(address) => {
 
   return total;
 }
-
+//@ts-ignore
 export const registerOperator = async (account, idx, fee) => {
   await ssvNetwork.connect(account).registerOperator(`testOperator ${idx}`, operatorsPub[idx], fee);
   await progressBlocks(1);
@@ -165,14 +167,14 @@ export const registerOperator = async (account, idx, fee) => {
   addressData[account.address].operatorIdxs.push(idx);
   console.log(`      | Register operator ${idx} > [ADDRESS] ${account.address} | [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
-
+//@ts-ignore
 export const registerValidator = async (account, validatorIdx, operatorIdxs, depositAmount) => {
   await ssvToken.connect(account).approve(ssvNetwork.address, depositAmount);
   await ssvNetwork.connect(account).registerValidator(
     validatorsPub[validatorIdx],
-    operatorIdxs.map(oidx => operatorsIds[oidx]),
-    operatorIdxs.map(oidx => operatorsPub[oidx]),
-    operatorIdxs.map(oidx => operatorsPub[oidx]),
+    operatorIdxs.map((oidx: number) => operatorsIds[oidx]),
+    operatorIdxs.map((oidx: number) => operatorsPub[oidx]),
+    operatorIdxs.map((oidx: number) => operatorsPub[oidx]),
     `${depositAmount}`,
   );
   await progressBlocks(1);
@@ -197,14 +199,14 @@ export const registerValidator = async (account, validatorIdx, operatorIdxs, dep
 
   console.log(`      | Register validator ${validatorIdx} > [ADDRESS] ${account.address} [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
-
+//@ts-ignore
 export const updateValidator = async (account, validatorIdx, operatorIdxs, depositAmount) => {
   await ssvToken.connect(account).approve(ssvNetwork.address, depositAmount);
   await ssvNetwork.connect(account).updateValidator(
     validatorsPub[validatorIdx],
-    operatorIdxs.map(oidx => operatorsIds[oidx]),
-    operatorIdxs.map(oidx => operatorsPub[oidx]),
-    operatorIdxs.map(oidx => operatorsPub[oidx]),
+    operatorIdxs.map((oidx: number) => operatorsIds[oidx]),
+    operatorIdxs.map((oidx: number) => operatorsPub[oidx]),
+    operatorIdxs.map((oidx: number) => operatorsPub[oidx]),
     `${depositAmount}`,
   );
   await progressBlocks(1);
@@ -230,7 +232,7 @@ export const updateValidator = async (account, validatorIdx, operatorIdxs, depos
   addressData[account.address].deposited += depositAmount;
   console.log(`      | Update validator ${validatorIdx} >  [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
-
+//@ts-ignore
 export const removeValidator = async (account, validatorIdx) => {
   await ssvNetwork.connect(account).removeValidator(validatorsPub[validatorIdx]);
   await progressBlocks(1);
@@ -248,19 +250,19 @@ export const removeValidator = async (account, validatorIdx) => {
   globalData.validatorCount--;
   console.log(`      | Remove validator ${validatorIdx} >  [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
-
+//@ts-ignore
 export const deposit = async(account, amount) => {
   await ssvToken.connect(account).approve(ssvNetwork.address, `${amount}`);
   await ssvNetwork.connect(account).deposit(`${amount}`);
   addressData[account.address].deposited += amount;
   console.log(`      | Deposited [ADDRESS] ${account.address} | [VALUE]: ${amount}`);
 }
-
+//@ts-ignore
 export const withdraw = async(account, amount) => {
   await ssvNetwork.connect(account).withdraw(`${amount}`);
   addressData[account.address].withdrawn += amount;
 }
-
+//@ts-ignore
 export const updateOperatorFee = async (account, idx, fee) => {
   await ssvNetwork.connect(account).setOperatorFee(operatorsIds[idx], fee);
   await ssvNetwork.connect(account).approveOperatorFee(operatorsIds[idx]);
@@ -281,7 +283,7 @@ const getNetworkEarnings = async () => {
 export const getNetworkTreasury = async () => {
   return (await getNetworkEarnings()) - globalData.withdrawnFromTreasury;
 }
-
+//@ts-ignore
 const updateAddressNetworkFee = async (address) => {
   addressData[address].networkFee = await addressNetworkFee(address);
   addressData[address].networkFeeIndex = await globalNetworkFeeIndex();
@@ -291,7 +293,7 @@ const updateNetworkEarnings = async () => {
   globalData.networkEarnings = await getNetworkEarnings();
   globalData.networkEarningsBlockNumber = await utils.blockNumber();
 }
-
+//@ts-ignore
 export const updateNetworkFee = async (fee) => {
   await ssvNetwork.updateNetworkFee(fee);
   await progressBlocks(1);
@@ -300,12 +302,12 @@ export const updateNetworkFee = async (fee) => {
   globalData.networkFeeIndexBlockNumber = await utils.blockNumber();
   console.log(`      | Update network fee > [VALUE] ${fee} [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
-
+//@ts-ignore
 export const updateOperatorBalance = async (idx) => {
   operatorData[idx].balance = +await operatorEarningsOf(idx);
   operatorData[idx].blockNumber = await utils.blockNumber();
 }
-
+//@ts-ignore
 export const processTestCase = async (testFlow) => {
   const baseBlockNumber = await utils.blockNumber();
   await network.provider.send('evm_setAutomine', [false]);

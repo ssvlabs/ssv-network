@@ -34,15 +34,15 @@ async function main() {
     fromBlock: 0,
     toBlock: latestBlock
   };
-
   /*
   console.log(`fetching operators...`, filters);
   const operatorEvents = await oldContract.getPastEvents('OperatorAdded', filters);
   console.log("total operatorEvents", operatorEvents.length);
+
   for (let index = 0; index < operatorEvents.length; index++) {
     const { returnValues } = operatorEvents[index];
     console.log('+', returnValues.name, returnValues.ownerAddress, returnValues.ownerAddress, returnValues.publicKey);
-    const tx = await ssvNetwork.migRegisterOperator(
+    const tx = await ssvNetwork.batchRegisterOperator(
       returnValues.name,
       returnValues.ownerAddress,
       returnValues.publicKey,
@@ -66,7 +66,7 @@ async function main() {
     const { returnValues } = validatorEvents[index];
     const operatorPubKeys = returnValues.operatorPublicKeys.map((key: any) => operatorIds[key]);
     try {
-      const tx = await ssvNetwork.migRegisterValidator(
+      const tx = await ssvNetwork.batchRegisterValidator(
         returnValues.ownerAddress,
         returnValues.publicKey,
         operatorPubKeys,
@@ -75,11 +75,12 @@ async function main() {
         0
       );
       await tx.wait();
-      console.log(`${index}/${validatorEvents.length}`, '+', returnValues.ownerAddress, returnValues.publicKey, returnValues.operatorPublicKeys, returnValues.sharesPublicKeys, returnValues.encryptedKeys);  
+      console.log(`${index}/${validatorEvents.length}`, '+', returnValues.ownerAddress, returnValues.publicKey, operatorPubKeys);  
     } catch (e) {
       console.log(`${index}/${validatorEvents.length}`, '------', returnValues.publicKey);
     }
   }
+
 }
 
 main()

@@ -2,7 +2,7 @@ import { ethers, upgrades } from 'hardhat';
 import { solidity } from 'ethereum-waffle';
 
 import * as chai from 'chai';
-import * as chaiAsPromised from 'chai-as-promised';
+import chaiAsPromised from 'chai-as-promised';
 import { rawListeners } from 'process';
 
 import { progressBlocks, progressTime, snapshot } from './utils';
@@ -19,8 +19,11 @@ const { expect } = chai;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
-let ssvRegistry;
-let owner, account1, account2, account3;
+//@ts-ignore
+let ssvRegistry: any;
+//@ts-ignore
+let owner: any, account1: any, account2: any, account3: any, account4: any;
+
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
@@ -90,9 +93,9 @@ describe('SSV Registry', function() {
   */
 
   it('validators getter', async () => {
-    expect((await ssvRegistry.validators(validatorsPub[0])).map(v => v.toString())).to.eql([account1.address, validatorsPub[0], 'true']);
-    expect((await ssvRegistry.validators(validatorsPub[1])).map(v => v.toString())).to.eql([account1.address, validatorsPub[1], 'true']);
-    expect((await ssvRegistry.validators(validatorsPub[2])).map(v => v.toString())).to.eql([account2.address, validatorsPub[2], 'true']);
+    expect((await ssvRegistry.validators(validatorsPub[0])).map((v: any) => v.toString())).to.eql([account1.address, validatorsPub[0], 'true']);
+    expect((await ssvRegistry.validators(validatorsPub[1])).map((v: any) => v.toString())).to.eql([account1.address, validatorsPub[1], 'true']);
+    expect((await ssvRegistry.validators(validatorsPub[2])).map((v: any) => v.toString())).to.eql([account2.address, validatorsPub[2], 'true']);
   });
 
   it('get validators by address', async () => {

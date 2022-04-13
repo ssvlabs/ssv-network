@@ -2,12 +2,12 @@ import { ethers, upgrades } from 'hardhat';
 import { solidity } from 'ethereum-waffle';
 
 import * as chai from 'chai';
-import * as chaiAsPromised from 'chai-as-promised';
+import chaiAsPromised from 'chai-as-promised';
 import { rawListeners } from 'process';
 
 import { progress, progressBlocks, progressTime, snapshot, mine } from './utils';
 
-import * as Table from 'cli-table';
+import Table from 'cli-table';
 
 declare var network: any;
 
@@ -24,20 +24,23 @@ const operatorMaxFeeIncrease = 10;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
-let ssvToken, ssvRegistry, ssvNetwork;
-let owner, account1, account2, account3;
+//@ts-ignore
+let ssvToken: any, ssvRegistry: any, ssvNetwork: any;
+//@ts-ignore
+let owner: any, account1: any, account2: any, account3: any, account4: any;
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
 
 const DAY = 86400;
 const YEAR = 365 * DAY;
-const operatorIndexes = [];
+const operatorIndexes: any = [];
 
 const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;
 const validatorsPerOperatorLimit = 2000;
 
+//@ts-ignore
 const registerOperator = async (account, idx, fee) => {
   await ssvNetwork.connect(account).registerOperator(`testOperator ${idx}`, operatorsPub[idx], fee);
   operatorIndexes.push({
@@ -50,6 +53,7 @@ const registerOperator = async (account, idx, fee) => {
 }
 
 // register validators
+//@ts-ignore
 const operatorIndexOf = async(idx) => {
   const currentBlockNumber = await ethers.provider.getBlockNumber();
   const value = operatorIndexes[idx].index +
@@ -58,6 +62,7 @@ const operatorIndexOf = async(idx) => {
   return value;
 }
 
+//@ts-ignore
 const getContractOperatorIndexes = async(ids) => {
   const result = [];
   for (const id of ids) {
@@ -66,11 +71,13 @@ const getContractOperatorIndexes = async(ids) => {
   return result;
 }
 
+//@ts-ignore
 const operatorExpenseOf = async(idx) => {
   return operatorIndexes[idx].used +
         ((await operatorIndexOf(idx)) - operatorIndexes[idx].index) * operatorIndexes[idx].validatorsCount;
 }
 
+//@ts-ignore
 const updateOperatorIndexes = async(ids) => {
   let total = 0;
   for (const id of ids) {
@@ -80,12 +87,14 @@ const updateOperatorIndexes = async(ids) => {
   return total;
 }
 
+//@ts-ignore
 const updateOperatorExpense = async(ids) => {
   for (const idx of ids) {
     operatorIndexes[idx].used = await operatorExpenseOf(idx);
   }
 }
 
+//@ts-ignore
 const incOperatorValidators = async(ids) => {
   for (const id of ids) {
     operatorIndexes[id].validatorsCount++;

@@ -16,7 +16,7 @@ import {
 
 import { progressBlocks } from '../utils';
 
-
+//@ts-ignore
 export const checkOperatorBalances = async(operatorIdxs) => {
   for (const oidx of operatorIdxs) {
     console.log(`      | Operator Balance >  [OPERATOR] ${oidx} | [VALUE] ${+await operatorEarningsOf(oidx)}`);
@@ -30,17 +30,17 @@ export const checkOperatorBalances = async(operatorIdxs) => {
 //     expect(+await ssvNetwork.test_operatorIndexOf(operatorsIds[oidx])).to.equal(+await operatorIndexOf(oidx));
 //   }
 // }
-
+//@ts-ignore
 export const checkTotalBalance = async(address) => {
   console.log(`      | Total balance >  [ADDRESS] ${address} | [VALUE] ${+await addressBalanceOf(address)} | [BLOCKCHAIN] ${await ssvNetwork.totalBalanceOf(address)}`);
   expect(+await ssvNetwork.totalBalanceOf(address)).to.equal(+await addressBalanceOf(address));
 }
-
+//@ts-ignore
 export const checkTotalEarnings = async (address) => {
   console.log(`      | Total Earnings >  [ADDRESS] ${address} | [VALUE] ${+await totalEarningsOf(address)} | [BLOCKCHAIN] ${await ssvNetwork.totalEarningsOf(address)}`);
   expect(+await ssvNetwork.totalEarningsOf(address)).to.equal(+await totalEarningsOf(address));
 }
-
+//@ts-ignore
 export const checkWithdrawFail = async(account, amount) => {
   await expect(ssvNetwork.connect(account).withdraw(`${amount}`)).to.be.revertedWith('not enough balance');
 }

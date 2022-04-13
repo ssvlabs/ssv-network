@@ -1,7 +1,7 @@
 declare var network: any;
-
+//@ts-ignore
 export const strToHex = str => `0x${Buffer.from(str, 'utf8').toString('hex')}`;
-
+//@ts-ignore
 export const asciiToHex = str =>  {
   var arr1 = [];
   for (var n = 0, l = str.length; n < l; n ++)  {
@@ -10,7 +10,7 @@ export const asciiToHex = str =>  {
   }
   return arr1.join('');
 }
-
+//@ts-ignore
 export const progress = async function(time, blocks, func = null) {
   let snapshot;
 
@@ -30,19 +30,20 @@ export const progress = async function(time, blocks, func = null) {
   }
 
   if (func) {
+    //@ts-ignore
     await func();
     await network.provider.send("evm_revert", [snapshot]);
   }
 }
-
+//@ts-ignore
 export const progressTime = async function(time, func = null) {
   return progress(time, 1, func);
 }
-
+//@ts-ignore
 export const progressBlocks = async function(blocks, func = null) {
   return progress(0, blocks, func);
 }
-
+//@ts-ignore
 export const snapshot = async function(func) {
   return progress(0, 0, func);
 }
