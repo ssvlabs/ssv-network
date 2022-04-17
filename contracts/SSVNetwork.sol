@@ -151,7 +151,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
         _operatorDatas[operatorId] = OperatorData(block.number, 0, 0, 0, block.number, block.timestamp);
 
-        emit OperatorAdded(operatorId, name, msg.sender, publicKey);
+        emit OperatorAdded(operatorId, name, msg.sender, publicKey, fee);
     }
 
     /**
