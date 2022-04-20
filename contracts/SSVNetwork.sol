@@ -64,7 +64,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     uint256 private _approveOperatorFeePeriod;
     mapping(uint256 => FeeChangeRequest) private _feeChangeRequests;
 
-    uint256 constant MINIMAL_OPERATOR_FEE = 10000;
+    uint256 constant MINIMAL_OPERATOR_FEE = 0; // 10000
 
     function initialize(
         ISSVRegistry registryAddress_,
@@ -154,6 +154,24 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorAdded(operatorId, name, msg.sender, publicKey, fee);
     }
 
+    function batchRegisterOperator(
+        string calldata name,
+        address ownerAddress,
+        bytes calldata publicKey,
+        uint256 fee
+    ) ensureMinimalOperatorFee(fee) external returns (uint256 operatorId) {
+        operatorId = _ssvRegistryContract.registerOperator(
+            name,
+            ownerAddress,
+            publicKey,
+            fee
+        );
+
+        _operatorDatas[operatorId] = OperatorData(block.number, 0, 0, 0, block.number, block.timestamp);
+
+        emit OperatorAdded(operatorId, name, ownerAddress, publicKey);
+    }
+
     /**
      * @dev See {ISSVNetwork-removeOperator}.
      */
@@ -230,6 +248,19 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _updateNetworkEarnings();
         _updateAddressNetworkFee(msg.sender);
         _registerValidatorUnsafe(msg.sender, publicKey, operatorIds, sharesPublicKeys, encryptedKeys, tokenAmount);
+    }
+
+    function batchRegisterValidator(
+        address ownerAddress,
+        bytes calldata publicKey,
+        uint256[] calldata operatorIds,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedKeys,
+        uint256 tokenAmount
+    ) external {
+        _updateNetworkEarnings();
+        _updateAddressNetworkFee(ownerAddress);
+        _registerValidatorUnsafe(ownerAddress, publicKey, operatorIds, sharesPublicKeys, encryptedKeys, tokenAmount);
     }
 
     /**
