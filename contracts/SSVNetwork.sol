@@ -154,7 +154,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorAdded(operatorId, name, msg.sender, publicKey, fee);
     }
 
-    function batchRegisterOperator(
+    function migrateRegisterOperator(
         string calldata name,
         address ownerAddress,
         bytes calldata publicKey,
@@ -169,7 +169,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
         _operatorDatas[operatorId] = OperatorData(block.number, 0, 0, 0, block.number, block.timestamp);
 
-        emit OperatorAdded(operatorId, name, ownerAddress, publicKey);
+        emit OperatorAdded(operatorId, name, ownerAddress, publicKey, fee);
     }
 
     /**
@@ -250,7 +250,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _registerValidatorUnsafe(msg.sender, publicKey, operatorIds, sharesPublicKeys, encryptedKeys, tokenAmount);
     }
 
-    function batchRegisterValidator(
+    function migrateRegisterValidator(
         address ownerAddress,
         bytes calldata publicKey,
         uint256[] calldata operatorIds,

@@ -34,7 +34,6 @@ async function main() {
     fromBlock: 0,
     toBlock: latestBlock
   };
-  /*
   console.log(`fetching operators...`, filters);
   const operatorEvents = await oldContract.getPastEvents('OperatorAdded', filters);
   console.log("total operatorEvents", operatorEvents.length);
@@ -50,7 +49,7 @@ async function main() {
     );
     await tx.wait();
   }
-  */
+  /*
   const newOperatorEvents = await newContract.getPastEvents('OperatorAdded', filters);
   console.log("total new operatorEvents", newOperatorEvents.length);
   const operatorIds: any = {};
@@ -80,6 +79,7 @@ async function main() {
       console.log(`${index}/${validatorEvents.length}`, '------', returnValues.publicKey);
     }
   }
+  */
 
 }
 
