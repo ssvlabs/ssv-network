@@ -64,7 +64,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     uint256 private _approveOperatorFeePeriod;
     mapping(uint256 => FeeChangeRequest) private _feeChangeRequests;
 
-    uint256 constant MINIMAL_OPERATOR_FEE = 0; // 10000
+    uint256 constant MINIMAL_OPERATOR_FEE = 10000;
 
     function initialize(
         ISSVRegistry registryAddress_,
@@ -159,7 +159,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         address ownerAddress,
         bytes calldata publicKey,
         uint256 fee
-    ) ensureMinimalOperatorFee(fee) external returns (uint256 operatorId) {
+    ) external returns (uint256 operatorId) {
         operatorId = _ssvRegistryContract.registerOperator(
             name,
             ownerAddress,
