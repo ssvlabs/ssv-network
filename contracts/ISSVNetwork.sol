@@ -24,8 +24,15 @@ interface ISSVNetwork {
      * @param name Operator's display name.
      * @param ownerAddress Operator's ethereum address that can collect fees.
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
+     * @param fee Operator's initial fee.
      */
-    event OperatorAdded(uint256 id, string name, address indexed ownerAddress, bytes publicKey);
+    event OperatorAdded(
+        uint256 id,
+        string name,
+        address indexed ownerAddress,
+        bytes publicKey,
+        uint256 fee
+    );
 
     /**
      * @dev Emitted when the operator has been removed.
