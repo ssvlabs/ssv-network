@@ -258,6 +258,14 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     }
 
     /**
+     * @dev See {ISSVRegistry-operatorsByPublicKey}.
+     */
+    function operatorsByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, bool) {
+        Operator storage operator = _operators[_operatorPublicKeyToId[publicKey]];
+        return (operator.name, operator.ownerAddress, operator.publicKey, operator.score, operator.active);
+    }
+
+    /**
      * @dev See {ISSVRegistry-getOperatorsByOwnerAddress}.
      */
     function getOperatorsByOwnerAddress(address ownerAddress) external view override returns (uint256[] memory) {

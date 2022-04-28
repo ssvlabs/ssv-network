@@ -154,24 +154,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorAdded(operatorId, name, msg.sender, publicKey, fee);
     }
 
-    function migrateRegisterOperator(
-        string calldata name,
-        address ownerAddress,
-        bytes calldata publicKey,
-        uint256 fee
-    ) external returns (uint256 operatorId) {
-        operatorId = _ssvRegistryContract.registerOperator(
-            name,
-            ownerAddress,
-            publicKey,
-            fee
-        );
-
-        _operatorDatas[operatorId] = OperatorData(block.number, 0, 0, 0, block.number, block.timestamp);
-
-        emit OperatorAdded(operatorId, name, ownerAddress, publicKey, fee);
-    }
-
     /**
      * @dev See {ISSVNetwork-removeOperator}.
      */
@@ -248,19 +230,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _updateNetworkEarnings();
         _updateAddressNetworkFee(msg.sender);
         _registerValidatorUnsafe(msg.sender, publicKey, operatorIds, sharesPublicKeys, encryptedKeys, tokenAmount);
-    }
-
-    function migrateRegisterValidator(
-        address ownerAddress,
-        bytes calldata publicKey,
-        uint256[] calldata operatorIds,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys,
-        uint256 tokenAmount
-    ) external {
-        _updateNetworkEarnings();
-        _updateAddressNetworkFee(ownerAddress);
-        _registerValidatorUnsafe(ownerAddress, publicKey, operatorIds, sharesPublicKeys, encryptedKeys, tokenAmount);
     }
 
     /**
@@ -384,6 +353,13 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      */
     function operators(uint256 operatorId) external view override returns (string memory, address, bytes memory, uint256, bool) {
         return _ssvRegistryContract.operators(operatorId);
+    }
+
+    /**
+     * @dev See {ISSVNetwork-operatorsByPublicKey}.
+     */
+    function operatorsByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, bool) {
+        return _ssvRegistryContract.operatorsByPublicKey(publicKey);
     }
 
     function getOperatorFeeChangeRequest(uint256 operatorId) external view override returns (uint256, uint256, uint256) {

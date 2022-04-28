@@ -200,10 +200,24 @@ interface ISSVRegistry {
     function isOwnerValidatorsDisabled(address ownerAddress) external view returns (bool);
 
     /**
-     * @dev Gets an operator by public key.
+     * @dev Gets an operator by operator id.
      * @param operatorId Operator id.
      */
     function operators(uint256 operatorId)
+        external view
+        returns (
+            string memory,
+            address,
+            bytes memory,
+            uint256,
+            bool
+        );
+
+    /**
+     * @dev Gets an operator by public key.
+     * @param publicKey Operator public key.
+     */
+    function operatorsByPublicKey(bytes memory publicKey)
         external view
         returns (
             string memory,
