@@ -1,6 +1,6 @@
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { progressBlocks, snapshot } from './utils';
+import { progressBlocks, snapshot } from '../helpers/utils';
 
 before(() => {
   chai.should();

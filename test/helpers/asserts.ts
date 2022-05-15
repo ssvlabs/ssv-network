@@ -14,7 +14,7 @@ import {
   ssvNetwork,
 } from './setup';
 
-import { progressBlocks } from '../utils';
+import { progressBlocks } from './utils';
 
 //@ts-ignore
 export const checkOperatorBalances = async(operatorIdxs) => {

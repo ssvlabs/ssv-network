@@ -1,5 +1,5 @@
 import { ethers, upgrades } from 'hardhat';
-import { progressTime, progressBlocks, snapshot, mine } from '../utils';
+import { progressTime, progressBlocks, snapshot, mine } from './utils';
 
 declare var network: any;
 
