@@ -9,12 +9,12 @@ import {
   processTestCase,
   account1,
   account2,
-} from './setup';
+} from '../helpers/setup';
 
 import {
   checkTotalBalance,
   checkTotalEarnings,
-} from './asserts';
+} from '../helpers/asserts';
 
 before(() => {
   chai.should();

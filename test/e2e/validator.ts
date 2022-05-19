@@ -11,7 +11,7 @@ import {
   updateNetworkFee,
   account1,
   account2,
-} from './setup';
+} from '../helpers/setup';
 
 import {
   // checkOperatorIndexes,
@@ -19,7 +19,7 @@ import {
   checkTotalBalance,
   checkTotalEarnings,
   checkNetworkTreasury,
-} from './asserts';
+} from '../helpers/asserts';
 
 before(() => {
   chai.should();

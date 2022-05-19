@@ -10,13 +10,13 @@ import {
   account1,
   account2,
   ssvNetwork,
-} from './setup';
+} from '../helpers/setup';
 
 import {
   checkWithdrawFail,
   checkTotalBalance,
   checkTotalEarnings,
-} from './asserts';
+} from '../helpers/asserts';
 
 before(() => {
   chai.should();
