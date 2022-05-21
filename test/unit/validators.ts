@@ -1,8 +1,11 @@
+// Validator Unit Test
+
+// Declare all imports
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { progressBlocks, snapshot } from '../helpers/utils';
 
-before(() => {
+beforeEach(() => {
   chai.should();
   chai.use(chaiAsPromised);
 });
@@ -35,7 +38,7 @@ const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublic
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
 
 describe('Validators', function() {
-  before(async function () {
+  beforeEach(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
@@ -46,6 +49,8 @@ describe('Validators', function() {
     await ssvRegistry.deployed();
     ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit]);
     await ssvNetwork.deployed();
+
+    // Mint tokens
     await ssvToken.mint(account1.address, '10000000000');
 
     // register operators

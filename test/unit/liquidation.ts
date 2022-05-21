@@ -1,168 +1,199 @@
-import { ethers, upgrades } from 'hardhat';
-import { solidity } from 'ethereum-waffle';
+// Liquidation Unit Test
 
-import * as chai from 'chai';
-import chaiAsPromised from 'chai-as-promised';
-import { rawListeners } from 'process';
+// Declare all imports
+import { ethers, upgrades } from 'hardhat'
+import * as chai from 'chai'
+import chaiAsPromised from 'chai-as-promised'
+import { progressBlocks } from '../helpers/utils'
+beforeEach(() => {
+  chai.should()
+  chai.use(chaiAsPromised)
+})
+const { expect } = chai
 
-import { progressBlocks, snapshot } from '../helpers/utils';
+// Define global variables
+const minimumBlocksBeforeLiquidation = 50
+const operatorMaxFeeIncrease = 10
+const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345'
+const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765'
+let ssvToken: any, ssvRegistry: any, ssvNetwork: any
+let owner: any, account1: any, account2: any, account3: any, account4: any, account5: any
+const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`)
+const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
+const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
+const tokens = '100000000'
+const DAY = 86400
+const setOperatorFeePeriod = 0
+const approveOperatorFeePeriod = DAY
+const validatorsPerOperatorLimit = 2000
 
-declare var network: any;
+describe('SSV Network Liquidation', function () {
+  beforeEach(async function () {
+    // Create accounts
+    [owner, account1, account2, account3, account4, account5] = await ethers.getSigners()
 
-before(() => {
-  chai.should();
-  chai.use(chaiAsPromised);
-});
+    // Deploy Contracts 
+    const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock')
+    const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry')
+    const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork')
+    ssvToken = await ssvTokenFactory.deploy()
+    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false })
+    await ssvToken.deployed()
+    await ssvRegistry.deployed()
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit])
+    await ssvNetwork.deployed()
 
-const { expect } = chai;
+    // Mint tokens
+    await ssvToken.mint(account1.address, '10000000000')
 
-const minimumBlocksBeforeLiquidation = 50;
-const operatorMaxFeeIncrease = 10;
+    // Register operators
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 10000)
 
-const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
-const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
+    // Register validators
+    await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
+    await ssvToken.connect(account1).transfer(account2.address, tokens)
+    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens)
+  })
 
-//@ts-ignore
-let ssvToken: any, ssvRegistry: any, ssvNetwork: any;
-//@ts-ignore
-let owner: any, account1: any, account2: any, account3: any, account4: any;
+  it('Register validator with 0 balance', async function () {
+    await expect(ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0)).to.be.revertedWith("not enough balance")
+  })
 
-const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
-const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
-const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
-const tokens = '100000000';
+  it('Check balance after 100 blocks', async function () {
+    await progressBlocks(100)
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(90000000)
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(3000000)
+    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(7000000)
+  })
 
-const DAY = 86400;
-const YEAR = 365 * DAY;
+  it('Try to liquidate a valid account', async function () {
+    await ssvNetwork.connect(account4).liquidate([account1.address])
+    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
+  })
 
-const setOperatorFeePeriod = 0;
-const approveOperatorFeePeriod = DAY;
-const validatorsPerOperatorLimit = 2000;
+  it('Check burn rates', async function (): Promise<void> {
+    expect(await ssvNetwork.burnRate(owner.address)).to.equal(0)
+    expect(await ssvNetwork.burnRate(account1.address)).to.equal(100000)
+    expect(await ssvNetwork.burnRate(account2.address)).to.equal(0)
+    expect(await ssvNetwork.burnRate(account3.address)).to.equal(0)
+  })
 
-describe('SSV Network Liquidation', function() {
-  before(async function () {
-    [owner, account1, account2, account3, account4] = await ethers.getSigners();
-    const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
-    const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
-    const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
-    ssvToken = await ssvTokenFactory.deploy();
-    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
-    await ssvToken.deployed();
-    await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit]);
-    await ssvNetwork.deployed();
-    await ssvToken.mint(account1.address, '10000000000');
+  it('Try to withdraw to a liquidatable state', async function () {
+    await progressBlocks(948)
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5200000)
+    await expect(ssvNetwork.connect(account1).withdraw(200000)).to.be.revertedWith('not enough balance')
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5100000)
+  })
 
-    // register operators
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000);
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50000);
+  it('Update to a valid state using tokens', async function () {
+    // Get to a liquidatable state
+    await progressBlocks(951)
+    expect(await ssvNetwork.liquidatable(account1.address)).to.equal(true)
 
-    // register validators
-    await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
-    await ssvToken.connect(account1).transfer(account2.address, tokens);
-    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens);
-  });
+    // Change operator triggering to put in more SSV
+    await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
+    const tx = ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), tokens)
+    await expect(tx).to.emit(ssvRegistry, 'ValidatorRemoved')
+    await expect(tx).to.emit(ssvRegistry, 'ValidatorAdded')
 
-  it('register liquidatable validator', async function() {
-    await expect(ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0)).to.be.revertedWith("not enough balance");
-  });
+    // No longer liquidatable
+    expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false)
+    await ssvNetwork.connect(account4).liquidate([account1.address])
+    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
 
-  it('balances should be correct after 100 blocks', async function() {
-    await progressBlocks(99);
-    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(90000000);
-    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(3000000);
-    expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(7000000);
-  });
+    // Get to a liquidatable state
+    await progressBlocks(1000)
+    expect(await ssvNetwork.liquidatable(account1.address)).to.equal(true)
 
-  it('try to liquidate a valid account', async function() {
-    await ssvNetwork.connect(account4).liquidate([account1.address]);
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false);
-  });
+    // Deposit more SSV
+    await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
+    await ssvNetwork.connect(account1).deposit(tokens)
 
-  it('burn rate', async function() {
-    expect(await ssvNetwork.burnRate(owner.address)).to.equal(0);
-    expect(await ssvNetwork.burnRate(account1.address)).to.equal(100000);
-    expect(await ssvNetwork.burnRate(account2.address)).to.equal(0);
-    expect(await ssvNetwork.burnRate(account3.address)).to.equal(0);
-  });
+    // No longer liquidatable
+    expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false)
+  })
 
-  it ('withdraw and get to liquidation status', async function() {
-    await expect(ssvNetwork.connect(account1).withdraw(85000000)).to.be.revertedWith('not enough balance');
-  });
+  it('Liquidate', async function () {
+    // Try to liquidate non liquidatable accounts
+    await progressBlocks(949)
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5100000)
+    expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false)
+    await ssvNetwork.connect(account4).liquidate([account1.address])
+    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
 
-  it('update to a liquidating state', async function() {
-    //@ts-ignore
-    await progressBlocks(847, async function () {
-      expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      await expect(ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), 0)).to.be.revertedWith('not enough balance');
-    });
-  });
+    // Liquidate account1
+    await progressBlocks(1)
+    expect(await ssvNetwork.liquidatable(account1.address)).to.equal(true)
+    expect(await ssvToken.balanceOf(account4.address)).to.equal(0)
+    await ssvNetwork.connect(account4).liquidate([account1.address])
+    expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false)
+    await ssvNetwork.connect(account4).liquidate([account1.address])
+    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+    expect(await ssvNetwork.burnRate(account1.address)).to.equal(0)
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0)
+    expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0)
+    expect(await ssvToken.balanceOf(account4.address)).to.equal(4800000)
+  })
 
-  it('update to a valid state using tokens', async function() {
-    //@ts-ignore
-    await progressBlocks(847, async function () {
-      expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
-      const tx = ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), tokens);
-      await expect(tx).to.emit(ssvRegistry, 'ValidatorRemoved');
-      await expect(tx).to.emit(ssvRegistry, 'ValidatorAdded');
-    });
-  });
+  it('Liquidate multiple accounts', async function () {
+    // Register validator with account5
+    await ssvToken.connect(account1).transfer(account5.address, tokens)
+    await ssvToken.connect(account5).approve(ssvNetwork.address, tokens)
+    await ssvNetwork.connect(account5).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens)
+    await progressBlocks(946)
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5100000)
+    expect(await ssvNetwork.totalBalanceOf(account5.address)).to.equal(5400000)
+    expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0)
+    expect(await ssvToken.balanceOf(account4.address)).to.equal(0)
 
-  /*
-  it('activate validator in liquitable status', async function() {
-    await snapshot(async function() {
-      await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0);
-      // await ssvNetwork.connect(account1).deactivateValidator(validatorsPub[1]);
-      await progressBlocks(800);
-      expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      // await expect(ssvNetwork.connect(account1).activateValidator(validatorsPub[1], 0)).to.be.revertedWith('not enough balance');
-      await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
-      // await ssvNetwork.connect(account1).activateValidator(validatorsPub[1], tokens);
-    });
-  });
-  */
+    // Try to liquidate non liquidatable accounts
+    await ssvNetwork.connect(account4).liquidate([account1.address, account2.address, account5.address])
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5000000)
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(56910000)
+    expect(await ssvNetwork.totalBalanceOf(account5.address)).to.equal(5300000)
+    expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0)
+    await progressBlocks(3)
 
-  it('liquidate', async function() {
-    //@ts-ignore
-    await progressBlocks(847, async function () {
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5100000);
-      expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      await ssvNetwork.connect(account4).liquidate([account1.address]);
-      expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false);
-      await progressBlocks(1);
-      expect(await ssvNetwork.liquidatable(account1.address)).to.equal(true);
-      expect(await ssvToken.balanceOf(account4.address)).to.equal(0);
-      await ssvNetwork.connect(account4).liquidate([account1.address]);
-      expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      await ssvNetwork.connect(account4).liquidate([account1.address]);
-      expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true);
-      expect(await ssvNetwork.burnRate(account1.address)).to.equal(0);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0);
-      expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0);
-      expect(await ssvToken.balanceOf(account4.address)).to.equal(4800000);
-    });
-  });
+    // Liquidate account1 (actually liquidatable), account2 (not liquidatable) and account5 (actually liquidatable)
+    await ssvNetwork.connect(account4).liquidate([account1.address, account2.address, account5.address])
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0)
+    expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(57150000)
+    expect(await ssvNetwork.totalBalanceOf(account5.address)).to.equal(0)
+    expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0)
 
-  it('liquidate multiple accounts', async function() {
-    //@ts-ignore
-    await progressBlocks(847, async function () {
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5100000);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(28470000);
-      expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0);
-      expect(await ssvToken.balanceOf(account4.address)).to.equal(0);
-      await ssvNetwork.connect(account4).liquidate([account1.address, account2.address]);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5000000);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(28500000);
-      expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0);
-      await ssvNetwork.connect(account4).liquidate([account1.address, account2.address]);
-      expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0);
-      expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(28530000);
-      expect(await ssvNetwork.totalBalanceOf(account4.address)).to.equal(0);
-      expect(await ssvToken.balanceOf(account4.address)).to.equal(4900000);
-    });
-  });
-});
+    // Account4 only got liquidation reward from account1 and account2 only
+    expect(await ssvToken.balanceOf(account4.address)).to.equal(9500000)
+    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+  })
+
+  it('Try to enable account to liquitable status', async function () {
+    // Expect to not be liquidatable
+    await progressBlocks(950)
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5000000)
+    expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false)
+
+    // Liquidate account1
+    await ssvNetwork.connect(account2).liquidate([account1.address])
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0)
+    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+    expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false)
+
+    // Enable account not enough SSV
+    await ssvToken.connect(account1).approve(ssvNetwork.address, 5000000)
+    await expect(ssvNetwork.connect(account1).enableAccount(4900000)).to.be.revertedWith("not enough balance")
+
+    // Enable account
+    await ssvNetwork.connect(account1).enableAccount(5000000)
+    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(5000000)
+
+    // Liquidate again immediately
+    await ssvNetwork.connect(account2).liquidate([account1.address])
+    expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(0)
+    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+  })
+})
