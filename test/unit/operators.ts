@@ -87,8 +87,8 @@ describe('Operators', function () {
       .removeOperator(operatorsIds[1])
       .should.eventually.be.rejectedWith('caller is not operator owner')
 
-      // Register removed operator
-      await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000)
+    // Register removed operator
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000)
   })
 
   it('Get operator Fee', async function () {

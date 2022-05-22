@@ -37,7 +37,7 @@ const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKe
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
 
-describe('Validators', function() {
+describe('Validators', function () {
   beforeEach(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
@@ -61,30 +61,30 @@ describe('Validators', function() {
     await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50000);
   });
 
-  it('register validator', async function() {
+  it('register validator', async function () {
     const tokens = '100000000';
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
     await expect(
       ssvNetwork.connect(account1)
-      .registerValidator(
-        validatorsPub[0],
-        operatorsIds.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        tokens
-      )
+        .registerValidator(
+          validatorsPub[0],
+          operatorsIds.slice(0, 4),
+          operatorsPub.slice(0, 4),
+          operatorsPub.slice(0, 4),
+          tokens
+        )
     )
-    .to.emit(ssvRegistry, 'ValidatorAdded');
+      .to.emit(ssvRegistry, 'ValidatorAdded');
 
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1');
   });
 
-  it('get operators by validator', async function() {
+  it('get operators by validator', async function () {
     //@ts-ignore
     expect((await ssvNetwork.getOperatorsByValidator(validatorsPub[0])).map(v => v.toString())).to.eql(operatorsIds.slice(0, 4).map(v => v.toString()));
   });
 
-  it('revert register validator: not enough approved tokens to pay', async function() {
+  it('revert register validator: not enough approved tokens to pay', async function () {
     await ssvNetwork
       .connect(account2)
       .registerValidator(
@@ -99,23 +99,23 @@ describe('Validators', function() {
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1');
   });
 
-  it('update validator', async function() {
+  it('update validator', async function () {
     const tokens = '100';
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
     const tx = ssvNetwork
-        .connect(account1)
-        .updateValidator(
-          validatorsPub[0],
-          operatorsIds.slice(0, 4),
-          operatorsPub.slice(0, 4),
-          operatorsPub.slice(0, 4),
-          tokens
-        );
+      .connect(account1)
+      .updateValidator(
+        validatorsPub[0],
+        operatorsIds.slice(0, 4),
+        operatorsPub.slice(0, 4),
+        operatorsPub.slice(0, 4),
+        tokens
+      );
     await expect(tx).to.emit(ssvRegistry, 'ValidatorRemoved');
     await expect(tx).to.emit(ssvRegistry, 'ValidatorAdded');
   });
 
-  it('revert update validator: not enough approved tokens to pay', async function() {
+  it('revert update validator: not enough approved tokens to pay', async function () {
     await ssvNetwork
       .connect(account1)
       .updateValidator(
@@ -128,7 +128,7 @@ describe('Validators', function() {
       .should.eventually.be.rejectedWith('transfer amount exceeds allowance');
   });
 
-  it('revert update validator: tx was sent not by owner', async function() {
+  it('revert update validator: tx was sent not by owner', async function () {
     const tokens = '10000';
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
     await ssvNetwork
@@ -145,7 +145,7 @@ describe('Validators', function() {
 
   it('remove validator', async function () {
     //@ts-ignore
-    await progressBlocks(5, async() => {
+    await progressBlocks(5, async () => {
       await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
         .to.emit(ssvRegistry, 'ValidatorRemoved')
         .withArgs(account1.address, validatorsPub[0]);
@@ -170,7 +170,7 @@ describe('Validators', function() {
 
   it('revert remove validator: not enough balance', async function () {
     //@ts-ignore
-    await progressBlocks(10000, async() => {
+    await progressBlocks(10000, async () => {
       await ssvNetwork
         .connect(account1)
         .removeValidator(validatorsPub[0])
