@@ -1,4 +1,4 @@
-// Liquidation Unit Test
+// Liquidation Unit Tests
 
 // Declare all imports
 import { ethers, upgrades } from 'hardhat'
