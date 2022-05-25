@@ -1,6 +1,3 @@
-// Network Contract Unit Test
-
-// Declare all imports
 import { ethers, upgrades } from 'hardhat';
 import { solidity } from 'ethereum-waffle';
 
@@ -12,7 +9,7 @@ import { progressBlocks, progressTime, snapshot } from '../helpers/utils';
 
 declare var network: any;
 
-beforeEach(() => {
+before(() => {
   chai.should();
   chai.use(chaiAsPromised);
 });
@@ -43,7 +40,7 @@ const approveOperatorFeePeriod = DAY;
 const validatorsPerOperatorLimit = 2000;
 
 describe('SSV Network', function() {
-  beforeEach(async function () {
+  before(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
     const utilsFactory = await ethers.getContractFactory('Utils');
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');

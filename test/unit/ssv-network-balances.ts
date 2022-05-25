@@ -1,6 +1,3 @@
-// Balances Unit Test
-
-// Declare all imports
 import { ethers, upgrades } from 'hardhat';
 import { solidity } from 'ethereum-waffle';
 
@@ -14,7 +11,7 @@ import Table from 'cli-table';
 
 declare var network: any;
 
-beforeEach(() => {
+before(() => {
   chai.should();
   chai.use(chaiAsPromised);
 });
@@ -27,9 +24,9 @@ const operatorMaxFeeIncrease = 10;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 
-
+//@ts-ignore
 let ssvToken: any, ssvRegistry: any, ssvNetwork: any;
-// Create accounts
+//@ts-ignore
 let owner: any, account1: any, account2: any, account3: any, account4: any;
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`);
@@ -105,7 +102,7 @@ const incOperatorValidators = async(ids) => {
 }
 
 describe('SSV Network Balances Calculation', function() {
-  beforeEach(async function () {
+  before(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');

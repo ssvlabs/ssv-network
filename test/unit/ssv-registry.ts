@@ -1,6 +1,3 @@
-// Registry Contract Unit Test
-
-// Declare all imports
 import { ethers, upgrades } from 'hardhat';
 import { solidity } from 'ethereum-waffle';
 
@@ -12,7 +9,7 @@ import { progressBlocks, progressTime, snapshot } from '../helpers/utils';
 
 declare var network: any;
 
-beforeEach(() => {
+before(() => {
   chai.should();
   chai.use(chaiAsPromised);
 });
@@ -34,7 +31,7 @@ const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1);
 const validatorsPerOperatorLimit = 2000;
 
 describe('SSV Registry', function() {
-  beforeEach(async function () {
+  before(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, [validatorsPerOperatorLimit]);

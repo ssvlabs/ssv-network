@@ -25,7 +25,7 @@ let owner: any, account1: any, account2: any, account3: any
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 
-describe('Operators', function () {
+describe('Update Operators', function () {
   beforeEach(async function () {
     // Create accounts
     [owner, account1, account2, account3] = await ethers.getSigners()
