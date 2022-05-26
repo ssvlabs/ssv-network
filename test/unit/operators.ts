@@ -3,7 +3,7 @@
 // Declare all imports
 import * as chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { progressTime } from '../helpers/utils'
+import { progressBlocks, progressTime } from '../helpers/utils'
 beforeEach(() => {
   chai.should()
   chai.use(chaiAsPromised)
@@ -20,9 +20,11 @@ const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
 const validatorsPerOperatorLimit = 2000
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345'
+const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765'
 let ssvToken: any, ssvRegistry: any, ssvNetwork: any
 let owner: any, account1: any, account2: any, account3: any
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`)
+const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 
 describe('Operators', function () {
@@ -68,8 +70,8 @@ describe('Operators', function () {
     expect((await ssvRegistry.operators(operatorsIds[8]))[1]).to.equal('0x0000000000000000000000000000000000000000')
   })
 
-  it('Remove operator', async function () {
-    // Remove the operator
+  it('Remove operator no validators', async function () {
+    // Remove an operator with no validators
     await progressTime(DAY)
     await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
       .to.emit(ssvRegistry, 'OperatorRemoved')
@@ -90,6 +92,28 @@ describe('Operators', function () {
     // Register removed operator
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000)
   })
+
+  // it('Remove operator with validators', async function () {
+  //   // Register a validator
+  //   await ssvToken.connect(account1).approve(ssvNetwork.address, 1000000000)
+  //   await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 100000000)
+
+  //   // Delete an operator that the validator is using
+  //   await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
+  //     .to.emit(ssvRegistry, 'OperatorRemoved')
+  //     .withArgs(operatorsIds[0], account2.address, operatorsPub[0])
+
+  //   // Check that the operator fee is 0
+  //   expect((await ssvRegistry.getOperatorCurrentFee(operatorsIds[0])).toString()).to.equal('0')
+
+  //   // Chat that operator did not earn anything since deleted
+  //   const operatorEarnings = await ssvNetwork.operatorEarningsOf(operatorsIds[0])
+  //   await progressBlocks(100)
+  //   expect((await ssvNetwork.operatorEarningsOf(operatorsIds[0]).toString()).to.equal(operatorEarnings))
+
+  //   // Check that the operator address has updated
+  //   expect((await ssvRegistry.operators(operatorsIds[0]))[1]).to.equal("0x0000000000000000000000000000000000000000");
+  // })
 
   it('Get operator Fee', async function () {
     // Get current operator fee
