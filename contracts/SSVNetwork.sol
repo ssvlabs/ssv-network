@@ -571,7 +571,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             uint256 operatorId = currentOperatorIds[index];
             _updateOperatorBalance(operatorId);
 
-            if (!_owners[ownerAddress].validatorsDisabled) {
+            if (!_owners[msg.sender].validatorsDisabled) {
                 --_operatorDatas[operatorId].activeValidatorCount;
             }
 
@@ -733,11 +733,11 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function _liquidatable(address ownerAddress) private view returns (bool) {
-        return !_owners[ownerAddress].validatorsDisabled && _overdue(ownerAddress);
+        return !_owners[msg.sender].validatorsDisabled && _overdue(ownerAddress);
     }
 
     function _canLiquidate(address ownerAddress) private view returns (bool) {
-        return !_owners[ownerAddress].validatorsDisabled && (msg.sender == ownerAddress || _overdue(ownerAddress));
+        return !_owners[msg.sender].validatorsDisabled && (msg.sender == ownerAddress || _overdue(ownerAddress));
     }
 
     function _getNetworkEarnings() private view returns (uint256) {
