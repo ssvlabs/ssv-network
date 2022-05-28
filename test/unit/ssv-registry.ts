@@ -67,30 +67,12 @@ describe('SSV Registry', function() {
   });
 
   it('register a valid validator', async () => {
-    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7));
+    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
   });
 
   it('update a validator', async () => {
     await ssvRegistry.updateValidator(validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
   });
-
-  it('deactivate an operator', async () => {
-    await expect(ssvRegistry.activateOperator(operatorsIds[0])).to.be.revertedWith('already active');
-    await ssvRegistry.deactivateOperator(operatorsIds[0]);
-    await expect(ssvRegistry.deactivateOperator(operatorsIds[0])).to.be.revertedWith('already inactive');
-    await ssvRegistry.activateOperator(operatorsIds[0]);
-    await expect(ssvRegistry.activateOperator(operatorsIds[0])).to.be.revertedWith('already active');
-  });
-
-  /*
-  it('deactivate an operator', async () => {
-    await expect(ssvRegistry.activateValidator(validatorsPub[0])).to.be.revertedWith('already active');
-    await ssvRegistry.deactivateValidator(validatorsPub[0]);
-    await expect(ssvRegistry.deactivateValidator(validatorsPub[0])).to.be.revertedWith('already inactive');
-    await ssvRegistry.activateValidator(validatorsPub[0]);
-    await expect(ssvRegistry.activateValidator(validatorsPub[0])).to.be.revertedWith('already active');
-  });
-  */
 
   it('validators getter', async () => {
     expect((await ssvRegistry.validators(validatorsPub[0])).map((v: any) => v.toString())).to.eql([account1.address, validatorsPub[0], 'true']);

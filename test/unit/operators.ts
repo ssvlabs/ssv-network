@@ -123,24 +123,24 @@ describe('Operators', function() {
     });
   });
 
-  it('revert remove operator: operator has validators', async function () {
-    //@ts-ignore
-    await progressTime(DAY, async() => {
-      await ssvToken.connect(account1).approve(ssvNetwork.address, '100000000');
-      await ssvNetwork.connect(account1).registerValidator(
-        validatorsPub[0],
-        operatorsIds.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        '100000000'
-      );
+  // it('revert remove operator: operator has validators', async function () {
+  //   //@ts-ignore
+  //   await progressTime(DAY, async() => {
+  //     await ssvToken.connect(account1).approve(ssvNetwork.address, '100000000');
+  //     await ssvNetwork.connect(account1).registerValidator(
+  //       validatorsPub[0],
+  //       operatorsIds.slice(0, 4),
+  //       operatorsPub.slice(0, 4),
+  //       operatorsPub.slice(0, 4),
+  //       '100000000'
+  //     );
 
-      await ssvNetwork
-        .connect(account2)
-        .removeOperator(operatorsIds[0])
-        .should.eventually.be.rejectedWith('operator has validators');
-    });
-  });
+  //     await ssvNetwork
+  //       .connect(account2)
+  //       .removeOperator(operatorsIds[0])
+  //       .should.eventually.be.rejectedWith('operator has validators');
+  //   });
+  // });
 
   it('revert remove operator: public key does not exist', async function () {
     await ssvNetwork

@@ -126,18 +126,6 @@ interface ISSVRegistry {
     function removeOperator(uint256 operatorId) external;
 
     /**
-     * @dev Activates an operator.
-     * @param operatorId Operator id.
-     */
-    function activateOperator(uint256 operatorId) external;
-
-    /**
-     * @dev Deactivates an operator.
-     * @param operatorId Operator id.
-     */
-    function deactivateOperator(uint256 operatorId) external;
-
-    /**
      * @dev Updates an operator fee.
      * @param operatorId Operator id.
      * @param fee New operator fee.
