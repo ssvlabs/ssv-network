@@ -5,7 +5,7 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { rawListeners } from 'process';
 
-import { progressBlocks, snapshot } from './utils';
+import { progressBlocks, snapshot } from '../helpers/utils';
 
 declare var network: any;
 

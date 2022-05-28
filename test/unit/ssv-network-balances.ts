@@ -5,7 +5,7 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { rawListeners } from 'process';
 
-import { progress, progressBlocks, progressTime, snapshot, mine } from './utils';
+import { progress, progressBlocks, progressTime, snapshot, mine } from '../helpers/utils';
 
 import Table from 'cli-table';
 
