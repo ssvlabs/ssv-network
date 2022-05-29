@@ -376,6 +376,13 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     /**
+     * @dev See {ISSVNetwork-getOperatorPreviousFee}.
+     */
+    function getOperatorPreviousFee(uint256 operatorId) external view override returns (uint256) {
+        return _operatorDatas[operatorId].previousFee;
+    }
+
+    /**
      * @dev See {ISSVNetwork-operatorEarningsOf}.
      */
     function operatorEarningsOf(uint256 operatorId) external view override returns (uint256) {
