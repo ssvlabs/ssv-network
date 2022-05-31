@@ -417,6 +417,11 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         );
     }
 
+    /**
+     * @dev Request a distributed key generation.
+     * @param ownerAddress The user's ethereum address that requested this key.
+     * @param operatorIds Operator operatorIds.
+     */
     function _requestDistributedKey(
         address ownerAddress,
         uint256[] calldata operatorIds
