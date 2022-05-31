@@ -1,9 +1,10 @@
-// Validators Unit Tests
+// Update Validators Unit Tests
 
 // Declare all imports
 import * as chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { progressBlocks } from '../helpers/utils'
+import { progressBlocks, snapshot } from '../helpers/utils'
+
 beforeEach(() => {
   chai.should()
   chai.use(chaiAsPromised)
@@ -27,7 +28,7 @@ const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKe
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 
-describe('Validators', function () {
+describe('Update Validators', function () {
   beforeEach(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners()
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock')
@@ -53,57 +54,42 @@ describe('Validators', function () {
     // Register Validator
     const tokens = '100000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
-    await expect(
-      ssvNetwork.connect(account1)
-        .registerValidator(
-          validatorsPub[0],
-          operatorsIds.slice(0, 4),
-          operatorsPub.slice(0, 4),
-          operatorsPub.slice(0, 4),
-          tokens
-        )).to.emit(ssvRegistry, 'ValidatorAdded')
+    await ssvNetwork.connect(account1).registerValidator(
+      validatorsPub[0],
+      operatorsIds.slice(0, 4),
+      operatorsPub.slice(0, 4),
+      operatorsPub.slice(0, 4),
+      tokens
+    )
   })
 
-  it('Get operators by validator', async function () {
-    expect((await ssvNetwork.getOperatorsByValidator(validatorsPub[0])).map(String)).to.eql(operatorsIds.slice(0, 4).map(String))
-  })
-
-  it('Register validator not enough approved tokens', async function () {
-    await ssvNetwork
-      .connect(account2)
-      .registerValidator(
-        validatorsPub[1],
+  it('Update validator', async function () {
+    const tokens = '100'
+    await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
+    const tx = ssvNetwork
+      .connect(account1)
+      .updateValidator(
+        validatorsPub[0],
         operatorsIds.slice(0, 4),
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
-        '10000'
-      ).should.eventually.be.rejectedWith('transfer amount exceeds balance')
-    expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1')
+        tokens
+      )
+    await expect(tx).to.emit(ssvRegistry, 'ValidatorRemoved')
+    await expect(tx).to.emit(ssvRegistry, 'ValidatorAdded')
   })
 
-  it('Remove validator', async function () {
-    await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
-      .to.emit(ssvRegistry, 'ValidatorRemoved').withArgs(account1.address, validatorsPub[0])
-    expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0')
-
-    // Try to remove the validator again
-    await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('validator with public key does not exist')
-  })
-
-  it('Remove validator non existent key', async function () {
-    await ssvNetwork.connect(account2).removeValidator(validatorsPub[1])
-      .should.eventually.be.rejectedWith('validator with public key does not exist')
-  })
-
-  it('Remove validator sent by non owner', async function () {
-    await ssvNetwork.connect(account2).removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('caller is not validator owner')
-  })
-
-  it('Remove validator with not enough SSV', async function () {
-    await progressBlocks(10000)
-    await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('negative balance')
+  it('Update validator: tx was sent not by owner', async function () {
+    const tokens = '10000'
+    await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
+    await ssvNetwork
+      .connect(account2)
+      .updateValidator(
+        validatorsPub[0],
+        operatorsIds.slice(0, 4),
+        operatorsPub.slice(0, 4),
+        operatorsPub.slice(0, 4),
+        tokens
+      ).should.eventually.be.rejectedWith('caller is not validator owner')
   })
 })

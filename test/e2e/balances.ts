@@ -1,6 +1,6 @@
-import * as chai from 'chai';
-import chaiAsPromised from 'chai-as-promised';
+// Balances E2E Test
 
+// Declare all imports
 import {
   initContracts,
   registerOperator,
@@ -9,101 +9,86 @@ import {
   processTestCase,
   updateNetworkFee,
   account1,
-  account2,
-} from '../helpers/setup';
+  account2
+} from '../helpers/setup'
 
 import {
-  // checkOperatorIndexes,
   checkOperatorBalances,
   checkTotalBalance,
   checkTotalEarnings,
-  // checkUpdateOperatorFeeFail,
-  checkNetworkTreasury,
-} from '../helpers/asserts';
+  checkNetworkTreasury
+} from '../helpers/asserts'
 
-before(() => {
-  chai.should();
-  chai.use(chaiAsPromised);
-});
+describe('SSV Network', function () {
+  beforeEach(async function () {
+    await initContracts()
+  })
 
-const { expect } = chai;
-
-describe('SSV Network', function() {
-  before(async function () {
-    await initContracts();
-  });
-
-  it('Operator and validator balances', async function() {
+  it('Operator and validator balances', async function () {
     const testFlow = {
       10: {
         funcs: [
           () => updateNetworkFee(1000),
-          () => registerOperator(account2, 0, 20000),
-          () => registerOperator(account2, 1, 10000),
-          () => registerOperator(account2, 2, 10000),
-          () => registerOperator(account2, 3, 30000),
+          () => registerOperator([
+            { account: account2, idx: 0, fee: 20000 },
+            { account: account2, idx: 1, fee: 10000 },
+            { account: account1, idx: 2, fee: 10000 },
+            { account: account2, idx: 3, fee: 30000 }
+          ])
         ],
         asserts: [
-          () => checkNetworkTreasury(),
-        ],
+          () => checkNetworkTreasury()
+        ]
       },
       20: {
         funcs: [
-          () => registerValidator(account1, 0, [0, 1, 2, 3], 10000000),
+          () => registerValidator([{ account: account1, validatorIdx: 0, operatorIdxs: [0, 1, 2, 3], depositAmount: 10000000 },])
         ],
         asserts: [
-          // () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
-          () => checkNetworkTreasury(),
-        ],
+          () => checkNetworkTreasury()
+        ]
       },
       30: {
         funcs: [
           () => updateOperatorFee(account2, 0, 11000),
-          () => registerValidator(account1, 1, [0, 1, 2, 3], 10000000),
+          () => registerValidator([{ account: account1, validatorIdx: 1, operatorIdxs: [0, 1, 2, 3], depositAmount: 10000000 },])
         ],
         asserts: [
-          // () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
-          () => checkNetworkTreasury(),
-        ],
+          () => checkNetworkTreasury()
+        ]
       },
       40: {
         funcs: [
-          () => registerValidator(account1, 2, [0, 1, 2, 3], 10000000),
+          () => registerValidator([{ account: account1, validatorIdx: 2, operatorIdxs: [0, 1, 2, 3], depositAmount: 10000000 },])
         ],
         asserts: [
-          // () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
-          () => checkNetworkTreasury(),
-        ],
+          () => checkNetworkTreasury()
+        ]
       },
       50: {
         funcs: [
-          () => registerValidator(account1, 3, [0, 1, 2, 3], 10000000),
+          () => registerValidator([{ account: account1, validatorIdx: 3, operatorIdxs: [0, 1, 2, 3], depositAmount: 10000000 },])
         ],
         asserts: [
-          // () => checkOperatorIndexes([0, 1, 2, 3]),
           () => checkOperatorBalances([0, 1, 2, 3]),
-          () => checkTotalBalance(account1.address),
-          () => checkTotalBalance(account2.address),
-          () => checkTotalEarnings(account1.address),
-          () => checkTotalEarnings(account2.address),
-          () => checkNetworkTreasury(),
-        ],
+          () => checkTotalBalance([account1.address, account2.address]),
+          () => checkTotalEarnings([account1.address, account2.address]),
+          () => checkNetworkTreasury()
+        ]
       },
       100: {
         asserts: [
           () => checkOperatorBalances([0, 1, 2, 3]),
-          () => checkTotalBalance(account1.address),
-          () => checkTotalBalance(account2.address),
-          () => checkTotalEarnings(account1.address),
-          () => checkTotalEarnings(account2.address),
-          () => checkNetworkTreasury(),
+          () => checkTotalBalance([account1.address, account2.address]),
+          () => checkTotalEarnings([account1.address, account2.address]),
+          () => checkNetworkTreasury()
         ]
       }
-    };
+    }
 
-    await processTestCase(testFlow);
-  });
-});
+    await processTestCase(testFlow)
+  })
+})
