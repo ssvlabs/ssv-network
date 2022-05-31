@@ -68,7 +68,7 @@ interface ISSVRegistry {
     );
 
     /**
-     * @dev Emitted when the validator has been added.
+     * @dev Emitted when a distributed key is requested by a user.
      * @param ownerAddress The user's ethereum address that is the owner of the validator.
      */
      event DistributedKeyRequested(
@@ -166,6 +166,42 @@ interface ISSVRegistry {
         uint256 operatorId,
         uint256 score
     ) external;
+
+    /**
+     * @dev Request a distributed key generation.
+     * @param ownerAddress The user's ethereum address that requested this key.
+     * @param operatorIds Operator operatorIds.
+     * @return uint256 The id of the distributed key request.
+     */
+     function requestDistributedKey(
+        address ownerAddress,
+        uint256[] calldata operatorIds
+    ) external returns (uint256);
+
+    /**
+     * @dev Reports a distributed key and the operator's share.
+     * @param operatorId Operator's id.
+     * @param distributedKeyId The id of the distributed key.
+     * @param operatorIndex The 1-based index of the operator in the group.
+     * @param publicKey The generated public key.
+     * @param sharePublicKey The public key of the share belonging to the operator.
+     * @param encryptedKey The encrypted private key of the share belonging to the operator.
+     * @return bool Whether the distributed key has been fully confirmed by all operators.
+     */
+     function reportDistributedKey(
+        uint256 operatorId,
+        uint256 distributedKeyId,
+        uint256 operatorIndex,
+        bytes calldata publicKey,
+        bytes calldata sharePublicKey,
+        bytes calldata encryptedKey
+    ) external returns (bool);
+
+    /**
+     * @dev Activates the confirmed distributed key (i.e. create validator for owner).
+     * @param distributedKeyId The id of the distributed key.
+     */
+    function activateDistributeKey(uint256 distributedKeyId) external;
 
     /**
      * @dev Registers a new validator.

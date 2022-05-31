@@ -225,6 +225,24 @@ interface ISSVNetwork {
     function updateOperatorScore(uint256 operatorId, uint256 score) external;
 
     /**
+     * @dev Reports a distributed key and the operator's share.
+     * @param operatorId Operator's id.
+     * @param distributedKeyId The id of the distributed key.
+     * @param operatorIndex The 1-based index of the operator in the group.
+     * @param publicKey The generated public key.
+     * @param sharePublicKey The public key of the share belonging to the operator.
+     * @param encryptedKey The encrypted private key of the share belonging to the operator.
+     */
+     function reportDistributedKey(
+        uint256 operatorId,
+        uint256 distributedKeyId,
+        uint256 operatorIndex,
+        bytes calldata publicKey,
+        bytes calldata sharePublicKey,
+        bytes calldata encryptedKey
+    ) external;
+
+    /**
      * @dev Registers a new validator.
      * @param publicKey Validator public key.
      * @param operatorIndices Operator public keys.

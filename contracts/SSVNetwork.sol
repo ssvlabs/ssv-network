@@ -217,6 +217,27 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorScoreUpdated(msg.sender, operatorId, block.number, score);
     }
 
+    function reportDistributedKey(
+        uint256 operatorId,
+        uint256 distributedKeyId,
+        uint256 operatorIndex,
+        bytes calldata publicKey,
+        bytes calldata sharePublicKey,
+        bytes calldata encryptedKey
+    ) onlyOperatorOwner(operatorId) external override {
+        bool confirmed = _ssvRegistryContract.reportDistributedKey(
+            operatorId,
+            distributedKeyId,
+            operatorIndex,
+            publicKey,
+            sharePublicKey,
+            encryptedKey
+        );
+        if (confirmed) {
+            _ssvRegistryContract.activateDistributeKey(distributedKeyId);
+        }
+    }
+
     /**
      * @dev See {ISSVNetwork-registerValidator}.
      */
@@ -520,13 +541,19 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys,
         uint256 tokenAmount) private {
-        _ssvRegistryContract.registerValidator(
-            ownerAddress,
-            publicKey,
-            operatorIds,
-            sharesPublicKeys,
-            encryptedKeys
-        );
+        if (publicKey.length > 0) {
+            _ssvRegistryContract.registerValidator(
+                ownerAddress,
+                publicKey,
+                operatorIds,
+                sharesPublicKeys,
+                encryptedKeys
+            );
+        }  else {
+            require(sharesPublicKeys.length == 0 && encryptedKeys.length == 0, "mixed mode not supported");
+            _ssvRegistryContract.requestDistributedKey(ownerAddress, operatorIds);
+        }
+
 
         if (!_owners[ownerAddress].validatorsDisabled) {
             ++_owners[ownerAddress].activeValidatorCount;
