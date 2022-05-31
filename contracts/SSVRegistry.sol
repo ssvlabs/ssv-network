@@ -25,6 +25,11 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         uint256 indexInOwner;
     }
 
+    struct DistributedKey {
+        address ownerAddress;
+        uint256[] operatorIds;
+    }
+
     struct OperatorFee {
         uint256 blockNumber;
         uint256 fee;
@@ -38,9 +43,11 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     uint256 private _activeValidatorCount;
 
     Counters.Counter private _lastOperatorId;
+    Counters.Counter private _lastDistributedKeyId;
 
     mapping(uint256 => Operator) private _operators;
     mapping(bytes => Validator) private _validators;
+    mapping(uint256 => DistributedKey) private _distributedKeys;
     mapping(uint256 => OperatorFee[]) private _operatorFees;
 
     mapping(address => uint256[]) private _operatorsByOwnerAddress;
@@ -153,6 +160,16 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys
     ) external onlyOwner override {
+        if (encryptedKeys.length == 0) {
+            // TODO<DKG>: Use DKG if only ownerAddress and operatorIds are supplied (i.e. all other parameters are empty)
+            require(
+                publicKey.length == 0 && sharesPublicKeys.length == 0 && encryptedKeys.length == 0,
+                "mixing mode not supported"
+            );
+            _requestDistributedKey(ownerAddress, operatorIds);
+            return;
+        }
+
         _validateValidatorParams(
             publicKey,
             operatorIds,
@@ -398,5 +415,15 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
             operatorIds.length >= 4 && operatorIds.length % 3 == 1,
             "OESS data structure is not valid"
         );
+    }
+
+    function _requestDistributedKey(
+        address ownerAddress,
+        uint256[] calldata operatorIds
+    ) private returns (uint256 distributedKeyId) {
+        _lastDistributedKeyId.increment();
+        distributedKeyId = _lastDistributedKeyId.current();
+        _distributedKeys[distributedKeyId] = DistributedKey(ownerAddress, operatorIds);
+        emit DistributedKeyRequested(distributedKeyId, ownerAddress, operatorIds);
     }
 }

@@ -70,6 +70,16 @@ interface ISSVRegistry {
     /**
      * @dev Emitted when the validator has been added.
      * @param ownerAddress The user's ethereum address that is the owner of the validator.
+     */
+     event DistributedKeyRequested(
+        uint256 requestId,
+        address ownerAddress,
+        uint256[] operatorIds
+    );
+
+    /**
+     * @dev Emitted when the validator has been added.
+     * @param ownerAddress The user's ethereum address that is the owner of the validator.
      * @param publicKey The public key of a validator.
      */
     event ValidatorAdded(
