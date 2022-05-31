@@ -393,6 +393,12 @@ interface ISSVNetwork {
     function getOperatorCurrentFee(uint256 operatorId) external view returns (uint256);
 
     /**
+     * @dev Gets operator previous fee.
+     * @param operatorId Operator's id.
+     */
+    function getOperatorPreviousFee(uint256 operatorId) external view returns (uint256);
+
+    /**
      * @dev Gets operator earnings.
      * @param operatorId Operator's id.
      */
