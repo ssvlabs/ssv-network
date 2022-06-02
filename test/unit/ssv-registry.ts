@@ -35,13 +35,21 @@ describe('SSV Registry', function () {
     await ssvRegistry.registerValidator(account2.address, validatorsPub[2], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
   })
 
+  it('Get operators by public key', async function () {
+    expect((await ssvRegistry.operatorsByPublicKey(operatorsPub[1]))[0]).to.equal('testOperator 1')
+    expect((await ssvRegistry.operatorsByPublicKey(operatorsPub[1]))[1]).to.equal(account1.address)
+    expect((await ssvRegistry.operatorsByPublicKey(operatorsPub[1]))[2]).to.equal(operatorsPub[1])
+    expect((await ssvRegistry.operatorsByPublicKey(operatorsPub[1]))[3]).to.equal('0')
+    expect((await ssvRegistry.operatorsByPublicKey(operatorsPub[1]))[4]).to.equal(true)
+   })
+
   it('Operator limit', async function () {
-      expect(await ssvRegistry.validatorsPerOperatorCount(operatorsIds[0])).to.equal(3)
-      expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2000)
-      await ssvRegistry.setValidatorsPerOperatorLimit(2)
-      expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2)
-      await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
-      await expect(ssvRegistry.updateValidator(validatorsPub[2], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
+    expect(await ssvRegistry.validatorsPerOperatorCount(operatorsIds[0])).to.equal(3)
+    expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2000)
+    await ssvRegistry.setValidatorsPerOperatorLimit(2)
+    expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2)
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
+    await expect(ssvRegistry.updateValidator(validatorsPub[2], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
   })
 
   it('Register validators with errors', async () => {
@@ -54,19 +62,11 @@ describe('SSV Registry', function () {
   })
 
   it('Register a valid validator', async () => {
-    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))
+    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
   })
 
   it('Update a validator', async () => {
     await ssvRegistry.updateValidator(validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
-  })
-
-  it('Deactivate an operator', async () => {
-    await expect(ssvRegistry.activateOperator(operatorsIds[0])).to.be.revertedWith('already active')
-    await ssvRegistry.deactivateOperator(operatorsIds[0])
-    await expect(ssvRegistry.deactivateOperator(operatorsIds[0])).to.be.revertedWith('already inactive')
-    await ssvRegistry.activateOperator(operatorsIds[0])
-    await expect(ssvRegistry.activateOperator(operatorsIds[0])).to.be.revertedWith('already active')
   })
 
   it('Validators getter', async () => {

@@ -195,18 +195,6 @@ interface ISSVNetwork {
     function removeOperator(uint256 operatorId) external;
 
     /**
-     * @dev Activates an operator.
-     * @param operatorId Operator's id.
-     */
-    function activateOperator(uint256 operatorId) external;
-
-    /**
-     * @dev Deactivates an operator.
-     * @param operatorId Operator's id.
-     */
-    function deactivateOperator(uint256 operatorId) external;
-
-    /**
      * @dev Set operator's fee change request by public key.
      * @param operatorId Operator's id.
      * @param fee The operator's updated fee.
