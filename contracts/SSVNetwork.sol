@@ -159,26 +159,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      */
     function removeOperator(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
         address owner = _ssvRegistryContract.getOperatorOwner(operatorId);
-        _owners[owner].earned += _operatorDatas[operatorId].earnings;
-        delete _operatorDatas[operatorId];
+        _updateOperatorFeeUnsafe(operatorId, _operatorDatas[operatorId], 0);
         _ssvRegistryContract.removeOperator(operatorId);
 
         emit OperatorRemoved(owner, operatorId);
-    }
-
-    function activateOperator(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
-        _ssvRegistryContract.activateOperator(operatorId);
-        _updateAddressNetworkFee(msg.sender);
-
-        emit OperatorActivated(msg.sender, operatorId);
-    }
-
-    function deactivateOperator(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
-        require(_operatorDatas[operatorId].activeValidatorCount == 0, "operator has validators");
-
-        _ssvRegistryContract.deactivateOperator(operatorId);
-
-        emit OperatorDeactivated(msg.sender, operatorId);
     }
 
     function setOperatorFee(uint256 operatorId, uint256 fee) onlyOperatorOwner(operatorId) ensureMinimalOperatorFee(fee) external override {
@@ -200,11 +184,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         require(feeChangeRequest.fee > 0, "no pending fee change request");
         require(block.timestamp >= feeChangeRequest.approvalBeginTime && block.timestamp <= feeChangeRequest.approvalEndTime, "approval not within timeframe");
 
-        _updateOperatorIndex(operatorId);
-        _operatorDatas[operatorId].indexBlockNumber = block.number;
-        _updateOperatorBalance(operatorId);
-        _operatorDatas[operatorId].previousFee = _ssvRegistryContract.getOperatorCurrentFee(operatorId);
-        _ssvRegistryContract.updateOperatorFee(operatorId, feeChangeRequest.fee);
+        _updateOperatorFeeUnsafe(operatorId, _operatorDatas[operatorId], feeChangeRequest.fee);
 
         emit OperatorFeeApproved(msg.sender, operatorId, block.number, feeChangeRequest.fee);
 
@@ -592,6 +572,14 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     function _stopUsingOperatorByOwner(address ownerAddress, uint256 operatorId) private {
         _updateUsingOperatorByOwner(ownerAddress, operatorId, false);
+    }
+
+    function _updateOperatorFeeUnsafe(uint256 operatorId, OperatorData storage operatorData, uint256 fee) private {
+        _updateOperatorIndex(operatorId);
+        operatorData.indexBlockNumber = block.number;
+        _updateOperatorBalance(operatorId);
+        operatorData.previousFee = _ssvRegistryContract.getOperatorCurrentFee(operatorId);
+        _ssvRegistryContract.updateOperatorFee(operatorId, fee);
     }
 
     /**

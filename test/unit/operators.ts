@@ -77,7 +77,60 @@ describe('Operators', function () {
       .to.emit(ssvRegistry, 'OperatorRemoved')
       .withArgs(operatorsIds[0], account2.address, operatorsPub[0])
 
+<<<<<<< HEAD
     // Try to remove non-existent operator
+=======
+  it('update operators fee less than in 72 hours fail', async function () {
+    await progressTime(DAY, async() => {
+      await ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 105);
+      await progressTime(DAY);
+      await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 110)).to.be.revertedWith('fee updated in last 72 hours');
+    });
+  });
+  */
+
+  it('update operators score fails for not owner', async function () {
+    await ssvNetwork
+      .connect(account2)
+      .updateOperatorScore(operatorsIds[0], 105)
+      .should.eventually.be.rejectedWith('caller is not the owner');
+  });
+
+  it('update operators score', async function () {
+    await expect(ssvNetwork.connect(owner).updateOperatorScore(operatorsIds[0], 105))
+      .to.emit(ssvRegistry, 'OperatorScoreUpdated');
+  });
+
+  it('remove operator', async function () {
+    //@ts-ignore
+    await progressTime(DAY, async() => {
+      await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
+        .to.emit(ssvRegistry, 'OperatorRemoved')
+        .withArgs(operatorsIds[0], account2.address, operatorsPub[0]);
+    });
+  });
+
+  // it('revert remove operator: operator has validators', async function () {
+  //   //@ts-ignore
+  //   await progressTime(DAY, async() => {
+  //     await ssvToken.connect(account1).approve(ssvNetwork.address, '100000000');
+  //     await ssvNetwork.connect(account1).registerValidator(
+  //       validatorsPub[0],
+  //       operatorsIds.slice(0, 4),
+  //       operatorsPub.slice(0, 4),
+  //       operatorsPub.slice(0, 4),
+  //       '100000000'
+  //     );
+
+  //     await ssvNetwork
+  //       .connect(account2)
+  //       .removeOperator(operatorsIds[0])
+  //       .should.eventually.be.rejectedWith('operator has validators');
+  //   });
+  // });
+
+  it('revert remove operator: public key does not exist', async function () {
+>>>>>>> remove-operator-change
     await ssvNetwork
       .connect(account3)
       .removeOperator(operatorsIds[6])
