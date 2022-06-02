@@ -88,32 +88,26 @@ describe('Operators', function () {
       .connect(account3)
       .removeOperator(operatorsIds[1])
       .should.eventually.be.rejectedWith('caller is not operator owner')
-
-    // Register removed operator
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000)
   })
 
-  // it('Remove operator with validators', async function () {
-  //   // Register a validator
-  //   await ssvToken.connect(account1).approve(ssvNetwork.address, 1000000000)
-  //   await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 100000000)
+  it('Remove operator with validators', async function () {
+    // Register a validator
+    await ssvToken.connect(account1).approve(ssvNetwork.address, 1000000000)
+    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 100000000)
 
-  //   // Delete an operator that the validator is using
-  //   await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
-  //     .to.emit(ssvRegistry, 'OperatorRemoved')
-  //     .withArgs(operatorsIds[0], account2.address, operatorsPub[0])
+    // Delete an operator that the validator is using
+    await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
+      .to.emit(ssvRegistry, 'OperatorRemoved')
+      .withArgs(operatorsIds[0], account2.address, operatorsPub[0])
 
-  //   // Check that the operator fee is 0
-  //   expect((await ssvRegistry.getOperatorCurrentFee(operatorsIds[0])).toString()).to.equal('0')
+    // Check that the operator fee is 0
+    expect((await ssvRegistry.getOperatorCurrentFee(operatorsIds[0])).toString()).to.equal('0')
 
-  //   // Chat that operator did not earn anything since deleted
-  //   const operatorEarnings = await ssvNetwork.operatorEarningsOf(operatorsIds[0])
-  //   await progressBlocks(100)
-  //   expect((await ssvNetwork.operatorEarningsOf(operatorsIds[0]).toString()).to.equal(operatorEarnings))
-
-  //   // Check that the operator address has updated
-  //   expect((await ssvRegistry.operators(operatorsIds[0]))[1]).to.equal("0x0000000000000000000000000000000000000000");
-  // })
+    // Chat that operator did not earn anything since deleted
+    const operatorEarnings = (await ssvNetwork.operatorEarningsOf(operatorsIds[0])).toString()
+    await progressBlocks(100)
+    expect((await ssvNetwork.operatorEarningsOf(operatorsIds[0])).toString()).to.equal(operatorEarnings)
+  })
 
   it('Get operator Fee', async function () {
     // Get current operator fee

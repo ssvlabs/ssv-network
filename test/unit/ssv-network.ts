@@ -252,17 +252,6 @@ describe('SSV Network', function () {
     await expect(ssvNetwork.connect(account1).setOperatorFee(operatorsIds[3], 6)).to.be.revertedWith('caller is not operator owner');
   });
 
-  it('Deactivate an operator when has validators', async function () {
-    await expect(ssvNetwork.connect(account3).deactivateOperator(operatorsIds[3])).to.be.revertedWith('operator has validators');
-  });
-
-  it('Deactivate / activate an operator', async function () {
-    await ssvNetwork.connect(account3).deactivateOperator(operatorsIds[4]);
-    expect((await ssvRegistry.operators(operatorsIds[4]))[4]).to.equal(false);
-    await ssvNetwork.connect(account3).activateOperator(operatorsIds[4]);
-    expect((await ssvRegistry.operators(operatorsIds[4]))[4]).to.equal(true);
-  });
-
   it('Remove an operator not from owner', async function () {
     await expect(ssvNetwork.connect(account1).removeOperator(operatorsIds[4])).to.be.revertedWith('caller is not operator owner');
   });
@@ -290,7 +279,6 @@ describe('SSV Network', function () {
     expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(96700000);
     expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(99670000);
     expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(3630000);
-    expect((await ssvRegistry.operators(operatorsIds[4]))[1]).to.equal("0x0000000000000000000000000000000000000000");
   });
 
   it('Deactivate an operator', async function () {
@@ -306,7 +294,7 @@ describe('SSV Network', function () {
     expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(98900000);
     expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(330000);
     expect(await ssvNetwork.totalBalanceOf(account3.address)).to.equal(770000);
-    await ssvNetwork.connect(account3).deactivateOperator(operatorsIds[4]);
+    await ssvNetwork.connect(account3).removeOperator(operatorsIds[4]);
     await progressBlocks(9);
     expect(await ssvNetwork.totalBalanceOf(account1.address)).to.equal(98900000);
     expect(await ssvNetwork.totalBalanceOf(account2.address)).to.equal(330000);
