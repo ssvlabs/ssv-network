@@ -1,10 +1,10 @@
 // File: contracts/ISSVRegistry.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.2;
+pragma solidity 0.8.13;
 
 interface ISSVRegistry {
     struct Oess {
-        uint256 operatorId;
+        uint32 operatorId;
         bytes sharedPublicKey;
         bytes encryptedKey;
     }
@@ -15,27 +15,27 @@ interface ISSVRegistry {
      * @param ownerAddress Operator's ethereum address that can collect fees.
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      */
-    event OperatorAdded(uint256 operatorId, string name, address indexed ownerAddress, bytes publicKey);
+    event OperatorAdded(uint32 operatorId, string name, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been removed.
      * @param ownerAddress Operator's owner.
      */
-    event OperatorRemoved(uint256 operatorId, address indexed ownerAddress, bytes publicKey);
+    event OperatorRemoved(uint32 operatorId, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been activated.
      * @param ownerAddress Operator's owner.
      * @param publicKey Operator's public key.
      */
-    event OperatorActivated(uint256 operatorId, address indexed ownerAddress, bytes publicKey);
+    event OperatorActivated(uint32 operatorId, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been deactivated.
      * @param ownerAddress Operator's owner.
      * @param publicKey Operator's public key.
      */
-    event OperatorDeactivated(uint256 operatorId, address indexed ownerAddress, bytes publicKey);
+    event OperatorDeactivated(uint32 operatorId, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -45,7 +45,7 @@ interface ISSVRegistry {
      * @param fee updated fee value.
      */
     event OperatorFeeUpdated(
-        uint256 operatorId,
+        uint32 operatorId,
         address indexed ownerAddress,
         bytes publicKey,
         uint256 blockNumber,
@@ -60,7 +60,7 @@ interface ISSVRegistry {
      * @param score updated score value.
      */
     event OperatorScoreUpdated(
-        uint256 operatorId,
+        uint32 operatorId,
         address indexed ownerAddress,
         bytes publicKey,
         uint256 blockNumber,
@@ -75,7 +75,7 @@ interface ISSVRegistry {
     event ValidatorAdded(
         address ownerAddress,
         bytes publicKey,
-        uint256[] operatorIds,
+        uint32[] operatorIds,
         bytes[] sharesPublicKeys,
         bytes[] encryptedKeys
     );
@@ -88,7 +88,7 @@ interface ISSVRegistry {
     event ValidatorUpdated(
         address ownerAddress,
         bytes publicKey,
-        uint256[] operatorIds,
+        uint32[] operatorIds,
         bytes[] sharesPublicKeys,
         bytes[] encryptedKeys
     );
@@ -108,7 +108,7 @@ interface ISSVRegistry {
      * @dev Initializes the contract
      * @param validatorsPerOperatorLimit_ the limit for validators per operator.
      */
-    function initialize(uint256 validatorsPerOperatorLimit_) external;
+    function initialize(uint16 validatorsPerOperatorLimit_) external;
 
     /**
      * @dev Registers a new operator.
@@ -117,13 +117,13 @@ interface ISSVRegistry {
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee The fee which the operator charges for each block.
      */
-    function registerOperator(string calldata name, address ownerAddress, bytes calldata publicKey, uint256 fee) external returns (uint256);
+    function registerOperator(string calldata name, address ownerAddress, bytes calldata publicKey, uint256 fee) external returns (uint32);
 
     /**
      * @dev removes an operator.
      * @param operatorId Operator id.
      */
-    function removeOperator(uint256 operatorId) external;
+    function removeOperator(uint32 operatorId) external;
 
     /**
      * @dev Updates an operator fee.
@@ -131,7 +131,7 @@ interface ISSVRegistry {
      * @param fee New operator fee.
      */
     function updateOperatorFee(
-        uint256 operatorId,
+        uint32 operatorId,
         uint256 fee
     ) external;
 
@@ -141,8 +141,8 @@ interface ISSVRegistry {
      * @param score New score.
      */
     function updateOperatorScore(
-        uint256 operatorId,
-        uint256 score
+        uint32 operatorId,
+        uint16 score
     ) external;
 
     /**
@@ -156,7 +156,7 @@ interface ISSVRegistry {
     function registerValidator(
         address ownerAddress,
         bytes calldata publicKey,
-        uint256[] calldata operatorIds,
+        uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys
     ) external;
@@ -170,7 +170,7 @@ interface ISSVRegistry {
      */
     function updateValidator(
         bytes calldata publicKey,
-        uint256[] calldata operatorIds,
+        uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys
     ) external;
@@ -191,7 +191,7 @@ interface ISSVRegistry {
      * @dev Gets an operator by operator id.
      * @param operatorId Operator id.
      */
-    function operators(uint256 operatorId)
+    function operators(uint32 operatorId)
         external view
         returns (
             string memory,
@@ -221,7 +221,7 @@ interface ISSVRegistry {
      */
     function getOperatorsByOwnerAddress(address ownerAddress)
         external view
-        returns (uint256[] memory);
+        returns (uint32[] memory);
 
     /**
      * @dev Gets operators list which are in use by validator.
@@ -229,26 +229,26 @@ interface ISSVRegistry {
      */
     function getOperatorsByValidator(bytes calldata validatorPublicKey)
         external view
-        returns (uint256[] memory);
+        returns (uint32[] memory);
 
     /**
      * @dev Gets operator's owner.
      * @param operatorId Operator id.
      */
-    function getOperatorOwner(uint256 operatorId) external view returns (address);
+    function getOperatorOwner(uint32 operatorId) external view returns (address);
 
     /**
      * @dev Gets operator current fee.
      * @param operatorId Operator id.
      */
-    function getOperatorCurrentFee(uint256 operatorId)
+    function getOperatorCurrentFee(uint32 operatorId)
         external view
         returns (uint256);
 
     /**
      * @dev Gets active validator count.
      */
-    function activeValidatorCount() external view returns (uint256);
+    function activeValidatorCount() external view returns (uint32);
 
     /**
      * @dev Gets an validator by public key.
@@ -280,16 +280,16 @@ interface ISSVRegistry {
      * @dev Set Max validators amount limit per Operator.
      * @param _validatorsPerOperatorLimit Amount
      */
-    function setValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) external;
+    function setValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) external;
 
     /**
      * @dev Get validators per operator limit.
      */
-    function getValidatorsPerOperatorLimit() external view returns (uint256);
+    function getValidatorsPerOperatorLimit() external view returns (uint16);
 
     /**
      * @dev Get validators amount per operator.
      * @param operatorId Operator public key
      */
-    function validatorsPerOperatorCount(uint256 operatorId) external view returns (uint256);
+    function validatorsPerOperatorCount(uint32 operatorId) external view returns (uint16);
 }

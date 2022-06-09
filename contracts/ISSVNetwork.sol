@@ -1,6 +1,6 @@
 // File: contracts/ISSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.2;
+pragma solidity 0.8.13;
 
 import "./ISSVRegistry.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,48 +18,14 @@ interface ISSVNetwork {
      */
     event AccountLiquidated(address indexed ownerAddress);
 
-    /**
-     * @dev Emitted when the operator has been added.
-     * @param id operator's ID.
-     * @param name Operator's display name.
-     * @param ownerAddress Operator's ethereum address that can collect fees.
-     * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
-     * @param fee Operator's initial fee.
-     */
-    event OperatorAdded(
-        uint256 id,
-        string name,
-        address indexed ownerAddress,
-        bytes publicKey,
-        uint256 fee
-    );
-
-    /**
-     * @dev Emitted when the operator has been removed.
-     * @param ownerAddress Operator's owner.
-     */
-    event OperatorRemoved(address indexed ownerAddress, uint256 operatorId);
-
-    /**
-     * @dev Emitted when the operator has been activated.
-     * @param ownerAddress Operator's owner.
-     */
-    event OperatorActivated(address indexed ownerAddress, uint256 operatorId);
-
-    /**
-     * @dev Emitted when the operator has been deactivated.
-     * @param ownerAddress Operator's owner.
-     */
-    event OperatorDeactivated(address indexed ownerAddress, uint256 operatorId);
-
     event OperatorFeeSet(
         address indexed ownerAddress,
-        uint256 operatorId,
+        uint32 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
 
-    event OperatorFeeSetCanceled(address indexed ownerAddress, uint256 operatorId);
+    event OperatorFeeSetCanceled(address indexed ownerAddress, uint32 operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -69,62 +35,10 @@ interface ISSVNetwork {
      */
     event OperatorFeeApproved(
         address indexed ownerAddress,
-        uint256 operatorId,
+        uint32 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
-
-    /**
-     * @dev Emitted when an operator's score is updated.
-     * @param ownerAddress Operator's owner.
-     * @param blockNumber from which block number.
-     * @param score updated score value.
-     */
-    event OperatorScoreUpdated(
-        address indexed ownerAddress,
-        uint256 operatorId,
-        uint256 blockNumber,
-        uint256 score
-    );
-
-    /**
-     * @dev Emitted when the validator has been added.
-     * @param ownerAddress The user's ethereum address that is the owner of the validator.
-     * @param publicKey The public key of a validator.
-     * @param operatorIds The operators public keys list for this validator.
-     * @param sharesPublicKeys The shared publick keys list for this validator.
-     * @param encryptedKeys The encrypted keys list for this validator.
-     */
-    event ValidatorAdded(
-        address ownerAddress,
-        bytes publicKey,
-        uint256[] operatorIds,
-        bytes[] sharesPublicKeys,
-        bytes[] encryptedKeys
-    );
-
-    /**
-     * @dev Emitted when the validator has been updated.
-     * @param ownerAddress The user's ethereum address that is the owner of the validator.
-     * @param publicKey The public key of a validator.
-     * @param operatorIds The operators public keys list for this validator.
-     * @param sharesPublicKeys The shared publick keys list for this validator.
-     * @param encryptedKeys The encrypted keys list for this validator.
-     */
-    event ValidatorUpdated(
-        address ownerAddress,
-        bytes publicKey,
-        uint256[] operatorIds,
-        bytes[] sharesPublicKeys,
-        bytes[] encryptedKeys
-    );
-
-    /**
-     * @dev Emitted when the validator is removed.
-     * @param ownerAddress Validator's owner.
-     * @param publicKey The public key of a validator.
-     */
-    event ValidatorRemoved(address ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an owner deposits funds.
@@ -174,7 +88,7 @@ interface ISSVNetwork {
         uint256 operatorMaxFeeIncrease_,
         uint256 setOperatorFeePeriod_,
         uint256 approveOperatorFeePeriod_,
-        uint256 validatorsPerOperatorLimit_
+        uint16 validatorsPerOperatorLimit_
     ) external;
 
     /**
@@ -186,42 +100,42 @@ interface ISSVNetwork {
         string calldata name,
         bytes calldata publicKey,
         uint256 fee
-    ) external returns (uint256);
+    ) external returns (uint32);
 
     /**
      * @dev Removes an operator.
      * @param operatorId Operator's id.
      */
-    function removeOperator(uint256 operatorId) external;
+    function removeOperator(uint32 operatorId) external;
 
     /**
      * @dev Set operator's fee change request by public key.
      * @param operatorId Operator's id.
      * @param fee The operator's updated fee.
      */
-    function setOperatorFee(uint256 operatorId, uint256 fee) external;
+    function setOperatorFee(uint32 operatorId, uint256 fee) external;
 
-    function cancelSetOperatorFee(uint256 operatorId) external;
+    function cancelSetOperatorFee(uint32 operatorId) external;
 
-    function approveOperatorFee(uint256 operatorId) external;
+    function approveOperatorFee(uint32 operatorId) external;
 
     /**
      * @dev Updates operator's score by public key.
      * @param operatorId Operator's id.
      * @param score The operators's updated score.
      */
-    function updateOperatorScore(uint256 operatorId, uint256 score) external;
+    function updateOperatorScore(uint32 operatorId, uint16 score) external;
 
     /**
      * @dev Registers a new validator.
      * @param publicKey Validator public key.
-     * @param operatorIndices Operator public keys.
+     * @param operatorIds Operator public keys.
      * @param sharesPublicKeys Shares public keys.
      * @param encryptedKeys Encrypted private keys.
      */
     function registerValidator(
         bytes calldata publicKey,
-        uint256[] calldata operatorIndices,
+        uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys,
         uint256 tokenAmount
@@ -230,13 +144,13 @@ interface ISSVNetwork {
     /**
      * @dev Updates a validator.
      * @param publicKey Validator public key.
-     * @param operatorIndices Operator public keys.
+     * @param operatorIds Operator public keys.
      * @param sharesPublicKeys Shares public keys.
      * @param encryptedKeys Encrypted private keys.
      */
     function updateValidator(
         bytes calldata publicKey,
-        uint256[] calldata operatorIndices,
+        uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys,
         uint256 tokenAmount
@@ -323,7 +237,7 @@ interface ISSVNetwork {
      * @dev Gets an operator by operator id.
      * @param operatorId Operator's id.
      */
-    function operators(uint256 operatorId)
+    function operators(uint32 operatorId)
         external view
         returns (
             string memory,
@@ -362,7 +276,7 @@ interface ISSVNetwork {
      */
     function getOperatorsByOwnerAddress(address ownerAddress)
         external view
-        returns (uint256[] memory);
+        returns (uint32[] memory);
 
     /**
      * @dev Gets operators list which are in use by validator.
@@ -370,21 +284,21 @@ interface ISSVNetwork {
      */
     function getOperatorsByValidator(bytes calldata validatorPublicKey)
         external view
-        returns (uint256[] memory);
+        returns (uint32[] memory);
 
-    function getOperatorFeeChangeRequest(uint256 operatorId) external view returns (uint256, uint256, uint256);
+    function getOperatorFeeChangeRequest(uint32 operatorId) external view returns (uint256, uint256, uint256);
 
     /**
      * @dev Gets operator current fee.
      * @param operatorId Operator's id.
      */
-    function getOperatorCurrentFee(uint256 operatorId) external view returns (uint256);
+    function getOperatorCurrentFee(uint32 operatorId) external view returns (uint256);
 
     /**
      * @dev Gets operator earnings.
      * @param operatorId Operator's id.
      */
-    function operatorEarningsOf(uint256 operatorId) external view returns (uint256);
+    function operatorEarningsOf(uint32 operatorId) external view returns (uint256);
 
     /**
      * @dev Gets the network fee for an address.
