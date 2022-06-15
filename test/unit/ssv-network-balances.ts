@@ -99,8 +99,8 @@ describe('SSV Network Balances Calculation', function () {
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
       await network.provider.send("evm_setAutomine", [false]);
-      (await ssvNetwork.connect(account2).setOperatorFee(operatorsIds[0], 22000)).wait();
-      (await ssvNetwork.connect(account2).approveOperatorFee(operatorsIds[0])).wait();
+      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 22000)).wait();
+      (await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).wait();
 
       // Register validator
       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount}`)).wait();
@@ -125,8 +125,8 @@ describe('SSV Network Balances Calculation', function () {
       balancesByBlocks.push(`${3 * chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)} (${await ssvNetwork.totalBalanceOf(account1.address)})`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
       await network.provider.send("evm_setAutomine", [false]);
-      (await ssvNetwork.connect(account2).setOperatorFee(operatorsIds[0], 18000)).wait();
-      (await ssvNetwork.connect(account2).approveOperatorFee(operatorsIds[0])).wait();
+      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 18000)).wait();
+      (await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).wait();
       (await ssvNetwork.updateNetworkFee(2000)).wait();
       // register validator
       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount}`)).wait();

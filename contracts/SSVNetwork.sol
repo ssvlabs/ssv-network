@@ -170,7 +170,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit OperatorRemoved(owner, operatorId);
     }
 
-    function setOperatorFee(uint256 operatorId, uint256 fee) onlyOperatorOwner(operatorId) ensureMinimalOperatorFee(fee) external override {
+    function declareOperatorFee(uint256 operatorId, uint256 fee) onlyOperatorOwner(operatorId) ensureMinimalOperatorFee(fee) external override {
         if(fee != _operatorDatas[operatorId].previousFee && fee > _ssvRegistryContract.getOperatorCurrentFee(operatorId) * (100 + _operatorMaxFeeIncrease) / 100) {
             revert feeExceedsIncreaseLimit();
         }
@@ -179,13 +179,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit OperatorFeeSet(msg.sender, operatorId, block.number, fee);
     }
 
-    function cancelSetOperatorFee(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
+    function cancelDeclaredOperatorFee(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
         delete _feeChangeRequests[operatorId];
 
         emit OperatorFeeSetCanceled(msg.sender, operatorId);
     }
 
-    function approveOperatorFee(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
+    function executeOperatorFee(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
         FeeChangeRequest storage feeChangeRequest = _feeChangeRequests[operatorId];
 
         if(feeChangeRequest.fee == 0) {
@@ -352,30 +352,30 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     /**
-     * @dev See {ISSVNetwork-operators}.
+     * @dev See {ISSVNetwork-getOperatorById}.
      */
-    function operators(uint256 operatorId) external view override returns (string memory, address, bytes memory, uint256, bool) {
-        return _ssvRegistryContract.operators(operatorId);
+    function getOperatorById(uint256 operatorId) external view override returns (string memory, address, bytes memory, uint256, bool) {
+        return _ssvRegistryContract.getOperatorById(operatorId);
     }
 
     /**
-     * @dev See {ISSVNetwork-operatorsByPublicKey}.
+     * @dev See {ISSVNetwork-getOperatorByPublicKey}.
      */
-    function operatorsByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, bool) {
-        return _ssvRegistryContract.operatorsByPublicKey(publicKey);
+    function getOperatorByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, bool) {
+        return _ssvRegistryContract.getOperatorByPublicKey(publicKey);
     }
 
-    function getOperatorFeeChangeRequest(uint256 operatorId) external view override returns (uint256, uint256, uint256) {
+    function getOperatorDeclaredFee(uint256 operatorId) external view override returns (uint256, uint256, uint256) {
         FeeChangeRequest storage feeChangeRequest = _feeChangeRequests[operatorId];
 
         return (feeChangeRequest.fee, feeChangeRequest.approvalBeginTime, feeChangeRequest.approvalEndTime);
     }
 
     /**
-     * @dev See {ISSVNetwork-getOperatorCurrentFee}.
+     * @dev See {ISSVNetwork-getOperatorFee}.
      */
-    function getOperatorCurrentFee(uint256 operatorId) external view override returns (uint256) {
-        return _ssvRegistryContract.getOperatorCurrentFee(operatorId);
+    function getOperatorFee(uint256 operatorId) external view override returns (uint256) {
+        return _ssvRegistryContract.getOperatorFee(operatorId);
     }
 
     /**
@@ -603,7 +603,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _updateOperatorIndex(operatorId);
         operatorData.indexBlockNumber = block.number;
         _updateOperatorBalance(operatorId);
-        operatorData.previousFee = _ssvRegistryContract.getOperatorCurrentFee(operatorId);
+        operatorData.previousFee = _ssvRegistryContract.getOperatorFee(operatorId);
         _ssvRegistryContract.updateOperatorFee(operatorId, fee);
     }
 
@@ -712,7 +712,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function _operatorEarnRate(uint256 operatorId) private view returns (uint256) {
-        return _ssvRegistryContract.getOperatorCurrentFee(operatorId) * _operatorDatas[operatorId].activeValidatorCount;
+        return _ssvRegistryContract.getOperatorFee(operatorId) * _operatorDatas[operatorId].activeValidatorCount;
     }
 
     /**
@@ -775,7 +775,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
      */
     function _operatorIndexOf(uint256 operatorId) private view returns (uint256) {
         return _operatorDatas[operatorId].index +
-               _ssvRegistryContract.getOperatorCurrentFee(operatorId) *
+               _ssvRegistryContract.getOperatorFee(operatorId) *
                (block.number - _operatorDatas[operatorId].indexBlockNumber);
     }
 
@@ -788,7 +788,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _operatorInUseBurnRateWithNetworkFeeUnsafe(address ownerAddress, uint256 operatorId) private view returns (uint256) {
         OperatorInUse storage operatorInUseData = _operatorsInUseByAddress[ownerAddress][operatorId];
-        return (_ssvRegistryContract.getOperatorCurrentFee(operatorId) + _networkFee) * operatorInUseData.validatorCount;
+        return (_ssvRegistryContract.getOperatorFee(operatorId) + _networkFee) * operatorInUseData.validatorCount;
     }
 
     /**

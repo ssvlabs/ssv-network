@@ -213,11 +213,11 @@ interface ISSVNetwork {
      * @param operatorId Operator's id.
      * @param fee The operator's updated fee.
      */
-    function setOperatorFee(uint256 operatorId, uint256 fee) external;
+    function declareOperatorFee(uint256 operatorId, uint256 fee) external;
 
-    function cancelSetOperatorFee(uint256 operatorId) external;
+    function cancelDeclaredOperatorFee(uint256 operatorId) external;
 
-    function approveOperatorFee(uint256 operatorId) external;
+    function executeOperatorFee(uint256 operatorId) external;
 
     /**
      * @dev Updates operator's score by public key.
@@ -337,7 +337,7 @@ interface ISSVNetwork {
      * @dev Gets an operator by operator id.
      * @param operatorId Operator's id.
      */
-    function operators(uint256 operatorId)
+    function getOperatorById(uint256 operatorId)
         external view
         returns (
             string memory,
@@ -352,7 +352,7 @@ interface ISSVNetwork {
      * @dev Gets an operator by public key.
      * @param publicKey Operator public key.
      */
-    function operatorsByPublicKey(bytes memory publicKey)
+    function getOperatorByPublicKey(bytes memory publicKey)
         external view
         returns (
             string memory,
@@ -386,13 +386,13 @@ interface ISSVNetwork {
         external view
         returns (uint256[] memory);
 
-    function getOperatorFeeChangeRequest(uint256 operatorId) external view returns (uint256, uint256, uint256);
+    function getOperatorDeclaredFee(uint256 operatorId) external view returns (uint256, uint256, uint256);
 
     /**
      * @dev Gets operator current fee.
      * @param operatorId Operator's id.
      */
-    function getOperatorCurrentFee(uint256 operatorId) external view returns (uint256);
+    function getOperatorFee(uint256 operatorId) external view returns (uint256);
 
     /**
      * @dev Gets operator previous fee.
