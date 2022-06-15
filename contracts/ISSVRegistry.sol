@@ -191,7 +191,7 @@ interface ISSVRegistry {
      * @dev Gets an operator by operator id.
      * @param operatorId Operator id.
      */
-    function operators(uint256 operatorId)
+    function getOperatorById(uint256 operatorId)
         external view
         returns (
             string memory,
@@ -205,7 +205,7 @@ interface ISSVRegistry {
      * @dev Gets an operator by public key.
      * @param publicKey Operator public key.
      */
-    function operatorsByPublicKey(bytes memory publicKey)
+    function getOperatorByPublicKey(bytes memory publicKey)
         external view
         returns (
             string memory,
@@ -241,7 +241,7 @@ interface ISSVRegistry {
      * @dev Gets operator current fee.
      * @param operatorId Operator id.
      */
-    function getOperatorCurrentFee(uint256 operatorId)
+    function getOperatorFee(uint256 operatorId)
         external view
         returns (uint256);
 
