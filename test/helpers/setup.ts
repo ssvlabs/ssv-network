@@ -273,8 +273,8 @@ export const liquidate = async (account) => {
 }
 //@ts-ignore
 export const updateOperatorFee = async (account, idx, fee) => {
-  await ssvNetwork.connect(account).setOperatorFee(operatorsIds[idx], fee);
-  await ssvNetwork.connect(account).approveOperatorFee(operatorsIds[idx]);
+  await ssvNetwork.connect(account).declareOperatorFee(operatorsIds[idx], fee);
+  await ssvNetwork.connect(account).executeOperatorFee(operatorsIds[idx]);
   await progressBlocks(1);
   // update balance
   await updateOperatorBalance(idx);

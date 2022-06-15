@@ -227,15 +227,15 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     /**
      * @dev See {ISSVRegistry-operators}.
      */
-    function operators(uint256 operatorId) external view override returns (string memory, address, bytes memory, uint256, bool) {
+    function getOperatorById(uint256 operatorId) external view override returns (string memory, address, bytes memory, uint256, bool) {
         Operator storage operator = _operators[operatorId];
         return (operator.name, operator.ownerAddress, operator.publicKey, operator.score, operator.active);
     }
 
     /**
-     * @dev See {ISSVRegistry-operatorsByPublicKey}.
+     * @dev See {ISSVRegistry-getOperatorByPublicKey}.
      */
-    function operatorsByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, bool) {
+    function getOperatorByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, bool) {
         Operator storage operator = _operators[_operatorPublicKeyToId[publicKey]];
         return (operator.name, operator.ownerAddress, operator.publicKey, operator.score, operator.active);
     }
@@ -264,9 +264,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     }
 
     /**
-     * @dev See {ISSVRegistry-getOperatorCurrentFee}.
+     * @dev See {ISSVRegistry-getOperatorFee}.
      */
-    function getOperatorCurrentFee(uint256 operatorId) external view override returns (uint256) {
+    function getOperatorFee(uint256 operatorId) external view override returns (uint256) {
         require(_operators[operatorId].ownerAddress != address(0), "SSVRegistry: operator not found");
         return _operators[operatorId].fee;
     }
