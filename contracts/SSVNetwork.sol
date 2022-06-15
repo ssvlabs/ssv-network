@@ -7,7 +7,7 @@ import "./ISSVNetwork.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
+contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     struct OperatorData {
         uint256 blockNumber;
         uint256 activeValidatorCount;
