@@ -111,7 +111,7 @@ describe('SSV Network Liquidation', function () {
 
     // Deposit more SSV
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
-    await ssvNetwork.connect(account1).deposit(tokens)
+    await ssvNetwork.connect(account1).deposit(account1.address, tokens)
 
     // No longer liquidatable
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)
