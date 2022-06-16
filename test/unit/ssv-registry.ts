@@ -46,7 +46,7 @@ describe('SSV Registry', function () {
   it('Operator limit', async function () {
     expect(await ssvRegistry.validatorsPerOperatorCount(operatorsIds[0])).to.equal(3)
     expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2000)
-    await ssvRegistry.setValidatorsPerOperatorLimit(2)
+    await ssvRegistry.updateValidatorsPerOperatorLimit(2)
     expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2)
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
     await expect(ssvRegistry.updateValidator(validatorsPub[2], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')

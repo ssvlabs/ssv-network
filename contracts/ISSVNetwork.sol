@@ -275,23 +275,23 @@ interface ISSVNetwork {
      * @dev Enables msg.sender account.
      * @param tokenAmount Tokens amount.
      */
-    function enableAccount(uint256 tokenAmount) external;
+    function reactivateAccount(uint256 tokenAmount) external;
 
     /**
      * @dev Updates the number of blocks left for an owner before they can be liquidated.
      * @param newMinimumBlocksBeforeLiquidation The new value.
      */
-    function updateMinimumBlocksBeforeLiquidation(uint256 newMinimumBlocksBeforeLiquidation) external;
+    function updateLiquidationThresholdPeriod(uint256 newMinimumBlocksBeforeLiquidation) external;
 
     /**
      * @dev Updates the maximum fee increase in pecentage.
      * @param newOperatorMaxFeeIncrease The new value.
      */
-    function updateOperatorMaxFeeIncrease(uint256 newOperatorMaxFeeIncrease) external;
+    function updateOperatorFeeIncreaseLimit(uint256 newOperatorMaxFeeIncrease) external;
 
-    function updateSetOperatorFeePeriod(uint256 newSetOperatorFeePeriod) external;
+    function updateDeclareOperatorFeePeriod(uint256 newSetOperatorFeePeriod) external;
 
-    function updateApproveOperatorFeePeriod(uint256 newApproveOperatorFeePeriod) external;
+    function updateExecuteOperatorFeePeriod(uint256 newApproveOperatorFeePeriod) external;
 
     /**
      * @dev Updates the network fee.
@@ -303,7 +303,7 @@ interface ISSVNetwork {
      * @dev Withdraws network fees.
      * @param amount Amount to withdraw
      */
-    function withdrawNetworkFees(uint256 amount) external;
+    function withdrawNetworkEarnings(uint256 amount) external;
 
     /**
      * @dev Gets total earnings for an owner
@@ -315,7 +315,7 @@ interface ISSVNetwork {
      * @dev Gets total balance for an owner.
      * @param ownerAddress Owner's address.
      */
-    function totalBalanceOf(address ownerAddress) external view returns (uint256);
+    function getAddressBalance(address ownerAddress) external view returns (uint256);
 
     function isOwnerValidatorsDisabled(address ownerAddress) external view returns (bool);
 
@@ -402,18 +402,18 @@ interface ISSVNetwork {
      * @dev Returns the burn rate of an owner, returns 0 if negative.
      * @param ownerAddress Owner's address.
      */
-    function burnRate(address ownerAddress) external view returns (uint256);
+    function getAddressBurnRate(address ownerAddress) external view returns (uint256);
 
     /**
      * @dev Check if an owner is liquidatable.
      * @param ownerAddress Owner's address.
      */
-    function liquidatable(address ownerAddress) external view returns (bool);
+    function isLiquidatable(address ownerAddress) external view returns (bool);
 
     /**
      * @dev Returns the network fee.
      */
-    function networkFee() external view returns (uint256);
+    function getNetworkFee() external view returns (uint256);
 
     /**
      * @dev Gets the network treasury
@@ -423,14 +423,14 @@ interface ISSVNetwork {
     /**
      * @dev Returns the number of blocks left for an owner before they can be liquidated.
      */
-    function minimumBlocksBeforeLiquidation() external view returns (uint256);
+    function getLiquidationThresholdPeriod() external view returns (uint256);
 
     /**
      * @dev Returns the maximum fee increase in pecentage
      */
-     function operatorMaxFeeIncrease() external view returns (uint256);
+     function getOperatorFeeIncreaseLimit() external view returns (uint256);
 
-     function getSetOperatorFeePeriod() external view returns (uint256);
+     function getExecuteOperatorFeePeriod() external view returns (uint256);
 
-     function getApproveOperatorFeePeriod() external view returns (uint256);
+     function getDeclareOperatorFeePeriod() external view returns (uint256);
 }
