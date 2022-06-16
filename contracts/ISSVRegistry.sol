@@ -280,7 +280,7 @@ interface ISSVRegistry {
      * @dev Set Max validators amount limit per Operator.
      * @param _validatorsPerOperatorLimit Amount
      */
-    function setValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) external;
+    function updateValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) external;
 
     /**
      * @dev Get validators per operator limit.

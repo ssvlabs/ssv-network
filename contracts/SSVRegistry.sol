@@ -302,9 +302,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     }
 
     /**
-     * @dev See {ISSVRegistry-setValidatorsPerOperatorLimit}.
+     * @dev See {ISSVRegistry-updateValidatorsPerOperatorLimit}.
      */
-    function setValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) onlyOwner external override {
+    function updateValidatorsPerOperatorLimit(uint256 _validatorsPerOperatorLimit) onlyOwner external override {
         validatorsPerOperatorLimit = _validatorsPerOperatorLimit;
     }
 

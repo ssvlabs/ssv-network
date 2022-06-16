@@ -76,7 +76,7 @@ describe('SSV Network Balances Calculation', function () {
        block #10
       */
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
-      balancesByBlocks.push(`${+await ssvNetwork.totalBalanceOf(account1.address)}`);
+      balancesByBlocks.push(`${+await ssvNetwork.getAddressBalance(account1.address)}`);
       await progressBlocks(10);
 
       /*
@@ -84,7 +84,7 @@ describe('SSV Network Balances Calculation', function () {
       */
       await network.provider.send("evm_setAutomine", [true]);
 
-      balancesByBlocks.push(`${+await ssvNetwork.totalBalanceOf(account1.address)}`);
+      balancesByBlocks.push(`${+await ssvNetwork.getAddressBalance(account1.address)}`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
       // Register validator
@@ -95,7 +95,7 @@ describe('SSV Network Balances Calculation', function () {
       /*
        block #30
       */
-      balancesByBlocks.push(`${chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)}`);
+      balancesByBlocks.push(`${chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)}`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
       await network.provider.send("evm_setAutomine", [false]);
@@ -111,7 +111,7 @@ describe('SSV Network Balances Calculation', function () {
       /*
        block #40
       */
-      balancesByBlocks.push(`${2 * chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)}`);
+      balancesByBlocks.push(`${2 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)}`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
       // Register validator
@@ -122,7 +122,7 @@ describe('SSV Network Balances Calculation', function () {
       /*
        block #50
       */
-      balancesByBlocks.push(`${3 * chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)} (${await ssvNetwork.totalBalanceOf(account1.address)})`);
+      balancesByBlocks.push(`${3 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)} (${await ssvNetwork.getAddressBalance(account1.address)})`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
       await network.provider.send("evm_setAutomine", [false]);
       (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 18000)).wait();
@@ -137,7 +137,7 @@ describe('SSV Network Balances Calculation', function () {
       /*
        block #60
       */
-      balancesByBlocks.push(`${4 * chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)} (${await ssvNetwork.totalBalanceOf(account1.address)})`);
+      balancesByBlocks.push(`${4 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)} (${await ssvNetwork.getAddressBalance(account1.address)})`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
       await progressBlocks(40);
@@ -145,7 +145,7 @@ describe('SSV Network Balances Calculation', function () {
       /*
        block #100
       */
-      balancesByBlocks.push(`${4 * chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)} (${await ssvNetwork.totalBalanceOf(account1.address)})`);
+      balancesByBlocks.push(`${4 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)} (${await ssvNetwork.getAddressBalance(account1.address)})`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
       table.push(
@@ -154,7 +154,7 @@ describe('SSV Network Balances Calculation', function () {
       );
 
       console.log(table.toString());
-      expect(4 * chargedAmount - +await ssvNetwork.totalBalanceOf(account1.address)).to.equal(18080000);
+      expect(4 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)).to.equal(18080000);
 
     });
   });
