@@ -316,7 +316,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit NetworkFeesWithdrawn(amount, msg.sender);
     }
 
-    function totalEarningsOf(address ownerAddress) external override view returns (uint256) {
+    function getAddressEarnings(address ownerAddress) external override view onlyOwner returns (uint256) {
         return _totalEarningsOf(ownerAddress);
     }
 
@@ -363,9 +363,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     /**
-     * @dev See {ISSVNetwork-operatorEarningsOf}.
+     * @dev See {ISSVNetwork-getOperatorEarnings}.
      */
-    function operatorEarningsOf(uint256 operatorId) external view override returns (uint256) {
+    function getOperatorEarnings(uint256 operatorId) external view override onlyOwner returns (uint256) {
         return _operatorEarningsOf(operatorId);
     }
 
