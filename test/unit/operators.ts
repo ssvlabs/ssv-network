@@ -110,11 +110,6 @@ describe('Operators', function () {
 
     // Check that the operator fee is 0
     expect((await ssvRegistry.getOperatorFee(operatorsIds[0])).toString()).to.equal('0')
-
-    // Chat that operator did not earn anything since deleted
-    const operatorEarnings = (await ssvNetwork.operatorEarningsOf(operatorsIds[0])).toString()
-    await progressBlocks(100)
-    expect((await ssvNetwork.operatorEarningsOf(operatorsIds[0])).toString()).to.equal(operatorEarnings)
   })
 
   it('Get operator Fee', async function () {
