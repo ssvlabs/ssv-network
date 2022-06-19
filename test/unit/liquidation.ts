@@ -26,6 +26,7 @@ const DAY = 86400
 const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
 const validatorsPerOperatorLimit = 2000
+const operatorsPerOwnerLimit = 200
 
 describe('SSV Network Liquidation', function () {
   beforeEach(async function () {
@@ -40,7 +41,7 @@ describe('SSV Network Liquidation', function () {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false })
     await ssvToken.deployed()
     await ssvRegistry.deployed()
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit])
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, operatorsPerOwnerLimit])
     await ssvNetwork.deployed()
 
     // Mint tokens
