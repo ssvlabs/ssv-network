@@ -18,7 +18,7 @@ const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKe
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 const validatorsPerOperatorLimit = 2000;
-const operatorsPerOwnerLimit = 200;
+const operatorsPerOwnerLimit = 10;
 
 describe('SSV Registry', function () {
   beforeEach(async function () {
@@ -55,7 +55,7 @@ describe('SSV Registry', function () {
 
   it('Owner address limit', async function () {
     expect((await ssvRegistry.getOperatorsByOwnerAddress(account2.address)).length).to.equal(2);
-    expect(await ssvRegistry.getOperatorsPerOwnerLimit()).to.equal(200);
+    expect(await ssvRegistry.getOperatorsPerOwnerLimit()).to.equal(10);
     await ssvRegistry.registerOperator('testOperator 5', account2.address, operatorsPub[5], 50);
     await ssvRegistry.updateOperatorsPerOwnerLimit(3);
     expect(await ssvRegistry.getOperatorsPerOwnerLimit()).to.equal(3);

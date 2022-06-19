@@ -26,7 +26,8 @@ const DAY = 86400;
 const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;
 const validatorsPerOperatorLimit = 2000;
-const operatorsPerOwnerLimit = 200;
+const operatorsPerOwnerLimit = 10;
+const operatorsPerValidatorsOwnerLimit = 50;
 
 describe('SSV Network', function () {
   beforeEach(async function () {
@@ -41,7 +42,7 @@ describe('SSV Network', function () {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, operatorsPerOwnerLimit]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, operatorsPerOwnerLimit, operatorsPerValidatorsOwnerLimit]);
     await ssvNetwork.deployed();
     await ssvToken.mint(account1.address, '1000000000');
 
@@ -74,7 +75,7 @@ describe('SSV Network', function () {
 
   it('Owner address limit', async function () {
     expect((await ssvNetwork.getOperatorsByOwnerAddress(account3.address)).length).to.equal(3);
-    expect(await ssvNetwork.getOperatorsPerOwnerLimit()).to.equal(200);
+    expect(await ssvNetwork.getOperatorsPerOwnerLimit()).to.equal(10);
     await ssvNetwork.connect(account3).registerOperator('testOperator 5', operatorsPub[5], 50000);
     await ssvNetwork.updateOperatorsPerOwnerLimit(4);
     expect(await ssvNetwork.getOperatorsPerOwnerLimit()).to.equal(4);
@@ -83,6 +84,21 @@ describe('SSV Network', function () {
 
   it('Update owner address limit emits event', async function () {
     await expect(ssvNetwork.updateOperatorsPerOwnerLimit(5)).to.emit(ssvNetwork, 'OperatorsPerOwnerLimitUpdated').withArgs(5);
+  });
+
+  it('Operators limit by validators owner', async function () {
+    await ssvNetwork.connect(account3).registerOperator('testOperator 5', operatorsPub[5], 50000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 6', operatorsPub[6], 50000);
+    await ssvNetwork.connect(account3).registerOperator('testOperator 7', operatorsPub[7], 50000);
+    expect(await ssvNetwork.getOperatorsPerValidatorsOwnerLimit()).to.equal(50);
+    await ssvNetwork.connect(account1).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0);
+    await ssvNetwork.updateOperatorsPerValidatorsOwnerLimit(5);
+    expect(await ssvNetwork.getOperatorsPerValidatorsOwnerLimit()).to.equal(5);
+    await expect(ssvNetwork.connect(account1).registerValidator(validatorsPub[2], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7), 0)).to.be.revertedWith('exceed operators limit by validator owner');
+  });
+
+  it('Update operators limit by validators owner emits event', async function () {
+    await expect(ssvNetwork.updateOperatorsPerValidatorsOwnerLimit(40)).to.emit(ssvNetwork, 'OperatorsPerValidatorsOwnerLimitUpdated').withArgs(40);
   });
 
   it('Operators getter', async function () {

@@ -66,6 +66,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     uint256 constant MINIMAL_OPERATOR_FEE = 10000;
 
+    uint256 private _operatorsPerValidatorsOwnerLimit;
+
     function initialize(
         ISSVRegistry registryAddress_,
         IERC20 token_,
@@ -74,9 +76,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         uint256 setOperatorFeePeriod_,
         uint256 approveOperatorFeePeriod_,
         uint256 validatorsPerOperatorLimit_,
-        uint256 operatorsPerOwnerLimit_
+        uint256 operatorsPerOwnerLimit_,
+        uint256 operatorsPerValidatorsOwnerLimit_
     ) external initializer override {
-        __SSVNetwork_init(registryAddress_, token_, minimumBlocksBeforeLiquidation_, operatorMaxFeeIncrease_, setOperatorFeePeriod_, approveOperatorFeePeriod_, validatorsPerOperatorLimit_, operatorsPerOwnerLimit_);
+        __SSVNetwork_init(registryAddress_, token_, minimumBlocksBeforeLiquidation_, operatorMaxFeeIncrease_, setOperatorFeePeriod_, approveOperatorFeePeriod_, validatorsPerOperatorLimit_, operatorsPerOwnerLimit_, operatorsPerValidatorsOwnerLimit_);
     }
 
     function __SSVNetwork_init(
@@ -87,10 +90,11 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         uint256 setOperatorFeePeriod_,
         uint256 approveOperatorFeePeriod_,
         uint256 validatorsPerOperatorLimit_,
-        uint256 operatorsPerOwnerLimit_
+        uint256 operatorsPerOwnerLimit_,
+        uint256 operatorsPerValidatorsOwnerLimit_
     ) internal initializer {
         __Ownable_init_unchained();
-        __SSVNetwork_init_unchained(registryAddress_, token_, minimumBlocksBeforeLiquidation_, operatorMaxFeeIncrease_, setOperatorFeePeriod_, approveOperatorFeePeriod_, validatorsPerOperatorLimit_, operatorsPerOwnerLimit_);
+        __SSVNetwork_init_unchained(registryAddress_, token_, minimumBlocksBeforeLiquidation_, operatorMaxFeeIncrease_, setOperatorFeePeriod_, approveOperatorFeePeriod_, validatorsPerOperatorLimit_, operatorsPerOwnerLimit_, operatorsPerValidatorsOwnerLimit_);
     }
 
     function __SSVNetwork_init_unchained(
@@ -101,7 +105,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         uint256 setOperatorFeePeriod_,
         uint256 approveOperatorFeePeriod_,
         uint256 validatorsPerOperatorLimit_,
-        uint256 operatorsPerOwnerLimit_
+        uint256 operatorsPerOwnerLimit_,
+        uint256 operatorsPerValidatorsOwnerLimit_
     ) internal initializer {
         _ssvRegistryContract = registryAddress_;
         _token = token_;
@@ -109,6 +114,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
         _setOperatorFeePeriod = setOperatorFeePeriod_;
         _approveOperatorFeePeriod = approveOperatorFeePeriod_;
+        _operatorsPerValidatorsOwnerLimit = operatorsPerValidatorsOwnerLimit_;
         _ssvRegistryContract.initialize(validatorsPerOperatorLimit_, operatorsPerOwnerLimit_);
     }
 
@@ -449,6 +455,15 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorsPerOwnerLimitUpdated(operatorsPerOwnerLimit_);
     }
 
+    /**
+     * @dev See {ISSVNetwork-updateOperatorsPerValidatorsOwnerLimit}.
+     */
+    function updateOperatorsPerValidatorsOwnerLimit(uint256 operatorsPerValidatorsOwnerLimit_) external override onlyOwner {
+        _operatorsPerValidatorsOwnerLimit = operatorsPerValidatorsOwnerLimit_;
+
+        emit OperatorsPerValidatorsOwnerLimitUpdated(_operatorsPerValidatorsOwnerLimit);
+    }
+
     function validatorsPerOperatorCount(uint256 operatorId_) external view returns (uint256) {
         return _ssvRegistryContract.validatorsPerOperatorCount(operatorId_);
     }
@@ -459,6 +474,13 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
 
     function getOperatorsPerOwnerLimit() external view returns (uint256) {
         return _ssvRegistryContract.getOperatorsPerOwnerLimit();
+    }
+
+    /**
+     * @dev See {ISSVNetwork-getOperatorsPerValidatorsOwnerLimit}.
+     */
+    function getOperatorsPerValidatorsOwnerLimit() external view override returns (uint256) {
+        return _operatorsPerValidatorsOwnerLimit;
     }
 
     function _deposit(uint256 tokenAmount) private {
@@ -628,6 +650,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
                 }
             }
         } else {
+            require(_operatorsInUseList[ownerAddress].length < _operatorsPerValidatorsOwnerLimit, "exceed operators limit by validator owner");
+
             _operatorsInUseByAddress[ownerAddress][operatorId] = OperatorInUse(_operatorIndexOf(operatorId), 1, 0, true, _operatorsInUseList[ownerAddress].length);
             _operatorsInUseList[ownerAddress].push(operatorId);
         }

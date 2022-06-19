@@ -166,6 +166,8 @@ interface ISSVNetwork {
 
     event OperatorsPerOwnerLimitUpdated(uint256 value);
 
+    event OperatorsPerValidatorsOwnerLimitUpdated(uint256 value);
+
     /**
      * @dev Initializes the contract.
      * @param registryAddress_ The registry address.
@@ -175,6 +177,7 @@ interface ISSVNetwork {
      * @param approveOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
      * @param validatorsPerOperatorLimit_ the limit for validators per operator.
      * @param operatorsPerOwnerLimit_ the limit for operators per owner address.
+     * @param operatorsPerValidatorsOwnerLimit_ the limit for operators per validator.
      */
     function initialize(
         ISSVRegistry registryAddress_,
@@ -184,7 +187,8 @@ interface ISSVNetwork {
         uint256 setOperatorFeePeriod_,
         uint256 approveOperatorFeePeriod_,
         uint256 validatorsPerOperatorLimit_,
-        uint256 operatorsPerOwnerLimit_
+        uint256 operatorsPerOwnerLimit_,
+        uint256 operatorsPerValidatorsOwnerLimit_
     ) external;
 
     /**
@@ -308,6 +312,12 @@ interface ISSVNetwork {
      * @param fee the new fee
      */
     function updateNetworkFee(uint256 fee) external;
+
+    /**
+     * @dev Set Max operators amount limit per Validators owner address.
+     * @param _operatorsPerValidatorsOwnerLimit Amount
+     */
+    function updateOperatorsPerValidatorsOwnerLimit(uint256 _operatorsPerValidatorsOwnerLimit) external;
 
     /**
      * @dev Withdraws network fees.
@@ -443,4 +453,9 @@ interface ISSVNetwork {
      function getExecuteOperatorFeePeriod() external view returns (uint256);
 
      function getDeclareOperatorFeePeriod() external view returns (uint256);
+
+    /**
+     * @dev Get operators per validators owner limit.
+     */
+    function getOperatorsPerValidatorsOwnerLimit() external view returns (uint256);
 }

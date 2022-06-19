@@ -137,6 +137,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
             sharesPublicKeys,
             encryptedKeys
         );
+
         require(
             _validators[publicKey].ownerAddress == address(0),
             "validator with same public key already exists"
@@ -171,6 +172,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
             sharesPublicKeys,
             encryptedKeys
         );
+
         Validator storage validator = _validators[publicKey];
 
         for (uint256 index = 0; index < validator.operatorIds.length; ++index) {
@@ -325,7 +327,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function validatorsPerOperatorCount(uint256 operatorId) external override view returns (uint256) {
         return validatorsPerOperator[operatorId];
     }
-
+    
     /**
      * @dev See {ISSVRegistry-updateOperatorsPerOwnerLimit}.
      */

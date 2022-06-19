@@ -19,7 +19,8 @@ const operatorMaxFeeIncrease = 10
 const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
 const validatorsPerOperatorLimit = 2000
-const operatorsPerOwnerLimit = 200
+const operatorsPerOwnerLimit = 10
+const operatorsPerValidatorsOwnerLimit = 50
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345'
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765'
 let ssvToken: any, ssvRegistry: any, ssvNetwork: any
@@ -38,7 +39,7 @@ describe('Validators', function () {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false })
     await ssvToken.deployed()
     await ssvRegistry.deployed()
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, operatorsPerOwnerLimit])
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, operatorsPerOwnerLimit, operatorsPerValidatorsOwnerLimit])
     await ssvNetwork.deployed()
 
     // Mint tokens
