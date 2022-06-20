@@ -326,12 +326,6 @@ interface ISSVNetwork {
     function withdrawNetworkEarnings(uint256 amount) external;
 
     /**
-     * @dev Gets total earnings for an owner
-     * @param ownerAddress Owner's address.
-     */
-    function getAddressEarnings(address ownerAddress) external view returns (uint256);
-
-    /**
      * @dev Gets total balance for an owner.
      * @param ownerAddress Owner's address.
      */
@@ -405,12 +399,6 @@ interface ISSVNetwork {
      * @param operatorId Operator's id.
      */
     function getOperatorPreviousFee(uint256 operatorId) external view returns (uint256);
-
-    /**
-     * @dev Gets operator earnings.
-     * @param operatorId Operator's id.
-     */
-    function getOperatorEarnings(uint256 operatorId) external view returns (uint256);
 
     /**
      * @dev Gets the network fee for an address.
