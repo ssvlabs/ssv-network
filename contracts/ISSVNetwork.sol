@@ -27,10 +27,10 @@ interface ISSVNetwork {
      * @param fee Operator's initial fee.
      */
     event OperatorAdded(
-        uint256 id,
+        uint256 indexed id,
         string name,
         address indexed ownerAddress,
-        bytes publicKey,
+        bytes indexed publicKey,
         uint256 fee
     );
 
@@ -38,28 +38,28 @@ interface ISSVNetwork {
      * @dev Emitted when the operator has been removed.
      * @param ownerAddress Operator's owner.
      */
-    event OperatorRemoved(address indexed ownerAddress, uint256 operatorId);
+    event OperatorRemoved(address indexed ownerAddress, uint256 indexed operatorId);
 
     /**
      * @dev Emitted when the operator has been activated.
      * @param ownerAddress Operator's owner.
      */
-    event OperatorActivated(address indexed ownerAddress, uint256 operatorId);
+    event OperatorActivated(address indexed ownerAddress, uint256 indexed operatorId);
 
     /**
      * @dev Emitted when the operator has been deactivated.
      * @param ownerAddress Operator's owner.
      */
-    event OperatorDeactivated(address indexed ownerAddress, uint256 operatorId);
+    event OperatorDeactivated(address indexed ownerAddress, uint256 indexed operatorId);
 
     event OperatorFeeSet(
         address indexed ownerAddress,
-        uint256 operatorId,
+        uint256 indexed operatorId,
         uint256 blockNumber,
         uint256 fee
     );
 
-    event OperatorFeeSetCanceled(address indexed ownerAddress, uint256 operatorId);
+    event OperatorFeeSetCanceled(address indexed ownerAddress, uint256 indexed operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -69,7 +69,7 @@ interface ISSVNetwork {
      */
     event OperatorFeeApproved(
         address indexed ownerAddress,
-        uint256 operatorId,
+        uint256 indexed operatorId,
         uint256 blockNumber,
         uint256 fee
     );
@@ -82,7 +82,7 @@ interface ISSVNetwork {
      */
     event OperatorScoreUpdated(
         address indexed ownerAddress,
-        uint256 operatorId,
+        uint256 indexed operatorId,
         uint256 blockNumber,
         uint256 score
     );
@@ -96,8 +96,8 @@ interface ISSVNetwork {
      * @param encryptedKeys The encrypted keys list for this validator.
      */
     event ValidatorAdded(
-        address ownerAddress,
-        bytes publicKey,
+        address indexed ownerAddress,
+        bytes indexed publicKey,
         uint256[] operatorIds,
         bytes[] sharesPublicKeys,
         bytes[] encryptedKeys
@@ -112,8 +112,8 @@ interface ISSVNetwork {
      * @param encryptedKeys The encrypted keys list for this validator.
      */
     event ValidatorUpdated(
-        address ownerAddress,
-        bytes publicKey,
+        address indexed ownerAddress,
+        bytes indexed publicKey,
         uint256[] operatorIds,
         bytes[] sharesPublicKeys,
         bytes[] encryptedKeys
@@ -124,7 +124,7 @@ interface ISSVNetwork {
      * @param ownerAddress Validator's owner.
      * @param publicKey The public key of a validator.
      */
-    event ValidatorRemoved(address ownerAddress, bytes publicKey);
+    event ValidatorRemoved(address indexed ownerAddress, bytes indexed publicKey);
 
     /**
      * @dev Emitted when an owner deposits funds.
