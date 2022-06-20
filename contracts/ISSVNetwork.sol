@@ -395,12 +395,6 @@ interface ISSVNetwork {
     function getOperatorFee(uint256 operatorId) external view returns (uint256);
 
     /**
-     * @dev Gets operator previous fee.
-     * @param operatorId Operator's id.
-     */
-    function getOperatorPreviousFee(uint256 operatorId) external view returns (uint256);
-
-    /**
      * @dev Gets the network fee for an address.
      * @param ownerAddress Owner's address.
      */
