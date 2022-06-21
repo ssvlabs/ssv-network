@@ -42,7 +42,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     mapping(address => uint32[]) private _operatorsByOwnerAddress;
     mapping(address => OwnerData) private _owners;
 
-    uint16 public validatorsPerOperatorLimit;
+    uint16 private _validatorsPerOperatorLimit;
     uint32 private _activeValidatorCount;
     mapping(bytes => uint32) private _operatorPublicKeyToId;
 
@@ -150,7 +150,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
 
         for (uint32 index = 0; index < operatorIds.length; ++index) {
             require(_operators[operatorIds[index]].active, "SSVRegistry: operator deleted");
-            require(++_operators[operatorIds[index]].validatorCount <= validatorsPerOperatorLimit, "SSVRegistry: exceed validator limit");
+            require(++_operators[operatorIds[index]].validatorCount <= _validatorsPerOperatorLimit, "SSVRegistry: exceed validator limit");
         }
 
         ++_activeValidatorCount;
@@ -289,7 +289,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
      * @dev See {ISSVRegistry-getValidatorsPerOperatorLimit}.
      */
     function getValidatorsPerOperatorLimit() external view override returns (uint16) {
-        return validatorsPerOperatorLimit;
+        return _validatorsPerOperatorLimit;
     }
 
     /**
@@ -299,9 +299,10 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         return _operators[operatorId].validatorCount;
     }
 
-    function _setValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) private {
-        validatorsPerOperatorLimit = _validatorsPerOperatorLimit;
-        emit ValidatorsPerOperatorLimitSet(validatorsPerOperatorLimit);
+    function _setValidatorsPerOperatorLimit(uint16 validatorsPerOperatorLimit_) private {
+        _validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+
+        emit ValidatorsPerOperatorLimitSet(validatorsPerOperatorLimit_);
     }
 
     /**
