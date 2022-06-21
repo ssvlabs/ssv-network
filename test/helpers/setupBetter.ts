@@ -6,7 +6,7 @@ declare var network: any;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 const minimumBlocksBeforeLiquidation = 50;
-const operatorMaxFeeIncrease = 10;
+const operatorMaxFeeIncrease = 10000;
 
 //@ts-ignore
 export let ssvToken: any, ssvRegistry: any, ssvNetwork: any, utils: any;

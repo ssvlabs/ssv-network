@@ -17,7 +17,7 @@ before(() => {
 const { expect } = chai;
 
 const minimumBlocksBeforeLiquidation = 50;
-const operatorMaxFeeIncrease = 10;
+const operatorMaxFeeIncrease = 10000;
 
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
@@ -354,14 +354,14 @@ describe('SSV Network', function() {
 
   it('operator max fee increase', async function() {
     await progressBlocks(9);
-    expect(await ssvNetwork.operatorMaxFeeIncrease()).to.equal(10);
+    expect(await ssvNetwork.operatorMaxFeeIncrease()).to.equal(10000);
     await expect(ssvNetwork.connect(account2).setOperatorFee(operatorsIds[0], 12000)).to.be.revertedWith('fee exceeds increase limit');
     await expect(ssvNetwork.connect(account2).setOperatorFee(operatorsIds[1], 24000)).to.be.revertedWith('fee exceeds increase limit');
     await ssvNetwork.connect(account2).setOperatorFee(operatorsIds[0], 11000);
     await ssvNetwork.connect(account2).approveOperatorFee(operatorsIds[0]);
     expect(await ssvRegistry.getOperatorCurrentFee(operatorsIds[0])).to.equal(11000);
-    await ssvNetwork.updateOperatorMaxFeeIncrease(20);
-    expect(await ssvNetwork.operatorMaxFeeIncrease()).to.equal(20);
+    await ssvNetwork.updateOperatorMaxFeeIncrease(20000);
+    expect(await ssvNetwork.operatorMaxFeeIncrease()).to.equal(20000);
     await expect(ssvNetwork.connect(account2).setOperatorFee(operatorsIds[1], 25000)).to.be.revertedWith('fee exceeds increase limit');
     await ssvNetwork.connect(account2).setOperatorFee(operatorsIds[1], 24000);
     await ssvNetwork.connect(account2).approveOperatorFee(operatorsIds[1]);

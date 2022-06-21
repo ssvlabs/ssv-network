@@ -16,7 +16,7 @@ const { expect } = chai;
 const DAY = 86400;
 
 const minimumBlocksBeforeLiquidation = 50;
-const operatorMaxFeeIncrease = 10;
+const operatorMaxFeeIncrease = 10000;
 
 const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;

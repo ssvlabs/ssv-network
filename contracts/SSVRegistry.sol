@@ -59,7 +59,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     }
 
     function __SSVRegistry_init_unchained(uint16 validatorsPerOperatorLimit_) internal onlyInitializing {
-        validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        _setValidatorsPerOperatorLimit(validatorsPerOperatorLimit_);
     }
 
     /**
@@ -159,36 +159,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     }
 
     /**
-     * @dev See {ISSVRegistry-updateValidator}.
-     */
-    function updateValidator(
-        bytes calldata publicKey,
-        uint32[] calldata operatorIds,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys
-    ) external onlyOwner override {
-        _validateValidatorParams(
-            publicKey,
-            operatorIds,
-            sharesPublicKeys,
-            encryptedKeys
-        );
-        Validator storage validator = _validators[publicKey];
-
-        for (uint32 index = 0; index < validator.operatorIds.length; ++index) {
-            --_operators[validator.operatorIds[index]].validatorCount;
-        }
-
-        validator.operatorIds = operatorIds;
-
-        for (uint32 index = 0; index < operatorIds.length; ++index) {
-            require(++_operators[operatorIds[index]].validatorCount <= validatorsPerOperatorLimit, "exceed validator limit");
-        }
-
-        emit ValidatorUpdated(validator.ownerAddress, publicKey, operatorIds, sharesPublicKeys, encryptedKeys);
-    }
-
-    /**
      * @dev See {ISSVRegistry-removeValidator}.
      */
     function removeValidator(
@@ -225,6 +195,13 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         _owners[ownerAddress].validatorsDisabled = true;
 
         emit OwnerValidatorsDisabled(ownerAddress);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-setValidatorsPerOperatorLimit}.
+     */
+    function setValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) onlyOwner external override {
+        _setValidatorsPerOperatorLimit(_validatorsPerOperatorLimit);
     }
 
     function isOwnerValidatorsDisabled(address ownerAddress) external view override returns (bool) {
@@ -266,7 +243,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     /**
      * @dev See {ISSVRegistry-getOperatorOwner}.
      */
-    function getOperatorOwner(uint32 operatorId) external override view returns (address) {
+    function getOperatorOwner(uint32 operatorId) external view override returns (address) {
         return _operators[operatorId].ownerAddress;
     }
 
@@ -309,13 +286,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     }
 
     /**
-     * @dev See {ISSVRegistry-setValidatorsPerOperatorLimit}.
-     */
-    function setValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) onlyOwner external override {
-        validatorsPerOperatorLimit = _validatorsPerOperatorLimit;
-    }
-
-    /**
      * @dev See {ISSVRegistry-getValidatorsPerOperatorLimit}.
      */
     function getValidatorsPerOperatorLimit() external view override returns (uint16) {
@@ -325,8 +295,13 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     /**
      * @dev See {ISSVRegistry-validatorsPerOperatorCount}.
      */
-    function validatorsPerOperatorCount(uint32 operatorId) external override view returns (uint16) {
+    function validatorsPerOperatorCount(uint32 operatorId) external view override returns (uint16) {
         return _operators[operatorId].validatorCount;
+    }
+
+    function _setValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) private {
+        validatorsPerOperatorLimit = _validatorsPerOperatorLimit;
+        emit ValidatorsPerOperatorLimitSet(validatorsPerOperatorLimit);
     }
 
     /**

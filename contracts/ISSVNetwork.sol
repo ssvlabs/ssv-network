@@ -72,6 +72,10 @@ interface ISSVNetwork {
 
     event ApproveOperatorFeePeriodUpdated(uint256 value);
 
+    event MinimumBlocksBeforeLiquidationUpdated(uint256 value);
+
+    event OperatorMaxFeeIncreaseUpdated(uint256 value);
+
     /**
      * @dev Initializes the contract.
      * @param registryAddress_ The registry address.

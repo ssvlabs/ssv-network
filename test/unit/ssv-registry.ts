@@ -53,7 +53,6 @@ describe('SSV Registry', function() {
       await ssvRegistry.setValidatorsPerOperatorLimit(2);
       expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2);
       await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit');
-      await expect(ssvRegistry.updateValidator(validatorsPub[2], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit');
     });
   });
 
@@ -68,10 +67,6 @@ describe('SSV Registry', function() {
 
   it('register a valid validator', async () => {
     await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
-  });
-
-  it('update a validator', async () => {
-    await ssvRegistry.updateValidator(validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
   });
 
   it('validators getter', async () => {

@@ -81,19 +81,6 @@ interface ISSVRegistry {
     );
 
     /**
-     * @dev Emitted when the validator has been updated.
-     * @param ownerAddress The user's ethereum address that is the owner of the validator.
-     * @param publicKey The public key of a validator.
-     */
-    event ValidatorUpdated(
-        address ownerAddress,
-        bytes publicKey,
-        uint32[] operatorIds,
-        bytes[] sharesPublicKeys,
-        bytes[] encryptedKeys
-    );
-
-    /**
      * @dev Emitted when the validator is removed.
      * @param ownerAddress Validator's owner.
      * @param publicKey The public key of a validator.
@@ -103,6 +90,8 @@ interface ISSVRegistry {
     event OwnerValidatorsDisabled(address ownerAddress);
 
     event OwnerValidatorsEnabled(address ownerAddress);
+
+    event ValidatorsPerOperatorLimitSet(uint16 validatorsPerOperatorLimit);
 
     /**
      * @dev Initializes the contract
@@ -155,20 +144,6 @@ interface ISSVRegistry {
      */
     function registerValidator(
         address ownerAddress,
-        bytes calldata publicKey,
-        uint32[] calldata operatorIds,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys
-    ) external;
-
-    /**
-     * @dev Updates a validator.
-     * @param publicKey Validator public key.
-     * @param operatorIds Operator ids.
-     * @param sharesPublicKeys Shares public keys.
-     * @param encryptedKeys Encrypted private keys.
-     */
-    function updateValidator(
         bytes calldata publicKey,
         uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
