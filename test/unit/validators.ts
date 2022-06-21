@@ -89,7 +89,7 @@ describe('Validators', function() {
         operatorsPub.slice(0, 4),
         '10000'
       )
-      .should.eventually.be.rejectedWith('transfer amount exceeds balance');
+      .should.eventually.be.rejectedWith('insufficient allowance');
 
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1');
   });
@@ -120,7 +120,7 @@ describe('Validators', function() {
         operatorsPub.slice(0, 4),
         '10000'
       )
-      .should.eventually.be.rejectedWith('transfer amount exceeds allowance');
+      .should.eventually.be.rejectedWith('insufficient allowance');
   });
 
   it('revert update validator: tx was sent not by owner', async function() {
