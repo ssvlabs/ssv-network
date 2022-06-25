@@ -16,8 +16,7 @@ async function main() {
     process.env.SET_OPERATOR_FEE_PERIOD,
     process.env.APPROVE_OPERATOR_FEE_PERIOD,
     process.env.VALIDATORS_PER_OPERATOR_LIMIT,
-    process.env.OPERATORS_PER_OWNER_LIMIT,
-    process.env.OPERATORS_PER_VALIDATOR_LIMIT
+    process.env.REGISTERED_OPERATORS_PER_ACCOUNT_LIMIT
   ]);
   await contract.deployed();
   console.log(`SSVNetwork deployed to: ${contract.address}`);

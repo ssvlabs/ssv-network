@@ -45,23 +45,23 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     mapping(uint256 => uint256) internal validatorsPerOperator;
     uint256 public validatorsPerOperatorLimit;
     mapping(bytes => uint256) private _operatorPublicKeyToId;
-    uint256 public operatorsPerOwnerLimit;
+    uint256 public registeredOperatorsPerAccountLimit;
 
     /**
      * @dev See {ISSVRegistry-initialize}.
      */
-    function initialize(uint256 validatorsPerOperatorLimit_, uint256 operatorsPerOwnerLimit_) external override initializer {
-        __SSVRegistry_init(validatorsPerOperatorLimit_, operatorsPerOwnerLimit_);
+    function initialize(uint256 validatorsPerOperatorLimit_, uint256 registeredOperatorsPerAccountLimit_) external override initializer {
+        __SSVRegistry_init(validatorsPerOperatorLimit_, registeredOperatorsPerAccountLimit_);
     }
 
-    function __SSVRegistry_init(uint256 validatorsPerOperatorLimit_, uint256 operatorsPerOwnerLimit_) internal initializer {
+    function __SSVRegistry_init(uint256 validatorsPerOperatorLimit_, uint256 registeredOperatorsPerAccountLimit_) internal initializer {
         __Ownable_init_unchained();
-        __SSVRegistry_init_unchained(validatorsPerOperatorLimit_, operatorsPerOwnerLimit_);
+        __SSVRegistry_init_unchained(validatorsPerOperatorLimit_, registeredOperatorsPerAccountLimit_);
     }
 
-    function __SSVRegistry_init_unchained(uint256 validatorsPerOperatorLimit_, uint256 operatorsPerOwnerLimit_) internal initializer {
+    function __SSVRegistry_init_unchained(uint256 validatorsPerOperatorLimit_, uint256 registeredOperatorsPerAccountLimit_) internal initializer {
         validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
-        operatorsPerOwnerLimit = operatorsPerOwnerLimit_;
+        registeredOperatorsPerAccountLimit = registeredOperatorsPerAccountLimit_;
     }
 
     /**
@@ -78,7 +78,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
             "operator with same public key already exists"
         );
 
-        require(_operatorsByOwnerAddress[ownerAddress].length < operatorsPerOwnerLimit, "SSVRegistry: exceed operators limit by owner");
+        require(_operatorsByOwnerAddress[ownerAddress].length < registeredOperatorsPerAccountLimit, "SSVRegistry: exceed registered operators limit by account");
 
         _lastOperatorId.increment();
         operatorId = _lastOperatorId.current();
@@ -329,17 +329,17 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     }
     
     /**
-     * @dev See {ISSVRegistry-updateOperatorsPerOwnerLimit}.
+     * @dev See {ISSVRegistry-updateRegisteredOperatorsPerAccountLimit}.
      */
-    function updateOperatorsPerOwnerLimit(uint256 _operatorsPerOwnerLimit) onlyOwner external override {
-        operatorsPerOwnerLimit = _operatorsPerOwnerLimit;
+    function updateRegisteredOperatorsPerAccountLimit(uint256 _registeredOperatorsPerAccountLimit) onlyOwner external override {
+        registeredOperatorsPerAccountLimit = _registeredOperatorsPerAccountLimit;
     }
 
     /**
-     * @dev See {ISSVRegistry-getOperatorsPerOwnerLimit}.
+     * @dev See {ISSVRegistry-getRegisteredOperatorsPerAccountLimit}.
      */
-    function getOperatorsPerOwnerLimit() external view override returns (uint256) {
-        return operatorsPerOwnerLimit;
+    function getRegisteredOperatorsPerAccountLimit() external view override returns (uint256) {
+        return registeredOperatorsPerAccountLimit;
     }
 
     /**

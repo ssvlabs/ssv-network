@@ -18,13 +18,13 @@ const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKe
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 const validatorsPerOperatorLimit = 2000;
-const operatorsPerOwnerLimit = 10;
+const registeredOperatorsPerAccountLimit = 10;
 
 describe('SSV Registry', function () {
   beforeEach(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners()
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry')
-    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, [validatorsPerOperatorLimit, operatorsPerOwnerLimit])
+    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, [validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit])
     await ssvRegistry.deployed()
     await ssvRegistry.registerOperator('testOperator 0', account1.address, operatorsPub[0], 10)
     await ssvRegistry.registerOperator('testOperator 1', account1.address, operatorsPub[1], 20)
@@ -55,11 +55,11 @@ describe('SSV Registry', function () {
 
   it('Owner address limit', async function () {
     expect((await ssvRegistry.getOperatorsByOwnerAddress(account2.address)).length).to.equal(2);
-    expect(await ssvRegistry.getOperatorsPerOwnerLimit()).to.equal(10);
+    expect(await ssvRegistry.getRegisteredOperatorsPerAccountLimit()).to.equal(10);
     await ssvRegistry.registerOperator('testOperator 5', account2.address, operatorsPub[5], 50);
-    await ssvRegistry.updateOperatorsPerOwnerLimit(3);
-    expect(await ssvRegistry.getOperatorsPerOwnerLimit()).to.equal(3);
-    await expect(ssvRegistry.registerOperator('testOperator 6', account2.address, operatorsPub[6], 50)).to.be.revertedWith('exceed operators limit by owner');
+    await ssvRegistry.updateRegisteredOperatorsPerAccountLimit(3);
+    expect(await ssvRegistry.getRegisteredOperatorsPerAccountLimit()).to.equal(3);
+    await expect(ssvRegistry.registerOperator('testOperator 6', account2.address, operatorsPub[6], 50)).to.be.revertedWith('exceed registered operators limit by account');
   });
 
   it('Register validators with errors', async () => {

@@ -107,9 +107,9 @@ interface ISSVRegistry {
     /**
      * @dev Initializes the contract
      * @param validatorsPerOperatorLimit_ the limit for validators per operator.
-     * @param operatorsPerOwnerLimit_ the limit for operators per owner address.
+     * @param registeredOperatorsPerAccountLimit_ the limit for registered operators per account address.
      */
-    function initialize(uint256 validatorsPerOperatorLimit_, uint256 operatorsPerOwnerLimit_) external;
+    function initialize(uint256 validatorsPerOperatorLimit_, uint256 registeredOperatorsPerAccountLimit_) external;
 
     /**
      * @dev Registers a new operator.
@@ -295,13 +295,13 @@ interface ISSVRegistry {
     function validatorsPerOperatorCount(uint256 operatorId) external view returns (uint256);
 
     /**
-     * @dev Set Max operators amount limit per Owner address.
-     * @param _operatorsPerOwnerLimit Amount
+     * @dev Set Max registered operators amount limit per account address.
+     * @param _registeredOperatorsPerAccountLimit Amount
      */
-    function updateOperatorsPerOwnerLimit(uint256 _operatorsPerOwnerLimit) external;
+    function updateRegisteredOperatorsPerAccountLimit(uint256 _registeredOperatorsPerAccountLimit) external;
 
     /**
-     * @dev Get operators per owner limit.
+     * @dev Get registered operators per account limit.
      */
-    function getOperatorsPerOwnerLimit() external view returns (uint256);
+    function getRegisteredOperatorsPerAccountLimit() external view returns (uint256);
 }
