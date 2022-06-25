@@ -30,7 +30,7 @@ const registeredOperatorsPerAccountLimit = 10;
 
 describe('SSV Network', function () {
   beforeEach(async function () {
-    [owner, account1, account2, account3] = await ethers.getSigners();
+    [owner, account1, account2, account3, account4] = await ethers.getSigners();
     const utilsFactory = await ethers.getContractFactory('Utils');
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry');
@@ -415,5 +415,13 @@ describe('SSV Network', function () {
 
     // update fee with low fee
     await expect(ssvNetwork.connect(account3).declareOperatorFee(operatorsIds[3], 1000)).to.be.revertedWith('fee is too low');
+  });
+
+  it('Deposit account from another address', async function () {
+    const balanceBefore = +await ssvNetwork.getAddressBalance(account4.address);
+    const tokens = 10000;
+    await ssvToken.connect(owner).approve(ssvNetwork.address, tokens)
+    await ssvNetwork.connect(owner).deposit(account4.address, tokens);
+    expect(await ssvNetwork.getAddressBalance(account4.address)).to.equal(balanceBefore+tokens);
   });
 });
