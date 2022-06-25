@@ -45,21 +45,23 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     mapping(uint256 => uint256) internal validatorsPerOperator;
     uint256 public validatorsPerOperatorLimit;
     mapping(bytes => uint256) private _operatorPublicKeyToId;
+    uint256 public operatorsPerOwnerLimit;
 
     /**
      * @dev See {ISSVRegistry-initialize}.
      */
-    function initialize(uint256 validatorsPerOperatorLimit_) external override initializer {
-        __SSVRegistry_init(validatorsPerOperatorLimit_);
+    function initialize(uint256 validatorsPerOperatorLimit_, uint256 operatorsPerOwnerLimit_) external override initializer {
+        __SSVRegistry_init(validatorsPerOperatorLimit_, operatorsPerOwnerLimit_);
     }
 
-    function __SSVRegistry_init(uint256 validatorsPerOperatorLimit_) internal initializer {
+    function __SSVRegistry_init(uint256 validatorsPerOperatorLimit_, uint256 operatorsPerOwnerLimit_) internal initializer {
         __Ownable_init_unchained();
-        __SSVRegistry_init_unchained(validatorsPerOperatorLimit_);
+        __SSVRegistry_init_unchained(validatorsPerOperatorLimit_, operatorsPerOwnerLimit_);
     }
 
-    function __SSVRegistry_init_unchained(uint256 validatorsPerOperatorLimit_) internal initializer {
+    function __SSVRegistry_init_unchained(uint256 validatorsPerOperatorLimit_, uint256 operatorsPerOwnerLimit_) internal initializer {
         validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        operatorsPerOwnerLimit = operatorsPerOwnerLimit_;
     }
 
     /**
@@ -75,6 +77,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
             _operatorPublicKeyToId[publicKey] == 0,
             "operator with same public key already exists"
         );
+
+        require(_operatorsByOwnerAddress[ownerAddress].length < operatorsPerOwnerLimit, "SSVRegistry: exceed operators limit by owner");
 
         _lastOperatorId.increment();
         operatorId = _lastOperatorId.current();
@@ -320,6 +324,20 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
      */
     function validatorsPerOperatorCount(uint256 operatorId) external override view returns (uint256) {
         return validatorsPerOperator[operatorId];
+    }
+
+    /**
+     * @dev See {ISSVRegistry-updateOperatorsPerOwnerLimit}.
+     */
+    function updateOperatorsPerOwnerLimit(uint256 _operatorsPerOwnerLimit) onlyOwner external override {
+        operatorsPerOwnerLimit = _operatorsPerOwnerLimit;
+    }
+
+    /**
+     * @dev See {ISSVRegistry-getOperatorsPerOwnerLimit}.
+     */
+    function getOperatorsPerOwnerLimit() external view override returns (uint256) {
+        return operatorsPerOwnerLimit;
     }
 
     /**

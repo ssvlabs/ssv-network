@@ -159,6 +159,14 @@ interface ISSVNetwork {
 
     event ApproveOperatorFeePeriodUpdated(uint256 value);
 
+    event LiquidationThresholdPeriodUpdated(uint256 value);
+
+    event OperatorFeeIncreaseLimitUpdated(uint256 value);
+
+    event ValidatorsPerOperatorLimitUpdated(uint256 value);
+
+    event OperatorsPerOwnerLimitUpdated(uint256 value);
+
     /**
      * @dev Initializes the contract.
      * @param registryAddress_ The registry address.
@@ -167,6 +175,7 @@ interface ISSVNetwork {
      * @param setOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
      * @param approveOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
      * @param validatorsPerOperatorLimit_ the limit for validators per operator.
+     * @param operatorsPerOwnerLimit_ the limit for operators per owner address.
      */
     function initialize(
         ISSVRegistry registryAddress_,
@@ -175,7 +184,8 @@ interface ISSVNetwork {
         uint256 operatorMaxFeeIncrease_,
         uint256 setOperatorFeePeriod_,
         uint256 approveOperatorFeePeriod_,
-        uint256 validatorsPerOperatorLimit_
+        uint256 validatorsPerOperatorLimit_,
+        uint256 operatorsPerOwnerLimit_
     ) external;
 
     /**

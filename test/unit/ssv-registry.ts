@@ -17,13 +17,14 @@ let ssvRegistry: any, owner: any, account1: any, account2: any, account3: any
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`)
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
-const validatorsPerOperatorLimit = 2000
+const validatorsPerOperatorLimit = 2000;
+const operatorsPerOwnerLimit = 200;
 
 describe('SSV Registry', function () {
   beforeEach(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners()
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry')
-    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, [validatorsPerOperatorLimit])
+    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, [validatorsPerOperatorLimit, operatorsPerOwnerLimit])
     await ssvRegistry.deployed()
     await ssvRegistry.registerOperator('testOperator 0', account1.address, operatorsPub[0], 10)
     await ssvRegistry.registerOperator('testOperator 1', account1.address, operatorsPub[1], 20)
@@ -51,6 +52,15 @@ describe('SSV Registry', function () {
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
     await expect(ssvRegistry.updateValidator(validatorsPub[2], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
   })
+
+  it('Owner address limit', async function () {
+    expect((await ssvRegistry.getOperatorsByOwnerAddress(account2.address)).length).to.equal(2);
+    expect(await ssvRegistry.getOperatorsPerOwnerLimit()).to.equal(200);
+    await ssvRegistry.registerOperator('testOperator 5', account2.address, operatorsPub[5], 50);
+    await ssvRegistry.updateOperatorsPerOwnerLimit(3);
+    expect(await ssvRegistry.getOperatorsPerOwnerLimit()).to.equal(3);
+    await expect(ssvRegistry.registerOperator('testOperator 6', account2.address, operatorsPub[6], 50)).to.be.revertedWith('exceed operators limit by owner');
+  });
 
   it('Register validators with errors', async () => {
     await expect(ssvRegistry.registerValidator(account3.address, "0x12345678", operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('invalid public key length')
