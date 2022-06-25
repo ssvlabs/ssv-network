@@ -239,8 +239,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _totalBalanceOf(msg.sender); // For assertion
     }
 
-    function deposit(uint256 tokenAmount) external override {
-        _deposit(tokenAmount);
+    function deposit(address ownerAddress, uint256 tokenAmount) external override {
+        _deposit(ownerAddress, tokenAmount);
     }
 
     function withdraw(uint256 tokenAmount) external override {
@@ -272,7 +272,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     function reactivateAccount(uint256 tokenAmount) external override {
         require(_owners[msg.sender].validatorsDisabled, "account already enabled");
 
-        _deposit(tokenAmount);
+        _deposit(msg.sender, tokenAmount);
 
         _enableOwnerValidatorsUnsafe(msg.sender);
 
@@ -461,11 +461,11 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return _ssvRegistryContract.getOperatorsPerOwnerLimit();
     }
 
-    function _deposit(uint256 tokenAmount) private {
+    function _deposit(address ownerAddress, uint256 tokenAmount) private {
         _token.transferFrom(msg.sender, address(this), tokenAmount);
-        _owners[msg.sender].deposited += tokenAmount;
+        _owners[ownerAddress].deposited += tokenAmount;
 
-        emit FundsDeposited(tokenAmount, msg.sender);
+        emit FundsDeposited(tokenAmount, ownerAddress, msg.sender);
     }
 
     function _withdrawUnsafe(uint256 tokenAmount) private {
@@ -550,7 +550,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         }
 
         if (tokenAmount > 0) {
-            _deposit(tokenAmount);
+            _deposit(msg.sender, tokenAmount);
         }
 
         require(!_liquidatable(ownerAddress), "not enough balance");

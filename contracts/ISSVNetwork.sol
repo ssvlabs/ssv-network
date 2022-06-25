@@ -130,8 +130,9 @@ interface ISSVNetwork {
      * @dev Emitted when an owner deposits funds.
      * @param value Amount of tokens.
      * @param ownerAddress Owner's address.
+     * @param senderAddress Sender's address.
      */
-    event FundsDeposited(uint256 value, address ownerAddress);
+    event FundsDeposited(uint256 value, address ownerAddress, address senderAddress);
 
     /**
      * @dev Emitted when an owner withdraws funds.
@@ -260,9 +261,10 @@ interface ISSVNetwork {
 
     /**
      * @dev Deposits tokens for the sender.
+     * @param ownerAddress Owners' addresses.
      * @param tokenAmount Tokens amount.
      */
-    function deposit(uint256 tokenAmount) external;
+    function deposit(address ownerAddress, uint256 tokenAmount) external;
 
     /**
      * @dev Withdraw tokens for the sender.
