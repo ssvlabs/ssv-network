@@ -405,11 +405,11 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function getExecuteOperatorFeePeriod() external view override returns (uint256) {
-        return _setOperatorFeePeriod;
+        return _approveOperatorFeePeriod;
     }
 
     function getDeclareOperatorFeePeriod() external view override returns (uint256) {
-        return _approveOperatorFeePeriod;
+        return _setOperatorFeePeriod;
     }
 
     function updateValidatorsPerOperatorLimit(uint256 validatorsPerOperatorLimit_) external onlyOwner {
