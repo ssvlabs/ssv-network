@@ -1,4 +1,4 @@
-// Operator Register Unit Tests
+// Operator Max Unit Tests
 
 // Declare all imports
 import * as chai from 'chai'
@@ -27,7 +27,7 @@ const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKe
 const operatorsPub2 = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix2}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 
-describe('Operator Register', function () {
+describe('Operator Max', function () {
   beforeEach(async function () {
     // Create accounts
     [owner, account1, account2, account3] = await ethers.getSigners()
