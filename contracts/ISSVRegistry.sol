@@ -186,7 +186,7 @@ interface ISSVRegistry {
 
     function disableOwnerValidators(address ownerAddress) external;
 
-    function isOwnerValidatorsDisabled(address ownerAddress) external view returns (bool);
+    function isLiquidated(address ownerAddress) external view returns (bool);
 
     /**
      * @dev Gets an operator by operator id.

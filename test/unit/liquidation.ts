@@ -73,7 +73,7 @@ describe('SSV Network Liquidation', function () {
 
   it('Try to liquidate a valid account', async function () {
     await ssvNetwork.connect(account4).liquidate([account1.address])
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
+    expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(false)
   })
 
   it('Check burn rates', async function (): Promise<void> {
@@ -104,7 +104,7 @@ describe('SSV Network Liquidation', function () {
     // No longer liquidatable
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)
     await ssvNetwork.connect(account4).liquidate([account1.address])
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
+    expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(false)
 
     // Get to a liquidatable state
     await progressBlocks(1000)
@@ -124,7 +124,7 @@ describe('SSV Network Liquidation', function () {
     expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5100000)
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)
     await ssvNetwork.connect(account4).liquidate([account1.address])
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
+    expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(false)
 
     // Liquidate account1
     await progressBlocks(1)
@@ -133,7 +133,7 @@ describe('SSV Network Liquidation', function () {
     await ssvNetwork.connect(account4).liquidate([account1.address])
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)
     await ssvNetwork.connect(account4).liquidate([account1.address])
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+    expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(true)
     expect(await ssvNetwork.getAddressBurnRate(account1.address)).to.equal(0)
     expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(0)
     expect(await ssvNetwork.getAddressBalance(account4.address)).to.equal(0)
@@ -168,7 +168,7 @@ describe('SSV Network Liquidation', function () {
 
     // Account4 only got liquidation reward from account1 and account2 only
     expect(await ssvToken.balanceOf(account4.address)).to.equal(9500000)
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+    expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(true)
   })
 
   it('Try to enable account to liquitable status', async function () {
@@ -180,7 +180,7 @@ describe('SSV Network Liquidation', function () {
     // Liquidate account1
     await ssvNetwork.connect(account2).liquidate([account1.address])
     expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(0)
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+    expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(true)
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)
 
     // Enable account not enough SSV
@@ -189,12 +189,12 @@ describe('SSV Network Liquidation', function () {
 
     // Enable account
     await ssvNetwork.connect(account1).reactivateAccount(5000000)
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
+    expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(false)
     expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5000000)
 
     // Liquidate again immediately
     await ssvNetwork.connect(account2).liquidate([account1.address])
     expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(0)
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+    expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(true)
   })
 })

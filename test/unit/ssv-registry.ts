@@ -96,15 +96,15 @@ describe('SSV Registry', function () {
   })
 
   it('Disable owner validators', async () => {
-    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
+    expect(await ssvRegistry.isLiquidated(account1.address)).to.equal(false)
     await ssvRegistry.disableOwnerValidators(account1.address)
-    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+    expect(await ssvRegistry.isLiquidated(account1.address)).to.equal(true)
   })
 
   it('Enable owner validators', async () => {
     await ssvRegistry.disableOwnerValidators(account1.address)
-    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(true)
+    expect(await ssvRegistry.isLiquidated(account1.address)).to.equal(true)
     await ssvRegistry.enableOwnerValidators(account1.address)
-    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(false)
+    expect(await ssvRegistry.isLiquidated(account1.address)).to.equal(false)
   })
 })

@@ -73,7 +73,6 @@ describe('SSV Network', function () {
   });
 
   it('Owner address limit', async function () {
-    expect((await ssvNetwork.getOperatorsByOwnerAddress(account3.address)).length).to.equal(3);
     expect(await ssvNetwork.getRegisteredOperatorsPerAccountLimit()).to.equal(10);
     await ssvNetwork.connect(account3).registerOperator('testOperator 5', operatorsPub[5], 50000);
     await ssvNetwork.updateRegisteredOperatorsPerAccountLimit(4);
@@ -148,10 +147,6 @@ describe('SSV Network', function () {
     expect(await ssvNetwork.getAddressBalance(account3.address)).to.equal(56140000);
   });
 
-  it('Get operators by owner address', async function () {
-    expect((await ssvNetwork.getOperatorsByOwnerAddress(account2.address)).map((v: any) => v.toString())).to.eql(operatorsIds.slice(0, 2).map(v => v.toString()));
-  });
-
   it('Get validators by owner address', async function () {
     expect(await ssvNetwork.getValidatorsByOwnerAddress(account1.address)).to.eql([validatorsPub[0]]);
   });
@@ -217,7 +212,7 @@ describe('SSV Network', function () {
     expect(await ssvNetwork.getAddressBurnRate(account3.address)).to.equal(0);
     await expect(ssvNetwork.connect(account3).withdrawAll()).to.emit(ssvToken, 'Transfer').withArgs(ssvNetwork.address, account3.address, 110000);
     expect(await ssvNetwork.getAddressBalance(account3.address)).to.equal(0);
-    expect(await ssvNetwork.isOwnerValidatorsDisabled(account3.address)).to.equal(false);
+    expect(await ssvNetwork.isLiquidated(account3.address)).to.equal(false);
     expect(await ssvToken.balanceOf(account3.address)).to.equal(110000);
   });
 

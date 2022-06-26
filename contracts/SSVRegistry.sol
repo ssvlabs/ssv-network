@@ -226,7 +226,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         emit OwnerValidatorsDisabled(ownerAddress);
     }
 
-    function isOwnerValidatorsDisabled(address ownerAddress) external view override returns (bool) {
+    function isLiquidated(address ownerAddress) external view override returns (bool) {
         return _owners[ownerAddress].validatorsDisabled;
     }
 

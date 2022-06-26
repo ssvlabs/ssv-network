@@ -14,7 +14,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         uint256 earnings;
         uint256 index;
         uint256 indexBlockNumber;
-        uint256 previousFee;
     }
 
     struct OwnerData {
@@ -154,8 +153,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
             fee
         );
 
-        _operatorDatas[operatorId] = OperatorData(block.number, 0, 0, 0, block.number, block.timestamp);
-
+        _operatorDatas[operatorId] = OperatorData(block.number, 0, 0, 0, block.number);
         emit OperatorAdded(operatorId, name, msg.sender, publicKey, fee);
     }
 
@@ -171,7 +169,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function declareOperatorFee(uint256 operatorId, uint256 fee) onlyOperatorOwner(operatorId) ensureMinimalOperatorFee(fee) external override {
-        require(fee == _operatorDatas[operatorId].previousFee || fee <= _ssvRegistryContract.getOperatorFee(operatorId) * (100 + _operatorMaxFeeIncrease) / 100, "fee exceeds increase limit");
+        require(fee <= _ssvRegistryContract.getOperatorFee(operatorId) * (100 + _operatorMaxFeeIncrease) / 100, "fee exceeds increase limit");
         _feeChangeRequests[operatorId] = FeeChangeRequest(fee, block.timestamp + _setOperatorFeePeriod, block.timestamp + _setOperatorFeePeriod + _approveOperatorFeePeriod);
 
         emit OperatorFeeSet(msg.sender, operatorId, block.number, fee);
@@ -329,7 +327,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return _totalBalanceOf(ownerAddress);
     }
 
-    function isOwnerValidatorsDisabled(address ownerAddress) external view override returns (bool) {
+    function isLiquidated(address ownerAddress) external view override returns (bool) {
         return _owners[ownerAddress].validatorsDisabled;
     }
 
@@ -358,13 +356,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
      */
     function getOperatorFee(uint256 operatorId) external view override returns (uint256) {
         return _ssvRegistryContract.getOperatorFee(operatorId);
-    }
-
-    /**
-     * @dev See {ISSVNetwork-getOperatorsByOwnerAddress}.
-     */
-    function getOperatorsByOwnerAddress(address ownerAddress) external view override returns (uint256[] memory) {
-        return _ssvRegistryContract.getOperatorsByOwnerAddress(ownerAddress);
     }
 
     /**
@@ -581,7 +572,6 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         _updateOperatorIndex(operatorId);
         operatorData.indexBlockNumber = block.number;
         _updateOperatorBalance(operatorId);
-        operatorData.previousFee = _ssvRegistryContract.getOperatorFee(operatorId);
         _ssvRegistryContract.updateOperatorFee(operatorId, fee);
     }
 

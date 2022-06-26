@@ -100,22 +100,6 @@ describe('Update Operators', function () {
     await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[1], 105)).to.be.revertedWith('fee is too low')
   })
 
-  it('Revert fee', async function () {
-    // Decrease operator fee by 70%
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 378000)
-    await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])
-    expect((await ssvRegistry.getOperatorFee(operatorsIds[0])).toString()).to.equal('378000')
-
-    // Try to raise by more than 10%
-    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 415801)).to.be.revertedWith('fee exceeds increase limit')
-    expect((await ssvRegistry.getOperatorFee(operatorsIds[0])).toString()).to.equal('378000')
-
-    // Revert fee
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1000000)
-    await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])
-    expect((await ssvRegistry.getOperatorFee(operatorsIds[0])).toString()).to.equal('1000000')
-  })
-
   it('Update operators fee less than approval time', async function () {
     await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1005000)
     await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1005401)

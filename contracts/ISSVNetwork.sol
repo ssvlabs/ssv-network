@@ -323,7 +323,7 @@ interface ISSVNetwork {
      */
     function getAddressBalance(address ownerAddress) external view returns (uint256);
 
-    function isOwnerValidatorsDisabled(address ownerAddress) external view returns (bool);
+    function isLiquidated(address ownerAddress) external view returns (bool);
 
     /**
      * @dev Gets an operator by operator id.
@@ -361,14 +361,6 @@ interface ISSVNetwork {
     function getValidatorsByOwnerAddress(address ownerAddress)
         external view
         returns (bytes[] memory);
-
-    /**
-     * @dev Returns operators for owner.
-     * @param ownerAddress Owner's address.
-     */
-    function getOperatorsByOwnerAddress(address ownerAddress)
-        external view
-        returns (uint256[] memory);
 
     /**
      * @dev Gets operators list which are in use by validator.
