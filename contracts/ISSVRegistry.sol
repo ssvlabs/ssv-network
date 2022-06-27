@@ -15,27 +15,27 @@ interface ISSVRegistry {
      * @param ownerAddress Operator's ethereum address that can collect fees.
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      */
-    event OperatorAdded(uint256 indexed operatorId, string name, address indexed ownerAddress, bytes indexed publicKey);
+    event OperatorAdded(uint256 indexed operatorId, string name, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been removed.
      * @param ownerAddress Operator's owner.
      */
-    event OperatorRemoved(uint256 indexed operatorId, address indexed ownerAddress, bytes indexed publicKey);
+    event OperatorRemoved(uint256 indexed operatorId, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been activated.
      * @param ownerAddress Operator's owner.
      * @param publicKey Operator's public key.
      */
-    event OperatorActivated(uint256 indexed operatorId, address indexed ownerAddress, bytes indexed publicKey);
+    event OperatorActivated(uint256 indexed operatorId, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when the operator has been deactivated.
      * @param ownerAddress Operator's owner.
      * @param publicKey Operator's public key.
      */
-    event OperatorDeactivated(uint256 indexed operatorId, address indexed ownerAddress, bytes indexed publicKey);
+    event OperatorDeactivated(uint256 indexed operatorId, address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -47,7 +47,7 @@ interface ISSVRegistry {
     event OperatorFeeUpdated(
         uint256 indexed operatorId,
         address indexed ownerAddress,
-        bytes indexed publicKey,
+        bytes publicKey,
         uint256 blockNumber,
         uint256 fee
     );
@@ -62,7 +62,7 @@ interface ISSVRegistry {
     event OperatorScoreUpdated(
         uint256 indexed operatorId,
         address indexed ownerAddress,
-        bytes indexed publicKey,
+        bytes publicKey,
         uint256 blockNumber,
         uint256 score
     );
@@ -98,7 +98,7 @@ interface ISSVRegistry {
      * @param ownerAddress Validator's owner.
      * @param publicKey The public key of a validator.
      */
-    event ValidatorRemoved(address indexed ownerAddress, bytes indexed publicKey);
+    event ValidatorRemoved(address indexed ownerAddress, bytes publicKey);
 
     event OwnerValidatorsDisabled(address indexed ownerAddress);
 

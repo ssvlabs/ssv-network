@@ -30,7 +30,7 @@ interface ISSVNetwork {
         uint256 indexed id,
         string name,
         address indexed ownerAddress,
-        bytes indexed publicKey,
+        bytes publicKey,
         uint256 fee
     );
 
@@ -97,7 +97,7 @@ interface ISSVNetwork {
      */
     event ValidatorAdded(
         address indexed ownerAddress,
-        bytes indexed publicKey,
+        bytes publicKey,
         uint256[] operatorIds,
         bytes[] sharesPublicKeys,
         bytes[] encryptedKeys
@@ -113,7 +113,7 @@ interface ISSVNetwork {
      */
     event ValidatorUpdated(
         address indexed ownerAddress,
-        bytes indexed publicKey,
+        bytes publicKey,
         uint256[] operatorIds,
         bytes[] sharesPublicKeys,
         bytes[] encryptedKeys
@@ -124,7 +124,7 @@ interface ISSVNetwork {
      * @param ownerAddress Validator's owner.
      * @param publicKey The public key of a validator.
      */
-    event ValidatorRemoved(address indexed ownerAddress, bytes indexed publicKey);
+    event ValidatorRemoved(address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an owner deposits funds.
@@ -132,14 +132,14 @@ interface ISSVNetwork {
      * @param ownerAddress Owner's address.
      * @param senderAddress Sender's address.
      */
-    event FundsDeposited(uint256 value, address ownerAddress, address senderAddress);
+    event FundsDeposited(uint256 value, address indexed ownerAddress, address indexed senderAddress);
 
     /**
      * @dev Emitted when an owner withdraws funds.
      * @param value Amount of tokens.
      * @param ownerAddress Owner's address.
      */
-    event FundsWithdrawn(uint256 value, address ownerAddress);
+    event FundsWithdrawn(uint256 value, address indexed ownerAddress);
 
     /**
      * @dev Emitted when the network fee is updated.
