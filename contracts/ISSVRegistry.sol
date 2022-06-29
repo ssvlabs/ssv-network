@@ -199,6 +199,8 @@ interface ISSVRegistry {
             address,
             bytes memory,
             uint256,
+            uint256,
+            uint256,
             bool
         );
 
@@ -212,6 +214,8 @@ interface ISSVRegistry {
             string memory,
             address,
             bytes memory,
+            uint256,
+            uint256,
             uint256,
             bool
         );

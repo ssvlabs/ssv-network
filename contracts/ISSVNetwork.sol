@@ -155,9 +155,9 @@ interface ISSVNetwork {
      */
     event NetworkFeesWithdrawn(uint256 value, address recipient);
 
-    event SetOperatorFeePeriodUpdated(uint256 value);
+    event DeclareOperatorFeePeriodUpdated(uint256 value);
 
-    event ApproveOperatorFeePeriodUpdated(uint256 value);
+    event ExecuteOperatorFeePeriodUpdated(uint256 value);
 
     event LiquidationThresholdPeriodUpdated(uint256 value);
 
@@ -172,8 +172,8 @@ interface ISSVNetwork {
      * @param registryAddress_ The registry address.
      * @param token_ The network token.
      * @param minimumBlocksBeforeLiquidation_ The minimum blocks before liquidation.
-     * @param setOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
-     * @param approveOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
+     * @param declareOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
+     * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
      * @param validatorsPerOperatorLimit_ the limit for validators per operator.
      * @param registeredOperatorsPerAccountLimit_ the limit for registered operators per account address.
      */
@@ -182,8 +182,8 @@ interface ISSVNetwork {
         IERC20 token_,
         uint256 minimumBlocksBeforeLiquidation_,
         uint256 operatorMaxFeeIncrease_,
-        uint256 setOperatorFeePeriod_,
-        uint256 approveOperatorFeePeriod_,
+        uint256 declareOperatorFeePeriod_,
+        uint256 executeOperatorFeePeriod_,
         uint256 validatorsPerOperatorLimit_,
         uint256 registeredOperatorsPerAccountLimit_
     ) external;
@@ -212,7 +212,7 @@ interface ISSVNetwork {
      */
     function declareOperatorFee(uint256 operatorId, uint256 fee) external;
 
-    function cancelDeclaredOperatorFee(uint256 operatorId) external;
+    function cancelDeclareOperatorFee(uint256 operatorId) external;
 
     function executeOperatorFee(uint256 operatorId) external;
 
@@ -301,9 +301,9 @@ interface ISSVNetwork {
      */
     function updateOperatorFeeIncreaseLimit(uint256 newOperatorMaxFeeIncrease) external;
 
-    function updateDeclareOperatorFeePeriod(uint256 newSetOperatorFeePeriod) external;
+    function updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) external;
 
-    function updateExecuteOperatorFeePeriod(uint256 newApproveOperatorFeePeriod) external;
+    function updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) external;
 
     /**
      * @dev Updates the network fee.
@@ -336,6 +336,8 @@ interface ISSVNetwork {
             address,
             bytes memory,
             uint256,
+            uint256,
+            uint256,
             bool
         );
 
@@ -350,6 +352,8 @@ interface ISSVNetwork {
             string memory,
             address,
             bytes memory,
+            uint256,
+            uint256,
             uint256,
             bool
         );
@@ -370,7 +374,7 @@ interface ISSVNetwork {
         external view
         returns (uint256[] memory);
 
-    function getOperatorDeclaredFee(uint256 operatorId) external view returns (uint256, uint256, uint256);
+    function getOperatorDeclareFee(uint256 operatorId) external view returns (uint256, uint256, uint256);
 
     /**
      * @dev Gets operator current fee.
