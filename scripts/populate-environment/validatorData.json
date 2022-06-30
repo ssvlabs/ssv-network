@@ -1,0 +1,42 @@
+[
+  {
+    "publicKey": "0x92dd7b0b67908ed17f5d0bca9d3c7920b883e9c1ed5f521622b1afda7180ccf9b5f243aeafab46406bf3b093204cd297",
+    "batch": 0,
+    "tokenAmount": "20000000000000000000"
+  },
+  {
+    "publicKey": "0xb02e69f3567e526065725302821ee89c005c329a0993e53ca47d44b7c44415070013b531b595250c94ea8e652fb631c4",
+    "batch": 1,
+    "tokenAmount": "20000000000000000000"
+  },
+  {
+    "publicKey": "0xb6a051ae9916a0091cad3578309a614a05115641801338d3694977ccb3f242b33a281dc13e72f5837d488d5d3b04ac2d",
+    "batch": 2,
+    "tokenAmount": "20000000000000000000"
+  },
+  {
+    "publicKey": "0x8f9d0fa3ba64603bbf6028ad9e64d41180160df71339d06f2d42369415aa8bf1b61b289eedcb168e06b5ec3b2651a267",
+    "batch": 0,
+    "tokenAmount": "20000000000000000000"
+  }, 
+  {
+    "publicKey": "0x94efaaa2532b984ee8c412db1ab11f3aa32755c41085be82b8ebccd31102cfdbdf4812aecb8262b14daad4c3cb9d0ad5",
+    "batch": 1,
+    "tokenAmount": "20000000000000000000"
+  },
+  {
+    "publicKey": "0xa1fddb2044d5def66e19e04289f79ee88e1d4af1b850b8c71852ddb63a2cb96de0a2fe98228c0d146ba92509dbef74c6",
+    "batch": 2,
+    "tokenAmount": "20000000000000000000"
+  },
+  {
+    "publicKey": "0x80ee22712f50ff737a1b224eeb1c5e4813b710e1fc5829b7008885dd38a6fad1e851b78aefde9db48a48a15cfdcdc106",
+    "batch": 0,
+    "tokenAmount": "20000000000000000000"
+  },
+  {
+    "publicKey": "0x8dcd1306a6182517e48c03891d20328fb64f450f97ebe44cc647de2be8af89db5a47f33e10e636d0f15a27ce57d0b9c9",
+    "batch": 1,
+    "tokenAmount": "20000000000000000000"
+  } 
+]

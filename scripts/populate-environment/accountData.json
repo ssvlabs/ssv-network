@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Account 0",
+    "publicKey": "0x97a6C1f3aaB5427B901fb135ED492749191C0f1F",
+    "privateKey": "c9045a411fd5b5e6a00a15832b23fafa0412775d4a5570bdfa0af4e55ddd1480"
+  },
+  {
+    "name": "Account 1",
+    "publicKey": "0x1653d2269003bEBc1416A794246ACe405bEf4Bac",
+    "privateKey": "e8a454575394106beda952b7c2dcd9979ff60c2100cd6db5c4a3fd618ad43955"
+  },
+  {
+    "name": "Account 2",
+    "publicKey": "0x5cC0DdE14E7256340CC820415a6022a7d1c93A35",
+    "privateKey": "66495cebc019a759c2d9f1b6b732ceaa994250407a5dbd689cd41fe984f1fe06"
+  },
+  {
+    "name": "Account 3",
+    "publicKey": "0xcEEfd323DD28a8d9514EDDfeC45a6c81800A7D49",
+    "privateKey": "7323e081348de06323394558c2b3c577e60b5e7bb280d4ccbbe2643f86895b13"
+  },
+  {
+    "name": "Account 4",
+    "publicKey": "0xd2DBd02e4efe087d7d195de828b9Dd25f19A89C9",
+    "privateKey": "79d2f12824c7010de6d9b773082cf22768ea274cbe4b4973d1aeaa61244551ec"
+  }
+]
