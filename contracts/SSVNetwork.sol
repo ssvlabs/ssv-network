@@ -392,7 +392,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return _networkFee;
     }
 
-    function getNetworkTreasury() external view override returns (uint256) {
+    function getNetworkEarnings() external view override returns (uint256) {
         return _getNetworkTreasury();
     }
 
@@ -485,7 +485,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function _updateNetworkEarnings() private {
-        _networkEarnings = _getNetworkEarnings();
+        _networkEarnings = _getTotalNetworkEarnings();
         _networkEarningsBlockNumber = block.number;
     }
 
@@ -730,12 +730,12 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return !_owners[ownerAddress].validatorsDisabled && (msg.sender == ownerAddress || _overdue(ownerAddress));
     }
 
-    function _getNetworkEarnings() private view returns (uint256) {
+    function _getTotalNetworkEarnings() private view returns (uint256) {
         return _networkEarnings + (block.number - _networkEarningsBlockNumber) * _networkFee * _ssvRegistryContract.activeValidatorCount();
     }
 
     function _getNetworkTreasury() private view returns (uint256) {
-        return  _getNetworkEarnings() - _withdrawnFromTreasury;
+        return _getTotalNetworkEarnings() - _withdrawnFromTreasury;
     }
 
     /**

@@ -286,12 +286,12 @@ export const updateOperatorFee = async (account, idx, fee) => {
   console.log(`      | Update operator fee ${idx} > [VALUE] ${fee} [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
 
-const getNetworkEarnings = async () => {
+const getTotalNetworkEarnings = async () => {
   return globalData.networkEarnings + ((await utils.blockNumber()) - globalData.networkEarningsBlockNumber) * globalData.networkFee * globalData.validatorCount;
 }
 
-export const getNetworkTreasury = async () => {
-  return (await getNetworkEarnings()) - globalData.withdrawnFromTreasury;
+export const getNetworkEarnings = async () => {
+  return (await getTotalNetworkEarnings()) - globalData.withdrawnFromTreasury;
 }
 //@ts-ignore
 const updateAddressNetworkFee = async (address) => {
@@ -300,7 +300,7 @@ const updateAddressNetworkFee = async (address) => {
 }
 
 const updateNetworkEarnings = async () => {
-  globalData.networkEarnings = await getNetworkEarnings();
+  globalData.networkEarnings = await getTotalNetworkEarnings();
   globalData.networkEarningsBlockNumber = await utils.blockNumber();
 }
 //@ts-ignore

@@ -406,9 +406,9 @@ interface ISSVNetwork {
     function getNetworkFee() external view returns (uint256);
 
     /**
-     * @dev Gets the network treasury
+     * @dev Gets the available network earnings
      */
-    function getNetworkTreasury() external view returns (uint256);
+    function getNetworkEarnings() external view returns (uint256);
 
     /**
      * @dev Returns the number of blocks left for an owner before they can be liquidated.

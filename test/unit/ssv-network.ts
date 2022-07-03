@@ -353,7 +353,7 @@ describe('SSV Network', function () {
     await expect(ssvNetwork.updateNetworkFee(1)).to.emit(ssvNetwork, 'NetworkFeeUpdated').withArgs('0', '1');
     expect(await ssvNetwork.getNetworkFee()).to.equal('1');
     await progressBlocks(20);
-    expect(await ssvNetwork.getNetworkTreasury()).to.equal(20);
+    expect(await ssvNetwork.getNetworkEarnings()).to.equal(20);
   });
 
   it('Withdraw network fees', async function () {
@@ -362,7 +362,7 @@ describe('SSV Network', function () {
     await expect(ssvNetwork.connect(account2).withdrawNetworkEarnings(60)).to.be.revertedWith('Ownable: caller is not the owner');
     await expect(ssvNetwork.withdrawNetworkEarnings(80)).to.be.revertedWith('not enough balance');
     await expect(ssvNetwork.withdrawNetworkEarnings(20)).to.emit(ssvToken, 'Transfer').withArgs(ssvNetwork.address, owner.address, '20');
-    expect(await ssvNetwork.getNetworkTreasury()).to.equal(3);
+    expect(await ssvNetwork.getNetworkEarnings()).to.equal(3);
     await expect(ssvNetwork.withdrawNetworkEarnings(60)).to.be.revertedWith('not enough balance');
   });
 
