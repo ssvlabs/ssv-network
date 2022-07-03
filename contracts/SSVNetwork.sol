@@ -345,7 +345,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return _ssvRegistryContract.getOperatorByPublicKey(publicKey);
     }
 
-    function getOperatorDeclareFee(uint256 operatorId) external view override returns (uint256, uint256, uint256) {
+    function getOperatorDeclaredFee(uint256 operatorId) external view override returns (uint256, uint256, uint256) {
         FeeChangeRequest storage feeChangeRequest = _feeChangeRequests[operatorId];
 
         return (feeChangeRequest.fee, feeChangeRequest.approvalBeginTime, feeChangeRequest.approvalEndTime);

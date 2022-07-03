@@ -374,7 +374,7 @@ interface ISSVNetwork {
         external view
         returns (uint256[] memory);
 
-    function getOperatorDeclareFee(uint256 operatorId) external view returns (uint256, uint256, uint256);
+    function getOperatorDeclaredFee(uint256 operatorId) external view returns (uint256, uint256, uint256);
 
     /**
      * @dev Gets operator current fee.
