@@ -40,8 +40,10 @@ describe('SSV Registry', function () {
     expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[0]).to.equal('testOperator 1')
     expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[1]).to.equal(account1.address)
     expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[2]).to.equal(operatorsPub[1])
-    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[3]).to.equal('0')
-    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[4]).to.equal(true)
+    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[3]).to.equal('3')
+    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[4]).to.equal('20')
+    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[5]).to.equal('0')
+    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[6]).to.equal(true)
    })
 
   it('Operator limit', async function () {

@@ -127,17 +127,13 @@ describe('Update Operators', function () {
   })
 
   it('Change expiry time / Cancel update operator fee before expiry time', async function () {
-    // Get fee periods
-    expect((await ssvNetwork.getExecuteOperatorFeePeriod()).toString()).to.equal('0')
-    expect((await ssvNetwork.getDeclareOperatorFeePeriod()).toString()).to.equal('86400')
-
     // Change fee periods
     await ssvNetwork.connect(owner).updateDeclareOperatorFeePeriod(5)
     await ssvNetwork.connect(owner).updateExecuteOperatorFeePeriod(10)
 
     // Get fee periods
-    expect((await ssvNetwork.getExecuteOperatorFeePeriod()).toString()).to.equal('5')
-    expect((await ssvNetwork.getDeclareOperatorFeePeriod()).toString()).to.equal('10')
+    expect((await ssvNetwork.getDeclaredOperatorFeePeriod()).toString()).to.equal('5')
+    expect((await ssvNetwork.getExecuteOperatorFeePeriod()).toString()).to.equal('10')
 
     // Cancel update operator fee before expiry time
     await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1005000)
