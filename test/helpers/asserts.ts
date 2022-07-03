@@ -8,7 +8,7 @@ import {
   operatorEarningsOf,
   addressBalanceOf,
   totalEarningsOf,
-  getTotalNetworkEarnings,
+  getNetworkEarnings,
   ssvNetwork,
 } from './setup';
 
@@ -45,4 +45,4 @@ export const checkLiquidationStatus = async (address, result) => {
 //@ts-ignore
 export const checkWithdrawFail = async (account, amount) => await expect(ssvNetwork.connect(account).withdraw(`${amount}`)).to.be.revertedWith('not enough balance');
 
-export const checkNetworkTreasury = async () => expect(await ssvNetwork.getTotalNetworkEarnings()).to.equal(await getTotalNetworkEarnings());
+export const checkNetworkTreasury = async () => expect(await ssvNetwork.getNetworkEarnings()).to.equal(await getNetworkEarnings());

@@ -286,7 +286,7 @@ export const updateOperatorFee = async (account, idx, fee) => {
   console.log(`      | Update operator fee ${idx} > [VALUE] ${fee} [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
 
-const getTotalNetworkEarnings = async () => {
+export const getTotalNetworkEarnings = async () => {
   return globalData.networkEarnings + ((await utils.blockNumber()) - globalData.networkEarningsBlockNumber) * globalData.networkFee * globalData.validatorCount;
 }
 
