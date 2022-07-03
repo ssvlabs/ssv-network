@@ -212,7 +212,7 @@ interface ISSVNetwork {
      */
     function declareOperatorFee(uint256 operatorId, uint256 fee) external;
 
-    function cancelDeclareOperatorFee(uint256 operatorId) external;
+    function cancelDeclaredOperatorFee(uint256 operatorId) external;
 
     function executeOperatorFee(uint256 operatorId) external;
 
@@ -422,5 +422,5 @@ interface ISSVNetwork {
 
      function getExecuteOperatorFeePeriod() external view returns (uint256);
 
-     function getDeclareOperatorFeePeriod() external view returns (uint256);
+     function getDeclaredOperatorFeePeriod() external view returns (uint256);
 }

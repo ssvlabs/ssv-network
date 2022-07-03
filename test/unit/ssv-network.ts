@@ -397,7 +397,7 @@ describe('SSV Network', function () {
 
     // Cancel set operator fee
     await ssvNetwork.connect(account3).declareOperatorFee(operatorsIds[3], '41000');
-    await ssvNetwork.connect(account3).cancelDeclareOperatorFee(operatorsIds[3]);
+    await ssvNetwork.connect(account3).cancelDeclaredOperatorFee(operatorsIds[3]);
     expect(await ssvNetwork.getOperatorFee(operatorsIds[3])).to.equal(40000);
     expect((await ssvNetwork.getOperatorDeclareFee(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['0', '0', '0']);
 

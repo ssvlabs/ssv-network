@@ -175,7 +175,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorFeeSet(msg.sender, operatorId, block.number, fee);
     }
 
-    function cancelDeclareOperatorFee(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
+    function cancelDeclaredOperatorFee(uint256 operatorId) onlyOperatorOwner(operatorId) external override {
         delete _feeChangeRequests[operatorId];
 
         emit OperatorFeeSetCanceled(msg.sender, operatorId);
@@ -408,7 +408,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork {
         return _executeOperatorFeePeriod;
     }
 
-    function getDeclareOperatorFeePeriod() external view override returns (uint256) {
+    function getDeclaredOperatorFeePeriod() external view override returns (uint256) {
         return _declareOperatorFeePeriod;
     }
 
