@@ -69,7 +69,7 @@ describe('Validators', function() {
         tokens
       )
     )
-    .to.emit(ssvRegistry, 'ValidatorAdded');
+    .to.emit(ssvNetwork, 'ValidatorAdded');
 
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1');
   });
@@ -106,8 +106,8 @@ describe('Validators', function() {
           operatorsPub.slice(0, 4),
           tokens
         );
-    await expect(tx).to.emit(ssvRegistry, 'ValidatorRemoved');
-    await expect(tx).to.emit(ssvRegistry, 'ValidatorAdded');
+    await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoved');
+    await expect(tx).to.emit(ssvNetwork, 'ValidatorAdded');
   });
 
   it('revert update validator: not enough approved tokens to pay', async function() {
@@ -142,7 +142,7 @@ describe('Validators', function() {
     //@ts-ignore
     await progressBlocks(5, async() => {
       await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
-        .to.emit(ssvRegistry, 'ValidatorRemoved')
+        .to.emit(ssvNetwork, 'ValidatorRemoved')
         .withArgs(account1.address, validatorsPub[0]);
 
       expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0');

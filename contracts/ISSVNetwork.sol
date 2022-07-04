@@ -18,6 +18,23 @@ interface ISSVNetwork {
      */
     event AccountLiquidated(address indexed ownerAddress);
 
+    /**
+     * @dev Emitted when the operator has been added.
+     * @param operatorId operator's ID.
+     * @param name Operator's display name.
+     * @param ownerAddress Operator's ethereum address that can collect fees.
+     * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
+     * @param fee Operator's initial fee.
+     */
+    event OperatorAdded(uint32 operatorId, string name, address indexed ownerAddress, bytes publicKey, uint256 fee);
+
+    /**
+     * @dev Emitted when the operator has been removed.
+     * @param operatorId operator's ID.
+     * @param ownerAddress Operator's owner.
+     */
+    event OperatorRemoved(uint32 operatorId, address indexed ownerAddress);
+
     event OperatorFeeSet(
         address indexed ownerAddress,
         uint32 operatorId,
@@ -39,6 +56,43 @@ interface ISSVNetwork {
         uint256 blockNumber,
         uint256 fee
     );
+
+    /**
+     * @dev Emitted when an operator's score is updated.
+     * @param operatorId operator's ID.
+     * @param ownerAddress Operator's owner.
+     * @param blockNumber from which block number.
+     * @param score updated score value.
+     */
+    event OperatorScoreUpdated(
+        uint32 operatorId,
+        address indexed ownerAddress,
+        uint256 blockNumber,
+        uint256 score
+    );
+
+    /**
+     * @dev Emitted when the validator has been added.
+     * @param ownerAddress The user's ethereum address that is the owner of the validator.
+     * @param publicKey The public key of a validator.
+     * @param operatorIds The operators public keys list for this validator.
+     * @param sharesPublicKeys The shared publick keys list for this validator.
+     * @param encryptedKeys The encrypted keys list for this validator.
+     */
+    event ValidatorAdded(
+        address ownerAddress,
+        bytes publicKey,
+        uint32[] operatorIds,
+        bytes[] sharesPublicKeys,
+        bytes[] encryptedKeys
+    );
+
+    /**
+     * @dev Emitted when the validator is removed.
+     * @param ownerAddress Validator's owner.
+     * @param publicKey The public key of a validator.
+     */
+    event ValidatorRemoved(address ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an owner deposits funds.

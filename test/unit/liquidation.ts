@@ -107,8 +107,8 @@ describe('SSV Network Liquidation', function() {
       expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
       await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
       const tx = ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), tokens);
-      await expect(tx).to.emit(ssvRegistry, 'ValidatorRemoved');
-      await expect(tx).to.emit(ssvRegistry, 'ValidatorAdded');
+      await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoved');
+      await expect(tx).to.emit(ssvNetwork, 'ValidatorAdded');
     });
   });
 

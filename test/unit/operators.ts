@@ -49,8 +49,8 @@ describe('Operators', function() {
 
   it('register operator', async function() {
     await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000))
-      .to.emit(ssvRegistry, 'OperatorAdded')
-      .withArgs(operatorsIds[0], 'testOperator 0', account2.address, operatorsPub[0]);
+      .to.emit(ssvNetwork, 'OperatorAdded')
+      .withArgs(operatorsIds[0], 'testOperator 0', account2.address, operatorsPub[0], 1000000);
   });
 
   it('register more operators', async function() {
@@ -111,15 +111,15 @@ describe('Operators', function() {
 
   it('update operators score', async function () {
     await expect(ssvNetwork.connect(owner).updateOperatorScore(operatorsIds[0], 105))
-      .to.emit(ssvRegistry, 'OperatorScoreUpdated');
+      .to.emit(ssvNetwork, 'OperatorScoreUpdated');
   });
 
   it('remove operator', async function () {
     //@ts-ignore
     await progressTime(DAY, async() => {
       await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
-        .to.emit(ssvRegistry, 'OperatorRemoved')
-        .withArgs(operatorsIds[0], account2.address, operatorsPub[0]);
+        .to.emit(ssvNetwork, 'OperatorRemoved')
+        .withArgs(operatorsIds[0], account2.address);
     });
   });
 

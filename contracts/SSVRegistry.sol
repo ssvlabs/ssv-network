@@ -82,8 +82,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         _operatorsByOwnerAddress[ownerAddress].push(operatorId);
         _operatorPublicKeyToId[publicKey] = operatorId;
         _updateOperatorFeeUnsafe(operatorId, fee);
-
-        emit OperatorAdded(operatorId, name, ownerAddress, publicKey);
     }
 
     /**
@@ -96,8 +94,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         require(operator.active, "SSVRegistry: operator deleted");
 
         operator.active = false;
-
-        emit OperatorRemoved(operatorId, operator.ownerAddress, operator.publicKey);
     }
 
     /**
@@ -113,8 +109,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     function updateOperatorScore(uint32 operatorId, uint16 score) external onlyOwner override {
         Operator storage operator = _operators[operatorId];
         operator.score = score;
-
-        emit OperatorScoreUpdated(operatorId, operator.ownerAddress, operator.publicKey, block.number, score);
     }
 
     /**
@@ -154,8 +148,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         }
 
         ++_activeValidatorCount;
-
-        emit ValidatorAdded(ownerAddress, publicKey, operatorIds, sharesPublicKeys, encryptedKeys);
     }
 
     /**
@@ -177,8 +169,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         ownerValidators.pop();
 
         --_activeValidatorCount;
-
-        emit ValidatorRemoved(validator.ownerAddress, publicKey);
 
         delete _validators[publicKey];
     }

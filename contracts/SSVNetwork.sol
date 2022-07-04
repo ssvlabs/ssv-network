@@ -148,14 +148,20 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
         );
 
         _operatorDatas[operatorId] = OperatorData({ blockNumber: block.number, earnings: 0, index: 0, indexBlockNumber: block.number, previousFee: 0, activeValidatorCount: 0 });
+
+        emit OperatorAdded(operatorId, name, msg.sender, publicKey, fee);
     }
 
     /**
      * @dev See {ISSVNetwork-removeOperator}.
      */
     function removeOperator(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
+        address owner = _ssvRegistryContract.getOperatorOwner(operatorId);
+
         _updateOperatorFeeUnsafe(operatorId, 0);
         _ssvRegistryContract.removeOperator(operatorId);
+
+        emit OperatorRemoved(operatorId, owner);
     }
 
     function setOperatorFee(uint32 operatorId, uint256 fee) onlyOperatorOwnerOrContractOwner(operatorId) ensureMinimalOperatorFee(fee) external override {
@@ -186,6 +192,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
 
     function updateOperatorScore(uint32 operatorId, uint16 score) onlyOwner external override {
         _ssvRegistryContract.updateOperatorScore(operatorId, score);
+
+        emit OperatorScoreUpdated(operatorId, msg.sender, block.number, score);
     }
 
     /**
@@ -518,6 +526,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
         }
 
         require(!_liquidatable(ownerAddress), "not enough balance");
+
+        emit ValidatorAdded(ownerAddress, publicKey, operatorIds, sharesPublicKeys, encryptedKeys);
     }
 
     function _removeValidatorUnsafe(address ownerAddress, bytes memory publicKey) private {
@@ -527,6 +537,8 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
         if (!_owners[ownerAddress].validatorsDisabled) {
             --_owners[ownerAddress].activeValidatorCount;
         }
+
+        emit ValidatorRemoved(ownerAddress, publicKey);
     }
 
     function _unregisterValidator(address ownerAddress, bytes memory publicKey) private {
