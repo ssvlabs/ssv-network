@@ -43,23 +43,25 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     mapping(address => OwnerData) private _owners;
 
     uint16 private _validatorsPerOperatorLimit;
+    uint16 private _registeredOperatorsPerAccountLimit;
     uint32 private _activeValidatorCount;
     mapping(bytes => uint32) private _operatorPublicKeyToId;
 
     /**
      * @dev See {ISSVRegistry-initialize}.
      */
-    function initialize(uint16 validatorsPerOperatorLimit_) external override initializer {
-        __SSVRegistry_init(validatorsPerOperatorLimit_);
+    function initialize(uint16 validatorsPerOperatorLimit_, uint16 registeredOperatorsPerAccountLimit_) external override initializer {
+        __SSVRegistry_init(validatorsPerOperatorLimit_, registeredOperatorsPerAccountLimit_);
     }
 
-    function __SSVRegistry_init(uint16 validatorsPerOperatorLimit_) internal onlyInitializing {
+    function __SSVRegistry_init(uint16 validatorsPerOperatorLimit_, uint16 registeredOperatorsPerAccountLimit_) internal onlyInitializing {
         __Ownable_init_unchained();
-        __SSVRegistry_init_unchained(validatorsPerOperatorLimit_);
+        __SSVRegistry_init_unchained(validatorsPerOperatorLimit_, registeredOperatorsPerAccountLimit_);
     }
 
-    function __SSVRegistry_init_unchained(uint16 validatorsPerOperatorLimit_) internal onlyInitializing {
-        _setValidatorsPerOperatorLimit(validatorsPerOperatorLimit_);
+    function __SSVRegistry_init_unchained(uint16 validatorsPerOperatorLimit_, uint16 registeredOperatorsPerAccountLimit_) internal onlyInitializing {
+        _updateValidatorsPerOperatorLimit(validatorsPerOperatorLimit_);
+        _updateRegisteredOperatorsPerAccountLimit(registeredOperatorsPerAccountLimit_);
     }
 
     /**
@@ -75,6 +77,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
             _operatorPublicKeyToId[publicKey] == 0,
             "operator with same public key already exists"
         );
+
+        require(_operatorsByOwnerAddress[ownerAddress].length < _registeredOperatorsPerAccountLimit, "SSVRegistry: exceed registered operators limit by account");
 
         _lastOperatorId.increment();
         operatorId = uint32(_lastOperatorId.current());
@@ -188,30 +192,37 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     }
 
     /**
-     * @dev See {ISSVRegistry-setValidatorsPerOperatorLimit}.
+     * @dev See {ISSVRegistry-updateValidatorsPerOperatorLimit}.
      */
-    function setValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) onlyOwner external override {
-        _setValidatorsPerOperatorLimit(_validatorsPerOperatorLimit);
+    function updateValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) onlyOwner external override {
+        _updateValidatorsPerOperatorLimit(_validatorsPerOperatorLimit);
     }
 
-    function isOwnerValidatorsDisabled(address ownerAddress) external view override returns (bool) {
+    /**
+     * @dev See {ISSVRegistry-updateRegisteredOperatorsPerAccountLimit}.
+     */
+    function updateRegisteredOperatorsPerAccountLimit(uint16 _registeredOperatorsPerAccountLimit) onlyOwner external override {
+        _updateRegisteredOperatorsPerAccountLimit(_registeredOperatorsPerAccountLimit);
+    }
+
+    function isLiquidated(address ownerAddress) external view override returns (bool) {
         return _owners[ownerAddress].validatorsDisabled;
     }
 
     /**
      * @dev See {ISSVRegistry-operators}.
      */
-    function operators(uint32 operatorId) external view override returns (string memory, address, bytes memory, uint256, bool) {
+    function getOperatorById(uint32 operatorId) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
         Operator storage operator = _operators[operatorId];
-        return (operator.name, operator.ownerAddress, operator.publicKey, operator.score, operator.active);
+        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[operatorId].validatorCount, operator.fee, operator.score, operator.active);
     }
 
     /**
-     * @dev See {ISSVRegistry-operatorsByPublicKey}.
+     * @dev See {ISSVRegistry-getOperatorByPublicKey}.
      */
-    function operatorsByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, bool) {
+    function getOperatorByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
         Operator storage operator = _operators[_operatorPublicKeyToId[publicKey]];
-        return (operator.name, operator.ownerAddress, operator.publicKey, operator.score, operator.active);
+        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[_operatorPublicKeyToId[publicKey]].validatorCount, operator.fee, operator.score, operator.active);
     }
 
     /**
@@ -238,9 +249,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     }
 
     /**
-     * @dev See {ISSVRegistry-getOperatorCurrentFee}.
+     * @dev See {ISSVRegistry-getOperatorFee}.
      */
-    function getOperatorCurrentFee(uint32 operatorId) external view override returns (uint256) {
+    function getOperatorFee(uint32 operatorId) external view override returns (uint256) {
         require(_operators[operatorId].ownerAddress != address(0), "SSVRegistry: operator not found");
         return _operators[operatorId].fee;
     }
@@ -289,10 +300,23 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         return _operators[operatorId].validatorCount;
     }
 
-    function _setValidatorsPerOperatorLimit(uint16 validatorsPerOperatorLimit_) private {
+    function _updateValidatorsPerOperatorLimit(uint16 validatorsPerOperatorLimit_) private {
         _validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
 
-        emit ValidatorsPerOperatorLimitSet(validatorsPerOperatorLimit_);
+        emit ValidatorsPerOperatorLimitUpdated(validatorsPerOperatorLimit_);
+    }
+    
+    function _updateRegisteredOperatorsPerAccountLimit(uint16 registeredOperatorsPerAccountLimit_) private {
+        _registeredOperatorsPerAccountLimit = registeredOperatorsPerAccountLimit_;
+
+        emit RegisteredOperatorsPerAccountLimitUpdated(registeredOperatorsPerAccountLimit_);
+    }
+
+    /**
+     * @dev See {ISSVRegistry-getRegisteredOperatorsPerAccountLimit}.
+     */
+    function getRegisteredOperatorsPerAccountLimit() external view override returns (uint16) {
+        return _registeredOperatorsPerAccountLimit;
     }
 
     /**

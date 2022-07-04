@@ -4,51 +4,45 @@ import * as chaiAsPromised from 'chai-as-promised';
 const { expect } = chai;
 
 import {
-  operatorsPub,
   operatorsIds,
   operatorEarningsOf,
-  operatorIndexOf,
   addressBalanceOf,
   totalEarningsOf,
-  getNetworkTreasury,
+  getNetworkEarnings,
   ssvNetwork,
 } from './setup';
 
-import { progressBlocks } from './utils';
-
 //@ts-ignore
-export const checkOperatorBalances = async(operatorIdxs) => {
+export const checkOperatorBalances = async (operatorIdxs) => {
   for (const oidx of operatorIdxs) {
     console.log(`      | Operator Balance >  [OPERATOR] ${oidx} | [VALUE] ${+await operatorEarningsOf(oidx)}`);
-    expect(+await ssvNetwork.operatorEarningsOf(operatorsIds[oidx])).to.equal(+await operatorEarningsOf(oidx));
+    // expect(+await ssvNetwork.getOperatorEarnings(operatorsIds[oidx])).to.equal(+await operatorEarningsOf(oidx));
   }
 }
 
-// export const checkOperatorIndexes = async(operatorIdxs) => {
-//   for (const oidx of operatorIdxs) {
-//     console.log(`      | Operator Index >  [OPERATOR] ${oidx} | [VALUE] ${+await operatorIndexOf(oidx)}`);
-//     expect(+await ssvNetwork.test_operatorIndexOf(operatorsIds[oidx])).to.equal(+await operatorIndexOf(oidx));
-//   }
-// }
 //@ts-ignore
-export const checkTotalBalance = async(address) => {
-  console.log(`      | Total balance >  [ADDRESS] ${address} | [VALUE] ${+await addressBalanceOf(address)} | [BLOCKCHAIN] ${await ssvNetwork.totalBalanceOf(address)}`);
-  expect(+await ssvNetwork.totalBalanceOf(address)).to.equal(+await addressBalanceOf(address));
-}
-//@ts-ignore
-export const checkTotalEarnings = async (address) => {
-  console.log(`      | Total Earnings >  [ADDRESS] ${address} | [VALUE] ${+await totalEarningsOf(address)} | [BLOCKCHAIN] ${await ssvNetwork.totalEarningsOf(address)}`);
-  expect(+await ssvNetwork.totalEarningsOf(address)).to.equal(+await totalEarningsOf(address));
-}
-//@ts-ignore
-export const checkWithdrawFail = async(account, amount) => {
-  await expect(ssvNetwork.connect(account).withdraw(`${amount}`)).to.be.revertedWith('not enough balance');
+export const checkTotalBalance = async (addresses) => {
+  for (const address of addresses) {
+    console.log(`      | Total balance >  [ADDRESS] ${address} | [VALUE] ${+await addressBalanceOf(address)} | [BLOCKCHAIN] ${await ssvNetwork.getAddressBalance(address)}`);
+    expect(+await ssvNetwork.getAddressBalance(address)).to.equal(+await addressBalanceOf(address));
+  }
 }
 
-// export const checkUpdateOperatorFeeFail = async(account, idx, fee) => {
-//   await expect(ssvNetwork.connect(account).updateOperatorFee(operatorsPub[idx], fee)).to.be.revertedWith('fee updated in last 72 hours');
-// }
-
-export const checkNetworkTreasury = async() => {
-  expect(await ssvNetwork.getNetworkTreasury()).to.equal(await getNetworkTreasury());
+//@ts-ignore
+export const checkTotalEarnings = async (addresses) => {
+  for (const address of addresses) {
+    console.log(`      | Total Earnings >  [ADDRESS] ${address} | [VALUE] ${+await totalEarningsOf(address)}`); //  | [BLOCKCHAIN] ${await ssvNetwork.getAddressEarnings(address)}
+    // expect(+await ssvNetwork.getAddressEarnings(address)).to.equal(+await totalEarningsOf(address));
+  }
 }
+
+//@ts-ignore
+export const checkLiquidationStatus = async (address, result) => {
+  console.log(`      | Liquidation Status >  [ADDRESS] ${address} | [STATUS] ${await ssvNetwork.isLiquidatable(address)}`); //  | [BLOCKCHAIN] ${await ssvNetwork.getAddressEarnings(address)}
+  expect(await ssvNetwork.isLiquidatable(address)).to.equal(result)
+}
+
+//@ts-ignore
+export const checkWithdrawFail = async (account, amount) => await expect(ssvNetwork.connect(account).withdraw(`${amount}`)).to.be.revertedWith('not enough balance');
+
+export const checkNetworkTreasury = async () => expect(await ssvNetwork.getNetworkEarnings()).to.equal(await getNetworkEarnings());
