@@ -44,7 +44,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
 
     mapping(uint256 => uint256) internal validatorsPerOperator;
     uint256 public validatorsPerOperatorLimit;
-    mapping(bytes => uint256) private _operatorPublicKeyToId;
     uint256 public registeredOperatorsPerAccountLimit;
 
     /**
@@ -73,10 +72,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         bytes calldata publicKey,
         uint256 fee
     ) external onlyOwner override returns (uint256 operatorId) {
-        require(
-            _operatorPublicKeyToId[publicKey] == 0,
-            "operator with same public key already exists"
-        );
+
 
         require(_operatorsByOwnerAddress[ownerAddress].length < registeredOperatorsPerAccountLimit, "SSVRegistry: exceed registered operators limit by account");
 
@@ -84,7 +80,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
         operatorId = _lastOperatorId.current();
         _operators[operatorId] = Operator(name, ownerAddress, publicKey, 0, 0, true, _operatorsByOwnerAddress[ownerAddress].length);
         _operatorsByOwnerAddress[ownerAddress].push(operatorId);
-        _operatorPublicKeyToId[publicKey] = operatorId;
         _updateOperatorFeeUnsafe(operatorId, fee);
 
         emit OperatorAdded(operatorId, name, ownerAddress, publicKey);
@@ -236,14 +231,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry {
     function getOperatorById(uint256 operatorId) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
         Operator storage operator = _operators[operatorId];
         return (operator.name, operator.ownerAddress, operator.publicKey, validatorsPerOperator[operatorId], operator.fee, operator.score, operator.active);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-getOperatorByPublicKey}.
-     */
-    function getOperatorByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
-        Operator storage operator = _operators[_operatorPublicKeyToId[publicKey]];
-        return (operator.name, operator.ownerAddress, operator.publicKey, validatorsPerOperator[_operatorPublicKeyToId[publicKey]], operator.fee, operator.score, operator.active);
     }
 
     /**

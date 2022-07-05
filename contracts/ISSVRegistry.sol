@@ -205,22 +205,6 @@ interface ISSVRegistry {
         );
 
     /**
-     * @dev Gets an operator by public key.
-     * @param publicKey Operator public key.
-     */
-    function getOperatorByPublicKey(bytes memory publicKey)
-        external view
-        returns (
-            string memory,
-            address,
-            bytes memory,
-            uint256,
-            uint256,
-            uint256,
-            bool
-        );
-
-    /**
      * @dev Returns operators for owner.
      * @param ownerAddress Owner's address.
      */
