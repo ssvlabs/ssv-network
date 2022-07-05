@@ -43,22 +43,18 @@ describe('Operators', function () {
     await ssvRegistry.deployed()
     ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit])
     await ssvNetwork.deployed()
-    await ssvToken.mint(account1.address, '10000000000');
-  });
 
-  it('register operator', async function() {
+    // Mint tokens
+    await ssvToken.mint(account1.address, '10000000000')
+
+    // Register operators
     await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000))
       .to.emit(ssvNetwork, 'OperatorAdded')
-      .withArgs(operatorsIds[0], 'testOperator 0', account2.address, operatorsPub[0], 1000000);
-  });
-
-  it('register more operators', async function() {
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000);
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000);
-
-    await progressTime(4 * DAY);
-  });
+      .withArgs(operatorsIds[0], 'testOperator 0', account2.address, operatorsPub[0], 1000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000)
+  })
 
   it('Get operators by public key', async function () {
    expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[0]).to.equal('testOperator 1')
@@ -89,63 +85,10 @@ describe('Operators', function () {
     // Remove an operator with no validators
     await progressTime(DAY)
     await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
-      .to.emit(ssvRegistry, 'OperatorRemoved')
-      .withArgs(operatorsIds[0], account2.address, operatorsPub[0])
+      .to.emit(ssvNetwork, 'OperatorRemoved')
+      .withArgs(operatorsIds[0], account2.address)
 
-<<<<<<< HEAD
-  it('update operators fee less than in 72 hours fail', async function () {
-    await progressTime(DAY, async() => {
-      await ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 105);
-      await progressTime(DAY);
-      await expect(ssvNetwork.connect(account2).updateOperatorFee(operatorsPub[0], 110)).to.be.revertedWith('fee updated in last 72 hours');
-    });
-  });
-  */
-
-  it('update operators score fails for not owner', async function () {
-    await ssvNetwork
-      .connect(account2)
-      .updateOperatorScore(operatorsIds[0], 105)
-      .should.eventually.be.rejectedWith('caller is not the owner');
-  });
-
-  it('update operators score', async function () {
-    await expect(ssvNetwork.connect(owner).updateOperatorScore(operatorsIds[0], 105))
-      .to.emit(ssvNetwork, 'OperatorScoreUpdated');
-  });
-
-  it('remove operator', async function () {
-    //@ts-ignore
-    await progressTime(DAY, async() => {
-      await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
-        .to.emit(ssvNetwork, 'OperatorRemoved')
-        .withArgs(operatorsIds[0], account2.address);
-    });
-  });
-
-  // it('revert remove operator: operator has validators', async function () {
-  //   //@ts-ignore
-  //   await progressTime(DAY, async() => {
-  //     await ssvToken.connect(account1).approve(ssvNetwork.address, '100000000');
-  //     await ssvNetwork.connect(account1).registerValidator(
-  //       validatorsPub[0],
-  //       operatorsIds.slice(0, 4),
-  //       operatorsPub.slice(0, 4),
-  //       operatorsPub.slice(0, 4),
-  //       '100000000'
-  //     );
-
-  //     await ssvNetwork
-  //       .connect(account2)
-  //       .removeOperator(operatorsIds[0])
-  //       .should.eventually.be.rejectedWith('operator has validators');
-  //   });
-  // });
-
-  it('revert remove operator: public key does not exist', async function () {
-=======
     // Try to remove non-existent operator
->>>>>>> main
     await ssvNetwork
       .connect(account3)
       .removeOperator(operatorsIds[6])
@@ -165,8 +108,8 @@ describe('Operators', function () {
 
     // Delete an operator that the validator is using
     await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
-      .to.emit(ssvRegistry, 'OperatorRemoved')
-      .withArgs(operatorsIds[0], account2.address, operatorsPub[0])
+      .to.emit(ssvNetwork, 'OperatorRemoved')
+      .withArgs(operatorsIds[0], account2.address)
 
     // Check that the operator fee is 0
     expect((await ssvRegistry.getOperatorFee(operatorsIds[0])).toString()).to.equal('0')

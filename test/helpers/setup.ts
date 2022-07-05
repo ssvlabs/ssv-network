@@ -6,7 +6,7 @@ declare var network: any;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 const minimumBlocksBeforeLiquidation = 50;
-const operatorMaxFeeIncrease = 10000;
+const operatorMaxFeeIncrease = 10;
 
 //@ts-ignore
 export let ssvToken: any, ssvRegistry: any, ssvNetwork: any, utils: any;
@@ -286,12 +286,12 @@ export const updateOperatorFee = async (account, idx, fee) => {
   console.log(`      | Update operator fee ${idx} > [VALUE] ${fee} [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
 
-export const getTotalNetworkEarnings = async () => {
+const getNetworkEarnings = async () => {
   return globalData.networkEarnings + ((await utils.blockNumber()) - globalData.networkEarningsBlockNumber) * globalData.networkFee * globalData.validatorCount;
 }
 
-export const getNetworkEarnings = async () => {
-  return (await getTotalNetworkEarnings()) - globalData.withdrawnFromTreasury;
+export const getNetworkTreasury = async () => {
+  return (await getNetworkEarnings()) - globalData.withdrawnFromTreasury;
 }
 //@ts-ignore
 const updateAddressNetworkFee = async (address) => {
@@ -300,7 +300,7 @@ const updateAddressNetworkFee = async (address) => {
 }
 
 const updateNetworkEarnings = async () => {
-  globalData.networkEarnings = await getTotalNetworkEarnings();
+  globalData.networkEarnings = await getNetworkEarnings();
   globalData.networkEarningsBlockNumber = await utils.blockNumber();
 }
 //@ts-ignore

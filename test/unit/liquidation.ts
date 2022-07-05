@@ -47,17 +47,12 @@ describe('SSV Network Liquidation', function () {
     // Mint tokens
     await ssvToken.mint(account1.address, '10000000000')
 
-<<<<<<< HEAD
-const minimumBlocksBeforeLiquidation = 50;
-const operatorMaxFeeIncrease = 10000;
-=======
     // Register operators
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000)
     await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
     await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
     await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000)
     await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 10000)
->>>>>>> main
 
     // Register validators
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
@@ -103,8 +98,8 @@ const operatorMaxFeeIncrease = 10000;
     // Change operator triggering to put in more SSV
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     const tx = ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), tokens)
-    await expect(tx).to.emit(ssvRegistry, 'ValidatorRemoved')
-    await expect(tx).to.emit(ssvRegistry, 'ValidatorAdded')
+    await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoved')
+    await expect(tx).to.emit(ssvNetwork, 'ValidatorAdded')
 
     // No longer liquidatable
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)
@@ -145,18 +140,6 @@ const operatorMaxFeeIncrease = 10000;
     expect(await ssvToken.balanceOf(account4.address)).to.equal(4800000)
   })
 
-<<<<<<< HEAD
-  it('update to a valid state using tokens', async function() {
-    //@ts-ignore
-    await progressBlocks(847, async function () {
-      expect(await ssvNetwork.liquidatable(account1.address)).to.equal(false);
-      await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
-      const tx = ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), tokens);
-      await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoved');
-      await expect(tx).to.emit(ssvNetwork, 'ValidatorAdded');
-    });
-  });
-=======
   it('Liquidate multiple accounts', async function () {
     // Register validator with account5
     await ssvToken.connect(account1).transfer(account5.address, tokens)
@@ -167,7 +150,6 @@ const operatorMaxFeeIncrease = 10000;
     expect(await ssvNetwork.getAddressBalance(account5.address)).to.equal(5400000)
     expect(await ssvNetwork.getAddressBalance(account4.address)).to.equal(0)
     expect(await ssvToken.balanceOf(account4.address)).to.equal(0)
->>>>>>> main
 
     // Try to liquidate non liquidatable accounts
     await ssvNetwork.connect(account4).liquidate([account1.address, account2.address, account5.address])

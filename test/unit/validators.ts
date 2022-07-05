@@ -44,43 +44,26 @@ describe('Validators', function () {
     // Mint tokens
     await ssvToken.mint(account1.address, '10000000000')
 
-<<<<<<< HEAD
-const minimumBlocksBeforeLiquidation = 50;
-const operatorMaxFeeIncrease = 10000;
-=======
     // Register operators
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000)
     await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
     await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
     await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000)
     await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50000)
->>>>>>> main
 
     // Register Validator
     const tokens = '100000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     await expect(
       ssvNetwork.connect(account1)
-<<<<<<< HEAD
-      .registerValidator(
-        validatorsPub[0],
-        operatorsIds.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        tokens
-      )
-    )
-    .to.emit(ssvNetwork, 'ValidatorAdded');
-=======
         .registerValidator(
           validatorsPub[0],
           operatorsIds.slice(0, 4),
           operatorsPub.slice(0, 4),
           operatorsPub.slice(0, 4),
           tokens
-        )).to.emit(ssvRegistry, 'ValidatorAdded')
+        )).to.emit(ssvNetwork, 'ValidatorAdded')
   })
->>>>>>> main
 
   it('Get operators by validator', async function () {
     expect((await ssvNetwork.getOperatorsByValidator(validatorsPub[0])).map(String)).to.eql(operatorsIds.slice(0, 4).map(String))
@@ -95,50 +78,15 @@ const operatorMaxFeeIncrease = 10000;
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
         '10000'
-<<<<<<< HEAD
-      )
-      .should.eventually.be.rejectedWith('insufficient allowance');
-=======
-      ).should.eventually.be.rejectedWith('transfer amount exceeds balance')
+      ).should.eventually.be.rejectedWith('ERC20: insufficient allowance')
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1')
   })
->>>>>>> main
 
   it('Remove validator', async function () {
     await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
-      .to.emit(ssvRegistry, 'ValidatorRemoved').withArgs(account1.address, validatorsPub[0])
+      .to.emit(ssvNetwork, 'ValidatorRemoved').withArgs(account1.address, validatorsPub[0])
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0')
 
-<<<<<<< HEAD
-  it('update validator', async function() {
-    const tokens = '100';
-    await ssvToken.connect(account1).approve(ssvNetwork.address, tokens);
-    const tx = ssvNetwork
-        .connect(account1)
-        .updateValidator(
-          validatorsPub[0],
-          operatorsIds.slice(0, 4),
-          operatorsPub.slice(0, 4),
-          operatorsPub.slice(0, 4),
-          tokens
-        );
-    await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoved');
-    await expect(tx).to.emit(ssvNetwork, 'ValidatorAdded');
-  });
-
-  it('revert update validator: not enough approved tokens to pay', async function() {
-    await ssvNetwork
-      .connect(account1)
-      .updateValidator(
-        validatorsPub[0],
-        operatorsIds.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        '10000'
-      )
-      .should.eventually.be.rejectedWith('insufficient allowance');
-  });
-=======
     // Try to remove the validator again
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
       .should.eventually.be.rejectedWith('validator with public key does not exist')
@@ -148,54 +96,15 @@ const operatorMaxFeeIncrease = 10000;
     await ssvNetwork.connect(account2).removeValidator(validatorsPub[1])
       .should.eventually.be.rejectedWith('validator with public key does not exist')
   })
->>>>>>> main
 
   it('Remove validator sent by non owner', async function () {
     await ssvNetwork.connect(account2).removeValidator(validatorsPub[0])
       .should.eventually.be.rejectedWith('caller is not validator owner')
   })
 
-<<<<<<< HEAD
-  it('remove validator', async function () {
-    //@ts-ignore
-    await progressBlocks(5, async() => {
-      await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
-        .to.emit(ssvNetwork, 'ValidatorRemoved')
-        .withArgs(account1.address, validatorsPub[0]);
-
-      expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0');
-    });
-  });
-
-  it('revert remove validator: public key does not exist', async function () {
-    await ssvNetwork
-      .connect(account2)
-      .removeValidator(validatorsPub[1])
-      .should.eventually.be.rejectedWith('validator with public key does not exist');
-  });
-
-  it('revert remove validator: tx was sent not by owner', async function () {
-    await ssvNetwork
-      .connect(account2)
-      .removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('caller is not validator owner');
-  });
-
-  it('revert remove validator: not enough balance', async function () {
-    //@ts-ignore
-    await progressBlocks(10000, async() => {
-      await ssvNetwork
-        .connect(account1)
-        .removeValidator(validatorsPub[0])
-        .should.eventually.be.rejectedWith('negative balance');
-    });
-  });
-});
-=======
   it('Remove validator with not enough SSV', async function () {
     await progressBlocks(10000)
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
       .should.eventually.be.rejectedWith('negative balance')
   })
 })
->>>>>>> main

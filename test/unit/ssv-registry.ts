@@ -4,6 +4,7 @@
 import { ethers, upgrades } from 'hardhat'
 import * as chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
+import { ssvNetwork } from '../helpers/setup'
 beforeEach(() => {
   chai.should()
   chai.use(chaiAsPromised)
@@ -52,7 +53,6 @@ describe('SSV Registry', function () {
     await ssvRegistry.updateValidatorsPerOperatorLimit(2)
     expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2)
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
-    await expect(ssvRegistry.updateValidator(validatorsPub[2], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
   })
 
   it('Owner address limit', async function () {
@@ -64,17 +64,6 @@ describe('SSV Registry', function () {
     await expect(ssvRegistry.registerOperator('testOperator 6', account2.address, operatorsPub[6], 50)).to.be.revertedWith('exceed registered operators limit by account');
   });
 
-<<<<<<< HEAD
-  it('operator limit', async function() {
-    await snapshot(async () => {
-      expect(await ssvRegistry.validatorsPerOperatorCount(operatorsIds[0])).to.equal(3);
-      expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2000);
-      await ssvRegistry.setValidatorsPerOperatorLimit(2);
-      expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2);
-      await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit');
-    });
-  });
-=======
   it('Register validators with errors', async () => {
     await expect(ssvRegistry.registerValidator(account3.address, "0x12345678", operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('invalid public key length')
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid')
@@ -83,39 +72,9 @@ describe('SSV Registry', function () {
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 1), operatorsPub.slice(0, 1), operatorsPub.slice(0, 1))).to.be.revertedWith('OESS data structure is not valid')
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 3), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid')
   })
->>>>>>> main
 
   it('Register a valid validator', async () => {
     await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
-<<<<<<< HEAD
-  });
-
-  it('validators getter', async () => {
-    expect((await ssvRegistry.validators(validatorsPub[0])).map((v: any) => v.toString())).to.eql([account1.address, validatorsPub[0], 'true']);
-    expect((await ssvRegistry.validators(validatorsPub[1])).map((v: any) => v.toString())).to.eql([account1.address, validatorsPub[1], 'true']);
-    expect((await ssvRegistry.validators(validatorsPub[2])).map((v: any) => v.toString())).to.eql([account2.address, validatorsPub[2], 'true']);
-  });
-
-  it('get validators by address', async () => {
-    expect(await ssvRegistry.getValidatorsByAddress(account1.address)).to.eql([validatorsPub[0], validatorsPub[1]]);
-    expect(await ssvRegistry.getValidatorsByAddress(account2.address)).to.eql([validatorsPub[2]]);
-  });
-
-  it('get validator owner', async () => {
-    expect(await ssvRegistry.getValidatorOwner(validatorsPub[0])).to.equal(account1.address);
-    expect(await ssvRegistry.getValidatorOwner(validatorsPub[2])).to.equal(account2.address);
-  });
-
-  it('disable owner validators', async () => {
-    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(false);
-    await ssvRegistry.disableOwnerValidators(account1.address);
-    expect(await ssvRegistry.isOwnerValidatorsDisabled(account1.address)).to.equal(true);
-=======
->>>>>>> main
-  })
-
-  it('Update a validator', async () => {
-    await ssvRegistry.updateValidator(validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
   })
 
   it('Validators getter', async () => {
