@@ -5,8 +5,9 @@ pragma solidity 0.8.13;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/VersionedContract.sol";
-import "./utils/Utils.sol";
+import "./utils/Types.sol";
 import "./ISSVRegistry.sol";
+import "hardhat/console.sol";
 
 contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, VersionedContract {
     using Counters for Counters.Counter;
@@ -151,7 +152,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
             require(_operators[operatorIds[index]].active, "SSVRegistry: operator deleted");
             require(++_operators[operatorIds[index]].validatorCount <= _validatorsPerOperatorLimit, "SSVRegistry: exceed validator limit");
         }
-
         ++_activeValidatorCount;
     }
 
@@ -215,7 +215,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
      */
     function getOperatorById(uint32 operatorId) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
         Operator storage operator = _operators[operatorId];
-        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[operatorId].validatorCount, Utils.from64(operator.fee), operator.score, operator.active);
+        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[operatorId].validatorCount, Types.from64(operator.fee), operator.score, operator.active);
     }
 
     /**
@@ -223,7 +223,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
      */
     function getOperatorByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
         Operator storage operator = _operators[_operatorPublicKeyToId[publicKey]];
-        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[_operatorPublicKeyToId[publicKey]].validatorCount, Utils.from64(operator.fee), operator.score, operator.active);
+        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[_operatorPublicKeyToId[publicKey]].validatorCount, Types.from64(operator.fee), operator.score, operator.active);
     }
 
     /**
@@ -326,7 +326,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     function _updateOperatorFeeUnsafe(uint32 operatorId, uint64 fee) private {
         _operators[operatorId].fee = fee;
 
-        emit OperatorFeeUpdated(operatorId, _operators[operatorId].ownerAddress, _operators[operatorId].publicKey, block.number, Utils.from64(fee));
+        emit OperatorFeeUpdated(operatorId, _operators[operatorId].ownerAddress, _operators[operatorId].publicKey, block.number, Types.from64(fee));
     }
 
     /**

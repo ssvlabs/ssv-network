@@ -5,8 +5,9 @@ pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/VersionedContract.sol";
-import "./utils/Utils.sol";
+import "./utils/Types.sol";
 import "./ISSVNetwork.sol";
+import "hardhat/console.sol";
 
 contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, VersionedContract {
     struct OperatorData {
@@ -149,11 +150,11 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
             name,
             msg.sender,
             publicKey,
-            Utils.to64(fee)
+            Types.to64(fee)
         );
 
         _operatorDatas[operatorId] = OperatorData({ blockNumber: block.number, earnings: 0, index: 0, indexBlockNumber: block.number, activeValidatorCount: 0 });
-        emit OperatorAdded(operatorId, name, msg.sender, publicKey, Utils.from64(Utils.to64(fee)));
+        emit OperatorAdded(operatorId, name, msg.sender, publicKey, Types.from64(Types.to64(fee)));
     }
 
     /**
@@ -170,9 +171,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
 
     function declareOperatorFee(uint32 operatorId, uint256 fee) onlyOperatorOwnerOrContractOwner(operatorId) ensureMinimalOperatorFee(fee) external override {
         require(fee <= _ssvRegistryContract.getOperatorFee(operatorId) * (100000 + _operatorMaxFeeIncrease) / 100000, "fee exceeds increase limit");
-        _feeChangeRequests[operatorId] = FeeChangeRequest(Utils.to64(fee), block.timestamp + _declareOperatorFeePeriod, block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod);
+        _feeChangeRequests[operatorId] = FeeChangeRequest(Types.to64(fee), block.timestamp + _declareOperatorFeePeriod, block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod);
 
-        emit OperatorFeeSet(msg.sender, operatorId, block.number, Utils.from64(_feeChangeRequests[operatorId].fee));
+        emit OperatorFeeSet(msg.sender, operatorId, block.number, Types.from64(_feeChangeRequests[operatorId].fee));
     }
 
     function cancelDeclaredOperatorFee(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
@@ -189,7 +190,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
 
         _updateOperatorFeeUnsafe(operatorId, feeChangeRequest.fee);
 
-        emit OperatorFeeApproved(msg.sender, operatorId, block.number, Utils.from64(feeChangeRequest.fee));
+        emit OperatorFeeApproved(msg.sender, operatorId, block.number, Types.from64(feeChangeRequest.fee));
 
         delete _feeChangeRequests[operatorId];
     }
@@ -212,7 +213,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     ) external override {
         _updateNetworkEarnings();
         _updateAddressNetworkFee(msg.sender);
-        _registerValidatorUnsafe(msg.sender, publicKey, operatorIds, sharesPublicKeys, encryptedKeys, Utils.to64(tokenAmount));
+        _registerValidatorUnsafe(msg.sender, publicKey, operatorIds, sharesPublicKeys, encryptedKeys, tokenAmount);
     }
 
     /**
@@ -226,7 +227,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
         uint256 tokenAmount
     ) onlyValidatorOwnerOrContractOwner(publicKey) external override {
         _removeValidatorUnsafe(msg.sender, publicKey);
-        _registerValidatorUnsafe(msg.sender, publicKey, operatorIds, sharesPublicKeys, encryptedKeys, Utils.to64(tokenAmount));
+        _registerValidatorUnsafe(msg.sender, publicKey, operatorIds, sharesPublicKeys, encryptedKeys, Types.to64(tokenAmount));
     }
 
     /**
@@ -244,9 +245,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function withdraw(uint256 tokenAmount) external override {
-        require(_totalBalanceOf(msg.sender) >= Utils.to64(tokenAmount), "not enough balance");
+        require(_totalBalanceOf(msg.sender) >= Types.to64(tokenAmount), "not enough balance");
 
-        _withdrawUnsafe(Utils.to64(tokenAmount));
+        _withdrawUnsafe(Types.to64(tokenAmount));
 
         require(!_liquidatable(msg.sender), "not enough balance");
     }
@@ -266,7 +267,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
             }
         }
 
-        _token.transfer(msg.sender, Utils.from64(balanceToTransfer));
+        _token.transfer(msg.sender, Types.from64(balanceToTransfer));
     }
 
     function reactivateAccount(uint256 tokenAmount) external override {
@@ -301,22 +302,22 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
      * @dev See {ISSVNetwork-updateNetworkFee}.
      */
     function updateNetworkFee(uint256 fee) external onlyOwner override {
-        emit NetworkFeeUpdated(Utils.from64(_networkFee), Utils.from64(Utils.to64(fee)));
+        emit NetworkFeeUpdated(Types.from64(_networkFee), Types.from64(Types.to64(fee)));
         _updateNetworkEarnings();
         _updateNetworkFeeIndex();
-        _networkFee = Utils.to64(fee);
+        _networkFee = Types.to64(fee);
     }
 
     function withdrawNetworkEarnings(uint256 amount) external onlyOwner override {
-        require(Utils.to64(amount) <= _getNetworkTreasury(), "not enough balance");
-        _withdrawnFromTreasury += Utils.to64(amount);
-        _token.transfer(msg.sender, Utils.from64(Utils.to64(amount)));
+        require(Types.to64(amount) <= _getNetworkTreasury(), "not enough balance");
+        _withdrawnFromTreasury += Types.to64(amount);
+        _token.transfer(msg.sender, Types.from64(Types.to64(amount)));
 
         emit NetworkFeesWithdrawn(amount, msg.sender);
     }
 
     function getAddressBalance(address ownerAddress) external override view returns (uint256) {
-        return Utils.from64(_totalBalanceOf(ownerAddress));
+        return Types.from64(_totalBalanceOf(ownerAddress));
     }
 
     function isLiquidated(address ownerAddress) external view override returns (bool) {
@@ -372,7 +373,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function getAddressBurnRate(address ownerAddress) external view override returns (uint256) {
-        return Utils.from64(_burnRate(ownerAddress));
+        return Types.from64(_burnRate(ownerAddress));
     }
 
     function isLiquidatable(address ownerAddress) external view override returns (bool) {
@@ -384,7 +385,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
-        return Utils.from64(_getNetworkTreasury());
+        return Types.from64(_getNetworkTreasury());
     }
 
     function getLiquidationThresholdPeriod() external view override returns (uint256) {
@@ -428,17 +429,17 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function _deposit(address ownerAddress, uint256 tokenAmount) private {
-        _token.transferFrom(msg.sender, address(this), Utils.from64(Utils.to64(tokenAmount)));
-        _owners[ownerAddress].deposited += Utils.to64(tokenAmount);
+        _token.transferFrom(msg.sender, address(this), Types.from64(Types.to64(tokenAmount)));
+        _owners[ownerAddress].deposited += Types.to64(tokenAmount);
 
-        emit FundsDeposited(Utils.from64(Utils.to64(tokenAmount)), ownerAddress, msg.sender);
+        emit FundsDeposited(Types.from64(Types.to64(tokenAmount)), ownerAddress, msg.sender);
     }
 
     function _withdrawUnsafe(uint64 tokenAmount) private {
         _owners[msg.sender].withdrawn += tokenAmount;
-        _token.transfer(msg.sender, Utils.from64(tokenAmount));
+        _token.transfer(msg.sender, Types.from64(tokenAmount));
 
-        emit FundsWithdrawn(Utils.from64(tokenAmount), msg.sender);
+        emit FundsWithdrawn(Types.from64(tokenAmount), msg.sender);
     }
 
     /**
@@ -566,7 +567,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
         _updateOperatorIndex(operatorId);
         operatorData.indexBlockNumber = block.number;
         _updateOperatorBalance(operatorId);
-        _ssvRegistryContract.updateOperatorFee(operatorId, Utils.to64(fee));
+        _ssvRegistryContract.updateOperatorFee(operatorId, Types.to64(fee));
     }
 
     /**
@@ -706,13 +707,13 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
      */
     function _operatorEarningsOf(uint32 operatorId) private view returns (uint64) {
         return _operatorDatas[operatorId].earnings +
-               Utils.to64(block.number - _operatorDatas[operatorId].blockNumber) *
+               Types.to64(block.number - _operatorDatas[operatorId].blockNumber) *
                _operatorEarnRate(operatorId);
     }
 
     function _addressNetworkFee(address ownerAddress) private view returns (uint64) {
         return _owners[ownerAddress].networkFee +
-              Utils.to64(_currentNetworkFeeIndex() - _owners[ownerAddress].networkFeeIndex) *
+              Types.to64(_currentNetworkFeeIndex() - _owners[ownerAddress].networkFeeIndex) *
               _owners[ownerAddress].activeValidatorCount;
     }
 
@@ -749,10 +750,12 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function _getTotalNetworkEarnings() private view returns (uint64) {
-        return _networkEarnings + Utils.to64(block.number - _networkEarningsBlockNumber) * _networkFee * _ssvRegistryContract.activeValidatorCount();
+        uint256 result = Types.from64(_networkEarnings) + (block.number - _networkEarningsBlockNumber) * _networkFee * _ssvRegistryContract.activeValidatorCount();
+        return uint64(result);
     }
 
     function _getNetworkTreasury() private view returns (uint64) {
+        console.log("===!!!",_getTotalNetworkEarnings(), _withdrawnFromTreasury);
         return _getTotalNetworkEarnings() - _withdrawnFromTreasury;
     }
 
@@ -761,14 +764,14 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
      */
     function _operatorIndexOf(uint32 operatorId) private view returns (uint256) {
         return _operatorDatas[operatorId].index +
-               Utils.from64(_ssvRegistryContract.getOperatorFee(operatorId)) *
+               Types.from64(_ssvRegistryContract.getOperatorFee(operatorId)) *
                (block.number - _operatorDatas[operatorId].indexBlockNumber);
     }
 
     function _operatorInUseUsageOf(OperatorInUse storage operatorInUseData, address ownerAddress, uint32 operatorId) private view returns (uint64) {
         return operatorInUseData.used + (
                 _owners[ownerAddress].validatorsDisabled ? 0 :
-                Utils.to64(_operatorIndexOf(operatorId) - operatorInUseData.index) * operatorInUseData.validatorCount
+                Types.to64(_operatorIndexOf(operatorId) - operatorInUseData.index) * operatorInUseData.validatorCount
                );
     }
 
