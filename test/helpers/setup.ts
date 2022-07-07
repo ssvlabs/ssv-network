@@ -50,8 +50,8 @@ export const initContracts = async () => {
   await ssvRegistry.deployed();
   ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit]);
   await ssvNetwork.deployed();
-  await ssvToken.mint(account1.address, '100000000000000');
-  await ssvToken.mint(account2.address, '100000000000000');
+  await ssvToken.mint(account1.address, '1000000000000000');
+  await ssvToken.mint(account2.address, '1000000000000000');
 }
 
 const initGlobalData = () => {

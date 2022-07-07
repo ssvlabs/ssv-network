@@ -7,7 +7,6 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/VersionedContract.sol";
 import "./utils/Types.sol";
 import "./ISSVRegistry.sol";
-import "hardhat/console.sol";
 
 contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, VersionedContract {
     using Counters for Counters.Counter;
