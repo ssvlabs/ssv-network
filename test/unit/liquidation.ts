@@ -21,7 +21,7 @@ let owner: any, account1: any, account2: any, account3: any, account4: any, acco
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`)
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
-const tokens = '100000000'
+const tokens = '1000000000000'
 const DAY = 86400
 const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
@@ -45,14 +45,14 @@ describe('SSV Network Liquidation', function () {
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '10000000000')
+    await ssvToken.mint(account1.address, '100000000000000')
 
     // Register operators
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000)
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 10000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 200000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 300000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 100000000)
 
     // Register validators
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
@@ -66,9 +66,9 @@ describe('SSV Network Liquidation', function () {
 
   it('Check balance after 100 blocks', async function () {
     await progressBlocks(100)
-    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(90000000)
-    expect(await ssvNetwork.getAddressBalance(account2.address)).to.equal(3000000)
-    expect(await ssvNetwork.getAddressBalance(account3.address)).to.equal(7000000)
+    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(900000000000)
+    expect(await ssvNetwork.getAddressBalance(account2.address)).to.equal(30000000000)
+    expect(await ssvNetwork.getAddressBalance(account3.address)).to.equal(70000000000)
   })
 
   it('Try to liquidate a valid account', async function () {
@@ -78,16 +78,16 @@ describe('SSV Network Liquidation', function () {
 
   it('Check burn rates', async function (): Promise<void> {
     expect(await ssvNetwork.getAddressBurnRate(owner.address)).to.equal(0)
-    expect(await ssvNetwork.getAddressBurnRate(account1.address)).to.equal(100000)
+    expect(await ssvNetwork.getAddressBurnRate(account1.address)).to.equal(1000000000)
     expect(await ssvNetwork.getAddressBurnRate(account2.address)).to.equal(0)
     expect(await ssvNetwork.getAddressBurnRate(account3.address)).to.equal(0)
   })
 
   it('Try to withdraw to a liquidatable state', async function () {
     await progressBlocks(948)
-    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5200000)
-    await expect(ssvNetwork.connect(account1).withdraw(200000)).to.be.revertedWith('not enough balance')
-    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5100000)
+    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(52000000000)
+    await expect(ssvNetwork.connect(account1).withdraw(2000000000)).to.be.revertedWith('not enough balance')
+    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(51000000000)
   })
 
   it('Update to a valid state using tokens', async function () {
@@ -121,7 +121,7 @@ describe('SSV Network Liquidation', function () {
   it('Liquidate', async function () {
     // Try to liquidate non liquidatable accounts
     await progressBlocks(949)
-    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5100000)
+    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(51000000000)
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)
     await ssvNetwork.connect(account4).liquidate([account1.address])
     expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(false)
@@ -146,23 +146,23 @@ describe('SSV Network Liquidation', function () {
     await ssvToken.connect(account5).approve(ssvNetwork.address, tokens)
     await ssvNetwork.connect(account5).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens)
     await progressBlocks(946)
-    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5100000)
-    expect(await ssvNetwork.getAddressBalance(account5.address)).to.equal(5400000)
+    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(51000000000)
+    expect(await ssvNetwork.getAddressBalance(account5.address)).to.equal(54000000000)
     expect(await ssvNetwork.getAddressBalance(account4.address)).to.equal(0)
     expect(await ssvToken.balanceOf(account4.address)).to.equal(0)
 
     // Try to liquidate non liquidatable accounts
     await ssvNetwork.connect(account4).liquidate([account1.address, account2.address, account5.address])
-    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5000000)
-    expect(await ssvNetwork.getAddressBalance(account2.address)).to.equal(56910000)
-    expect(await ssvNetwork.getAddressBalance(account5.address)).to.equal(5300000)
+    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(50000000000)
+    expect(await ssvNetwork.getAddressBalance(account2.address)).to.equal(569100000000)
+    expect(await ssvNetwork.getAddressBalance(account5.address)).to.equal(53000000000)
     expect(await ssvNetwork.getAddressBalance(account4.address)).to.equal(0)
     await progressBlocks(3)
 
     // Liquidate account1 (actually liquidatable), account2 (not liquidatable) and account5 (actually liquidatable)
     await ssvNetwork.connect(account4).liquidate([account1.address, account2.address, account5.address])
     expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(0)
-    expect(await ssvNetwork.getAddressBalance(account2.address)).to.equal(57150000)
+    expect(await ssvNetwork.getAddressBalance(account2.address)).to.equal(571500000000)
     expect(await ssvNetwork.getAddressBalance(account5.address)).to.equal(0)
     expect(await ssvNetwork.getAddressBalance(account4.address)).to.equal(0)
 
@@ -174,7 +174,7 @@ describe('SSV Network Liquidation', function () {
   it('Try to enable account to liquitable status', async function () {
     // Expect to not be liquidatable
     await progressBlocks(950)
-    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5000000)
+    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(50000000000)
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)
 
     // Liquidate account1
@@ -188,9 +188,9 @@ describe('SSV Network Liquidation', function () {
     await expect(ssvNetwork.connect(account1).reactivateAccount(4900000)).to.be.revertedWith("not enough balance")
 
     // Enable account
-    await ssvNetwork.connect(account1).reactivateAccount(5000000)
+    await ssvNetwork.connect(account1).reactivateAccount(50000000000)
     expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(false)
-    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5000000)
+    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(50000000000)
 
     // Liquidate again immediately
     await ssvNetwork.connect(account2).liquidate([account1.address])
