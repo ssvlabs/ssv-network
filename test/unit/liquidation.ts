@@ -46,6 +46,7 @@ describe('SSV Network Liquidation', function () {
 
     // Mint tokens
     await ssvToken.mint(account1.address, '100000000000000')
+    await ssvToken.mint(account2.address, tokens)
 
     // Register operators
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000)
@@ -56,7 +57,6 @@ describe('SSV Network Liquidation', function () {
 
     // Register validators
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
-    await ssvToken.connect(account1).transfer(account2.address, tokens)
     await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens)
   })
 

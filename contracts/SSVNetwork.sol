@@ -761,7 +761,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
      */
     function _operatorIndexOf(uint32 operatorId) private view returns (uint256) {
         return _operatorDatas[operatorId].index +
-               Types.from64(_ssvRegistryContract.getOperatorFee(operatorId)) *
+               _ssvRegistryContract.getOperatorFee(operatorId) *
                (block.number - _operatorDatas[operatorId].indexBlockNumber);
     }
 
