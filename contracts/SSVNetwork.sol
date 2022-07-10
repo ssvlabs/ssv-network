@@ -705,13 +705,13 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
      */
     function _operatorEarningsOf(uint32 operatorId) private view returns (uint64) {
         return _operatorDatas[operatorId].earnings +
-               Types.to64(block.number - _operatorDatas[operatorId].blockNumber) *
+               uint64(block.number - _operatorDatas[operatorId].blockNumber) *
                _operatorEarnRate(operatorId);
     }
 
     function _addressNetworkFee(address ownerAddress) private view returns (uint64) {
         return _owners[ownerAddress].networkFee +
-              Types.to64(_currentNetworkFeeIndex() - _owners[ownerAddress].networkFeeIndex) *
+              uint64(_currentNetworkFeeIndex() - _owners[ownerAddress].networkFeeIndex) *
               _owners[ownerAddress].activeValidatorCount;
     }
 
