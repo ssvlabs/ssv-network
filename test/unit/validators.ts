@@ -42,17 +42,17 @@ describe('Validators', function () {
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '10000000000')
+    await ssvToken.mint(account1.address, '100000000000000')
 
     // Register operators
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000)
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 200000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 300000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 500000000)
 
     // Register Validator
-    const tokens = '100000000'
+    const tokens = '1000000000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     await expect(
       ssvNetwork.connect(account1)
@@ -77,7 +77,7 @@ describe('Validators', function () {
         operatorsIds.slice(0, 4),
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
-        '10000'
+        '100000000'
       ).should.eventually.be.rejectedWith('ERC20: insufficient allowance')
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1')
   })
