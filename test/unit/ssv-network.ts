@@ -13,7 +13,7 @@ const { expect } = chai;
 
 // Define global variables
 const minimumBlocksBeforeLiquidation = 50;
-const operatorMaxFeeIncrease = 10;
+const operatorMaxFeeIncrease = 1000;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 let ssvToken: any, ssvRegistry: any, ssvNetwork: any, utils: any;
@@ -320,19 +320,19 @@ describe('SSV Network', function () {
     expect((await ssvRegistry.getOperatorById(operatorsIds[4]))[6]).to.equal(false);
   });
 
-  // it('Operator max fee increase', async function () {
-  //   expect(await ssvNetwork.getOperatorFeeIncreaseLimit()).to.equal(10);
-  //   await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 12000)).to.be.revertedWith('fee exceeds increase limit');
-  //   await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[1], 24000)).to.be.revertedWith('fee exceeds increase limit');
-  //   await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 11000);
-  //   await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0]);
-  //   expect(await ssvRegistry.getOperatorFee(operatorsIds[0])).to.equal(11000);
-  //   await ssvNetwork.updateOperatorFeeIncreaseLimit(20);
-  //   expect(await ssvNetwork.getOperatorFeeIncreaseLimit()).to.equal(20);
-  //   await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[1], 25000)).to.be.revertedWith('fee exceeds increase limit');
-  //   await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[1], 24000);
-  //   await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[1]);
-  // });
+  it('Operator max fee increase', async function () {
+    expect(await ssvNetwork.getOperatorFeeIncreaseLimit()).to.equal(1000);
+    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 12000)).to.be.revertedWith('fee exceeds increase limit');
+    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[1], 24000)).to.be.revertedWith('fee exceeds increase limit');
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 11000);
+    await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0]);
+    expect(await ssvRegistry.getOperatorFee(operatorsIds[0])).to.equal(11000);
+    await ssvNetwork.updateOperatorFeeIncreaseLimit(2000);
+    expect(await ssvNetwork.getOperatorFeeIncreaseLimit()).to.equal(2000);
+    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[1], 25000)).to.be.revertedWith('fee exceeds increase limit');
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[1], 24000);
+    await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[1]);
+  });
 
   it('Update operator max fee increase emits event', async function () {
     await expect(ssvNetwork.updateOperatorFeeIncreaseLimit(200)).to.emit(ssvNetwork, 'OperatorFeeIncreaseLimitUpdated').withArgs(200);

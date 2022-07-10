@@ -168,7 +168,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function declareOperatorFee(uint32 operatorId, uint256 operatorFee) onlyOperatorOwnerOrContractOwner(operatorId) ensureMinimalOperatorFee(operatorFee) external override {
-        require(operatorFee <= _ssvRegistryContract.getOperatorFee(operatorId) * (100000 + _operatorMaxFeeIncrease) / 100000, "fee exceeds increase limit");
+        require(operatorFee <= _ssvRegistryContract.getOperatorFee(operatorId) * (10000 + _operatorMaxFeeIncrease) / 10000, "fee exceeds increase limit");
         _feeChangeRequests[operatorId] = FeeChangeRequest(operatorFee, block.timestamp + _declareOperatorFeePeriod, block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod);
 
         emit DeclareOperatorFee(msg.sender, operatorId, block.number, operatorFee);
