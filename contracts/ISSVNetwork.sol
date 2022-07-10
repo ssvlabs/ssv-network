@@ -41,14 +41,14 @@ interface ISSVNetwork {
      */
     event OperatorRemoved(uint32 operatorId, address indexed ownerAddress);
 
-    event OperatorFeeSet(
+    event DeclareOperatorFee(
         address indexed ownerAddress,
         uint32 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
 
-    event OperatorFeeSetCanceled(address indexed ownerAddress, uint32 operatorId);
+    event CancelDeclaredOperatorFee(address indexed ownerAddress, uint32 operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -56,7 +56,7 @@ interface ISSVNetwork {
      * @param blockNumber from which block number.
      * @param fee updated fee value.
      */
-    event OperatorFeeApproved(
+    event ExecuteOperatorFee(
         address indexed ownerAddress,
         uint32 operatorId,
         uint256 blockNumber,
@@ -137,7 +137,7 @@ interface ISSVNetwork {
 
     event OperatorFeeIncreaseLimitUpdated(uint256 value);
 
-    event ValidatorsPerOperatorLimitUpdated(uint256 value);
+    event UpdateValidatorsPerOperatorLimit(uint256 value);
 
     event RegisteredOperatorsPerAccountLimitUpdated(uint256 value);
 
@@ -186,9 +186,9 @@ interface ISSVNetwork {
     /**
      * @dev Set operator's fee change request by public key.
      * @param operatorId Operator's id.
-     * @param fee The operator's updated fee.
+     * @param operatorFee The operator's updated fee.
      */
-    function declareOperatorFee(uint32 operatorId, uint256 fee) external;
+    function declareOperatorFee(uint32 operatorId, uint256 operatorFee) external;
 
     function cancelDeclaredOperatorFee(uint32 operatorId) external;
 
@@ -206,14 +206,15 @@ interface ISSVNetwork {
      * @param publicKey Validator public key.
      * @param operatorIds Operator public keys.
      * @param sharesPublicKeys Shares public keys.
-     * @param encryptedKeys Encrypted private keys.
+     * @param sharesEncrypted Encrypted private keys.
+     * @param amount Amount of tokens to deposit.
      */
     function registerValidator(
         bytes calldata publicKey,
         uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys,
-        uint256 tokenAmount
+        bytes[] calldata sharesEncrypted,
+        uint256 amount
     ) external;
 
     /**
@@ -221,14 +222,15 @@ interface ISSVNetwork {
      * @param publicKey Validator public key.
      * @param operatorIds Operator public keys.
      * @param sharesPublicKeys Shares public keys.
-     * @param encryptedKeys Encrypted private keys.
+     * @param sharesEncrypted Encrypted private keys.
+     * @param amount Amount of tokens to deposit.
      */
     function updateValidator(
         bytes calldata publicKey,
         uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys,
-        uint256 tokenAmount
+        bytes[] calldata sharesEncrypted,
+        uint256 amount
     ) external;
 
     /**
@@ -263,15 +265,15 @@ interface ISSVNetwork {
 
     /**
      * @dev Enables msg.sender account.
-     * @param tokenAmount Tokens amount.
+     * @param amount Tokens amount.
      */
-    function reactivateAccount(uint256 tokenAmount) external;
+    function reactivateAccount(uint256 amount) external;
 
     /**
      * @dev Updates the number of blocks left for an owner before they can be liquidated.
-     * @param newMinimumBlocksBeforeLiquidation The new value.
+     * @param blocks The new value.
      */
-    function updateLiquidationThresholdPeriod(uint256 newMinimumBlocksBeforeLiquidation) external;
+    function updateLiquidationThresholdPeriod(uint256 blocks) external;
 
     /**
      * @dev Updates the maximum fee increase in pecentage.
@@ -294,6 +296,12 @@ interface ISSVNetwork {
      * @param amount Amount to withdraw
      */
     function withdrawNetworkEarnings(uint256 amount) external;
+
+    /**
+     * @dev Update Max validators amount limit per Operator.
+     * @param amount Amount
+     */
+    function updateValidatorsPerOperatorLimit(uint16 amount) external;
 
     /**
      * @dev Gets total balance for an owner.

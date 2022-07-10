@@ -80,14 +80,14 @@ interface ISSVRegistry {
      * @param publicKey Validator public key.
      * @param operatorIds Operator ids.
      * @param sharesPublicKeys Shares public keys.
-     * @param encryptedKeys Encrypted private keys.
+     * @param sharesEncrypted Encrypted private keys.
      */
     function registerValidator(
         address ownerAddress,
         bytes calldata publicKey,
         uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys
+        bytes[] calldata sharesEncrypted
     ) external;
 
     /**
@@ -197,9 +197,9 @@ interface ISSVRegistry {
 
     /**
      * @dev Update Max validators amount limit per Operator.
-     * @param _validatorsPerOperatorLimit Amount
+     * @param amount Amount
      */
-    function updateValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) external;
+    function updateValidatorsPerOperatorLimit(uint16 amount) external;
 
     /**
      * @dev Update Max registered operators per account per Operator.

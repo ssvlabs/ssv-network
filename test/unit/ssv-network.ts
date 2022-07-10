@@ -69,7 +69,7 @@ describe('SSV Network', function () {
   });
 
   it('Update operator limit emits event', async function () {
-    await expect(ssvNetwork.updateValidatorsPerOperatorLimit(10)).to.emit(ssvNetwork, 'ValidatorsPerOperatorLimitUpdated').withArgs(10);
+    await expect(ssvNetwork.updateValidatorsPerOperatorLimit(10)).to.emit(ssvNetwork, 'UpdateValidatorsPerOperatorLimit').withArgs(10);
   });
 
   it('Owner address limit', async function () {

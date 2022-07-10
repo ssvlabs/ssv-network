@@ -123,13 +123,13 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         bytes calldata publicKey,
         uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys
+        bytes[] calldata sharesEncrypted
     ) external onlyOwner override {
         _validateValidatorParams(
             publicKey,
             operatorIds,
             sharesPublicKeys,
-            encryptedKeys
+            sharesEncrypted
         );
 
         require(
@@ -194,8 +194,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     /**
      * @dev See {ISSVRegistry-updateValidatorsPerOperatorLimit}.
      */
-    function updateValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) onlyOwner external override {
-        _updateValidatorsPerOperatorLimit(_validatorsPerOperatorLimit);
+    function updateValidatorsPerOperatorLimit(uint16 amount) onlyOwner external override {
+        _updateValidatorsPerOperatorLimit(amount);
     }
 
     /**
