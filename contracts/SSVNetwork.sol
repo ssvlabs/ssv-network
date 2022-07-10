@@ -768,7 +768,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     function _operatorInUseUsageOf(OperatorInUse storage operatorInUseData, address ownerAddress, uint32 operatorId) private view returns (uint64) {
         return operatorInUseData.used + (
                 _owners[ownerAddress].validatorsDisabled ? 0 :
-                Types.to64(_operatorIndexOf(operatorId) - operatorInUseData.index) * operatorInUseData.validatorCount
+                uint64(_operatorIndexOf(operatorId) - operatorInUseData.index) * operatorInUseData.validatorCount
                );
     }
 
