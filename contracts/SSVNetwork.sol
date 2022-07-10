@@ -347,7 +347,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
      * @dev See {ISSVNetwork-getOperatorFee}.
      */
     function getOperatorFee(uint32 operatorId) external view override returns (uint256) {
-        return _ssvRegistryContract.getOperatorFee(operatorId);
+        return Utils.from64(_ssvRegistryContract.getOperatorFee(operatorId));
     }
 
     /**
