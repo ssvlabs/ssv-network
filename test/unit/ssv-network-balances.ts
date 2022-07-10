@@ -15,7 +15,7 @@ beforeEach(() => {
 // Define global variables
 const { expect } = chai;
 const minimumBlocksBeforeLiquidation = 50;
-const operatorMaxFeeIncrease = 10;
+const operatorMaxFeeIncrease = 1000000000;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
 let ssvToken: any, ssvRegistry: any, ssvNetwork: any;
@@ -53,7 +53,7 @@ describe('SSV Network Balances Calculation', function () {
     await ssvRegistry.deployed();
     ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit]);
     await ssvNetwork.deployed();
-    await ssvToken.mint(account1.address, '10000000000');
+    await ssvToken.mint(account1.address, '100000000000000');
   });
 
   it('Address Balance', async function () {
@@ -61,15 +61,15 @@ describe('SSV Network Balances Calculation', function () {
     const balancesByBlocks = [""];
     const networkAddFeeByBlocks = [""];
     await snapshot(async () => {
-      const chargedAmount = 10000000;
+      const chargedAmount = 100000000000;
       await ssvToken.connect(account1).approve(ssvNetwork.address, `${chargedAmount * 4}`);
-      (await ssvNetwork.updateNetworkFee(1000)).wait();
+      (await ssvNetwork.updateNetworkFee(10000000)).wait();
       // Register operators
       await network.provider.send("evm_setAutomine", [false]);
-      await registerOperator(account2, 0, 20000);
-      await registerOperator(account2, 1, 10000);
-      await registerOperator(account2, 2, 10000);
-      await registerOperator(account2, 3, 30000);
+      await registerOperator(account2, 0, 200000000);
+      await registerOperator(account2, 1, 100000000);
+      await registerOperator(account2, 2, 100000000);
+      await registerOperator(account2, 3, 300000000);
 
       await progressBlocks(1);
 
@@ -100,7 +100,7 @@ describe('SSV Network Balances Calculation', function () {
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
       await network.provider.send("evm_setAutomine", [false]);
-      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 22000)).wait();
+      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 220000000)).wait();
       (await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).wait();
 
       // Register validator
@@ -126,9 +126,9 @@ describe('SSV Network Balances Calculation', function () {
       balancesByBlocks.push(`${3 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)} (${await ssvNetwork.getAddressBalance(account1.address)})`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
       await network.provider.send("evm_setAutomine", [false]);
-      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 18000)).wait();
+      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 180000000)).wait();
       (await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).wait();
-      (await ssvNetwork.updateNetworkFee(2000)).wait();
+      (await ssvNetwork.updateNetworkFee(20000000)).wait();
       // register validator
       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount}`)).wait();
       await network.provider.send("evm_setAutomine", [true]);
@@ -155,7 +155,7 @@ describe('SSV Network Balances Calculation', function () {
       );
 
       console.log(table.toString());
-     // expect(4 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)).to.equal(18080000);
+      expect(4 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)).to.equal(180800000000);
 
     });
   });
