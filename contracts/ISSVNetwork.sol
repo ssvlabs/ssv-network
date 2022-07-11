@@ -10,13 +10,13 @@ interface ISSVNetwork {
      * @dev Emitted when the account has been enabled.
      * @param ownerAddress Operator's owner.
      */
-    event AccountEnabled(address indexed ownerAddress);
+    event AccountEnable(address indexed ownerAddress);
 
     /**
      * @dev Emitted when the account has been liquidated.
      * @param ownerAddress Operator's owner.
      */
-    event AccountLiquidated(address indexed ownerAddress);
+    event AccountLiquidation(address indexed ownerAddress);
 
     /**
      * @dev Emitted when the operator has been added.
@@ -26,7 +26,7 @@ interface ISSVNetwork {
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee Operator's initial fee.
      */
-    event OperatorAdded(
+    event OperatorRegistration(
         uint32 indexed id,
         string name,
         address indexed ownerAddress,
@@ -39,16 +39,16 @@ interface ISSVNetwork {
      * @param operatorId operator's ID.
      * @param ownerAddress Operator's owner.
      */
-    event OperatorRemoved(uint32 operatorId, address indexed ownerAddress);
+    event OperatorRemoval(uint32 operatorId, address indexed ownerAddress);
 
-    event DeclareOperatorFee(
+    event OperatorFeeDeclaration(
         address indexed ownerAddress,
         uint32 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
 
-    event CancelDeclaredOperatorFee(address indexed ownerAddress, uint32 operatorId);
+    event DeclaredOperatorFeeCancelation(address indexed ownerAddress, uint32 operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -56,7 +56,7 @@ interface ISSVNetwork {
      * @param blockNumber from which block number.
      * @param fee updated fee value.
      */
-    event ExecuteOperatorFee(
+    event OperatorFeeExecution(
         address indexed ownerAddress,
         uint32 operatorId,
         uint256 blockNumber,
@@ -70,7 +70,7 @@ interface ISSVNetwork {
      * @param blockNumber from which block number.
      * @param score updated score value.
      */
-    event OperatorScoreUpdated(
+    event OperatorScoreUpdate(
         uint32 operatorId,
         address indexed ownerAddress,
         uint256 blockNumber,
@@ -85,7 +85,7 @@ interface ISSVNetwork {
      * @param sharesPublicKeys The shared publick keys list for this validator.
      * @param encryptedKeys The encrypted keys list for this validator.
      */
-    event ValidatorAdded(
+    event ValidatorRegistration(
         address indexed ownerAddress,
         bytes publicKey,
         uint32[] operatorIds,
@@ -98,7 +98,7 @@ interface ISSVNetwork {
      * @param ownerAddress Validator's owner.
      * @param publicKey The public key of a validator.
      */
-    event ValidatorRemoved(address indexed ownerAddress, bytes publicKey);
+    event ValidatorRemoval(address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an owner deposits funds.
@@ -106,44 +106,44 @@ interface ISSVNetwork {
      * @param ownerAddress Owner's address.
      * @param senderAddress Sender's address.
      */
-    event FundsDeposited(uint256 value, address indexed ownerAddress, address indexed senderAddress);
+    event FundsDeposit(uint256 value, address indexed ownerAddress, address indexed senderAddress);
 
     /**
      * @dev Emitted when an owner withdraws funds.
      * @param value Amount of tokens.
      * @param ownerAddress Owner's address.
      */
-    event FundsWithdrawn(uint256 value, address indexed ownerAddress);
+    event FundsWithdrawal(uint256 value, address indexed ownerAddress);
 
     /**
      * @dev Emitted when the network fee is updated.
      * @param oldFee The old fee
      * @param newFee The new fee
      */
-    event NetworkFeeUpdated(uint256 oldFee, uint256 newFee);
+    event NetworkFeeUpdate(uint256 oldFee, uint256 newFee);
 
     /**
      * @dev Emitted when transfer fees are withdrawn.
      * @param value The amount of tokens withdrawn.
      * @param recipient The recipient address.
      */
-    event NetworkFeesWithdrawn(uint256 value, address recipient);
+    event NetworkFeesWithdrawal(uint256 value, address recipient);
 
-    event DeclareOperatorFeePeriodUpdated(uint256 value);
+    event DeclareOperatorFeePeriodUpdate(uint256 value);
 
-    event ExecuteOperatorFeePeriodUpdated(uint256 value);
+    event ExecuteOperatorFeePeriodUpdate(uint256 value);
 
-    event LiquidationThresholdPeriodUpdated(uint256 value);
+    event LiquidationThresholdPeriodUpdate(uint256 value);
 
-    event OperatorFeeIncreaseLimitUpdated(uint256 value);
+    event OperatorFeeIncreaseLimitUpdate(uint256 value);
 
-    event UpdateValidatorsPerOperatorLimit(uint256 value);
+    event ValidatorsPerOperatorLimitUpdate(uint256 value);
 
-    event RegisteredOperatorsPerAccountLimitUpdated(uint256 value);
+    event RegisteredOperatorsPerAccountLimitUpdate(uint256 value);
 
-    event MinimumBlocksBeforeLiquidationUpdated(uint256 value);
+    event MinimumBlocksBeforeLiquidationUpdate(uint256 value);
 
-    event OperatorMaxFeeIncreaseUpdated(uint256 value);
+    event OperatorMaxFeeIncreaseUpdate(uint256 value);
 
     /**
      * @dev Initializes the contract.

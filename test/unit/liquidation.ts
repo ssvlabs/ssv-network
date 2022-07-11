@@ -98,8 +98,8 @@ describe('SSV Network Liquidation', function () {
     // Change operator triggering to put in more SSV
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     const tx = ssvNetwork.connect(account1).updateValidator(validatorsPub[0], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5), tokens)
-    await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoved')
-    await expect(tx).to.emit(ssvNetwork, 'ValidatorAdded')
+    await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoval')
+    await expect(tx).to.emit(ssvNetwork, 'ValidatorRegistration')
 
     // No longer liquidatable
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)

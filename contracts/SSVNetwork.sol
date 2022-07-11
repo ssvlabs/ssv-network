@@ -152,7 +152,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
         );
 
         _operatorDatas[operatorId] = OperatorData({ blockNumber: block.number, earnings: 0, index: 0, indexBlockNumber: block.number, activeValidatorCount: 0 });
-        emit OperatorAdded(operatorId, name, msg.sender, publicKey, fee);
+        emit OperatorRegistration(operatorId, name, msg.sender, publicKey, fee);
     }
 
     /**
@@ -164,20 +164,20 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
         _updateOperatorFeeUnsafe(operatorId, 0);
         _ssvRegistryContract.removeOperator(operatorId);
 
-        emit OperatorRemoved(operatorId, owner);
+        emit OperatorRemoval(operatorId, owner);
     }
 
     function declareOperatorFee(uint32 operatorId, uint256 operatorFee) onlyOperatorOwnerOrContractOwner(operatorId) ensureMinimalOperatorFee(operatorFee) external override {
         require(operatorFee <= _ssvRegistryContract.getOperatorFee(operatorId) * (10000 + _operatorMaxFeeIncrease) / 10000, "fee exceeds increase limit");
         _feeChangeRequests[operatorId] = FeeChangeRequest(operatorFee, block.timestamp + _declareOperatorFeePeriod, block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod);
 
-        emit DeclareOperatorFee(msg.sender, operatorId, block.number, operatorFee);
+        emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, operatorFee);
     }
 
     function cancelDeclaredOperatorFee(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
         delete _feeChangeRequests[operatorId];
 
-        emit CancelDeclaredOperatorFee(msg.sender, operatorId);
+        emit DeclaredOperatorFeeCancelation(msg.sender, operatorId);
     }
 
     function executeOperatorFee(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
@@ -188,7 +188,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
 
         _updateOperatorFeeUnsafe(operatorId, feeChangeRequest.fee);
 
-        emit ExecuteOperatorFee(msg.sender, operatorId, block.number, feeChangeRequest.fee);
+        emit OperatorFeeExecution(msg.sender, operatorId, block.number, feeChangeRequest.fee);
 
         delete _feeChangeRequests[operatorId];
     }
@@ -196,7 +196,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     function updateOperatorScore(uint32 operatorId, uint16 score) onlyOwner external override {
         _ssvRegistryContract.updateOperatorScore(operatorId, score);
 
-        emit OperatorScoreUpdated(operatorId, msg.sender, block.number, score);
+        emit OperatorScoreUpdate(operatorId, msg.sender, block.number, score);
     }
 
     /**
@@ -277,7 +277,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
 
         require(!_liquidatable(msg.sender), "not enough balance");
 
-        emit AccountEnabled(msg.sender);
+        emit AccountEnable(msg.sender);
     }
 
     function updateLiquidationThresholdPeriod(uint256 blocks) external onlyOwner override {
@@ -300,7 +300,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
      * @dev See {ISSVNetwork-updateNetworkFee}.
      */
     function updateNetworkFee(uint256 fee) external onlyOwner override {
-        emit NetworkFeeUpdated(_networkFee, fee);
+        emit NetworkFeeUpdate(_networkFee, fee);
         _updateNetworkEarnings();
         _updateNetworkFeeIndex();
         _networkFee = fee;
@@ -311,7 +311,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
         _withdrawnFromTreasury += amount;
         _token.transfer(msg.sender, amount);
 
-        emit NetworkFeesWithdrawn(amount, msg.sender);
+        emit NetworkFeesWithdrawal(amount, msg.sender);
     }
 
     function getAddressBalance(address ownerAddress) external override view returns (uint256) {
@@ -405,13 +405,13 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     function updateValidatorsPerOperatorLimit(uint16 amount) external onlyOwner {
         _ssvRegistryContract.updateValidatorsPerOperatorLimit(amount);
 
-        emit UpdateValidatorsPerOperatorLimit(amount);
+        emit ValidatorsPerOperatorLimitUpdate(amount);
     }
 
     function updateRegisteredOperatorsPerAccountLimit(uint16 registeredOperatorsPerAccountLimit_) external onlyOwner {
         _ssvRegistryContract.updateRegisteredOperatorsPerAccountLimit(registeredOperatorsPerAccountLimit_);
 
-        emit RegisteredOperatorsPerAccountLimitUpdated(registeredOperatorsPerAccountLimit_);
+        emit RegisteredOperatorsPerAccountLimitUpdate(registeredOperatorsPerAccountLimit_);
     }
 
     function validatorsPerOperatorCount(uint32 operatorId_) external view returns (uint16) {
@@ -430,14 +430,14 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
         _token.transferFrom(msg.sender, address(this), amount);
         _owners[ownerAddress].deposited += amount;
 
-        emit FundsDeposited(amount, ownerAddress, msg.sender);
+        emit FundsDeposit(amount, ownerAddress, msg.sender);
     }
 
     function _withdrawUnsafe(uint256 amount) private {
         _owners[msg.sender].withdrawn += amount;
         _token.transfer(msg.sender, amount);
 
-        emit FundsWithdrawn(amount, msg.sender);
+        emit FundsWithdrawal(amount, msg.sender);
     }
 
     /**
@@ -469,7 +469,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
 
         _owners[ownerAddress].used += balanceToTransfer;
 
-        emit AccountLiquidated(ownerAddress);
+        emit AccountLiquidation(ownerAddress);
 
         return balanceToTransfer;
     }
@@ -523,7 +523,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
 
         require(!_liquidatable(ownerAddress), "not enough balance");
 
-        emit ValidatorAdded(ownerAddress, publicKey, operatorIds, sharesPublicKeys, encryptedKeys);
+        emit ValidatorRegistration(ownerAddress, publicKey, operatorIds, sharesPublicKeys, encryptedKeys);
     }
 
     function _removeValidatorUnsafe(address ownerAddress, bytes memory publicKey) private {
@@ -534,7 +534,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
             --_owners[ownerAddress].activeValidatorCount;
         }
 
-        emit ValidatorRemoved(ownerAddress, publicKey);
+        emit ValidatorRemoval(ownerAddress, publicKey);
     }
 
     function _unregisterValidator(address ownerAddress, bytes memory publicKey) private {
@@ -644,26 +644,26 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     function _updateLiquidationThresholdPeriod(uint256 newMinimumBlocksBeforeLiquidation) private {
         _minimumBlocksBeforeLiquidation = newMinimumBlocksBeforeLiquidation;
 
-        emit LiquidationThresholdPeriodUpdated(_minimumBlocksBeforeLiquidation);
+        emit LiquidationThresholdPeriodUpdate(_minimumBlocksBeforeLiquidation);
     }
 
     function _updateOperatorFeeIncreaseLimit(uint256 newOperatorMaxFeeIncrease) private {
         _operatorMaxFeeIncrease = newOperatorMaxFeeIncrease;
 
-        emit OperatorFeeIncreaseLimitUpdated(_operatorMaxFeeIncrease);
+        emit OperatorFeeIncreaseLimitUpdate(_operatorMaxFeeIncrease);
 
     }
 
     function _updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) private {
         _declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
 
-        emit DeclareOperatorFeePeriodUpdated(newDeclareOperatorFeePeriod);
+        emit DeclareOperatorFeePeriodUpdate(newDeclareOperatorFeePeriod);
     }
 
     function _updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) private {
         _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
 
-        emit ExecuteOperatorFeePeriodUpdated(newExecuteOperatorFeePeriod);
+        emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
     }
 
     function _expensesOf(address ownerAddress) private view returns(uint256) {

@@ -49,7 +49,7 @@ describe('Operators', function () {
 
     // Register operators
     await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000))
-      .to.emit(ssvNetwork, 'OperatorAdded')
+      .to.emit(ssvNetwork, 'OperatorRegistration')
       .withArgs(operatorsIds[0], 'testOperator 0', account2.address, operatorsPub[0], 1000000)
     await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
     await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
@@ -85,7 +85,7 @@ describe('Operators', function () {
     // Remove an operator with no validators
     await progressTime(DAY)
     await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
-      .to.emit(ssvNetwork, 'OperatorRemoved')
+      .to.emit(ssvNetwork, 'OperatorRemoval')
       .withArgs(operatorsIds[0], account2.address)
 
     // Try to remove non-existent operator
@@ -108,7 +108,7 @@ describe('Operators', function () {
 
     // Delete an operator that the validator is using
     await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
-      .to.emit(ssvNetwork, 'OperatorRemoved')
+      .to.emit(ssvNetwork, 'OperatorRemoval')
       .withArgs(operatorsIds[0], account2.address)
 
     // Check that the operator fee is 0

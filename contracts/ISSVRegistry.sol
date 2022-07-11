@@ -16,7 +16,7 @@ interface ISSVRegistry {
      * @param blockNumber from which block number.
      * @param fee updated fee value.
      */
-    event OperatorFeeUpdated(
+    event OperatorFeeUpdate(
         uint32 indexed operatorId,
         address indexed ownerAddress,
         bytes publicKey,
@@ -24,13 +24,13 @@ interface ISSVRegistry {
         uint256 fee
     );
 
-    event OwnerValidatorsDisabled(address ownerAddress);
+    event OwnerValidatorsDisable(address ownerAddress);
 
-    event OwnerValidatorsEnabled(address indexed ownerAddress);
+    event OwnerValidatorsEnable(address indexed ownerAddress);
 
-    event ValidatorsPerOperatorLimitUpdated(uint16 validatorsPerOperatorLimit);
+    event ValidatorsPerOperatorLimitUpdate(uint16 validatorsPerOperatorLimit);
 
-    event RegisteredOperatorsPerAccountLimitUpdated(uint16 registeredOperatorsPerAccountLimit);
+    event RegisteredOperatorsPerAccountLimitUpdate(uint16 registeredOperatorsPerAccountLimit);
 
     /**
      * @dev Initializes the contract

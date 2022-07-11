@@ -62,7 +62,7 @@ describe('Validators', function () {
           operatorsPub.slice(0, 4),
           operatorsPub.slice(0, 4),
           tokens
-        )).to.emit(ssvNetwork, 'ValidatorAdded')
+        )).to.emit(ssvNetwork, 'ValidatorRegistration')
   })
 
   it('Get operators by validator', async function () {
@@ -84,7 +84,7 @@ describe('Validators', function () {
 
   it('Remove validator', async function () {
     await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
-      .to.emit(ssvNetwork, 'ValidatorRemoved').withArgs(account1.address, validatorsPub[0])
+      .to.emit(ssvNetwork, 'ValidatorRemoval').withArgs(account1.address, validatorsPub[0])
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0')
 
     // Try to remove the validator again

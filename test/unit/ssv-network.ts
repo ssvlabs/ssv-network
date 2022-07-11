@@ -69,7 +69,7 @@ describe('SSV Network', function () {
   });
 
   it('Update operator limit emits event', async function () {
-    await expect(ssvNetwork.updateValidatorsPerOperatorLimit(10)).to.emit(ssvNetwork, 'UpdateValidatorsPerOperatorLimit').withArgs(10);
+    await expect(ssvNetwork.updateValidatorsPerOperatorLimit(10)).to.emit(ssvNetwork, 'ValidatorsPerOperatorLimitUpdate').withArgs(10);
   });
 
   it('Owner address limit', async function () {
@@ -81,7 +81,7 @@ describe('SSV Network', function () {
   });
 
   it('Update owner address limit emits event', async function () {
-    await expect(ssvNetwork.updateRegisteredOperatorsPerAccountLimit(5)).to.emit(ssvNetwork, 'RegisteredOperatorsPerAccountLimitUpdated').withArgs(5);
+    await expect(ssvNetwork.updateRegisteredOperatorsPerAccountLimit(5)).to.emit(ssvNetwork, 'RegisteredOperatorsPerAccountLimitUpdate').withArgs(5);
   });
 
   it('Managing Operators Per Account limit', async function () {
@@ -335,7 +335,7 @@ describe('SSV Network', function () {
   });
 
   it('Update operator max fee increase emits event', async function () {
-    await expect(ssvNetwork.updateOperatorFeeIncreaseLimit(200)).to.emit(ssvNetwork, 'OperatorFeeIncreaseLimitUpdated').withArgs(200);
+    await expect(ssvNetwork.updateOperatorFeeIncreaseLimit(200)).to.emit(ssvNetwork, 'OperatorFeeIncreaseLimitUpdate').withArgs(200);
   });
 
   it('Minimum blocks before liquidation', async function () {
@@ -345,19 +345,19 @@ describe('SSV Network', function () {
   });
 
   it('Update minimum blocks before liquidation emits event', async function () {
-    await expect(ssvNetwork.updateLiquidationThresholdPeriod(50)).to.emit(ssvNetwork, 'LiquidationThresholdPeriodUpdated').withArgs(50);
+    await expect(ssvNetwork.updateLiquidationThresholdPeriod(50)).to.emit(ssvNetwork, 'LiquidationThresholdPeriodUpdate').withArgs(50);
   });
 
   it('Set network fee', async function () {
     expect(await ssvNetwork.getNetworkFee()).to.equal('0');
-    await expect(ssvNetwork.updateNetworkFee(1)).to.emit(ssvNetwork, 'NetworkFeeUpdated').withArgs('0', '1');
+    await expect(ssvNetwork.updateNetworkFee(1)).to.emit(ssvNetwork, 'NetworkFeeUpdate').withArgs('0', '1');
     expect(await ssvNetwork.getNetworkFee()).to.equal('1');
     await progressBlocks(20);
     expect(await ssvNetwork.getNetworkEarnings()).to.equal(20);
   });
 
   it('Withdraw network fees', async function () {
-    await expect(ssvNetwork.updateNetworkFee(1)).to.emit(ssvNetwork, 'NetworkFeeUpdated').withArgs('0', '1');
+    await expect(ssvNetwork.updateNetworkFee(1)).to.emit(ssvNetwork, 'NetworkFeeUpdate').withArgs('0', '1');
     await progressBlocks(20);
     await expect(ssvNetwork.connect(account2).withdrawNetworkEarnings(60)).to.be.revertedWith('Ownable: caller is not the owner');
     await expect(ssvNetwork.withdrawNetworkEarnings(80)).to.be.revertedWith('not enough balance');

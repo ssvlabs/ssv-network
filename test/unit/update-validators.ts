@@ -76,8 +76,8 @@ describe('Update Validators', function () {
         operatorsPub.slice(0, 4),
         tokens
       )
-    await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoved')
-    await expect(tx).to.emit(ssvNetwork, 'ValidatorAdded')
+    await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoval')
+    await expect(tx).to.emit(ssvNetwork, 'ValidatorRegistration')
   })
 
   it('Update validator: tx was sent not by owner', async function () {
