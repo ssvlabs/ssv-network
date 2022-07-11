@@ -12,7 +12,7 @@ before(() => {
 const { expect } = chai;
 
 // Define global variables
-const minimumBlocksBeforeLiquidation = 50;
+const minimumBlocksBeforeLiquidation = 7000;
 const operatorMaxFeeIncrease = 1000;
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';

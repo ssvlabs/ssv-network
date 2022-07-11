@@ -15,7 +15,7 @@ const { expect } = chai
 
 // Define global variables
 const DAY = 86400
-const minimumBlocksBeforeLiquidation = 50
+const minimumBlocksBeforeLiquidation = 7000
 const operatorMaxFeeIncrease = 10
 const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
