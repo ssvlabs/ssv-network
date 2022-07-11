@@ -141,8 +141,6 @@ interface ISSVNetwork {
 
     event RegisteredOperatorsPerAccountLimitUpdate(uint256 value);
 
-    event ManagingOperatorsPerAccountLimitUpdate(uint256 value);
-
     event MinimumBlocksBeforeLiquidationUpdate(uint256 value);
 
     event OperatorMaxFeeIncreaseUpdate(uint256 value);
@@ -168,9 +166,6 @@ interface ISSVNetwork {
      * @param minimumBlocksBeforeLiquidation_ The minimum blocks before liquidation.
      * @param declareOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
      * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
-     * @param validatorsPerOperatorLimit_ the limit for validators per operator.
-     * @param registeredOperatorsPerAccountLimit_ the limit for registered operators per account address.
-     * @param managingOperatorsPerAccountLimit_ the limit for managing operators per account address.
      */
     function initialize(
         ISSVRegistry registryAddress_,
@@ -178,10 +173,7 @@ interface ISSVNetwork {
         uint256 minimumBlocksBeforeLiquidation_,
         uint256 operatorMaxFeeIncrease_,
         uint256 declareOperatorFeePeriod_,
-        uint256 executeOperatorFeePeriod_,
-        uint16 validatorsPerOperatorLimit_,
-        uint16 registeredOperatorsPerAccountLimit_,
-        uint16 managingOperatorsPerAccountLimit_
+        uint256 executeOperatorFeePeriod_
     ) external;
 
     /**
@@ -217,7 +209,7 @@ interface ISSVNetwork {
      * @param operatorId Operator's id.
      * @param score The operators's updated score.
      */
-    function updateOperatorScore(uint32 operatorId, uint16 score) external;
+    function updateOperatorScore(uint32 operatorId, uint32 score) external;
 
     /**
      * @dev Registers a new validator.
@@ -314,12 +306,6 @@ interface ISSVNetwork {
      * @param amount Amount to withdraw
      */
     function withdrawNetworkEarnings(uint256 amount) external;
-
-    /**
-     * @dev Update Max validators amount limit per Operator.
-     * @param amount Amount
-     */
-    function updateValidatorsPerOperatorLimit(uint16 amount) external;
 
     /**
      * @dev Gets total balance for an owner.
@@ -427,4 +413,6 @@ interface ISSVNetwork {
      function getExecuteOperatorFeePeriod() external view returns (uint256);
 
      function getDeclaredOperatorFeePeriod() external view returns (uint256);
+
+     function validatorsPerOperatorCount(uint32 operatorId) external view returns (uint32);
 }

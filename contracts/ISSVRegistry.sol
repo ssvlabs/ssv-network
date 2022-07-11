@@ -21,10 +21,8 @@ interface ISSVRegistry {
 
     /**
      * @dev Initializes the contract
-     * @param validatorsPerOperatorLimit_ the limit for validators per operator.
-     * @param registeredOperatorsPerAccountLimit_ the limit for registered operators per account address.
      */
-    function initialize(uint16 validatorsPerOperatorLimit_, uint16 registeredOperatorsPerAccountLimit_) external;
+    function initialize() external;
 
     /**
      * @dev Registers a new operator.
@@ -58,7 +56,7 @@ interface ISSVRegistry {
      */
     function updateOperatorScore(
         uint32 operatorId,
-        uint16 score
+        uint32 score
     ) external;
 
     /**
@@ -183,30 +181,8 @@ interface ISSVRegistry {
     function getValidatorOwner(bytes calldata publicKey) external view returns (address);
 
     /**
-     * @dev Update Max validators amount limit per Operator.
-     * @param amount Amount
-     */
-    function updateValidatorsPerOperatorLimit(uint16 amount) external;
-
-    /**
-     * @dev Update Max registered operators per account per Operator.
-     * @param _registeredOperatorsPerAccountLimit Amount
-     */
-    function updateRegisteredOperatorsPerAccountLimit(uint16 _registeredOperatorsPerAccountLimit) external;
-
-    /**
-     * @dev Get validators per operator limit.
-     */
-    function getValidatorsPerOperatorLimit() external view returns (uint16);
-
-    /**
      * @dev Get validators amount per operator.
      * @param operatorId Operator public key
      */
-    function validatorsPerOperatorCount(uint32 operatorId) external view returns (uint16);
-
-    /**
-     * @dev Get registered operators per account limit.
-     */
-    function getRegisteredOperatorsPerAccountLimit() external view returns (uint16);
+    function validatorsPerOperatorCount(uint32 operatorId) external view returns (uint32);
 }
