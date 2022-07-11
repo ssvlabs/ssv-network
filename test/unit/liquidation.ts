@@ -62,7 +62,7 @@ describe('SSV Network Liquidation', function () {
   })
 
   it('Register validator with 0 balance', async function () {
-    await expect(ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0)).to.be.revertedWith("not enough balance")
+    await expect(ssvNetwork.connect(account2).registerValidator(validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 0)).to.be.revertedWith("NotEnoughBalance")
   })
 
   it('Check balance after 100 blocks', async function () {
@@ -87,7 +87,7 @@ describe('SSV Network Liquidation', function () {
   it('Try to withdraw to a liquidatable state', async function () {
     await progressBlocks(948)
     expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5200000)
-    await expect(ssvNetwork.connect(account1).withdraw(200000)).to.be.revertedWith('not enough balance')
+    await expect(ssvNetwork.connect(account1).withdraw(200000)).to.be.revertedWith('NotEnoughBalance')
     expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(5100000)
   })
 
@@ -186,7 +186,7 @@ describe('SSV Network Liquidation', function () {
 
     // Enable account not enough SSV
     await ssvToken.connect(account1).approve(ssvNetwork.address, 5000000)
-    await expect(ssvNetwork.connect(account1).reactivateAccount(4900000)).to.be.revertedWith("not enough balance")
+    await expect(ssvNetwork.connect(account1).reactivateAccount(4900000)).to.be.revertedWith("NotEnoughBalance")
 
     // Enable account
     await ssvNetwork.connect(account1).reactivateAccount(5000000)

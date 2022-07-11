@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/VersionedContract.sol";
 import "./ISSVNetwork.sol";
 
-contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, VersionedContract {
+contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     struct OperatorData {
         uint256 blockNumber;
         uint256 earnings;
@@ -62,9 +62,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     uint16 private _managingOperatorsPerAccountLimit;
     mapping(uint32 => FeeChangeRequest) private _feeChangeRequests;
 
-    uint256 constant MINIMAL_OPERATOR_FEE = 10000;
+    uint256 constant private MINIMAL_OPERATOR_FEE = 10000;
 
-    uint256 constant MINIMAL_LIQUIDATION_THRESHOLD = 6570;
+    uint256 constant private MINIMAL_LIQUIDATION_THRESHOLD = 6570;
 
     function initialize(
         ISSVRegistry registryAddress_,
@@ -119,26 +119,31 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
 
     modifier onlyValidatorOwnerOrContractOwner(bytes calldata publicKey) {
         address validatorOwner = _ssvRegistryContract.getValidatorOwner(publicKey);
-        require(
-            validatorOwner != address(0),
-            "validator with public key does not exist"
-        );
-        require(msg.sender == validatorOwner || msg.sender == owner(), "caller is not validator owner");
+        if (validatorOwner == address(0)) {
+            revert ValidatorWithPublicKeyNotExist();
+        }
+        if (msg.sender != validatorOwner && msg.sender != owner()) {
+            revert CallerNotValidatorOwner();
+        }
         _;
     }
 
     modifier onlyOperatorOwnerOrContractOwner(uint32 operatorId) {
         address operatorOwner = _ssvRegistryContract.getOperatorOwner(operatorId);
-        require(
-            operatorOwner != address(0),
-            "operator with public key does not exist"
-        );
-        require(msg.sender == operatorOwner || msg.sender == owner(), "caller is not operator owner");
+
+        if(operatorOwner == address(0)) {
+            revert OperatorWithPublicKeyNotExist();
+        }
+        if(msg.sender != operatorOwner && msg.sender != owner()) {
+            revert CallerNotOperatorOwner();
+        }
         _;
     }
 
     modifier ensureMinimalOperatorFee(uint256 fee) {
-        require(fee >= MINIMAL_OPERATOR_FEE, "fee is too low");
+        if(fee < MINIMAL_OPERATOR_FEE) {
+            revert FeeTooLow();
+        }
         _;
     }
 
@@ -174,7 +179,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function declareOperatorFee(uint32 operatorId, uint256 operatorFee) onlyOperatorOwnerOrContractOwner(operatorId) ensureMinimalOperatorFee(operatorFee) external override {
-        require(operatorFee <= _ssvRegistryContract.getOperatorFee(operatorId) * (10000 + _operatorMaxFeeIncrease) / 10000, "fee exceeds increase limit");
+        if (operatorFee > _ssvRegistryContract.getOperatorFee(operatorId) * (10000 + _operatorMaxFeeIncrease) / 10000) {
+            revert FeeExceedsIncreaseLimit();
+        }
         _feeChangeRequests[operatorId] = FeeChangeRequest(operatorFee, block.timestamp + _declareOperatorFeePeriod, block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod);
 
         emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, operatorFee);
@@ -189,8 +196,12 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     function executeOperatorFee(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
         FeeChangeRequest storage feeChangeRequest = _feeChangeRequests[operatorId];
 
-        require(feeChangeRequest.fee > 0, "no pending fee change request");
-        require(block.timestamp >= feeChangeRequest.approvalBeginTime && block.timestamp <= feeChangeRequest.approvalEndTime, "approval not within timeframe");
+        if(feeChangeRequest.fee == 0) {
+            revert NoPendingFeeChangeRequest();
+        }
+        if(block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime) {
+            revert ApprovalNotWithinTimeframe();
+        }
 
         _updateOperatorFeeUnsafe(operatorId, feeChangeRequest.fee);
 
@@ -249,15 +260,21 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function withdraw(uint256 amount) external override {
-        require(_totalBalanceOf(msg.sender) >= amount, "not enough balance");
+        if(_totalBalanceOf(msg.sender) < amount) {
+            revert NotEnoughBalance();
+        }
 
         _withdrawUnsafe(amount);
 
-        require(!_liquidatable(msg.sender), "not enough balance");
+        if(_liquidatable(msg.sender)) {
+            revert NotEnoughBalance();
+        }
     }
 
     function withdrawAll() external override {
-        require(_burnRate(msg.sender) == 0, "burn rate positive");
+        if(_burnRate(msg.sender) > 0) {
+            revert BurnRatePositive();
+        }
 
         _withdrawUnsafe(_totalBalanceOf(msg.sender));
     }
@@ -275,13 +292,17 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function reactivateAccount(uint256 amount) external override {
-        require(_owners[msg.sender].validatorsDisabled, "account already enabled");
+        if (!_owners[msg.sender].validatorsDisabled) {
+            revert AccountAlreadyEnabled();
+        }
 
         _deposit(msg.sender, amount);
 
         _enableOwnerValidatorsUnsafe(msg.sender);
 
-        require(!_liquidatable(msg.sender), "not enough balance");
+        if(_liquidatable(msg.sender)) {
+            revert NotEnoughBalance();
+        }
 
         emit AccountEnable(msg.sender);
     }
@@ -313,7 +334,10 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function withdrawNetworkEarnings(uint256 amount) external onlyOwner override {
-        require(amount <= _getNetworkEarnings(), "not enough balance");
+        if(amount > _getNetworkEarnings()) {
+            revert NotEnoughBalance();
+        }
+
         _withdrawnFromTreasury += amount;
         _token.transfer(msg.sender, amount);
 
@@ -527,7 +551,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
             _deposit(msg.sender, tokenAmount);
         }
 
-        require(!_liquidatable(ownerAddress), "not enough balance");
+        if(_liquidatable(ownerAddress)) {
+            revert NotEnoughBalance();
+        }
 
         emit ValidatorRegistration(ownerAddress, publicKey, operatorIds, sharesPublicKeys, encryptedKeys);
     }
@@ -702,7 +728,9 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
 
         uint256 usage = _owners[ownerAddress].withdrawn + _expensesOf(ownerAddress);
 
-        require(balance >= usage, "negative balance");
+        if(balance < usage) {
+            revert NegativeBalance();
+        }
 
         return balance - usage;
     }

@@ -90,22 +90,22 @@ describe('Validators', function () {
 
     // Try to remove the validator again
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('validator with public key does not exist')
+      .should.eventually.be.rejectedWith('ValidatorWithPublicKeyNotExist')
   })
 
   it('Remove validator non existent key', async function () {
     await ssvNetwork.connect(account2).removeValidator(validatorsPub[1])
-      .should.eventually.be.rejectedWith('validator with public key does not exist')
+      .should.eventually.be.rejectedWith('ValidatorWithPublicKeyNotExist')
   })
 
   it('Remove validator sent by non owner', async function () {
     await ssvNetwork.connect(account2).removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('caller is not validator owner')
+      .should.eventually.be.rejectedWith('CallerNotValidatorOwner')
   })
 
   it('Remove validator with not enough SSV', async function () {
     await progressBlocks(10000)
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('negative balance')
+      .should.eventually.be.rejectedWith('NegativeBalance')
   })
 })

@@ -73,12 +73,13 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         bytes calldata publicKey,
         uint256 fee
     ) external onlyOwner override returns (uint32 operatorId) {
-        require(
-            _operatorPublicKeyToId[publicKey] == 0,
-            "operator with same public key already exists"
-        );
+        if (_operatorPublicKeyToId[publicKey] != 0) {
+            revert OperatorAlreadyExists();
+        }
 
-        require(_operatorsByOwnerAddress[ownerAddress].length < _registeredOperatorsPerAccountLimit, "SSVRegistry: exceed registered operators limit by account");
+        if (_operatorsByOwnerAddress[ownerAddress].length >= _registeredOperatorsPerAccountLimit) {
+            revert ExceedRegisteredOperatorsByAccountLimit();
+        }
 
         _lastOperatorId.increment();
         operatorId = uint32(_lastOperatorId.current());
@@ -95,7 +96,10 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         uint32 operatorId
     ) external onlyOwner override {
         Operator storage operator = _operators[operatorId];
-        require(operator.active, "SSVRegistry: operator deleted");
+
+        if (!operator.active) {
+            revert OperatorDeleted();
+        }
 
         operator.active = false;
     }
@@ -132,10 +136,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
             sharesEncrypted
         );
 
-        require(
-            _validators[publicKey].ownerAddress == address(0),
-            "validator with same public key already exists"
-        );
+        if (_validators[publicKey].ownerAddress != address(0)) {
+            revert ValidatorAlreadyExists();
+        }
 
         _validators[publicKey] = Validator({
             operatorIds: operatorIds,
@@ -147,8 +150,13 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         _owners[ownerAddress].validators.push(publicKey);
 
         for (uint32 index = 0; index < operatorIds.length; ++index) {
-            require(_operators[operatorIds[index]].active, "SSVRegistry: operator deleted");
-            require(++_operators[operatorIds[index]].validatorCount <= _validatorsPerOperatorLimit, "SSVRegistry: exceed validator limit");
+            if (!_operators[operatorIds[index]].active) {
+                revert OperatorDeleted();
+            }
+
+            if (++_operators[operatorIds[index]].validatorCount > _validatorsPerOperatorLimit) {
+                revert ExceedValidatorLimit();
+            }
         }
 
         ++_activeValidatorCount;
@@ -197,8 +205,8 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     /**
      * @dev See {ISSVRegistry-updateRegisteredOperatorsPerAccountLimit}.
      */
-    function updateRegisteredOperatorsPerAccountLimit(uint16 _registeredOperatorsPerAccountLimit) onlyOwner external override {
-        _updateRegisteredOperatorsPerAccountLimit(_registeredOperatorsPerAccountLimit);
+    function updateRegisteredOperatorsPerAccountLimit(uint16 amount) onlyOwner external override {
+        _updateRegisteredOperatorsPerAccountLimit(amount);
     }
 
     function isLiquidated(address ownerAddress) external view override returns (bool) {
@@ -248,7 +256,9 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
      * @dev See {ISSVRegistry-getOperatorFee}.
      */
     function getOperatorFee(uint32 operatorId) external view override returns (uint256) {
-        require(_operators[operatorId].ownerAddress != address(0), "SSVRegistry: operator not found");
+        if (_operators[operatorId].ownerAddress == address(0)) {
+            revert OperatorNotFound();
+        }
         return _operators[operatorId].fee;
     }
 
@@ -331,13 +341,16 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedKeys
     ) private pure {
-        require(publicKey.length == 48, "invalid public key length");
-        require(
-            operatorIds.length == sharesPublicKeys.length &&
-            operatorIds.length == encryptedKeys.length &&
-            operatorIds.length >= 4 && operatorIds.length % 3 == 1,
-            "OESS data structure is not valid"
-        );
+        if (publicKey.length != 48) {
+            revert InvalidPublicKeyLength();
+        }
+        if (
+            operatorIds.length != sharesPublicKeys.length ||
+            operatorIds.length != encryptedKeys.length ||
+            operatorIds.length < 4 || operatorIds.length % 3 != 1
+        ) {
+            revert OessDataStructureInvalid();
+        }
     }
 
     function version() external pure override returns (uint32) {

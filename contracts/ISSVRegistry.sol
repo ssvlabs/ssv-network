@@ -9,6 +9,16 @@ interface ISSVRegistry {
         bytes encryptedKey;
     }
 
+    /** errors */
+    error OperatorAlreadyExists();
+    error ExceedRegisteredOperatorsByAccountLimit();
+    error OperatorDeleted();
+    error ValidatorAlreadyExists();
+    error ExceedValidatorLimit();
+    error OperatorNotFound();
+    error InvalidPublicKeyLength();
+    error OessDataStructureInvalid();
+
     /**
      * @dev Initializes the contract
      * @param validatorsPerOperatorLimit_ the limit for validators per operator.

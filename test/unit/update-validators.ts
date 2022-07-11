@@ -92,6 +92,6 @@ describe('Update Validators', function () {
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
         tokens
-      ).should.eventually.be.rejectedWith('caller is not validator owner')
+      ).should.eventually.be.rejectedWith('CallerNotValidatorOwner')
   })
 })

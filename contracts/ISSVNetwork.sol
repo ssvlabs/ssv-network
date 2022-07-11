@@ -147,6 +147,20 @@ interface ISSVNetwork {
 
     event OperatorMaxFeeIncreaseUpdate(uint256 value);
 
+    /** errors */
+    error ValidatorWithPublicKeyNotExist();
+    error CallerNotValidatorOwner();
+    error OperatorWithPublicKeyNotExist();
+    error CallerNotOperatorOwner();
+    error FeeTooLow();
+    error FeeExceedsIncreaseLimit();
+    error NoPendingFeeChangeRequest();
+    error ApprovalNotWithinTimeframe();
+    error NotEnoughBalance();
+    error BurnRatePositive();
+    error AccountAlreadyEnabled();
+    error NegativeBalance();
+
     /**
      * @dev Initializes the contract.
      * @param registryAddress_ The registry address.

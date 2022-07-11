@@ -52,7 +52,7 @@ describe('SSV Registry', function () {
     expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2000)
     await ssvRegistry.updateValidatorsPerOperatorLimit(2)
     expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2)
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('ExceedValidatorLimit')
   })
 
   it('Owner address limit', async function () {
@@ -61,16 +61,16 @@ describe('SSV Registry', function () {
     await ssvRegistry.registerOperator('testOperator 5', account2.address, operatorsPub[5], 50);
     await ssvRegistry.updateRegisteredOperatorsPerAccountLimit(3);
     expect(await ssvRegistry.getRegisteredOperatorsPerAccountLimit()).to.equal(3);
-    await expect(ssvRegistry.registerOperator('testOperator 6', account2.address, operatorsPub[6], 50)).to.be.revertedWith('exceed registered operators limit by account');
+    await expect(ssvRegistry.registerOperator('testOperator 6', account2.address, operatorsPub[6], 50)).to.be.revertedWith('ExceedRegisteredOperatorsByAccountLimit');
   });
 
   it('Register validators with errors', async () => {
-    await expect(ssvRegistry.registerValidator(account3.address, "0x12345678", operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('invalid public key length')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 3), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 1), operatorsPub.slice(0, 1), operatorsPub.slice(0, 1))).to.be.revertedWith('OESS data structure is not valid')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 3), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid')
+    await expect(ssvRegistry.registerValidator(account3.address, "0x12345678", operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('InvalidPublicKeyLength')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OessDataStructureInvalid')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 3), operatorsPub.slice(0, 4))).to.be.revertedWith('OessDataStructureInvalid')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 3))).to.be.revertedWith('OessDataStructureInvalid')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 1), operatorsPub.slice(0, 1), operatorsPub.slice(0, 1))).to.be.revertedWith('OessDataStructureInvalid')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 3), operatorsPub.slice(0, 3))).to.be.revertedWith('OessDataStructureInvalid')
   })
 
   it('Register a valid validator', async () => {

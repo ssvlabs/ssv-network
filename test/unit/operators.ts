@@ -71,7 +71,7 @@ describe('Operators', function () {
     await ssvNetwork
       .connect(account3)
       .registerOperator('duplicate operator pubkey', operatorsPub[1], 10000)
-      .should.eventually.be.rejectedWith('operator with same public key already exists')
+      .should.eventually.be.rejectedWith('OperatorAlreadyExists')
   })
 
   it('Get operator returns correct', async function () {
@@ -93,13 +93,13 @@ describe('Operators', function () {
     await ssvNetwork
       .connect(account3)
       .removeOperator(operatorsIds[6])
-      .should.eventually.be.rejectedWith('operator with public key does not exist')
+      .should.eventually.be.rejectedWith('OperatorWithPublicKeyNotExist')
 
     // Remove operator: tx was sent as non-owner
     await ssvNetwork
       .connect(account3)
       .removeOperator(operatorsIds[1])
-      .should.eventually.be.rejectedWith('caller is not operator owner')
+      .should.eventually.be.rejectedWith('CallerNotOperatorOwner')
   })
 
   it('Remove operator with validators', async function () {
@@ -121,6 +121,6 @@ describe('Operators', function () {
     expect((await ssvRegistry.getOperatorFee(operatorsIds[1])).toString()).to.equal('20000')
 
     // Non existent operator
-    await expect(ssvRegistry.getOperatorFee(operatorsIds[4])).to.be.revertedWith('operator not found')
+    await expect(ssvRegistry.getOperatorFee(operatorsIds[4])).to.be.revertedWith('OperatorNotFound')
   })
 })

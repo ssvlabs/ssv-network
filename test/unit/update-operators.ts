@@ -74,10 +74,10 @@ describe('Update Operators', function () {
   //   expect((await ssvRegistry.getOperatorFee(operatorsIds[0])).toString()).to.equal('1050000')
 
   //   // Set new operator fee too high
-  //   await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1156050)).to.be.revertedWith('fee exceeds increase limit')
+  //   await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1156050)).to.be.revertedWith('FeeExceedsIncreaseLimit')
 
   //   // declareOperatorFee incorrect user
-  //   await expect(ssvNetwork.connect(account1).declareOperatorFee(operatorsIds[0], 1050001)).to.be.revertedWith('caller is not operator owner')
+  //   await expect(ssvNetwork.connect(account1).declareOperatorFee(operatorsIds[0], 1050001)).to.be.revertedWith('CallerNotOperatorOwner')
   // })
 
   // it('Update operators max fee increase percentage', async function () {
@@ -90,7 +90,7 @@ describe('Update Operators', function () {
   //   await expect(ssvNetwork.connect(account2).updateOperatorFeeIncreaseLimit(20)).to.be.revertedWith('Ownable: caller is not the owner')
 
   //   // Set operator fee too high
-  //   await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1200001)).to.be.revertedWith('fee exceeds increase limit')
+  //   await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1200001)).to.be.revertedWith('FeeExceedsIncreaseLimit')
 
   //   // Set operator fee at 20% higher
   //   await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1200000)
@@ -123,7 +123,7 @@ describe('Update Operators', function () {
 
   //   // Cancel update operator fee incorrect account
   //   await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1005000)
-  //   await expect(ssvNetwork.connect(account1).cancelDeclaredOperatorFee(operatorsIds[0])).to.be.revertedWith('caller is not operator owner')
+  //   await expect(ssvNetwork.connect(account1).cancelDeclaredOperatorFee(operatorsIds[0])).to.be.revertedWith('CallerNotOperatorOwner')
   //   expect((await ssvRegistry.getOperatorFee(operatorsIds[0])).toString()).to.equal('1000000')
   // })
 
@@ -144,7 +144,7 @@ describe('Update Operators', function () {
   //   await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1005000)
   //   await progressBlocks(6)
   //   await ssvNetwork.connect(account2).cancelDeclaredOperatorFee(operatorsIds[0])
-  //   await expect(ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).to.be.revertedWith('no pending fee change request')
+  //   await expect(ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).to.be.revertedWith('NoPendingFeeChangeRequest')
   //   expect((await ssvRegistry.getOperatorFee(operatorsIds[0])).toString()).to.equal('1000000')
   // })
 
