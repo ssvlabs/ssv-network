@@ -10,29 +10,6 @@ interface ISSVRegistry {
     }
 
     /**
-     * @dev Emitted when an operator's fee is updated.
-     * @param ownerAddress Operator's owner.
-     * @param publicKey Operator's public key.
-     * @param blockNumber from which block number.
-     * @param fee updated fee value.
-     */
-    event OperatorFeeUpdate(
-        uint32 indexed operatorId,
-        address indexed ownerAddress,
-        bytes publicKey,
-        uint256 blockNumber,
-        uint256 fee
-    );
-
-    event OwnerValidatorsDisable(address ownerAddress);
-
-    event OwnerValidatorsEnable(address indexed ownerAddress);
-
-    event ValidatorsPerOperatorLimitUpdate(uint16 validatorsPerOperatorLimit);
-
-    event RegisteredOperatorsPerAccountLimitUpdate(uint16 registeredOperatorsPerAccountLimit);
-
-    /**
      * @dev Initializes the contract
      * @param validatorsPerOperatorLimit_ the limit for validators per operator.
      * @param registeredOperatorsPerAccountLimit_ the limit for registered operators per account address.

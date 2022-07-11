@@ -24,6 +24,7 @@ const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;
 const validatorsPerOperatorLimit = 2000;
 const registeredOperatorsPerAccountLimit = 10;
+const managingOperatorsPerAccountLimit = 50
 
 const operatorData: any = [];
 const addressData: any = {};
@@ -48,7 +49,7 @@ export const initContracts = async () => {
   await utils.deployed();
   await ssvToken.deployed();
   await ssvRegistry.deployed();
-  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit]);
+  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit, managingOperatorsPerAccountLimit]);
   await ssvNetwork.deployed();
   await ssvToken.mint(account1.address, '1000000000');
   await ssvToken.mint(account2.address, '1000000000');

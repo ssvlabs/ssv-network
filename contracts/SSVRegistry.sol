@@ -180,15 +180,11 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     function enableOwnerValidators(address ownerAddress) external onlyOwner override {
         _activeValidatorCount += _owners[ownerAddress].activeValidatorCount;
         _owners[ownerAddress].validatorsDisabled = false;
-
-        emit OwnerValidatorsEnable(ownerAddress);
     }
 
     function disableOwnerValidators(address ownerAddress) external onlyOwner override {
         _activeValidatorCount -= _owners[ownerAddress].activeValidatorCount;
         _owners[ownerAddress].validatorsDisabled = true;
-
-        emit OwnerValidatorsDisable(ownerAddress);
     }
 
     /**
@@ -302,14 +298,10 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
 
     function _updateValidatorsPerOperatorLimit(uint16 validatorsPerOperatorLimit_) private {
         _validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
-
-        emit ValidatorsPerOperatorLimitUpdate(validatorsPerOperatorLimit_);
     }
 
     function _updateRegisteredOperatorsPerAccountLimit(uint16 registeredOperatorsPerAccountLimit_) private {
         _registeredOperatorsPerAccountLimit = registeredOperatorsPerAccountLimit_;
-
-        emit RegisteredOperatorsPerAccountLimitUpdate(registeredOperatorsPerAccountLimit_);
     }
 
     /**
@@ -324,8 +316,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
      */
     function _updateOperatorFeeUnsafe(uint32 operatorId, uint256 fee) private {
         _operators[operatorId].fee = fee;
-
-        emit OperatorFeeUpdate(operatorId, _operators[operatorId].ownerAddress, _operators[operatorId].publicKey, block.number, fee);
     }
 
     /**

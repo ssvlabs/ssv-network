@@ -29,6 +29,7 @@ const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;
 const validatorsPerOperatorLimit = 2000;
 const registeredOperatorsPerAccountLimit = 10;
+const managingOperatorsPerAccountLimit = 50
 
 const registerOperator = async (account: string, idx: number, fee: number) => {
   await ssvNetwork.connect(account).registerOperator(`testOperator ${idx}`, operatorsPub[idx], fee);
@@ -51,7 +52,7 @@ describe('SSV Network Balances Calculation', function () {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false });
     await ssvToken.deployed();
     await ssvRegistry.deployed();
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit]);
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit, managingOperatorsPerAccountLimit]);
     await ssvNetwork.deployed();
     await ssvToken.mint(account1.address, '10000000000');
   });

@@ -141,6 +141,8 @@ interface ISSVNetwork {
 
     event RegisteredOperatorsPerAccountLimitUpdate(uint256 value);
 
+    event ManagingOperatorsPerAccountLimitUpdate(uint256 value);
+
     event MinimumBlocksBeforeLiquidationUpdate(uint256 value);
 
     event OperatorMaxFeeIncreaseUpdate(uint256 value);
@@ -154,6 +156,7 @@ interface ISSVNetwork {
      * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
      * @param validatorsPerOperatorLimit_ the limit for validators per operator.
      * @param registeredOperatorsPerAccountLimit_ the limit for registered operators per account address.
+     * @param managingOperatorsPerAccountLimit_ the limit for managing operators per account address.
      */
     function initialize(
         ISSVRegistry registryAddress_,
@@ -163,7 +166,8 @@ interface ISSVNetwork {
         uint256 declareOperatorFeePeriod_,
         uint256 executeOperatorFeePeriod_,
         uint16 validatorsPerOperatorLimit_,
-        uint16 registeredOperatorsPerAccountLimit_
+        uint16 registeredOperatorsPerAccountLimit_,
+        uint16 managingOperatorsPerAccountLimit_
     ) external;
 
     /**
