@@ -118,32 +118,17 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     }
 
     modifier onlyValidatorOwnerOrContractOwner(bytes calldata publicKey) {
-        address validatorOwner = _ssvRegistryContract.getValidatorOwner(publicKey);
-        if (validatorOwner == address(0)) {
-            revert ValidatorWithPublicKeyNotExist();
-        }
-        if (msg.sender != validatorOwner && msg.sender != owner()) {
-            revert CallerNotValidatorOwner();
-        }
+        _onlyValidatorOwnerOrContractOwner(publicKey);
         _;
     }
 
     modifier onlyOperatorOwnerOrContractOwner(uint32 operatorId) {
-        address operatorOwner = _ssvRegistryContract.getOperatorOwner(operatorId);
-
-        if(operatorOwner == address(0)) {
-            revert OperatorWithPublicKeyNotExist();
-        }
-        if(msg.sender != operatorOwner && msg.sender != owner()) {
-            revert CallerNotOperatorOwner();
-        }
+        _onlyOperatorOwnerOrContractOwner(operatorId);
         _;
     }
 
     modifier ensureMinimalOperatorFee(uint256 fee) {
-        if(fee < MINIMAL_OPERATOR_FEE) {
-            revert FeeTooLow();
-        }
+        _ensureMinimalOperatorFee(fee);
         _;
     }
 
@@ -820,6 +805,34 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
      */
     function _currentNetworkFeeIndex() private view returns(uint256) {
         return _networkFeeIndex + (block.number - _networkFeeIndexBlockNumber) * _networkFee;
+    }
+
+    function _onlyValidatorOwnerOrContractOwner(bytes calldata publicKey) private view {
+        address validatorOwner = _ssvRegistryContract.getValidatorOwner(publicKey);
+        if (validatorOwner == address(0)) {
+            revert ValidatorWithPublicKeyNotExist();
+        }
+        if (msg.sender != validatorOwner && msg.sender != owner()) {
+            revert CallerNotValidatorOwner();
+        }
+    }
+
+    function _onlyOperatorOwnerOrContractOwner(uint32 operatorId) private view {
+        address operatorOwner = _ssvRegistryContract.getOperatorOwner(operatorId);
+
+        if(operatorOwner == address(0)) {
+            revert OperatorWithPublicKeyNotExist();
+        }
+
+        if(msg.sender != operatorOwner && msg.sender != owner()) {
+            revert CallerNotOperatorOwner();
+        }
+    }
+
+    function _ensureMinimalOperatorFee(uint256 fee) private pure {
+        if (fee < MINIMAL_OPERATOR_FEE) {
+            revert FeeTooLow();
+        }
     }
 
     function version() external pure override returns (uint32) {
