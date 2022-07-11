@@ -1,16 +1,18 @@
 // File: contracts/SSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity ^0.8.13;
 
-library Types {
-  uint64 constant DEDUCTED_DIGITS = 10000000;
+uint64 constant DEDUCTED_DIGITS = 10000000;
 
-  function to64(uint256 value) internal view returns (uint64) {
-    uint64 res = uint64(value / DEDUCTED_DIGITS);
-    return res;
-  }
-
-  function from64(uint64 value) internal view returns (uint256) {
+library Types64 {
+  function expand(uint64 value) internal pure returns (uint256) {
+    require(value % DEDUCTED_DIGITS == 0, "lost data");
     return uint256(value) * DEDUCTED_DIGITS;
+  }
+}
+
+library Types256 {
+  function shrink(uint256 value) internal pure returns (uint64) {
+    return uint64(value / DEDUCTED_DIGITS);
   }
 }
