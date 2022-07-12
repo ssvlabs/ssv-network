@@ -46,21 +46,14 @@ describe('SSV Registry', function () {
    })
 
   it('Operator limit', async function () {
-    //TO-DO @andrew
-    // expect(await ssvRegistry.validatorsPerOperatorCount(operatorsIds[0])).to.equal(3)
-    // expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2000)
-    // await ssvRegistry.updateValidatorsPerOperatorLimit(2)
-    // expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2)
-    // await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('ExceedValidatorLimit')
+    //TO DO
+    //await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('ExceedValidatorLimit')
   })
 
   it('Owner address limit', async function () {
-    //TO-DO @andrew
+    // //TO DO
     // expect((await ssvRegistry.getOperatorsByOwnerAddress(account2.address)).length).to.equal(2);
-    // expect(await ssvRegistry.getRegisteredOperatorsPerAccountLimit()).to.equal(10);
     // await ssvRegistry.registerOperator('testOperator 5', account2.address, operatorsPub[5], 50);
-    // await ssvRegistry.updateRegisteredOperatorsPerAccountLimit(3);
-    // expect(await ssvRegistry.getRegisteredOperatorsPerAccountLimit()).to.equal(3);
     // await expect(ssvRegistry.registerOperator('testOperator 6', account2.address, operatorsPub[6], 50)).to.be.revertedWith('ExceedRegisteredOperatorsByAccountLimit');
   });
 

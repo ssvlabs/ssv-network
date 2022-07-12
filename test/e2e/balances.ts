@@ -42,7 +42,7 @@ describe('SSV Network', function () {
       },
       20: {
         funcs: [
-          () => registerValidator([{ account: account1, validatorIdx: 0, operatorIdxs: [0, 1, 2, 3], depositAmount: 10000000 },])
+          () => registerValidator([{ account: account1, validatorIdx: 0, operatorIdxs: [0, 1, 2, 3], depositAmount: 1000000000 },])
         ],
         asserts: [
           () => checkOperatorBalances([0, 1, 2, 3]),
@@ -52,7 +52,7 @@ describe('SSV Network', function () {
       30: {
         funcs: [
           () => updateOperatorFee(account2, 0, 11000),
-          () => registerValidator([{ account: account1, validatorIdx: 1, operatorIdxs: [0, 1, 2, 3], depositAmount: 10000000 },])
+          () => registerValidator([{ account: account1, validatorIdx: 1, operatorIdxs: [0, 1, 2, 3], depositAmount: 1000000000 },])
         ],
         asserts: [
           () => checkOperatorBalances([0, 1, 2, 3]),
@@ -61,7 +61,7 @@ describe('SSV Network', function () {
       },
       40: {
         funcs: [
-          () => registerValidator([{ account: account1, validatorIdx: 2, operatorIdxs: [0, 1, 2, 3], depositAmount: 10000000 },])
+          () => registerValidator([{ account: account1, validatorIdx: 2, operatorIdxs: [0, 1, 2, 3], depositAmount: 1000000000 },])
         ],
         asserts: [
           () => checkOperatorBalances([0, 1, 2, 3]),
@@ -70,7 +70,7 @@ describe('SSV Network', function () {
       },
       50: {
         funcs: [
-          () => registerValidator([{ account: account1, validatorIdx: 3, operatorIdxs: [0, 1, 2, 3], depositAmount: 10000000 },])
+          () => registerValidator([{ account: account1, validatorIdx: 3, operatorIdxs: [0, 1, 2, 3], depositAmount: 1000000000 },])
         ],
         asserts: [
           () => checkOperatorBalances([0, 1, 2, 3]),

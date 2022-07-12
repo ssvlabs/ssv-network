@@ -40,7 +40,7 @@ describe('Validators', function () {
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '10000000000')
+    await ssvToken.mint(account1.address, '1000000000000')
 
     // Register operators
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000)
@@ -50,7 +50,7 @@ describe('Validators', function () {
     await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50000)
 
     // Register Validator
-    const tokens = '100000000'
+    const tokens = '10000000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     await expect(
       ssvNetwork.connect(account1)
@@ -101,7 +101,8 @@ describe('Validators', function () {
   })
 
   it('Remove validator with not enough SSV', async function () {
-    await progressBlocks(10000)
+    await ssvNetwork.connect(account1).withdraw('9290000000');
+    await progressBlocks(8000);
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
       .should.eventually.be.rejectedWith('NegativeBalance')
   })

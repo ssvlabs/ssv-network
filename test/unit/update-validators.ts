@@ -3,7 +3,6 @@
 // Declare all imports
 import * as chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { progressBlocks, snapshot } from '../helpers/utils'
 
 beforeEach(() => {
   chai.should()
@@ -41,7 +40,7 @@ describe('Update Validators', function () {
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '10000000000')
+    await ssvToken.mint(account1.address, '1000000000000')
 
     // Register operators
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000)
@@ -51,7 +50,7 @@ describe('Update Validators', function () {
     await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50000)
 
     // Register Validator
-    const tokens = '100000000'
+    const tokens = '10000000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     await ssvNetwork.connect(account1).registerValidator(
       validatorsPub[0],

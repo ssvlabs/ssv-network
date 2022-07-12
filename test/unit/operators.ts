@@ -3,7 +3,7 @@
 // Declare all imports
 import * as chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { progressBlocks, progressTime } from '../helpers/utils'
+import { progressTime } from '../helpers/utils'
 beforeEach(() => {
   chai.should()
   chai.use(chaiAsPromised)
@@ -43,7 +43,7 @@ describe('Operators', function () {
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '10000000000')
+    await ssvToken.mint(account1.address, '1000000000000')
 
     // Register operators
     await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000))
@@ -101,8 +101,8 @@ describe('Operators', function () {
 
   it('Remove operator with validators', async function () {
     // Register a validator
-    await ssvToken.connect(account1).approve(ssvNetwork.address, 1000000000)
-    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 100000000)
+    await ssvToken.connect(account1).approve(ssvNetwork.address, 1000000000000)
+    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 100000000000)
 
     // Delete an operator that the validator is using
     await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))

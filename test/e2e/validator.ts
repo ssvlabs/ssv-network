@@ -43,7 +43,7 @@ describe('SSV Network', function () {
       },
       20: {
         funcs: [
-          () => registerValidator([{ account: account1, validatorIdx: 0, operatorIdxs: [0, 1, 2, 3], depositAmount: 20000000 },])
+          () => registerValidator([{ account: account1, validatorIdx: 0, operatorIdxs: [0, 1, 2, 3], depositAmount: 2000000000 },])
         ],
         asserts: [
           () => checkOperatorBalances([0, 1, 2, 3]),
@@ -52,7 +52,7 @@ describe('SSV Network', function () {
       },
       100: {
         funcs: [
-          () => updateValidator(account1, 0, [0, 1, 2, 3], 25000000)
+          () => updateValidator(account1, 0, [0, 1, 2, 3], 2500000000)
         ]
       },
       140: {
