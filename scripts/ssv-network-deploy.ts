@@ -13,10 +13,8 @@ async function main() {
     ssvTokenAddress,
     process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
     process.env.OPERATOR_MAX_FEE_INCREASE,
-    process.env.SET_OPERATOR_FEE_PERIOD,
-    process.env.APPROVE_OPERATOR_FEE_PERIOD,
-    process.env.VALIDATORS_PER_OPERATOR_LIMIT,
-    process.env.REGISTERED_OPERATORS_PER_ACCOUNT_LIMIT
+    process.env.DECLARE_OPERATOR_FEE_PERIOD,
+    process.env.EXECUTE_OPERATOR_FEE_PERIOD,
   ]);
   await contract.deployed();
   console.log(`SSVNetwork deployed to: ${contract.address}`);
