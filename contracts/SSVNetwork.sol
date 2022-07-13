@@ -708,6 +708,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
             ownerBurnRate += _operatorInUseBurnRateWithNetworkFeeUnsafe(ownerAddress, _operatorsInUseList[ownerAddress][index]);
         }
 
+        ownerBurnRate += _owners[ownerAddress].activeValidatorCount * _networkFee;
+
         uint32[] memory operatorsByOwner = _ssvRegistryContract.getOperatorsByOwnerAddress(ownerAddress);
 
         for (uint256 index = 0; index < operatorsByOwner.length; ++index) {
@@ -757,7 +759,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
 
     function _operatorInUseBurnRateWithNetworkFeeUnsafe(address ownerAddress, uint32 operatorId) private view returns (uint256) {
         OperatorInUse storage operatorInUseData = _operatorsInUseByAddress[ownerAddress][operatorId];
-        return (_ssvRegistryContract.getOperatorFee(operatorId) + _networkFee) * operatorInUseData.validatorCount;
+        return _ssvRegistryContract.getOperatorFee(operatorId) * operatorInUseData.validatorCount;
     }
 
     /**
