@@ -158,6 +158,8 @@ interface ISSVNetwork {
     error BurnRatePositive();
     error AccountAlreadyEnabled();
     error NegativeBalance();
+    error BelowMinimumBlockPeriod();
+    error ExceedManagingOperatorsPerAccountLimit();
 
     /**
      * @dev Initializes the contract.
