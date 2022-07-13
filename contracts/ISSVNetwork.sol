@@ -1,6 +1,6 @@
 // File: contracts/ISSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.2;
 
 import "./ISSVRegistry.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";

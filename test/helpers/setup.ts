@@ -287,6 +287,7 @@ export const updateOperatorFee = async (account, idx, fee) => {
 }
 
 const getNetworkEarnings = async () => {
+  console.log("-> det", globalData.networkEarnings, (await utils.blockNumber()),  globalData.networkEarningsBlockNumber, globalData.networkFee, globalData.validatorCount)
   return globalData.networkEarnings + ((await utils.blockNumber()) - globalData.networkEarningsBlockNumber) * globalData.networkFee * globalData.validatorCount;
 }
 

@@ -28,7 +28,7 @@ describe('SSV Network', function () {
     const testFlow = {
       10: {
         funcs: [
-          () => updateNetworkFee(100000000),
+          () => updateNetworkFee(10000000),
           () => registerOperator([
             { account: account2, idx: 0, fee: 20000000 },
             { account: account2, idx: 1, fee: 10000000 },
@@ -51,7 +51,7 @@ describe('SSV Network', function () {
       },
       30: {
         funcs: [
-          () => updateOperatorFee(account2, 0, 11000000),
+          () => updateOperatorFee(account2, 0, 20000000),
           () => registerValidator([{ account: account1, validatorIdx: 1, operatorIdxs: [0, 1, 2, 3], depositAmount: 99000000000000 },])
         ],
         asserts: [

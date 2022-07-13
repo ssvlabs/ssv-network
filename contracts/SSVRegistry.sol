@@ -1,6 +1,6 @@
 // File: contracts/SSVRegistry.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -84,8 +84,10 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
 
         require(_operatorsByOwnerAddress[ownerAddress].length < _registeredOperatorsPerAccountLimit, "SSVRegistry: exceed registered operators limit by account");
 
+        console.log(1, _lastOperatorId.current(), block.number);
         _lastOperatorId.increment();
         operatorId = uint32(_lastOperatorId.current());
+        console.log(2, _lastOperatorId.current(), block.number);
         _operators[operatorId] = Operator({name: name, ownerAddress: ownerAddress, publicKey: publicKey, score: 0, fee: 0, active: true, indexInOwner: uint16(_operatorsByOwnerAddress[ownerAddress].length), validatorCount: 0});
         _operatorsByOwnerAddress[ownerAddress].push(operatorId);
         _operatorPublicKeyToId[publicKey] = operatorId;

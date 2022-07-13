@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/VersionedContract.sol";
 import "./utils/Types.sol";
 import "./ISSVNetwork.sol";
+import "hardhat/console.sol";
 
 contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, VersionedContract {
     using Types256 for uint256;
@@ -751,6 +752,7 @@ contract SSVNetwork is Initializable, OwnableUpgradeable, ISSVNetwork, Versioned
     }
 
     function _getTotalNetworkEarnings() private view returns (uint64) {
+        // console.log("?", block.number, _networkEarningsBlockNumber);
         uint256 result = _networkEarnings + (block.number - _networkEarningsBlockNumber) * _networkFee * _ssvRegistryContract.activeValidatorCount();
         return uint64(result);
     }
