@@ -324,13 +324,13 @@ describe('SSV Network', function () {
 
   it('Minimum blocks before liquidation', async function () {
     expect(await ssvNetwork.getLiquidationThresholdPeriod()).to.equal(7000);
-    await ssvNetwork.updateLiquidationThresholdPeriod(30); // should revert
-    await ssvNetwork.updateLiquidationThresholdPeriod(9999999); // should revert
-    expect(await ssvNetwork.getLiquidationThresholdPeriod()).to.equal(9999999);
+    await expect(ssvNetwork.updateLiquidationThresholdPeriod(6569)).to.be.revertedWith('BelowMinimumBlockPeriod');
+    await ssvNetwork.updateLiquidationThresholdPeriod(7001);
+    expect(await ssvNetwork.getLiquidationThresholdPeriod()).to.equal(7001);
   });
 
   it('Update minimum blocks before liquidation emits event', async function () {
-    await expect(ssvNetwork.updateLiquidationThresholdPeriod(50)).to.emit(ssvNetwork, 'LiquidationThresholdPeriodUpdate').withArgs(50);
+    await expect(ssvNetwork.updateLiquidationThresholdPeriod(9999999999999)).to.emit(ssvNetwork, 'LiquidationThresholdPeriodUpdate').withArgs(9999999999999);
   });
 
   it('Set network fee', async function () {
@@ -402,6 +402,6 @@ describe('SSV Network', function () {
     const tokens = 10000;
     await ssvToken.connect(owner).approve(ssvNetwork.address, tokens)
     await ssvNetwork.connect(owner).deposit(account4.address, tokens);
-    expect(await ssvNetwork.getAddressBalance(account4.address)).to.equal(balanceBefore+tokens);
+    expect(await ssvNetwork.getAddressBalance(account4.address)).to.equal(balanceBefore + tokens);
   });
 });

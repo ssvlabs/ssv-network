@@ -281,6 +281,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     }
 
     function updateLiquidationThresholdPeriod(uint256 blocks) external onlyOwner override {
+        if(blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
+            revert BelowMinimumBlockPeriod();
+        }
+
         _updateLiquidationThresholdPeriod(blocks);
     }
 
@@ -580,7 +584,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
                 }
             }
         } else {
-            require(_operatorsInUseList[ownerAddress].length < MANAGING_OPERATORS_PER_ACCOUNT_LIMIT, "exceed managing operators per account limit");
+            if (_operatorsInUseList[ownerAddress].length > MANAGING_OPERATORS_PER_ACCOUNT_LIMIT) {
+                revert ExceedManagingOperatorsPerAccountLimit();
+            }
 
             _operatorsInUseByAddress[ownerAddress][operatorId] = OperatorInUse({ index: _operatorIndexOf(operatorId), validatorCount: 1, used: 0, exists: true, indexInArray: uint32(_operatorsInUseList[ownerAddress].length) });
             _operatorsInUseList[ownerAddress].push(operatorId);
@@ -798,7 +804,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     }
 
     function version() external pure override returns (uint32) {
-        return 1;
+        return 20000;
     }
 
     uint256[50] ______gap;
