@@ -158,10 +158,10 @@ interface ISSVNetwork {
     function initialize(
         ISSVRegistry registryAddress_,
         IERC20 token_,
-        uint256 minimumBlocksBeforeLiquidation_,
-        uint256 operatorMaxFeeIncrease_,
-        uint256 declareOperatorFeePeriod_,
-        uint256 executeOperatorFeePeriod_,
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint64 operatorMaxFeeIncrease_,
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_,
         uint16 validatorsPerOperatorLimit_,
         uint16 registeredOperatorsPerAccountLimit_
     ) external;
@@ -271,17 +271,17 @@ interface ISSVNetwork {
      * @dev Updates the number of blocks left for an owner before they can be liquidated.
      * @param newMinimumBlocksBeforeLiquidation The new value.
      */
-    function updateLiquidationThresholdPeriod(uint256 newMinimumBlocksBeforeLiquidation) external;
+    function updateLiquidationThresholdPeriod(uint64 newMinimumBlocksBeforeLiquidation) external;
 
     /**
      * @dev Updates the maximum fee increase in pecentage.
      * @param newOperatorMaxFeeIncrease The new value.
      */
-    function updateOperatorFeeIncreaseLimit(uint256 newOperatorMaxFeeIncrease) external;
+    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
-    function updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) external;
+    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external;
 
-    function updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) external;
+    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
 
     /**
      * @dev Updates the network fee.
