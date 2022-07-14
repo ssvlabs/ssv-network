@@ -65,7 +65,7 @@ describe('Update Validators', function () {
   })
 
   it('Update validator', async function () {
-    const tokens = '100'
+    const tokens = '10000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     const tx = ssvNetwork
       .connect(account1)
@@ -81,7 +81,7 @@ describe('Update Validators', function () {
   })
 
   it('Update validator: tx was sent not by owner', async function () {
-    const tokens = '10000'
+    const tokens = '10000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     await ssvNetwork
       .connect(account2)
