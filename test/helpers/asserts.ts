@@ -45,4 +45,7 @@ export const checkLiquidationStatus = async (address, result) => {
 //@ts-ignore
 export const checkWithdrawFail = async (account, amount) => await expect(ssvNetwork.connect(account).withdraw(`${amount}`)).to.be.revertedWith('NotEnoughBalance');
 
-export const checkNetworkTreasury = async () => expect(await ssvNetwork.getNetworkEarnings()).to.equal(await getNetworkTreasury());
+export const checkNetworkTreasury = async () => {
+  console.log("====>", await ssvNetwork.getNetworkEarnings(), await getNetworkTreasury())
+  expect(await ssvNetwork.getNetworkEarnings()).to.equal(await getNetworkTreasury())
+};

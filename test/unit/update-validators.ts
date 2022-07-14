@@ -43,11 +43,11 @@ describe('Update Validators', function () {
     await ssvToken.mint(account1.address, '1000000000000')
 
     // Register operators
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000)
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 50000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 200000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 300000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 500000000)
 
     // Register Validator
     const tokens = '10000000000'
@@ -62,7 +62,7 @@ describe('Update Validators', function () {
   })
 
   it('Update validator', async function () {
-    const tokens = '100'
+    const tokens = '10000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     const tx = ssvNetwork
       .connect(account1)
@@ -78,7 +78,7 @@ describe('Update Validators', function () {
   })
 
   it('Update validator: tx was sent not by owner', async function () {
-    const tokens = '10000'
+    const tokens = '10000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     await ssvNetwork
       .connect(account2)

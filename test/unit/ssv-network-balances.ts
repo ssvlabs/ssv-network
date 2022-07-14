@@ -61,13 +61,13 @@ describe('SSV Network Balances Calculation', function () {
     await snapshot(async () => {
       const chargedAmount = 1000000000;
       await ssvToken.connect(account1).approve(ssvNetwork.address, `${chargedAmount * 4}`);
-      (await ssvNetwork.updateNetworkFee(1000)).wait();
+      (await ssvNetwork.updateNetworkFee(10000000)).wait();
       // Register operators
       await network.provider.send("evm_setAutomine", [false]);
-      await registerOperator(account2, 0, 20000);
-      await registerOperator(account2, 1, 10000);
-      await registerOperator(account2, 2, 10000);
-      await registerOperator(account2, 3, 30000);
+      await registerOperator(account2, 0, 200000000);
+      await registerOperator(account2, 1, 100000000);
+      await registerOperator(account2, 2, 100000000);
+      await registerOperator(account2, 3, 300000000);
 
       await progressBlocks(1);
 
@@ -98,7 +98,7 @@ describe('SSV Network Balances Calculation', function () {
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
 
       await network.provider.send("evm_setAutomine", [false]);
-      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 22000)).wait();
+      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 220000000)).wait();
       (await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).wait();
 
       // Register validator
@@ -124,9 +124,9 @@ describe('SSV Network Balances Calculation', function () {
       balancesByBlocks.push(`${3 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)} (${await ssvNetwork.getAddressBalance(account1.address)})`);
       networkAddFeeByBlocks.push(`${+await ssvNetwork.addressNetworkFee(account1.address)}`);
       await network.provider.send("evm_setAutomine", [false]);
-      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 18000)).wait();
+      (await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 180000000)).wait();
       (await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).wait();
-      (await ssvNetwork.updateNetworkFee(2000)).wait();
+      (await ssvNetwork.updateNetworkFee(20000000)).wait();
       // register validator
       (await ssvNetwork.connect(account1).registerValidator(validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), `${chargedAmount}`)).wait();
       await network.provider.send("evm_setAutomine", [true]);

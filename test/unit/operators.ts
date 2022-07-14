@@ -59,7 +59,7 @@ describe('Operators', function () {
    expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[1]).to.equal(account2.address)
    expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[2]).to.equal(operatorsPub[1])
    expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[3]).to.equal('0')
-   expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[4]).to.equal('20000')
+   expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[4]).to.equal('200000000')
    expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[5]).to.equal('0')
    expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[6]).to.equal(true)
   })
@@ -110,12 +110,12 @@ describe('Operators', function () {
       .withArgs(operatorsIds[0], account2.address)
 
     // Check that the operator fee is 0
-    expect((await ssvRegistry.getOperatorFee(operatorsIds[0])).toString()).to.equal('0')
+    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('0')
   })
 
   it('Get operator Fee', async function () {
     // Get current operator fee
-    expect((await ssvRegistry.getOperatorFee(operatorsIds[1])).toString()).to.equal('20000')
+    expect((await ssvNetwork.getOperatorFee(operatorsIds[1])).toString()).to.equal('200000000')
 
     // Non existent operator
     await expect(ssvRegistry.getOperatorFee(operatorsIds[4])).to.be.revertedWith('OperatorNotFound')

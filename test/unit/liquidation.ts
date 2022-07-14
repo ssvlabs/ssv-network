@@ -46,15 +46,14 @@ describe('SSV Network Liquidation', function () {
     await ssvToken.mint(account1.address, '10000000000000')
 
     // Register operators
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000)
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 10000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 200000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 300000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 100000000)
 
     // Register validators
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
-    await ssvToken.connect(account1).transfer(account2.address, tokens)
     await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens)
   })
 
@@ -76,7 +75,7 @@ describe('SSV Network Liquidation', function () {
 
   it('Check burn rates', async function (): Promise<void> {
     expect(await ssvNetwork.getAddressBurnRate(owner.address)).to.equal(0)
-    expect(await ssvNetwork.getAddressBurnRate(account1.address)).to.equal(100000)
+    expect(await ssvNetwork.getAddressBurnRate(account1.address)).to.equal(1000000000)
     expect(await ssvNetwork.getAddressBurnRate(account2.address)).to.equal(0)
     expect(await ssvNetwork.getAddressBurnRate(account3.address)).to.equal(0)
   })

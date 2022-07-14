@@ -1,6 +1,6 @@
 // File: contracts/ISSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity ^0.8.2;
 
 import "./ISSVRegistry.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -172,10 +172,10 @@ interface ISSVNetwork {
     function initialize(
         ISSVRegistry registryAddress_,
         IERC20 token_,
-        uint256 minimumBlocksBeforeLiquidation_,
-        uint256 operatorMaxFeeIncrease_,
-        uint256 declareOperatorFeePeriod_,
-        uint256 executeOperatorFeePeriod_
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint64 operatorMaxFeeIncrease_,
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_
     ) external;
 
     /**
@@ -285,17 +285,17 @@ interface ISSVNetwork {
      * @dev Updates the number of blocks left for an owner before they can be liquidated.
      * @param blocks The new value.
      */
-    function updateLiquidationThresholdPeriod(uint256 blocks) external;
+    function updateLiquidationThresholdPeriod(uint64 blocks) external;
 
     /**
      * @dev Updates the maximum fee increase in pecentage.
      * @param newOperatorMaxFeeIncrease The new value.
      */
-    function updateOperatorFeeIncreaseLimit(uint256 newOperatorMaxFeeIncrease) external;
+    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
-    function updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) external;
+    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external;
 
-    function updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) external;
+    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
 
     /**
      * @dev Updates the network fee.

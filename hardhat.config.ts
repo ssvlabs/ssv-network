@@ -25,7 +25,11 @@ const config: HardhatUserConfig = {
       }
     ],
   },
-  networks: {},
+  networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true
+    }
+  },
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/

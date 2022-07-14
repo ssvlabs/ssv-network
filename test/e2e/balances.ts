@@ -28,12 +28,12 @@ describe('SSV Network', function () {
     const testFlow = {
       10: {
         funcs: [
-          () => updateNetworkFee(1000),
+          () => updateNetworkFee(20000000),
           () => registerOperator([
-            { account: account2, idx: 0, fee: 20000 },
-            { account: account2, idx: 1, fee: 10000 },
-            { account: account1, idx: 2, fee: 10000 },
-            { account: account2, idx: 3, fee: 30000 }
+            { account: account2, idx: 0, fee: 20000000 },
+            { account: account2, idx: 1, fee: 40000000 },
+            { account: account1, idx: 2, fee: 50000000 },
+            { account: account2, idx: 3, fee: 30000000 }
           ])
         ],
         asserts: [

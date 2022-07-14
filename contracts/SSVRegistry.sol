@@ -1,19 +1,22 @@
 // File: contracts/SSVRegistry.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/VersionedContract.sol";
+import "./utils/Types.sol";
 import "./ISSVRegistry.sol";
 
 contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, VersionedContract {
     using Counters for Counters.Counter;
+    using Types256 for uint256;
+    using Types64 for uint64;
 
     struct Operator {
         string name;
         bytes publicKey;
-        uint256 fee;
+        uint64 fee;
         address ownerAddress;
         uint32 score;
         uint32 indexInOwner;
@@ -70,7 +73,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         string calldata name,
         address ownerAddress,
         bytes calldata publicKey,
-        uint256 fee
+        uint64 fee
     ) external onlyOwner override returns (uint32 operatorId) {
         if (_operatorPublicKeyToId[publicKey] != 0) {
             revert OperatorAlreadyExists();
@@ -106,7 +109,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     /**
      * @dev See {ISSVRegistry-updateOperatorFee}.
      */
-    function updateOperatorFee(uint32 operatorId, uint256 fee) external onlyOwner override {
+    function updateOperatorFee(uint32 operatorId, uint64 fee) external onlyOwner override {
         _updateOperatorFeeUnsafe(operatorId, fee);
     }
 
@@ -157,7 +160,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
                 revert ExceedValidatorLimit();
             }
         }
-
         ++_activeValidatorCount;
     }
 
@@ -203,7 +205,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
      */
     function getOperatorById(uint32 operatorId) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
         Operator storage operator = _operators[operatorId];
-        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[operatorId].validatorCount, operator.fee, operator.score, operator.active);
+        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[operatorId].validatorCount, operator.fee.expand(), operator.score, operator.active);
     }
 
     /**
@@ -211,7 +213,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
      */
     function getOperatorByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
         Operator storage operator = _operators[_operatorPublicKeyToId[publicKey]];
-        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[_operatorPublicKeyToId[publicKey]].validatorCount, operator.fee, operator.score, operator.active);
+        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[_operatorPublicKeyToId[publicKey]].validatorCount, operator.fee.expand(), operator.score, operator.active);
     }
 
     /**
@@ -240,7 +242,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     /**
      * @dev See {ISSVRegistry-getOperatorFee}.
      */
-    function getOperatorFee(uint32 operatorId) external view override returns (uint256) {
+    function getOperatorFee(uint32 operatorId) external view override returns (uint64) {
         if (_operators[operatorId].ownerAddress == address(0)) {
             revert OperatorNotFound();
         }
@@ -287,7 +289,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     /**
      * @dev See {ISSVRegistry-updateOperatorFee}.
      */
-    function _updateOperatorFeeUnsafe(uint32 operatorId, uint256 fee) private {
+    function _updateOperatorFeeUnsafe(uint32 operatorId, uint64 fee) private {
         _operators[operatorId].fee = fee;
     }
 

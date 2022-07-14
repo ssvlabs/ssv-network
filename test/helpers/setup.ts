@@ -285,6 +285,7 @@ export const updateOperatorFee = async (account, idx, fee) => {
 }
 
 const getNetworkEarnings = async () => {
+  console.log("-> det", globalData.networkEarnings, (await utils.blockNumber()),  globalData.networkEarningsBlockNumber, globalData.networkFee, globalData.validatorCount)
   return globalData.networkEarnings + ((await utils.blockNumber()) - globalData.networkEarningsBlockNumber) * globalData.networkFee * globalData.validatorCount;
 }
 
@@ -328,16 +329,16 @@ export const updateOperatorBalance = async (idx) => {
 //@ts-ignore
 export const processTestCase = async (testFlow) => {
   const baseBlockNumber = await utils.blockNumber();
-  await network.provider.send('evm_setAutomine', [false]);
+  // await network.provider.send('evm_setAutomine', [false]);
   for (const blockNumber of Object.keys(testFlow)) {
     const targetBlock = +blockNumber - -baseBlockNumber;
     const diffBlocks = targetBlock - (await utils.blockNumber());
     const { funcs, asserts } = testFlow[blockNumber];
     await progressBlocks(diffBlocks);
     console.log(`[BLOCK] ${+await utils.blockNumber()} (${blockNumber})`);
-    await network.provider.send('evm_setAutomine', [true]);
-    if (Array.isArray(asserts)) for (const assert of asserts) await assert()
-    await network.provider.send('evm_setAutomine', [false]);
+    // await network.provider.send('evm_setAutomine', [true]);
+    if (Array.isArray(asserts)) for (const assert of asserts) await assert();
+    // await network.provider.send('evm_setAutomine', [false]);
     if (Array.isArray(funcs)) {
       for (const func of funcs) {
         await func();

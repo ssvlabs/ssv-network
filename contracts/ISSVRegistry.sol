@@ -1,6 +1,6 @@
 // File: contracts/ISSVRegistry.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity ^0.8.2;
 
 interface ISSVRegistry {
     struct Oess {
@@ -31,7 +31,7 @@ interface ISSVRegistry {
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee The fee which the operator charges for each block.
      */
-    function registerOperator(string calldata name, address ownerAddress, bytes calldata publicKey, uint256 fee) external returns (uint32);
+    function registerOperator(string calldata name, address ownerAddress, bytes calldata publicKey, uint64 fee) external returns (uint32);
 
     /**
      * @dev removes an operator.
@@ -46,7 +46,7 @@ interface ISSVRegistry {
      */
     function updateOperatorFee(
         uint32 operatorId,
-        uint256 fee
+        uint64 fee
     ) external;
 
     /**
@@ -147,7 +147,7 @@ interface ISSVRegistry {
      */
     function getOperatorFee(uint32 operatorId)
         external view
-        returns (uint256);
+        returns (uint64);
 
     /**
      * @dev Gets active validator count.
