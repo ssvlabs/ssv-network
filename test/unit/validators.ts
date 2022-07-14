@@ -14,12 +14,10 @@ const { expect } = chai
 
 // Define global variables
 const DAY = 86400
-const minimumBlocksBeforeLiquidation = 50
+const minimumBlocksBeforeLiquidation = 7000
 const operatorMaxFeeIncrease = 10
 const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
-const validatorsPerOperatorLimit = 2000
-const registeredOperatorsPerAccountLimit = 10
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345'
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765'
 let ssvToken: any, ssvRegistry: any, ssvNetwork: any
@@ -38,11 +36,11 @@ describe('Validators', function () {
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false })
     await ssvToken.deployed()
     await ssvRegistry.deployed()
-    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit])
+    ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod])
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '100000000000000')
+    await ssvToken.mint(account1.address, '1000000000000')
 
     // Register operators
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000)
@@ -52,7 +50,7 @@ describe('Validators', function () {
     await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 500000000)
 
     // Register Validator
-    const tokens = '1000000000000'
+    const tokens = '10000000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     await expect(
       ssvNetwork.connect(account1)
@@ -62,7 +60,7 @@ describe('Validators', function () {
           operatorsPub.slice(0, 4),
           operatorsPub.slice(0, 4),
           tokens
-        )).to.emit(ssvNetwork, 'ValidatorAdded')
+        )).to.emit(ssvNetwork, 'ValidatorRegistration')
   })
 
   it('Get operators by validator', async function () {
@@ -84,27 +82,28 @@ describe('Validators', function () {
 
   it('Remove validator', async function () {
     await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
-      .to.emit(ssvNetwork, 'ValidatorRemoved').withArgs(account1.address, validatorsPub[0])
+      .to.emit(ssvNetwork, 'ValidatorRemoval').withArgs(account1.address, validatorsPub[0])
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0')
 
     // Try to remove the validator again
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('validator with public key does not exist')
+      .should.eventually.be.rejectedWith('ValidatorWithPublicKeyNotExist')
   })
 
   it('Remove validator non existent key', async function () {
     await ssvNetwork.connect(account2).removeValidator(validatorsPub[1])
-      .should.eventually.be.rejectedWith('validator with public key does not exist')
+      .should.eventually.be.rejectedWith('ValidatorWithPublicKeyNotExist')
   })
 
   it('Remove validator sent by non owner', async function () {
     await ssvNetwork.connect(account2).removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('caller is not validator owner')
+      .should.eventually.be.rejectedWith('CallerNotValidatorOwner')
   })
 
   it('Remove validator with not enough SSV', async function () {
-    await progressBlocks(10000)
+    await ssvNetwork.connect(account1).withdraw('9290000000');
+    await progressBlocks(8000);
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
-      .should.eventually.be.rejectedWith('negative balance')
+      .should.eventually.be.rejectedWith('NegativeBalance')
   })
 })

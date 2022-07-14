@@ -9,35 +9,20 @@ interface ISSVRegistry {
         bytes encryptedKey;
     }
 
-    /**
-     * @dev Emitted when an operator's fee is updated.
-     * @param ownerAddress Operator's owner.
-     * @param publicKey Operator's public key.
-     * @param blockNumber from which block number.
-     * @param fee updated fee value.
-     */
-    event OperatorFeeUpdated(
-        uint32 indexed operatorId,
-        address indexed ownerAddress,
-        bytes publicKey,
-        uint256 blockNumber,
-        uint256 fee
-    );
-
-    event OwnerValidatorsDisabled(address ownerAddress);
-
-    event OwnerValidatorsEnabled(address indexed ownerAddress);
-
-    event ValidatorsPerOperatorLimitUpdated(uint16 validatorsPerOperatorLimit);
-
-    event RegisteredOperatorsPerAccountLimitUpdated(uint16 registeredOperatorsPerAccountLimit);
+    /** errors */
+    error OperatorAlreadyExists();
+    error ExceedRegisteredOperatorsByAccountLimit();
+    error OperatorDeleted();
+    error ValidatorAlreadyExists();
+    error ExceedValidatorLimit();
+    error OperatorNotFound();
+    error InvalidPublicKeyLength();
+    error OessDataStructureInvalid();
 
     /**
      * @dev Initializes the contract
-     * @param validatorsPerOperatorLimit_ the limit for validators per operator.
-     * @param registeredOperatorsPerAccountLimit_ the limit for registered operators per account address.
      */
-    function initialize(uint16 validatorsPerOperatorLimit_, uint16 registeredOperatorsPerAccountLimit_) external;
+    function initialize() external;
 
     /**
      * @dev Registers a new operator.
@@ -71,7 +56,7 @@ interface ISSVRegistry {
      */
     function updateOperatorScore(
         uint32 operatorId,
-        uint16 score
+        uint32 score
     ) external;
 
     /**
@@ -80,14 +65,14 @@ interface ISSVRegistry {
      * @param publicKey Validator public key.
      * @param operatorIds Operator ids.
      * @param sharesPublicKeys Shares public keys.
-     * @param encryptedKeys Encrypted private keys.
+     * @param sharesEncrypted Encrypted private keys.
      */
     function registerValidator(
         address ownerAddress,
         bytes calldata publicKey,
         uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys
+        bytes[] calldata sharesEncrypted
     ) external;
 
     /**
@@ -196,30 +181,8 @@ interface ISSVRegistry {
     function getValidatorOwner(bytes calldata publicKey) external view returns (address);
 
     /**
-     * @dev Update Max validators amount limit per Operator.
-     * @param _validatorsPerOperatorLimit Amount
-     */
-    function updateValidatorsPerOperatorLimit(uint16 _validatorsPerOperatorLimit) external;
-
-    /**
-     * @dev Update Max registered operators per account per Operator.
-     * @param _registeredOperatorsPerAccountLimit Amount
-     */
-    function updateRegisteredOperatorsPerAccountLimit(uint16 _registeredOperatorsPerAccountLimit) external;
-
-    /**
-     * @dev Get validators per operator limit.
-     */
-    function getValidatorsPerOperatorLimit() external view returns (uint16);
-
-    /**
      * @dev Get validators amount per operator.
      * @param operatorId Operator public key
      */
-    function validatorsPerOperatorCount(uint32 operatorId) external view returns (uint16);
-
-    /**
-     * @dev Get registered operators per account limit.
-     */
-    function getRegisteredOperatorsPerAccountLimit() external view returns (uint16);
+    function validatorsPerOperatorCount(uint32 operatorId) external view returns (uint32);
 }

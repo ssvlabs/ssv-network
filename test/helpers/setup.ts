@@ -5,7 +5,7 @@ declare var network: any;
 
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
-const minimumBlocksBeforeLiquidation = 50;
+const minimumBlocksBeforeLiquidation = 7000;
 const operatorMaxFeeIncrease = 10;
 
 //@ts-ignore
@@ -22,8 +22,6 @@ const YEAR = 365 * DAY;
 
 const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;
-const validatorsPerOperatorLimit = 2000;
-const registeredOperatorsPerAccountLimit = 10;
 
 const operatorData: any = [];
 const addressData: any = {};
@@ -48,10 +46,10 @@ export const initContracts = async () => {
   await utils.deployed();
   await ssvToken.deployed();
   await ssvRegistry.deployed();
-  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit]);
+  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod]);
   await ssvNetwork.deployed();
-  await ssvToken.mint(account1.address, '1000000000000000');
-  await ssvToken.mint(account2.address, '1000000000000000');
+  await ssvToken.mint(account1.address, '100000000000');
+  await ssvToken.mint(account2.address, '100000000000');
 }
 
 const initGlobalData = () => {

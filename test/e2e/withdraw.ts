@@ -36,7 +36,7 @@ describe('SSV Network', function () {
       },
       20: {
         funcs: [
-          () => registerValidator([{ account: account1, validatorIdx: 0, operatorIdxs: [0, 1, 2, 3], depositAmount: 10000000 },])
+          () => registerValidator([{ account: account1, validatorIdx: 0, operatorIdxs: [0, 1, 2, 3], depositAmount: 1000000000 },])
         ],
         asserts: [
           () => checkTotalBalance([account1.address, account2.address]),
@@ -45,7 +45,7 @@ describe('SSV Network', function () {
       },
       100: {
         funcs: [
-          () => withdraw(account2, 5000000)
+          () => withdraw(account2, 500000000)
         ],
         asserts: [
           () => checkTotalBalance([account1.address, account2.address]),
@@ -53,13 +53,13 @@ describe('SSV Network', function () {
         ]
       },
       110: {
-        asserts: [() => checkWithdrawFail(account2, 100000000000)]
+        asserts: [() => checkWithdrawFail(account2, 10000000000000)]
       },
       120: {
         asserts: [
           // () => checkTotalBalance([account1.address, account2.address]),
           () => checkTotalEarnings([account1.address, account2.address]),
-          () => checkWithdrawFail(account2, 10000000)
+          () => checkWithdrawFail(account2, 1000000000)
         ]
       }
     }
