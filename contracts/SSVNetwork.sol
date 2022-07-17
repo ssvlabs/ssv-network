@@ -65,7 +65,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     uint64 private _executeOperatorFeePeriod;
     mapping(uint32 => FeeChangeRequest) private _feeChangeRequests;
 
-    uint16 constant private MINIMAL_OPERATOR_FEE = 10000;
+    uint16 constant private MINIMAL_OPERATOR_FEE = 1;
     uint16 constant private MANAGING_OPERATORS_PER_ACCOUNT_LIMIT = 50;
     uint16 constant private MINIMAL_LIQUIDATION_THRESHOLD = 6570;
 
@@ -552,12 +552,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
         _updateUsingOperatorByOwner(ownerAddress, operatorId, false);
     }
 
-    function _updateOperatorFeeUnsafe(uint32 operatorId, uint256 fee) private {
+    function _updateOperatorFeeUnsafe(uint32 operatorId, uint64 fee) private {
         OperatorData storage operatorData = _operatorDatas[operatorId];
         _updateOperatorIndex(operatorId);
         operatorData.indexBlockNumber = block.number;
         _updateOperatorBalance(operatorId);
-        _ssvRegistryContract.updateOperatorFee(operatorId, fee.shrink());
+        _ssvRegistryContract.updateOperatorFee(operatorId, fee);
     }
 
     /**
