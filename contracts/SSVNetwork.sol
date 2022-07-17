@@ -308,7 +308,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
      * @dev See {ISSVNetwork-updateNetworkFee}.
      */
     function updateNetworkFee(uint256 fee) external onlyOwner override {
-        emit NetworkFeeUpdate(_networkFee.expand(), fee.shrink().expand());
+        emit NetworkFeeUpdate(_networkFee.expand(), fee);
         _updateNetworkEarnings();
         _updateNetworkFeeIndex();
         _networkFee = fee.shrink();
@@ -390,7 +390,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     }
 
     function getNetworkFee() external view override returns (uint256) {
-        return _networkFee;
+        return _networkFee.expand();
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
