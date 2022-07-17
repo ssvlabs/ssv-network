@@ -120,7 +120,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     }
 
     modifier ensureMinimalOperatorFee(uint256 fee) {
-        _ensureMinimalOperatorFee(fee);
+        _ensureMinimalOperatorFee(fee.shrink());
         _;
     }
 
@@ -804,7 +804,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
         }
     }
 
-    function _ensureMinimalOperatorFee(uint256 fee) private pure {
+    function _ensureMinimalOperatorFee(uint64 fee) private pure {
         if (fee < MINIMAL_OPERATOR_FEE) {
             revert FeeTooLow();
         }
