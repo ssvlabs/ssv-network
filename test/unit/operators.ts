@@ -54,23 +54,6 @@ describe('Operators', function () {
     await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000)
   })
 
-  it('Get operators by public key', async function () {
-   expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[0]).to.equal('testOperator 1')
-   expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[1]).to.equal(account2.address)
-   expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[2]).to.equal(operatorsPub[1])
-   expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[3]).to.equal('0')
-   expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[4]).to.equal('200000000')
-   expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[5]).to.equal('0')
-   expect((await ssvNetwork.getOperatorByPublicKey(operatorsPub[1]))[6]).to.equal(true)
-  })
-
-  it('Try to register operator with same public key', async function () {
-    await ssvNetwork
-      .connect(account3)
-      .registerOperator('duplicate operator pubkey', operatorsPub[1], 100000000)
-      .should.eventually.be.rejectedWith('OperatorAlreadyExists')
-  })
-
   it('Get operator returns correct', async function () {
     // Existing operator
     expect((await ssvRegistry.getOperatorById(operatorsIds[1]))[1]).to.equal(account2.address)

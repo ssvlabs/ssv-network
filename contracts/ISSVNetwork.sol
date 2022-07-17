@@ -333,23 +333,6 @@ interface ISSVNetwork {
             bool
         );
 
-
-    /**
-     * @dev Gets an operator by public key.
-     * @param publicKey Operator public key.
-     */
-    function getOperatorByPublicKey(bytes memory publicKey)
-        external view
-        returns (
-            string memory,
-            address,
-            bytes memory,
-            uint256,
-            uint256,
-            uint256,
-            bool
-        );
-
     /**
      * @dev Gets a validator public keys by owner's address.
      * @param ownerAddress Owner's Address.

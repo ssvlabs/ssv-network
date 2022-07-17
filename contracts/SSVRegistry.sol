@@ -46,7 +46,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     mapping(address => OwnerData) private _owners;
 
     uint32 private _activeValidatorCount;
-    mapping(bytes => uint32) private _operatorPublicKeyToId;
 
     uint32 constant private VALIDATORS_PER_OPERATOR_LIMIT = 2000;
     uint32 constant private REGISTERED_OPERATORS_PER_ACCOUNT_LIMIT = 10;
@@ -75,9 +74,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         bytes calldata publicKey,
         uint64 fee
     ) external onlyOwner override returns (uint32 operatorId) {
-        if (_operatorPublicKeyToId[publicKey] != 0) {
-            revert OperatorAlreadyExists();
-        }
 
         if (_operatorsByOwnerAddress[ownerAddress].length >= REGISTERED_OPERATORS_PER_ACCOUNT_LIMIT) {
             revert ExceedRegisteredOperatorsByAccountLimit();
@@ -87,7 +83,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
         operatorId = uint32(_lastOperatorId.current());
         _operators[operatorId] = Operator({name: name, ownerAddress: ownerAddress, publicKey: publicKey, score: 0, fee: 0, active: true, indexInOwner: uint32(_operatorsByOwnerAddress[ownerAddress].length), validatorCount: 0});
         _operatorsByOwnerAddress[ownerAddress].push(operatorId);
-        _operatorPublicKeyToId[publicKey] = operatorId;
         _updateOperatorFeeUnsafe(operatorId, fee);
     }
 
@@ -206,14 +201,6 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     function getOperatorById(uint32 operatorId) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
         Operator storage operator = _operators[operatorId];
         return (operator.name, operator.ownerAddress, operator.publicKey, _operators[operatorId].validatorCount, operator.fee.expand(), operator.score, operator.active);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-getOperatorByPublicKey}.
-     */
-    function getOperatorByPublicKey(bytes memory publicKey) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
-        Operator storage operator = _operators[_operatorPublicKeyToId[publicKey]];
-        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[_operatorPublicKeyToId[publicKey]].validatorCount, operator.fee.expand(), operator.score, operator.active);
     }
 
     /**
