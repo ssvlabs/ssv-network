@@ -109,6 +109,7 @@ describe('SSV Network Liquidation', function () {
     // expect(await ssvNetwork.getAddressBurnRate(account1.address)).to.equal((+currentNetworkFee * 2) + (operatorFee * 5))
 
     // Operator i dont own change fee
+    //PLEASE DEBUG @VADIM
     await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], operatorFee * 2)
     expect(await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0]))
   //  expect(await ssvNetwork.getAddressBurnRate(account1.address)).to.equal((+currentNetworkFee * 2) + (operatorFee * 6))
