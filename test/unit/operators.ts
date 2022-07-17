@@ -43,15 +43,15 @@ describe('Operators', function () {
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '1000000000000')
+    await ssvToken.mint(account1.address, '100000000000000')
 
     // Register operators
-    await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000))
+    await expect(ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 10000000000))
       .to.emit(ssvNetwork, 'OperatorRegistration')
-      .withArgs(operatorsIds[0], 'testOperator 0', account2.address, operatorsPub[0], 1000000)
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000)
+      .withArgs(operatorsIds[0], 'testOperator 0', account2.address, operatorsPub[0], 10000000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 200000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 300000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000)
   })
 
   it('Get operators by public key', async function () {
@@ -67,7 +67,7 @@ describe('Operators', function () {
   it('Try to register operator with same public key', async function () {
     await ssvNetwork
       .connect(account3)
-      .registerOperator('duplicate operator pubkey', operatorsPub[1], 10000)
+      .registerOperator('duplicate operator pubkey', operatorsPub[1], 100000000)
       .should.eventually.be.rejectedWith('OperatorAlreadyExists')
   })
 
@@ -101,8 +101,8 @@ describe('Operators', function () {
 
   it('Remove operator with validators', async function () {
     // Register a validator
-    await ssvToken.connect(account1).approve(ssvNetwork.address, 1000000000000)
-    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 100000000000)
+    await ssvToken.connect(account1).approve(ssvNetwork.address, 100000000000000)
+    await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 100000000000000)
 
     // Delete an operator that the validator is using
     await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
