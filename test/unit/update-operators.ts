@@ -51,9 +51,7 @@ describe('Update Operators', function () {
   })
 
   it('Update operators score', async function () {
-    // TO DO
-    // await expect((ssvNetwork.connect(owner).updateOperatorScore(operatorsIds[0], 105)))
-    //   .to.emit(ssvRegistry, 'OperatorScoreUpdated')
+    await ssvNetwork.connect(owner).updateOperatorScore(operatorsIds[0], 105)
 
     // Update as non-owner to get error
     await ssvNetwork
