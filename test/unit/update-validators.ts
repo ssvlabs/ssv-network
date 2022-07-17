@@ -40,7 +40,7 @@ describe('Update Validators', function () {
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '1000000000000')
+    await ssvToken.mint(account1.address, '100000000000000')
 
     // Register operators
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000)
@@ -50,7 +50,7 @@ describe('Update Validators', function () {
     await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 500000000)
 
     // Register Validator
-    const tokens = '10000000000'
+    const tokens = '10000000000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     await ssvNetwork.connect(account1).registerValidator(
       validatorsPub[0],
@@ -62,8 +62,6 @@ describe('Update Validators', function () {
   })
 
   it('Update validator', async function () {
-    const tokens = '10000000'
-    await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     const tx = ssvNetwork
       .connect(account1)
       .updateValidator(
@@ -71,7 +69,7 @@ describe('Update Validators', function () {
         operatorsIds.slice(0, 4),
         operatorsPub.slice(0, 4),
         operatorsPub.slice(0, 4),
-        tokens
+        0
       )
     await expect(tx).to.emit(ssvNetwork, 'ValidatorRemoval')
     await expect(tx).to.emit(ssvNetwork, 'ValidatorRegistration')
