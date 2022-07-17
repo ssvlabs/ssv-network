@@ -120,7 +120,7 @@ describe('SSV Network Liquidation', function () {
     // Try to liquidate non liquidatable accounts
     await ssvNetwork.connect(account1).withdraw('9290000000');
     await progressBlocks(8000);
-    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(99051000000000)
+    expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal(91989710000000)
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(false)
     await ssvNetwork.connect(account4).liquidate([account1.address])
     expect(await ssvNetwork.isLiquidated(account1.address)).to.equal(false)

@@ -51,7 +51,7 @@ describe('SSV Network Balances Calculation', function () {
     await ssvRegistry.deployed();
     ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod]);
     await ssvNetwork.deployed();
-    await ssvToken.mint(account1.address, '1000000000000');
+    await ssvToken.mint(account1.address, '100000000000000');
   });
 
   it('Address Balance', async function () {
@@ -59,7 +59,7 @@ describe('SSV Network Balances Calculation', function () {
     const balancesByBlocks = [""];
     const networkAddFeeByBlocks = [""];
     await snapshot(async () => {
-      const chargedAmount = 1000000000;
+      const chargedAmount = 10000000000000;
       await ssvToken.connect(account1).approve(ssvNetwork.address, `${chargedAmount * 4}`);
       (await ssvNetwork.updateNetworkFee(10000000)).wait();
       // Register operators
@@ -153,7 +153,7 @@ describe('SSV Network Balances Calculation', function () {
       );
 
       console.log(table.toString());
-      expect(4 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)).to.equal(18080000);
+      expect(4 * chargedAmount - +await ssvNetwork.getAddressBalance(account1.address)).to.equal(180800000000);
 
     });
   });
