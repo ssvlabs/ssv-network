@@ -78,12 +78,17 @@ describe('Validators', function () {
         '100000000'
       ).should.eventually.be.rejectedWith('ERC20: insufficient allowance')
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1')
+    expect((await ssvNetwork.validatorsPerOperatorCount(1)).toString()).to.equal('1')
+    expect((await ssvNetwork.validatorsPerOperatorCount(2)).toString()).to.equal('1')
+    expect((await ssvNetwork.validatorsPerOperatorCount(3)).toString()).to.equal('1')
+    expect((await ssvNetwork.validatorsPerOperatorCount(4)).toString()).to.equal('1')
   })
 
   it('Remove validator', async function () {
     await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
       .to.emit(ssvNetwork, 'ValidatorRemoval').withArgs(account1.address, validatorsPub[0])
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0')
+    expect((await ssvNetwork.validatorsPerOperatorCount(1)).toString()).to.equal('0')
 
     // Try to remove the validator again
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])

@@ -37,6 +37,10 @@ describe('SSV Registry', function () {
     await ssvRegistry.registerValidator(account2.address, validatorsPub[2], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
   })
 
+  it('Check contract version', async function () {
+    expect(await ssvRegistry.version()).to.equal(1)
+  });
+
   it('Operator limit', async function () {
     await ssvRegistry.registerOperator('testOperator 5', account1.address, operatorsPub[5], 500000000);
     await ssvRegistry.registerOperator('testOperator 6', account1.address, operatorsPub[6], 500000000);
@@ -45,7 +49,12 @@ describe('SSV Registry', function () {
     await ssvRegistry.registerOperator('testOperator 9', account1.address, operatorsPub[9], 500000000);
     await ssvRegistry.registerOperator('testOperator 10', account1.address, operatorsPub2[0], 500000000);
     await ssvRegistry.registerOperator('testOperator 11', account1.address, operatorsPub2[1], 500000000);
-   await expect(ssvRegistry.registerOperator('testOperator 12', account1.address, operatorsPub2[2], 500000000)).to.be.revertedWith("ExceedRegisteredOperatorsByAccountLimit")  
+    await expect(ssvRegistry.registerOperator('testOperator 12', account1.address, operatorsPub2[2], 500000000)).to.be.revertedWith("ExceedRegisteredOperatorsByAccountLimit")
+  })
+
+  it('Remove Operator', async function () {
+    await ssvRegistry.removeOperator(1);
+    await expect(ssvRegistry.removeOperator(1)).to.be.revertedWith("OperatorDeleted")
   })
 
   it('Register validators with errors', async () => {
@@ -55,10 +64,15 @@ describe('SSV Registry', function () {
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 3))).to.be.revertedWith('OessDataStructureInvalid')
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 1), operatorsPub.slice(0, 1), operatorsPub.slice(0, 1))).to.be.revertedWith('OessDataStructureInvalid')
     await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 3), operatorsPub.slice(0, 3))).to.be.revertedWith('OessDataStructureInvalid')
+    await ssvRegistry.removeOperator(1);
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OperatorDeleted')
   })
 
   it('Register a valid validator', async () => {
-    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
+    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5));
+    expect((await ssvRegistry.validatorsPerOperatorCount(1)).toString()).to.equal('3')
+    expect((await ssvRegistry.validatorsPerOperatorCount(2)).toString()).to.equal('4')
+    expect((await ssvRegistry.validatorsPerOperatorCount(5)).toString()).to.equal('1')
   })
 
   it('Validators getter', async () => {

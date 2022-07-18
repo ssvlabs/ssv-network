@@ -109,6 +109,9 @@ describe('SSV Network Liquidation', function () {
     await progressBlocks(250)
     expect(await ssvNetwork.isLiquidatable(account1.address)).to.equal(true)
 
+    // Try to withdraw with in liquidatable state
+    await expect(ssvNetwork.connect(account1).withdraw(10000000)).to.be.revertedWith("NotEnoughBalance")
+
     // Deposit more SSV
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
     await ssvNetwork.connect(account1).deposit(account1.address, tokens)

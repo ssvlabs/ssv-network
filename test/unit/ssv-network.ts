@@ -58,6 +58,11 @@ describe('SSV Network', function () {
     await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens);
   });
 
+
+  it('Check contract version', async function () {
+    expect(await ssvNetwork.version()).to.equal(20000)
+  });
+
   it('Operator limit', async function () {
     await ssvNetwork.connect(account3).registerOperator('testOperator 5', operatorsPub[5], 500000000);
     await ssvNetwork.connect(account3).registerOperator('testOperator 6', operatorsPub[6], 500000000);
