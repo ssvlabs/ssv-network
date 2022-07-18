@@ -370,7 +370,7 @@ describe('SSV Network', function () {
     await ssvNetwork.connect(account3).declareOperatorFee(operatorsIds[3], '410000000');
     expect(await ssvNetwork.getOperatorFee(operatorsIds[3])).to.equal(400000000);
     const currentBlockTime = await utils.blockTimestamp();
-    // expect((await ssvNetwork.getOperatorDeclaredFee(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['410000000', (+currentBlockTime + DAY).toString(), (+currentBlockTime + 2 * DAY).toString()]);
+    expect((await ssvNetwork.getOperatorDeclaredFee(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['410000000', (+currentBlockTime + DAY).toString(), (+currentBlockTime + 2 * DAY).toString()]);
 
     //approve fee too soon
     await expect(ssvNetwork.connect(account3).executeOperatorFee(operatorsIds[3])).to.be.revertedWith('ApprovalNotWithinTimeframe');
@@ -383,14 +383,14 @@ describe('SSV Network', function () {
     await ssvNetwork.connect(account3).declareOperatorFee(operatorsIds[3], '410000000');
     await ssvNetwork.connect(account3).cancelDeclaredOperatorFee(operatorsIds[3]);
     expect(await ssvNetwork.getOperatorFee(operatorsIds[3])).to.equal(400000000);
-    // expect((await ssvNetwork.getOperatorDeclaredFee(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['0', '0', '0']);
+    expect((await ssvNetwork.getOperatorDeclaredFee(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['0', '0', '0']);
 
     // Approve fee on time
     await ssvNetwork.connect(account3).declareOperatorFee(operatorsIds[3], '410000000');
     await progressTime(DAY * 15 / 10)
     await ssvNetwork.connect(account3).executeOperatorFee(operatorsIds[3])
     expect(await ssvNetwork.getOperatorFee(operatorsIds[3])).to.equal(410000000);
-    // expect((await ssvNetwork.getOperatorDeclaredFee(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['0', '0', '0']);
+    expect((await ssvNetwork.getOperatorDeclaredFee(operatorsIds[3])).map((v: any) => v.toString())).to.eql(['0', '0', '0']);
 
     // update fee with low fee
     await expect(ssvNetwork.connect(account3).declareOperatorFee(operatorsIds[3], 1000)).to.be.revertedWith('Precision is over the maximum defined');
