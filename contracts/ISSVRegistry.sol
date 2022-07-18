@@ -10,7 +10,6 @@ interface ISSVRegistry {
     }
 
     /** errors */
-    error OperatorAlreadyExists();
     error ExceedRegisteredOperatorsByAccountLimit();
     error OperatorDeleted();
     error ValidatorAlreadyExists();
@@ -92,22 +91,6 @@ interface ISSVRegistry {
      * @param operatorId Operator id.
      */
     function getOperatorById(uint32 operatorId)
-        external view
-        returns (
-            string memory,
-            address,
-            bytes memory,
-            uint256,
-            uint256,
-            uint256,
-            bool
-        );
-
-    /**
-     * @dev Gets an operator by public key.
-     * @param publicKey Operator public key.
-     */
-    function getOperatorByPublicKey(bytes memory publicKey)
         external view
         returns (
             string memory,
