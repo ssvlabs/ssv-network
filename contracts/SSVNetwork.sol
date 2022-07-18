@@ -350,7 +350,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     function getOperatorDeclaredFee(uint32 operatorId) external view override returns (uint256, uint256, uint256) {
         FeeChangeRequest storage feeChangeRequest = _feeChangeRequests[operatorId];
 
-        return (feeChangeRequest.fee, feeChangeRequest.approvalBeginTime, feeChangeRequest.approvalEndTime);
+        return (feeChangeRequest.fee.expand(), feeChangeRequest.approvalBeginTime, feeChangeRequest.approvalEndTime);
     }
 
     /**
