@@ -5,7 +5,7 @@ declare var network: any;
 
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765';
-const minimumBlocksBeforeLiquidation = 50;
+const minimumBlocksBeforeLiquidation = 7000;
 const operatorMaxFeeIncrease = 10;
 
 //@ts-ignore
@@ -22,8 +22,6 @@ const YEAR = 365 * DAY;
 
 const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;
-const validatorsPerOperatorLimit = 2000;
-const registeredOperatorsPerAccountLimit = 10;
 
 const operatorData: any = [];
 const addressData: any = {};
@@ -48,10 +46,10 @@ export const initContracts = async () => {
   await utils.deployed();
   await ssvToken.deployed();
   await ssvRegistry.deployed();
-  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod, validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit]);
+  ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod]);
   await ssvNetwork.deployed();
-  await ssvToken.mint(account1.address, '1000000000');
-  await ssvToken.mint(account2.address, '1000000000');
+  await ssvToken.mint(account1.address, '100000000000');
+  await ssvToken.mint(account2.address, '100000000000');
 }
 
 const initGlobalData = () => {
@@ -286,12 +284,13 @@ export const updateOperatorFee = async (account, idx, fee) => {
   console.log(`      | Update operator fee ${idx} > [VALUE] ${fee} [ACTUAL_BLOCK] ${await utils.blockNumber()}`);
 }
 
-export const getTotalNetworkEarnings = async () => {
+const getNetworkEarnings = async () => {
+  console.log("-> det", globalData.networkEarnings, (await utils.blockNumber()),  globalData.networkEarningsBlockNumber, globalData.networkFee, globalData.validatorCount)
   return globalData.networkEarnings + ((await utils.blockNumber()) - globalData.networkEarningsBlockNumber) * globalData.networkFee * globalData.validatorCount;
 }
 
-export const getNetworkEarnings = async () => {
-  return (await getTotalNetworkEarnings()) - globalData.withdrawnFromTreasury;
+export const getNetworkTreasury = async () => {
+  return (await getNetworkEarnings()) - globalData.withdrawnFromTreasury;
 }
 //@ts-ignore
 const updateAddressNetworkFee = async (address) => {
@@ -300,7 +299,7 @@ const updateAddressNetworkFee = async (address) => {
 }
 
 const updateNetworkEarnings = async () => {
-  globalData.networkEarnings = await getTotalNetworkEarnings();
+  globalData.networkEarnings = await getNetworkEarnings();
   globalData.networkEarningsBlockNumber = await utils.blockNumber();
 }
 //@ts-ignore
@@ -330,16 +329,16 @@ export const updateOperatorBalance = async (idx) => {
 //@ts-ignore
 export const processTestCase = async (testFlow) => {
   const baseBlockNumber = await utils.blockNumber();
-  await network.provider.send('evm_setAutomine', [false]);
+  // await network.provider.send('evm_setAutomine', [false]);
   for (const blockNumber of Object.keys(testFlow)) {
     const targetBlock = +blockNumber - -baseBlockNumber;
     const diffBlocks = targetBlock - (await utils.blockNumber());
     const { funcs, asserts } = testFlow[blockNumber];
     await progressBlocks(diffBlocks);
     console.log(`[BLOCK] ${+await utils.blockNumber()} (${blockNumber})`);
-    await network.provider.send('evm_setAutomine', [true]);
-    if (Array.isArray(asserts)) for (const assert of asserts) await assert()
-    await network.provider.send('evm_setAutomine', [false]);
+    // await network.provider.send('evm_setAutomine', [true]);
+    if (Array.isArray(asserts)) for (const assert of asserts) await assert();
+    // await network.provider.send('evm_setAutomine', [false]);
     if (Array.isArray(funcs)) {
       for (const func of funcs) {
         await func();

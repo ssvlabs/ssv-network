@@ -4,6 +4,7 @@
 import { ethers, upgrades } from 'hardhat'
 import * as chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
+import { ssvNetwork } from '../helpers/setup'
 beforeEach(() => {
   chai.should()
   chai.use(chaiAsPromised)
@@ -12,73 +13,66 @@ const { expect } = chai
 
 // Define global variables
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345'
+const operatorPublicKeyPrefix2 = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012346';
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765'
 let ssvRegistry: any, owner: any, account1: any, account2: any, account3: any
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`)
+const operatorsPub2 = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix2}${k}`);
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
-const validatorsPerOperatorLimit = 2000;
-const registeredOperatorsPerAccountLimit = 10;
 
 describe('SSV Registry', function () {
   beforeEach(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners()
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry')
-    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, [validatorsPerOperatorLimit, registeredOperatorsPerAccountLimit])
+    ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, []);
     await ssvRegistry.deployed()
-    await ssvRegistry.registerOperator('testOperator 0', account1.address, operatorsPub[0], 10)
-    await ssvRegistry.registerOperator('testOperator 1', account1.address, operatorsPub[1], 20)
-    await ssvRegistry.registerOperator('testOperator 2', account1.address, operatorsPub[2], 30)
-    await ssvRegistry.registerOperator('testOperator 3', account2.address, operatorsPub[3], 40)
-    await ssvRegistry.registerOperator('testOperator 4', account2.address, operatorsPub[4], 50)
+    await ssvRegistry.registerOperator('testOperator 0', account1.address, operatorsPub[0], 10000000)
+    await ssvRegistry.registerOperator('testOperator 1', account1.address, operatorsPub[1], 20000000)
+    await ssvRegistry.registerOperator('testOperator 2', account1.address, operatorsPub[2], 30000000)
+    await ssvRegistry.registerOperator('testOperator 3', account2.address, operatorsPub[3], 40000000)
+    await ssvRegistry.registerOperator('testOperator 4', account2.address, operatorsPub[4], 50000000)
     await ssvRegistry.registerValidator(account1.address, validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
     await ssvRegistry.registerValidator(account1.address, validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
     await ssvRegistry.registerValidator(account2.address, validatorsPub[2], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
   })
 
-  it('Get operators by public key', async function () {
-    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[0]).to.equal('testOperator 1')
-    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[1]).to.equal(account1.address)
-    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[2]).to.equal(operatorsPub[1])
-    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[3]).to.equal('3')
-    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[4]).to.equal('20')
-    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[5]).to.equal('0')
-    expect((await ssvRegistry.getOperatorByPublicKey(operatorsPub[1]))[6]).to.equal(true)
-   })
-
-  it('Operator limit', async function () {
-    expect(await ssvRegistry.validatorsPerOperatorCount(operatorsIds[0])).to.equal(3)
-    expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2000)
-    await ssvRegistry.updateValidatorsPerOperatorLimit(2)
-    expect(await ssvRegistry.getValidatorsPerOperatorLimit()).to.equal(2)
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
-    await expect(ssvRegistry.updateValidator(validatorsPub[2], operatorsIds.slice(0, 7), operatorsPub.slice(0, 7), operatorsPub.slice(0, 7))).to.be.revertedWith('exceed validator limit')
-  })
-
-  it('Owner address limit', async function () {
-    expect((await ssvRegistry.getOperatorsByOwnerAddress(account2.address)).length).to.equal(2);
-    expect(await ssvRegistry.getRegisteredOperatorsPerAccountLimit()).to.equal(10);
-    await ssvRegistry.registerOperator('testOperator 5', account2.address, operatorsPub[5], 50);
-    await ssvRegistry.updateRegisteredOperatorsPerAccountLimit(3);
-    expect(await ssvRegistry.getRegisteredOperatorsPerAccountLimit()).to.equal(3);
-    await expect(ssvRegistry.registerOperator('testOperator 6', account2.address, operatorsPub[6], 50)).to.be.revertedWith('exceed registered operators limit by account');
+  it('Check contract version', async function () {
+    expect(await ssvRegistry.version()).to.equal(1)
   });
 
+  it('Operator limit', async function () {
+    await ssvRegistry.registerOperator('testOperator 5', account1.address, operatorsPub[5], 500000000);
+    await ssvRegistry.registerOperator('testOperator 6', account1.address, operatorsPub[6], 500000000);
+    await ssvRegistry.registerOperator('testOperator 7', account1.address, operatorsPub[7], 500000000);
+    await ssvRegistry.registerOperator('testOperator 8', account1.address, operatorsPub[8], 500000000);
+    await ssvRegistry.registerOperator('testOperator 9', account1.address, operatorsPub[9], 500000000);
+    await ssvRegistry.registerOperator('testOperator 10', account1.address, operatorsPub2[0], 500000000);
+    await ssvRegistry.registerOperator('testOperator 11', account1.address, operatorsPub2[1], 500000000);
+    await expect(ssvRegistry.registerOperator('testOperator 12', account1.address, operatorsPub2[2], 500000000)).to.be.revertedWith("ExceedRegisteredOperatorsByAccountLimit")
+  })
+
+  it('Remove Operator', async function () {
+    await ssvRegistry.removeOperator(1);
+    await expect(ssvRegistry.removeOperator(1)).to.be.revertedWith("OperatorDeleted")
+  })
+
   it('Register validators with errors', async () => {
-    await expect(ssvRegistry.registerValidator(account3.address, "0x12345678", operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('invalid public key length')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 3), operatorsPub.slice(0, 4))).to.be.revertedWith('OESS data structure is not valid')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 1), operatorsPub.slice(0, 1), operatorsPub.slice(0, 1))).to.be.revertedWith('OESS data structure is not valid')
-    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 3), operatorsPub.slice(0, 3))).to.be.revertedWith('OESS data structure is not valid')
+    await expect(ssvRegistry.registerValidator(account3.address, "0x12345678", operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('InvalidPublicKeyLength')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OessDataStructureInvalid')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 3), operatorsPub.slice(0, 4))).to.be.revertedWith('OessDataStructureInvalid')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 3))).to.be.revertedWith('OessDataStructureInvalid')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 1), operatorsPub.slice(0, 1), operatorsPub.slice(0, 1))).to.be.revertedWith('OessDataStructureInvalid')
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 3), operatorsPub.slice(0, 3), operatorsPub.slice(0, 3))).to.be.revertedWith('OessDataStructureInvalid')
+    await ssvRegistry.removeOperator(1);
+    await expect(ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))).to.be.revertedWith('OperatorDeleted')
   })
 
   it('Register a valid validator', async () => {
-    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4));
-  })
-
-  it('Update a validator', async () => {
-    await ssvRegistry.updateValidator(validatorsPub[3], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
+    await ssvRegistry.registerValidator(account3.address, validatorsPub[3], operatorsIds.slice(1, 5), operatorsPub.slice(1, 5), operatorsPub.slice(1, 5));
+    expect((await ssvRegistry.validatorsPerOperatorCount(1)).toString()).to.equal('3')
+    expect((await ssvRegistry.validatorsPerOperatorCount(2)).toString()).to.equal('4')
+    expect((await ssvRegistry.validatorsPerOperatorCount(5)).toString()).to.equal('1')
   })
 
   it('Validators getter', async () => {

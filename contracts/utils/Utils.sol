@@ -3,6 +3,7 @@
 pragma solidity ^0.8.2;
 
 contract Utils {
+
   function blockNumber() external view returns (uint256) {
     return block.number;
   }

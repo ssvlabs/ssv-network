@@ -10,13 +10,13 @@ interface ISSVNetwork {
      * @dev Emitted when the account has been enabled.
      * @param ownerAddress Operator's owner.
      */
-    event AccountEnabled(address indexed ownerAddress);
+    event AccountEnable(address indexed ownerAddress);
 
     /**
      * @dev Emitted when the account has been liquidated.
      * @param ownerAddress Operator's owner.
      */
-    event AccountLiquidated(address indexed ownerAddress);
+    event AccountLiquidation(address indexed ownerAddress);
 
     /**
      * @dev Emitted when the operator has been added.
@@ -26,8 +26,8 @@ interface ISSVNetwork {
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee Operator's initial fee.
      */
-    event OperatorAdded(
-        uint256 indexed id,
+    event OperatorRegistration(
+        uint32 indexed id,
         string name,
         address indexed ownerAddress,
         bytes publicKey,
@@ -36,30 +36,19 @@ interface ISSVNetwork {
 
     /**
      * @dev Emitted when the operator has been removed.
+     * @param operatorId operator's ID.
      * @param ownerAddress Operator's owner.
      */
-    event OperatorRemoved(address indexed ownerAddress, uint256 indexed operatorId);
+    event OperatorRemoval(uint32 operatorId, address indexed ownerAddress);
 
-    /**
-     * @dev Emitted when the operator has been activated.
-     * @param ownerAddress Operator's owner.
-     */
-    event OperatorActivated(address indexed ownerAddress, uint256 indexed operatorId);
-
-    /**
-     * @dev Emitted when the operator has been deactivated.
-     * @param ownerAddress Operator's owner.
-     */
-    event OperatorDeactivated(address indexed ownerAddress, uint256 indexed operatorId);
-
-    event OperatorFeeSet(
+    event OperatorFeeDeclaration(
         address indexed ownerAddress,
-        uint256 indexed operatorId,
+        uint32 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
 
-    event OperatorFeeSetCanceled(address indexed ownerAddress, uint256 indexed operatorId);
+    event DeclaredOperatorFeeCancelation(address indexed ownerAddress, uint32 operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -67,22 +56,23 @@ interface ISSVNetwork {
      * @param blockNumber from which block number.
      * @param fee updated fee value.
      */
-    event OperatorFeeApproved(
+    event OperatorFeeExecution(
         address indexed ownerAddress,
-        uint256 indexed operatorId,
+        uint32 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
 
     /**
      * @dev Emitted when an operator's score is updated.
+     * @param operatorId operator's ID.
      * @param ownerAddress Operator's owner.
      * @param blockNumber from which block number.
      * @param score updated score value.
      */
-    event OperatorScoreUpdated(
+    event OperatorScoreUpdate(
+        uint32 operatorId,
         address indexed ownerAddress,
-        uint256 indexed operatorId,
         uint256 blockNumber,
         uint256 score
     );
@@ -95,26 +85,10 @@ interface ISSVNetwork {
      * @param sharesPublicKeys The shared publick keys list for this validator.
      * @param encryptedKeys The encrypted keys list for this validator.
      */
-    event ValidatorAdded(
+    event ValidatorRegistration(
         address indexed ownerAddress,
         bytes publicKey,
-        uint256[] operatorIds,
-        bytes[] sharesPublicKeys,
-        bytes[] encryptedKeys
-    );
-
-    /**
-     * @dev Emitted when the validator has been updated.
-     * @param ownerAddress The user's ethereum address that is the owner of the validator.
-     * @param publicKey The public key of a validator.
-     * @param operatorIds The operators public keys list for this validator.
-     * @param sharesPublicKeys The shared publick keys list for this validator.
-     * @param encryptedKeys The encrypted keys list for this validator.
-     */
-    event ValidatorUpdated(
-        address indexed ownerAddress,
-        bytes publicKey,
-        uint256[] operatorIds,
+        uint32[] operatorIds,
         bytes[] sharesPublicKeys,
         bytes[] encryptedKeys
     );
@@ -124,7 +98,7 @@ interface ISSVNetwork {
      * @param ownerAddress Validator's owner.
      * @param publicKey The public key of a validator.
      */
-    event ValidatorRemoved(address indexed ownerAddress, bytes publicKey);
+    event ValidatorRemoval(address indexed ownerAddress, bytes publicKey);
 
     /**
      * @dev Emitted when an owner deposits funds.
@@ -132,40 +106,60 @@ interface ISSVNetwork {
      * @param ownerAddress Owner's address.
      * @param senderAddress Sender's address.
      */
-    event FundsDeposited(uint256 value, address indexed ownerAddress, address indexed senderAddress);
+    event FundsDeposit(uint256 value, address indexed ownerAddress, address indexed senderAddress);
 
     /**
      * @dev Emitted when an owner withdraws funds.
      * @param value Amount of tokens.
      * @param ownerAddress Owner's address.
      */
-    event FundsWithdrawn(uint256 value, address indexed ownerAddress);
+    event FundsWithdrawal(uint256 value, address indexed ownerAddress);
 
     /**
      * @dev Emitted when the network fee is updated.
      * @param oldFee The old fee
      * @param newFee The new fee
      */
-    event NetworkFeeUpdated(uint256 oldFee, uint256 newFee);
+    event NetworkFeeUpdate(uint256 oldFee, uint256 newFee);
 
     /**
      * @dev Emitted when transfer fees are withdrawn.
      * @param value The amount of tokens withdrawn.
      * @param recipient The recipient address.
      */
-    event NetworkFeesWithdrawn(uint256 value, address recipient);
+    event NetworkFeesWithdrawal(uint256 value, address recipient);
 
-    event DeclareOperatorFeePeriodUpdated(uint256 value);
+    event DeclareOperatorFeePeriodUpdate(uint256 value);
 
-    event ExecuteOperatorFeePeriodUpdated(uint256 value);
+    event ExecuteOperatorFeePeriodUpdate(uint256 value);
 
-    event LiquidationThresholdPeriodUpdated(uint256 value);
+    event LiquidationThresholdPeriodUpdate(uint256 value);
 
-    event OperatorFeeIncreaseLimitUpdated(uint256 value);
+    event OperatorFeeIncreaseLimitUpdate(uint256 value);
 
-    event ValidatorsPerOperatorLimitUpdated(uint256 value);
+    event ValidatorsPerOperatorLimitUpdate(uint256 value);
 
-    event RegisteredOperatorsPerAccountLimitUpdated(uint256 value);
+    event RegisteredOperatorsPerAccountLimitUpdate(uint256 value);
+
+    event MinimumBlocksBeforeLiquidationUpdate(uint256 value);
+
+    event OperatorMaxFeeIncreaseUpdate(uint256 value);
+
+    /** errors */
+    error ValidatorWithPublicKeyNotExist();
+    error CallerNotValidatorOwner();
+    error OperatorWithPublicKeyNotExist();
+    error CallerNotOperatorOwner();
+    error FeeTooLow();
+    error FeeExceedsIncreaseLimit();
+    error NoPendingFeeChangeRequest();
+    error ApprovalNotWithinTimeframe();
+    error NotEnoughBalance();
+    error BurnRatePositive();
+    error AccountAlreadyEnabled();
+    error NegativeBalance();
+    error BelowMinimumBlockPeriod();
+    error ExceedManagingOperatorsPerAccountLimit();
 
     /**
      * @dev Initializes the contract.
@@ -174,18 +168,14 @@ interface ISSVNetwork {
      * @param minimumBlocksBeforeLiquidation_ The minimum blocks before liquidation.
      * @param declareOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
      * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
-     * @param validatorsPerOperatorLimit_ the limit for validators per operator.
-     * @param registeredOperatorsPerAccountLimit_ the limit for registered operators per account address.
      */
     function initialize(
         ISSVRegistry registryAddress_,
         IERC20 token_,
-        uint256 minimumBlocksBeforeLiquidation_,
-        uint256 operatorMaxFeeIncrease_,
-        uint256 declareOperatorFeePeriod_,
-        uint256 executeOperatorFeePeriod_,
-        uint256 validatorsPerOperatorLimit_,
-        uint256 registeredOperatorsPerAccountLimit_
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint64 operatorMaxFeeIncrease_,
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_
     ) external;
 
     /**
@@ -197,60 +187,62 @@ interface ISSVNetwork {
         string calldata name,
         bytes calldata publicKey,
         uint256 fee
-    ) external returns (uint256);
+    ) external returns (uint32);
 
     /**
      * @dev Removes an operator.
      * @param operatorId Operator's id.
      */
-    function removeOperator(uint256 operatorId) external;
+    function removeOperator(uint32 operatorId) external;
 
     /**
      * @dev Set operator's fee change request by public key.
      * @param operatorId Operator's id.
-     * @param fee The operator's updated fee.
+     * @param operatorFee The operator's updated fee.
      */
-    function declareOperatorFee(uint256 operatorId, uint256 fee) external;
+    function declareOperatorFee(uint32 operatorId, uint256 operatorFee) external;
 
-    function cancelDeclaredOperatorFee(uint256 operatorId) external;
+    function cancelDeclaredOperatorFee(uint32 operatorId) external;
 
-    function executeOperatorFee(uint256 operatorId) external;
+    function executeOperatorFee(uint32 operatorId) external;
 
     /**
      * @dev Updates operator's score by public key.
      * @param operatorId Operator's id.
      * @param score The operators's updated score.
      */
-    function updateOperatorScore(uint256 operatorId, uint256 score) external;
+    function updateOperatorScore(uint32 operatorId, uint32 score) external;
 
     /**
      * @dev Registers a new validator.
      * @param publicKey Validator public key.
-     * @param operatorIndices Operator public keys.
+     * @param operatorIds Operator public keys.
      * @param sharesPublicKeys Shares public keys.
-     * @param encryptedKeys Encrypted private keys.
+     * @param sharesEncrypted Encrypted private keys.
+     * @param amount Amount of tokens to deposit.
      */
     function registerValidator(
         bytes calldata publicKey,
-        uint256[] calldata operatorIndices,
+        uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys,
-        uint256 tokenAmount
+        bytes[] calldata sharesEncrypted,
+        uint256 amount
     ) external;
 
     /**
      * @dev Updates a validator.
      * @param publicKey Validator public key.
-     * @param operatorIndices Operator public keys.
+     * @param operatorIds Operator public keys.
      * @param sharesPublicKeys Shares public keys.
-     * @param encryptedKeys Encrypted private keys.
+     * @param sharesEncrypted Encrypted private keys.
+     * @param amount Amount of tokens to deposit.
      */
     function updateValidator(
         bytes calldata publicKey,
-        uint256[] calldata operatorIndices,
+        uint32[] calldata operatorIds,
         bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys,
-        uint256 tokenAmount
+        bytes[] calldata sharesEncrypted,
+        uint256 amount
     ) external;
 
     /**
@@ -285,25 +277,25 @@ interface ISSVNetwork {
 
     /**
      * @dev Enables msg.sender account.
-     * @param tokenAmount Tokens amount.
+     * @param amount Tokens amount.
      */
-    function reactivateAccount(uint256 tokenAmount) external;
+    function reactivateAccount(uint256 amount) external;
 
     /**
      * @dev Updates the number of blocks left for an owner before they can be liquidated.
-     * @param newMinimumBlocksBeforeLiquidation The new value.
+     * @param blocks The new value.
      */
-    function updateLiquidationThresholdPeriod(uint256 newMinimumBlocksBeforeLiquidation) external;
+    function updateLiquidationThresholdPeriod(uint64 blocks) external;
 
     /**
      * @dev Updates the maximum fee increase in pecentage.
      * @param newOperatorMaxFeeIncrease The new value.
      */
-    function updateOperatorFeeIncreaseLimit(uint256 newOperatorMaxFeeIncrease) external;
+    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
-    function updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) external;
+    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external;
 
-    function updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) external;
+    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
 
     /**
      * @dev Updates the network fee.
@@ -329,24 +321,7 @@ interface ISSVNetwork {
      * @dev Gets an operator by operator id.
      * @param operatorId Operator's id.
      */
-    function getOperatorById(uint256 operatorId)
-        external view
-        returns (
-            string memory,
-            address,
-            bytes memory,
-            uint256,
-            uint256,
-            uint256,
-            bool
-        );
-
-
-    /**
-     * @dev Gets an operator by public key.
-     * @param publicKey Operator public key.
-     */
-    function getOperatorByPublicKey(bytes memory publicKey)
+    function getOperatorById(uint32 operatorId)
         external view
         returns (
             string memory,
@@ -372,15 +347,15 @@ interface ISSVNetwork {
      */
     function getOperatorsByValidator(bytes calldata validatorPublicKey)
         external view
-        returns (uint256[] memory);
+        returns (uint32[] memory);
 
-    function getOperatorDeclaredFee(uint256 operatorId) external view returns (uint256, uint256, uint256);
+    function getOperatorDeclaredFee(uint32 operatorId) external view returns (uint256, uint256, uint256);
 
     /**
      * @dev Gets operator current fee.
      * @param operatorId Operator's id.
      */
-    function getOperatorFee(uint256 operatorId) external view returns (uint256);
+    function getOperatorFee(uint32 operatorId) external view returns (uint256);
 
     /**
      * @dev Gets the network fee for an address.
@@ -423,4 +398,6 @@ interface ISSVNetwork {
      function getExecuteOperatorFeePeriod() external view returns (uint256);
 
      function getDeclaredOperatorFeePeriod() external view returns (uint256);
+
+     function validatorsPerOperatorCount(uint32 operatorId) external view returns (uint32);
 }
