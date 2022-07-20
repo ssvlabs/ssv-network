@@ -6,11 +6,8 @@ const prompts = require('prompts');
 
 const git = simpleGit.default();
 
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
-
 export async function publishAbi(name: string) {
-  const { latest, all } = await git.tags();
+  const { all } = await git.tags();
   const gitTagChoices = [
     { title: '[create new tag]', description: 'Create new git tag before contract deployment', value: 'create-tag' },
     ...all.map((tag: any) => ({ title: tag, value: tag }))
