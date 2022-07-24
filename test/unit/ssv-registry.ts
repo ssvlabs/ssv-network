@@ -4,7 +4,6 @@
 import { ethers, upgrades } from 'hardhat'
 import * as chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { ssvNetwork } from '../helpers/setup'
 beforeEach(() => {
   chai.should()
   chai.use(chaiAsPromised)
@@ -21,7 +20,7 @@ const operatorsPub2 = Array.from(Array(10).keys()).map(k => `0x${operatorPublicK
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 
-describe('SSV Registry', function () {
+describe('SSV Registry Contract', function () {
   beforeEach(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners()
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry')
