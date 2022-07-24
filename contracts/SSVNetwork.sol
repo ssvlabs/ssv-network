@@ -65,7 +65,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     uint64 private _executeOperatorFeePeriod;
     mapping(uint32 => FeeChangeRequest) private _feeChangeRequests;
 
-    uint16 constant private MINIMAL_OPERATOR_FEE = 1;
+    uint16 constant private MINIMAL_OPERATOR_FEE = 1000;
     uint16 constant private MANAGING_OPERATORS_PER_ACCOUNT_LIMIT = 50;
     uint16 constant private MINIMAL_LIQUIDATION_THRESHOLD = 6570;
 
