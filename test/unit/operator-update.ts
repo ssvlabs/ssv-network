@@ -1,4 +1,4 @@
-// Update Operator Unit Tests
+// Operator Update Unit Tests
 
 // Declare all imports
 import * as chai from 'chai'
@@ -19,12 +19,12 @@ const operatorMaxFeeIncrease = 1000
 const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345'
-let ssvToken: any, ssvRegistry: any, ssvNetwork: any
+let ssvToken: any, ssvRegistry: any, ssvNetwork: any, utils: any
 let owner: any, account1: any, account2: any, account3: any
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 
-describe('Update Operators', function () {
+describe('Operator Update', function () {
   beforeEach(async function () {
     // Create accounts
     [owner, account1, account2, account3] = await ethers.getSigners()
@@ -33,12 +33,14 @@ describe('Update Operators', function () {
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock')
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry')
     const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork')
+    const utilsFactory = await ethers.getContractFactory('Utils');
     ssvToken = await ssvTokenFactory.deploy()
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, { initializer: false })
     await ssvToken.deployed()
     await ssvRegistry.deployed()
     ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [ssvRegistry.address, ssvToken.address, minimumBlocksBeforeLiquidation, operatorMaxFeeIncrease, setOperatorFeePeriod, approveOperatorFeePeriod])
     await ssvNetwork.deployed()
+    utils = await utilsFactory.deploy();
 
     // Mint tokens
     await ssvToken.mint(account1.address, '10000000000')
@@ -48,6 +50,7 @@ describe('Update Operators', function () {
     await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000000)
     await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000000)
     await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 10000000)
   })
 
   it('Update operators score', async function () {
@@ -65,7 +68,7 @@ describe('Update Operators', function () {
     await progressTime(DAY)
     await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1050000000)
     expect(await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0]))
-      .to.emit(ssvNetwork, 'OperatorFeeUpdated')
+      .to.emit(ssvNetwork, 'OperatorFeeUpdated').withArgs(account2.address, operatorsIds[0], +await utils.blockNumber(), 1050000000)
     expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('1050000000')
 
     // Set new operator fee too high
@@ -73,6 +76,12 @@ describe('Update Operators', function () {
 
     // declareOperatorFee incorrect user
     await expect(ssvNetwork.connect(account1).declareOperatorFee(operatorsIds[0], 1050001000)).to.be.revertedWith('CallerNotOperatorOwner')
+  })
+
+  it('Update operators fee incorrect precision', async function () {
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1010000000)
+    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1012200000)).to.be.revertedWith('Precision is over the maximum defined')
+    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1000000000 * 1.0122)).to.be.revertedWith('Precision is over the maximum defined')
   })
 
   it('Update operators max fee increase percentage', async function () {
@@ -107,6 +116,11 @@ describe('Update Operators', function () {
     await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1100000000)
     await progressTime(DAY * 7)
     await expect(ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).to.be.revertedWith('ApprovalNotWithinTimeframe')
+  })
+
+  it('Cant update operator fee (fee too small)', async function () {
+    await expect(ssvNetwork.connect(account3).declareOperatorFee(operatorsIds[4], 11000000)).to.be.revertedWith('Precision is over the maximum defined')
+    await expect(ssvNetwork.connect(account3).declareOperatorFee(operatorsIds[4], 10100000)).to.be.revertedWith('Precision is over the maximum defined')
   })
 
   it('Cancel update operator fee', async function () {
