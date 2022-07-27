@@ -27,7 +27,7 @@ const DAY = 86400
 const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
 
-describe('SSV Network Liquidation', function () {
+describe('Burn Rate', function () {
   beforeEach(async function () {
     // Create accounts
     [owner, account1, account2, account3, account4, account5] = await ethers.getSigners()

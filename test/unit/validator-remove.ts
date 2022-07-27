@@ -1,4 +1,4 @@
-// Validators Unit Tests
+// Validator Remove Unit Tests
 
 // Declare all imports
 import * as chai from 'chai'
@@ -21,12 +21,12 @@ const approveOperatorFeePeriod = DAY
 const operatorPublicKeyPrefix = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345'
 const validatorPublicKeyPrefix = '98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765'
 let ssvToken: any, ssvRegistry: any, ssvNetwork: any
-let owner: any, account1: any, account2: any, account3: any, account4: any
+let owner: any, account1: any, account2: any, account3: any
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`)
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 
-describe('Validators', function () {
+describe('Validator Removal', function () {
   beforeEach(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners()
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock')
@@ -40,7 +40,8 @@ describe('Validators', function () {
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '10501500000000000')
+    const tokens = '10501500000000000'
+    await ssvToken.mint(account1.address, tokens)
 
     // Register operators
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000000)
@@ -50,45 +51,16 @@ describe('Validators', function () {
     await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 500000000000)
 
     // Register Validator
-    const tokens = '10501500000000000'
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
-    await expect(
-      ssvNetwork.connect(account1)
-        .registerValidator(
-          validatorsPub[0],
-          operatorsIds.slice(0, 4),
-          operatorsPub.slice(0, 4),
-          operatorsPub.slice(0, 4),
-          tokens
-        )).to.emit(ssvNetwork, 'ValidatorRegistration')
-  })
-
-  it('Get operators by validator', async function () {
-    expect((await ssvNetwork.getOperatorsByValidator(validatorsPub[0])).map(String)).to.eql(operatorsIds.slice(0, 4).map(String))
-  })
-
-  it('Register validator not enough approved tokens', async function () {
-    await ssvNetwork
-      .connect(account2)
-      .registerValidator(
-        validatorsPub[1],
-        operatorsIds.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        operatorsPub.slice(0, 4),
-        '100000000'
-      ).should.eventually.be.rejectedWith('ERC20: insufficient allowance')
-    expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('1')
-    expect((await ssvNetwork.validatorsPerOperatorCount(1)).toString()).to.equal('1')
-    expect((await ssvNetwork.validatorsPerOperatorCount(2)).toString()).to.equal('1')
-    expect((await ssvNetwork.validatorsPerOperatorCount(3)).toString()).to.equal('1')
-    expect((await ssvNetwork.validatorsPerOperatorCount(4)).toString()).to.equal('1')
+    await expect(ssvNetwork.connect(account1).registerValidator(
+      validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), tokens))
+      .to.emit(ssvNetwork, 'ValidatorRegistration')
   })
 
   it('Remove validator', async function () {
     await expect(ssvNetwork.connect(account1).removeValidator(validatorsPub[0]))
       .to.emit(ssvNetwork, 'ValidatorRemoval').withArgs(account1.address, validatorsPub[0])
     expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0')
-    expect((await ssvNetwork.validatorsPerOperatorCount(1)).toString()).to.equal('0')
 
     // Try to remove the validator again
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
@@ -106,10 +78,16 @@ describe('Validators', function () {
   })
 
   it('Remove validator with not enough SSV', async function () {
-    const withdrawAmount = Number(await ssvNetwork.getAddressBalance(account1.address)) - (Number(await ssvNetwork.getAddressBurnRate(account1.address)) * 7005)
-    await ssvNetwork.connect(account1).withdraw(withdrawAmount);
+    await ssvNetwork.connect(account1).withdraw('2501500000000000');
     await progressBlocks(8000);
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
       .should.eventually.be.rejectedWith('NegativeBalance')
   })
+
+  // Need to update once functionality added
+  // it('Remove validator as DAO', async function () {
+  //   await expect(ssvNetwork.connect(owner).removeValidator(validatorsPub[0]))
+  //     .to.emit(ssvRegistry, 'ValidatorRemoved').withArgs(account1.address, validatorsPub[0])
+  //   expect((await ssvRegistry.activeValidatorCount()).toString()).to.equal('0')
+  // })
 })

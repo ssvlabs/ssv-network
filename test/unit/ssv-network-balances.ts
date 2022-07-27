@@ -1,4 +1,4 @@
-// Network Contract Unit Tests
+// Network Balances Unit Tests
 
 // Declare all imports
 import { ethers, upgrades } from 'hardhat';
@@ -39,7 +39,7 @@ const registerOperator = async (account: string, idx: number, fee: number) => {
   });
 }
 
-describe('SSV Network Balances Calculation', function () {
+describe('SSV Network Balances', function () {
   beforeEach(async function () {
     [owner, account1, account2, account3] = await ethers.getSigners();
     const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');

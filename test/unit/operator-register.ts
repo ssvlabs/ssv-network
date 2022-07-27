@@ -1,9 +1,8 @@
-// Register Operator Unit Tests
+// Operator Registration Unit Tests
 
 // Declare all imports
 import * as chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { progressBlocks, progressTime } from '../helpers/utils'
 beforeEach(() => {
     chai.should()
     chai.use(chaiAsPromised)

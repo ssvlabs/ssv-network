@@ -28,7 +28,7 @@ const DAY = 86400;
 const setOperatorFeePeriod = 0;
 const approveOperatorFeePeriod = DAY;
 
-describe('SSV Network', function () {
+describe('SSV Network Contract', function () {
   beforeEach(async function () {
     [owner, account1, account2, account3, account4] = await ethers.getSigners();
     const utilsFactory = await ethers.getContractFactory('Utils');

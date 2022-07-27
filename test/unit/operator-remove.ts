@@ -56,8 +56,7 @@ describe('Operator Remove', function () {
         // Remove an operator with no validators
         await progressTime(DAY)
         await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
-        .to.emit(ssvNetwork, 'OperatorRemoval')
-        .withArgs(operatorsIds[0], account2.address)
+            .to.emit(ssvNetwork, 'OperatorRemoval').withArgs(operatorsIds[0], account2.address)
 
         // Check that the operator statuses
         expect((await ssvNetwork.getOperatorById(operatorsIds[0]))[0]).to.equal('testOperator 0')
@@ -76,8 +75,7 @@ describe('Operator Remove', function () {
 
         // Delete an operator that the validator is using
         await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
-        .to.emit(ssvNetwork, 'OperatorRemoval')
-        .withArgs(operatorsIds[0], account2.address)
+            .to.emit(ssvNetwork, 'OperatorRemoval').withArgs(operatorsIds[0], account2.address)
 
         // Check that the operator statuses
         expect((await ssvNetwork.getOperatorById(operatorsIds[0]))[0]).to.equal('testOperator 0')
