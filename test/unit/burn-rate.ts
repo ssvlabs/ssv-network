@@ -22,7 +22,7 @@ const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublic
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
 const tokens = '90000000000000000'
 const allowance = '99999999999999999999'
-const operatorFee = 100000000
+const operatorFee = 10010000000
 const DAY = 86400
 const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
@@ -55,7 +55,7 @@ describe('SSV Network Liquidation', function () {
   })
 
   it('Check burn rate', async function () {
-    await ssvNetwork.connect(owner).updateNetworkFee(2000000000)
+    await ssvNetwork.connect(owner).updateNetworkFee(10020000000)
     // Register validator to non owned operators
     await ssvToken.connect(account1).approve(ssvNetwork.address, allowance)
     await ssvToken.connect(account2).approve(ssvNetwork.address, allowance)

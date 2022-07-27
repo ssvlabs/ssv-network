@@ -27,11 +27,11 @@ describe('SSV Registry', function () {
     const ssvRegistryFactory = await ethers.getContractFactory('SSVRegistry')
     ssvRegistry = await upgrades.deployProxy(ssvRegistryFactory, []);
     await ssvRegistry.deployed()
-    await ssvRegistry.registerOperator('testOperator 0', account1.address, operatorsPub[0], 10000000)
-    await ssvRegistry.registerOperator('testOperator 1', account1.address, operatorsPub[1], 20000000)
-    await ssvRegistry.registerOperator('testOperator 2', account1.address, operatorsPub[2], 30000000)
-    await ssvRegistry.registerOperator('testOperator 3', account2.address, operatorsPub[3], 40000000)
-    await ssvRegistry.registerOperator('testOperator 4', account2.address, operatorsPub[4], 50000000)
+    await ssvRegistry.registerOperator('testOperator 0', account1.address, operatorsPub[0], 100000000000)
+    await ssvRegistry.registerOperator('testOperator 1', account1.address, operatorsPub[1], 200000000000)
+    await ssvRegistry.registerOperator('testOperator 2', account1.address, operatorsPub[2], 300000000000)
+    await ssvRegistry.registerOperator('testOperator 3', account2.address, operatorsPub[3], 400000000000)
+    await ssvRegistry.registerOperator('testOperator 4', account2.address, operatorsPub[4], 500000000000)
     await ssvRegistry.registerValidator(account1.address, validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
     await ssvRegistry.registerValidator(account1.address, validatorsPub[1], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
     await ssvRegistry.registerValidator(account2.address, validatorsPub[2], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4))
@@ -42,14 +42,14 @@ describe('SSV Registry', function () {
   });
 
   it('Operator limit', async function () {
-    await ssvRegistry.registerOperator('testOperator 5', account1.address, operatorsPub[5], 500000000);
-    await ssvRegistry.registerOperator('testOperator 6', account1.address, operatorsPub[6], 500000000);
-    await ssvRegistry.registerOperator('testOperator 7', account1.address, operatorsPub[7], 500000000);
-    await ssvRegistry.registerOperator('testOperator 8', account1.address, operatorsPub[8], 500000000);
-    await ssvRegistry.registerOperator('testOperator 9', account1.address, operatorsPub[9], 500000000);
-    await ssvRegistry.registerOperator('testOperator 10', account1.address, operatorsPub2[0], 500000000);
-    await ssvRegistry.registerOperator('testOperator 11', account1.address, operatorsPub2[1], 500000000);
-    await expect(ssvRegistry.registerOperator('testOperator 12', account1.address, operatorsPub2[2], 500000000)).to.be.revertedWith("ExceedRegisteredOperatorsByAccountLimit")
+    await ssvRegistry.registerOperator('testOperator 5', account1.address, operatorsPub[5], 500000000000);
+    await ssvRegistry.registerOperator('testOperator 6', account1.address, operatorsPub[6], 500000000000);
+    await ssvRegistry.registerOperator('testOperator 7', account1.address, operatorsPub[7], 500000000000);
+    await ssvRegistry.registerOperator('testOperator 8', account1.address, operatorsPub[8], 500000000000);
+    await ssvRegistry.registerOperator('testOperator 9', account1.address, operatorsPub[9], 500000000000);
+    await ssvRegistry.registerOperator('testOperator 10', account1.address, operatorsPub2[0], 500000000000);
+    await ssvRegistry.registerOperator('testOperator 11', account1.address, operatorsPub2[1], 500000000000);
+    await expect(ssvRegistry.registerOperator('testOperator 12', account1.address, operatorsPub2[2], 500000000000)).to.be.revertedWith("ExceedRegisteredOperatorsByAccountLimit")
   })
 
   it('Remove Operator', async function () {

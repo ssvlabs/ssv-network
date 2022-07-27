@@ -44,10 +44,10 @@ describe('Update Operators', function () {
     await ssvToken.mint(account1.address, '10000000000')
 
     // Register operators
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000000)
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 20000000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 200000000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 300000000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000000)
   })
 
   it('Update operators score', async function () {
@@ -63,16 +63,16 @@ describe('Update Operators', function () {
   it('Update operators fee', async function () {
     // Set new operator fee 
     await progressTime(DAY)
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1050000000)
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 105000000000)
     expect(await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0]))
       .to.emit(ssvNetwork, 'OperatorFeeUpdated')
-    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('1050000000')
+    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('105000000000')
 
     // Set new operator fee too high
-    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 115600000000)).to.be.revertedWith('FeeExceedsIncreaseLimit')
+    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 11560000000000)).to.be.revertedWith('FeeExceedsIncreaseLimit')
 
     // declareOperatorFee incorrect user
-    await expect(ssvNetwork.connect(account1).declareOperatorFee(operatorsIds[0], 1050001000)).to.be.revertedWith('CallerNotOperatorOwner')
+    await expect(ssvNetwork.connect(account1).declareOperatorFee(operatorsIds[0], 105000100000)).to.be.revertedWith('CallerNotOperatorOwner')
   })
 
   it('Update operators max fee increase percentage', async function () {
@@ -85,41 +85,41 @@ describe('Update Operators', function () {
     await expect(ssvNetwork.connect(account2).updateOperatorFeeIncreaseLimit(20)).to.be.revertedWith('Ownable: caller is not the owner')
 
     // Set operator fee too high
-    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 12000000000)).to.be.revertedWith('FeeExceedsIncreaseLimit')
+    await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1200000000000)).to.be.revertedWith('FeeExceedsIncreaseLimit')
 
     // Set operator fee at 20% higher
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1200000000)
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 120000000000)
     await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])
-    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('1200000000')
+    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('120000000000')
 
     // Try to lower fee too low
     await expect(ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[1], 105)).to.be.revertedWith('Precision is over the maximum defined')
   })
 
   it('Update operators fee less than approval time', async function () {
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1050000000)
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1060000000)
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 105000000000)
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 106000000000)
     await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])
-    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('1060000000')
+    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('106000000000')
   })
 
   it('Update operator fee expired', async function () {
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1100000000)
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 110000000000)
     await progressTime(DAY * 7)
     await expect(ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).to.be.revertedWith('ApprovalNotWithinTimeframe')
   })
 
   it('Cancel update operator fee', async function () {
     // Cancel update operator fee before approval time
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1050000000)
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 105000000000)
     await ssvNetwork.connect(account2).cancelDeclaredOperatorFee(operatorsIds[0])
     await progressTime(DAY * 7)
-    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('1000000000')
+    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('100000000000')
 
     // Cancel update operator fee incorrect account
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1050000000)
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 105000000000)
     await expect(ssvNetwork.connect(account1).cancelDeclaredOperatorFee(operatorsIds[0])).to.be.revertedWith('CallerNotOperatorOwner')
-    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('1000000000')
+    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('100000000000')
   })
 
   it('Change expiry time / Cancel update operator fee before expiry time', async function () {
@@ -136,11 +136,11 @@ describe('Update Operators', function () {
     expect((await ssvNetwork.getExecuteOperatorFeePeriod()).toString()).to.equal('10')
 
     // Cancel update operator fee before expiry time
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1050000000)
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 105000000000)
     await progressBlocks(6)
     await ssvNetwork.connect(account2).cancelDeclaredOperatorFee(operatorsIds[0])
     await expect(ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).to.be.revertedWith('NoPendingFeeChangeRequest')
-    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('1000000000')
+    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('100000000000')
   })
 
   it('Update set operator fee period', async function () {
@@ -149,10 +149,10 @@ describe('Update Operators', function () {
 
     // Change set operator fee
     await ssvNetwork.connect(owner).updateDeclareOperatorFeePeriod(5)
-    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 1050000000)
+    await ssvNetwork.connect(account2).declareOperatorFee(operatorsIds[0], 105000000000)
     await progressBlocks(3)
     await expect(ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])).to.be.revertedWith('ApprovalNotWithinTimeframe')
     await ssvNetwork.connect(account2).executeOperatorFee(operatorsIds[0])
-    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('1050000000')
+    expect((await ssvNetwork.getOperatorFee(operatorsIds[0])).toString()).to.equal('105000000000')
   })
 })

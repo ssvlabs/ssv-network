@@ -43,13 +43,13 @@ describe('Operator Remove', function () {
         await ssvNetwork.deployed()
 
         // Mint tokens
-        await ssvToken.mint(account1.address, '10000000000000')
+        await ssvToken.mint(account1.address, '60000000000000')
 
         // Register operators
-        await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 1000000000)
-        await ssvNetwork.connect(account3).registerOperator('testOperator 1', operatorsPub[1], 20000000)
-        await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 30000000)
-        await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 40000000)
+        await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000000)
+        await ssvNetwork.connect(account3).registerOperator('testOperator 1', operatorsPub[1], 200000000000)
+        await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 300000000000)
+        await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000000)
     })
 
     it('Remove operator no validators', async function () {
@@ -71,8 +71,8 @@ describe('Operator Remove', function () {
 
     it('Remove operator with validators', async function () {
         // Register a validator
-        await ssvToken.connect(account1).approve(ssvNetwork.address, 1000000000000)
-        await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 100000000000)
+        await ssvToken.connect(account1).approve(ssvNetwork.address, 60000000000000)
+        await ssvNetwork.connect(account1).registerValidator(validatorsPub[0], operatorsIds.slice(0, 4), operatorsPub.slice(0, 4), operatorsPub.slice(0, 4), 60000000000000)
 
         // Delete an operator that the validator is using
         await expect(ssvNetwork.connect(account2).removeOperator(operatorsIds[0]))
