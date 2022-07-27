@@ -25,7 +25,6 @@ let owner: any, account1: any, account2: any, account3: any
 const operatorsPub = Array.from(Array(10).keys()).map(k => `0x${operatorPublicKeyPrefix}${k}`)
 const validatorsPub = Array.from(Array(10).keys()).map(k => `0x${validatorPublicKeyPrefix}${k}`)
 const operatorsIds = Array.from(Array(10).keys()).map(k => k + 1)
-const tokens = '10000000000000'
 
 describe('Validator Removal', function () {
   beforeEach(async function () {
@@ -41,14 +40,15 @@ describe('Validator Removal', function () {
     await ssvNetwork.deployed()
 
     // Mint tokens
-    await ssvToken.mint(account1.address, '100000000000000')
+    const tokens = '10501500000000000'
+    await ssvToken.mint(account1.address, tokens)
 
     // Register operators
-    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000)
-    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 200000000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 300000000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000)
-    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 500000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 100000000000)
+    await ssvNetwork.connect(account2).registerOperator('testOperator 1', operatorsPub[1], 200000000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 2', operatorsPub[2], 300000000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 3', operatorsPub[3], 400000000000)
+    await ssvNetwork.connect(account3).registerOperator('testOperator 4', operatorsPub[4], 500000000000)
 
     // Register Validator
     await ssvToken.connect(account1).approve(ssvNetwork.address, tokens)
@@ -78,7 +78,7 @@ describe('Validator Removal', function () {
   })
 
   it('Remove validator with not enough SSV', async function () {
-    await ssvNetwork.connect(account1).withdraw('2069000000000');
+    await ssvNetwork.connect(account1).withdraw('2501500000000000');
     await progressBlocks(8000);
     await ssvNetwork.connect(account1).removeValidator(validatorsPub[0])
       .should.eventually.be.rejectedWith('NegativeBalance')
