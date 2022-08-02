@@ -3,10 +3,12 @@
     "target": "es2018",
     "types": ["node"],
     "module": "commonjs",
+    "moduleResolution": "node",
     "strict": true,
     "esModuleInterop": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["./scripts", "./test"],
+  "include": ["./deploy", "./scripts", "./test"],
   "files": ["./hardhat.config.ts"]
 }

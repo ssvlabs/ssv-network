@@ -1,14 +1,17 @@
 import 'dotenv/config';
 
 import { HardhatUserConfig, task } from 'hardhat/config';
-import '@nomiclabs/hardhat-waffle';
-import '@nomiclabs/hardhat-ethers';
-import '@nomiclabs/hardhat-etherscan';
-import '@openzeppelin/hardhat-upgrades';
+import 'hardhat-deploy';
+import 'hardhat-deploy-ethers';
 import 'hardhat-gas-reporter';
 import 'hardhat-tracer';
 import 'solidity-coverage';
+
+import '@nomiclabs/hardhat-ethers';
+import '@nomiclabs/hardhat-etherscan';
 import '@nomiclabs/hardhat-solhint';
+import '@nomiclabs/hardhat-waffle';
+import '@openzeppelin/hardhat-upgrades';
 
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
@@ -22,7 +25,7 @@ const config: HardhatUserConfig = {
             runs: 10000
           }
         }
-      }
+      },
     ],
   },
   networks: {
@@ -34,7 +37,10 @@ const config: HardhatUserConfig = {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
     apiKey: process.env.ETHERSCAN_KEY
-  }
+  },
+  namedAccounts: {
+    deployer: 0,
+  },
 };
 
 if (process.env.GOERLI_ETH_NODE_URL) {

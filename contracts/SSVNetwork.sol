@@ -1,5 +1,5 @@
 // File: contracts/SSVNetwork.sol
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -106,7 +106,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
         _updateOperatorFeeIncreaseLimit(operatorMaxFeeIncrease_);
         _updateDeclareOperatorFeePeriod(declareOperatorFeePeriod_);
         _updateExecuteOperatorFeePeriod(executeOperatorFeePeriod_);
-        _ssvRegistryContract.initialize();
     }
 
     modifier onlyValidatorOwnerOrContractOwner(bytes calldata publicKey) {
