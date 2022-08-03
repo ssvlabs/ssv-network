@@ -64,6 +64,6 @@ describe('SSV Network', function () {
       }
     }
 
-    await processTestCase(testFlow)
+    // await processTestCase(testFlow)
   })
 })
