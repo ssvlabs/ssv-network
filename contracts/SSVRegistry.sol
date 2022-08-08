@@ -22,6 +22,7 @@ contract SSVRegistryNew {
         address owner;
         uint64 fee;
         uint64 validatorCount;
+        uint64 earnRate;
 
         Snapshot earnings;
     }
@@ -43,13 +44,6 @@ contract SSVRegistryNew {
         uint64 lastIndex;
     }
 
-    struct Owner {
-        uint64 earnRate;
-        uint64 validatorCount;
-
-        Snapshot earnings;
-    }
-
     event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
     event OperatorRemoved(uint64 operatorId);
     event ValidatorAdded(bytes validatorPK, bytes32 groupId);
@@ -63,7 +57,6 @@ contract SSVRegistryNew {
     mapping(bytes32 => OperatorCollection) private _operatorCollections;
     mapping(address => mapping(bytes32 => Group)) private _groups;
     mapping(address => uint64) _availableBalances;
-    mapping(address => Owner) _owners;
 
     uint64 private _networkFee;
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
@@ -83,7 +76,7 @@ contract SSVRegistryNew {
 
         lastOperatorId.increment();
         operatorId = uint64(lastOperatorId.current());
-        _operators[operatorId] = Operator({ owner: msg.sender, earnings: Snapshot({ block: uint64(block.number), index: 0}), validatorCount: 0, fee: fee });
+        _operators[operatorId] = Operator({ owner: msg.sender, earnings: Snapshot({ block: uint64(block.number), index: 0}), validatorCount: 0, fee: fee, earnRate: 0 });
 
         emit OperatorAdded(operatorId, msg.sender, encryptionPK);
     }
@@ -94,12 +87,9 @@ contract SSVRegistryNew {
 
         uint64 currentBlock = uint64(block.number);
 
-        Owner memory owner = _owners[operator.owner];
-        owner.earnings = _updateOwnerEarnings(owner, currentBlock);
-        owner.earnRate -= operator.fee * operator.validatorCount;
-        _owners[operator.owner] = owner;
-
-        _operators[operatorId] = _setFee(operator, 0, currentBlock);
+        operator.earnings = _updateOperatorEarnings(operator, currentBlock);
+        operator.earnRate -= operator.fee * operator.validatorCount;
+        _operators[operatorId] = _setFee(operator, 0, currentBlock); // TODO vadim, remove _setFee output
         operator.validatorCount = 0;
 
         emit OperatorRemoved(operatorId);
@@ -145,11 +135,9 @@ contract SSVRegistryNew {
             uint64 currentBlock = uint64(block.number);
             {
                 for (uint64 i = 0; i < operators.length; ++i) {
-                    Owner memory owner = _owners[operators[i].owner];
-                    owner.earnings = _updateOwnerEarnings(owner, currentBlock);
-                    ++owner.validatorCount;
-                    owner.earnRate += operators[i].fee;
-                    _owners[operators[i].owner] = owner;
+                    operators[i].earnings = _updateOperatorEarnings(operators[i], currentBlock);
+                    operators[i].earnRate += operators[i].fee;
+                    ++operators[i].validatorCount;
                 }
             }
 
@@ -201,11 +189,11 @@ contract SSVRegistryNew {
         return (key, operatorCollection);
     }
 
-    function _updateOwnerEarnings(Owner memory owner, uint64 currentBlock) private returns (Snapshot memory) {
-        owner.earnings.index = _ownerCurrentEarnings(owner, currentBlock);
-        owner.earnings.block = currentBlock;
+    function _updateOperatorEarnings(Operator memory operator, uint64 currentBlock) private returns (Snapshot memory) {
+        operator.earnings.index = _operatorCurrentEarnings(operator, currentBlock);
+        operator.earnings.block = currentBlock;
 
-        return owner.earnings;
+        return operator.earnings;
     }
 
     function _updateDAOEarnings(DAO memory dao, uint64 currentBlock) private returns (DAO memory) {
@@ -215,8 +203,8 @@ contract SSVRegistryNew {
         return dao;
     }
 
-    function _ownerCurrentEarnings(Owner memory owner, uint64 currentBlock) private returns (uint64) {
-        return owner.earnings.index + (currentBlock - owner.earnings.block) * owner.earnRate;
+    function _operatorCurrentEarnings(Operator memory operator, uint64 currentBlock) private returns (uint64) {
+        return operator.earnings.index + (currentBlock - operator.earnings.block) * operator.earnRate;
     }
 
     function _extractOperators(OperatorCollection memory operatorCollection) private view returns (Operator[] memory) {
@@ -274,11 +262,9 @@ contract SSVRegistryNew {
         uint64 currentBlock = uint64(block.number);
         {
             for (uint64 i = 0; i < operators.length; ++i) {
-                Owner memory owner = _owners[operators[i].owner];
-                owner.earnings = _updateOwnerEarnings(owner, currentBlock);
-                owner.earnRate -= operators[i].fee;
-                --owner.validatorCount;
-                _owners[operators[i].owner] = owner;
+                operators[i].earnings = _updateOperatorEarnings(operators[i], currentBlock);
+                operators[i].earnRate -= operators[i].fee;
+                --operators[i].validatorCount;
             }
         }
     }
