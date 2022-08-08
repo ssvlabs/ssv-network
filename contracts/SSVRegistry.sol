@@ -3,311 +3,378 @@
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "./utils/VersionedContract.sol";
-import "./utils/Types.sol";
-import "./ISSVRegistry.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "hardhat/console.sol";
 
-contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, VersionedContract {
+contract SSVRegistryNew {
     using Counters for Counters.Counter;
-    using Types256 for uint256;
-    using Types64 for uint64;
+
+    struct Snapshot {
+        // block is the last block in which last index was set
+        uint64 block;
+        // index is the last index calculated by index += (currentBlock - block) * fee
+        uint64 index;
+        // accumulated is all the accumulated earnings, calculated by accumulated + lastIndex * validatorCount
+        // uint64 accumulated;
+    }
 
     struct Operator {
-        string name;
-        bytes publicKey;
+        address owner;
         uint64 fee;
-        address ownerAddress;
-        uint32 score;
-        uint32 indexInOwner;
-        uint32 validatorCount;
-        bool active;
+        uint64 validatorCount;
+
+        Snapshot earnings;
     }
 
-    struct Validator {
-        uint32[] operatorIds;
-        address ownerAddress;
-        uint32 indexInOwner;
-        bool active;
+    struct DAO {
+        uint64 validatorCount;
+        uint64 withdrawn;
+
+        Snapshot earnings;
     }
 
-    struct OwnerData {
-        uint32 activeValidatorCount;
-        bool validatorsDisabled;
-        bytes[] validators;
+    struct OperatorCollection {
+        uint64[] operatorIds;
     }
 
-
-    Counters.Counter private _lastOperatorId;
-
-    mapping(uint32 => Operator) private _operators;
-    mapping(bytes => Validator) private _validators;
-    mapping(address => uint32[]) private _operatorsByOwnerAddress;
-    mapping(address => OwnerData) private _owners;
-
-    uint32 private _activeValidatorCount;
-
-    uint32 constant private VALIDATORS_PER_OPERATOR_LIMIT = 2000;
-    uint32 constant private REGISTERED_OPERATORS_PER_ACCOUNT_LIMIT = 10;
-
-    /**
-     * @dev See {ISSVRegistry-initialize}.
-     */
-    function initialize() external override initializer {
-        __SSVRegistry_init();
+    struct Group {
+        uint64 balance;
+        uint64 validatorCount;
+        uint64 lastIndex;
     }
 
-    function __SSVRegistry_init() internal onlyInitializing {
-        __Ownable_init_unchained();
-        __SSVRegistry_init_unchained();
+    struct Owner {
+        uint64 earnRate;
+        uint64 validatorCount;
+
+        Snapshot earnings;
     }
 
-    function __SSVRegistry_init_unchained() internal onlyInitializing {
+    event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
+    event OperatorRemoved(uint64 operatorId);
+    event ValidatorAdded(bytes validatorPK, bytes32 groupId);
+
+    // global vars
+    Counters.Counter private lastOperatorId;
+    Counters.Counter private lastGroupId;
+
+    // operator vars
+    mapping(uint64 => Operator) private _operators;
+    mapping(bytes32 => OperatorCollection) private _operatorCollections;
+    mapping(address => mapping(bytes32 => Group)) private _groups;
+    mapping(address => uint64) _availableBalances;
+    mapping(address => Owner) _owners;
+
+    uint64 private _networkFee;
+    uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
+    // uint64 constant NETWORK_FEE_PER_BLOCK = 1;
+
+    DAO private _dao;
+    IERC20 private _token;
+
+    constructor() public {
     }
 
-    /**
-     * @dev See {ISSVRegistry-registerOperator}.
-     */
     function registerOperator(
-        string calldata name,
-        address ownerAddress,
-        bytes calldata publicKey,
+        bytes calldata encryptionPK,
         uint64 fee
-    ) external onlyOwner override returns (uint32 operatorId) {
+    ) external returns (uint64 operatorId) {
+        require(fee > 0);
 
-        if (_operatorsByOwnerAddress[ownerAddress].length >= REGISTERED_OPERATORS_PER_ACCOUNT_LIMIT) {
-            revert ExceedRegisteredOperatorsByAccountLimit();
+        lastOperatorId.increment();
+        operatorId = uint64(lastOperatorId.current());
+        _operators[operatorId] = Operator({ owner: msg.sender, earnings: Snapshot({ block: uint64(block.number), index: 0}), validatorCount: 0, fee: fee });
+
+        emit OperatorAdded(operatorId, msg.sender, encryptionPK);
+    }
+
+    function removeOperator(uint64 operatorId) external {
+        Operator memory operator = _operators[operatorId];
+        require(operator.owner == msg.sender, "not owner");
+
+        uint64 currentBlock = uint64(block.number);
+
+        Owner memory owner = _owners[operator.owner];
+        owner.earnings = _updateOwnerEarnings(owner, currentBlock);
+        owner.earnRate -= operator.fee * operator.validatorCount;
+        _owners[operator.owner] = owner;
+
+        _operators[operatorId] = _setFee(operator, 0, currentBlock);
+        operator.validatorCount = 0;
+
+        emit OperatorRemoved(operatorId);
+    }
+
+    function _createOperatorCollection(uint64[] memory operators) private returns (uint64 groupId) {
+        for (uint64 index = 0; index < operators.length; ++index) {
+            require(_operators[operators[index]].owner != address(0), "operator not found");
         }
 
-        _lastOperatorId.increment();
-        operatorId = uint32(_lastOperatorId.current());
-        _operators[operatorId] = Operator({name: name, ownerAddress: ownerAddress, publicKey: publicKey, score: 0, fee: 0, active: true, indexInOwner: uint32(_operatorsByOwnerAddress[ownerAddress].length), validatorCount: 0});
-        _operatorsByOwnerAddress[ownerAddress].push(operatorId);
-        _updateOperatorFeeUnsafe(operatorId, fee);
+        _operatorCollections[keccak256(abi.encodePacked(operators))] = OperatorCollection({ operatorIds: operators });
     }
 
-    /**
-     * @dev See {ISSVRegistry-removeOperator}.
-     */
-    function removeOperator(
-        uint32 operatorId
-    ) external onlyOwner override {
-        Operator storage operator = _operators[operatorId];
-
-        if (!operator.active) {
-            revert OperatorDeleted();
-        }
-
-        operator.active = false;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-updateOperatorFee}.
-     */
-    function updateOperatorFee(uint32 operatorId, uint64 fee) external onlyOwner override {
-        _updateOperatorFeeUnsafe(operatorId, fee);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-updateOperatorScore}.
-     */
-    function updateOperatorScore(uint32 operatorId, uint32 score) external onlyOwner override {
-        Operator storage operator = _operators[operatorId];
-        operator.score = score;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-registerValidator}.
-     */
     function registerValidator(
-        address ownerAddress,
-        bytes calldata publicKey,
-        uint32[] calldata operatorIds,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata sharesEncrypted
-    ) external onlyOwner override {
-        _validateValidatorParams(
-            publicKey,
-            operatorIds,
-            sharesPublicKeys,
-            sharesEncrypted
-        );
-
-        if (_validators[publicKey].ownerAddress != address(0)) {
-            revert ValidatorAlreadyExists();
-        }
-
-        _validators[publicKey] = Validator({
-            operatorIds: operatorIds,
-            ownerAddress: ownerAddress,
-            indexInOwner: uint32(_owners[ownerAddress].validators.length),
-            active: true
-        });
-
-        _owners[ownerAddress].validators.push(publicKey);
-
-        for (uint32 index = 0; index < operatorIds.length; ++index) {
-            if (!_operators[operatorIds[index]].active) {
-                revert OperatorDeleted();
+        uint64[] memory operatorIds,
+        bytes calldata validatorPK,
+        bytes[] calldata encryptedShares,
+        bytes[] calldata sharesPK,
+        uint64 amount
+    ) external {
+        bytes32 groupId;
+        {
+            Operator[] memory operators;
+            {
+                OperatorCollection memory operatorCollection;
+                (groupId, operatorCollection) = _getOrCreateOperatorCollection(operatorIds);
+                 operators = _extractOperators(operatorCollection);
             }
 
-            if (++_operators[operatorIds[index]].validatorCount > VALIDATORS_PER_OPERATOR_LIMIT) {
-                revert ExceedValidatorLimit();
+            Group memory group;
+            {
+                uint64 groupIndex = _groupCurrentIndex(operators);
+
+                _availableBalances[msg.sender] -= amount;
+
+                group = _groups[msg.sender][groupId];
+
+                group.balance = _ownerGroupBalance(group, groupIndex) + amount;
+                group.lastIndex = groupIndex;
+                ++group.validatorCount;
+            }
+
+            uint64 currentBlock = uint64(block.number);
+            {
+                for (uint64 i = 0; i < operators.length; ++i) {
+                    Owner memory owner = _owners[operators[i].owner];
+                    owner.earnings = _updateOwnerEarnings(owner, currentBlock);
+                    ++owner.validatorCount;
+                    owner.earnRate += operators[i].fee;
+                    _owners[operators[i].owner] = owner;
+                }
+            }
+
+            {
+                // // update DAO earnings
+                DAO memory dao = _dao;
+                dao = _updateDAOEarnings(dao, uint64(block.number));
+                ++dao.validatorCount;
+                _dao = dao;
+            }
+
+            require(!_liquidatable(group.balance, group.validatorCount, operators), "account liquidatable");
+
+            _groups[msg.sender][groupId] = group;
+        }
+
+        emit ValidatorAdded(validatorPK, groupId);
+    }
+
+    // function removeValidator(validatorPK)
+
+    function deposit(uint64 amount) public {
+        _availableBalances[msg.sender] += amount;
+    }
+
+    function _setFee(Operator memory operator, uint64 fee, uint64 currentBlock) private returns (Operator memory) {
+        operator.earnings = _updateOperatorIndex(operator, currentBlock);
+        operator.fee = fee;
+
+        return operator;
+    }
+
+    function _updateOperatorIndex(Operator memory operator, uint64 currentBlock) private returns (Snapshot memory) {
+        return Snapshot({ index: _operatorCurrentIndex(operator), block: currentBlock });
+    }
+
+    function _getOrCreateOperatorCollection(uint64[] memory operatorIds) private returns (bytes32, OperatorCollection memory) {
+        for (uint64 i = 0; i < operatorIds.length - 1;) {
+            require(operatorIds[i] <= operatorIds[++i]);
+        }
+
+        bytes32 key = keccak256(abi.encodePacked(operatorIds));
+
+        OperatorCollection storage operatorCollection = _operatorCollections[key];
+        if (operatorCollection.operatorIds.length == 0) {
+            operatorCollection.operatorIds = operatorIds;
+        }
+
+        return (key, operatorCollection);
+    }
+
+    function _updateOwnerEarnings(Owner memory owner, uint64 currentBlock) private returns (Snapshot memory) {
+        owner.earnings.index = _ownerCurrentEarnings(owner, currentBlock);
+        owner.earnings.block = currentBlock;
+
+        return owner.earnings;
+    }
+
+    function _updateDAOEarnings(DAO memory dao, uint64 currentBlock) private returns (DAO memory) {
+        dao.earnings.index = _networkTotalEarnings(dao, currentBlock);
+        dao.earnings.block = currentBlock;
+
+        return dao;
+    }
+
+    function _ownerCurrentEarnings(Owner memory owner, uint64 currentBlock) private returns (uint64) {
+        return owner.earnings.index + (currentBlock - owner.earnings.block) * owner.earnRate;
+    }
+
+    function _extractOperators(OperatorCollection memory operatorCollection) private view returns (Operator[] memory) {
+        Operator[] memory operators = new Operator[](operatorCollection.operatorIds.length);
+        for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
+            operators[i] = _operators[operatorCollection.operatorIds[i]];
+        }
+
+        return operators;
+    }
+
+    function _networkTotalEarnings(DAO memory dao, uint64 currentBlock) private view returns (uint64) {
+        return dao.earnings.index + (currentBlock - dao.earnings.block) * _networkFee * dao.validatorCount;
+    }
+
+    function _networkBalance(DAO memory dao, uint64 currentBlock) private view returns (uint64) {
+        return _networkTotalEarnings(dao, currentBlock) - dao.withdrawn;
+    }
+
+    function _groupCurrentIndex(Operator[] memory operators) private view returns (uint64 groupIndex) {
+        for (uint64 i = 0; i < operators.length; ++i) {
+            groupIndex += _operatorCurrentIndex(operators[i]);
+        }
+    }
+
+    function _operatorCurrentIndex(Operator memory operator) private view returns (uint64) {
+        return operator.earnings.index + (uint64(block.number) - operator.earnings.block) * operator.fee;
+    }
+
+    function _ownerGroupBalance(Group memory group, uint64 currentGroupIndex) private pure returns (uint64) {
+        return group.balance - (currentGroupIndex - group.lastIndex) * group.validatorCount;
+    }
+
+    function _burnRatePerValidator(Operator[] memory operators) private pure returns (uint64 rate) {
+        for (uint64 i = 0; i < operators.length; ++i) {
+            rate += operators[i].fee;
+        }
+    }
+
+    function _liquidatable(uint64 balance, uint64 validatorCount, Operator[] memory operators) private view returns (bool) {
+        return balance < LIQUIDATION_MIN_BLOCKS * (_burnRatePerValidator(operators) + _networkFee) * validatorCount;
+    }
+
+    function liquidate(address owner, bytes32 groupId) external {
+        OperatorCollection memory operatorCollection = _operatorCollections[groupId];
+        Operator[] memory operators = new Operator[](operatorCollection.operatorIds.length);
+        for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
+            operators[i] = _operators[operatorCollection.operatorIds[i]];
+        }
+        uint64 groupIndex = _groupCurrentIndex(operators);
+        Group memory group = _groups[owner][groupId];
+        uint64 balance = _ownerGroupBalance(group, groupIndex);
+        require(_liquidatable(balance, group.validatorCount, operators));
+        _availableBalances[msg.sender] += balance;
+        uint64 currentBlock = uint64(block.number);
+        {
+            for (uint64 i = 0; i < operators.length; ++i) {
+                Owner memory owner = _owners[operators[i].owner];
+                owner.earnings = _updateOwnerEarnings(owner, currentBlock);
+                owner.earnRate -= operators[i].fee;
+                --owner.validatorCount;
+                _owners[operators[i].owner] = owner;
             }
         }
-        ++_activeValidatorCount;
     }
 
-    /**
-     * @dev See {ISSVRegistry-removeValidator}.
-     */
-    function removeValidator(
-        bytes calldata publicKey
-    ) external onlyOwner override {
-        Validator storage validator = _validators[publicKey];
+//    function addOperatorToValidator(
+//    function _validateRegistryState(
+//        uint64[] memory usedOperators,
+//        uint64[] memory validatorCnt,
+//    bytes32 root
+//    ) private view {
+//        require(_registryStateRoot(usedOperators, validatorCnt) == root, "operator registry hash invalid");
+//    }
+//
+//    uint16 constant OPERATORS_INDX = 0;
+//    uint16 constant OPERATORS_CNT_INDX = 1;
+//    uint16 constant USED_OPERATORS_INDX = 2;
+//    uint16 constant SHARES_PK_INDX = 0;
+//    uint16 constant ENCRYPTED_SHARES_INDX = 1;
+//    function registerValidator(
+//        uint64[][] memory db,
+//        bytes calldata validatorPK,
+//        bytes[][] calldata shares
+//    ) external {
+//        uint64 currentBlock = uint64(block.number);
+//        Validator memory validator = validators[msg.sender];
+//        DAO memory _dao = dao;
+//
+//        _validateRegistryState(db[OPERATORS_INDX], db[OPERATORS_CNT_INDX], validator.operatorRegistryHash);
+//
+//        for (uint64 index = 0; index < db[USED_OPERATORS_INDX].length; ++index) {
+//            uint64 id = db[OPERATORS_INDX][db[USED_OPERATORS_INDX][index]];
+//            // update and save operator
+//            uint64 operatorLastIndex = _updateOperatorCurrentIndex(id, currentBlock);
+//
+//            // update operator in use
+//            validator.aggregatedIndex.lastIndex += operatorLastIndex;
+//            db[1][db[USED_OPERATORS_INDX][index]] ++;
+//        }
+//        validator.aggregatedIndex.validatorCount ++;
+//        validator.operatorRegistryHash = _registryStateRoot(db[OPERATORS_INDX], db[OPERATORS_CNT_INDX]);
+//
+//        // update DAO earnings
+//        uint64 indexChange = (currentBlock - _dao.index.block)*NETWORK_FEE_PER_BLOCK;
+//        _dao.index.lastIndex += indexChange;
+//        _dao.index.block = currentBlock;
+//        _dao.index.accumulated += indexChange * _dao.index.validatorCount;
+//        _dao.index.validatorCount++;
+//        // update validator DAO debt
+//        validator.aggregatedIndex.lastIndex += _dao.index.lastIndex;
+//
+//        // save to storage
+//        validators[msg.sender] = validator;
+//        dao = _dao;
+//
+////        require(_liquidatable(validator, db, _dao.index.lastIndex, currentBlock) == false, "not enough ssv in balance");
+//
+//        emit ValidatorAdded(validatorPK);
+//    }
+//
+//    function daoCurrentIndex(DAO memory _dao, uint64 currentBlock) private view returns (uint64) {
+//        return _dao.index.lastIndex + (currentBlock - _dao.index.block)*NETWORK_FEE_PER_BLOCK;
+//    }
+//
 
-        for (uint32 index = 0; index < validator.operatorIds.length; ++index) {
-            --_operators[validator.operatorIds[index]].validatorCount;
-        }
+// //    function liquidatable(
+// //        address account,
+// //        uint64[][] calldata db
+// //    ) public view returns (bool) {
+// //        Validator memory validator = validators[account];
+// //        uint64 currentBlock = uint64(block.number);
+// //        uint64 daoIndex = daoCurrentIndex(dao, currentBlock);
+// //        return _liquidatable(validator, db, daoIndex, currentBlock);
+// //    }
+// //
+//     function balanceOf() public view returns (uint64) {
+//         return 1000000; // hard coded for now
+//     }
 
-        bytes[] storage ownerValidators = _owners[validator.ownerAddress].validators;
+//     function _validatorLifetimeCost(
+//         DebtIndex memory debtIndex,
+//         uint64[] memory usedOperators,
+//         uint64 validatorCnt,
+//         uint64 daoCurrentIndex,
+//         uint64 currentBlock
+//     ) private view returns (uint64) {
+//         uint64 aggregatedCurrentIndex = 0;
 
-        ownerValidators[validator.indexInOwner] = ownerValidators[ownerValidators.length - 1];
-        _validators[ownerValidators[validator.indexInOwner]].indexInOwner = validator.indexInOwner;
-        ownerValidators.pop();
+//         for (uint256 index = 0; index < usedOperators.length; ++index) {
+//             uint64 operatorId = usedOperators[index];
+//             Operator memory operator = _operators[usedOperators[index]];
+//             aggregatedCurrentIndex += operatorCurrentIndex(operator, currentBlock) * validatorCnt;
+//         }
 
-        --_activeValidatorCount;
+//         aggregatedCurrentIndex += daoCurrentIndex * validatorCnt;
+//         uint64 accumulatedCost = debtIndex.accumulated + (aggregatedCurrentIndex - debtIndex.lastIndex);
 
-        delete _validators[publicKey];
-    }
-
-    function enableOwnerValidators(address ownerAddress) external onlyOwner override {
-        _activeValidatorCount += _owners[ownerAddress].activeValidatorCount;
-        _owners[ownerAddress].validatorsDisabled = false;
-    }
-
-    function disableOwnerValidators(address ownerAddress) external onlyOwner override {
-        _activeValidatorCount -= _owners[ownerAddress].activeValidatorCount;
-        _owners[ownerAddress].validatorsDisabled = true;
-    }
-
-    function isLiquidated(address ownerAddress) external view override returns (bool) {
-        return _owners[ownerAddress].validatorsDisabled;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-operators}.
-     */
-    function getOperatorById(uint32 operatorId) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
-        Operator storage operator = _operators[operatorId];
-        return (operator.name, operator.ownerAddress, operator.publicKey, _operators[operatorId].validatorCount, operator.fee.expand(), operator.score, operator.active);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-getOperatorsByOwnerAddress}.
-     */
-    function getOperatorsByOwnerAddress(address ownerAddress) external view override returns (uint32[] memory) {
-        return _operatorsByOwnerAddress[ownerAddress];
-    }
-
-    /**
-     * @dev See {ISSVRegistry-getOperatorsByValidator}.
-     */
-    function getOperatorsByValidator(bytes calldata validatorPublicKey) external view override returns (uint32[] memory operatorIds) {
-        Validator storage validator = _validators[validatorPublicKey];
-
-        return validator.operatorIds;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-getOperatorOwner}.
-     */
-    function getOperatorOwner(uint32 operatorId) external view override returns (address) {
-        return _operators[operatorId].ownerAddress;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-getOperatorFee}.
-     */
-    function getOperatorFee(uint32 operatorId) external view override returns (uint64) {
-        if (_operators[operatorId].ownerAddress == address(0)) {
-            revert OperatorNotFound();
-        }
-        return _operators[operatorId].fee;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-activeValidatorCount}.
-     */
-    function activeValidatorCount() external view override returns (uint32) {
-        return _activeValidatorCount;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-validators}.
-     */
-    function validators(bytes calldata publicKey) external view override returns (address, bytes memory, bool) {
-        Validator storage validator = _validators[publicKey];
-
-        return (validator.ownerAddress, publicKey, validator.active);
-    }
-
-    /**
-     * @dev See {ISSVRegistry-getValidatorsByAddress}.
-     */
-    function getValidatorsByAddress(address ownerAddress) external view override returns (bytes[] memory) {
-        return _owners[ownerAddress].validators;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-getValidatorOwner}.
-     */
-    function getValidatorOwner(bytes calldata publicKey) external view override returns (address) {
-        return _validators[publicKey].ownerAddress;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-validatorsPerOperatorCount}.
-     */
-    function validatorsPerOperatorCount(uint32 operatorId) external view override returns (uint32) {
-        return _operators[operatorId].validatorCount;
-    }
-
-    /**
-     * @dev See {ISSVRegistry-updateOperatorFee}.
-     */
-    function _updateOperatorFeeUnsafe(uint32 operatorId, uint64 fee) private {
-        _operators[operatorId].fee = fee;
-    }
-
-    /**
-     * @dev Validates the paramss for a validator.
-     * @param publicKey Validator public key.
-     * @param operatorIds Operator operatorIds.
-     * @param sharesPublicKeys Shares public keys.
-     * @param encryptedKeys Encrypted private keys.
-     */
-    function _validateValidatorParams(
-        bytes calldata publicKey,
-        uint32[] calldata operatorIds,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys
-    ) private pure {
-        if (publicKey.length != 48) {
-            revert InvalidPublicKeyLength();
-        }
-        if (
-            operatorIds.length != sharesPublicKeys.length ||
-            operatorIds.length != encryptedKeys.length ||
-            operatorIds.length < 4 || operatorIds.length % 3 != 1
-        ) {
-            revert OessDataStructureInvalid();
-        }
-    }
-
-    function version() external pure override returns (uint32) {
-        return 1;
-    }
-
-    uint256[50] ______gap;
+//         return accumulatedCost;
+//     }
 }

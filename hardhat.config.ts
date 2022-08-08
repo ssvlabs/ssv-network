@@ -34,6 +34,10 @@ const config: HardhatUserConfig = {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
     apiKey: process.env.ETHERSCAN_KEY
+  },
+  gasReporter: {
+    currency: 'USD',
+    gasPrice: 0.3
   }
 };
 
