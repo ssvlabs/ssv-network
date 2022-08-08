@@ -95,14 +95,6 @@ contract SSVRegistryNew {
         emit OperatorRemoved(operatorId);
     }
 
-    function _createOperatorCollection(uint64[] memory operators) private returns (uint64 groupId) {
-        for (uint64 index = 0; index < operators.length; ++index) {
-            require(_operators[operators[index]].owner != address(0), "operator not found");
-        }
-
-        _operatorCollections[keccak256(abi.encodePacked(operators))] = OperatorCollection({ operatorIds: operators });
-    }
-
     function registerValidator(
         uint64[] memory operatorIds,
         bytes calldata validatorPK,
@@ -114,9 +106,8 @@ contract SSVRegistryNew {
         {
             Operator[] memory operators;
             {
-                OperatorCollection memory operatorCollection;
-                (groupId, operatorCollection) = _getOrCreateOperatorCollection(operatorIds);
-                 operators = _extractOperators(operatorCollection);
+                groupId = _getOrCreateOperatorCollection(operatorIds);
+                operators = _extractOperators(operatorIds);
             }
 
             Group memory group;
@@ -163,6 +154,14 @@ contract SSVRegistryNew {
         _availableBalances[msg.sender] += amount;
     }
 
+    function _createOperatorCollection(uint64[] memory operators) private returns (uint64 groupId) {
+        for (uint64 index = 0; index < operators.length; ++index) {
+            require(_operators[operators[index]].owner != address(0), "operator not found");
+        }
+
+        _operatorCollections[keccak256(abi.encodePacked(operators))] = OperatorCollection({ operatorIds: operators });
+    }
+
     function _setFee(Operator memory operator, uint64 fee, uint64 currentBlock) private returns (Operator memory) {
         operator.earnings = _updateOperatorIndex(operator, currentBlock);
         operator.fee = fee;
@@ -174,7 +173,7 @@ contract SSVRegistryNew {
         return Snapshot({ index: _operatorCurrentIndex(operator), block: currentBlock });
     }
 
-    function _getOrCreateOperatorCollection(uint64[] memory operatorIds) private returns (bytes32, OperatorCollection memory) {
+    function _getOrCreateOperatorCollection(uint64[] memory operatorIds) private returns (bytes32) { // , OperatorCollection memory
         for (uint64 i = 0; i < operatorIds.length - 1;) {
             require(operatorIds[i] <= operatorIds[++i]);
         }
@@ -186,7 +185,7 @@ contract SSVRegistryNew {
             operatorCollection.operatorIds = operatorIds;
         }
 
-        return (key, operatorCollection);
+        return key; // (key, operatorCollection);
     }
 
     function _updateOperatorEarnings(Operator memory operator, uint64 currentBlock) private returns (Snapshot memory) {
@@ -207,10 +206,10 @@ contract SSVRegistryNew {
         return operator.earnings.index + (currentBlock - operator.earnings.block) * operator.earnRate;
     }
 
-    function _extractOperators(OperatorCollection memory operatorCollection) private view returns (Operator[] memory) {
-        Operator[] memory operators = new Operator[](operatorCollection.operatorIds.length);
-        for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
-            operators[i] = _operators[operatorCollection.operatorIds[i]];
+    function _extractOperators(uint64[] memory operatorIds) private view returns (Operator[] memory) {
+        Operator[] memory operators = new Operator[](operatorIds.length);
+        for (uint64 i = 0; i < operatorIds.length; ++i) {
+            operators[i] = _operators[operatorIds[i]];
         }
 
         return operators;
