@@ -148,6 +148,91 @@ contract SSVRegistryNew {
         emit ValidatorAdded(validatorPK, groupId);
     }
 
+    function updateValidator(
+        uint64[] memory operatorIds,
+        bytes32 currentGroupId,
+        bytes calldata validatorPK,
+        uint64 amount
+    ) external {
+        {
+            Group memory group = _groups[msg.sender][currentGroupId];
+            OperatorCollection memory operatorCollection = _operatorCollections[currentGroupId];
+            Operator[] memory operators = _extractOperators(operatorCollection.operatorIds);
+
+            uint64 groupIndex = _groupCurrentIndex(operators);
+            group.balance = _ownerGroupBalance(group, groupIndex);
+            group.lastIndex = groupIndex;
+            --group.validatorCount;
+
+            uint64 currentBlock = uint64(block.number);
+
+            for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
+                bool found;
+                for (uint64 j = 0; j < operatorIds.length; ++j) {
+                    if (operatorCollection.operatorIds[i] == operatorIds[j]) {
+                        found = true;
+                    }
+                }
+                if (!found) {
+                    operators[i].earnings = _updateOperatorEarnings(operators[i], currentBlock);
+                    operators[i].earnRate -= operators[i].fee;
+                    --operators[i].validatorCount;
+                }
+            }
+
+            for (uint64 i = 0; i < operatorIds.length; ++i) {
+                bool found;
+                for (uint64 j = 0; j < operatorCollection.operatorIds.length; ++j) {
+                    if (operatorIds[i] == operatorCollection.operatorIds[j]) {
+                        found = true;
+                    }
+                }
+                if (!found) {
+                    Operator memory operator = _operators[operatorIds[i]];
+                    operator.earnings = _updateOperatorEarnings(operator, currentBlock);
+                    operator.earnRate += operators[i].fee;
+                    ++operator.validatorCount;
+                }
+            }
+        }
+
+        bytes32 newGroupId;
+        {
+            Operator[] memory operators;
+            {
+                newGroupId = _getOrCreateOperatorCollection(operatorIds);
+                operators = _extractOperators(operatorIds);
+            }
+
+            Group memory group;
+            {
+                uint64 groupIndex = _groupCurrentIndex(operators);
+
+                _availableBalances[msg.sender] -= amount;
+
+                group = _groups[msg.sender][newGroupId];
+
+                group.balance = _ownerGroupBalance(group, groupIndex) + amount;
+                group.lastIndex = groupIndex;
+                ++group.validatorCount;
+            }
+
+            {
+                // // update DAO earnings
+                DAO memory dao = _dao;
+                dao = _updateDAOEarnings(dao, uint64(block.number));
+                ++dao.validatorCount;
+                _dao = dao;
+            }
+
+            require(!_liquidatable(group.balance, group.validatorCount, operators), "account liquidatable");
+
+            _groups[msg.sender][newGroupId] = group;
+        }
+
+        emit ValidatorAdded(validatorPK, newGroupId);
+    }
+
     // function removeValidator(validatorPK)
 
     function deposit(uint64 amount) public {
