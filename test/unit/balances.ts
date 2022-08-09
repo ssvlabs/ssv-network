@@ -1,4 +1,4 @@
-// Burn Rate Unit Tests
+// Balance Unit Tests
 
 // Declare all imports
 import { ethers, upgrades } from 'hardhat'
@@ -27,7 +27,7 @@ const DAY = 86400
 const setOperatorFeePeriod = 0
 const approveOperatorFeePeriod = DAY
 
-describe('Burn Rate', function () {
+describe('Balance', function () {
   beforeEach(async function () {
     // Create accounts
     [owner, account1, account2, account3, account4, account5] = await ethers.getSigners()
@@ -48,7 +48,7 @@ describe('Burn Rate', function () {
     await ssvToken.connect(account1).approve(ssvNetwork.address, allowance)
   })
 
-  it('Check burn rate', async function () {
+  it('Check balances', async function () {
     await progressBlocks(10)
     await ssvNetwork.connect(owner).updateNetworkFee(20000000)
     await ssvNetwork.connect(account2).registerOperator('testOperator 0', operatorsPub[0], 20000000000)
@@ -95,6 +95,5 @@ describe('Burn Rate', function () {
     expect(await ssvNetwork.getAddressBalance(account1.address)).to.equal("359961962640000000")
     expect(await ssvNetwork.getAddressBalance(account2.address)).to.equal("24632000000000")
     expect(await ssvNetwork.getAddressBalance(account3.address)).to.equal("13400000000000")
-
   })
 })
