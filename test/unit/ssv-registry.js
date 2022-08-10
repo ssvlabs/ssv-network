@@ -8,7 +8,7 @@ async function mineNBlocks(n) {
     }
 }
 
-const operatorsIndexes = Array.from(Array(4).keys()).map(k => k + 1);
+const operatorsIndexes = Array.from(Array(5).keys()).map(k => k + 1);
 
 
 describe("Validators", () => {
@@ -61,6 +61,37 @@ describe("Validators", () => {
         ))
             .to.emit(deployedRegistryContract, 'ValidatorAdded')
             .withArgs(validatorPK);
+
+
+        const resultRegister = (await (await deployedRegistryContract.registerValidator(
+            [1,2,3,4],
+            validatorPK,
+            sharePKs.slice(0, 4),
+            encryptedShares.slice(0, 4),
+            '10000'
+        )).wait()).logs[0];
+        const interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId)']);
+        const outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', resultRegister.data, resultRegister.topics);
+        console.log("register ---->", outputRegister.validatorPK, outputRegister.groupId);
+        console.log("operatorIdsAfterRegister ---->", await deployedRegistryContract.test_getOperatorsByGroupId(outputRegister.groupId));
+        
+        const resultUpdate = (await (await deployedRegistryContract.updateValidator(
+          [2,3,4,5],
+          validatorPK,
+          outputRegister.groupId,
+          '10000'
+        )).wait()).logs[0];;
+        const interfaceUpdate = new ethers.utils.Interface(['event ValidatorUpdated(bytes validatorPK, bytes32 groupId)']);
+        const outputUpdate = interfaceUpdate.decodeEventLog('ValidatorUpdated', resultUpdate.data, resultUpdate.topics);
+        console.log("update ---->", outputUpdate.validatorPK, outputUpdate.groupId);
+        console.log("operatorIdsAfterUpdate ---->", await deployedRegistryContract.test_getOperatorsByGroupId(outputUpdate.groupId));
+
+        expect(await deployedRegistryContract.removeValidator(
+            validatorPK,
+            outputUpdate.groupId
+          ))
+          .to.emit(deployedRegistryContract, 'ValidatorRemoved')
+          .withArgs(validatorPK, outputUpdate.groupId);
 
         // await deployedRegistryContract.liquidate("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "0x392791df626408017a264f53fde61065d5a93a32b60171df9d8a46afdf82992d");
     });

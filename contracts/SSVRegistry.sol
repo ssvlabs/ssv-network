@@ -47,6 +47,8 @@ contract SSVRegistryNew {
     event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
     event OperatorRemoved(uint64 operatorId);
     event ValidatorAdded(bytes validatorPK, bytes32 groupId);
+    event ValidatorUpdated(bytes validatorPK, bytes32 groupId);
+    event ValidatorRemoved(bytes validatorPK, bytes32 groupId);
 
     // global vars
     Counters.Counter private lastOperatorId;
@@ -77,7 +79,6 @@ contract SSVRegistryNew {
         lastOperatorId.increment();
         operatorId = uint64(lastOperatorId.current());
         _operators[operatorId] = Operator({ owner: msg.sender, earnings: Snapshot({ block: uint64(block.number), index: 0}), validatorCount: 0, fee: fee, earnRate: 0 });
-
         emit OperatorAdded(operatorId, msg.sender, encryptionPK);
     }
 
@@ -150,8 +151,8 @@ contract SSVRegistryNew {
 
     function updateValidator(
         uint64[] memory operatorIds,
-        bytes32 currentGroupId,
         bytes calldata validatorPK,
+        bytes32 currentGroupId,
         uint64 amount
     ) external {
         {
@@ -175,8 +176,8 @@ contract SSVRegistryNew {
                 }
                 if (!found) {
                     operators[i].earnings = _updateOperatorEarnings(operators[i], currentBlock);
-                    operators[i].earnRate -= operators[i].fee;
-                    --operators[i].validatorCount;
+                    // operators[i].earnRate -= operators[i].fee;
+                    // --operators[i].validatorCount;
                 }
             }
 
@@ -221,7 +222,6 @@ contract SSVRegistryNew {
                 // // update DAO earnings
                 DAO memory dao = _dao;
                 dao = _updateDAOEarnings(dao, uint64(block.number));
-                ++dao.validatorCount;
                 _dao = dao;
             }
 
@@ -230,7 +230,45 @@ contract SSVRegistryNew {
             _groups[msg.sender][newGroupId] = group;
         }
 
-        emit ValidatorAdded(validatorPK, newGroupId);
+        emit ValidatorUpdated(validatorPK, newGroupId);
+    }
+
+    function removeValidator(
+        bytes calldata validatorPK,
+        bytes32 groupId
+    ) external {
+        {
+            Group memory group = _groups[msg.sender][groupId];
+            OperatorCollection memory operatorCollection = _operatorCollections[groupId];
+            Operator[] memory operators = _extractOperators(operatorCollection.operatorIds);
+
+            uint64 groupIndex = _groupCurrentIndex(operators);
+            group.balance = _ownerGroupBalance(group, groupIndex);
+            group.lastIndex = groupIndex;
+            --group.validatorCount;
+
+            uint64 currentBlock = uint64(block.number);
+
+            for (uint64 i = 0; i < operators.length; ++i) {
+                operators[i].earnings = _updateOperatorEarnings(operators[i], currentBlock);
+                // operators[i].earnRate -= operators[i].fee;
+                // --operators[i].validatorCount;
+            }
+
+            {
+                // // update DAO earnings
+                DAO memory dao = _dao;
+                dao = _updateDAOEarnings(dao, uint64(block.number));
+                --dao.validatorCount;
+                _dao = dao;
+            }
+        }
+
+        emit ValidatorRemoved(validatorPK, groupId);
+    }
+
+    function test_getOperatorsByGroupId(bytes32 groupId) external view returns (uint64[] memory) {
+        return _operatorCollections[groupId].operatorIds;
     }
 
     // function removeValidator(validatorPK)
@@ -296,7 +334,6 @@ contract SSVRegistryNew {
         for (uint64 i = 0; i < operatorIds.length; ++i) {
             operators[i] = _operators[operatorIds[i]];
         }
-
         return operators;
     }
 
