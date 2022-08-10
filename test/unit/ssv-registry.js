@@ -48,8 +48,8 @@ describe("Validators", () => {
                 encryptedShares.slice(0, 4),
                 "10000"
             ))
-            .to.emit(deployedRegistryContract, 'ValidatorAdded')
-            .withArgs(validatorPK);
+            .to.emit(deployedRegistryContract, 'ValidatorAdded');
+            //.withArgs(validatorPK);
 
         // validator 2
         await expect(await deployedRegistryContract.registerValidator(
@@ -59,8 +59,8 @@ describe("Validators", () => {
             encryptedShares.slice(0, 4),
             "10000"
         ))
-            .to.emit(deployedRegistryContract, 'ValidatorAdded')
-            .withArgs(validatorPK);
+            .to.emit(deployedRegistryContract, 'ValidatorAdded');
+            // .withArgs(validatorPK);
 
 
         const resultRegister = (await (await deployedRegistryContract.registerValidator(
@@ -72,6 +72,8 @@ describe("Validators", () => {
         )).wait()).logs[0];
         const interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId)']);
         const outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', resultRegister.data, resultRegister.topics);
+        expect(outputRegister.validatorPK).to.equal(validatorPK);
+
         console.log("register ---->", outputRegister.validatorPK, outputRegister.groupId);
         console.log("operatorIdsAfterRegister ---->", await deployedRegistryContract.test_getOperatorsByGroupId(outputRegister.groupId));
         
@@ -83,6 +85,9 @@ describe("Validators", () => {
         )).wait()).logs[0];;
         const interfaceUpdate = new ethers.utils.Interface(['event ValidatorUpdated(bytes validatorPK, bytes32 groupId)']);
         const outputUpdate = interfaceUpdate.decodeEventLog('ValidatorUpdated', resultUpdate.data, resultUpdate.topics);
+        expect(outputRegister.groupId).not.equal(outputUpdate.groupId);
+        expect(outputRegister.validatorPK).to.equal(outputUpdate.validatorPK);
+
         console.log("update ---->", outputUpdate.validatorPK, outputUpdate.groupId);
         console.log("operatorIdsAfterUpdate ---->", await deployedRegistryContract.test_getOperatorsByGroupId(outputUpdate.groupId));
 
