@@ -116,7 +116,7 @@ contract SSVRegistryNew {
                 _availableBalances[msg.sender] -= amount;
 
                 group = _groups[msg.sender][groupId];
-
+                console.log(amount, groupIndex);
                 group.balance = _ownerGroupBalance(group, groupIndex) + amount;
                 group.lastIndex = groupIndex;
                 ++group.validatorCount;
@@ -364,7 +364,8 @@ contract SSVRegistryNew {
         return operator.earnings.index + (uint64(block.number) - operator.earnings.block) * operator.fee;
     }
 
-    function _ownerGroupBalance(Group memory group, uint64 currentGroupIndex) private pure returns (uint64) {
+    function _ownerGroupBalance(Group memory group, uint64 currentGroupIndex) private view returns (uint64) {
+        console.log(currentGroupIndex, group.lastIndex);
         return group.balance - (currentGroupIndex - group.lastIndex) * group.validatorCount;
     }
 
