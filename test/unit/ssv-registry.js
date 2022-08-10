@@ -41,7 +41,7 @@ describe("Validators", () => {
         await deployedRegistryContract.deposit("100000000000");
 
         // validator 1
-        expect(await deployedRegistryContract.registerValidator(
+        await expect(await deployedRegistryContract.registerValidator(
                 [1,2,3,4],
                 validatorPK,
                 sharePKs.slice(0, 4),
@@ -52,7 +52,7 @@ describe("Validators", () => {
             .withArgs(validatorPK);
 
         // validator 2
-        expect(await deployedRegistryContract.registerValidator(
+        await expect(await deployedRegistryContract.registerValidator(
             [1,2,3,4],
             validatorPK,
             sharePKs.slice(0, 4),
@@ -86,7 +86,7 @@ describe("Validators", () => {
         console.log("update ---->", outputUpdate.validatorPK, outputUpdate.groupId);
         console.log("operatorIdsAfterUpdate ---->", await deployedRegistryContract.test_getOperatorsByGroupId(outputUpdate.groupId));
 
-        expect(await deployedRegistryContract.removeValidator(
+        await expect(await deployedRegistryContract.removeValidator(
             validatorPK,
             outputUpdate.groupId
           ))
