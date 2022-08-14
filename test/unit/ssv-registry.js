@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { progressBlocks, blockNumber } = require('./utils');
 const operator_fee_block = 1;
 
 
@@ -18,15 +19,14 @@ describe("Validators", () => {
         deployedRegistryContract = await Registry.deploy();
         await deployedRegistryContract.deployed();
 
-        for (let i = 0; i < operatorsIndexes.length; i++) {
+        await progressBlocks(99);
+        for (let i = 0; i < 2; i++) { // operatorsIndexes.length
+            console.log(`[BLOCK] ${await blockNumber()}`)
+            console.log('> register operator', i);
             var encryptionPK = "0x123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123451";
-            await deployedRegistryContract.registerOperator(encryptionPK, operator_fee_block);
+            await (await deployedRegistryContract.registerOperator(encryptionPK, operator_fee_block)).wait();
         }
         // await deployedRegistryContract.addOperatorToValidator([], operatorsIndexes, []);
-    })
-
-    it("should create group", async () => {
-        // await deployedRegistryContract.createGroup([1,2,3,4]);
     })
 
     it("should register validator", async () => {
@@ -38,19 +38,50 @@ describe("Validators", () => {
         // await deployedRegistryContract.createGroup([1,2,3,4]);
         // await deployedRegistryContract.createGroup([1,2,3,4]);
 
+        console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log('> deposit');
         await deployedRegistryContract.deposit("100000000000");
 
+        console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log('> 1 operator balance', await deployedRegistryContract.test_getOperatorBalance(1), 'index', await deployedRegistryContract.test_operatorCurrentIndex(1));
+        console.log('> 2 operator balance', await deployedRegistryContract.test_getOperatorBalance(2), 'index', await deployedRegistryContract.test_operatorCurrentIndex(2));
+        // console.log('> 3 operator balance', await deployedRegistryContract.test_getOperatorBalance(3), 'index', await deployedRegistryContract.test_operatorCurrentIndex(3));
+        // console.log('> 4 operator balance', await deployedRegistryContract.test_getOperatorBalance(4), 'index', await deployedRegistryContract.test_operatorCurrentIndex(4));
         // validator 1
-        await expect(await deployedRegistryContract.registerValidator(
-                [1,2,3,4],
-                validatorPK,
-                sharePKs.slice(0, 4),
-                encryptedShares.slice(0, 4),
-                "10000"
-            ))
-            .to.emit(deployedRegistryContract, 'ValidatorAdded');
-            //.withArgs(validatorPK);
-
+        const resultRegister = (await (await deployedRegistryContract.registerValidator(
+            [1,2],
+            validatorPK,
+            sharePKs.slice(0, 4),
+            encryptedShares.slice(0, 4),
+            "10000"
+        )).wait()).logs[0];
+        const interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId)']);
+        const outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', resultRegister.data, resultRegister.topics);
+        console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log("> register validator", outputRegister.validatorPK, outputRegister.groupId);
+        await progressBlocks(1);
+        console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log("> 1 operator balance", await deployedRegistryContract.test_getOperatorBalance(1));
+        console.log("> 2 operator balance", await deployedRegistryContract.test_getOperatorBalance(2));
+        console.log("> group index", await deployedRegistryContract.test_groupCurrentIndex(outputRegister.groupId));
+        console.log("> group usage", await deployedRegistryContract.test_groupCurrentUsage(outputRegister.groupId));
+        console.log("> group balance", await deployedRegistryContract.test_groupBalance(outputRegister.groupId));
+        await progressBlocks(1);
+        console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log("> 1 operator balance", await deployedRegistryContract.test_getOperatorBalance(1));
+        console.log("> 2 operator balance", await deployedRegistryContract.test_getOperatorBalance(2));
+        console.log("> group index", await deployedRegistryContract.test_groupCurrentIndex(outputRegister.groupId));
+        console.log("> group usage", await deployedRegistryContract.test_groupCurrentUsage(outputRegister.groupId));
+        console.log("> group balance", await deployedRegistryContract.test_groupBalance(outputRegister.groupId));
+        await progressBlocks(1);
+        console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log("> 1 operator balance", await deployedRegistryContract.test_getOperatorBalance(1));
+        console.log("> 2 operator balance", await deployedRegistryContract.test_getOperatorBalance(2));
+        console.log("> group index", await deployedRegistryContract.test_groupCurrentIndex(outputRegister.groupId));
+        console.log("> group usage", await deployedRegistryContract.test_groupCurrentUsage(outputRegister.groupId));
+        console.log("> group balance", await deployedRegistryContract.test_groupBalance(outputRegister.groupId));
+    
+        /*
         // validator 2
         await expect(await deployedRegistryContract.registerValidator(
             [1,2,3,4],
@@ -98,6 +129,7 @@ describe("Validators", () => {
           .to.emit(deployedRegistryContract, 'ValidatorRemoved')
           .withArgs(validatorPK, outputUpdate.groupId);
 
+        */
         // await deployedRegistryContract.liquidate("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "0x392791df626408017a264f53fde61065d5a93a32b60171df9d8a46afdf82992d");
     });
 });

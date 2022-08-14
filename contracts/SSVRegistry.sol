@@ -15,7 +15,7 @@ contract SSVRegistryNew {
         // index is the last index calculated by index += (currentBlock - block) * fee
         uint64 index;
         // accumulated is all the accumulated earnings, calculated by accumulated + lastIndex * validatorCount
-        // uint64 accumulated;
+        uint64 balance;
     }
 
     struct Operator {
@@ -42,6 +42,8 @@ contract SSVRegistryNew {
         uint64 balance;
         uint64 validatorCount;
         uint64 lastIndex;
+
+        Snapshot usage;
     }
 
     event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
@@ -78,7 +80,7 @@ contract SSVRegistryNew {
 
         lastOperatorId.increment();
         operatorId = uint64(lastOperatorId.current());
-        _operators[operatorId] = Operator({ owner: msg.sender, earnings: Snapshot({ block: uint64(block.number), index: 0}), validatorCount: 0, fee: fee, earnRate: 0 });
+        _operators[operatorId] = Operator({ owner: msg.sender, earnings: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee, earnRate: 0 });
         emit OperatorAdded(operatorId, msg.sender, encryptionPK);
     }
 
@@ -90,7 +92,7 @@ contract SSVRegistryNew {
 
         operator.earnings = _updateOperatorEarnings(operator, currentBlock);
         operator.earnRate -= operator.fee * operator.validatorCount;
-        _operators[operatorId] = _setFee(operator, 0, currentBlock); // TODO vadim, remove _setFee output
+        _operators[operatorId] = _setFee(operator, 0, currentBlock); 
         operator.validatorCount = 0;
 
         emit OperatorRemoved(operatorId);
@@ -111,18 +113,20 @@ contract SSVRegistryNew {
             }
 
             Group memory group;
+            uint64 currentBlock = uint64(block.number);
             {
-                uint64 groupIndex = _groupCurrentIndex(operatorIds);
+                uint64 groupIndex = _groupCurrentIndex(groupId);
                 _availableBalances[msg.sender] -= amount;
 
                 group = _groups[msg.sender][groupId];
                 console.log(amount, groupIndex);
                 group.balance = _ownerGroupBalance(group, groupIndex) + amount;
-                group.lastIndex = groupIndex;
+                //group.lastIndex = groupIndex;
+                // group.usage = _updateGroupUsage(group, currentBlock);
+
                 ++group.validatorCount;
             }
 
-            uint64 currentBlock = uint64(block.number);
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
                     _operators[operatorIds[i]].earnings = _updateOperatorEarnings(_operators[operatorIds[i]], currentBlock);
@@ -147,6 +151,7 @@ contract SSVRegistryNew {
         emit ValidatorAdded(validatorPK, groupId);
     }
 
+    /*
     function updateValidator(
         uint64[] memory operatorIds,
         bytes calldata validatorPK,
@@ -275,9 +280,30 @@ contract SSVRegistryNew {
 
         emit ValidatorRemoved(validatorPK, groupId);
     }
-
+    */
     function test_getOperatorsByGroupId(bytes32 groupId) external view returns (uint64[] memory) {
         return _operatorCollections[groupId].operatorIds;
+    }
+
+    function test_getOperatorBalance(uint64 operatorId) external view returns (uint64) {
+        return _operatorCurrentEarnings(_operators[operatorId], uint64(block.number));
+    }
+
+    function test_operatorCurrentIndex(uint64 operatorId) external view returns (uint64) {
+        return _operatorCurrentIndex(_operators[operatorId]);
+    }
+
+    function test_groupCurrentIndex(bytes32 groupId) external view returns (uint64) {
+        return _groupCurrentIndex(groupId);
+    }
+
+    function test_groupCurrentUsage(bytes32 groupId) external view returns (uint64) {
+        return _groupCurrentUsage(groupId);
+    }
+
+    function test_groupBalance(bytes32 groupId) external view returns (uint64) {
+        Group memory group = _groups[msg.sender][groupId];
+        return group.balance - _groupCurrentUsage(groupId);
     }
 
     // function removeValidator(validatorPK)
@@ -295,15 +321,17 @@ contract SSVRegistryNew {
     }
 
     function _setFee(Operator memory operator, uint64 fee, uint64 currentBlock) private returns (Operator memory) {
-        operator.earnings = _updateOperatorIndex(operator, currentBlock);
+        // operator.earnings = _updateOperatorIndex(operator, currentBlock);
         operator.fee = fee;
 
         return operator;
     }
 
+    /*
     function _updateOperatorIndex(Operator memory operator, uint64 currentBlock) private returns (Snapshot memory) {
         return Snapshot({ index: _operatorCurrentIndex(operator), block: currentBlock });
     }
+    */
 
     function _getOrCreateOperatorCollection(uint64[] memory operatorIds) private returns (bytes32) { // , OperatorCollection memory
         for (uint64 i = 0; i < operatorIds.length - 1;) {
@@ -321,21 +349,40 @@ contract SSVRegistryNew {
     }
 
     function _updateOperatorEarnings(Operator memory operator, uint64 currentBlock) private returns (Snapshot memory) {
-        operator.earnings.index = _operatorCurrentEarnings(operator, currentBlock);
+        operator.earnings.balance = _operatorCurrentEarnings(operator, currentBlock);
         operator.earnings.block = currentBlock;
 
         return operator.earnings;
     }
 
     function _updateDAOEarnings(DAO memory dao, uint64 currentBlock) private returns (DAO memory) {
-        dao.earnings.index = _networkTotalEarnings(dao, currentBlock);
+        dao.earnings.balance = _networkTotalEarnings(dao, currentBlock);
         dao.earnings.block = currentBlock;
 
         return dao;
     }
 
-    function _operatorCurrentEarnings(Operator memory operator, uint64 currentBlock) private returns (uint64) {
-        return operator.earnings.index + (currentBlock - operator.earnings.block) * operator.earnRate;
+    /*
+    function _updateGroupUsage(Group memory group, uint64 currentBlock) private returns (Snapshot memory) {
+        group.usage.index = _groupCurrentUsage(group, currentBlock);
+        group.usage.block = currentBlock;
+        return group.usage;
+    }
+    */
+
+    function _operatorCurrentEarnings(Operator memory operator, uint64 currentBlock) private view returns (uint64) {
+        return operator.earnings.balance + (currentBlock - operator.earnings.block) * operator.earnRate;
+    }
+
+    /*
+    function _groupCurrentUsage(Group memory group, uint64 currentBlock) private view returns (uint64) {
+        return group.usage.index + (currentBlock - group.usage.block) * group.validatorCount;
+    }
+    */
+
+    function _groupCurrentUsage(bytes32 groupId) private view returns (uint64) {
+        Group memory group = _groups[msg.sender][groupId];
+        return _groupCurrentIndex(groupId) - group.usage.index;
     }
 
     function _extractOperators(uint64[] memory operatorIds) private view returns (Operator[] memory) {
@@ -347,16 +394,18 @@ contract SSVRegistryNew {
     }
 
     function _networkTotalEarnings(DAO memory dao, uint64 currentBlock) private view returns (uint64) {
-        return dao.earnings.index + (currentBlock - dao.earnings.block) * _networkFee * dao.validatorCount;
+        return dao.earnings.balance + (currentBlock - dao.earnings.block) * _networkFee * dao.validatorCount;
     }
 
     function _networkBalance(DAO memory dao, uint64 currentBlock) private view returns (uint64) {
         return _networkTotalEarnings(dao, currentBlock) - dao.withdrawn;
     }
 
-    function _groupCurrentIndex(uint64[] memory operatorIds) private view returns (uint64 groupIndex) {
-        for (uint64 i = 0; i < operatorIds.length; ++i) {
-            groupIndex += _operatorCurrentIndex(_operators[operatorIds[i]]);
+    function _groupCurrentIndex(bytes32 groupId) private view returns (uint64 groupIndex) {
+        OperatorCollection memory operatorCollection = _operatorCollections[groupId];
+        for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
+            console.log("+", operatorCollection.operatorIds[i], _operatorCurrentIndex(_operators[operatorCollection.operatorIds[i]]));
+            groupIndex += _operatorCurrentIndex(_operators[operatorCollection.operatorIds[i]]);
         }
     }
 
