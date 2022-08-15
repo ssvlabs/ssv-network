@@ -412,7 +412,6 @@ contract SSVRegistryNew {
     function _groupCurrentIndex(bytes32 groupId) private view returns (uint64 groupIndex) {
         OperatorCollection memory operatorCollection = _operatorCollections[groupId];
         for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
-            console.log("+", operatorCollection.operatorIds[i], _operatorCurrentIndex(_operators[operatorCollection.operatorIds[i]]));
             groupIndex += _operatorCurrentIndex(_operators[operatorCollection.operatorIds[i]]);
         }
     }
