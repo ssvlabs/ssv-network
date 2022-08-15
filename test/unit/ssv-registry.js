@@ -20,7 +20,7 @@ describe("Validators", () => {
         await deployedRegistryContract.deployed();
 
         await progressBlocks(99);
-        for (let i = 0; i < 1; i++) { // operatorsIndexes.length
+        for (let i = 0; i < 2; i++) { // operatorsIndexes.length
             var encryptionPK = "0x123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123451";
             await (await deployedRegistryContract.registerOperator(encryptionPK, operator_fee_block)).wait();
             console.log(`[BLOCK] ${await blockNumber()}`)
@@ -48,7 +48,7 @@ describe("Validators", () => {
         // validator 1
         await progressBlocks(97);
         const resultRegister = (await (await deployedRegistryContract.registerValidator(
-            [1],
+            [1, 2],
             validatorPK,
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
