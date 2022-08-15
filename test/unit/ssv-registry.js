@@ -20,11 +20,11 @@ describe("Validators", () => {
         await deployedRegistryContract.deployed();
 
         await progressBlocks(99);
-        for (let i = 0; i < 2; i++) { // operatorsIndexes.length
-            console.log(`[BLOCK] ${await blockNumber()}`)
-            console.log('> register operator', i);
+        for (let i = 0; i < 1; i++) { // operatorsIndexes.length
             var encryptionPK = "0x123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123451";
             await (await deployedRegistryContract.registerOperator(encryptionPK, operator_fee_block)).wait();
+            console.log(`[BLOCK] ${await blockNumber()}`)
+            console.log('> register operator', i);
         }
         // await deployedRegistryContract.addOperatorToValidator([], operatorsIndexes, []);
     })
@@ -38,18 +38,17 @@ describe("Validators", () => {
         // await deployedRegistryContract.createGroup([1,2,3,4]);
         // await deployedRegistryContract.createGroup([1,2,3,4]);
 
+        await deployedRegistryContract.deposit("100000000000");
         console.log(`[BLOCK] ${await blockNumber()}`)
         console.log('> deposit');
-        await deployedRegistryContract.deposit("100000000000");
-
-        console.log(`[BLOCK] ${await blockNumber()}`)
         console.log('> 1 operator balance', await deployedRegistryContract.test_getOperatorBalance(1), 'index', await deployedRegistryContract.test_operatorCurrentIndex(1));
         console.log('> 2 operator balance', await deployedRegistryContract.test_getOperatorBalance(2), 'index', await deployedRegistryContract.test_operatorCurrentIndex(2));
         // console.log('> 3 operator balance', await deployedRegistryContract.test_getOperatorBalance(3), 'index', await deployedRegistryContract.test_operatorCurrentIndex(3));
         // console.log('> 4 operator balance', await deployedRegistryContract.test_getOperatorBalance(4), 'index', await deployedRegistryContract.test_operatorCurrentIndex(4));
         // validator 1
+        await progressBlocks(97);
         const resultRegister = (await (await deployedRegistryContract.registerValidator(
-            [1,2],
+            [1],
             validatorPK,
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
@@ -58,28 +57,55 @@ describe("Validators", () => {
         const interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId)']);
         const outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', resultRegister.data, resultRegister.topics);
         console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log('> 1 operator balance', await deployedRegistryContract.test_getOperatorBalance(1), 'index', await deployedRegistryContract.test_operatorCurrentIndex(1));
         console.log("> register validator", outputRegister.validatorPK, outputRegister.groupId);
         await progressBlocks(1);
         console.log(`[BLOCK] ${await blockNumber()}`)
-        console.log("> 1 operator balance", await deployedRegistryContract.test_getOperatorBalance(1));
+        console.log('> 1 operator balance', await deployedRegistryContract.test_getOperatorBalance(1), 'index', await deployedRegistryContract.test_operatorCurrentIndex(1));
         console.log("> 2 operator balance", await deployedRegistryContract.test_getOperatorBalance(2));
         console.log("> group index", await deployedRegistryContract.test_groupCurrentIndex(outputRegister.groupId));
         console.log("> group usage", await deployedRegistryContract.test_groupCurrentUsage(outputRegister.groupId));
         console.log("> group balance", await deployedRegistryContract.test_groupBalance(outputRegister.groupId));
         await progressBlocks(1);
         console.log(`[BLOCK] ${await blockNumber()}`)
-        console.log("> 1 operator balance", await deployedRegistryContract.test_getOperatorBalance(1));
+        console.log('> 1 operator balance', await deployedRegistryContract.test_getOperatorBalance(1), 'index', await deployedRegistryContract.test_operatorCurrentIndex(1));
         console.log("> 2 operator balance", await deployedRegistryContract.test_getOperatorBalance(2));
         console.log("> group index", await deployedRegistryContract.test_groupCurrentIndex(outputRegister.groupId));
         console.log("> group usage", await deployedRegistryContract.test_groupCurrentUsage(outputRegister.groupId));
         console.log("> group balance", await deployedRegistryContract.test_groupBalance(outputRegister.groupId));
         await progressBlocks(1);
         console.log(`[BLOCK] ${await blockNumber()}`)
-        console.log("> 1 operator balance", await deployedRegistryContract.test_getOperatorBalance(1));
+        console.log('> 1 operator balance', await deployedRegistryContract.test_getOperatorBalance(1), 'index', await deployedRegistryContract.test_operatorCurrentIndex(1));
         console.log("> 2 operator balance", await deployedRegistryContract.test_getOperatorBalance(2));
         console.log("> group index", await deployedRegistryContract.test_groupCurrentIndex(outputRegister.groupId));
         console.log("> group usage", await deployedRegistryContract.test_groupCurrentUsage(outputRegister.groupId));
         console.log("> group balance", await deployedRegistryContract.test_groupBalance(outputRegister.groupId));
+        await (await deployedRegistryContract.updateOperatorFee(
+            1,
+            2
+        )).wait();
+        console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log("> 1 operator fee updated to", 2);
+        console.log('> 1 operator balance', await deployedRegistryContract.test_getOperatorBalance(1), 'index', await deployedRegistryContract.test_operatorCurrentIndex(1));
+        console.log("> 2 operator balance", await deployedRegistryContract.test_getOperatorBalance(2));
+        console.log("> group index", await deployedRegistryContract.test_groupCurrentIndex(outputRegister.groupId));
+        console.log("> group usage", await deployedRegistryContract.test_groupCurrentUsage(outputRegister.groupId));
+        console.log("> group balance", await deployedRegistryContract.test_groupBalance(outputRegister.groupId));
+        await progressBlocks(1);
+        console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log('> 1 operator balance', await deployedRegistryContract.test_getOperatorBalance(1), 'index', await deployedRegistryContract.test_operatorCurrentIndex(1));
+        console.log("> 2 operator balance", await deployedRegistryContract.test_getOperatorBalance(2));
+        console.log("> group index", await deployedRegistryContract.test_groupCurrentIndex(outputRegister.groupId));
+        console.log("> group usage", await deployedRegistryContract.test_groupCurrentUsage(outputRegister.groupId));
+        console.log("> group balance", await deployedRegistryContract.test_groupBalance(outputRegister.groupId));
+        await progressBlocks(1);
+        console.log(`[BLOCK] ${await blockNumber()}`)
+        console.log('> 1 operator balance', await deployedRegistryContract.test_getOperatorBalance(1), 'index', await deployedRegistryContract.test_operatorCurrentIndex(1));
+        console.log("> 2 operator balance", await deployedRegistryContract.test_getOperatorBalance(2));
+        console.log("> group index", await deployedRegistryContract.test_groupCurrentIndex(outputRegister.groupId));
+        console.log("> group usage", await deployedRegistryContract.test_groupCurrentUsage(outputRegister.groupId));
+        console.log("> group balance", await deployedRegistryContract.test_groupBalance(outputRegister.groupId));
+        
     
         /*
         // validator 2

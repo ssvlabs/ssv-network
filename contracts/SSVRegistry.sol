@@ -48,6 +48,7 @@ contract SSVRegistryNew {
 
     event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
     event OperatorRemoved(uint64 operatorId);
+    event OperatorFeeUpdated(uint64 operatorId, uint64 fee);
     event ValidatorAdded(bytes validatorPK, bytes32 groupId);
     event ValidatorUpdated(bytes validatorPK, bytes32 groupId);
     event ValidatorRemoved(bytes validatorPK, bytes32 groupId);
@@ -98,6 +99,17 @@ contract SSVRegistryNew {
         emit OperatorRemoved(operatorId);
     }
 
+    function updateOperatorFee(uint64 operatorId, uint64 fee) external {
+        Operator memory operator = _operators[operatorId];
+        require(operator.owner == msg.sender, "not owner");
+
+        uint64 currentBlock = uint64(block.number);
+
+        _operators[operatorId] = _setFee(operator, fee, currentBlock); 
+
+        emit OperatorFeeUpdated(operatorId, fee);
+    }
+
     function registerValidator(
         uint64[] memory operatorIds,
         bytes calldata validatorPK,
@@ -115,14 +127,15 @@ contract SSVRegistryNew {
             Group memory group;
             uint64 currentBlock = uint64(block.number);
             {
-                uint64 groupIndex = _groupCurrentIndex(groupId);
                 _availableBalances[msg.sender] -= amount;
 
                 group = _groups[msg.sender][groupId];
-                console.log(amount, groupIndex);
-                group.balance = _ownerGroupBalance(group, groupIndex) + amount;
+                // console.log(amount, groupIndex);
                 //group.lastIndex = groupIndex;
-                // group.usage = _updateGroupUsage(group, currentBlock);
+                uint64 groupIndex = _groupCurrentIndex(groupId);
+                group.balance = _ownerGroupBalance(group, groupIndex) + amount;
+                group.usage.index = groupIndex;
+                group.usage.block = currentBlock;
 
                 ++group.validatorCount;
             }
@@ -281,6 +294,15 @@ contract SSVRegistryNew {
         emit ValidatorRemoved(validatorPK, groupId);
     }
     */
+
+    function _setFee(Operator memory operator, uint64 fee, uint64 currentBlock) private returns (Operator memory) {
+        operator.earnings = _updateOperatorEarnings(operator, currentBlock);
+        operator.earnRate = operator.validatorCount * fee;
+        operator.fee = fee;
+
+        return operator;
+    }
+
     function test_getOperatorsByGroupId(bytes32 groupId) external view returns (uint64[] memory) {
         return _operatorCollections[groupId].operatorIds;
     }
@@ -320,16 +342,9 @@ contract SSVRegistryNew {
         _operatorCollections[keccak256(abi.encodePacked(operators))] = OperatorCollection({ operatorIds: operators });
     }
 
-    function _setFee(Operator memory operator, uint64 fee, uint64 currentBlock) private returns (Operator memory) {
-        // operator.earnings = _updateOperatorIndex(operator, currentBlock);
-        operator.fee = fee;
-
-        return operator;
-    }
-
     /*
     function _updateOperatorIndex(Operator memory operator, uint64 currentBlock) private returns (Snapshot memory) {
-        return Snapshot({ index: _operatorCurrentIndex(operator), block: currentBlock });
+        return Snapshot({ index: _operatorCurrentIndex(operator), block: currentBlock, balance:  });
     }
     */
 
@@ -349,6 +364,7 @@ contract SSVRegistryNew {
     }
 
     function _updateOperatorEarnings(Operator memory operator, uint64 currentBlock) private returns (Snapshot memory) {
+        operator.earnings.index = _operatorCurrentIndex(operator);
         operator.earnings.balance = _operatorCurrentEarnings(operator, currentBlock);
         operator.earnings.block = currentBlock;
 
@@ -361,14 +377,6 @@ contract SSVRegistryNew {
 
         return dao;
     }
-
-    /*
-    function _updateGroupUsage(Group memory group, uint64 currentBlock) private returns (Snapshot memory) {
-        group.usage.index = _groupCurrentUsage(group, currentBlock);
-        group.usage.block = currentBlock;
-        return group.usage;
-    }
-    */
 
     function _operatorCurrentEarnings(Operator memory operator, uint64 currentBlock) private view returns (uint64) {
         return operator.earnings.balance + (currentBlock - operator.earnings.block) * operator.earnRate;
@@ -414,8 +422,7 @@ contract SSVRegistryNew {
     }
 
     function _ownerGroupBalance(Group memory group, uint64 currentGroupIndex) private view returns (uint64) {
-        console.log(currentGroupIndex, group.lastIndex);
-        return group.balance - (currentGroupIndex - group.lastIndex) * group.validatorCount;
+        return group.balance - (currentGroupIndex - group.usage.index) * group.validatorCount;
     }
 
     function _burnRatePerValidator(Operator[] memory operators) private pure returns (uint64 rate) {
