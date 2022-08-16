@@ -45,7 +45,7 @@ describe("Validators", () => {
         await deployedRegistryContract.deployed();
 
         await progressBlocks(99);
-        for (let i = 0; i < 2; i++) { // operatorsIndexes.length
+        for (let i = 0; i < 4; i++) { // operatorsIndexes.length
             var encryptionPK = "0x123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123451";
             await (await deployedRegistryContract.registerOperator(encryptionPK, operator_fee_block)).wait();
             await log({ action: `register operator #${i+1}` });
@@ -98,28 +98,28 @@ describe("Validators", () => {
             groupIds: [outputRegister.groupId]
         });
         const resultRegister2 = (await (await deployedRegistryContract.registerValidator(
-            [1, 2],
+            [3, 4],
             validatorPK,
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
-            "0"
+            "1000"
         )).wait()).logs[0];
         const interfaceRegister2 = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId)']);
         const outputRegister2 = interfaceRegister2.decodeEventLog('ValidatorAdded', resultRegister2.data, resultRegister2.topics);
         await log({
             action: `register validator #2: ${outputRegister2.validatorPK} : ${outputRegister2.groupId}`,
-            operatorIds: [1, 2],
-            groupIds: [outputRegister.groupId]
+            operatorIds: [1, 2, 3, 4],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await progressBlocks(1);
         await log({
-            operatorIds: [1, 2],
-            groupIds: [outputRegister.groupId]
+            operatorIds: [1, 2, 3, 4],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await progressBlocks(1);
         await log({
-            operatorIds: [1, 2],
-            groupIds: [outputRegister.groupId]
+            operatorIds: [1, 2, 3, 4],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await (await deployedRegistryContract.updateOperatorFee(
             1,
@@ -127,34 +127,34 @@ describe("Validators", () => {
         )).wait();
         await log({
             action: 'operator #1 fee updated 2',
-            operatorIds: [1, 2],
-            groupIds: [outputRegister.groupId]
+            operatorIds: [1, 2, 3, 4],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await progressBlocks(1);
         await log({
-            operatorIds: [1, 2],
-            groupIds: [outputRegister.groupId]
+            operatorIds: [1, 2, 3, 4],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await progressBlocks(1);
         await log({
-            operatorIds: [1, 2],
-            groupIds: [outputRegister.groupId]
+            operatorIds: [1, 2, 3, 4],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await (await deployedRegistryContract.removeValidator(outputRegister2.validatorPK, outputRegister2.groupId)).wait();
         await log({
-            action: 'remove validator #1',
-            operatorIds: [1, 2],
-            groupIds: [outputRegister.groupId]
+            action: 'remove validator #2',
+            operatorIds: [1, 2, 3, 4],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await progressBlocks(1);
         await log({
-            operatorIds: [1, 2],
-            groupIds: [outputRegister.groupId]
+            operatorIds: [1, 2, 3, 4],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await progressBlocks(1);
         await log({
-            operatorIds: [1, 2],
-            groupIds: [outputRegister.groupId]
+            operatorIds: [1, 2, 3, 4],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
 
     
