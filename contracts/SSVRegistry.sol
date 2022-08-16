@@ -120,20 +120,18 @@ contract SSVRegistryNew {
         bytes32 groupId;
         {
             Operator[] memory operators;
+            uint64 currentBlock = uint64(block.number);
             {
                 groupId = _getOrCreateOperatorCollection(operatorIds);
             }
 
             Group memory group;
-            uint64 currentBlock = uint64(block.number);
             {
                 _availableBalances[msg.sender] -= amount;
 
                 group = _groups[msg.sender][groupId];
-                // console.log(amount, groupIndex);
-                //group.lastIndex = groupIndex;
                 uint64 groupIndex = _groupCurrentIndex(groupId);
-                group.balance = _ownerGroupBalance(group, groupIndex) + amount;
+                group.balance = group.balance + amount - _groupCurrentUsage(groupId);
                 group.usage.index = groupIndex;
                 group.usage.block = currentBlock;
 
@@ -252,6 +250,7 @@ contract SSVRegistryNew {
 
         emit ValidatorUpdated(validatorPK, newGroupId);
     }
+    */
 
     function removeValidator(
         bytes calldata validatorPK,
@@ -260,18 +259,24 @@ contract SSVRegistryNew {
         {
             Group memory group = _groups[msg.sender][groupId];
             OperatorCollection memory operatorCollection = _operatorCollections[groupId];
+            uint64 currentBlock = uint64(block.number);
 
+            uint64 groupIndex = _groupCurrentIndex(groupId);
+            group.balance = group.balance - _groupCurrentUsage(groupId);
+            group.usage.index = groupIndex;
+            group.usage.block = currentBlock;
+            --group.validatorCount;
+
+            /*
             uint64 groupIndex = _groupCurrentIndex(operatorCollection.operatorIds);
             group.balance = _ownerGroupBalance(group, groupIndex);
             group.lastIndex = groupIndex;
             --group.validatorCount;
-
+            */
             if (group.validatorCount == 0) {
                 // _availableBalances[msg.sender] += _ownerGroupBalance(group, groupIndex);
                 // group.balance -= _ownerGroupBalance(group, groupIndex);
             }
-
-            uint64 currentBlock = uint64(block.number);
 
             for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
                 uint64 id = operatorCollection.operatorIds[i];
@@ -293,7 +298,6 @@ contract SSVRegistryNew {
 
         emit ValidatorRemoved(validatorPK, groupId);
     }
-    */
 
     function _setFee(Operator memory operator, uint64 fee, uint64 currentBlock) private returns (Operator memory) {
         operator.earnings = _updateOperatorEarnings(operator, currentBlock);
@@ -390,7 +394,7 @@ contract SSVRegistryNew {
 
     function _groupCurrentUsage(bytes32 groupId) private view returns (uint64) {
         Group memory group = _groups[msg.sender][groupId];
-        return _groupCurrentIndex(groupId) - group.usage.index;
+        return (_groupCurrentIndex(groupId) - group.usage.index) * group.validatorCount;
     }
 
     function _extractOperators(uint64[] memory operatorIds) private view returns (Operator[] memory) {
