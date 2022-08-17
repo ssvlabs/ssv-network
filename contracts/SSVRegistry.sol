@@ -41,7 +41,6 @@ contract SSVRegistryNew {
     struct Group {
         uint64 balance;
         uint64 validatorCount;
-        uint64 lastIndex;
 
         Snapshot usage;
     }
@@ -66,6 +65,15 @@ contract SSVRegistryNew {
     uint64 private _networkFee;
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
     // uint64 constant NETWORK_FEE_PER_BLOCK = 1;
+
+
+    error ExceedRegisteredOperatorsByAccountLimit();
+    error OperatorDeleted();
+    error ValidatorAlreadyExists();
+    error ExceedValidatorLimit();
+    error OperatorNotFound();
+    error InvalidPublicKeyLength();
+    error OessDataStructureInvalid();
 
     DAO private _dao;
     IERC20 private _token;
@@ -113,10 +121,17 @@ contract SSVRegistryNew {
     function registerValidator(
         uint64[] memory operatorIds,
         bytes calldata validatorPK,
+        bytes[] calldata sharesPublicKeys,
         bytes[] calldata encryptedShares,
-        bytes[] calldata sharesPK,
         uint64 amount
     ) external {
+        _validateValidatorParams(
+            validatorPK,
+            operatorIds,
+            sharesPublicKeys,
+            encryptedShares
+        );
+
         bytes32 groupId;
         {
             Operator[] memory operators;
@@ -131,7 +146,7 @@ contract SSVRegistryNew {
 
                 group = _groups[msg.sender][groupId];
                 uint64 groupIndex = _groupCurrentIndex(groupId);
-                group.balance = group.balance + amount - _groupCurrentUsage(groupId);
+                group.balance = _ownerGroupBalance(group, groupIndex) + amount;
                 group.usage.index = groupIndex;
                 group.usage.block = currentBlock;
 
@@ -162,54 +177,60 @@ contract SSVRegistryNew {
         emit ValidatorAdded(validatorPK, groupId);
     }
 
-    /*
     function updateValidator(
         uint64[] memory operatorIds,
         bytes calldata validatorPK,
         bytes32 currentGroupId,
         uint64 amount
     ) external {
+        uint64 currentBlock = uint64(block.number);
         {
-            Group memory group = _groups[msg.sender][currentGroupId];
+            Group memory group;
+            {
+                group = _groups[msg.sender][currentGroupId];
+
+                uint64 groupIndex = _groupCurrentIndex(currentGroupId);
+                group.balance = _ownerGroupBalance(group, groupIndex);
+                group.usage.index = groupIndex;
+                group.usage.block = currentBlock;
+                --group.validatorCount;
+
+                if (group.validatorCount == 0) {
+                    // _availableBalances[msg.sender] += _ownerGroupBalance(group, groupIndex);
+                    // group.balance -= _ownerGroupBalance(group, groupIndex);
+                }
+            }
+
             OperatorCollection memory operatorCollection = _operatorCollections[currentGroupId];
-
-            uint64 groupIndex = _groupCurrentIndex(operatorCollection.operatorIds);
-            group.lastIndex = groupIndex;
-            --group.validatorCount;
-
-            if (group.validatorCount == 0) {
-                // _availableBalances[msg.sender] += _ownerGroupBalance(group, groupIndex);
-                // group.balance -= _ownerGroupBalance(group, groupIndex);
-            }
-            uint64 currentBlock = uint64(block.number);
-
-            for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
-                bool found;
-                for (uint64 j = 0; j < operatorIds.length; ++j) {
-                    if (operatorCollection.operatorIds[i] == operatorIds[j]) {
-                        found = true;
+            {
+                for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
+                    bool found;
+                    for (uint64 j = 0; j < operatorIds.length; ++j) {
+                        if (operatorCollection.operatorIds[i] == operatorIds[j]) {
+                            found = true;
+                        }
+                    }
+                    if (!found) {
+                        uint64 id = operatorCollection.operatorIds[i];
+                        _operators[id].earnings = _updateOperatorEarnings(_operators[id], currentBlock);
+                        _operators[id].earnRate -= _operators[id].fee;
+                        --_operators[id].validatorCount;
                     }
                 }
-                if (!found) {
-                    uint64 id = operatorCollection.operatorIds[i];
-                    _operators[id].earnings = _updateOperatorEarnings(_operators[id], currentBlock);
-                    _operators[id].earnRate -= _operators[id].fee;
-                    --_operators[id].validatorCount;
-                }
-            }
 
-            for (uint64 i = 0; i < operatorIds.length; ++i) {
-                bool found;
-                for (uint64 j = 0; j < operatorCollection.operatorIds.length; ++j) {
-                    if (operatorIds[i] == operatorCollection.operatorIds[j]) {
-                        found = true;
+                for (uint64 i = 0; i < operatorIds.length; ++i) {
+                    bool found;
+                    for (uint64 j = 0; j < operatorCollection.operatorIds.length; ++j) {
+                        if (operatorIds[i] == operatorCollection.operatorIds[j]) {
+                            found = true;
+                        }
                     }
-                }
-                if (!found) {
-                    uint64 id = operatorIds[i];
-                    _operators[id].earnings = _updateOperatorEarnings(_operators[id], currentBlock);
-                    _operators[id].earnRate += _operators[id].fee;
-                    ++_operators[id].validatorCount;
+                    if (!found) {
+                        uint64 id = operatorIds[i];
+                        _operators[id].earnings = _updateOperatorEarnings(_operators[id], currentBlock);
+                        _operators[id].earnRate += _operators[id].fee;
+                        ++_operators[id].validatorCount;
+                    }
                 }
             }
             _groups[msg.sender][currentGroupId] = group;
@@ -225,14 +246,15 @@ contract SSVRegistryNew {
 
             Group memory group;
             {
-                uint64 groupIndex = _groupCurrentIndex(operatorIds);
+                uint64 groupIndex = _groupCurrentIndex(newGroupId);
 
                 _availableBalances[msg.sender] -= amount;
 
                 group = _groups[msg.sender][newGroupId];
-
                 group.balance = _ownerGroupBalance(group, groupIndex) + amount;
-                group.lastIndex = groupIndex;
+                group.usage.index = groupIndex;
+                group.usage.block = currentBlock;
+
                 ++group.validatorCount;
             }
 
@@ -250,7 +272,6 @@ contract SSVRegistryNew {
 
         emit ValidatorUpdated(validatorPK, newGroupId);
     }
-    */
 
     function removeValidator(
         bytes calldata validatorPK,
@@ -262,17 +283,11 @@ contract SSVRegistryNew {
             uint64 currentBlock = uint64(block.number);
 
             uint64 groupIndex = _groupCurrentIndex(groupId);
-            group.balance = group.balance - _groupCurrentUsage(groupId);
+            group.balance = _ownerGroupBalance(group, groupIndex);
             group.usage.index = groupIndex;
             group.usage.block = currentBlock;
             --group.validatorCount;
 
-            /*
-            uint64 groupIndex = _groupCurrentIndex(operatorCollection.operatorIds);
-            group.balance = _ownerGroupBalance(group, groupIndex);
-            group.lastIndex = groupIndex;
-            --group.validatorCount;
-            */
             if (group.validatorCount == 0) {
                 // _availableBalances[msg.sender] += _ownerGroupBalance(group, groupIndex);
                 // group.balance -= _ownerGroupBalance(group, groupIndex);
@@ -323,13 +338,34 @@ contract SSVRegistryNew {
         return _groupCurrentIndex(groupId);
     }
 
-    function test_groupCurrentUsage(bytes32 groupId) external view returns (uint64) {
-        return _groupCurrentUsage(groupId);
-    }
-
     function test_groupBalance(bytes32 groupId) external view returns (uint64) {
         Group memory group = _groups[msg.sender][groupId];
-        return group.balance - _groupCurrentUsage(groupId);
+        return _ownerGroupBalance(group, _groupCurrentIndex(groupId));
+    }
+
+    /**
+     * @dev Validates the paramss for a validator.
+     * @param publicKey Validator public key.
+     * @param operatorIds Operator operatorIds.
+     * @param sharesPublicKeys Shares public keys.
+     * @param encryptedKeys Encrypted private keys.
+     */
+    function _validateValidatorParams(
+        bytes memory publicKey,
+        uint64[] memory operatorIds,
+        bytes[] memory sharesPublicKeys,
+        bytes[] memory encryptedKeys
+    ) private pure {
+        if (publicKey.length != 48) {
+            revert InvalidPublicKeyLength();
+        }
+        if (
+            operatorIds.length != sharesPublicKeys.length ||
+            operatorIds.length != encryptedKeys.length ||
+            operatorIds.length < 4 || operatorIds.length % 3 != 1
+        ) {
+            revert OessDataStructureInvalid();
+        }
     }
 
     // function removeValidator(validatorPK)
@@ -384,17 +420,6 @@ contract SSVRegistryNew {
 
     function _operatorCurrentEarnings(Operator memory operator, uint64 currentBlock) private view returns (uint64) {
         return operator.earnings.balance + (currentBlock - operator.earnings.block) * operator.earnRate;
-    }
-
-    /*
-    function _groupCurrentUsage(Group memory group, uint64 currentBlock) private view returns (uint64) {
-        return group.usage.index + (currentBlock - group.usage.block) * group.validatorCount;
-    }
-    */
-
-    function _groupCurrentUsage(bytes32 groupId) private view returns (uint64) {
-        Group memory group = _groups[msg.sender][groupId];
-        return (_groupCurrentIndex(groupId) - group.usage.index) * group.validatorCount;
     }
 
     function _extractOperators(uint64[] memory operatorIds) private view returns (Operator[] memory) {
