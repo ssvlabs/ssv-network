@@ -48,8 +48,8 @@ contract SSVRegistryNew {
     event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
     event OperatorRemoved(uint64 operatorId);
     event OperatorFeeUpdated(uint64 operatorId, uint64 fee);
-    event ValidatorAdded(bytes validatorPK, bytes32 groupId);
-    event ValidatorUpdated(bytes validatorPK, bytes32 groupId);
+    event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares);
+    event ValidatorUpdated(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares);
     event ValidatorRemoved(bytes validatorPK, bytes32 groupId);
 
     // global vars
@@ -195,13 +195,15 @@ contract SSVRegistryNew {
             _groups[msg.sender][groupId] = group;
         }
 
-        emit ValidatorAdded(validatorPK, groupId);
+        emit ValidatorAdded(validatorPK, groupId, sharesPublicKeys, encryptedShares);
     }
 
     function updateValidator(
         uint64[] memory operatorIds,
         bytes calldata validatorPK,
         bytes32 currentGroupId,
+        bytes[] calldata sharesPublicKeys,
+        bytes[] calldata encryptedShares,
         uint64 amount
     ) external {
         uint64 currentBlock = uint64(block.number);
@@ -295,7 +297,7 @@ contract SSVRegistryNew {
             _groups[msg.sender][newGroupId] = group;
         }
 
-        emit ValidatorUpdated(validatorPK, newGroupId);
+        emit ValidatorUpdated(validatorPK, newGroupId, sharesPublicKeys, encryptedShares);
     }
 
     function removeValidator(
