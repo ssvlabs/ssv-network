@@ -48,8 +48,8 @@ contract SSVRegistryNew {
     event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
     event OperatorRemoved(uint64 operatorId);
     event OperatorFeeUpdated(uint64 operatorId, uint64 fee);
-    event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares);
-    event ValidatorUpdated(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares);
+    event ValidatorAdded(bytes validatorPK, bytes32 groupId);  // , bytes[] sharesPublicKeys, bytes[] encryptedShares);
+    event ValidatorUpdated(bytes validatorPK, bytes32 groupId); // , bytes[] sharesPublicKeys, bytes[] encryptedShares);
     event ValidatorRemoved(bytes validatorPK, bytes32 groupId);
 
     // global vars
@@ -65,15 +65,6 @@ contract SSVRegistryNew {
     uint64 private _networkFee;
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
     // uint64 constant NETWORK_FEE_PER_BLOCK = 1;
-
-
-    error ExceedRegisteredOperatorsByAccountLimit();
-    error OperatorDeleted();
-    error ValidatorAlreadyExists();
-    error ExceedValidatorLimit();
-    error OperatorNotFound();
-    error InvalidPublicKeyLength();
-    error OessDataStructureInvalid();
 
     DAO private _dao;
     IERC20 private _token;
@@ -195,7 +186,7 @@ contract SSVRegistryNew {
             _groups[msg.sender][groupId] = group;
         }
 
-        emit ValidatorAdded(validatorPK, groupId, sharesPublicKeys, encryptedShares);
+        emit ValidatorAdded(validatorPK, groupId); // , sharesPublicKeys, encryptedShares);
     }
 
     function updateValidator(
@@ -297,7 +288,7 @@ contract SSVRegistryNew {
             _groups[msg.sender][newGroupId] = group;
         }
 
-        emit ValidatorUpdated(validatorPK, newGroupId, sharesPublicKeys, encryptedShares);
+        emit ValidatorUpdated(validatorPK, newGroupId); //, sharesPublicKeys, encryptedShares);
     }
 
     function removeValidator(
@@ -383,6 +374,7 @@ contract SSVRegistryNew {
         bytes[] memory sharesPublicKeys,
         bytes[] memory encryptedKeys
     ) private pure {
+        /*
         if (publicKey.length != 48) {
             revert InvalidPublicKeyLength();
         }
@@ -393,6 +385,7 @@ contract SSVRegistryNew {
         ) {
             revert OessDataStructureInvalid();
         }
+        */
     }
 
     // function removeValidator(validatorPK)
