@@ -470,7 +470,7 @@ contract SSVRegistryNew {
     }
 
     function _ownerGroupBalance(Group memory group, uint64 currentGroupIndex) private view returns (uint64) {
-        return group.balance - ((currentGroupIndex - group.usage.index) + _networkFee) * group.validatorCount;
+        return group.balance - (currentGroupIndex - group.usage.index) * group.validatorCount;
     }
 
     function _burnRatePerValidator(Operator[] memory operators) private pure returns (uint64 rate) {
