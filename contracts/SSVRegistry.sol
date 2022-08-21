@@ -41,7 +41,7 @@ contract SSVRegistryNew {
     struct Group {
         uint64 balance;
         uint64 validatorCount;
-
+        bytes[] validatorPKs;
         Snapshot usage;
     }
 
@@ -100,9 +100,10 @@ contract SSVRegistryNew {
         uint64 currentBlock = uint64(block.number);
 
         operator.earnings = _updateOperatorEarnings(operator, currentBlock);
-        operator.earnRate -= operator.fee * operator.validatorCount;
-        _operators[operatorId] = _setFee(operator, 0, currentBlock); 
+        operator.earnRate = 0;
+        operator.fee = 0;
         operator.validatorCount = 0;
+        _operators[operatorId] = operator;
 
         emit OperatorRemoved(operatorId);
     }
@@ -132,12 +133,13 @@ contract SSVRegistryNew {
             encryptedShares
         );
 
+        // Operator[] memory operators;
         bytes32 groupId;
         {
-            Operator[] memory operators;
             uint64 currentBlock = uint64(block.number);
             {
                 groupId = _getOrCreateOperatorCollection(operatorIds);
+                // operators = _extractOperators(operatorIds);
             }
 
             Group memory group;
@@ -151,13 +153,28 @@ contract SSVRegistryNew {
                 group.usage.block = currentBlock;
 
                 ++group.validatorCount;
+
+                // TODO
+                // gas issues
+                // without: 352641 max, 336957 avg, 321272 min
+                // with that: 442985 max, 427300 avg, 411615 min
+                /*
+                bytes[] memory extendedGroup = new bytes[](group.validatorCount);
+                for (uint64 i = 0; i < group.validatorPKs.length; ++i) {
+                    extendedGroup[i] = group.validatorPKs[i];
+                }
+                extendedGroup[group.validatorCount - 1] = validatorPK;
+                group.validatorPKs = extendedGroup;
+                */
             }
 
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
-                    _operators[operatorIds[i]].earnings = _updateOperatorEarnings(_operators[operatorIds[i]], currentBlock);
-                    _operators[operatorIds[i]].earnRate += _operators[operatorIds[i]].fee;
-                    ++_operators[operatorIds[i]].validatorCount;
+                    Operator memory operator = _operators[operatorIds[i]];
+                    operator.earnings = _updateOperatorEarnings(operator, currentBlock);
+                    operator.earnRate += operator.fee;
+                    ++operator.validatorCount;
+                    _operators[operatorIds[i]] = operator;
                 }
             }
 
@@ -169,7 +186,11 @@ contract SSVRegistryNew {
                 _dao = dao;
             }
 
-            require(!_liquidatable(group.balance, group.validatorCount, operators), "account liquidatable");
+            // TODO
+            // require(!_liquidatable(group.balance, group.validatorCount, _extractOperators(operatorIds)), "account liquidatable");
+            // list of operators here makes the gas higher
+            // without: 352641 max, 336957 avg, 321272 min
+            // with that: 364550 max, 348866 avg, 333181 min
 
             _groups[msg.sender][groupId] = group;
         }
@@ -238,10 +259,10 @@ contract SSVRegistryNew {
 
         bytes32 newGroupId;
         {
-            Operator[] memory operators;
+            // Operator[] memory newOperators;
             {
                 newGroupId = _getOrCreateOperatorCollection(operatorIds);
-                operators = _extractOperators(operatorIds);
+                // newOperators = _extractOperators(operatorIds);
             }
 
             Group memory group;
@@ -265,7 +286,11 @@ contract SSVRegistryNew {
                 _dao = dao;
             }
 
-            require(!_liquidatable(group.balance, group.validatorCount, operators), "account liquidatable");
+            // TODO
+            // require(!_liquidatable(group.balance, group.validatorCount, newOperators), "account liquidatable");
+            // list of operators here makes the gas higher
+            // without: 353107 max, 315041 avg, 276974 min
+            // with that: 365039 max, 326973 avg, 288906 min
 
             _groups[msg.sender][newGroupId] = group;
         }
