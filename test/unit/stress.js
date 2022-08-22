@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { progressBlocks } = require('./utils');
 const operator_fee_block = 1;
 
 const operatorsIndexes = Array.from(Array(1000).keys()).map(k => k + 1);
@@ -23,7 +24,9 @@ describe("Stress Test", () => {
 
         // Deposit to the account
         await deployedRegistryContract.deposit("100000000000")
+    })
 
+    it("Register 1000 validators", async () => {
         // Register 1000 validators
         for (let i = 1000; i < 2000; i++) {
             const randomOperator = Math.floor(Math.random() * 995)
@@ -44,6 +47,7 @@ describe("Stress Test", () => {
         }
     })
 
+    /*
     it("Update 1000 operators", async () => {
         for (let i = 0; i < operatorsIndexes.length; i++) {
             await deployedRegistryContract.updateOperatorFee(operatorsIndexes[i], 10)
@@ -76,5 +80,5 @@ describe("Stress Test", () => {
             await deployedRegistryContract.removeValidator(validatorData[i].publicKey, validatorData[i].groupId)
         }
     })
-
+    */
 });

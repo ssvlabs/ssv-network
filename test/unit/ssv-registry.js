@@ -124,7 +124,7 @@ describe("Validators", () => {
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
             '10000'
-        )).wait()).logs[0];;
+        )).wait()).logs[0];
         interfaceRegister = new ethers.utils.Interface(['event ValidatorUpdated(bytes validatorPK, bytes32 groupId)']); // , bytes[] sharesPublicKeys, bytes[] encryptedShares
         outputRegister = interfaceUpdate.decodeEventLog('ValidatorUpdated', resultRegister.data, resultRegister.topics);
         await log({
@@ -138,7 +138,7 @@ describe("Validators", () => {
             groupIds: [outputRegister.groupId, outputUpdate.groupId]
         });
         const resultRegister2 = (await (await deployedRegistryContract.registerValidator(
-            [5,6,7,8],
+            [1,2,3,4],
             validatorPK,
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
@@ -196,7 +196,17 @@ describe("Validators", () => {
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
-    
+        await progressBlocks(1);
+        (await (await deployedRegistryContract.transferValidator(
+            outputRegister.groupId,
+            outputRegister.groupId,
+        )).wait()).logs[0];;
+        await log({
+            action: 'transfer',
+            operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
+            groupIds: [outputRegister.groupId, outputRegister2.groupId]
+        });
+
         /*
         // validator 2
         await expect(await deployedRegistryContract.registerValidator(

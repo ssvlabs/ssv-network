@@ -41,7 +41,7 @@ contract SSVRegistryNew {
     struct Group {
         uint64 balance;
         uint64 validatorCount;
-        bytes[] validatorPKs;
+        // bytes[] validatorPKs;
         Snapshot usage;
     }
 
@@ -49,6 +49,7 @@ contract SSVRegistryNew {
     event OperatorRemoved(uint64 operatorId);
     event OperatorFeeUpdated(uint64 operatorId, uint64 fee);
     event ValidatorAdded(bytes validatorPK, bytes32 groupId);  // , bytes[] sharesPublicKeys, bytes[] encryptedShares);
+    event ValidatorTransfered(bytes32 ipfsHash, bytes32 groupId);  // , bytes[] sharesPublicKeys, bytes[] encryptedShares);
     event ValidatorUpdated(bytes validatorPK, bytes32 groupId); // , bytes[] sharesPublicKeys, bytes[] encryptedShares);
     event ValidatorRemoved(bytes validatorPK, bytes32 groupId);
 
@@ -61,6 +62,7 @@ contract SSVRegistryNew {
     mapping(bytes32 => OperatorCollection) private _operatorCollections;
     mapping(address => mapping(bytes32 => Group)) private _groups;
     mapping(address => uint64) _availableBalances;
+    mapping(bytes32 => mapping(bytes => uint16)) private _validatorPKs;
 
     uint64 private _networkFee;
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
@@ -110,6 +112,19 @@ contract SSVRegistryNew {
         emit OperatorFeeUpdated(operatorId, fee);
     }
 
+    function transferValidator(
+        // bytes calldata validatorPK,
+        bytes32 ipfsHash,
+        bytes32 groupId
+        // bytes[] calldata sharesPublicKeys,
+        // bytes[] calldata encryptedShares
+    ) external {
+        for (uint64 i = 0; i < 100; ++i) {
+            emit ValidatorTransfered(ipfsHash, groupId);
+            // _validatorPKs[msg.sender][validatorPK] = groupId;
+        }
+    }
+
     function registerValidator(
         uint64[] memory operatorIds,
         bytes calldata validatorPK,
@@ -157,6 +172,15 @@ contract SSVRegistryNew {
                 extendedGroup[group.validatorCount - 1] = validatorPK;
                 group.validatorPKs = extendedGroup;
                 */
+                // group.validatorPKs[validatorPK] = 1;
+                // _validatorPKs[msg.sender][validatorPK] = groupId;
+                /*
+                bytes32[] memory data = new bytes32[](2);
+                data[0] = bytes32(abi.encodePacked(msg.sender));
+                data[1] = groupId;
+                bytes32 key = keccak256(abi.encodePacked(data));
+                _validatorPKs[key][validatorPK] = 1;
+                */
             }
 
             {
@@ -178,7 +202,7 @@ contract SSVRegistryNew {
             }
 
             // TODO
-            // require(!_liquidatable(group.balance, group.validatorCount, _extractOperators(operatorIds)), "account liquidatable");
+            require(!_liquidatable(group.balance, group.validatorCount, _extractOperators(operatorIds)), "account liquidatable");
             // list of operators here makes the gas higher
             // without: 352641 max, 336957 avg, 321272 min
             // with that: 364550 max, 348866 avg, 333181 min

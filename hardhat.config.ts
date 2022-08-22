@@ -12,6 +12,9 @@ import '@nomiclabs/hardhat-solhint';
 
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
+  mocha: {
+    timeout: 40000000000000000
+  },
   solidity: {
     compilers: [
       {
