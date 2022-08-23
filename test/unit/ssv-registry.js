@@ -30,7 +30,7 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
             console.log(
                 `> group #$${id}`,
                 'balance', await deployedRegistryContract.test_groupBalance(id),
-                'index', await deployedRegistryContract.test_groupCurrentIndex(id),
+                'index', await deployedRegistryContract.test_operatorCollectionCurrentIndex(id),
             );
         }
     }
@@ -89,7 +89,6 @@ describe("Validators", () => {
         let resultUpdate = (await (await deployedRegistryContract.updateValidator(
             [4,5,6,7],
             validatorPK + "f",
-            outputRegister.groupId,
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
             '10000'
@@ -119,7 +118,6 @@ describe("Validators", () => {
         resultRegister = (await (await deployedRegistryContract.updateValidator(
             [1,2,3,4],
             validatorPK + "f",
-            outputUpdate.groupId,
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
             '10000'
@@ -214,14 +212,13 @@ describe("Validators", () => {
         }
 
         const transferLogs = (await (await deployedRegistryContract.transferValidators(
-            results.map(r => ethers.utils.keccak256(r.validatorPK)),
+            results.map(r => r.validatorPK),
             outputRegister.groupId,
             outputRegister2.groupId,
             results.map(r => sharePKs.slice(0,4)).flat().reduce((a,b) => a.concat(b.slice(2))),
             results.map(r => encryptedShares.slice(0,4)).flat().reduce((a,b) => a.concat(b.slice(2)))
         )).wait()).logs;
 
-        console.log(transferLogs);
         await log({
             action: 'transfer',
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
