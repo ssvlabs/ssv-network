@@ -196,6 +196,7 @@ describe("Validators", () => {
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
+        /*
         await progressBlocks(1);
         (await (await deployedRegistryContract.transferValidator(
             outputRegister.groupId,
@@ -206,6 +207,7 @@ describe("Validators", () => {
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
+        */
 
         /*
         // validator 2
