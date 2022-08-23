@@ -22,7 +22,6 @@ contract SSVRegistryNew {
         address owner;
         uint64 fee;
         uint64 validatorCount;
-        uint64 earnRate;
 
         Snapshot earnings;
     }
@@ -44,11 +43,18 @@ contract SSVRegistryNew {
         Snapshot usage;
     }
 
+    struct Validator {
+        bytes32 operatorCollectionId;
+        address owner;
+        bool active;
+    }
+
     event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
     event OperatorRemoved(uint64 operatorId);
     event OperatorFeeUpdated(uint64 operatorId, uint64 fee);
     event ValidatorAdded(bytes validatorPK, bytes32 groupId,bytes[] sharesPublicKeys, bytes[] encryptedShares);
-    event ValidatorTransfered(bytes32 ipfsHash, bytes32 groupId);  // , bytes[] sharesPublicKeys, bytes[] encryptedShares);
+    event ValidatorTransfered(bytes32 validatorPK, bytes32 groupId,bytes[] sharesPublicKeys, bytes[] encryptedShares);
+    event ValidatorTransferedArr(bytes32[] validatorPK, bytes32 groupId,bytes sharesPublicKeys, bytes encryptedShares);
     event ValidatorUpdated(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares);
     event ValidatorRemoved(bytes validatorPK, bytes32 groupId);
 
@@ -59,9 +65,9 @@ contract SSVRegistryNew {
     // operator vars
     mapping(uint64 => Operator) private _operators;
     mapping(bytes32 => OperatorCollection) private _operatorCollections;
-    mapping(address => mapping(bytes32 => Group)) private _groups;
+    mapping(bytes32 => Group) private _groups;
     mapping(address => uint64) _availableBalances;
-    mapping(bytes32 => mapping(bytes => uint16)) private _validatorPKs;
+    mapping(bytes32 => Validator) _validatorPKs;
 
     uint64 private _networkFee;
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
@@ -81,7 +87,7 @@ contract SSVRegistryNew {
 
         lastOperatorId.increment();
         operatorId = uint64(lastOperatorId.current());
-        _operators[operatorId] = Operator({ owner: msg.sender, earnings: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee, earnRate: 0 });
+        _operators[operatorId] = Operator({ owner: msg.sender, earnings: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee});
         emit OperatorAdded(operatorId, msg.sender, encryptionPK);
     }
 
@@ -91,8 +97,7 @@ contract SSVRegistryNew {
 
         uint64 currentBlock = uint64(block.number);
 
-        operator.earnings = _updateOperatorEarnings(operator, currentBlock);
-        operator.earnRate = 0;
+        operator.earnings = _updateOperatorEarnings(operator);
         operator.fee = 0;
         operator.validatorCount = 0;
         _operators[operatorId] = operator;
@@ -104,24 +109,48 @@ contract SSVRegistryNew {
         Operator memory operator = _operators[operatorId];
         require(operator.owner == msg.sender, "not owner");
 
-        uint64 currentBlock = uint64(block.number);
-
-        _operators[operatorId] = _setFee(operator, fee, currentBlock); 
+        _operators[operatorId] = _setFee(operator, fee);
 
         emit OperatorFeeUpdated(operatorId, fee);
     }
 
-    function transferValidator(
-        // bytes calldata validatorPK,
-        bytes32 ipfsHash,
-        bytes32 groupId
-        // bytes[] calldata sharesPublicKeys,
-        // bytes[] calldata encryptedShares
+    function transferValidators(
+        bytes32[] calldata validatorPK,
+        bytes32 fromGroupId,
+        bytes32 toGroupId,
+        bytes calldata sharesPublicKeys,
+        bytes calldata encryptedShares
     ) external {
-        for (uint64 i = 0; i < 100; ++i) {
-            emit ValidatorTransfered(ipfsHash, groupId);
-            // _validatorPKs[msg.sender][validatorPK] = groupId;
+        // _validateValidatorParams
+        uint64 activeValidatorCount = 0;
+
+        for (uint64 index = 0; index < validatorPK.length; ++index) {
+            Validator memory validator = _validatorPKs[validatorPK[index]];
+            validator.operatorCollectionId = toGroupId;
+            _validatorPKs[validatorPK[index]] = validator;
+
+            if (validator.active) {
+                ++activeValidatorCount;
+            }
+            // Changing to a single event reducing by 15K gas
         }
+        emit ValidatorTransferedArr(validatorPK, toGroupId, sharesPublicKeys, encryptedShares);
+
+        uint64[] memory newOperatorIds = _operatorCollections[toGroupId].operatorIds;
+
+        _updateOperatorsValidatorMove(_operatorCollections[fromGroupId].operatorIds, newOperatorIds, activeValidatorCount);
+
+        Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, fromGroupId))];
+        group.usage.index = _groupCurrentIndex(fromGroupId);
+        group.usage.block = uint64(block.number);
+        group.validatorCount -= activeValidatorCount;
+
+        group = _groups[keccak256(abi.encodePacked(msg.sender, toGroupId))];
+        group.usage.index = _groupCurrentIndex(toGroupId);
+        group.usage.block = uint64(block.number);
+        group.validatorCount += activeValidatorCount;
+
+        require(!_liquidatable(group.balance, group.validatorCount, _extractOperators(newOperatorIds)), "account liquidatable");
     }
 
     function registerValidator(
@@ -133,17 +162,15 @@ contract SSVRegistryNew {
     ) external {
         _validateValidatorParams(
             validatorPK,
-            operatorIds,
             sharesPublicKeys,
             encryptedShares
         );
 
         // Operator[] memory operators;
-        bytes32 groupId;
+        bytes32 operatorCollectionId;
         {
-            uint64 currentBlock = uint64(block.number);
             {
-                groupId = _getOrCreateOperatorCollection(operatorIds);
+                operatorCollectionId = getOrCreateOperatorCollection(operatorIds);
                 // operators = _extractOperators(operatorIds);
             }
 
@@ -151,11 +178,11 @@ contract SSVRegistryNew {
             {
                 _availableBalances[msg.sender] -= amount;
 
-                group = _groups[msg.sender][groupId];
-                uint64 groupIndex = _groupCurrentIndex(groupId);
+                group = _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))];
+                uint64 groupIndex = _groupCurrentIndex(operatorCollectionId);
                 group.balance = _ownerGroupBalance(group, groupIndex) + amount;
                 group.usage.index = groupIndex;
-                group.usage.block = currentBlock;
+                group.usage.block = uint64(block.number);
 
                 ++group.validatorCount;
 
@@ -172,11 +199,11 @@ contract SSVRegistryNew {
                 group.validatorPKs = extendedGroup;
                 */
                 // group.validatorPKs[validatorPK] = 1;
-                // _validatorPKs[msg.sender][validatorPK] = groupId;
+                // _validatorPKs[msg.sender][validatorPK] = operatorCollectionId;
                 /*
                 bytes32[] memory data = new bytes32[](2);
                 data[0] = bytes32(abi.encodePacked(msg.sender));
-                data[1] = groupId;
+                data[1] = operatorCollectionId;
                 bytes32 key = keccak256(abi.encodePacked(data));
                 _validatorPKs[key][validatorPK] = 1;
                 */
@@ -185,8 +212,7 @@ contract SSVRegistryNew {
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
                     Operator memory operator = _operators[operatorIds[i]];
-                    operator.earnings = _updateOperatorEarnings(operator, currentBlock);
-                    operator.earnRate += operator.fee;
+                    operator.earnings = _updateOperatorEarnings(operator);
                     ++operator.validatorCount;
                     _operators[operatorIds[i]] = operator;
                 }
@@ -195,7 +221,7 @@ contract SSVRegistryNew {
             {
                 // // update DAO earnings
                 DAO memory dao = _dao;
-                dao = _updateDAOEarnings(dao, uint64(block.number));
+                dao = _updateDAOEarnings(dao);
                 ++dao.validatorCount;
                 _dao = dao;
             }
@@ -206,10 +232,56 @@ contract SSVRegistryNew {
             // without: 352641 max, 336957 avg, 321272 min
             // with that: 364550 max, 348866 avg, 333181 min
 
-            _groups[msg.sender][groupId] = group;
+            _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))] = group;
         }
 
-        emit ValidatorAdded(validatorPK, groupId, sharesPublicKeys, encryptedShares);
+        _validatorPKs[keccak256(validatorPK)] = Validator({ owner: msg.sender, operatorCollectionId: operatorCollectionId, active: true});
+
+        emit ValidatorAdded(validatorPK, operatorCollectionId, sharesPublicKeys, encryptedShares);
+    }
+
+    function _updateOperatorsValidatorMove(
+        uint64[] memory oldOperatorIds,
+        uint64[] memory newOperatorIds,
+        uint64 validatorCount
+    ) private {
+        uint64 oldIndex;
+        uint64 newIndex;
+
+        while (oldIndex < oldOperatorIds.length && newIndex < newOperatorIds.length) {
+            if (oldOperatorIds[oldIndex] < newOperatorIds[newIndex]) {
+                Operator memory operator = _operators[oldOperatorIds[oldIndex]];
+                operator.earnings = _updateOperatorEarnings(operator);
+                operator.validatorCount -= validatorCount;
+                _operators[oldOperatorIds[oldIndex]] = operator;
+                ++oldIndex;
+            } else if (newOperatorIds[newIndex] < oldOperatorIds[oldIndex]) {
+                Operator memory operator = _operators[newOperatorIds[newIndex]];
+                operator.earnings = _updateOperatorEarnings(operator);
+                operator.validatorCount += validatorCount;
+                _operators[newOperatorIds[newIndex]] = operator;
+                ++newIndex;
+            } else {
+                ++oldIndex;
+                ++newIndex;
+            }
+        }
+
+        while (oldIndex < oldOperatorIds.length) {
+            Operator memory operator = _operators[oldOperatorIds[oldIndex]];
+            operator.earnings = _updateOperatorEarnings(operator);
+            operator.validatorCount -= validatorCount;
+            _operators[oldOperatorIds[oldIndex]] = operator;
+            ++oldIndex;
+        }
+
+        while (newIndex < newOperatorIds.length) {
+            Operator memory operator = _operators[newOperatorIds[newIndex]];
+            operator.earnings = _updateOperatorEarnings(operator);
+            operator.validatorCount += validatorCount;
+            _operators[newOperatorIds[newIndex]] = operator;
+            ++newIndex;
+        }
     }
 
     function updateValidator(
@@ -224,7 +296,7 @@ contract SSVRegistryNew {
         {
             Group memory group;
             {
-                group = _groups[msg.sender][currentGroupId];
+                group = _groups[keccak256(abi.encodePacked(msg.sender, currentGroupId))];
 
                 uint64 groupIndex = _groupCurrentIndex(currentGroupId);
                 group.balance = _ownerGroupBalance(group, groupIndex);
@@ -239,45 +311,15 @@ contract SSVRegistryNew {
             }
 
             OperatorCollection memory operatorCollection = _operatorCollections[currentGroupId];
-            {
-                for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
-                    bool found;
-                    for (uint64 j = 0; j < operatorIds.length; ++j) {
-                        if (operatorCollection.operatorIds[i] == operatorIds[j]) {
-                            found = true;
-                        }
-                    }
-                    if (!found) {
-                        uint64 id = operatorCollection.operatorIds[i];
-                        _operators[id].earnings = _updateOperatorEarnings(_operators[id], currentBlock);
-                        _operators[id].earnRate -= _operators[id].fee;
-                        --_operators[id].validatorCount;
-                    }
-                }
-
-                for (uint64 i = 0; i < operatorIds.length; ++i) {
-                    bool found;
-                    for (uint64 j = 0; j < operatorCollection.operatorIds.length; ++j) {
-                        if (operatorIds[i] == operatorCollection.operatorIds[j]) {
-                            found = true;
-                        }
-                    }
-                    if (!found) {
-                        uint64 id = operatorIds[i];
-                        _operators[id].earnings = _updateOperatorEarnings(_operators[id], currentBlock);
-                        _operators[id].earnRate += _operators[id].fee;
-                        ++_operators[id].validatorCount;
-                    }
-                }
-            }
-            _groups[msg.sender][currentGroupId] = group;
+            _updateOperatorsValidatorMove(operatorCollection.operatorIds, operatorIds, 1);
+            _groups[keccak256(abi.encodePacked(msg.sender, currentGroupId))] = group;
         }
 
         bytes32 newGroupId;
         {
             // Operator[] memory newOperators;
             {
-                newGroupId = _getOrCreateOperatorCollection(operatorIds);
+                newGroupId = getOrCreateOperatorCollection(operatorIds);
                 // newOperators = _extractOperators(operatorIds);
             }
 
@@ -287,7 +329,7 @@ contract SSVRegistryNew {
 
                 _availableBalances[msg.sender] -= amount;
 
-                group = _groups[msg.sender][newGroupId];
+                group = _groups[keccak256(abi.encodePacked(msg.sender, newGroupId))];
                 group.balance = _ownerGroupBalance(group, groupIndex) + amount;
                 group.usage.index = groupIndex;
                 group.usage.block = currentBlock;
@@ -298,7 +340,7 @@ contract SSVRegistryNew {
             {
                 // // update DAO earnings
                 DAO memory dao = _dao;
-                dao = _updateDAOEarnings(dao, uint64(block.number));
+                dao = _updateDAOEarnings(dao);
                 _dao = dao;
             }
 
@@ -308,18 +350,18 @@ contract SSVRegistryNew {
             // without: 353107 max, 315041 avg, 276974 min
             // with that: 365039 max, 326973 avg, 288906 min
 
-            _groups[msg.sender][newGroupId] = group;
+            _groups[keccak256(abi.encodePacked(msg.sender, newGroupId))] = group;
         }
 
         emit ValidatorUpdated(validatorPK, newGroupId, sharesPublicKeys, encryptedShares);
     }
 
     function removeValidator(
-        bytes calldata validatorPK,
-        bytes32 groupId
-    ) external {
+        bytes calldata validatorPK
+    ) public {
+        bytes32 groupId = _validatorPKs[keccak256(validatorPK)].operatorCollectionId;
         {
-            Group memory group = _groups[msg.sender][groupId];
+            Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, groupId))];
             OperatorCollection memory operatorCollection = _operatorCollections[groupId];
             uint64 currentBlock = uint64(block.number);
 
@@ -334,30 +376,29 @@ contract SSVRegistryNew {
                 // group.balance -= _ownerGroupBalance(group, groupIndex);
             }
 
+
             for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
                 uint64 id = operatorCollection.operatorIds[i];
-                _operators[id].earnings = _updateOperatorEarnings(_operators[id], currentBlock);
-                _operators[id].earnRate -= _operators[id].fee;
+                _operators[id].earnings = _updateOperatorEarnings(_operators[id]);
                 --_operators[id].validatorCount;
             }
 
             {
                 // // update DAO earnings
                 DAO memory dao = _dao;
-                dao = _updateDAOEarnings(dao, uint64(block.number));
+                dao = _updateDAOEarnings(dao);
                 --dao.validatorCount;
                 _dao = dao;
             }
 
-            _groups[msg.sender][groupId] = group;
+            _groups[keccak256(abi.encodePacked(msg.sender, groupId))] = group;
         }
 
         emit ValidatorRemoved(validatorPK, groupId);
     }
 
-    function _setFee(Operator memory operator, uint64 fee, uint64 currentBlock) private returns (Operator memory) {
-        operator.earnings = _updateOperatorEarnings(operator, currentBlock);
-        operator.earnRate = operator.validatorCount * fee;
+    function _setFee(Operator memory operator, uint64 fee) private returns (Operator memory) {
+        operator.earnings = _updateOperatorEarnings(operator);
         operator.fee = fee;
 
         return operator;
@@ -368,7 +409,7 @@ contract SSVRegistryNew {
     }
 
     function test_getOperatorBalance(uint64 operatorId) external view returns (uint64) {
-        return _operatorCurrentEarnings(_operators[operatorId], uint64(block.number));
+        return _operatorCurrentEarnings(_operators[operatorId]);
     }
 
     function test_operatorCurrentIndex(uint64 operatorId) external view returns (uint64) {
@@ -380,20 +421,18 @@ contract SSVRegistryNew {
     }
 
     function test_groupBalance(bytes32 groupId) external view returns (uint64) {
-        Group memory group = _groups[msg.sender][groupId];
+        Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, groupId))];
         return _ownerGroupBalance(group, _groupCurrentIndex(groupId));
     }
 
     /**
      * @dev Validates the paramss for a validator.
      * @param publicKey Validator public key.
-     * @param operatorIds Operator operatorIds.
      * @param sharesPublicKeys Shares public keys.
      * @param encryptedKeys Encrypted private keys.
      */
     function _validateValidatorParams(
         bytes memory publicKey,
-        uint64[] memory operatorIds,
         bytes[] memory sharesPublicKeys,
         bytes[] memory encryptedKeys
     ) private pure {
@@ -431,7 +470,7 @@ contract SSVRegistryNew {
     }
     */
 
-    function _getOrCreateOperatorCollection(uint64[] memory operatorIds) private returns (bytes32) { // , OperatorCollection memory
+    function getOrCreateOperatorCollection(uint64[] memory operatorIds) public returns (bytes32) { // , OperatorCollection memory
         for (uint64 i = 0; i < operatorIds.length - 1;) {
             require(operatorIds[i] <= operatorIds[++i]);
         }
@@ -446,23 +485,23 @@ contract SSVRegistryNew {
         return key; // (key, operatorCollection);
     }
 
-    function _updateOperatorEarnings(Operator memory operator, uint64 currentBlock) private returns (Snapshot memory) {
+    function _updateOperatorEarnings(Operator memory operator) private returns (Snapshot memory) {
         operator.earnings.index = _operatorCurrentIndex(operator);
-        operator.earnings.balance = _operatorCurrentEarnings(operator, currentBlock);
-        operator.earnings.block = currentBlock;
+        operator.earnings.balance = _operatorCurrentEarnings(operator);
+        operator.earnings.block = uint64(block.number);
 
         return operator.earnings;
     }
 
-    function _updateDAOEarnings(DAO memory dao, uint64 currentBlock) private returns (DAO memory) {
-        dao.earnings.balance = _networkTotalEarnings(dao, currentBlock);
-        dao.earnings.block = currentBlock;
+    function _updateDAOEarnings(DAO memory dao) private returns (DAO memory) {
+        dao.earnings.balance = _networkTotalEarnings(dao);
+        dao.earnings.block = uint64(block.number);
 
         return dao;
     }
 
-    function _operatorCurrentEarnings(Operator memory operator, uint64 currentBlock) private view returns (uint64) {
-        return operator.earnings.balance + (currentBlock - operator.earnings.block) * operator.earnRate;
+    function _operatorCurrentEarnings(Operator memory operator) private view returns (uint64) {
+        return operator.earnings.balance + (uint64(block.number) - operator.earnings.block) * operator.validatorCount * operator.fee;
     }
 
     function _extractOperators(uint64[] memory operatorIds) private view returns (Operator[] memory) {
@@ -473,12 +512,12 @@ contract SSVRegistryNew {
         return operators;
     }
 
-    function _networkTotalEarnings(DAO memory dao, uint64 currentBlock) private view returns (uint64) {
-        return dao.earnings.balance + (currentBlock - dao.earnings.block) * _networkFee * dao.validatorCount;
+    function _networkTotalEarnings(DAO memory dao) private view returns (uint64) {
+        return dao.earnings.balance + (uint64(block.number) - dao.earnings.block) * _networkFee * dao.validatorCount;
     }
 
-    function _networkBalance(DAO memory dao, uint64 currentBlock) private view returns (uint64) {
-        return _networkTotalEarnings(dao, currentBlock) - dao.withdrawn;
+    function _networkBalance(DAO memory dao) private view returns (uint64) {
+        return _networkTotalEarnings(dao) - dao.withdrawn;
     }
 
     function _groupCurrentIndex(bytes32 groupId) private view returns (uint64 groupIndex) {

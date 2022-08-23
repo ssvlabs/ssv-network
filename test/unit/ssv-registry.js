@@ -2,7 +2,6 @@ const { expect } = require("chai");
 const { progressBlocks, blockNumber } = require('./utils');
 const operator_fee_block = 1;
 
-
 async function mineNBlocks(n) {
     for (let index = 0; index < n; index++) {
         await ethers.provider.send('evm_mine');
@@ -53,7 +52,7 @@ describe("Validators", () => {
     })
 
     it("should register validator", async () => {
-        const validatorPK = "0x987654321098765432109876543210987654321098765432109876543210987654321098765432109876543210987651";
+        const validatorPK = "0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765";
         const sharePKs = Array.from(Array(10).keys()).map(k => `0x12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345${k}`);
         const encryptedShares = Array.from(Array(10).keys()).map(k => `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765${k}98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765${k}`);
         // const operatorsIndexes = Array.from(Array(10).keys()).map(k => k + 1);
@@ -70,7 +69,7 @@ describe("Validators", () => {
         await progressBlocks(97);
         let resultRegister = (await (await deployedRegistryContract.registerValidator(
             [1,2,3,4],
-            validatorPK,
+            validatorPK + "f",
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
             '10000'
@@ -89,7 +88,7 @@ describe("Validators", () => {
 
         let resultUpdate = (await (await deployedRegistryContract.updateValidator(
             [4,5,6,7],
-            validatorPK,
+            validatorPK + "f",
             outputRegister.groupId,
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
@@ -119,7 +118,7 @@ describe("Validators", () => {
         // move back validator 1 to group 1
         resultRegister = (await (await deployedRegistryContract.updateValidator(
             [1,2,3,4],
-            validatorPK,
+            validatorPK + "f",
             outputUpdate.groupId,
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
@@ -139,7 +138,7 @@ describe("Validators", () => {
         });
         const resultRegister2 = (await (await deployedRegistryContract.registerValidator(
             [1,2,3,4],
-            validatorPK,
+            validatorPK + "f",
             sharePKs.slice(0, 4),
             encryptedShares.slice(0, 4),
             "1000"
@@ -180,7 +179,7 @@ describe("Validators", () => {
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
-        await (await deployedRegistryContract.removeValidator(outputRegister2.validatorPK, outputRegister2.groupId)).wait();
+        await (await deployedRegistryContract.removeValidator(outputRegister2.validatorPK)).wait();
         await log({
             action: 'remove validator #2',
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
@@ -197,10 +196,32 @@ describe("Validators", () => {
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await progressBlocks(1);
-        (await (await deployedRegistryContract.transferValidator(
+
+        let results = []
+        for (let i = 0; i < 20; ++i) {
+            let resultRegister = (await (await deployedRegistryContract.registerValidator(
+                [1,2,3,4],
+                validatorPK + i % 10,
+                sharePKs.slice(0, 4),
+                encryptedShares.slice(0, 4),
+                '10000'
+            )).wait()).logs[0];
+
+            const interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares)']);
+            const outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', resultRegister.data, resultRegister.topics);
+
+            results.push(outputRegister);
+        }
+
+        const transferLogs = (await (await deployedRegistryContract.transferValidators(
+            results.map(r => ethers.utils.keccak256(r.validatorPK)),
             outputRegister.groupId,
-            outputRegister.groupId,
-        )).wait()).logs[0];;
+            outputRegister2.groupId,
+            results.map(r => sharePKs.slice(0,4)).flat().reduce((a,b) => a.concat(b.slice(2))),
+            results.map(r => encryptedShares.slice(0,4)).flat().reduce((a,b) => a.concat(b.slice(2)))
+        )).wait()).logs;
+
+        console.log(transferLogs);
         await log({
             action: 'transfer',
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
