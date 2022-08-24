@@ -21,8 +21,7 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
         for (const id of operatorIds) {
             console.log(
                 `> operator #${id}`,
-                'balance', await deployedRegistryContract.test_getOperatorBalance(id),
-                'index', await deployedRegistryContract.test_operatorCurrentIndex(id),
+                'balance', await deployedRegistryContract.operatorEarningsOf(id),
             );
         }
     }
@@ -30,8 +29,7 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
         for (const id of groupIds) {
             console.log(
                 `> group #$${id}`,
-                'balance', await deployedRegistryContract.balanceOf(owner.address, id),
-                'index', await deployedRegistryContract.test_operatorCollectionCurrentIndex(id),
+                'balance', await deployedRegistryContract.groupBalanceOf(owner.address, id),
             );
         }
     }

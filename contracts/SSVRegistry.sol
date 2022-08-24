@@ -394,25 +394,13 @@ contract SSVRegistryNew {
         return group;
     }
 
-    function balanceOf(address owner, bytes32 operatorCollectionId) external view returns (uint64) {
+    function groupBalanceOf(address owner, bytes32 operatorCollectionId) external view returns (uint64) {
         Group memory group = _groups[keccak256(abi.encodePacked(owner, operatorCollectionId))];
         return _ownerGroupBalance(group, _operatorCollectionCurrentIndex(operatorCollectionId));
     }
 
-    function test_getOperatorsByGroupId(bytes32 groupId) external view returns (uint64[] memory) {
-        return _operatorCollections[groupId].operatorIds;
-    }
-
-    function test_getOperatorBalance(uint64 operatorId) external view returns (uint64) {
+    function operatorEarningsOf(uint64 operatorId) external view returns (uint64) {
         return _operatorCurrentEarnings(_operators[operatorId]);
-    }
-
-    function test_operatorCurrentIndex(uint64 operatorId) external view returns (uint64) {
-        return _operatorCurrentIndex(_operators[operatorId]);
-    }
-
-    function test_operatorCollectionCurrentIndex(bytes32 groupId) external view returns (uint64) {
-        return _operatorCollectionCurrentIndex(groupId);
     }
 
     /**
@@ -481,6 +469,8 @@ contract SSVRegistryNew {
         return dao;
     }
 
+    // TODO
+    // no connection with owner address
     function _operatorCurrentEarnings(Operator memory operator) private view returns (uint64) {
         return operator.earnings.balance + (uint64(block.number) - operator.earnings.block) * operator.validatorCount * operator.fee;
     }
