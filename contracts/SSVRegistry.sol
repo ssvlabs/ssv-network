@@ -394,6 +394,10 @@ contract SSVRegistryNew {
         return group;
     }
 
+    function balanceOf(address owner, bytes32 operatorCollectionId) external view returns (uint64) {
+        Group memory group = _groups[keccak256(abi.encodePacked(owner, operatorCollectionId))];
+        return _ownerGroupBalance(group, _operatorCollectionCurrentIndex(operatorCollectionId));
+    }
 
     function test_getOperatorsByGroupId(bytes32 groupId) external view returns (uint64[] memory) {
         return _operatorCollections[groupId].operatorIds;
@@ -409,11 +413,6 @@ contract SSVRegistryNew {
 
     function test_operatorCollectionCurrentIndex(bytes32 groupId) external view returns (uint64) {
         return _operatorCollectionCurrentIndex(groupId);
-    }
-
-    function test_groupBalance(bytes32 groupId) external view returns (uint64) {
-        Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, groupId))];
-        return _ownerGroupBalance(group, _operatorCollectionCurrentIndex(groupId));
     }
 
     /**
