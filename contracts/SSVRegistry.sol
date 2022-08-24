@@ -179,28 +179,6 @@ contract SSVRegistryNew {
             _availableBalances[msg.sender] -= amount;
             group = _updateGroupData(operatorCollectionId, amount, true);
 
-            // TODO
-            // gas issues
-            // without: 352641 max, 336957 avg, 321272 min
-            // with that: 442985 max, 427300 avg, 411615 min
-            /*
-            bytes[] memory extendedGroup = new bytes[](group.validatorCount);
-            for (uint64 i = 0; i < group.validatorPKs.length; ++i) {
-                extendedGroup[i] = group.validatorPKs[i];
-            }
-            extendedGroup[group.validatorCount - 1] = validatorPK;
-            group.validatorPKs = extendedGroup;
-            */
-            // group.validatorPKs[validatorPK] = 1;
-            // _validatorPKs[msg.sender][validatorPK] = operatorCollectionId;
-            /*
-            bytes32[] memory data = new bytes32[](2);
-            data[0] = bytes32(abi.encodePacked(msg.sender));
-            data[1] = operatorCollectionId;
-            bytes32 key = keccak256(abi.encodePacked(data));
-            _validatorPKs[key][validatorPK] = 1;
-            */
-
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
                     Operator memory operator = _operators[operatorIds[i]];
@@ -219,9 +197,6 @@ contract SSVRegistryNew {
 
             // TODO
             require(!_liquidatable(group.balance, group.validatorCount, operatorIds), "account liquidatable");
-            // list of operators here makes the gas higher
-            // without: 352641 max, 336957 avg, 321272 min
-            // with that: 364550 max, 348866 avg, 333181 min
 
             _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))] = group;
         }
@@ -320,12 +295,6 @@ contract SSVRegistryNew {
                     _dao = dao;
                 }
 
-                // TODO
-                // require(!_liquidatable(group.balance, group.validatorCount, newOperators), "account liquidatable");
-                // list of operators here makes the gas higher
-                // without: 353107 max, 315041 avg, 276974 min
-                // with that: 365039 max, 326973 avg, 288906 min
-
                 require(!_liquidatable(group.balance, group.validatorCount, operatorIds), "account liquidatable");
             }
 
@@ -340,14 +309,14 @@ contract SSVRegistryNew {
             revert ValidatorNotOwned();
         }
 
-        bytes32 groupId = _validatorPKs[keccak256(validatorPK)].operatorCollectionId;
+        bytes32 operatorCollectionId = _validatorPKs[keccak256(validatorPK)].operatorCollectionId;
 
         {
-            Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, groupId))];
-            OperatorCollection memory operatorCollection = _operatorCollections[groupId];
+            Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))];
+            OperatorCollection memory operatorCollection = _operatorCollections[operatorCollectionId];
             uint64 currentBlock = uint64(block.number);
 
-            uint64 groupIndex = _operatorCollectionCurrentIndex(groupId);
+            uint64 groupIndex = _operatorCollectionCurrentIndex(operatorCollectionId);
             group.balance = _ownerGroupBalance(group, groupIndex);
             group.usage.index = groupIndex;
             group.usage.block = currentBlock;
@@ -373,10 +342,10 @@ contract SSVRegistryNew {
                 _dao = dao;
             }
 
-            _groups[keccak256(abi.encodePacked(msg.sender, groupId))] = group;
+            _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))] = group;
         }
 
-        emit ValidatorRemoved(validatorPK, groupId);
+        emit ValidatorRemoved(validatorPK, operatorCollectionId);
     }
 
     function _setFee(Operator memory operator, uint64 fee) private returns (Operator memory) {
@@ -419,26 +388,13 @@ contract SSVRegistryNew {
         return group;
     }
 
-
-    function test_getOperatorsByGroupId(bytes32 groupId) external view returns (uint64[] memory) {
-        return _operatorCollections[groupId].operatorIds;
+    function groupBalanceOf(address owner, bytes32 operatorCollectionId) external view returns (uint64) {
+        Group memory group = _groups[keccak256(abi.encodePacked(owner, operatorCollectionId))];
+        return _ownerGroupBalance(group, _operatorCollectionCurrentIndex(operatorCollectionId));
     }
 
-    function test_getOperatorBalance(uint64 operatorId) external view returns (uint64) {
+    function operatorEarningsOf(uint64 operatorId) external view returns (uint64) {
         return _operatorCurrentEarnings(_operators[operatorId]);
-    }
-
-    function test_operatorCurrentIndex(uint64 operatorId) external view returns (uint64) {
-        return _operatorCurrentIndex(_operators[operatorId]);
-    }
-
-    function test_operatorCollectionCurrentIndex(bytes32 groupId) external view returns (uint64) {
-        return _operatorCollectionCurrentIndex(groupId);
-    }
-
-    function test_groupBalance(bytes32 groupId) external view returns (uint64) {
-        Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, groupId))];
-        return _ownerGroupBalance(group, _operatorCollectionCurrentIndex(groupId));
     }
 
     /**
@@ -501,6 +457,8 @@ contract SSVRegistryNew {
         return dao;
     }
 
+    // TODO
+    // no connection with owner address
     function _operatorCurrentEarnings(Operator memory operator) private view returns (uint64) {
         return operator.earnings.balance + (uint64(block.number) - operator.earnings.block) * operator.validatorCount * operator.fee;
     }

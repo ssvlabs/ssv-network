@@ -10,6 +10,7 @@ async function mineNBlocks(n) {
 
 const operatorsIndexes = Array.from(Array(5).keys()).map(k => k + 1);
 let deployedRegistryContract;
+let owner;
 
 async function log({ action='', operatorIds = [], groupIds = [] }) {
     console.log(`[BLOCK] ${await blockNumber()}`)
@@ -20,8 +21,7 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
         for (const id of operatorIds) {
             console.log(
                 `> operator #${id}`,
-                'balance', await deployedRegistryContract.test_getOperatorBalance(id),
-                'index', await deployedRegistryContract.test_operatorCurrentIndex(id),
+                'balance', await deployedRegistryContract.operatorEarningsOf(id),
             );
         }
     }
@@ -29,8 +29,7 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
         for (const id of groupIds) {
             console.log(
                 `> group #$${id}`,
-                'balance', await deployedRegistryContract.test_groupBalance(id),
-                'index', await deployedRegistryContract.test_operatorCollectionCurrentIndex(id),
+                'balance', await deployedRegistryContract.groupBalanceOf(owner.address, id),
             );
         }
     }
@@ -38,6 +37,7 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
 
 describe("Validators", () => {
     beforeEach(async () => {
+        [ owner ] = await ethers.getSigners();
         const Registry = await ethers.getContractFactory("SSVRegistryNew");
         deployedRegistryContract = await Registry.deploy();
         await deployedRegistryContract.deployed();
