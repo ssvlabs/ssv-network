@@ -1,0 +1,32 @@
+{
+  "operators": [
+    {
+      "name": "Account 1",
+      "publicKey": "0x97a6C1f3aaB5427B901fb135ED492749191C0f1F",
+      "privateKey": "c9045a411fd5b5e6a00a15832b23fafa0412775d4a5570bdfa0af4e55ddd1480"
+    },
+    {
+      "name": "Account 2",
+      "publicKey": "0x1653d2269003bEBc1416A794246ACe405bEf4Bac",
+      "privateKey": "e8a454575394106beda952b7c2dcd9979ff60c2100cd6db5c4a3fd618ad43955"
+    }
+  ],
+  "validators":
+  [
+    {
+      "name": "Account 3",
+      "publicKey": "0x5cC0DdE14E7256340CC820415a6022a7d1c93A35",
+      "privateKey": "66495cebc019a759c2d9f1b6b732ceaa994250407a5dbd689cd41fe984f1fe06"
+    },
+    {
+      "name": "Account 4",
+      "publicKey": "0x7CE52702265Cb359727452ad8A8fd7448e89922d",
+      "privateKey": "5b9a7e7ffef11ab82061533f270d083efa1e531725c708fb2bf0354eab0b5a59"
+    },
+    {
+      "name": "Account 5",
+      "publicKey": "0x8c877Bf360d91E111dF9Cb96cAabAF3B51ABf2Bc",
+      "privateKey": "2bf4083673599b746e9cac154e06e2e1f17aaefcc2e276972747bf6062711963"
+    }
+  ]
+}
