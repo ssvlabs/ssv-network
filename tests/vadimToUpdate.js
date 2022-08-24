@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { progressBlocks, blockNumber } = require('./utils');
+const { progressBlocks, blockNumber } = require('./helpers/utils');
 const operator_fee_block = 1;
 
 
@@ -26,6 +26,7 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
         }
     }
     if (groupIds.length) {
+      const [owner] = await ethers.getSigners();
         for (const id of groupIds) {
             console.log(
                 `> group #$${id}`,
@@ -72,6 +73,7 @@ describe("Validators", () => {
             sharePKs[0],
             '10000'
         )).wait()).logs[0];
+
         let interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes shares)']);
         let outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', resultRegister.data, resultRegister.topics);
         await log({
@@ -89,7 +91,8 @@ describe("Validators", () => {
             validatorPK + "f",
             sharePKs[2],
             '10000'
-        )).wait()).logs[0];;
+        )).wait()).logs[0];
+
         let interfaceUpdate = new ethers.utils.Interface(['event ValidatorUpdated(bytes validatorPK, bytes32 groupId, bytes shares)']);
         let outputUpdate = interfaceUpdate.decodeEventLog('ValidatorUpdated', resultUpdate.data, resultUpdate.topics);
         expect(outputRegister.groupId).not.equal(outputUpdate.groupId);
@@ -133,7 +136,7 @@ describe("Validators", () => {
 
       const resultRegister2 = (await (await deployedRegistryContract.registerValidator(
             [1,2,3,4],
-            validatorPK + "f",
+            validatorPK + "a",
             sharePKs[1],
             "1000"
         )).wait()).logs[0];
@@ -149,7 +152,7 @@ describe("Validators", () => {
 
       const resultRegister3 = (await (await deployedRegistryContract.registerValidator(
         [5,6,7,8],
-        validatorPK + "f",
+        validatorPK + "b",
         sharePKs[1],
         "1000000"
       )).wait()).logs[0];
@@ -193,12 +196,15 @@ describe("Validators", () => {
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
-        await (await deployedRegistryContract.removeValidator(outputRegister2.validatorPK, outputRegister2.groupId)).wait();
+
+
+        await (await deployedRegistryContract.removeValidator(outputRegister2.validatorPK)).wait();
         await log({
             action: 'remove validator #2',
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
+
         await progressBlocks(1);
         await log({
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
