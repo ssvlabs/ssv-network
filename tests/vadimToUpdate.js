@@ -2,6 +2,7 @@ const { expect } = require("chai");
 const { progressBlocks, blockNumber } = require('./utils');
 const operator_fee_block = 1;
 
+
 async function mineNBlocks(n) {
     for (let index = 0; index < n; index++) {
         await ethers.provider.send('evm_mine');
@@ -10,7 +11,6 @@ async function mineNBlocks(n) {
 
 const operatorsIndexes = Array.from(Array(5).keys()).map(k => k + 1);
 let deployedRegistryContract;
-let owner;
 
 async function log({ action='', operatorIds = [], groupIds = [] }) {
     console.log(`[BLOCK] ${await blockNumber()}`)
@@ -37,7 +37,6 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
 
 describe("Validators", () => {
     beforeEach(async () => {
-        [ owner ] = await ethers.getSigners();
         const Registry = await ethers.getContractFactory("SSVRegistryNew");
         deployedRegistryContract = await Registry.deploy();
         await deployedRegistryContract.deployed();
@@ -194,7 +193,7 @@ describe("Validators", () => {
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
-        await (await deployedRegistryContract.removeValidator(outputRegister2.validatorPK)).wait();
+        await (await deployedRegistryContract.removeValidator(outputRegister2.validatorPK, outputRegister2.groupId)).wait();
         await log({
             action: 'remove validator #2',
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
@@ -211,7 +210,6 @@ describe("Validators", () => {
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
         await progressBlocks(1);
-
         let results = []
         for (let i = 0; i < 20; ++i) {
             let resultRegister = (await (await deployedRegistryContract.registerValidator(
