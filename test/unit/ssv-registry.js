@@ -53,7 +53,7 @@ describe("Validators", () => {
 
     it("should register validator", async () => {
         const validatorPK = "0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765";
-        const sharePKs = Array.from(Array(10).keys()).map(k => `0x12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345${k}`);
+        const sharePKs = Array.from(Array(10).keys()).map(k => `0xe0096008000000b4010000040000001000000076000000dc000000420d142c307831323334353637383930fe0a00520a000031017afe66008266000032fe66009266000033fe66009266000034016621ac28d60000009c01000062020025c02c307839383736353433323130fe0a00520a000031fe560052560019b0003101dafec60082c6000032fec6007ac6004d6ca666000033ceb401fe8c017e8c014dcca6c6004d7a0035b23200fec6007ec6000034${k}${k}`);
         const encryptedShares = Array.from(Array(10).keys()).map(k => `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765${k}98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098765${k}`);
         // const operatorsIndexes = Array.from(Array(10).keys()).map(k => k + 1);
 
@@ -70,11 +70,10 @@ describe("Validators", () => {
         let resultRegister = (await (await deployedRegistryContract.registerValidator(
             [1,2,3,4],
             validatorPK + "f",
-            sharePKs.slice(0, 4),
-            encryptedShares.slice(0, 4),
+            sharePKs[0],
             '10000'
         )).wait()).logs[0];
-        let interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares)']);
+        let interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes shares)']);
         let outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', resultRegister.data, resultRegister.topics);
         await log({
             action: `register validator #1: ${outputRegister.validatorPK} : ${outputRegister.groupId}`,
@@ -89,11 +88,10 @@ describe("Validators", () => {
         let resultUpdate = (await (await deployedRegistryContract.updateValidator(
             [4,5,6,7],
             validatorPK + "f",
-            sharePKs.slice(0, 4),
-            encryptedShares.slice(0, 4),
+            sharePKs[2],
             '10000'
         )).wait()).logs[0];;
-        let interfaceUpdate = new ethers.utils.Interface(['event ValidatorUpdated(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares)']);
+        let interfaceUpdate = new ethers.utils.Interface(['event ValidatorUpdated(bytes validatorPK, bytes32 groupId, bytes shares)']);
         let outputUpdate = interfaceUpdate.decodeEventLog('ValidatorUpdated', resultUpdate.data, resultUpdate.topics);
         expect(outputRegister.groupId).not.equal(outputUpdate.groupId);
         expect(outputRegister.validatorPK).to.equal(outputUpdate.validatorPK);
@@ -118,8 +116,7 @@ describe("Validators", () => {
         resultRegister = (await (await deployedRegistryContract.updateValidator(
             [1,2,3,4],
             validatorPK + "f",
-            sharePKs.slice(0, 4),
-            encryptedShares.slice(0, 4),
+            sharePKs[1],
             '10000'
         )).wait()).logs[0];
         interfaceRegister = new ethers.utils.Interface(['event ValidatorUpdated(bytes validatorPK, bytes32 groupId)']); // , bytes[] sharesPublicKeys, bytes[] encryptedShares
@@ -134,20 +131,40 @@ describe("Validators", () => {
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
             groupIds: [outputRegister.groupId, outputUpdate.groupId]
         });
-        const resultRegister2 = (await (await deployedRegistryContract.registerValidator(
+
+      const resultRegister2 = (await (await deployedRegistryContract.registerValidator(
             [1,2,3,4],
             validatorPK + "f",
-            sharePKs.slice(0, 4),
-            encryptedShares.slice(0, 4),
+            sharePKs[1],
             "1000"
         )).wait()).logs[0];
-        const interfaceRegister2 = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares)']);
+
+        const interfaceRegister2 = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes shares)']);
         const outputRegister2 = interfaceRegister2.decodeEventLog('ValidatorAdded', resultRegister2.data, resultRegister2.topics);
         await log({
             action: `register validator #2: ${outputRegister2.validatorPK} : ${outputRegister2.groupId}`,
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
             groupIds: [outputRegister.groupId, outputRegister2.groupId]
         });
+
+
+      const resultRegister3 = (await (await deployedRegistryContract.registerValidator(
+        [5,6,7,8],
+        validatorPK + "f",
+        sharePKs[1],
+        "1000000"
+      )).wait()).logs[0];
+
+      const interfaceRegister3 = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes shares)']);
+      const outputRegister3 = interfaceRegister3.decodeEventLog('ValidatorAdded', resultRegister3.data, resultRegister3.topics);
+      await log({
+        action: `register validator #3: ${resultRegister3.validatorPK} : ${resultRegister3.groupId}`,
+        operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
+        groupIds: [outputRegister.groupId, outputRegister2.groupId]
+      });
+
+
+
         await progressBlocks(1);
         await log({
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
@@ -200,29 +217,30 @@ describe("Validators", () => {
             let resultRegister = (await (await deployedRegistryContract.registerValidator(
                 [1,2,3,4],
                 validatorPK + i % 10,
-                sharePKs.slice(0, 4),
-                encryptedShares.slice(0, 4),
+                sharePKs[2],
                 '10000'
             )).wait()).logs[0];
 
-            const interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares)']);
+            const interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes shares)']);
             const outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', resultRegister.data, resultRegister.topics);
 
             results.push(outputRegister);
         }
+        console.log("outputRegister.groupId,outputRegister2.groupId")
+        console.log(outputRegister.groupId,outputRegister3.groupId)
 
         const transferLogs = (await (await deployedRegistryContract.transferValidators(
             results.map(r => r.validatorPK),
             outputRegister.groupId,
-            outputRegister2.groupId,
-            results.map(r => sharePKs.slice(0,4)).flat().reduce((a,b) => a.concat(b.slice(2))),
-            results.map(r => encryptedShares.slice(0,4)).flat().reduce((a,b) => a.concat(b.slice(2)))
-        )).wait()).logs;
+            outputRegister3.groupId,
+            results.map(r => sharePKs[4])
 
+        )).wait()).logs;
+      return;
         await log({
             action: 'transfer',
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
-            groupIds: [outputRegister.groupId, outputRegister2.groupId]
+            groupIds: [outputRegister.groupId, resultRegister3.groupId]
         });
 
         /*

@@ -10,11 +10,11 @@ contract SSVRegistryNew {
     using Counters for Counters.Counter;
 
     struct Snapshot {
-        // block is the last block in which last index was set
+        /// @dev block is the last block in which last index was set
         uint64 block;
-        // index is the last index calculated by index += (currentBlock - block) * fee
+        /// @dev index is the last index calculated by index += (currentBlock - block) * fee
         uint64 index;
-        // accumulated is all the accumulated earnings, calculated by accumulated + lastIndex * validatorCount
+        /// @dev accumulated is all the accumulated earnings, calculated by accumulated + lastIndex * validatorCount
         uint64 balance;
     }
 
@@ -52,10 +52,9 @@ contract SSVRegistryNew {
     event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
     event OperatorRemoved(uint64 operatorId);
     event OperatorFeeUpdated(uint64 operatorId, uint64 fee);
-    event ValidatorAdded(bytes validatorPK, bytes32 groupId,bytes[] sharesPublicKeys, bytes[] encryptedShares);
-    event ValidatorTransfered(bytes32 validatorPK, bytes32 groupId,bytes[] sharesPublicKeys, bytes[] encryptedShares);
-    event ValidatorTransferedArr(bytes[] validatorPK, bytes32 groupId,bytes sharesPublicKeys, bytes encryptedShares);
-    event ValidatorUpdated(bytes validatorPK, bytes32 groupId, bytes[] sharesPublicKeys, bytes[] encryptedShares);
+    event ValidatorAdded(bytes validatorPK, bytes32 groupId,bytes shares);
+    event ValidatorTransferedArr(bytes[] validatorPK, bytes32 groupId,bytes[] shares);
+    event ValidatorUpdated(bytes validatorPK, bytes32 groupId, bytes shares);
     event ValidatorRemoved(bytes validatorPK, bytes32 groupId);
 
     // global vars
@@ -123,8 +122,7 @@ contract SSVRegistryNew {
         bytes[] calldata validatorPK,
         bytes32 fromGroupId,
         bytes32 toGroupId,
-        bytes calldata sharesPublicKeys,
-        bytes calldata encryptedShares
+        bytes[] calldata shares
     ) external {
         // _validateValidatorParams
         uint64 activeValidatorCount = 0;
@@ -144,7 +142,7 @@ contract SSVRegistryNew {
             }
             // Changing to a single event reducing by 15K gas
         }
-        emit ValidatorTransferedArr(validatorPK, toGroupId, sharesPublicKeys, encryptedShares);
+        emit ValidatorTransferedArr(validatorPK, toGroupId, shares);
 
         uint64[] memory newOperatorIds = _operatorCollections[toGroupId].operatorIds;
 
@@ -166,15 +164,12 @@ contract SSVRegistryNew {
     function registerValidator(
         uint64[] memory operatorIds,
         bytes calldata validatorPK,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedShares,
+        bytes calldata shares,
         uint64 amount
     ) external {
         _validateValidatorParams(
             operatorIds,
-            validatorPK,
-            sharesPublicKeys,
-            encryptedShares
+            validatorPK
         );
 
         // Operator[] memory operators;
@@ -233,7 +228,7 @@ contract SSVRegistryNew {
 
         _validatorPKs[keccak256(validatorPK)] = Validator({ owner: msg.sender, operatorCollectionId: operatorCollectionId, active: true});
 
-        emit ValidatorAdded(validatorPK, operatorCollectionId, sharesPublicKeys, encryptedShares);
+        emit ValidatorAdded(validatorPK, operatorCollectionId, shares);
     }
 
     function _updateOperatorsValidatorMove(
@@ -283,8 +278,7 @@ contract SSVRegistryNew {
     function updateValidator(
         uint64[] memory operatorIds,
         bytes calldata validatorPK,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedShares,
+        bytes calldata shares,
         uint64 amount
     ) external {
         uint64 currentBlock = uint64(block.number);
@@ -335,7 +329,7 @@ contract SSVRegistryNew {
                 require(!_liquidatable(group.balance, group.validatorCount, operatorIds), "account liquidatable");
             }
 
-            emit ValidatorUpdated(validatorPK, newOperatorCollectionId, sharesPublicKeys, encryptedShares);
+            emit ValidatorUpdated(validatorPK, newOperatorCollectionId, shares);
         }
     }
 
@@ -448,23 +442,17 @@ contract SSVRegistryNew {
     }
 
     /**
-     * @dev Validates the paramss for a validator.
+     * @dev Validates the params for a validator.
      * @param publicKey Validator public key.
-     * @param sharesPublicKeys Shares public keys.
-     * @param encryptedKeys Encrypted private keys.
      */
     function _validateValidatorParams(
         uint64[] memory operatorIds,
-        bytes memory publicKey,
-        bytes[] memory sharesPublicKeys,
-        bytes[] memory encryptedKeys
+        bytes memory publicKey
     ) private pure {
         if (publicKey.length != 48) {
             revert InvalidPublicKeyLength();
         }
         if (
-            operatorIds.length != sharesPublicKeys.length ||
-            operatorIds.length != encryptedKeys.length ||
             operatorIds.length < 4 || operatorIds.length % 3 != 1
         ) {
             revert OessDataStructureInvalid();
