@@ -30,7 +30,7 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
         for (const id of groupIds) {
             console.log(
                 `> group #$${id}`,
-                'balance', await deployedRegistryContract.groupBalanceOf(owner.address, id),
+                'balance', await deployedRegistryContract.podBalanceOf(owner.address, id),
             );
         }
     }
