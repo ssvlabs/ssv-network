@@ -2,11 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.2;
 
+import "./ISSVNetwork.sol";
+
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "hardhat/console.sol";
 
-contract SSVRegistryNew {
+contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
+
     using Counters for Counters.Counter;
 
     struct Snapshot {
@@ -49,13 +53,7 @@ contract SSVRegistryNew {
         bool active;
     }
 
-    event OperatorAdded(uint64 operatorId, address indexed owner, bytes encryptionPK);
-    event OperatorRemoved(uint64 operatorId);
-    event OperatorFeeUpdated(uint64 operatorId, uint64 fee);
-    event ValidatorAdded(bytes validatorPK, bytes32 podId,bytes shares);
-    event ValidatorTransferedArr(bytes[] validatorPK, bytes32 podId,bytes[] shares);
-    event ValidatorUpdated(bytes validatorPK, bytes32 podId, bytes shares);
-    event ValidatorRemoved(bytes validatorPK, bytes32 podId);
+
 
     // global vars
     Counters.Counter private lastOperatorId;
@@ -80,7 +78,8 @@ contract SSVRegistryNew {
     DAO private _dao;
     IERC20 private _token;
 
-    constructor() public {
+    function initialize(IERC20 token_) external initializer override {
+        _token = token_;
     }
 
     function registerOperator(
@@ -115,61 +114,18 @@ contract SSVRegistryNew {
 
         _operators[operatorId] = _setFee(operator, fee);
 
-        emit OperatorFeeUpdated(operatorId, fee);
-    }
-
-    function transferValidators(
-        bytes[] calldata validatorPK,
-        bytes32 fromPodId,
-        bytes32 toPodId,
-        bytes[] calldata shares
-    ) external {
-        // _validateValidatorParams
-        uint64 activeValidatorCount = 0;
-
-        for (uint64 index = 0; index < validatorPK.length; ++index) {
-            Validator memory validator = _validatorPKs[keccak256(validatorPK[index])];
-
-            if (validator.owner != msg.sender) {
-                revert ValidatorNotOwned();
-            }
-
-            validator.clusterId = toPodId;
-            _validatorPKs[keccak256(validatorPK[index])] = validator;
-
-            if (validator.active) {
-                ++activeValidatorCount;
-            }
-            // Changing to a single event reducing by 15K gas
-        }
-        emit ValidatorTransferedArr(validatorPK, toPodId, shares);
-
-        uint64[] memory newOperatorIds = _clusters[toPodId].operatorIds;
-
-        _updateOperatorsValidatorMove(_clusters[fromPodId].operatorIds, newOperatorIds, activeValidatorCount);
-
-        Pod memory pod = _pods[keccak256(abi.encodePacked(msg.sender, fromPodId))];
-        pod.usage.index = _clusterCurrentIndex(fromPodId);
-        pod.usage.block = uint64(block.number);
-        pod.validatorCount -= activeValidatorCount;
-
-        pod = _pods[keccak256(abi.encodePacked(msg.sender, toPodId))];
-        pod.usage.index = _clusterCurrentIndex(toPodId);
-        pod.usage.block = uint64(block.number);
-        pod.validatorCount += activeValidatorCount;
-
-        require(!_liquidatable(pod.balance, pod.validatorCount, newOperatorIds), "account liquidatable");
+        emit OperatorFeeSet(operatorId, fee);
     }
 
     function registerValidator(
+        bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata validatorPK,
         bytes calldata shares,
         uint64 amount
     ) external {
         _validateValidatorParams(
             operatorIds,
-            validatorPK
+            publicKey
         );
 
         // Operator[] memory operators;
@@ -201,73 +157,29 @@ contract SSVRegistryNew {
             _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = pod;
         }
 
-        _validatorPKs[keccak256(validatorPK)] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
+        _validatorPKs[keccak256(publicKey)] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
 
-        emit ValidatorAdded(validatorPK, clusterId, shares);
+        emit ValidatorAdded(publicKey, clusterId, shares);
     }
 
-    function _updateOperatorsValidatorMove(
-        uint64[] memory oldOperatorIds,
-        uint64[] memory newOperatorIds,
-        uint64 validatorCount
-    ) private {
-        uint64 oldIndex;
-        uint64 newIndex;
-
-        while (oldIndex < oldOperatorIds.length && newIndex < newOperatorIds.length) {
-            if (oldOperatorIds[oldIndex] < newOperatorIds[newIndex]) {
-                Operator memory operator = _operators[oldOperatorIds[oldIndex]];
-                operator.earnings = _updateOperatorEarnings(operator);
-                operator.validatorCount -= validatorCount;
-                _operators[oldOperatorIds[oldIndex]] = operator;
-                ++oldIndex;
-            } else if (newOperatorIds[newIndex] < oldOperatorIds[oldIndex]) {
-                Operator memory operator = _operators[newOperatorIds[newIndex]];
-                operator.earnings = _updateOperatorEarnings(operator);
-                operator.validatorCount += validatorCount;
-                _operators[newOperatorIds[newIndex]] = operator;
-                ++newIndex;
-            } else {
-                ++oldIndex;
-                ++newIndex;
-            }
-        }
-
-        while (oldIndex < oldOperatorIds.length) {
-            Operator memory operator = _operators[oldOperatorIds[oldIndex]];
-            operator.earnings = _updateOperatorEarnings(operator);
-            operator.validatorCount -= validatorCount;
-            _operators[oldOperatorIds[oldIndex]] = operator;
-            ++oldIndex;
-        }
-
-        while (newIndex < newOperatorIds.length) {
-            Operator memory operator = _operators[newOperatorIds[newIndex]];
-            operator.earnings = _updateOperatorEarnings(operator);
-            operator.validatorCount += validatorCount;
-            _operators[newOperatorIds[newIndex]] = operator;
-            ++newIndex;
-        }
-    }
-
-    function updateValidator(
+    function transferValidator(
+        bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata validatorPK,
         bytes calldata shares,
         uint64 amount
     ) external {
         uint64 currentBlock = uint64(block.number);
-        bytes32 clusterId = _validatorPKs[keccak256(validatorPK)].clusterId;
+        bytes32 clusterId = _validatorPKs[keccak256(publicKey)].clusterId;
 
-        if (_validatorPKs[keccak256(validatorPK)].owner != msg.sender) {
+        if (_validatorPKs[keccak256(publicKey)].owner != msg.sender) {
             revert ValidatorNotOwned();
         }
 
         {
             _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = _updatePodData(clusterId, 0, false);
             // if (pod.validatorCount == 0) {
-                // _availableBalances[msg.sender] += _ownerPodBalance(pod, podIndex);
-                // pod.balance -= _ownerPodBalance(pod, podIndex);
+            // _availableBalances[msg.sender] += _ownerPodBalance(pod, podIndex);
+            // pod.balance -= _ownerPodBalance(pod, podIndex);
             // }
         }
 
@@ -286,7 +198,7 @@ contract SSVRegistryNew {
                     _availableBalances[msg.sender] -= amount;
 
                     _pods[keccak256(abi.encodePacked(msg.sender, newClusterId))] = _updatePodData(newClusterId, amount, true);
-                    _validatorPKs[keccak256(validatorPK)].clusterId = newClusterId;
+                    _validatorPKs[keccak256(publicKey)].clusterId = newClusterId;
                 }
 
                 {
@@ -298,7 +210,7 @@ contract SSVRegistryNew {
                 require(!_liquidatable(pod.balance, pod.validatorCount, operatorIds), "account liquidatable");
             }
 
-            emit ValidatorUpdated(validatorPK, newClusterId, shares);
+            emit ValidatorTransferred(publicKey, newClusterId, shares);
         }
     }
 
@@ -347,6 +259,98 @@ contract SSVRegistryNew {
 
         emit ValidatorRemoved(validatorPK, clusterId);
     }
+
+    function bulkTransferValidators(
+        bytes[] calldata validatorPK,
+        bytes32 fromPodId,
+        bytes32 toPodId,
+        bytes[] calldata shares
+    ) external {
+        // _validateValidatorParams
+        uint64 activeValidatorCount = 0;
+
+        for (uint64 index = 0; index < validatorPK.length; ++index) {
+            Validator memory validator = _validatorPKs[keccak256(validatorPK[index])];
+
+            if (validator.owner != msg.sender) {
+                revert ValidatorNotOwned();
+            }
+
+            validator.clusterId = toPodId;
+            _validatorPKs[keccak256(validatorPK[index])] = validator;
+
+            if (validator.active) {
+                ++activeValidatorCount;
+            }
+            // Changing to a single event reducing by 15K gas
+        }
+        emit BulkValidatorTransferred(validatorPK, toPodId, shares);
+
+        uint64[] memory newOperatorIds = _clusters[toPodId].operatorIds;
+
+        _updateOperatorsValidatorMove(_clusters[fromPodId].operatorIds, newOperatorIds, activeValidatorCount);
+
+        Pod memory pod = _pods[keccak256(abi.encodePacked(msg.sender, fromPodId))];
+        pod.usage.index = _clusterCurrentIndex(fromPodId);
+        pod.usage.block = uint64(block.number);
+        pod.validatorCount -= activeValidatorCount;
+
+        pod = _pods[keccak256(abi.encodePacked(msg.sender, toPodId))];
+        pod.usage.index = _clusterCurrentIndex(toPodId);
+        pod.usage.block = uint64(block.number);
+        pod.validatorCount += activeValidatorCount;
+
+        require(!_liquidatable(pod.balance, pod.validatorCount, newOperatorIds), "account liquidatable");
+    }
+
+
+    // TODO add external functions below to interface
+
+
+    function _updateOperatorsValidatorMove(
+        uint64[] memory oldOperatorIds,
+        uint64[] memory newOperatorIds,
+        uint64 validatorCount
+    ) private {
+        uint64 oldIndex;
+        uint64 newIndex;
+
+        while (oldIndex < oldOperatorIds.length && newIndex < newOperatorIds.length) {
+            if (oldOperatorIds[oldIndex] < newOperatorIds[newIndex]) {
+                Operator memory operator = _operators[oldOperatorIds[oldIndex]];
+                operator.earnings = _updateOperatorEarnings(operator);
+                operator.validatorCount -= validatorCount;
+                _operators[oldOperatorIds[oldIndex]] = operator;
+                ++oldIndex;
+            } else if (newOperatorIds[newIndex] < oldOperatorIds[oldIndex]) {
+                Operator memory operator = _operators[newOperatorIds[newIndex]];
+                operator.earnings = _updateOperatorEarnings(operator);
+                operator.validatorCount += validatorCount;
+                _operators[newOperatorIds[newIndex]] = operator;
+                ++newIndex;
+            } else {
+                ++oldIndex;
+                ++newIndex;
+            }
+        }
+
+        while (oldIndex < oldOperatorIds.length) {
+            Operator memory operator = _operators[oldOperatorIds[oldIndex]];
+            operator.earnings = _updateOperatorEarnings(operator);
+            operator.validatorCount -= validatorCount;
+            _operators[oldOperatorIds[oldIndex]] = operator;
+            ++oldIndex;
+        }
+
+        while (newIndex < newOperatorIds.length) {
+            Operator memory operator = _operators[newOperatorIds[newIndex]];
+            operator.earnings = _updateOperatorEarnings(operator);
+            operator.validatorCount += validatorCount;
+            _operators[newOperatorIds[newIndex]] = operator;
+            ++newIndex;
+        }
+    }
+
 
     function _setFee(Operator memory operator, uint64 fee) private returns (Operator memory) {
         operator.earnings = _updateOperatorEarnings(operator);

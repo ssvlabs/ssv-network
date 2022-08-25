@@ -9,8 +9,8 @@ export const initializeContract = async (numberOfOperators: number, fee: number)
   const [owner] = await ethers.getSigners();
 
   // Initialize contract
-  const registry = await ethers.getContractFactory("SSVRegistryNew")
-  const deployedRegistryContract = await registry.deploy()
+  const ssvNetwork = await ethers.getContractFactory("SSVNetwork")
+  const deployedRegistryContract = await ssvNetwork.deploy()
   await deployedRegistryContract.deployed();
 
   // Register Operators
