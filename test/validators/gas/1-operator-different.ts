@@ -30,5 +30,4 @@ describe("Register Validator Gas Tests 1 Operator Different", () => {
             "10000"
         )
     })
-
 });

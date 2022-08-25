@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { trackGas } = require("../helpers/gas-usage");
 
 import * as helpers from "../helpers/contract-helpers"
 let registryContract: any, operatorIDs: any, shares: any, owner: any
@@ -25,12 +26,12 @@ describe("Register Operator Tests", () => {
         const validatorPK = `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100`
 
         // Cost: 364101
-        await registryContract.registerValidator(
-            [1, 2, 3, 4],
+        await trackGas(registryContract.registerValidator(
             `${validatorPK}0`,
+            [1, 2, 3, 4],
             shares[0],
             "10000"
-        )
+        ), 'registerValidator', 400000);
 
         // // Cost: 185380
         // await deployedRegistryContract.registerValidator(
@@ -43,8 +44,8 @@ describe("Register Operator Tests", () => {
 
         // Cost: 295713
         await registryContract.registerValidator(
-            [1, 2, 5, 6],
             `${validatorPK}1`,
+            [1, 2, 5, 6],
             shares[1],
             "10000"
         )

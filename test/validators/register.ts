@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+import { trackGas } from "../helpers/gas-usage"
 
 import * as helpers from "../helpers/contract-helpers"
 let registryContract: any, operatorIDs: any, shares: any, owner: any
@@ -15,12 +16,12 @@ describe("Register Validator Tests", () => {
 
     it("Register validator", async () => {
         const validatorPK = `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100`
-        await registryContract.registerValidator(
-            [1, 2, 3, 4],
+        await trackGas(registryContract.registerValidator(
             `${validatorPK}0`,
+            [1, 2, 3, 4],
             shares[0],
             "10000"
-        )
+        ), 'registerValidator', 500000);
     })
 
     it("Register validator errors", async () => {

@@ -1,6 +1,8 @@
 // Imports
 declare const ethers: any
 
+const { trackGas, getGasStats } = require('./gas-usage');
+
 // Generate shares
 const shares = Array.from(Array(10).keys()).map(k => `0xe0096008000000b4010000040000001000000076000000dc000000420d142c307831323334353637383930fe0a00520a000031017afe66008266000032fe66009266000033fe66009266000034016621ac28d60000009c01000062020025c02c307839383736353433323130fe0a00520a000031fe560052560019b0003101dafec60082c6000032fec6007ac6004d6ca666000033ceb401fe8c017e8c014dcca6c6004d7a0035b23200fec6007ec6000034${k}${k}`)
 
@@ -37,12 +39,14 @@ export const registerValidators = async (numberOfValidators: number, amount: str
     const randomOperator = Math.floor(Math.random() * (operatorAmount - 4))
     const validatorPK = `0xa7ae1ea93b860ca0269ccca776b4526977395aa194e5820a00dedbf1cd63e7a898eec9a12f539f733ea4df9c651f${i}`
 
-    const registerResult = (await (await contract.registerValidator(
+    const receipt = await trackGas(contract.registerValidator(
       [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
       validatorPK,
       shares[0],
       amount,
-    )).wait()).logs[0]
+    ), 'registerValidator', 400000);
+
+    const registerResult = receipt.logs[0]
 
     // Save validator group id emits
     let interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes shares)']);
