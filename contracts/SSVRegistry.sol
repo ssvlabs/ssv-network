@@ -33,7 +33,7 @@ contract SSVRegistryNew {
         Snapshot earnings;
     }
 
-    struct OperatorCollection {
+    struct Cluster {
         uint64[] operatorIds;
     }
 
@@ -44,7 +44,7 @@ contract SSVRegistryNew {
     }
 
     struct Validator {
-        bytes32 operatorCollectionId;
+        bytes32 clusterId;
         address owner;
         bool active;
     }
@@ -63,7 +63,7 @@ contract SSVRegistryNew {
 
     // operator vars
     mapping(uint64 => Operator) private _operators;
-    mapping(bytes32 => OperatorCollection) private _operatorCollections;
+    mapping(bytes32 => Cluster) private _clusters;
     mapping(bytes32 => Group) private _groups;
     mapping(address => uint64) _availableBalances;
     mapping(bytes32 => Validator) _validatorPKs;
@@ -134,7 +134,7 @@ contract SSVRegistryNew {
                 revert ValidatorNotOwned();
             }
 
-            validator.operatorCollectionId = toGroupId;
+            validator.clusterId = toGroupId;
             _validatorPKs[keccak256(validatorPK[index])] = validator;
 
             if (validator.active) {
@@ -144,17 +144,17 @@ contract SSVRegistryNew {
         }
         emit ValidatorTransferedArr(validatorPK, toGroupId, shares);
 
-        uint64[] memory newOperatorIds = _operatorCollections[toGroupId].operatorIds;
+        uint64[] memory newOperatorIds = _clusters[toGroupId].operatorIds;
 
-        _updateOperatorsValidatorMove(_operatorCollections[fromGroupId].operatorIds, newOperatorIds, activeValidatorCount);
+        _updateOperatorsValidatorMove(_clusters[fromGroupId].operatorIds, newOperatorIds, activeValidatorCount);
 
         Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, fromGroupId))];
-        group.usage.index = _operatorCollectionCurrentIndex(fromGroupId);
+        group.usage.index = _clusterCurrentIndex(fromGroupId);
         group.usage.block = uint64(block.number);
         group.validatorCount -= activeValidatorCount;
 
         group = _groups[keccak256(abi.encodePacked(msg.sender, toGroupId))];
-        group.usage.index = _operatorCollectionCurrentIndex(toGroupId);
+        group.usage.index = _clusterCurrentIndex(toGroupId);
         group.usage.block = uint64(block.number);
         group.validatorCount += activeValidatorCount;
 
@@ -173,11 +173,11 @@ contract SSVRegistryNew {
         );
 
         // Operator[] memory operators;
-        bytes32 operatorCollectionId = _getOrCreateOperatorCollection(operatorIds);
+        bytes32 clusterId = _getOrCreateCluster(operatorIds);
         {
             Group memory group;
             _availableBalances[msg.sender] -= amount;
-            group = _updateGroupData(operatorCollectionId, amount, true);
+            group = _updateGroupData(clusterId, amount, true);
 
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
@@ -198,12 +198,12 @@ contract SSVRegistryNew {
             // TODO
             require(!_liquidatable(group.balance, group.validatorCount, operatorIds), "account liquidatable");
 
-            _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))] = group;
+            _groups[keccak256(abi.encodePacked(msg.sender, clusterId))] = group;
         }
 
-        _validatorPKs[keccak256(validatorPK)] = Validator({ owner: msg.sender, operatorCollectionId: operatorCollectionId, active: true});
+        _validatorPKs[keccak256(validatorPK)] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
 
-        emit ValidatorAdded(validatorPK, operatorCollectionId, shares);
+        emit ValidatorAdded(validatorPK, clusterId, shares);
     }
 
     function _updateOperatorsValidatorMove(
@@ -257,14 +257,14 @@ contract SSVRegistryNew {
         uint64 amount
     ) external {
         uint64 currentBlock = uint64(block.number);
-        bytes32 operatorCollectionId = _validatorPKs[keccak256(validatorPK)].operatorCollectionId;
+        bytes32 clusterId = _validatorPKs[keccak256(validatorPK)].clusterId;
 
         if (_validatorPKs[keccak256(validatorPK)].owner != msg.sender) {
             revert ValidatorNotOwned();
         }
 
         {
-            _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))] = _updateGroupData(operatorCollectionId, 0, false);
+            _groups[keccak256(abi.encodePacked(msg.sender, clusterId))] = _updateGroupData(clusterId, 0, false);
             // if (group.validatorCount == 0) {
                 // _availableBalances[msg.sender] += _ownerGroupBalance(group, groupIndex);
                 // group.balance -= _ownerGroupBalance(group, groupIndex);
@@ -272,21 +272,21 @@ contract SSVRegistryNew {
         }
 
         {
-            OperatorCollection memory operatorCollection = _operatorCollections[operatorCollectionId];
-            _updateOperatorsValidatorMove(operatorCollection.operatorIds, operatorIds, 1);
+            Cluster memory cluster = _clusters[clusterId];
+            _updateOperatorsValidatorMove(cluster.operatorIds, operatorIds, 1);
         }
 
 
         {
-            bytes32 newOperatorCollectionId = _getOrCreateOperatorCollection(operatorIds);
+            bytes32 newClusterId = _getOrCreateCluster(operatorIds);
 
             {
                 Group memory group;
                 {
                     _availableBalances[msg.sender] -= amount;
 
-                    _groups[keccak256(abi.encodePacked(msg.sender, newOperatorCollectionId))] = _updateGroupData(newOperatorCollectionId, amount, true);
-                    _validatorPKs[keccak256(validatorPK)].operatorCollectionId = newOperatorCollectionId;
+                    _groups[keccak256(abi.encodePacked(msg.sender, newClusterId))] = _updateGroupData(newClusterId, amount, true);
+                    _validatorPKs[keccak256(validatorPK)].clusterId = newClusterId;
                 }
 
                 {
@@ -298,7 +298,7 @@ contract SSVRegistryNew {
                 require(!_liquidatable(group.balance, group.validatorCount, operatorIds), "account liquidatable");
             }
 
-            emit ValidatorUpdated(validatorPK, newOperatorCollectionId, shares);
+            emit ValidatorUpdated(validatorPK, newClusterId, shares);
         }
     }
 
@@ -309,14 +309,14 @@ contract SSVRegistryNew {
             revert ValidatorNotOwned();
         }
 
-        bytes32 operatorCollectionId = _validatorPKs[keccak256(validatorPK)].operatorCollectionId;
+        bytes32 clusterId = _validatorPKs[keccak256(validatorPK)].clusterId;
 
         {
-            Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))];
-            OperatorCollection memory operatorCollection = _operatorCollections[operatorCollectionId];
+            Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, clusterId))];
+            Cluster memory cluster = _clusters[clusterId];
             uint64 currentBlock = uint64(block.number);
 
-            uint64 groupIndex = _operatorCollectionCurrentIndex(operatorCollectionId);
+            uint64 groupIndex = _clusterCurrentIndex(clusterId);
             group.balance = _ownerGroupBalance(group, groupIndex);
             group.usage.index = groupIndex;
             group.usage.block = currentBlock;
@@ -328,8 +328,8 @@ contract SSVRegistryNew {
             }
 
 
-            for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
-                uint64 id = operatorCollection.operatorIds[i];
+            for (uint64 i = 0; i < cluster.operatorIds.length; ++i) {
+                uint64 id = cluster.operatorIds[i];
                 _operators[id].earnings = _updateOperatorEarnings(_operators[id]);
                 --_operators[id].validatorCount;
             }
@@ -342,10 +342,10 @@ contract SSVRegistryNew {
                 _dao = dao;
             }
 
-            _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))] = group;
+            _groups[keccak256(abi.encodePacked(msg.sender, clusterId))] = group;
         }
 
-        emit ValidatorRemoved(validatorPK, operatorCollectionId);
+        emit ValidatorRemoved(validatorPK, clusterId);
     }
 
     function _setFee(Operator memory operator, uint64 fee) private returns (Operator memory) {
@@ -369,9 +369,9 @@ contract SSVRegistryNew {
         }
     }
 
-    function _updateGroupData(bytes32 operatorCollectionId, uint64 amount, bool increase) private returns (Group memory) {
-        Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, operatorCollectionId))];
-        uint64 groupIndex = _operatorCollectionCurrentIndex(operatorCollectionId);
+    function _updateGroupData(bytes32 clusterId, uint64 amount, bool increase) private returns (Group memory) {
+        Group memory group = _groups[keccak256(abi.encodePacked(msg.sender, clusterId))];
+        uint64 groupIndex = _clusterCurrentIndex(clusterId);
         group.balance = _ownerGroupBalance(group, groupIndex) + amount;
         group.usage.index = groupIndex;
         group.usage.block = uint64(block.number);
@@ -388,9 +388,9 @@ contract SSVRegistryNew {
         return group;
     }
 
-    function groupBalanceOf(address owner, bytes32 operatorCollectionId) external view returns (uint64) {
-        Group memory group = _groups[keccak256(abi.encodePacked(owner, operatorCollectionId))];
-        return _ownerGroupBalance(group, _operatorCollectionCurrentIndex(operatorCollectionId));
+    function groupBalanceOf(address owner, bytes32 clusterId) external view returns (uint64) {
+        Group memory group = _groups[keccak256(abi.encodePacked(owner, clusterId))];
+        return _ownerGroupBalance(group, _clusterCurrentIndex(clusterId));
     }
 
     function operatorEarningsOf(uint64 operatorId) external view returns (uint64) {
@@ -419,24 +419,24 @@ contract SSVRegistryNew {
         _availableBalances[msg.sender] += amount;
     }
 
-    function _createOperatorCollection(uint64[] memory operators) private returns (uint64 groupId) {
+    function _createCluster(uint64[] memory operators) private returns (uint64 groupId) {
         for (uint64 index = 0; index < operators.length; ++index) {
             require(_operators[operators[index]].owner != address(0), "operator not found");
         }
 
-        _operatorCollections[keccak256(abi.encodePacked(operators))] = OperatorCollection({ operatorIds: operators });
+        _clusters[keccak256(abi.encodePacked(operators))] = Cluster({ operatorIds: operators });
     }
 
-    function _getOrCreateOperatorCollection(uint64[] memory operatorIds) private returns (bytes32) { // , OperatorCollection memory
+    function _getOrCreateCluster(uint64[] memory operatorIds) private returns (bytes32) { // , Cluster memory
         for (uint64 i = 0; i < operatorIds.length - 1;) {
             require(operatorIds[i] <= operatorIds[++i]);
         }
 
         bytes32 key = keccak256(abi.encodePacked(operatorIds));
 
-        OperatorCollection storage operatorCollection = _operatorCollections[key];
-        if (operatorCollection.operatorIds.length == 0) {
-            operatorCollection.operatorIds = operatorIds;
+        Cluster storage cluster = _clusters[key];
+        if (cluster.operatorIds.length == 0) {
+            cluster.operatorIds = operatorIds;
         }
 
         return key;
@@ -479,10 +479,10 @@ contract SSVRegistryNew {
         return _networkTotalEarnings(dao) - dao.withdrawn;
     }
 
-    function _operatorCollectionCurrentIndex(bytes32 groupId) private view returns (uint64 groupIndex) {
-        OperatorCollection memory operatorCollection = _operatorCollections[groupId];
-        for (uint64 i = 0; i < operatorCollection.operatorIds.length; ++i) {
-            groupIndex += _operatorCurrentIndex(_operators[operatorCollection.operatorIds[i]]);
+    function _clusterCurrentIndex(bytes32 groupId) private view returns (uint64 groupIndex) {
+        Cluster memory cluster = _clusters[groupId];
+        for (uint64 i = 0; i < cluster.operatorIds.length; ++i) {
+            groupIndex += _operatorCurrentIndex(_operators[cluster.operatorIds[i]]);
         }
     }
 
