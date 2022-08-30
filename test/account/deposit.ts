@@ -1,28 +1,30 @@
-const { expect } = require("chai");
+import * as helpers from '../helpers/contract-helpers';
 
-import * as helpers from "../helpers/contract-helpers"
-let registryContract: any, operatorIDs: any, shares: any, owner: any
-const numberOfOperators = 4
-const operatorFee = 4
+import { expect } from 'chai';
 
-describe("Deposit Tests", () => {
-    beforeEach(async () => {
-        const contractData = await helpers.initializeContract(numberOfOperators, operatorFee)
-        registryContract = contractData.contract
-        operatorIDs = contractData.operatorIDs
-        shares = contractData.shares
-    })
-    
-    it("Deposit", async () => {
+const numberOfOperators = 4;
+const operatorFee = 4;
 
-    })
+let registryContract: any, operatorIDs: any, shares: any, owner: any;
 
-    it("Deposit errors", async () => {
+describe('Deposit Tests', () => {
+  beforeEach(async () => {
+    const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
+    registryContract = contractData.contract;
+    operatorIDs = contractData.operatorIDs;
+    shares = contractData.shares;
+  });
 
-    })
+  it('Deposit', async () => {
 
-    it("Deposit gas limits", async () => {
+  });
 
-    })
+  it('Deposit errors', async () => {
+
+  });
+
+  it('Deposit gas limits', async () => {
+
+  });
 
 });

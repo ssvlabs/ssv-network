@@ -1,8 +1,8 @@
 export class GasStats {
   max: number | null = null;
   min: number | null = null;
-  totalGas: number = 0;
-  txCount: number = 0;
+  totalGas = 0;
+  txCount = 0;
 
   addStat(gas: number) {
     this.totalGas += gas;
@@ -28,7 +28,7 @@ const getOrCreate = (group: string) => {
   }
 
   return groupStats;
-}
+};
 
 export const trackGas = async (tx: Promise<any>, group: string, maxGas: number) => {
   const receipt = await (await tx).wait();
@@ -36,14 +36,15 @@ export const trackGas = async (tx: Promise<any>, group: string, maxGas: number) 
   if (receipt.gasUsed > maxGas) {
     throw new Error(`Gas usage too high. Max: ${maxGas}, Actual: ${receipt.gasUsed}`);
   }
+  console.log('\t', +receipt.gasUsed);
 
   const groupStats = getOrCreate(group);
 
   groupStats.addStat(parseInt(receipt.gasUsed));
 
   return receipt;
-}
+};
 
 export const getGasStats = (group: string) => {
   return gasUsageStats.get(group) || new GasStats();
-}
+};

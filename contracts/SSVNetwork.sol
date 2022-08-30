@@ -98,8 +98,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Operator memory operator = _operators[operatorId];
         require(operator.owner == msg.sender, "not owner");
 
-        uint64 currentBlock = uint64(block.number);
-
         operator.earnings = _updateOperatorEarnings(operator);
         operator.fee = 0;
         operator.validatorCount = 0;

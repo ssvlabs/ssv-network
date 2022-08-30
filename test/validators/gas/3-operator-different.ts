@@ -1,34 +1,36 @@
-const { expect } = require("chai");
+import * as helpers from '../../helpers/contract-helpers';
 
-import * as helpers from "../../helpers/contract-helpers"
-let registryContract: any, operatorIDs: any, shares: any, owner: any
-const numberOfOperators = 4
-const operatorFee = 4
+import { expect } from 'chai';
 
-describe("Register Validator Gas Tests 3 Operator Different", () => {
-    beforeEach(async () => {
-        const contractData = await helpers.initializeContract(numberOfOperators, operatorFee)
-        registryContract = contractData.contract
-        operatorIDs = contractData.operatorIDs
-        shares = contractData.shares
-    })
+const numberOfOperators = 4;
+const operatorFee = 4;
 
-    it("3 Operator Different", async () => {
-        const validatorPK = `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100`
+let registryContract: any, operatorIDs: any, shares: any, owner: any;
 
-        await registryContract.registerValidator(
-            [1, 2, 3, 4],
-            `${validatorPK}0`,
-            shares[0],
-            "10000"
-        )
+describe('Register Validator Gas Tests 3 Operator Different', () => {
+  beforeEach(async () => {
+    const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
+    registryContract = contractData.contract;
+    operatorIDs = contractData.operatorIDs;
+    shares = contractData.shares;
+  });
 
-        await registryContract.registerValidator(
-            [1, 5, 6, 7],
-            `${validatorPK}1`,
-            shares[1],
-            "10000"
-        )
-    })
+  it('3 Operator Different', async () => {
+    const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
+
+    await registryContract.registerValidator(
+      [1, 2, 3, 4],
+      `${validatorPK}0`,
+      shares[0],
+      '10000'
+    );
+
+    await registryContract.registerValidator(
+      [1, 5, 6, 7],
+      `${validatorPK}1`,
+      shares[1],
+      '10000'
+    );
+  });
 
 });

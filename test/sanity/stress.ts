@@ -1,51 +1,54 @@
-const { expect } = require("chai");
-declare const ethers: any
+declare const ethers: any;
 
-import * as helpers from "../helpers/contract-helpers"
-let registryContract: any, operatorIDs: any, shares: any
-const numberOfOperators = 1000
-const operatorFee = 1
-let validatorData: any = []
+import * as helpers from '../helpers/contract-helpers';
 
-describe("Stress Tests", () => {
-    beforeEach(async () => {
-        const contractData = await helpers.initializeContract(numberOfOperators, operatorFee)
-        registryContract = contractData.contract
-        operatorIDs = contractData.operatorIDs
-        shares = contractData.shares
+import { expect } from 'chai';
 
-        // Register 1000 validators
-        validatorData = await helpers.registerValidators(1000, '10000', numberOfOperators, registryContract)
-    })
+const numberOfOperators = 1000;
+const operatorFee = 1;
 
-    it("Update 1000 operators", async () => {
-        for (let i = 0; i < operatorIDs.length; i++) {
-            await registryContract.updateOperatorFee(operatorIDs[i], 10)
-        }
-    })
+let registryContract: any, operatorIDs: any, shares: any;
+let validatorData: any = [];
 
-    it("Update 1000 validators", async () => {
-        for (let i = 1000; i < (validatorData.length + 1000); i++) {
-            const randomOperator = Math.floor(Math.random() * (numberOfOperators - 4)) 
-            await registryContract.updateValidator(
-                [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
-                validatorData[i-1000].publicKey,
-                shares[1],
-                "10001"
-            )
-        }
-    })
+describe('Stress Tests', () => {
+  beforeEach(async () => {
+    const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
+    registryContract = contractData.contract;
+    operatorIDs = contractData.operatorIDs;
+    shares = contractData.shares;
 
-    it("Remove 1000 operators", async () => {
-        for (let i = 0; i < operatorIDs.length; i++) {
-            await registryContract.removeOperator(operatorIDs[i])
-        }
-    })
+    // Register 1000 validators
+    validatorData = await helpers.registerValidators(1000, '10000', numberOfOperators, registryContract);
+  });
 
-    it("Remove 1000 validators", async () => {
-        for (let i = 0; i < validatorData.length; i++) {
-            await registryContract.removeValidator(validatorData[i].publicKey)
-        }
-    })
+  it('Update 1000 operators', async () => {
+    for (let i = 0; i < operatorIDs.length; i++) {
+      await registryContract.updateOperatorFee(operatorIDs[i], 10);
+    }
+  });
+
+  it('Update 1000 validators', async () => {
+    for (let i = 1000; i < (validatorData.length + 1000); i++) {
+      const randomOperator = Math.floor(Math.random() * (numberOfOperators - 4));
+      await registryContract.updateValidator(
+        [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
+        validatorData[i-1000].publicKey,
+        shares[1],
+        '10001'
+      );
+    }
+  });
+
+  it('Remove 1000 operators', async () => {
+    for (let i = 0; i < operatorIDs.length; i++) {
+      await registryContract.removeOperator(operatorIDs[i]);
+    }
+  });
+
+  it('Remove 1000 validators', async () => {
+    for (let i = 0; i < validatorData.length; i++) {
+      await registryContract.removeValidator(validatorData[i].publicKey);
+    }
+  });
 
 });
