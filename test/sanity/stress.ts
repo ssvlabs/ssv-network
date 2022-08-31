@@ -31,8 +31,8 @@ describe('Stress Tests', () => {
     for (let i = 1000; i < (validatorData.length + 1000); i++) {
       const randomOperator = Math.floor(Math.random() * (numberOfOperators - 4));
       await registryContract.updateValidator(
-        [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
         validatorData[i-1000].publicKey,
+        [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
         shares[1],
         '10001'
       );

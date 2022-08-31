@@ -19,15 +19,15 @@ describe('Register Validator Gas Tests 2 Operator Different', () => {
     const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
 
     await registryContract.registerValidator(
-      [1, 2, 3, 4],
       `${validatorPK}0`,
+      [1, 2, 3, 4],
       shares[0],
       '10000'
     );
 
     await registryContract.registerValidator(
-      [1, 2, 5, 6],
       `${validatorPK}1`,
+      [1, 2, 5, 6],
       shares[1],
       '10000'
     );

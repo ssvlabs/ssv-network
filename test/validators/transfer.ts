@@ -1,7 +1,7 @@
 import * as helpers from '../helpers/contract-helpers';
 
 import { expect } from 'chai';
-import { runTx } from '../helpers/utils';
+import { trackGas } from '../helpers/gas-usage';
 
 const numberOfOperators = 8;
 const operatorFee = 4;
@@ -18,49 +18,49 @@ describe('Transfer Validator Tests', () => {
 
   it('Transfer validator into new pod', async () => {
     const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    const validatorBeforeTransfer = await runTx(registryContract.registerValidator(
+    const validatorBeforeTransfer = await trackGas(registryContract.registerValidator(
       `${validatorPK}0`,
       operatorIDs.slice(0, 4),
       shares[0],
       '10000'
-    ), 'ValidatorAdded', 'bytes validatorPK, bytes32 podId, bytes shares');
+    ));
 
-    const transferedValidator = await runTx(registryContract.transferValidator(
+    const transferedValidator = await trackGas(registryContract.transferValidator(
       `${validatorPK}0`,
       operatorIDs.slice(4, 8),
       shares[0],
       '10000'
-    ), 'ValidatorTransferred', 'bytes publicKey, bytes32 podId, bytes shares');
+    ));
     expect(transferedValidator.gasUsed).lessThan(410000);
 
-    expect(validatorBeforeTransfer.data.podId).not.equals(transferedValidator.data.podId);
+    expect(validatorBeforeTransfer.events.ValidatorAdded.args.podId).not.equals(transferedValidator.events.ValidatorTransferred.args.podId);
   });
 
   it('Transfer validator to existed pod', async () => {
     const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    const validatorOne = await runTx(registryContract.registerValidator(
+    const validatorOne = await trackGas(registryContract.registerValidator(
       `${validatorPK}0`,
       operatorIDs.slice(0, 4),
       shares[0],
       '10000'
-    ), 'ValidatorAdded', 'bytes validatorPK, bytes32 podId, bytes shares');
+    ));
 
-    const validatorTwo = await runTx(registryContract.registerValidator(
+    const validatorTwo = await trackGas(registryContract.registerValidator(
       `${validatorPK}1`,
       operatorIDs.slice(4, 8),
       shares[0],
       '10000'
-    ), 'ValidatorAdded', 'bytes validatorPK, bytes32 podId, bytes shares');
+    ));
 
-    const transferedValidator = await runTx(registryContract.transferValidator(
+    const transferedValidator = await trackGas(registryContract.transferValidator(
       `${validatorPK}0`,
       operatorIDs.slice(4, 8),
       shares[0],
       '10000'
-    ), 'ValidatorTransferred', 'bytes publicKey, bytes32 podId, bytes shares');
+    ));
     expect(transferedValidator.gasUsed).lessThan(270000);
 
-    expect(validatorTwo.data.podId).equals(transferedValidator.data.podId);
+    expect(validatorTwo.events.ValidatorAdded.args.podId).equals(transferedValidator.events.ValidatorTransferred.args.podId);
   });
 
   it('Transfer Validator gas limits', async () => {

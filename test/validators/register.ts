@@ -1,7 +1,7 @@
 import * as helpers from '../helpers/contract-helpers';
 
 import { expect } from 'chai';
-import { runTx } from '../helpers/utils';
+import { trackGas } from '../helpers/gas-usage';
 
 const numberOfOperators = 8;
 const operatorFee = 4;
@@ -18,7 +18,7 @@ describe('Register Validator Tests', () => {
 
   it('Register validator in empty pod', async () => {
     const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    const { gasUsed } = await runTx(registryContract.registerValidator(
+    const { gasUsed } = await trackGas(registryContract.registerValidator(
       `${validatorPK}0`,
       operatorIDs.slice(0, 4),
       shares[0],
@@ -29,7 +29,7 @@ describe('Register Validator Tests', () => {
 
   it('Register two validators in same pod', async () => {
     const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    const firstValidator = await runTx(registryContract.registerValidator(
+    const firstValidator = await trackGas(registryContract.registerValidator(
       `${validatorPK}0`,
       operatorIDs.slice(0, 4),
       shares[0],
@@ -37,7 +37,7 @@ describe('Register Validator Tests', () => {
     ));
     expect(firstValidator.gasUsed).lessThan(400000);
 
-    const secondValidator = await runTx(registryContract.registerValidator(
+    const secondValidator = await trackGas(registryContract.registerValidator(
       `${validatorPK}1`,
       operatorIDs.slice(0, 4),
       shares[0],
@@ -49,7 +49,7 @@ describe('Register Validator Tests', () => {
 
   it('Register two validators in different pods', async () => {
     const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    const firstValidator = await runTx(registryContract.registerValidator(
+    const firstValidator = await trackGas(registryContract.registerValidator(
       `${validatorPK}0`,
       operatorIDs.slice(0, 4),
       shares[0],
@@ -57,7 +57,7 @@ describe('Register Validator Tests', () => {
     ));
     expect(firstValidator.gasUsed).lessThan(400000);
 
-    const secondValidator = await runTx(registryContract.registerValidator(
+    const secondValidator = await trackGas(registryContract.registerValidator(
       `${validatorPK}1`,
       operatorIDs.slice(4, 8),
       shares[0],

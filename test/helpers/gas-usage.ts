@@ -30,21 +30,17 @@ const getOrCreate = (group: string) => {
   return groupStats;
 };
 
-export const trackGas = async (tx: Promise<any>, group: string, maxGas: number) => {
+export const trackGas = async (tx: Promise<any>, groups?: Array<string>): Promise<any> => {
   const receipt = await (await tx).wait();
 
-  if (receipt.gasUsed > maxGas) {
-    throw new Error(`Gas usage too high. Max: ${maxGas}, Actual: ${receipt.gasUsed}`);
-  }
-  console.log('\t', +receipt.gasUsed);
-
-  const groupStats = getOrCreate(group);
-
-  groupStats.addStat(parseInt(receipt.gasUsed));
-
-  return receipt;
+  groups && groups.forEach(group => {
+    const groupStats = getOrCreate(group);
+    groupStats.addStat(parseInt(receipt.gasUsed));
+  });
+  return { gasUsed: +receipt.gasUsed, events: receipt.events.reduce((aggr: any, item: any) => { aggr[item.event] = item; return aggr; }, {}) };
 };
 
 export const getGasStats = (group: string) => {
   return gasUsageStats.get(group) || new GasStats();
 };
+

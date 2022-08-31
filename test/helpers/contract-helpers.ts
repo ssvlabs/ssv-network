@@ -40,20 +40,14 @@ export const registerValidators = async (numberOfValidators: number, amount: str
     const validatorPK = `0xa7ae1ea93b860ca0269ccca776b4526977395aa194e5820a00dedbf1cd63e7a898eec9a12f539f733ea4df9c651f${i}`;
 
     const receipt = await trackGas(contract.registerValidator(
-      [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
       validatorPK,
+      [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
       shares[0],
       amount,
-    ), 'registerValidator', 400000);
-
-    const registerResult = receipt.logs[0];
-
-    // Save validator group id emits
-    const interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes shares)']);
-    const outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', registerResult.data, registerResult.topics);
+    ), ['registerValidator']);
 
     // Save the validator emit
-    validatorData.push({ publicKey: validatorPK, groupId: outputRegister.groupId });
+    validatorData.push({ publicKey: validatorPK, groupId: receipt.events.ValidatorAdded.args.podId });
   }
 
   return validatorData;

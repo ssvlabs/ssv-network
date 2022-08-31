@@ -68,17 +68,3 @@ export const mine = async (amount: number) => {
   }
   return mineChunk(amount % MAX_PARALLEL_CALLS);
 };
-
-export const runTx = async (tx: Promise<any>, eventName?: any, eventInterface?: any) => {
-  const receipt = await (await tx).wait();
-  let data;
-
-  if (eventName && eventInterface) {
-    const result = receipt.logs[0];
-    const schema = new ethers.utils.Interface([`event ${eventName}(${eventInterface})`]);
-    data = schema.decodeEventLog(eventName, result.data, result.topics);
-  }
-  console.log('\t', +receipt.gasUsed);
-
-  return { gasUsed: +receipt.gasUsed, data };
-}
