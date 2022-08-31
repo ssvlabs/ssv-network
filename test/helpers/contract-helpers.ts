@@ -50,7 +50,7 @@ export const registerValidators = async (numberOfValidators: number, amount: str
     ), [ GasGroup.registerValidator ]);
 
     // Save the validator emit
-    validatorData.push({ publicKey: validatorPK, groupId: receipt.events.ValidatorAdded.args.podId });
+    validatorData.push({ publicKey: validatorPK, groupId: receipt.eventsByName.ValidatorAdded[0].args.podId });
   }
 
   return validatorData;
