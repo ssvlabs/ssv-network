@@ -31,7 +31,7 @@ describe('Register Validator Tests', () => {
     expect(gasUsed).lessThan(400000);
   });
 
-  it('Register two validators with one owner in same pod', async () => {
+  it('Register two validators same owner in same pod', async () => {
     const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
     const firstValidator = await trackGas(registryContract.registerValidator(
       `${validatorPK}0`,
@@ -69,7 +69,7 @@ describe('Register Validator Tests', () => {
     expect(secondValidator.gasUsed).lessThan(250000);
   });
 
-  it('Register two validators in different pods', async () => {
+  it('Register two validators same owner in different pods', async () => {
     const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
     const firstValidator = await trackGas(registryContract.registerValidator(
       `${validatorPK}0`,
@@ -80,6 +80,25 @@ describe('Register Validator Tests', () => {
     expect(firstValidator.gasUsed).lessThan(400000);
 
     const secondValidator = await trackGas(registryContract.registerValidator(
+      `${validatorPK}1`,
+      operatorIDs.slice(4, 8),
+      shares[0],
+      '10000'
+    ));
+    expect(secondValidator.gasUsed).lessThan(400000);
+  });
+
+  it('Register two validators different owners in different pods', async () => {
+    const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
+    const firstValidator = await trackGas(registryContract.connect(addr1).registerValidator(
+      `${validatorPK}0`,
+      operatorIDs.slice(0, 4),
+      shares[0],
+      '10000'
+    ));
+    expect(firstValidator.gasUsed).lessThan(400000);
+
+    const secondValidator = await trackGas(registryContract.connect(addr2).registerValidator(
       `${validatorPK}1`,
       operatorIDs.slice(4, 8),
       shares[0],

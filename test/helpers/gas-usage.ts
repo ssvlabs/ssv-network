@@ -37,7 +37,14 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<string>): Promis
     const groupStats = getOrCreate(group);
     groupStats.addStat(parseInt(receipt.gasUsed));
   });
-  return { gasUsed: +receipt.gasUsed, events: receipt.events.reduce((aggr: any, item: any) => { aggr[item.event] = item; return aggr; }, {}) };
+  return {
+    receipt,
+    gasUsed: +receipt.gasUsed,
+    eventsByName: receipt.events.reduce((aggr: any, item: any) => {
+      aggr[item.event] = aggr[item.event] || [];
+      aggr[item.event].push(item);
+      return aggr;
+    }, {}) };
 };
 
 export const getGasStats = (group: string) => {
