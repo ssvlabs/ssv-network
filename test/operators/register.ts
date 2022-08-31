@@ -33,7 +33,7 @@ describe('Register Operator Tests', () => {
       [1, 2, 3, 4],
       shares[0],
       '10000'
-    ), 'registerValidator', 400000);
+    ), ['registerValidator']);
 
     // // Cost: 185380
     // await deployedRegistryContract.registerValidator(
