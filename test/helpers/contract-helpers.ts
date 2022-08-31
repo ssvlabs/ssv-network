@@ -25,7 +25,10 @@ export const initializeContract = async (numberOfOperators: number, fee: number)
   const operatorIDs = Array.from(Array(numberOfOperators).keys()).map(k => k + 1);
 
   // Deposit to the contract
-  await deployedRegistryContract.deposit('9000000000000000000');
+  const [addr1, addr2, addr3] = await ethers.getSigners();
+  await deployedRegistryContract.connect(addr1).deposit('9000000000000000000');
+  await deployedRegistryContract.connect(addr2).deposit('9000000000000000000');
+  await deployedRegistryContract.connect(addr3).deposit('9000000000000000000');
 
   return { contract: deployedRegistryContract, operatorIDs: operatorIDs, shares: shares, owner: owner };
 };
