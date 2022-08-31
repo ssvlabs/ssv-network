@@ -1,7 +1,7 @@
 import * as helpers from '../helpers/contract-helpers';
 
 import { expect } from 'chai';
-import { trackGas } from '../helpers/gas-usage';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 const numberOfOperators = 4;
 const operatorFee = 4;
@@ -33,7 +33,7 @@ describe('Register Operator Tests', () => {
       [1, 2, 3, 4],
       shares[0],
       '10000'
-    ), 'registerValidator', 400000);
+    ), [ GasGroup.registerValidator ]);
 
     // // Cost: 185380
     // await deployedRegistryContract.registerValidator(

@@ -1,7 +1,7 @@
 // Imports
 declare const ethers: any;
 
-import { trackGas, getGasStats } from './gas-usage';
+import { trackGas, getGasStats, GasGroup } from './gas-usage';
 
 // Generate shares
 const shares = Array.from(Array(10).keys()).map(k => `0xe0096008000000b4010000040000001000000076000000dc000000420d142c307831323334353637383930fe0a00520a000031017afe66008266000032fe66009266000033fe66009266000034016621ac28d60000009c01000062020025c02c307839383736353433323130fe0a00520a000031fe560052560019b0003101dafec60082c6000032fec6007ac6004d6ca666000033ceb401fe8c017e8c014dcca6c6004d7a0035b23200fec6007ec6000034${k}${k}`);
@@ -47,7 +47,7 @@ export const registerValidators = async (numberOfValidators: number, amount: str
       [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
       shares[0],
       amount,
-    ), ['registerValidator']);
+    ), [ GasGroup.registerValidator ]);
 
     // Save the validator emit
     validatorData.push({ publicKey: validatorPK, groupId: receipt.events.ValidatorAdded.args.podId });

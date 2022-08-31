@@ -3,7 +3,7 @@ declare const ethers: any;
 import * as helpers from '../helpers/contract-helpers';
 
 import { expect } from 'chai';
-import { trackGas } from '../helpers/gas-usage';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 const numberOfOperators = 8;
 const operatorFee = 4;
@@ -27,7 +27,7 @@ describe('Transfer Validator Tests', () => {
       operatorIDs.slice(0, 4),
       shares[0],
       '10000'
-    ));
+    ), [ GasGroup.registerValidator ]);
 
     const transferedValidator = await trackGas(registryContract.transferValidator(
       `${validatorPK}0`,

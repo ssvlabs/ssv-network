@@ -1,8 +1,24 @@
-export class GasStats {
+export enum GasGroup {
+  registerValidator,
+  registerValidatorExistingGroup
+}
+
+// const MAX_GAS_PER_GROUP = {
+//   registerValidator: 400000,
+//   registerValidatorExistingGroup: 250000
+// }
+
+const MAX_GAS_PER_GROUP = {
+  [GasGroup.registerValidator]: 400000,
+  [GasGroup.registerValidatorExistingGroup]: 250000
+}
+
+class GasStats {
   max: number | null = null;
   min: number | null = null;
   totalGas = 0;
   txCount = 0;
+
 
   addStat(gas: number) {
     this.totalGas += gas;
@@ -19,27 +35,25 @@ export class GasStats {
 
 const gasUsageStats = new Map();
 
-const getOrCreate = (group: string) => {
-  let groupStats = gasUsageStats.get(group);
+for (const group in MAX_GAS_PER_GROUP) {
+  gasUsageStats.set(group, new GasStats());
+}
 
-  if (!groupStats) {
-    groupStats = new GasStats();
-    gasUsageStats.set(group, groupStats);
-  }
-
-  return groupStats;
-};
-
-export const trackGas = async (tx: Promise<any>, groups?: Array<string>): Promise<any> => {
+export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Promise<any> => {
   const receipt = await (await tx).wait();
 
   groups && groups.forEach(group => {
-    const groupStats = getOrCreate(group);
-    groupStats.addStat(parseInt(receipt.gasUsed));
+    const gasUsed = parseInt(receipt.gasUsed);
+    const maxGas = MAX_GAS_PER_GROUP[group as keyof typeof MAX_GAS_PER_GROUP];
+
+    if (gasUsed > maxGas) {
+      throw new Error(`Gas usage too high. Max: ${maxGas}, Actual: ${gasUsed}`);
+    }
+
+    gasUsageStats.get(group.toString()).addStat(gasUsed);
   });
   return {
-    receipt,
-    gasUsed: +receipt.gasUsed,
+    ...receipt,
     eventsByName: receipt.events.reduce((aggr: any, item: any) => {
       aggr[item.event] = aggr[item.event] || [];
       aggr[item.event].push(item);
