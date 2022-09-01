@@ -27,7 +27,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 fee;
         uint64 validatorCount;
 
-        Snapshot earnings;
+        Snapshot snapshot;
     }
 
     struct DAO {
@@ -70,10 +70,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
     // uint64 constant NETWORK_FEE_PER_BLOCK = 1;
 
-    /** errors */
-    error InvalidPublicKeyLength();
-    error OessDataStructureInvalid();
-    error ValidatorNotOwned();
 
     DAO private _dao;
     IERC20 private _token;
@@ -85,20 +81,22 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function registerOperator(
         bytes calldata encryptionPK,
         uint64 fee
-    ) external returns (uint64 operatorId) {
-        require(fee > 0);
+    ) external returns (uint64 id) {
+        if (fee <= 0) revert FeeTooLow();
 
         lastOperatorId.increment();
         operatorId = uint64(lastOperatorId.current());
-        _operators[operatorId] = Operator({ owner: msg.sender, earnings: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee});
+        _operators[operatorId] = Operator({ owner: msg.sender, snapshot: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee});
         emit OperatorAdded(operatorId, msg.sender, encryptionPK);
     }
 
     function removeOperator(uint64 operatorId) external {
         Operator memory operator = _operators[operatorId];
-        require(operator.owner == msg.sender, "not owner");
+        if (operator.owner != msg.sender) revert CallerNotOwner();
 
-        operator.earnings = _updateOperatorEarnings(operator);
+        uint64 currentBlock = uint64(block.number);
+
+        operator.snapshot = _getSnapshot(operator, currentBlock);
         operator.fee = 0;
         operator.validatorCount = 0;
         _operators[operatorId] = operator;
@@ -108,7 +106,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function updateOperatorFee(uint64 operatorId, uint64 fee) external {
         Operator memory operator = _operators[operatorId];
-        require(operator.owner == msg.sender, "not owner");
+        if (operator.owner != msg.sender) revert CallerNotOwner();
 
         _operators[operatorId] = _setFee(operator, fee);
 
@@ -136,7 +134,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
                     Operator memory operator = _operators[operatorIds[i]];
-                    operator.earnings = _updateOperatorEarnings(operator);
+                    operator.snapshot = _getSnapshot(operator, uint64(block.number));
                     ++operator.validatorCount;
                     _operators[operatorIds[i]] = operator;
                 }
@@ -149,7 +147,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 _dao = dao;
             }
 
-            // TODO
             require(!_liquidatable(pod.balance, pod.validatorCount, operatorIds), "account liquidatable");
 
             _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = pod;
@@ -240,7 +237,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
             for (uint64 i = 0; i < cluster.operatorIds.length; ++i) {
                 uint64 id = cluster.operatorIds[i];
-                _operators[id].earnings = _updateOperatorEarnings(_operators[id]);
+                _operators[id].snapshot = _getSnapshot(_operators[id], uint64(block.number));
                 --_operators[id].validatorCount;
             }
 
@@ -304,6 +301,24 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     // TODO add external functions below to interface
 
+    // @dev external operators functions
+
+    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint64 balance) {
+        Snapshot memory s = _getSnapshot(_operators[id], uint64(block.number));
+        return (s.block, s.index, s.balance);
+    }
+
+    // @dev internal operators functions
+
+    function _getSnapshot(Operator memory operator, uint64 currentBlock) private view returns (Snapshot memory) {
+        uint64 blockDiffFee = (currentBlock - operator.snapshot.block)* operator.fee;
+
+        operator.snapshot.index += blockDiffFee;
+        operator.snapshot.balance += blockDiffFee * operator.validatorCount;
+        operator.snapshot.block = currentBlock;
+
+        return operator.snapshot;
+    }
 
     function _updateOperatorsValidatorMove(
         uint64[] memory oldOperatorIds,
@@ -312,17 +327,18 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     ) private {
         uint64 oldIndex;
         uint64 newIndex;
+        uint64 currentBlock = uint64(block.number);
 
         while (oldIndex < oldOperatorIds.length && newIndex < newOperatorIds.length) {
             if (oldOperatorIds[oldIndex] < newOperatorIds[newIndex]) {
                 Operator memory operator = _operators[oldOperatorIds[oldIndex]];
-                operator.earnings = _updateOperatorEarnings(operator);
+                operator.snapshot = _getSnapshot(operator, currentBlock);
                 operator.validatorCount -= validatorCount;
                 _operators[oldOperatorIds[oldIndex]] = operator;
                 ++oldIndex;
             } else if (newOperatorIds[newIndex] < oldOperatorIds[oldIndex]) {
                 Operator memory operator = _operators[newOperatorIds[newIndex]];
-                operator.earnings = _updateOperatorEarnings(operator);
+                operator.snapshot = _getSnapshot(operator, currentBlock);
                 operator.validatorCount += validatorCount;
                 _operators[newOperatorIds[newIndex]] = operator;
                 ++newIndex;
@@ -334,7 +350,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         while (oldIndex < oldOperatorIds.length) {
             Operator memory operator = _operators[oldOperatorIds[oldIndex]];
-            operator.earnings = _updateOperatorEarnings(operator);
+            operator.snapshot = _getSnapshot(operator, currentBlock);
             operator.validatorCount -= validatorCount;
             _operators[oldOperatorIds[oldIndex]] = operator;
             ++oldIndex;
@@ -342,7 +358,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         while (newIndex < newOperatorIds.length) {
             Operator memory operator = _operators[newOperatorIds[newIndex]];
-            operator.earnings = _updateOperatorEarnings(operator);
+            operator.snapshot = _getSnapshot(operator, currentBlock);
             operator.validatorCount += validatorCount;
             _operators[newOperatorIds[newIndex]] = operator;
             ++newIndex;
@@ -351,7 +367,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
 
     function _setFee(Operator memory operator, uint64 fee) private returns (Operator memory) {
-        operator.earnings = _updateOperatorEarnings(operator);
+        operator.snapshot = _getSnapshot(operator, uint64(block.number));
         operator.fee = fee;
 
         return operator;
@@ -361,7 +377,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 currentBlock = uint64(block.number);
         for (uint64 i = 0; i < operatorIds.length; ++i) {
             Operator memory operator = _operators[operatorIds[i]];
-            operator.earnings = _updateOperatorEarnings(operator);
+            operator.snapshot = _getSnapshot(operator, uint64(block.number));
             if (increase) {
                 ++operator.validatorCount;
             } else {
@@ -395,9 +411,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _ownerPodBalance(pod, _clusterCurrentIndex(clusterId));
     }
 
-    function operatorEarningsOf(uint64 operatorId) external view returns (uint64) {
-        return _operatorCurrentEarnings(_operators[operatorId]);
-    }
+
 
     /**
      * @dev Validates the params for a validator.
@@ -444,25 +458,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return key;
     }
 
-    function _updateOperatorEarnings(Operator memory operator) private returns (Snapshot memory) {
-        operator.earnings.index = _operatorCurrentIndex(operator);
-        operator.earnings.balance = _operatorCurrentEarnings(operator);
-        operator.earnings.block = uint64(block.number);
-
-        return operator.earnings;
-    }
 
     function _updateDAOEarnings(DAO memory dao) private returns (DAO memory) {
         dao.earnings.balance = _networkTotalEarnings(dao);
         dao.earnings.block = uint64(block.number);
 
         return dao;
-    }
-
-    // TODO
-    // no connection with owner address
-    function _operatorCurrentEarnings(Operator memory operator) private view returns (uint64) {
-        return operator.earnings.balance + (uint64(block.number) - operator.earnings.block) * operator.validatorCount * operator.fee;
     }
 
     function _extractOperators(uint64[] memory operatorIds) private view returns (Operator[] memory) {
@@ -483,14 +484,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _clusterCurrentIndex(bytes32 podId) private view returns (uint64 podIndex) {
         Cluster memory cluster = _clusters[podId];
+        uint64 currentBlock = uint64(block.number);
         for (uint64 i = 0; i < cluster.operatorIds.length; ++i) {
-            podIndex += _operatorCurrentIndex(_operators[cluster.operatorIds[i]]);
+            Snapshot memory s = _operators[cluster.operatorIds[i]].snapshot;
+            podIndex += s.index + (currentBlock - s.block) * _operators[cluster.operatorIds[i]].fee;
         }
     }
 
-    function _operatorCurrentIndex(Operator memory operator) private view returns (uint64) {
-        return operator.earnings.index + (uint64(block.number) - operator.earnings.block) * operator.fee;
-    }
 
     function _ownerPodBalance(Pod memory pod, uint64 currentPodIndex) private view returns (uint64) {
         return pod.balance - (currentPodIndex - pod.usage.index) * pod.validatorCount;

@@ -21,7 +21,7 @@ async function log({ action='', operatorIds = [], groupIds = [] }) {
         for (const id of operatorIds) {
             console.log(
                 `> operator #${id}`,
-                'balance', await deployedSSVNetworkContract.operatorEarningsOf(id),
+                'balance', (await deployedSSVNetworkContract.operatorSnapshot(id)).balance,
             );
         }
     }
