@@ -1,16 +1,13 @@
 export enum GasGroup {
-  registerValidator,
-  registerValidatorExistingGroup
+  REGISTER_OPERATOR,
+  REGISTER_VALIDATOR,
+  REGISTER_VALIDATOR_NEW_STATE
 }
 
-// const MAX_GAS_PER_GROUP = {
-//   registerValidator: 400000,
-//   registerValidatorExistingGroup: 250000
-// }
-
-const MAX_GAS_PER_GROUP = {
-  [GasGroup.registerValidator]: 400000,
-  [GasGroup.registerValidatorExistingGroup]: 250000
+const MAX_GAS_PER_GROUP: any = {
+  [GasGroup.REGISTER_OPERATOR]: 100000,
+  [GasGroup.REGISTER_VALIDATOR]: 250000,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 400000
 }
 
 class GasStats {
@@ -42,12 +39,12 @@ for (const group in MAX_GAS_PER_GROUP) {
 export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Promise<any> => {
   const receipt = await (await tx).wait();
 
-  groups && groups.forEach(group => {
+  groups && [...new Set(groups)].forEach(group => {
     const gasUsed = parseInt(receipt.gasUsed);
-    const maxGas = MAX_GAS_PER_GROUP[group as keyof typeof MAX_GAS_PER_GROUP];
+    const maxGas = MAX_GAS_PER_GROUP[group];
 
     if (gasUsed > maxGas) {
-      throw new Error(`Gas usage too high. Max: ${maxGas}, Actual: ${gasUsed}`);
+      throw new Error(`Gas usage too high. Violated group: ${GasGroup[group]}. Max usage: ${maxGas}, Actual usage: ${gasUsed}.`);
     }
 
     gasUsageStats.get(group.toString()).addStat(gasUsed);

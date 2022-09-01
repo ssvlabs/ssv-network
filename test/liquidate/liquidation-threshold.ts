@@ -5,15 +5,13 @@ import { expect } from 'chai';
 const numberOfOperators = 4;
 const operatorFee = 4;
 
-let registryContract: any, operatorIDs: any, shares: any, owner: any;
+let ssvNetworkContract: any, operatorIDs: any, shares: any, owner: any;
 
 
 describe('Liquidation Threshold Tests', () => {
   beforeEach(async () => {
-    const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
-    registryContract = contractData.contract;
-    operatorIDs = contractData.operatorIDs;
-    shares = contractData.shares;
+    const contractData = await helpers.initializeContract();
+    ssvNetworkContract = contractData.contract;
   });
 
   it('Get liquidation threshold', async () => {

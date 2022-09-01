@@ -3,56 +3,103 @@ declare const ethers: any;
 
 import { trackGas, getGasStats, GasGroup } from './gas-usage';
 
-// Generate shares
-const shares = Array.from(Array(10).keys()).map(k => `0xe0096008000000b4010000040000001000000076000000dc000000420d142c307831323334353637383930fe0a00520a000031017afe66008266000032fe66009266000033fe66009266000034016621ac28d60000009c01000062020025c02c307839383736353433323130fe0a00520a000031fe560052560019b0003101dafec60082c6000032fec6007ac6004d6ca666000033ceb401fe8c017e8c014dcca6c6004d7a0035b23200fec6007ec6000034${k}${k}`);
+export let DB: any;
 
-export const initializeContract = async (numberOfOperators: number, fee: number) => {
+export const DataGenerator = {
+  publicKey: (index: number) => `0x${index.toString(16).padStart(96,'1')}`,
+  shares: (index: number) => `0x${index.toString(16).padStart(360,'1')}`,
+  pod: {
+    new: (size: number = 4) => {
+      const usedOperatorIds: any = {};
+      for (const podId in DB.pods) {
+        for (const operatorId of DB.pods[podId].operatorIds) {
+          usedOperatorIds[operatorId] = true;
+        }
+      }
+
+      const result = [];
+      for (const operator of DB.operators) {
+        if (operator && !usedOperatorIds[operator.id]) {
+          result.push(operator.id);
+          usedOperatorIds[operator.id] = true;
+
+          if (result.length == size) {
+            break;
+          }
+        }
+      }
+      if (result.length < size) {
+        throw new Error("No new pods. Try to register more operators.");
+      }
+
+      return result;
+    },
+    byId: (id: any) => DB.pods[id].operatorIds
+  }
+}
+
+export const initializeContract = async () => {
+  DB = {
+    owners: [],
+    validators: [],
+    operators: [],
+    pods: [],
+    ssvNetwork: {}
+  }
   // Define accounts
-  const [owner] = await ethers.getSigners();
+  DB.owners = await ethers.getSigners();
 
   // Initialize contract
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
-  const deployedRegistryContract = await ssvNetwork.deploy();
-  await deployedRegistryContract.deployed();
+  DB.ssvNetwork.contract = await ssvNetwork.deploy();
+  await DB.ssvNetwork.contract.deployed();
+  DB.ssvNetwork.owner = DB.owners[0];
 
-  // Register Operators
-  for (let i = 0; i < numberOfOperators; i++) {
-    const encodedABI = '0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000002644c5330744c5331435255644a54694253553045675546564354456c4449457446575330744c533074436b314a53554a4a616b464f516d64726357687261556335647a424351564646526b464254304e425554684254556c4a516b4e6e53304e42555556424e5756554e557777563068365a54647954575a506232787456484d4b64577449513245344b336474625577324f54464a5131527052454531556b4a31546b787153565132576b4530597a4d78635652495933464256486c3565566b774c7a6b3352336c4b5a32646f596e6c465232526f5a516f76616c6836615756544f584a325279744a56474631516a684d566c686b656b78475956517857455a5765466c6e4e327832546c42344f5552504c315a6f526b686b5757786e54334932643052745633466a52476f33436c68575557464f57454674526e67334e6a56514e546c584e585a7a564752585657464852577858536d3933536b5a4b646e6332556c5249536b5a315456686a537a5a5661574a3063555a4d536d4a774f57356b6455674b516a6c4c537a4e57636d59725a6d744a4f5752425a327478524446484f456c785130744b4d566c33626a557965477878625452434e69744f4f475a555a45314d53314a75635770465a6d527a563164774d46567a4d51704c54573976535863796333426f6158417a5546704e596e4a61615530774e6a4a325a556f3055336f76596a424f62576450546e685464304a4a546e4e7863473534516a68465556517853544e6a4e6b6c714e586868436d35525355524255554643436930744c5330745255354549464a545153425156554a4d53554d675330565a4c5330744c53304b00000000000000000000000000000000000000000000000000000000';
-    await deployedRegistryContract.registerOperator(encodedABI, fee);
-  }
-
-  // Generate Operator IDs
-  const operatorIDs = Array.from(Array(numberOfOperators).keys()).map(k => k + 1);
-
-  // Deposit to the contract
-  const [addr1, addr2, addr3] = await ethers.getSigners();
-  await deployedRegistryContract.connect(addr1).deposit('9000000000000000000');
-  await deployedRegistryContract.connect(addr2).deposit('9000000000000000000');
-  await deployedRegistryContract.connect(addr3).deposit('9000000000000000000');
-
-  return { contract: deployedRegistryContract, operatorIDs: operatorIDs, shares: shares, owner: owner };
+  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner };
 };
 
-export const registerValidators = async (numberOfValidators: number, amount: string, operatorAmount: number, contract: any) => {
-  const validatorData: any = [];
-  const validatorsToRegister = 1000 + numberOfValidators;
+export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [ GasGroup.REGISTER_OPERATOR ]) => {
+  for (let i = 0; i < numberOfOperators; ++i) {
+    const { eventsByName } = await trackGas(
+      DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerOperator(DataGenerator.publicKey(i), fee),
+      gasGroups
+    );
+    const event = eventsByName.OperatorAdded[0];
+    DB.operators[event.args.id] = {
+      id: event.args.id, ownerId: ownerId, publicKey: DataGenerator.publicKey(i)
+    }
+  }
+}
+
+export const deposit = async (ownerIds: number[], amounts: string[]) => {
+  for (let i = 0; i < ownerIds.length; ++i) {
+    await DB.ssvNetwork.contract.connect(DB.owners[ownerIds[i]]).deposit(amounts[i]);
+  }
+}
+
+
+export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, pod: number[], gasGroups: GasGroup[] = [ GasGroup.REGISTER_VALIDATOR ]) => {
+  const validators: any = [];
+  let podId: any;
 
   // Register validators to contract
-  for (let i = 1000; i < validatorsToRegister; i++) {
-    const randomOperator = Math.floor(Math.random() * (operatorAmount - 4));
-    const validatorPK = `0xa7ae1ea93b860ca0269ccca776b4526977395aa194e5820a00dedbf1cd63e7a898eec9a12f539f733ea4df9c651f${i}`;
+  for (let i = 0; i < numberOfValidators; i++) {
+    const publicKey = DataGenerator.publicKey(DB.validators.length);
+    const shares = DataGenerator.shares(DB.validators.length);
 
-    const receipt = await trackGas(contract.registerValidator(
-      validatorPK,
-      [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
-      shares[0],
+    const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
+      publicKey,
+      pod,
+      shares,
       amount,
-    ), [ GasGroup.registerValidator ]);
+    ), gasGroups);
 
-    // Save the validator emit
-    validatorData.push({ publicKey: validatorPK, groupId: receipt.eventsByName.ValidatorAdded[0].args.podId });
+    const event = eventsByName.ValidatorAdded[0];
+    podId = event.podId;
+    DB.pods[podId] = ({ id: event.podId, operatorIds: pod });
+    DB.validators.push({ publicKey, podId: event.podId, shares });
+    validators.push({ publicKey, shares });
   }
 
-  return validatorData;
-
+  return { validators, podId };
 };

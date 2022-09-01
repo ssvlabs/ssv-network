@@ -2,6 +2,7 @@ declare const ethers: any;
 
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 import { expect } from 'chai';
 
@@ -20,27 +21,26 @@ describe('Balance Tests', () => {
   });
 
   it('Check balances', async () => {
-    // // Register 1000 validators
-    // const validatorPK = `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100`
+    const validatorPK = `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100`
 
-    // expect(await registryContract.operatorEarningsOf(1)).to.equal('0')
+    expect(await registryContract.operatorEarningsOf(1)).to.equal('0');
 
-    // // Register a validator
-    // const validator1 = (await (await registryContract.registerValidator(
-    //     [1, 2, 3, 4],
-    //     `${validatorPK}0`,
-    //     shares[0],
-    //     "10000"
-    // )).wait()).logs[0]
-    // let interfaceRegister = new ethers.utils.Interface(['event ValidatorAdded(bytes validatorPK, bytes32 groupId, bytes shares)']);
-    // const outputRegister = interfaceRegister.decodeEventLog('ValidatorAdded', validator1.data, validator1.topics);
+    // Register a validator
+    const validator1 = await trackGas(registryContract.registerValidator(
+        `${validatorPK}0`,
+        [1, 2, 3, 4],
+        shares[0],
+        "10000"
+    ), [ GasGroup.registerValidator ]);
 
-    // // Progress 50 blocks and check operator balances and group balance
-    // await utils.progressBlocks(50)
-    // expect(await registryContract.operatorEarningsOf(1)).to.equal('50')
-    // expect(await registryContract.operatorEarningsOf(2)).to.equal('50')
-    // expect(await registryContract.operatorEarningsOf(3)).to.equal('50')
-    // expect(await registryContract.operatorEarningsOf(4)).to.equal('50')
+    const outputRegister = validator1.eventsByName.ValidatorAdded[0];
+
+    // Progress 50 blocks and check operator balances and group balance
+    await utils.progressBlocks(50)
+    expect(await registryContract.operatorEarningsOf(1)).to.equal('50')
+    expect(await registryContract.operatorEarningsOf(2)).to.equal('50')
+    expect(await registryContract.operatorEarningsOf(3)).to.equal('50')
+    expect(await registryContract.operatorEarningsOf(4)).to.equal('50')
     // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 150)
 
     // // Update one of the operator fees
