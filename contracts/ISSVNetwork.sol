@@ -76,6 +76,12 @@ interface ISSVNetwork {
 
 
     /** errors */
+    error FeeTooLow();
+    error CallerNotOwner();
+
+
+
+
     error InvalidPublicKeyLength();
     error OessDataStructureInvalid();
     error ValidatorNotOwned();
@@ -127,9 +133,9 @@ interface ISSVNetwork {
     /**
      * @dev Gets the operators current snapshot.
      * @param id Operator's id.
-     * @return currentBlock the block that the snapshot is updated to
-     * @return index the index of the operator
-     * @return balance the current balance of the operator
+     * @return currentBlock the block that the snapshot is updated to.
+     * @return index the index of the operator.
+     * @return balance the current balance of the operator.
      */
     function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint64 balance);
 

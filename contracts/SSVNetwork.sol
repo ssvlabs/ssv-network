@@ -81,8 +81,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function registerOperator(
         bytes calldata encryptionPK,
         uint64 fee
-    ) external returns (uint64 operatorId) {
-        require(fee > 0);
+    ) external returns (uint64 id) {
+        if (fee <= 0) revert FeeTooLow();
 
         lastOperatorId.increment();
         operatorId = uint64(lastOperatorId.current());
@@ -92,7 +92,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function removeOperator(uint64 operatorId) external {
         Operator memory operator = _operators[operatorId];
-        require(operator.owner == msg.sender, "not owner");
+        if (operator.owner != msg.sender) revert CallerNotOwner();
 
         uint64 currentBlock = uint64(block.number);
 
@@ -106,7 +106,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function updateOperatorFee(uint64 operatorId, uint64 fee) external {
         Operator memory operator = _operators[operatorId];
-        require(operator.owner == msg.sender, "not owner");
+        if (operator.owner != msg.sender) revert CallerNotOwner();
 
         _operators[operatorId] = _setFee(operator, fee);
 
