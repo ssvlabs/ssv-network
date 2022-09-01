@@ -1,3 +1,5 @@
+import { expect } from 'chai';
+
 export enum GasGroup {
   REGISTER_OPERATOR,
   REGISTER_VALIDATOR,
@@ -43,9 +45,7 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Prom
     const gasUsed = parseInt(receipt.gasUsed);
     const maxGas = MAX_GAS_PER_GROUP[group];
 
-    if (gasUsed > maxGas) {
-      throw new Error(`Gas usage too high. Violated group: ${GasGroup[group]}. Max usage: ${maxGas}, Actual usage: ${gasUsed}.`);
-    }
+    expect(gasUsed).to.be.lessThanOrEqual(maxGas);
 
     gasUsageStats.get(group.toString()).addStat(gasUsed);
   });
