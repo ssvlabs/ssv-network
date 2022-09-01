@@ -12,35 +12,35 @@ const operatorFee = 1;
 let registryContract: any, operatorIDs: any, shares: any, owner: any;
 
 describe('Balance Tests', () => {
-  beforeEach(async () => {
-    const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
-    registryContract = contractData.contract;
-    operatorIDs = contractData.operatorIDs;
-    shares = contractData.shares;
-    owner = contractData.owner;
-  });
+  // beforeEach(async () => {
+  //   const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
+  //   registryContract = contractData.contract;
+  //   operatorIDs = contractData.operatorIDs;
+  //   shares = contractData.shares;
+  //   owner = contractData.owner;
+  // });
 
-  it('Check balances', async () => {
-    const validatorPK = `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100`
+  // it('Check balances', async () => {
+  //   const validatorPK = `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100`
 
-    expect(await registryContract.operatorEarningsOf(1)).to.equal('0');
+  //   expect(await registryContract.operatorEarningsOf(1)).to.equal('0');
 
-    // Register a validator
-    const validator1 = await trackGas(registryContract.registerValidator(
-        `${validatorPK}0`,
-        [1, 2, 3, 4],
-        shares[0],
-        "10000"
-    ), [ GasGroup.registerValidator ]);
+  //   // Register a validator
+  //   const validator1 = await trackGas(registryContract.registerValidator(
+  //       `${validatorPK}0`,
+  //       [1, 2, 3, 4],
+  //       shares[0],
+  //       "10000"
+  //   ), [ GasGroup.registerValidator ]);
 
-    const outputRegister = validator1.eventsByName.ValidatorAdded[0];
+  //   const outputRegister = validator1.eventsByName.ValidatorAdded[0];
 
-    // Progress 50 blocks and check operator balances and group balance
-    await utils.progressBlocks(50)
-    expect(await registryContract.operatorEarningsOf(1)).to.equal('50')
-    expect(await registryContract.operatorEarningsOf(2)).to.equal('50')
-    expect(await registryContract.operatorEarningsOf(3)).to.equal('50')
-    expect(await registryContract.operatorEarningsOf(4)).to.equal('50')
+  //   // Progress 50 blocks and check operator balances and group balance
+  //   await utils.progressBlocks(50)
+  //   expect(await registryContract.operatorEarningsOf(1)).to.equal('50')
+  //   expect(await registryContract.operatorEarningsOf(2)).to.equal('50')
+  //   expect(await registryContract.operatorEarningsOf(3)).to.equal('50')
+  //   expect(await registryContract.operatorEarningsOf(4)).to.equal('50')
     // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 150)
 
     // // Update one of the operator fees
@@ -124,6 +124,6 @@ describe('Balance Tests', () => {
     // expect(await registryContract.operatorEarningsOf(4)).to.equal('2124')
     // expect(await registryContract.operatorEarningsOf(5)).to.equal('5000')
     // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 4500)
-  });
+  // });
 
 });
