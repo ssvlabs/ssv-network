@@ -301,6 +301,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     // TODO add external functions below to interface
 
+    // @dev external operators functions
+
+    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint64 balance) {
+        Snapshot memory s = _getSnapshot(_operators[id], uint64(block.number));
+        return (s.block, s.index, s.balance);
+    }
 
     // @dev internal operators functions
 
@@ -405,9 +411,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _ownerPodBalance(pod, _clusterCurrentIndex(clusterId));
     }
 
-    function operatorSnapshot(uint64 operatorId) external view returns (Snapshot memory) {
-        return _getSnapshot(_operators[operatorId], uint64(block.number));
-    }
+
 
     /**
      * @dev Validates the params for a validator.
