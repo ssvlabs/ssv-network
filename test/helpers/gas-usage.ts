@@ -54,6 +54,7 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Prom
   });
   return {
     ...receipt,
+    gasUsed: +receipt.gasUsed,
     eventsByName: receipt.events.reduce((aggr: any, item: any) => {
       aggr[item.event] = aggr[item.event] || [];
       aggr[item.event].push(item);
