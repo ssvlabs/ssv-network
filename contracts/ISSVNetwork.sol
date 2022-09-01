@@ -76,6 +76,11 @@ interface ISSVNetwork {
 
 
     /** errors */
+    error InvalidPublicKeyLength();
+    error OessDataStructureInvalid();
+    error ValidatorNotOwned();
+
+    /** errors */
 //    error validatorWithPublicKeyNotExist();
 //    error callerNotValidatorOwner();
 //    error operatorWithPublicKeyNotExist();
@@ -118,6 +123,16 @@ interface ISSVNetwork {
      * @param fee The operator's updated fee.
      */
     function updateOperatorFee(uint64 id, uint64 fee) external;
+
+    /**
+     * @dev Gets the operators current snapshot.
+     * @param id Operator's id.
+     * @return currentBlock the block that the snapshot is updated to
+     * @return index the index of the operator
+     * @return balance the current balance of the operator
+     */
+    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint64 balance);
+
 
     /**
      * @dev Registers a new validator.
