@@ -76,6 +76,11 @@ interface ISSVNetwork {
 
 
     /** errors */
+    error InvalidPublicKeyLength();
+    error OessDataStructureInvalid();
+    error ValidatorNotOwned();
+
+    /** errors */
 //    error validatorWithPublicKeyNotExist();
 //    error callerNotValidatorOwner();
 //    error operatorWithPublicKeyNotExist();
