@@ -3,45 +3,30 @@ declare const ethers: any;
 import * as helpers from '../helpers/contract-helpers';
 
 import { expect } from 'chai';
-import { trackGas } from '../helpers/gas-usage';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-const numberOfOperators = 4;
-const operatorFee = 4;
 
-let registryContract: any, operatorIDs: any, shares: any, addr1: any, addr2: any;
+let registryContract: any;
 
 describe('Remove Validator Tests', () => {
   beforeEach(async () => {
-    [addr1, addr2] = await ethers.getSigners();
-
-    const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
+    const contractData = await helpers.initializeContract();
     registryContract = contractData.contract;
-    operatorIDs = contractData.operatorIDs;
-    shares = contractData.shares;
+    await helpers.registerOperators(0, 1, '10');
+    await helpers.registerOperators(1, 1, '10');
+    await helpers.registerOperators(2, 1, '10');
+    await helpers.registerOperators(3, 1, '10');
+
+    await helpers.deposit([4], ['100000']);
   });
 
   it('Remove validator', async () => {
-    const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    await trackGas(registryContract.registerValidator(
-      `${validatorPK}0`,
-      operatorIDs.slice(0, 4),
-      shares[0],
-      '10000'
-    ));
-
-    const { gasUsed } = await trackGas(registryContract.removeValidator(`${validatorPK}0`));
-    expect(gasUsed).lessThan(150000);
+    const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
+    await trackGas(registryContract.connect(helpers.DB.owners[4]).removeValidator(validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Fails to transfer validator with no owner', async () => {
-    const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    await trackGas(registryContract.registerValidator(
-      `${validatorPK}0`,
-      operatorIDs.slice(0, 4),
-      shares[0],
-      '10000'
-    ));
-
-    await expect(trackGas(registryContract.connect(addr2).removeValidator(`${validatorPK}0`))).to.be.revertedWith('ValidatorNotOwned');
+  it('Fails to remove validator with no owner', async () => {
+    const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
+    await expect(trackGas(registryContract.connect(helpers.DB.owners[3]).removeValidator(validators[0].publicKey))).to.be.revertedWith('ValidatorNotOwned');
   });
 });

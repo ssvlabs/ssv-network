@@ -78,7 +78,7 @@ export const deposit = async (ownerIds: number[], amounts: string[]) => {
 }
 
 
-export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, pod: number[], gasGroups: GasGroup[] = [ GasGroup.REGISTER_VALIDATOR ]) => {
+export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
   const validators: any = [];
   let podId: any;
 
@@ -89,15 +89,14 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
 
     const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
       publicKey,
-      pod,
+      operatorIds,
       shares,
       amount,
     ), gasGroups);
 
-    const event = eventsByName.ValidatorAdded[0];
-    podId = event.podId;
-    DB.pods[podId] = ({ id: event.podId, operatorIds: pod });
-    DB.validators.push({ publicKey, podId: event.podId, shares });
+    podId = eventsByName.ValidatorAdded[0].args.podId;
+    DB.pods[podId] = ({ id: podId, operatorIds });
+    DB.validators.push({ publicKey, podId, shares });
     validators.push({ publicKey, shares });
   }
 

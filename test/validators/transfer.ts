@@ -5,81 +5,71 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-const numberOfOperators = 8;
-const operatorFee = 4;
-
-let registryContract: any, operatorIDs: any, shares: any, addr1: any, addr2: any;
+let registryContract: any;
 
 describe('Transfer Validator Tests', () => {
   beforeEach(async () => {
-    [addr1, addr2] = await ethers.getSigners();
-
-    const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
+    const contractData = await helpers.initializeContract();
     registryContract = contractData.contract;
-    operatorIDs = contractData.operatorIDs;
-    shares = contractData.shares;
+    await helpers.registerOperators(0, 1, '10');
+    await helpers.registerOperators(1, 1, '10');
+    await helpers.registerOperators(2, 1, '10');
+    await helpers.registerOperators(3, 1, '10');
+    await helpers.registerOperators(4, 1, '10');
+    await helpers.registerOperators(5, 1, '10');
+    await helpers.registerOperators(6, 1, '10');
+    await helpers.registerOperators(7, 1, '10');
+
+    await helpers.deposit([4], ['100000']);
+    await helpers.deposit([5], ['100000']);
   });
 
   it('Transfer validator into new pod', async () => {
-    const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    const validatorBeforeTransfer = await trackGas(registryContract.registerValidator(
-      `${validatorPK}0`,
-      operatorIDs.slice(0, 4),
-      shares[0],
-      '10000'
-    ), [ GasGroup.registerValidator ]);
+    const { validators, podId } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
 
-    const transferedValidator = await trackGas(registryContract.transferValidator(
-      `${validatorPK}0`,
-      operatorIDs.slice(4, 8),
-      shares[0],
+    const transferedValidator = await trackGas(registryContract.connect(helpers.DB.owners[4]).transferValidator(
+      validators[0].publicKey,
+      helpers.DataGenerator.pod.new(),
+      helpers.DataGenerator.shares(helpers.DB.validators.length),
       '10000'
-    ));
-    expect(transferedValidator.gasUsed).lessThan(410000);
+    ), [GasGroup.TRANSFER_VALIDATOR_NEW_POD]);
 
-    expect(validatorBeforeTransfer.eventsByName.ValidatorAdded[0].args.podId).not.equals(transferedValidator.eventsByName.ValidatorTransferred[0].args.podId);
+    expect(podId).not.equals(transferedValidator.eventsByName.ValidatorTransferred[0].args.podId);
   });
 
   it('Transfer validator to existed pod', async () => {
-    const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    const validatorOne = await trackGas(registryContract.registerValidator(
-      `${validatorPK}0`,
-      operatorIDs.slice(0, 4),
-      shares[0],
+    const validator1 = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
+    const { podId } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
+    const transfredValidator1 = await trackGas(registryContract.connect(helpers.DB.owners[4]).transferValidator(
+      validator1.validators[0].publicKey,
+      helpers.DataGenerator.pod.byId(podId),
+      helpers.DataGenerator.shares(helpers.DB.validators.length),
       '10000'
-    ));
+    ), [GasGroup.TRANSFER_VALIDATOR_EXISTED_POD]);
 
-    const validatorTwo = await trackGas(registryContract.registerValidator(
-      `${validatorPK}1`,
-      operatorIDs.slice(4, 8),
-      shares[0],
+    expect(podId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.podId);
+  });
+
+  it('Transfer validator to existed cluster', async () => {
+    const validator1 = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
+    const { podId } = await helpers.registerValidators(5, 1, '10000', helpers.DataGenerator.pod.new());
+    const transfredValidator1 = await trackGas(registryContract.connect(helpers.DB.owners[4]).transferValidator(
+      validator1.validators[0].publicKey,
+      helpers.DataGenerator.pod.byId(podId),
+      helpers.DataGenerator.shares(helpers.DB.validators.length),
       '10000'
-    ));
+    ), [GasGroup.TRANSFER_VALIDATOR_EXISTED_CLUSTER]);
 
-    const transferedValidator = await trackGas(registryContract.transferValidator(
-      `${validatorPK}0`,
-      operatorIDs.slice(4, 8),
-      shares[0],
-      '10000'
-    ));
-    expect(transferedValidator.gasUsed).lessThan(270000);
-
-    expect(validatorTwo.eventsByName.ValidatorAdded[0].args.podId).equals(transferedValidator.eventsByName.ValidatorTransferred[0].args.podId);
+    expect(podId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.podId);
   });
 
   it('Fails to transfer validator with no owner', async () => {
-    const validatorPK = '0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100';
-    await trackGas(registryContract.registerValidator(
-      `${validatorPK}0`,
-      operatorIDs.slice(0, 4),
-      shares[0],
-      '10000'
-    ));
-
-    await expect(trackGas(registryContract.connect(addr2).transferValidator(
-      `${validatorPK}0`,
-      operatorIDs.slice(4, 8),
-      shares[0],
+    const validator1 = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
+    const { podId } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
+    await expect(trackGas(registryContract.connect(helpers.DB.owners[5]).transferValidator(
+      validator1.validators[0].publicKey,
+      helpers.DataGenerator.pod.byId(podId),
+      helpers.DataGenerator.shares(helpers.DB.validators.length),
       '10000'
     ))).to.be.revertedWith('ValidatorNotOwned');
   });
