@@ -8,7 +8,7 @@ const numberOfOperators = 1000;
 const operatorFee = 1;
 
 let registryContract: any, operatorIDs: any, shares: any;
-let validatorData: any = [];
+const validatorData: any = [];
 
 describe('Stress Tests', () => {
   // beforeEach(async () => {

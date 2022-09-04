@@ -20,7 +20,7 @@ const MAX_GAS_PER_GROUP: any = {
   [GasGroup.TRANSFER_VALIDATOR_NEW_POD]: 400000,
   [GasGroup.TRANSFER_VALIDATOR_EXISTED_POD]: 260000,
   [GasGroup.TRANSFER_VALIDATOR_EXISTED_CLUSTER]: 290000,
-}
+};
 
 class GasStats {
   max: number | null = null;

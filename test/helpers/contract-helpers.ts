@@ -9,7 +9,7 @@ export const DataGenerator = {
   publicKey: (index: number) => `0x${index.toString(16).padStart(96,'1')}`,
   shares: (index: number) => `0x${index.toString(16).padStart(360,'1')}`,
   pod: {
-    new: (size: number = 4) => {
+    new: (size = 4) => {
       const usedOperatorIds: any = {};
       for (const podId in DB.pods) {
         for (const operatorId of DB.pods[podId].operatorIds) {
@@ -29,14 +29,14 @@ export const DataGenerator = {
         }
       }
       if (result.length < size) {
-        throw new Error("No new pods. Try to register more operators.");
+        throw new Error('No new pods. Try to register more operators.');
       }
 
       return result;
     },
     byId: (id: any) => DB.pods[id].operatorIds
   }
-}
+};
 
 export const initializeContract = async () => {
   DB = {
@@ -45,7 +45,7 @@ export const initializeContract = async () => {
     operators: [],
     pods: [],
     ssvNetwork: {}
-  }
+  };
   // Define accounts
   DB.owners = await ethers.getSigners();
 
@@ -67,15 +67,15 @@ export const registerOperators = async (ownerId: number, numberOfOperators: numb
     const event = eventsByName.OperatorAdded[0];
     DB.operators[event.args.id] = {
       id: event.args.id, ownerId: ownerId, publicKey: DataGenerator.publicKey(i)
-    }
+    };
   }
-}
+};
 
 export const deposit = async (ownerIds: number[], amounts: string[]) => {
   for (let i = 0; i < ownerIds.length; ++i) {
     await DB.ssvNetwork.contract.connect(DB.owners[ownerIds[i]]).deposit(amounts[i]);
   }
-}
+};
 
 
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
