@@ -146,8 +146,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 ++dao.validatorCount;
                 _dao = dao;
             }
-
-            require(!_liquidatable(pod.balance, pod.validatorCount, operatorIds), "account liquidatable");
+            // IMPROPER ERROR SCHEMA ALSO WHY NOT IN  _validateValidatorParams FUNCTION
+            require(!_liquidatable(pod.balance, pod.validatorCount, operatorIds), "account liquidatable"); 
 
             _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = pod;
         }
@@ -201,7 +201,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                     dao = _updateDAOEarnings(dao);
                     _dao = dao;
                 }
-
+                // IMPROPER ERROR SCHEMA 
                 require(!_liquidatable(pod.balance, pod.validatorCount, operatorIds), "account liquidatable");
             }
 
@@ -242,7 +242,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             }
 
             {
-                // // update DAO earnings
+                // update DAO earnings
                 DAO memory dao = _dao;
                 dao = _updateDAOEarnings(dao);
                 --dao.validatorCount;
@@ -255,6 +255,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit ValidatorRemoved(validatorPK, clusterId);
     }
 
+    // WHY NO VALIDATION ON AMOUNT?  WHAT IF NEW POD IS TOO EXPENSIVE AND DOES IMMEDIATE LIQUIDATION OR EVEN SKIPS LIQUIDATION AND GOES TO NEGATIVE
     function bulkTransferValidators(
         bytes[] calldata validatorPK,
         bytes32 fromPodId,
@@ -279,6 +280,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             }
             // Changing to a single event reducing by 15K gas
         }
+
+        // WHY THIS EMIT IS NOT LAST THING OR AT LEAST AFTER VALIDATION
         emit BulkValidatorTransferred(validatorPK, toPodId, shares);
 
         uint64[] memory newOperatorIds = _clusters[toPodId].operatorIds;
@@ -294,7 +297,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         pod.usage.index = _clusterCurrentIndex(toPodId);
         pod.usage.block = uint64(block.number);
         pod.validatorCount += activeValidatorCount;
-
+        // IMPROPER ERROR SCHEMA 
         require(!_liquidatable(pod.balance, pod.validatorCount, newOperatorIds), "account liquidatable");
     }
 
