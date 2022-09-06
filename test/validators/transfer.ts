@@ -5,12 +5,11 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let registryContract: any;
+let ssvNetworkContract: any;
 
 describe('Transfer Validator Tests', () => {
   beforeEach(async () => {
-    const contractData = await helpers.initializeContract();
-    registryContract = contractData.contract;
+    ssvNetworkContract = (await helpers.initializeContract()).contract;
     await helpers.registerOperators(0, 1, '10');
     await helpers.registerOperators(1, 1, '10');
     await helpers.registerOperators(2, 1, '10');
@@ -27,7 +26,7 @@ describe('Transfer Validator Tests', () => {
   it('Transfer validator into new pod', async () => {
     const { validators, podId } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
 
-    const transferedValidator = await trackGas(registryContract.connect(helpers.DB.owners[4]).transferValidator(
+    const transferedValidator = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       validators[0].publicKey,
       helpers.DataGenerator.pod.new(),
       helpers.DataGenerator.shares(helpers.DB.validators.length),
@@ -40,7 +39,7 @@ describe('Transfer Validator Tests', () => {
   it('Transfer validator to existed pod', async () => {
     const validator1 = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
     const { podId } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
-    const transfredValidator1 = await trackGas(registryContract.connect(helpers.DB.owners[4]).transferValidator(
+    const transfredValidator1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       validator1.validators[0].publicKey,
       helpers.DataGenerator.pod.byId(podId),
       helpers.DataGenerator.shares(helpers.DB.validators.length),
@@ -53,7 +52,7 @@ describe('Transfer Validator Tests', () => {
   it('Transfer validator to existed cluster', async () => {
     const validator1 = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
     const { podId } = await helpers.registerValidators(5, 1, '10000', helpers.DataGenerator.pod.new());
-    const transfredValidator1 = await trackGas(registryContract.connect(helpers.DB.owners[4]).transferValidator(
+    const transfredValidator1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       validator1.validators[0].publicKey,
       helpers.DataGenerator.pod.byId(podId),
       helpers.DataGenerator.shares(helpers.DB.validators.length),
@@ -66,7 +65,7 @@ describe('Transfer Validator Tests', () => {
   it('Fails to transfer validator with no owner', async () => {
     const validator1 = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
     const { podId } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
-    await expect(trackGas(registryContract.connect(helpers.DB.owners[5]).transferValidator(
+    await expect(trackGas(ssvNetworkContract.connect(helpers.DB.owners[5]).transferValidator(
       validator1.validators[0].publicKey,
       helpers.DataGenerator.pod.byId(podId),
       helpers.DataGenerator.shares(helpers.DB.validators.length),
