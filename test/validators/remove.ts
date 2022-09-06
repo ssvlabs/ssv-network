@@ -19,13 +19,21 @@ describe('Remove Validator Tests', () => {
     await helpers.deposit([4], ['100000']);
   });
 
-  it('Remove validator', async () => {
+  it('Remove validator emits ValidatorRemoved event', async () => {
+    const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(
+      validators[0].publicKey,
+    )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
+  });
+
+  it('Remove validator track gas', async () => {
     const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
   });
 
   it('Fails to remove validator with no owner', async () => {
     const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
-    await expect(trackGas(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(validators[0].publicKey))).to.be.revertedWith('ValidatorNotOwned');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(validators[0].publicKey)).to.be.revertedWith('ValidatorNotOwned');
   });
 });
