@@ -15,30 +15,39 @@ describe('Register Validator Tests', () => {
     await helpers.registerOperators(2, 1, '10');
     await helpers.registerOperators(3, 1, '10');
 
-    await helpers.deposit([4], ['100000']);
-    await helpers.deposit([5], ['100000']);
+    await helpers.deposit([0], ['100000']);
+    await helpers.deposit([1], ['100000']);
   });
 
-  it('Register validator in empty pod', async () => {
-    await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+  it('Register validator emits ValidatorAdded event', async () => {
+    await expect(ssvNetworkContract.registerValidator(
+      helpers.DataGenerator.publicKey(0),
+      helpers.DataGenerator.pod.new(),
+      helpers.DataGenerator.shares(0),
+      '10000'
+    )).to.emit(ssvNetworkContract, 'ValidatorAdded');
   });
 
-  it('Register two validators in existed pod', async () => {
-    const result = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
-    await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.byId(result.podId), [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]);
+  it('Register one validator in empty pod with gas track', async () => {
+    await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('Register two validators in existed cluster', async () => {
-    const result = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
-    await helpers.registerValidators(5, 1, '10000', helpers.DataGenerator.pod.byId(result.podId), [GasGroup.REGISTER_VALIDATOR_EXISTED_CLUSTER]);
+  it('Register two validators in existed pod with gas track', async () => {
+    const result = await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new());
+    await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.byId(result.podId), [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]);
+  });
+
+  it('Register two validators in existed cluster with gas track', async () => {
+    const result = await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new());
+    await helpers.registerValidators(1, 1, '10000', helpers.DataGenerator.pod.byId(result.podId), [GasGroup.REGISTER_VALIDATOR_EXISTED_CLUSTER]);
   });
 
   it('Fails to register with invalid operator list size', async () => {
-    await expect(trackGas(ssvNetworkContract.registerValidator(
-      helpers.DataGenerator.publicKey(helpers.DB.validators.length),
+    await expect(ssvNetworkContract.registerValidator(
+      helpers.DataGenerator.publicKey(0),
       [1, 2],
-      helpers.DataGenerator.shares(helpers.DB.validators.length),
+      helpers.DataGenerator.shares(0),
       '10000'
-    ))).to.be.revertedWith('OessDataStructureInvalid');
+    )).to.be.revertedWith('OessDataStructureInvalid');
   });
 });
