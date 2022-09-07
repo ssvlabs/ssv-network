@@ -1,8 +1,33 @@
-export class GasStats {
+import { expect } from 'chai';
+
+export enum GasGroup {
+  REGISTER_OPERATOR,
+  REGISTER_VALIDATOR_EXISTED_POD,
+  REGISTER_VALIDATOR_EXISTED_CLUSTER,
+  REGISTER_VALIDATOR_NEW_STATE,
+  REMOVE_VALIDATOR,
+  TRANSFER_VALIDATOR_NEW_POD,
+  TRANSFER_VALIDATOR_EXISTED_POD,
+  TRANSFER_VALIDATOR_EXISTED_CLUSTER,
+}
+
+const MAX_GAS_PER_GROUP: any = {
+  [GasGroup.REGISTER_OPERATOR]: 100000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]: 220000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTED_CLUSTER]: 250000,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 400000,
+  [GasGroup.REMOVE_VALIDATOR]: 120000,
+  [GasGroup.TRANSFER_VALIDATOR_NEW_POD]: 400000,
+  [GasGroup.TRANSFER_VALIDATOR_EXISTED_POD]: 260000,
+  [GasGroup.TRANSFER_VALIDATOR_EXISTED_CLUSTER]: 290000,
+};
+
+class GasStats {
   max: number | null = null;
   min: number | null = null;
-  totalGas: number = 0;
-  txCount: number = 0;
+  totalGas = 0;
+  txCount = 0;
+
 
   addStat(gas: number) {
     this.totalGas += gas;
@@ -19,31 +44,32 @@ export class GasStats {
 
 const gasUsageStats = new Map();
 
-const getOrCreate = (group: string) => {
-  let groupStats = gasUsageStats.get(group);
-
-  if (!groupStats) {
-    groupStats = new GasStats();
-    gasUsageStats.set(group, groupStats);
-  }
-
-  return groupStats;
+for (const group in MAX_GAS_PER_GROUP) {
+  gasUsageStats.set(group, new GasStats());
 }
 
-export const trackGas = async (tx: Promise<any>, group: string, maxGas: number) => {
+export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Promise<any> => {
   const receipt = await (await tx).wait();
 
-  if (receipt.gasUsed > maxGas) {
-    throw new Error(`Gas usage too high. Max: ${maxGas}, Actual: ${receipt.gasUsed}`);
-  }
+  groups && [...new Set(groups)].forEach(group => {
+    const gasUsed = parseInt(receipt.gasUsed);
+    const maxGas = MAX_GAS_PER_GROUP[group];
 
-  const groupStats = getOrCreate(group);
+    expect(gasUsed).to.be.lessThanOrEqual(maxGas);
 
-  groupStats.addStat(parseInt(receipt.gasUsed));
-
-  return receipt;
-}
+    gasUsageStats.get(group.toString()).addStat(gasUsed);
+  });
+  return {
+    ...receipt,
+    gasUsed: +receipt.gasUsed,
+    eventsByName: receipt.events.reduce((aggr: any, item: any) => {
+      aggr[item.event] = aggr[item.event] || [];
+      aggr[item.event].push(item);
+      return aggr;
+    }, {}) };
+};
 
 export const getGasStats = (group: string) => {
   return gasUsageStats.get(group) || new GasStats();
-}
+};
+

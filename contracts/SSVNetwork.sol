@@ -85,9 +85,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         if (fee <= 0) revert FeeTooLow();
 
         lastOperatorId.increment();
-        operatorId = uint64(lastOperatorId.current());
-        _operators[operatorId] = Operator({ owner: msg.sender, snapshot: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee});
-        emit OperatorAdded(operatorId, msg.sender, encryptionPK);
+        id = uint64(lastOperatorId.current());
+        _operators[id] = Operator({ owner: msg.sender, snapshot: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee});
+        emit OperatorAdded(id, msg.sender, encryptionPK);
     }
 
     function removeOperator(uint64 operatorId) external {

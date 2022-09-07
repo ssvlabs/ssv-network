@@ -1,32 +1,33 @@
-const { expect } = require("chai");
+import * as helpers from '../helpers/contract-helpers';
 
-import * as helpers from "../helpers/contract-helpers"
-let registryContract: any, operatorIDs: any, shares: any, owner: any
-const numberOfOperators = 4
-const operatorFee = 4
+import { expect } from 'chai';
 
-describe("Liquidation Threshold Tests", () => {
-    beforeEach(async () => {
-        const contractData = await helpers.initializeContract(numberOfOperators, operatorFee)
-        registryContract = contractData.contract
-        operatorIDs = contractData.operatorIDs
-        shares = contractData.shares
-    })
+const numberOfOperators = 4;
+const operatorFee = 4;
 
-    it("Get liquidation threshold", async () => {
+let ssvNetworkContract: any, operatorIDs: any, shares: any, owner: any;
 
-    })
 
-    it("Change liquidation threshold", async () => {
+describe('Liquidation Threshold Tests', () => {
+  beforeEach(async () => {
+    const contractData = await helpers.initializeContract();
+    ssvNetworkContract = contractData.contract;
+  });
 
-    })
+  it('Get liquidation threshold', async () => {
 
-    it("Change liquidation threshold errors", async () => {
+  });
 
-    })
+  it('Change liquidation threshold', async () => {
 
-    it("Liquidation threshold gas limits", async () => {
+  });
 
-    })
+  it('Change liquidation threshold errors', async () => {
+
+  });
+
+  it('Liquidation threshold gas limits', async () => {
+
+  });
 
 });
