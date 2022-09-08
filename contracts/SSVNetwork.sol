@@ -30,6 +30,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Snapshot snapshot;
     }
 
+    struct OperatorFeeChangeRequest {
+        uint64 fee;
+        uint256 approvalBeginTime;
+        uint256 approvalEndTime;
+    }
+
     struct DAO {
         uint64 validatorCount;
         uint64 withdrawn;
@@ -53,29 +59,43 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         bool active;
     }
 
-
-
     // global vars
     Counters.Counter private lastOperatorId;
     Counters.Counter private lastPodId;
 
     // operator vars
     mapping(uint64 => Operator) private _operators;
+    mapping(uint64 => OperatorFeeChangeRequest) private _operatorFeeChangeRequests;
     mapping(bytes32 => Cluster) private _clusters;
     mapping(bytes32 => Pod) private _pods;
     mapping(address => uint64) _availableBalances;
     mapping(bytes32 => Validator) _validatorPKs;
 
     uint64 private _networkFee;
+    uint256 private _declareOperatorFeePeriod;
+    uint256 private _executeOperatorFeePeriod;
+    uint64 private _operatorMaxFeeIncrease;
+
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
+    uint64 constant MINIMAL_OPERATOR_FEE = 1000;
+
     // uint64 constant NETWORK_FEE_PER_BLOCK = 1;
 
 
     DAO private _dao;
     IERC20 private _token;
 
-    function initialize(IERC20 token_) external initializer override {
+    function initialize(
+        IERC20 token_,
+        uint64 operatorMaxFeeIncrease_,
+        uint256 declareOperatorFeePeriod_,
+        uint256 executeOperatorFeePeriod_
+    ) external override {
         _token = token_;
+        _updateOperatorFeeIncreaseLimit(operatorMaxFeeIncrease_);
+        _updateDeclareOperatorFeePeriod(declareOperatorFeePeriod_);
+        _updateDeclareOperatorFeePeriod(declareOperatorFeePeriod_);
+        _updateExecuteOperatorFeePeriod(executeOperatorFeePeriod_);
     }
 
     function registerOperator(
@@ -104,13 +124,53 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit OperatorRemoved(operatorId);
     }
 
-    function updateOperatorFee(uint64 operatorId, uint64 fee) external {
+    function declareOperatorFee(uint64 operatorId, uint64 operatorFee) external {
         Operator memory operator = _operators[operatorId];
         if (operator.owner != msg.sender) revert CallerNotOwner();
 
-        _operators[operatorId] = _setFee(operator, fee);
+        if (operatorFee < MINIMAL_OPERATOR_FEE) {
+            revert FeeTooLow();
+        }
 
-        emit OperatorFeeSet(operatorId, fee);
+        if (operatorFee > operator.fee * (100 + _operatorMaxFeeIncrease) / 100) {
+            revert FeeExceedsIncreaseLimit();
+        }
+
+        /*
+        if (operatorFee <= operator.fee) {
+            _updateOperatorFeeUnsafe(operatorId, operatorFee);
+        } else {
+        */
+        _operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
+            operatorFee,
+            block.timestamp + _declareOperatorFeePeriod,
+            block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod
+        );
+        emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, operatorFee);
+    }
+
+    function cancelDeclaredOperatorFee(uint64 operatorId) external {
+        Operator memory operator = _operators[operatorId];
+        if (operator.owner != msg.sender) revert CallerNotOwner();
+
+        delete _operatorFeeChangeRequests[operatorId];
+
+        emit DeclaredOperatorFeeCancelation(msg.sender, operatorId);
+    }
+
+    function executeOperatorFee(uint64 operatorId) external {
+        OperatorFeeChangeRequest memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
+
+        if(feeChangeRequest.fee == 0) {
+            revert NoPendingFeeChangeRequest();
+        }
+        if(block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime) {
+            revert ApprovalNotWithinTimeframe();
+        }
+
+        _updateOperatorFeeUnsafe(operatorId, feeChangeRequest.fee);
+
+        delete _operatorFeeChangeRequests[operatorId];
     }
 
     function registerValidator(
@@ -182,7 +242,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             Cluster memory cluster = _clusters[clusterId];
             _updateOperatorsValidatorMove(cluster.operatorIds, operatorIds, 1);
         }
-
 
         {
             bytes32 newClusterId = _getOrCreateCluster(operatorIds);
@@ -298,14 +357,60 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         require(!_liquidatable(pod.balance, pod.validatorCount, newOperatorIds), "account liquidatable");
     }
 
-
     // TODO add external functions below to interface
+
+    // @dev external dao functions
+
+    function getOperatorFeeIncreaseLimit() external view returns (uint64) {
+        return _operatorMaxFeeIncrease;
+    }
+
+    function getExecuteOperatorFeePeriod() external view returns (uint256) {
+        return _executeOperatorFeePeriod;
+    }
+
+    function getDeclaredOperatorFeePeriod() external view returns (uint256) {
+        return _declareOperatorFeePeriod;
+    }
+
+    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external onlyOwner {
+        _updateOperatorFeeIncreaseLimit(newOperatorMaxFeeIncrease);
+    }
+
+    function updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) external onlyOwner {
+        _updateDeclareOperatorFeePeriod(newDeclareOperatorFeePeriod);
+    }
+
+    function updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) external onlyOwner {
+        _updateExecuteOperatorFeePeriod(newExecuteOperatorFeePeriod);
+    }
 
     // @dev external operators functions
 
     function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint64 balance) {
         Snapshot memory s = _getSnapshot(_operators[id], uint64(block.number));
         return (s.block, s.index, s.balance);
+    }
+
+    // @dev internal dao functions
+
+    function _updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) private {
+        _operatorMaxFeeIncrease = newOperatorMaxFeeIncrease;
+
+        emit OperatorFeeIncreaseLimitUpdate(_operatorMaxFeeIncrease);
+
+    }
+
+    function _updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) private {
+        _declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
+
+        emit DeclareOperatorFeePeriodUpdate(newDeclareOperatorFeePeriod);
+    }
+
+    function _updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) private {
+        _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
+
+        emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
     }
 
     // @dev internal operators functions
@@ -365,7 +470,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-
     function _setFee(Operator memory operator, uint64 fee) private returns (Operator memory) {
         operator.snapshot = _getSnapshot(operator, uint64(block.number));
         operator.fee = fee;
@@ -410,8 +514,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Pod memory pod = _pods[keccak256(abi.encodePacked(owner, clusterId))];
         return _ownerPodBalance(pod, _clusterCurrentIndex(clusterId));
     }
-
-
 
     /**
      * @dev Validates the params for a validator.
@@ -491,7 +593,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-
     function _ownerPodBalance(Pod memory pod, uint64 currentPodIndex) private view returns (uint64) {
         return pod.balance - (currentPodIndex - pod.usage.index) * pod.validatorCount;
     }
@@ -504,6 +605,14 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _liquidatable(uint64 balance, uint64 validatorCount, uint64[] memory operatorIds) private view returns (bool) {
         return balance < LIQUIDATION_MIN_BLOCKS * (_burnRatePerValidator(_extractOperators(operatorIds)) + _networkFee) * validatorCount;
+    }
+
+    function _updateOperatorFeeUnsafe(uint64 operatorId, uint64 fee) private {
+        Operator memory operator = _operators[operatorId];
+
+        _operators[operatorId] = _setFee(operator, fee);
+
+        emit OperatorFeeExecution(msg.sender, operatorId, block.number, fee);
     }
 
     /*

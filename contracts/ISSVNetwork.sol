@@ -25,13 +25,6 @@ interface ISSVNetwork {
     event OperatorRemoved(uint64 id);
 
     /**
-     * @dev Emitted when operator changed fee.
-     * @param id operator's ID.
-     * @param fee operator's new fee.
-     */
-    event OperatorFeeSet(uint64 id, uint64 fee);
-
-    /**
      * @dev Emitted when the validator has been added.
      * @param publicKey The public key of a validator.
      * @param podId The pod id the validator been added to.
@@ -74,12 +67,47 @@ interface ISSVNetwork {
      */
     event ValidatorRemoved(bytes publicKey, bytes32 podId);
 
+    event OperatorFeeDeclaration(
+        address indexed ownerAddress,
+        uint64 operatorId,
+        uint256 blockNumber,
+        uint256 fee
+    );
+
+    /**
+     * @dev Emitted when operator changed fee.
+     * @param id operator's ID.
+     * @param fee operator's new fee.
+     */
+    event OperatorFeeSet(uint64 id, uint64 fee);
+
+    event DeclaredOperatorFeeCancelation(address indexed ownerAddress, uint64 operatorId);
+
+    /**
+     * @dev Emitted when an operator's fee is updated.
+     * @param ownerAddress Operator's owner.
+     * @param blockNumber from which block number.
+     * @param fee updated fee value.
+     */
+    event OperatorFeeExecution(
+        address indexed ownerAddress,
+        uint64 operatorId,
+        uint256 blockNumber,
+        uint64 fee
+    );
+
+    event OperatorFeeIncreaseLimitUpdate(uint64 value);
+
+    event DeclareOperatorFeePeriodUpdate(uint256 value);
+
+    event ExecuteOperatorFeePeriodUpdate(uint256 value);
 
     /** errors */
-    error FeeTooLow();
     error CallerNotOwner();
-
-
+    error FeeTooLow();
+    error FeeExceedsIncreaseLimit();
+    error NoPendingFeeChangeRequest();
+    error ApprovalNotWithinTimeframe();
 
 
     error InvalidPublicKeyLength();
@@ -104,8 +132,16 @@ interface ISSVNetwork {
     /**
     * @dev Initializes the contract.
     * @param token_ The network token.
+    * @param operatorMaxFeeIncrease_ The step limit to increase the operator fee
+    * @param declareOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
+    * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
     */
-    function initialize(IERC20 token_) external;
+    function initialize(
+        IERC20 token_,
+        uint64 operatorMaxFeeIncrease_,
+        uint256 declareOperatorFeePeriod_,
+        uint256 executeOperatorFeePeriod_
+    ) external;
 
     /**
      * @dev Registers a new operator.
@@ -122,13 +158,6 @@ interface ISSVNetwork {
      * @param id Operator's id.
      */
     function removeOperator(uint64 id) external;
-
-    /**
-     * @dev Set operator's fee change request by public key.
-     * @param id Operator's id.
-     * @param fee The operator's updated fee.
-     */
-    function updateOperatorFee(uint64 id, uint64 fee) external;
 
     /**
      * @dev Gets the operators current snapshot.
@@ -181,8 +210,17 @@ interface ISSVNetwork {
         bytes[] calldata shares
     ) external;
 
+    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
+    function updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) external;
 
+    function updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) external;
+
+    function getOperatorFeeIncreaseLimit() external view returns (uint64);
+
+    function getExecuteOperatorFeePeriod() external view returns (uint256);
+
+    function getDeclaredOperatorFeePeriod() external view returns (uint256);
 
 
 }
