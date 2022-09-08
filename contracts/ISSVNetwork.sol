@@ -108,7 +108,7 @@ interface ISSVNetwork {
     error FeeExceedsIncreaseLimit();
     error NoPendingFeeChangeRequest();
     error ApprovalNotWithinTimeframe();
-
+    error OperatorWithPublicKeyNotExist();
 
     error InvalidPublicKeyLength();
     error OessDataStructureInvalid();

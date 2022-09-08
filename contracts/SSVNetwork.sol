@@ -98,6 +98,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _updateExecuteOperatorFeePeriod(executeOperatorFeePeriod_);
     }
 
+    modifier onlyOperatorOwnerOrContractOwner(uint64 operatorId) {
+        _onlyOperatorOwnerOrContractOwner(operatorId);
+        _;
+    }
+
     function registerOperator(
         bytes calldata encryptionPK,
         uint64 fee
@@ -124,9 +129,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit OperatorRemoved(operatorId);
     }
 
-    function declareOperatorFee(uint64 operatorId, uint64 operatorFee) external {
+    function declareOperatorFee(uint64 operatorId, uint64 operatorFee) onlyOperatorOwnerOrContractOwner(operatorId) external {
         Operator memory operator = _operators[operatorId];
-        if (operator.owner != msg.sender) revert CallerNotOwner();
 
         if (operatorFee < MINIMAL_OPERATOR_FEE) {
             revert FeeTooLow();
@@ -149,16 +153,15 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, operatorFee);
     }
 
-    function cancelDeclaredOperatorFee(uint64 operatorId) external {
-        Operator memory operator = _operators[operatorId];
-        if (operator.owner != msg.sender) revert CallerNotOwner();
+    function cancelDeclaredOperatorFee(uint64 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external {
 
         delete _operatorFeeChangeRequests[operatorId];
 
         emit DeclaredOperatorFeeCancelation(msg.sender, operatorId);
     }
 
-    function executeOperatorFee(uint64 operatorId) external {
+    function executeOperatorFee(uint64 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external {
+
         OperatorFeeChangeRequest memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
 
         if(feeChangeRequest.fee == 0) {
@@ -613,6 +616,18 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _operators[operatorId] = _setFee(operator, fee);
 
         emit OperatorFeeExecution(msg.sender, operatorId, block.number, fee);
+    }
+
+    function _onlyOperatorOwnerOrContractOwner(uint64 operatorId) private view {
+        Operator memory operator = _operators[operatorId];
+
+        if(operator.owner == address(0)) {
+            revert OperatorWithPublicKeyNotExist();
+        }
+
+        if(msg.sender != operator.owner && msg.sender != owner()) {
+            revert CallerNotOwner();
+        }
     }
 
     /*
