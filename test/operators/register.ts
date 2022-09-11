@@ -14,21 +14,21 @@ describe('Register Operator Tests', () => {
     const publicKey = helpers.DataGenerator.publicKey(0);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       publicKey,
-      '10'
+      helpers.CONFIG.minimalOperatorFee,
     )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey);
   });
 
   it('Fails to register with low fee', async () => {
     await expect(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.publicKey(0),
-      '0'
+      '10'
     )).to.be.revertedWith('FeeTooLow');
   });
 
   it('Register operator gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),
-      '10'
+      helpers.CONFIG.minimalOperatorFee,
     ), [GasGroup.REGISTER_OPERATOR]);
   });
 

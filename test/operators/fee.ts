@@ -8,9 +8,11 @@ let ssvNetworkContract: any;
 describe('Operator Fee Tests', () => {
   beforeEach(async () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
+    await helpers.registerOperators(0, 1, helpers.CONFIG.minimalOperatorFee);
   });
 
   it('Declare fee success', async () => {
+
   });
 
   it('Declare fee success as contract owner', async () => {

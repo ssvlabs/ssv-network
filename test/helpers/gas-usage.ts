@@ -13,15 +13,15 @@ export enum GasGroup {
 }
 
 const MAX_GAS_PER_GROUP: any = {
-  [GasGroup.REGISTER_OPERATOR]: 100000,
-  [GasGroup.REMOVE_OPERATOR]: 40000,
-  [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]: 220000,
-  [GasGroup.REGISTER_VALIDATOR_EXISTED_CLUSTER]: 250000,
+  [GasGroup.REGISTER_OPERATOR]: 110000,
+  [GasGroup.REMOVE_OPERATOR]: 50000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]: 230000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTED_CLUSTER]: 260000,
   [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 400000,
-  [GasGroup.REMOVE_VALIDATOR]: 120000,
-  [GasGroup.TRANSFER_VALIDATOR_NEW_POD]: 400000,
-  [GasGroup.TRANSFER_VALIDATOR_EXISTED_POD]: 260000,
-  [GasGroup.TRANSFER_VALIDATOR_EXISTED_CLUSTER]: 290000,
+  [GasGroup.REMOVE_VALIDATOR]: 130000,
+  [GasGroup.TRANSFER_VALIDATOR_NEW_POD]: 410000,
+  [GasGroup.TRANSFER_VALIDATOR_EXISTED_POD]: 270000,
+  [GasGroup.TRANSFER_VALIDATOR_EXISTED_CLUSTER]: 300000,
 };
 
 class GasStats {
@@ -57,7 +57,7 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Prom
     const gasUsed = parseInt(receipt.gasUsed);
     const maxGas = MAX_GAS_PER_GROUP[group];
 
-    expect(gasUsed).to.be.lessThanOrEqual(maxGas);
+    expect(gasUsed).to.be.lessThanOrEqual(maxGas, 'gasUsed higher than max allowed gas');
 
     gasUsageStats.get(group.toString()).addStat(gasUsed);
   });

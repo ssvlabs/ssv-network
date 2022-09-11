@@ -107,7 +107,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         bytes calldata encryptionPK,
         uint64 fee
     ) external returns (uint64 id) {
-        if (fee <= 0) revert FeeTooLow();
+        if (fee < MINIMAL_OPERATOR_FEE) {
+            revert FeeTooLow();
+        }
 
         lastOperatorId.increment();
         id = uint64(lastOperatorId.current());
@@ -129,14 +131,14 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit OperatorRemoved(operatorId);
     }
 
-    function declareOperatorFee(uint64 operatorId, uint64 operatorFee) onlyOperatorOwnerOrContractOwner(operatorId) external {
+    function declareOperatorFee(uint64 operatorId, uint64 fee) onlyOperatorOwnerOrContractOwner(operatorId) external {
         Operator memory operator = _operators[operatorId];
 
-        if (operatorFee < MINIMAL_OPERATOR_FEE) {
+        if (fee < MINIMAL_OPERATOR_FEE) {
             revert FeeTooLow();
         }
 
-        if (operatorFee > operator.fee * (100 + _operatorMaxFeeIncrease) / 100) {
+        if (fee > operator.fee * (100 + _operatorMaxFeeIncrease) / 100) {
             revert FeeExceedsIncreaseLimit();
         }
 
@@ -146,11 +148,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         } else {
         */
         _operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
-            operatorFee,
+            fee,
             block.timestamp + _declareOperatorFeePeriod,
             block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod
         );
-        emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, operatorFee);
+        emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, fee);
     }
 
     function cancelDeclaredOperatorFee(uint64 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external {

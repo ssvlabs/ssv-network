@@ -1,9 +1,11 @@
 // Imports
 declare const ethers: any;
+declare const upgrades: any;
 
-import { trackGas, getGasStats, GasGroup } from './gas-usage';
+import { trackGas, GasGroup } from './gas-usage';
 
 export let DB: any;
+export let CONFIG: any;
 
 export const DataGenerator = {
   publicKey: (index: number) => `0x${index.toString(16).padStart(96,'1')}`,
@@ -39,20 +41,42 @@ export const DataGenerator = {
 };
 
 export const initializeContract = async () => {
+  CONFIG = {
+    operatorMaxFeeIncrease: 10, // 10%
+    declareOperatorFeePeriod: 0,
+    executeOperatorFeePeriod: 86400, // DAY
+    minimalOperatorFee: 1000,
+    minimalBlocksBeforeLiquidation: 10,
+  };
+
   DB = {
     owners: [],
     validators: [],
     operators: [],
     pods: [],
-    ssvNetwork: {}
+    ssvNetwork: {},
+    ssvToken: {},
   };
+
   // Define accounts
   DB.owners = await ethers.getSigners();
 
   // Initialize contract
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
-  DB.ssvNetwork.contract = await ssvNetwork.deploy();
+  const ssvToken = await ethers.getContractFactory('SSVTokenMock');
+
+  DB.ssvToken = await ssvToken.deploy();
+  await DB.ssvToken.deployed();
+
+  DB.ssvNetwork.contract = await upgrades.deployProxy(ssvNetwork, [
+    DB.ssvToken.address,
+    CONFIG.operatorMaxFeeIncrease,
+    CONFIG.declareOperatorFeePeriod,
+    CONFIG.executeOperatorFeePeriod
+  ]);
+
   await DB.ssvNetwork.contract.deployed();
+
   DB.ssvNetwork.owner = DB.owners[0];
 
   return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner };
@@ -76,7 +100,6 @@ export const deposit = async (ownerIds: number[], amounts: string[]) => {
     await DB.ssvNetwork.contract.connect(DB.owners[ownerIds[i]]).deposit(amounts[i]);
   }
 };
-
 
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
   const validators: any = [];
