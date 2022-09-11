@@ -107,7 +107,7 @@ describe('Transfer Validator Tests', () => {
     )).to.be.revertedWith('ValidatorNotOwned');
   });
 
-  it('Transfer validator to pod with 7 operators', async () => {
+  it('Transfer validator to a pod with 7 operators', async () => {
     // Register validators
     const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
     const { podId } = await helpers.registerValidators(4, 1, '10000', [1, 2, 3, 4, 5, 6, 7]);

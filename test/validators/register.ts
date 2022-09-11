@@ -30,16 +30,16 @@ describe('Register Validator Tests', () => {
         )).to.emit(ssvNetworkContract, 'ValidatorAdded');
     });
 
-    it('Register one validator in empty pod with gas tracking', async () => {
+    it('Register one validator into an empty pod with gas tracking', async () => {
         await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     });
 
-    it('Register two validators in existed pod with gas tracking', async () => {
+    it('Register two validators into an existing pod with gas tracking', async () => {
         const result = await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new());
         await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.byId(result.podId), [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]);
     });
 
-    it('Register two validators in existed cluster with gas tracking', async () => {
+    it('Register two validators into an existing cluster with gas tracking', async () => {
         const result = await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new());
         await helpers.registerValidators(1, 1, '10000', helpers.DataGenerator.pod.byId(result.podId), [GasGroup.REGISTER_VALIDATOR_EXISTED_CLUSTER]);
     });

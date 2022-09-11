@@ -38,7 +38,7 @@ describe('Remove Validator Tests', () => {
         await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
     });
 
-    it('Fails to remove validator with an invalid owner', async () => {
+    it('Fail to remove validator with an invalid owner', async () => {
         // Register validator
         const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.pod.new());
 
