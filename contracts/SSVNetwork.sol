@@ -91,6 +91,25 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint256 declareOperatorFeePeriod_,
         uint256 executeOperatorFeePeriod_
     ) external override {
+        __SSVNetwork_init(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
+    }
+
+    function __SSVNetwork_init(
+        IERC20 token_,
+        uint64 operatorMaxFeeIncrease_,
+        uint256 declareOperatorFeePeriod_,
+        uint256 executeOperatorFeePeriod_
+    ) internal initializer {
+        __Ownable_init_unchained();
+        __SSVNetwork_init_unchained(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
+    }
+
+    function __SSVNetwork_init_unchained(
+        IERC20 token_,
+        uint64 operatorMaxFeeIncrease_,
+        uint256 declareOperatorFeePeriod_,
+        uint256 executeOperatorFeePeriod_
+    ) internal onlyInitializing {
         _token = token_;
         _updateOperatorFeeIncreaseLimit(operatorMaxFeeIncrease_);
         _updateDeclareOperatorFeePeriod(declareOperatorFeePeriod_);
@@ -156,6 +175,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function cancelDeclaredOperatorFee(uint64 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external {
+        OperatorFeeChangeRequest memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
+
+        if(feeChangeRequest.fee == 0) {
+            revert NoPendingFeeChangeRequest();
+        }
 
         delete _operatorFeeChangeRequests[operatorId];
 
@@ -163,12 +187,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function executeOperatorFee(uint64 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external {
-
         OperatorFeeChangeRequest memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
 
         if(feeChangeRequest.fee == 0) {
             revert NoPendingFeeChangeRequest();
         }
+
         if(block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime) {
             revert ApprovalNotWithinTimeframe();
         }
