@@ -97,7 +97,7 @@ describe("Validators", () => {
         let outputUpdate = interfaceUpdate.decodeEventLog('ValidatorTransferred', resultUpdate.data, resultUpdate.topics);
         expect(outputRegister.groupId).not.equal(outputUpdate.groupId);
         expect(outputRegister.validatorPK).to.equal(outputUpdate.validatorPK);
-  
+
         await log({
             action: `update validator #1: ${outputUpdate.validatorPK} : ${outputUpdate.groupId}`,
             operatorIds: [1, 2, 3, 4, 5, 6, 7, 8],
@@ -218,7 +218,7 @@ describe("Validators", () => {
         });
         await progressBlocks(1);
         let results = []
-        for (let i = 0; i < 20; ++i) {
+        for (let i = 0; i < 10; ++i) {
             let resultRegister = (await (await deployedSSVNetworkContract.registerValidator(
                 validatorPK + i % 10,
                 [1,2,3,4],
@@ -274,7 +274,7 @@ describe("Validators", () => {
 
         console.log("register ---->", outputRegister.validatorPK, outputRegister.groupId);
         console.log("operatorIdsAfterRegister ---->", await deployedSSVNetworkContract.test_getOperatorsByGroupId(outputRegister.groupId));
-        
+
         const resultUpdate = (await (await deployedSSVNetworkContract.updateValidator(
           [2,3,4,5],
           validatorPK,
