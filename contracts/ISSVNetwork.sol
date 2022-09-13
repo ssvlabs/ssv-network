@@ -78,7 +78,9 @@ interface ISSVNetwork {
     /** errors */
     error FeeTooLow();
     error CallerNotOwner();
-
+    error OperatorDoesntExist();
+    error NotEnoughDeposited();
+    error ValidatorAlreadyExists();
 
 
 

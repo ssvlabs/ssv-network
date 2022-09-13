@@ -26,7 +26,7 @@ describe('Register Validator Tests', () => {
 
     it('Register validator emits ValidatorAdded event', async () => {
         await expect(ssvNetworkContract.registerValidator(
-            helpers.DataGenerator.publicKey(0),
+            helpers.DataGenerator.publicKey(1),
             helpers.DataGenerator.pod.new(),
             helpers.DataGenerator.shares(0),
             '10000'
@@ -86,7 +86,7 @@ describe('Register Validator Tests', () => {
         await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new(7), [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]);
     });
 
-    // THIS NEEDS VALIDITY
+    // THIS NEEDS VALIDITY (I ADDED IN SOLIDITY CODE)
     it('Non existent operator', async () => {
         await expect(ssvNetworkContract.registerValidator(
             helpers.DataGenerator.publicKey(0),
@@ -96,32 +96,23 @@ describe('Register Validator Tests', () => {
         )).to.be.revertedWith('OperatorDoesntExist');
     });
 
-    // THIS NEEDS VALIDITY
+    // THIS NEEDS VALIDITY (I ADDED IN SOLIDITY CODE)
     it('Register with existing validator', async () => {
-        // Register a validator
-        await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
-            helpers.DataGenerator.publicKey(0),
-            helpers.DataGenerator.pod.new(),
-            helpers.DataGenerator.shares(0),
-            '4000'
-        )
-
-        // Register the same validator again 
         await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
             helpers.DataGenerator.publicKey(0),
-            [1, 2, 3, 25],
+            [1, 2, 3, 4],
             helpers.DataGenerator.shares(0),
             '4000'
-        )).to.be.revertedWith('ValidatorExistsAlready');
+        )).to.be.revertedWith('ValidatorAlreadyExists');
     });
 
-    // THIS NEEDS SOME PROPER ERROR MESSAGE
+    // THIS NEEDS SOME PROPER ERROR MESSAGE (COULDNT GET ERROR MESSAGE TO WORK HERE WHEN I ADDED LOGIC IN SOLIDITY)
     it('Not enough deposited', async () => {
         await expect(ssvNetworkContract.registerValidator(
             helpers.DataGenerator.publicKey(0),
             [1, 2, 3, 4],
             helpers.DataGenerator.shares(0),
-            '100001'
+            '100005'
         )).to.be.revertedWith('NotEnoughDeposited');
     });
 

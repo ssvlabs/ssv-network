@@ -134,6 +134,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
                     Operator memory operator = _operators[operatorIds[i]];
+                    if (!(operator.snapshot.block > 0)) {
+                        revert OperatorDoesntExist();
+                    }
                     operator.snapshot = _getSnapshot(operator, uint64(block.number));
                     ++operator.validatorCount;
                     _operators[operatorIds[i]] = operator;
@@ -152,6 +155,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = pod;
         }
 
+        if (_validatorPKs[keccak256(publicKey)].clusterId > 0) {
+            revert ValidatorAlreadyExists();
+        }
         _validatorPKs[keccak256(publicKey)] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
 
         emit ValidatorAdded(publicKey, clusterId, shares);
