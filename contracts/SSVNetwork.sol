@@ -126,10 +126,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         // Operator[] memory operators;
         bytes32 clusterId = _getOrCreateCluster(operatorIds);
+        bytes32 decodedValidator = keccak256(publicKey);
+        bytes32 decodedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
         {
             Pod memory pod;
             _availableBalances[msg.sender] -= amount;
-            pod = _updatePodData(clusterId, amount, true);
+            pod = _updatePodData(clusterId, amount, decodedPod, true);
 
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
@@ -152,13 +154,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
             require(!_liquidatable(pod.balance, pod.validatorCount, operatorIds), "account liquidatable");
 
-            _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = pod;
+            _pods[decodedPod] = pod;
         }
 
-        if (_validatorPKs[keccak256(publicKey)].clusterId > 0) {
+        if (_validatorPKs[decodedValidator].clusterId > 0) {
             revert ValidatorAlreadyExists();
         }
-        _validatorPKs[keccak256(publicKey)] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
+        _validatorPKs[decodedValidator] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
 
         emit ValidatorAdded(publicKey, clusterId, shares);
     }
@@ -169,15 +171,16 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         bytes calldata shares,
         uint64 amount
     ) external {
-        uint64 currentBlock = uint64(block.number);
-        bytes32 clusterId = _validatorPKs[keccak256(publicKey)].clusterId;
+        bytes32 decodedValidator = keccak256(publicKey);
+        bytes32 clusterId = _validatorPKs[decodedValidator].clusterId;
+        bytes32 decodedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
 
-        if (_validatorPKs[keccak256(publicKey)].owner != msg.sender) {
+        if (_validatorPKs[decodedValidator].owner != msg.sender) {
             revert ValidatorNotOwned();
         }
 
         {
-            _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = _updatePodData(clusterId, 0, false);
+            _pods[decodedPod] = _updatePodData(clusterId, 0, decodedPod, false);
             // if (pod.validatorCount == 0) {
             // _availableBalances[msg.sender] += _ownerPodBalance(pod, podIndex);
             // pod.balance -= _ownerPodBalance(pod, podIndex);
@@ -197,9 +200,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 Pod memory pod;
                 {
                     _availableBalances[msg.sender] -= amount;
+                    bytes32 decodedPodNew = keccak256(abi.encodePacked(msg.sender, newClusterId));
 
-                    _pods[keccak256(abi.encodePacked(msg.sender, newClusterId))] = _updatePodData(newClusterId, amount, true);
-                    _validatorPKs[keccak256(publicKey)].clusterId = newClusterId;
+                    _pods[decodedPodNew] = _updatePodData(newClusterId, amount, decodedPodNew, true);
+                    _validatorPKs[decodedValidator].clusterId = newClusterId;
                 }
 
                 {
@@ -218,14 +222,16 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function removeValidator(
         bytes calldata validatorPK
     ) external {
-        if (_validatorPKs[keccak256(validatorPK)].owner != msg.sender) {
+        bytes32 decodedValidator = keccak256(validatorPK);
+        if (_validatorPKs[decodedValidator].owner != msg.sender) {
             revert ValidatorNotOwned();
         }
 
-        bytes32 clusterId = _validatorPKs[keccak256(validatorPK)].clusterId;
+        bytes32 clusterId = _validatorPKs[decodedValidator].clusterId;
+        bytes32 decodedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
 
         {
-            Pod memory pod = _pods[keccak256(abi.encodePacked(msg.sender, clusterId))];
+            Pod memory pod = _pods[decodedPod];
             Cluster memory cluster = _clusters[clusterId];
             uint64 currentBlock = uint64(block.number);
 
@@ -255,7 +261,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 _dao = dao;
             }
 
-            _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = pod;
+            _pods[decodedPod] = pod;
         }
 
         emit ValidatorRemoved(validatorPK, clusterId);
@@ -271,14 +277,15 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 activeValidatorCount = 0;
 
         for (uint64 index = 0; index < validatorPK.length; ++index) {
-            Validator memory validator = _validatorPKs[keccak256(validatorPK[index])];
+            bytes32 decodedValidator = keccak256(validatorPK[index]);
+            Validator memory validator = _validatorPKs[decodedValidator];
 
             if (validator.owner != msg.sender) {
                 revert ValidatorNotOwned();
             }
 
             validator.clusterId = toPodId;
-            _validatorPKs[keccak256(validatorPK[index])] = validator;
+            _validatorPKs[decodedValidator] = validator;
 
             if (validator.active) {
                 ++activeValidatorCount;
@@ -393,8 +400,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-    function _updatePodData(bytes32 clusterId, uint64 amount, bool increase) private returns (Pod memory) {
-        Pod memory pod = _pods[keccak256(abi.encodePacked(msg.sender, clusterId))];
+    function _updatePodData(bytes32 clusterId, uint64 amount, bytes32 decodedPod, bool increase) private returns (Pod memory) {
+        Pod memory pod = _pods[decodedPod];
         uint64 podIndex = _clusterCurrentIndex(clusterId);
         pod.balance = _ownerPodBalance(pod, podIndex) + amount;
         pod.usage.index = podIndex;
