@@ -11,14 +11,7 @@ describe('Transfer Validator Tests', () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
 
     // Register operators
-    await helpers.registerOperators(0, 1, '10');
-    await helpers.registerOperators(1, 1, '10');
-    await helpers.registerOperators(2, 1, '10');
-    await helpers.registerOperators(3, 1, '10');
-    await helpers.registerOperators(4, 1, '10');
-    await helpers.registerOperators(5, 1, '10');
-    await helpers.registerOperators(6, 1, '10');
-    await helpers.registerOperators(7, 5, '10');
+    await helpers.registerOperators(0, 12, '10');
 
     // Deposit into accounts
     await helpers.deposit([4], ['100000']);
@@ -59,7 +52,7 @@ describe('Transfer Validator Tests', () => {
     expect(podResult2.podId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.podId);
   });
 
-  it('Transfer validator to an existing cluster with gas tracking', async () => {
+  it('Transfer validator to an existing cluster', async () => {
     const transfredValidator1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       podResult1.validators[0].publicKey,
       helpers.DataGenerator.pod.byId(podResult2.podId),

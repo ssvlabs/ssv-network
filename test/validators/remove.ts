@@ -11,10 +11,7 @@ describe('Remove Validator Tests', () => {
         ssvNetworkContract = (await helpers.initializeContract()).contract;
 
         // Register operators
-        await helpers.registerOperators(0, 1, '10');
-        await helpers.registerOperators(1, 1, '10');
-        await helpers.registerOperators(2, 1, '10');
-        await helpers.registerOperators(3, 1, '10');
+        await helpers.registerOperators(0, 4, '10');
 
         // Deposit into accounts
         await helpers.deposit([4], ['100000']);
