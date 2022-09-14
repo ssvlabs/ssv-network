@@ -3,7 +3,7 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, podResult: any;
+let ssvNetworkContract: any, clusterResult: any;
 
 describe('Register Validator Tests', () => {
     beforeEach(async () => {
@@ -18,28 +18,28 @@ describe('Register Validator Tests', () => {
         await helpers.deposit([1], ['100000']);
 
         // Register a validator
-        podResult = await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+        clusterResult = await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     });
 
     it('Register validator emits ValidatorAdded event', async () => {
         await expect(ssvNetworkContract.registerValidator(
             helpers.DataGenerator.publicKey(1),
-            helpers.DataGenerator.pod.new(),
+            helpers.DataGenerator.cluster.new(),
             helpers.DataGenerator.shares(0),
             '10000'
         )).to.emit(ssvNetworkContract, 'ValidatorAdded');
     });
 
-    it('Register one validator into an empty pod', async () => {
-        await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    });
-
-    it('Register two validators into an existing pod', async () => {
-        await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.byId(podResult.podId), [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]);
+    it('Register one validator into an empty cluster', async () => {
+        await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     });
 
     it('Register two validators into an existing cluster', async () => {
-        await helpers.registerValidators(1, 1, '10000', helpers.DataGenerator.pod.byId(podResult.podId), [GasGroup.REGISTER_VALIDATOR_EXISTED_CLUSTER]);
+        await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    });
+
+    it('Register two validators into an existing cluster', async () => {
+        await helpers.registerValidators(1, 1, '10000', helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
     });
 
     it('Invalid operator amount', async () => {
@@ -75,15 +75,9 @@ describe('Register Validator Tests', () => {
             [1, 2, 3, 4],
             helpers.DataGenerator.shares(0),
             '1'
-        )).to.be.revertedWith('account liquidatable');
+        )).to.be.revertedWith('AccountLiquidatable');
     });
 
-    // GAS AMOUNT IS ABOVE EXPECTED
-    it('Register with 7 operators', async () => {
-        await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.pod.new(7), [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]);
-    });
-
-    // THIS NEEDS VALIDITY (I ADDED IN SOLIDITY CODE)
     it('Non existent operator', async () => {
         await expect(ssvNetworkContract.registerValidator(
             helpers.DataGenerator.publicKey(0),
@@ -93,7 +87,6 @@ describe('Register Validator Tests', () => {
         )).to.be.revertedWith('OperatorDoesntExist');
     });
 
-    // THIS NEEDS VALIDITY (I ADDED IN SOLIDITY CODE)
     it('Register with existing validator', async () => {
         await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
             helpers.DataGenerator.publicKey(0),
@@ -103,7 +96,6 @@ describe('Register Validator Tests', () => {
         )).to.be.revertedWith('ValidatorAlreadyExists');
     });
 
-    // THIS NEEDS SOME PROPER ERROR MESSAGE (COULDNT GET ERROR MESSAGE TO WORK HERE WHEN I ADDED LOGIC IN SOLIDITY)
     it('Not enough balance', async () => {
         await expect(ssvNetworkContract.registerValidator(
             helpers.DataGenerator.publicKey(0),
@@ -111,6 +103,11 @@ describe('Register Validator Tests', () => {
             helpers.DataGenerator.shares(0),
             '100005'
         )).to.be.revertedWith('NotEnoughBalance');
+    });
+
+    // GAS AMOUNT IS ABOVE EXPECTED
+    it('Register with 7 operators', async () => {
+        await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.cluster.new(7), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
     });
 
     // MAYBE WE WILL ADD SOME VALIDITY HERE?
