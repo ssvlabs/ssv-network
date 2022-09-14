@@ -94,7 +94,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
       amount,
     ), gasGroups);
 
-    clusterId = eventsByName.ValidatorAdded[0].args.clusterId;
+    clusterId = eventsByName.ValidatorAdded[0].args.podId;
     DB.clusters[clusterId] = ({ id: clusterId, operatorIds });
     DB.validators.push({ publicKey, clusterId, shares });
     validators.push({ publicKey, shares });
