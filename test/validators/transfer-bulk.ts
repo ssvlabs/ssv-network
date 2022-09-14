@@ -83,17 +83,17 @@ describe('Bulk Transfer Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
   });
 
-  // SHOULD GIVE ERROR OF MAYBE INVALID TO cluster INSTEAD OF ACCOUNT LIQUIDATABLE
-  it('Bulk transfer 10 validators to a non owned cluster', async () => {
+  // IMPOSSIBLE TO DO WITHOUT AMOUNT PARAM
+  it('Bulk transfer 10 validators to cluster created by other owner', async () => {
     // Register validator with 7 operators
     const { clusterId } = await helpers.registerValidators(5, 1, '90000', helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterId,
       Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0))
-    )).to.be.revertedWith('InvalidCluster');
+      ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
   });
 
   // SHOULD GIVE ERROR OF MAYBE INVALID FROM cluster
@@ -116,12 +116,12 @@ describe('Bulk Transfer Validator Tests', () => {
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0))
     )).to.be.revertedWith('ValidatorShareMismatch');
 
-    // 9 validators and 10 shares
+    // 9 validators and 8 shares
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       clusterResult2.validators.map((validator: any) => validator.publicKey),
       clusterResult1.clusterId,
       clusterResult3.clusterId,
-      Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0))
+      Array(8).fill(helpers.DataGenerator.shares(0))
     )).to.be.revertedWith('ValidatorShareMismatch');
   });
 
