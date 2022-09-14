@@ -104,13 +104,13 @@ describe('Register Validator Tests', () => {
     });
 
     // THIS NEEDS SOME PROPER ERROR MESSAGE (COULDNT GET ERROR MESSAGE TO WORK HERE WHEN I ADDED LOGIC IN SOLIDITY)
-    it('Not enough deposited', async () => {
+    it('Not enough balance', async () => {
         await expect(ssvNetworkContract.registerValidator(
             helpers.DataGenerator.publicKey(0),
             [1, 2, 3, 4],
             helpers.DataGenerator.shares(0),
             '100005'
-        )).to.be.revertedWith('NotEnoughDeposited');
+        )).to.be.revertedWith('NotEnoughBalance');
     });
 
     // MAYBE WE WILL ADD SOME VALIDITY HERE?

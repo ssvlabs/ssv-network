@@ -93,7 +93,7 @@ describe('Bulk Transfer Validator Tests', () => {
       podResult1.podId,
       podId,
       Array(podResult2.validators.length).fill(helpers.DataGenerator.shares(0))
-    )).to.be.revertedWith('InvalidPod');
+    )).to.be.revertedWith('InvalidCluster');
   });
 
   // SHOULD GIVE ERROR OF MAYBE INVALID FROM POD
@@ -103,7 +103,7 @@ describe('Bulk Transfer Validator Tests', () => {
       podResult1.podId.slice(0, -1) + 'a',
       podResult1.podId,
       Array(podResult2.validators.length).fill(helpers.DataGenerator.shares(0))
-    )).to.be.revertedWith('InvalidPod');
+    )).to.be.revertedWith('InvalidCluster');
   });
 
   // SHOULD GIVE ERROR OF MAYBE VALIDATOR SHARE MISMATCH

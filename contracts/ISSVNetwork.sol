@@ -79,14 +79,13 @@ interface ISSVNetwork {
     error FeeTooLow();
     error CallerNotOwner();
     error OperatorDoesntExist();
-    error NotEnoughDeposited();
+    error NotEnoughBalance();
     error ValidatorAlreadyExists();
-
-
-
+    error AccountLiquidatable();
     error InvalidPublicKeyLength();
     error OessDataStructureInvalid();
     error ValidatorNotOwned();
+    error InvalidCluster();
 
     /** errors */
 //    error validatorWithPublicKeyNotExist();
