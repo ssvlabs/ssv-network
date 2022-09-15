@@ -72,9 +72,9 @@ export const registerOperators = async (ownerId: number, numberOfOperators: numb
 };
 
 export const deposit = async (ownerIds: number[], amounts: string[]) => {
-  for (let i = 0; i < ownerIds.length; ++i) {
-    await DB.ssvNetwork.contract.connect(DB.owners[ownerIds[i]]).deposit(amounts[i]);
-  }
+  // for (let i = 0; i < ownerIds.length; ++i) {
+  //   await DB.ssvNetwork.contract.connect(DB.owners[ownerIds[i]]).deposit(amounts[i]);
+  // }
 };
 
 

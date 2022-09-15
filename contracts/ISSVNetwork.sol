@@ -86,6 +86,8 @@ interface ISSVNetwork {
     error OessDataStructureInvalid();
     error ValidatorNotOwned();
     error InvalidCluster();
+    error ClusterAlreadyExists();
+    error ParametersMismatch();
 
     /** errors */
 //    error validatorWithPublicKeyNotExist();
@@ -179,7 +181,8 @@ interface ISSVNetwork {
         bytes[] calldata validatorPK,
         bytes32 fromPodId,
         bytes32 toPodId,
-        bytes[] calldata shares
+        bytes[] calldata shares,
+        uint64 amount
     ) external;
 
 

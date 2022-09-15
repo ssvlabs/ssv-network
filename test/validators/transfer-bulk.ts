@@ -28,7 +28,8 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
-      Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0))
+      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+      '10000'
     )).to.emit(ssvNetworkContract, 'BulkValidatorTransferred');
   });
 
@@ -38,7 +39,8 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
-      Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0))
+      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+      '10000'
     )).to.be.revertedWith('ValidatorNotOwned');
 
     // Transfer validator with an unowned validator
@@ -47,7 +49,8 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, account5cluster.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
-      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0))
+      Array(clusterResult2.validators.length + 2).fill(helpers.DataGenerator.shares(0)),
+      '10000'
     )).to.be.revertedWith('ValidatorNotOwned');
 
     // Transfer with an invalid public key
@@ -55,7 +58,8 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, helpers.DataGenerator.shares(0), ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
-      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0))
+      Array(clusterResult2.validators.length + 2).fill(helpers.DataGenerator.shares(0)),
+      '10000'
     )).to.be.revertedWith('ValidatorNotOwned');
   });
 
@@ -65,7 +69,8 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
-      Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0))
+      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+      '10000'
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
   });
 
@@ -79,7 +84,8 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterId,
-      Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0))
+      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+      '10000'
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
   });
 
@@ -92,8 +98,9 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterId,
-      Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0))
-    )).to.be.revertedWith('InvalidCluster');
+      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+      '100000'
+    )).to.emit(ssvNetworkContract, 'BulkValidatorTransferred');
   });
 
   // SHOULD GIVE ERROR OF MAYBE INVALID FROM cluster
@@ -102,7 +109,8 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId.slice(0, -1) + 'a',
       clusterResult1.clusterId,
-      Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0))
+      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+      '10000'
     )).to.be.revertedWith('InvalidCluster');
   });
 
@@ -113,16 +121,18 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
-      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0))
-    )).to.be.revertedWith('ValidatorShareMismatch');
+      Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0)),
+      '10000'
+    )).to.be.revertedWith('ParametersMismatch');
 
     // 9 validators and 10 shares
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       clusterResult2.validators.map((validator: any) => validator.publicKey),
       clusterResult1.clusterId,
       clusterResult3.clusterId,
-      Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0))
-    )).to.be.revertedWith('ValidatorShareMismatch');
+      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+      '10000'
+    )).to.be.revertedWith('ParametersMismatch');
   });
 
   // // NEED TO IMPLEMENT AN AMOUNT
