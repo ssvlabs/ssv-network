@@ -42,27 +42,6 @@ describe('Transfer Validator Tests', () => {
     expect(clusterResult1.clusterId).not.equals(transferedValidator.eventsByName.ValidatorTransferred[0].args.clusterId);
   });
 
-  it('Transfer validator to an existing pod', async () => {
-    const transfredValidator1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
-      clusterResult1.validators[0].publicKey,
-      helpers.DataGenerator.cluster.byId(clusterResult2.clusterId),
-      helpers.DataGenerator.shares(helpers.DB.validators.length),
-      '10000'
-    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
-    expect(clusterResult2.clusterId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.clusterId);
-  });
-
-  it('Transfer validator to an existing cluster', async () => {
-    const clusterResult3 = await helpers.registerValidators(5, 1, '10000', helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    const transfredValidator1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
-      clusterResult1.validators[0].publicKey,
-      helpers.DataGenerator.cluster.byId(clusterResult3.clusterId),
-      helpers.DataGenerator.shares(helpers.DB.validators.length),
-      '10000'
-    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
-    expect(clusterResult2.clusterId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.clusterId);
-  });
-
   it('Transfer validator with an invalid owner', async () => {
     // Transfer validator with an invalid owner
     await expect(ssvNetworkContract.connect(helpers.DB.owners[5]).transferValidator(
@@ -92,6 +71,29 @@ describe('Transfer Validator Tests', () => {
       helpers.DataGenerator.shares(helpers.DB.validators.length),
       '10000'
     )).to.emit(ssvNetworkContract, 'ValidatorTransferred');
+  });
+
+  // GOING ABOVE GAS LIMIT
+  it('Transfer validator to an existing pod', async () => {
+    const transfredValidator1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
+      clusterResult1.validators[0].publicKey,
+      helpers.DataGenerator.cluster.byId(clusterResult2.clusterId),
+      helpers.DataGenerator.shares(helpers.DB.validators.length),
+      '10000'
+    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
+    expect(clusterResult2.clusterId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.podId);
+  });
+
+  // GOING ABOVE GAS LIMIT
+  it('Transfer validator to an existing cluster', async () => {
+    const clusterResult3 = await helpers.registerValidators(5, 1, '10000', helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    const transfredValidator1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
+      clusterResult1.validators[0].publicKey,
+      helpers.DataGenerator.cluster.byId(clusterResult3.clusterId),
+      helpers.DataGenerator.shares(helpers.DB.validators.length),
+      '10000'
+    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    expect(clusterResult2.clusterId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.podId);
   });
 
   // THIS NEEDS SOME PROPER ERROR MESSAGE
@@ -127,7 +129,7 @@ describe('Transfer Validator Tests', () => {
       clusterResult1.validators[0].publicKey,
       helpers.DataGenerator.cluster.byId(clusterResult2.clusterId),
       helpers.DataGenerator.shares(helpers.DB.validators.length),
-      '100001'
+      '1000001'
     )).to.be.revertedWith('NotEnoughBalance');
   });
 

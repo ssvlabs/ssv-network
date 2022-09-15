@@ -12,6 +12,7 @@ describe('Bulk Transfer Validator Tests', () => {
 
     // Register operators
     await helpers.registerOperators(0, 12, '10');
+    await helpers.registerOperators(0, 1, '1000000');
 
     // Deposit into accounts
     await helpers.deposit([4], ['1000000']);
@@ -63,7 +64,6 @@ describe('Bulk Transfer Validator Tests', () => {
     )).to.be.revertedWith('ValidatorNotOwned');
   });
 
-  // NEED TO MAKE NEW GAS GROUP FOR BULK TRANSFER
   it('Bulk transfer 10 validators', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
@@ -71,10 +71,9 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterResult3.clusterId,
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
       '10000'
-    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    ), [GasGroup.BULK_TRANSFER_VALIDATOR]);
   });
 
-  // NEED TO MAKE NEW GAS GROUP FOR BULK TRANSFER
   it('Bulk transfer 10 validators to a cluster with 7 operators', async () => {
     // Register validator with 7 operators
     const { clusterId } = await helpers.registerValidators(4, 1, '90000', [1, 2, 3, 4, 5, 6, 7]);
@@ -86,10 +85,9 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterId,
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
       '10000'
-    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    ), [GasGroup.BULK_TRANSFER_VALIDATOR_NON_EXISTING_POD]);
   });
 
-  // IMPOSSIBLE TO DO WITHOUT AMOUNT PARAM
   it('Bulk transfer 10 validators to cluster created by other owner', async () => {
     // Register validator with 7 operators
     const { clusterId } = await helpers.registerValidators(5, 1, '90000', helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
@@ -100,10 +98,9 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterId,
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
       '100000'
-    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    ), [GasGroup.BULK_TRANSFER_VALIDATOR_NON_EXISTING_POD]);
   });
 
-  // SHOULD GIVE ERROR OF MAYBE INVALID FROM cluster
   it('Bulk transfer 10 validators to an invalid cluster', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
@@ -114,7 +111,6 @@ describe('Bulk Transfer Validator Tests', () => {
     )).to.be.revertedWith('InvalidCluster');
   });
 
-  // SHOULD GIVE ERROR OF MAYBE VALIDATOR SHARE MISMATCH
   it('Validator and share length mismatch', async () => {
     // 10 validators and 11 shares
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
@@ -135,13 +131,24 @@ describe('Bulk Transfer Validator Tests', () => {
     )).to.be.revertedWith('ParametersMismatch');
   });
 
-  // // NEED TO IMPLEMENT AN AMOUNT
-  // it('Transfer validator with not enough amount', async () => {
+  it('Bulk transfer validator with not enough amount', async () => {
+    const { clusterId } = await helpers.registerValidators(5, 1, '90000', [10, 11, 12, 13], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
+      [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
+      clusterResult1.clusterId,
+      clusterId,
+      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+      '1'
+    )).to.be.revertedWith('AccountLiquidatable');
+  });
 
-  // });
-
-  // // NEED TO IMPLEMENT AN AMOUNT
-  // it('Transfer validator with not enough balance', async () => {
-
-  // });
+  it('Bulk transfer validator with not enough balance', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
+      [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
+      clusterResult1.clusterId,
+      clusterResult3.clusterId,
+      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+      '10000000'
+    )).to.be.revertedWith('NotEnoughDeposited');
+  });
 });
