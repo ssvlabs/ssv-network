@@ -93,11 +93,13 @@ describe('Operator Fee Tests', () => {
   });
 
   it('DAO: update fee increase limit success emits OperatorFeeIncreaseLimitUpdate event', async () => {
-
+    await expect(ssvNetworkContract.updateOperatorFeeIncreaseLimit(1000))
+      .to.emit(ssvNetworkContract, 'OperatorFeeIncreaseLimitUpdate');
   });
 
   it('DAO: update fee increase limit fails no owner', async () => {
-
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).updateOperatorFeeIncreaseLimit(1000))
+      .to.be.revertedWith('caller is not the owner');
   });
 
   it('DAO: update declare fee period success emits DeclareOperatorFeePeriodUpdate event', async () => {
