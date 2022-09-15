@@ -30,7 +30,7 @@ describe('Remove Operator Tests', () => {
     await helpers.deposit([2], ['100000']);
 
     // Register 5 validators
-    await helpers.registerValidators(2, 5, '10000', [1,2,3,4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await helpers.registerValidators(2, 5, '10000', [1, 2, 3, 4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
     // Remove all the operators
     for (let i = 1; i < 5; i++) await trackGas(ssvNetworkContract.removeOperator(i), [GasGroup.REMOVE_OPERATOR]);
@@ -38,6 +38,17 @@ describe('Remove Operator Tests', () => {
 
   it('Remove operator invalid owner', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1)).to.be.revertedWith('CallerNotOwner');
+  });
+
+  it('Add and delete already removed operator', async () => {
+    // Remove operator
+    await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR]);
+
+    // Add same operator
+    await trackGas(ssvNetworkContract.registerOperator(helpers.DataGenerator.publicKey(0), '10'), [GasGroup.REGISTER_OPERATOR]);
+
+    // Remove operator again
+    await trackGas(ssvNetworkContract.removeOperator(2), [GasGroup.REMOVE_OPERATOR]);
   });
 
   // THIS SHOULD HAVE A MORE CLEAR ERROR MESSAGE
