@@ -12,16 +12,16 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Declare fee success emits OperatorFeeDeclaration event', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee + helpers.CONFIG.minimalOperatorFee / 10))
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10))
       .to.emit(ssvNetworkContract, 'OperatorFeeDeclaration');
   });
 
   it('Declare fee success as contract owner', async () => {
-    await ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee + helpers.CONFIG.minimalOperatorFee / 10);
+    await ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10);
   });
 
   it('Declare fee fails no owner', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee + helpers.CONFIG.minimalOperatorFee / 10))
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10 ))
       .to.be.revertedWith('CallerNotOwner');
   });
 
@@ -31,7 +31,7 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Declare fee fails fee exceeds increase limit', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee * 2))
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 5))
       .to.be.revertedWith('FeeExceedsIncreaseLimit');
   });
 

@@ -15,7 +15,7 @@ describe('Register Operator Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       publicKey,
       helpers.CONFIG.minimalOperatorFee,
-    )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey);
+    )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey, helpers.CONFIG.minimalOperatorFee);
   });
 
   it('Fails to register with low fee', async () => {

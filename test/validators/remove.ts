@@ -17,7 +17,7 @@ describe('Remove Validator Tests', () => {
     await helpers.registerOperators(2, 1, helpers.CONFIG.minimalOperatorFee);
     await helpers.registerOperators(3, 1, helpers.CONFIG.minimalOperatorFee);
 
-    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * helpers.CONFIG.minimalOperatorFee * 4;
+    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4;
 
     await helpers.deposit([4], [minDepositAmount]);
   });

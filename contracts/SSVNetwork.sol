@@ -7,9 +7,13 @@ import "./ISSVNetwork.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "./utils/Types.sol";
+
 import "hardhat/console.sol";
 
 contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
+    using Types256 for uint256;
+    using Types64 for uint64;
 
     using Counters for Counters.Counter;
 
@@ -77,7 +81,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     uint64 private _operatorMaxFeeIncrease;
 
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
-    uint64 constant MINIMAL_OPERATOR_FEE = 1000;
+    uint64 constant MINIMAL_OPERATOR_FEE = 100000000;
 
     // uint64 constant NETWORK_FEE_PER_BLOCK = 1;
 
@@ -113,7 +117,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _token = token_;
         _updateOperatorFeeIncreaseLimit(operatorMaxFeeIncrease_);
         _updateDeclareOperatorFeePeriod(declareOperatorFeePeriod_);
-        _updateDeclareOperatorFeePeriod(declareOperatorFeePeriod_);
         _updateExecuteOperatorFeePeriod(executeOperatorFeePeriod_);
     }
 
@@ -124,7 +127,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function registerOperator(
         bytes calldata encryptionPK,
-        uint64 fee
+        uint256 fee
     ) external returns (uint64 id) {
         if (fee < MINIMAL_OPERATOR_FEE) {
             revert FeeTooLow();
@@ -132,8 +135,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         lastOperatorId.increment();
         id = uint64(lastOperatorId.current());
-        _operators[id] = Operator({ owner: msg.sender, snapshot: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee});
-        emit OperatorAdded(id, msg.sender, encryptionPK);
+        _operators[id] = Operator({ owner: msg.sender, snapshot: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee.shrink()});
+        emit OperatorAdded(id, msg.sender, encryptionPK, fee.shrink().expand());
     }
 
     function removeOperator(uint64 operatorId) external {
@@ -150,14 +153,14 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit OperatorRemoved(operatorId);
     }
 
-    function declareOperatorFee(uint64 operatorId, uint64 fee) onlyOperatorOwnerOrContractOwner(operatorId) external {
+    function declareOperatorFee(uint64 operatorId, uint256 fee) onlyOperatorOwnerOrContractOwner(operatorId) external {
         Operator memory operator = _operators[operatorId];
 
         if (fee < MINIMAL_OPERATOR_FEE) {
             revert FeeTooLow();
         }
 
-        if (fee > operator.fee * (100 + _operatorMaxFeeIncrease) / 100) {
+        if (fee.shrink() > operator.fee * (10000 + _operatorMaxFeeIncrease) / 10000) {
             revert FeeExceedsIncreaseLimit();
         }
 
@@ -167,11 +170,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         } else {
         */
         _operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
-            fee,
+            fee.shrink(),
             block.timestamp + _declareOperatorFeePeriod,
             block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod
         );
-        emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, fee);
+        emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, fee.shrink().expand());
     }
 
     function cancelDeclaredOperatorFee(uint64 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external {
@@ -641,7 +644,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _operators[operatorId] = _setFee(operator, fee);
 
-        emit OperatorFeeExecution(msg.sender, operatorId, block.number, fee);
+        emit OperatorFeeExecution(msg.sender, operatorId, block.number, fee.expand());
     }
 
     function _onlyOperatorOwnerOrContractOwner(uint64 operatorId) private view {

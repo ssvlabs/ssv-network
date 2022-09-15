@@ -20,7 +20,7 @@ describe('Transfer Validator Tests', () => {
     await helpers.registerOperators(6, 1, helpers.CONFIG.minimalOperatorFee);
     await helpers.registerOperators(7, 1, helpers.CONFIG.minimalOperatorFee);
 
-    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * helpers.CONFIG.minimalOperatorFee * 4;
+    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4;
 
     await helpers.deposit([4], [`${minDepositAmount*3}`]);
     await helpers.deposit([5], [minDepositAmount]);

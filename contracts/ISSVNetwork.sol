@@ -11,11 +11,13 @@ interface ISSVNetwork {
     * @param id operator's ID.
     * @param owner Operator's ethereum address that can collect fees.
     * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
+    * @param fee Operator's fee.
     */
     event OperatorAdded(
         uint64 id,
         address indexed owner,
-        bytes publicKey
+        bytes publicKey,
+        uint256 fee
     );
 
     /**
@@ -93,7 +95,7 @@ interface ISSVNetwork {
         address indexed ownerAddress,
         uint64 operatorId,
         uint256 blockNumber,
-        uint64 fee
+        uint256 fee
     );
 
     event OperatorFeeIncreaseLimitUpdate(uint64 value);
@@ -150,7 +152,7 @@ interface ISSVNetwork {
      */
     function registerOperator(
         bytes calldata publicKey,
-        uint64 fee
+        uint256 fee
     ) external returns (uint64);
 
     /**

@@ -42,11 +42,11 @@ export const DataGenerator = {
 
 export const initializeContract = async () => {
   CONFIG = {
-    operatorMaxFeeIncrease: 10, // 10%
+    operatorMaxFeeIncrease: 1000,
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY
-    minimalOperatorFee: 1000,
-    minimalBlocksBeforeLiquidation: 10,
+    minimalOperatorFee: 100000000,
+    minimalBlocksBeforeLiquidation: 50,
   };
 
   DB = {
