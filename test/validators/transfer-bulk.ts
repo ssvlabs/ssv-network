@@ -132,7 +132,7 @@ describe('Bulk Transfer Validator Tests', () => {
   });
 
   it('Bulk transfer validator with not enough amount', async () => {
-    const { clusterId } = await helpers.registerValidators(5, 1, '90000', [10, 11, 12, 13], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    const { clusterId } = await helpers.registerValidators(5, 1, '90000', [9, 10, 11, 12], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
@@ -142,13 +142,13 @@ describe('Bulk Transfer Validator Tests', () => {
     )).to.be.revertedWith('AccountLiquidatable');
   });
 
-  it('Bulk transfer validator with not enough balance', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
-      [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
-      clusterResult1.clusterId,
-      clusterResult3.clusterId,
-      Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
-      '10000000'
-    )).to.be.revertedWith('NotEnoughDeposited');
-  });
+  // it('Bulk transfer validator with not enough balance', async () => {
+  //   await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
+  //     [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
+  //     clusterResult1.clusterId,
+  //     clusterResult3.clusterId,
+  //     Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
+  //     '10000000'
+  //   )).to.be.revertedWith('NotEnoughDeposited');
+  // });
 });

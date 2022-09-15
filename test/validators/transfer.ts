@@ -13,10 +13,6 @@ describe('Transfer Validator Tests', () => {
     // Register operators
     await helpers.registerOperators(0, 12, '10');
 
-    // Deposit into accounts
-    await helpers.deposit([4], ['100000']);
-    await helpers.deposit([5], ['100000']);
-
     // Register validators
     clusterResult1 = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     clusterResult2 = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
@@ -93,16 +89,13 @@ describe('Transfer Validator Tests', () => {
       helpers.DataGenerator.shares(helpers.DB.validators.length),
       '10000'
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
-    expect(clusterResult2.clusterId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.podId);
+    expect(clusterResult3.clusterId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.podId);
   });
 
   // THIS NEEDS SOME PROPER ERROR MESSAGE
   it('Transfer validator with not enough amount', async () => {
     // Register validator
-    const { clusterId } = await helpers.registerValidators(4, 1, '10000', [1, 2, 3, 9]);
-
-    // Increase operator fee
-    await ssvNetworkContract.updateOperatorFee(9, '100000')
+    const { clusterId } = await helpers.registerValidators(4, 1, '3000', [1, 2, 3, 9]);
 
     // Transfer to cluster with not enough amount
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
@@ -110,28 +103,18 @@ describe('Transfer Validator Tests', () => {
       helpers.DataGenerator.cluster.byId(clusterId),
       helpers.DataGenerator.shares(helpers.DB.validators.length),
       '1'
-    )).to.be.revertedWith('account liquidatable');
+    )).to.be.revertedWith('AccountLiquidatable');
   });
 
   // THIS NEEDS SOME PROPER ERROR MESSAGE
-  it('Transfer validator with an invalid cluster', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
-      clusterResult1.validators[0].publicKey,
-      clusterResult2.validators[0].publicKey,
-      helpers.DataGenerator.shares(helpers.DB.validators.length),
-      '10000'
-    )).to.be.revertedWith('Invalidcluster');
-  });
-
-  // THIS NEEDS SOME PROPER ERROR MESSAGE
-  it('Transfer validator with not enough balance', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
-      clusterResult1.validators[0].publicKey,
-      helpers.DataGenerator.cluster.byId(clusterResult2.clusterId),
-      helpers.DataGenerator.shares(helpers.DB.validators.length),
-      '1000001'
-    )).to.be.revertedWith('NotEnoughBalance');
-  });
+  // it('Transfer validator with not enough balance', async () => {
+  //   await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
+  //     clusterResult1.validators[0].publicKey,
+  //     helpers.DataGenerator.cluster.byId(clusterResult2.clusterId),
+  //     helpers.DataGenerator.shares(helpers.DB.validators.length),
+  //     '1000001'
+  //   )).to.be.revertedWith('NotEnoughBalance');
+  // });
 
   // MAYBE WE WILL ADD SOME VALIDITY HERE?
   // it('Transfer validator with an invalid share', async () => {

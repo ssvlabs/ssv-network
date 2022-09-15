@@ -88,6 +88,7 @@ interface ISSVNetwork {
     error InvalidCluster();
     error ClusterAlreadyExists();
     error ParametersMismatch();
+    error NegativeBalance();
 
     /** errors */
 //    error validatorWithPublicKeyNotExist();
@@ -101,7 +102,6 @@ interface ISSVNetwork {
 //    error notEnoughBalance();
 //    error burnRatePositive();
 //    error accountAlreadyEnabled();
-//    error negativeBalance();
 
 
     /**
