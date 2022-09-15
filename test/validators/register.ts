@@ -96,6 +96,11 @@ describe('Register Validator Tests', () => {
         )).to.be.revertedWith('ValidatorAlreadyExists');
     });
 
+    // ABOVE GAS LIMIT
+    it('Register with 7 operators', async () => {
+        await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.cluster.new(7), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    });
+
     // TODO: fix after connecting the token
     it('Not enough balance', async () => {
         // await expect(ssvNetworkContract.registerValidator(
@@ -105,21 +110,6 @@ describe('Register Validator Tests', () => {
         //     '100005'
         // )).to.be.revertedWith('NotEnoughBalance');
     });
-
-    // GAS AMOUNT IS ABOVE EXPECTED
-    it('Register with 7 operators', async () => {
-        await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.cluster.new(7), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
-    });
-
-    // MAYBE WE WILL ADD SOME VALIDITY HERE?
-    // it('Invalid share', async () => {
-    //     await expect(ssvNetworkContract.registerValidator(
-    //         helpers.DataGenerator.publicKey(0),
-    //         [1, 2, 3, 4],
-    //         helpers.DataGenerator.publicKey(0),
-    //         '10000'
-    //     )).to.be.revertedWith('InvalidShareLength');
-    // });
 });
 
 

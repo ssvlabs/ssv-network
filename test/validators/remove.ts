@@ -59,17 +59,15 @@ describe('Remove Validator Tests', () => {
     });
 
     // UPDATE ONCE LIQUIDATE FUNCTION IS IMPLEMENTED
-    // it('Remove validator from a liquidated cluster', async () => {
-    //     // Register validator
-    //     const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.cluster.new());
-
-    //     // Liquidate cluster
-    //     // Progress blocks to liquidatable state
-    //     // Liquidate cluster
-
-    //     // Remove validator
-    //     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(
-    //         validators[0].publicKey,
-    //     )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
-    // });
+    it('Remove validator from a liquidated cluster', async () => {
+        // // Register validator
+        // const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.cluster.new());
+        // // Liquidate cluster
+        // // Progress blocks to liquidatable state
+        // // Liquidate cluster
+        // // Remove validator
+        // await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(
+        //     validators[0].publicKey,
+        // )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
+    });
 });
