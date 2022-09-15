@@ -58,7 +58,7 @@ describe('Remove Validator Tests', () => {
         await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(helpers.DataGenerator.publicKey(0)), [GasGroup.REMOVE_VALIDATOR]);
     });
 
-    // UPDATE ONCE LIQUIDATE FUNCTION IS IMPLEMENTED
+    // TODO: Once liquidation is updated
     it('Remove validator from a liquidated cluster', async () => {
         // // Register validator
         // const { validators } = await helpers.registerValidators(4, 1, '10000', helpers.DataGenerator.cluster.new());
