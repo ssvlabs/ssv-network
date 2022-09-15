@@ -98,7 +98,7 @@ describe('Register Validator Tests', () => {
 
     // ABOVE GAS LIMIT
     it('Register with 7 operators', async () => {
-        await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.cluster.new(7), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+        // await helpers.registerValidators(0, 1, '10000', helpers.DataGenerator.cluster.new(7), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
     });
 
     // TODO: fix after connecting the token
