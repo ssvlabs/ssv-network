@@ -103,30 +103,34 @@ describe('Operator Fee Tests', () => {
   });
 
   it('DAO: update declare fee period success emits DeclareOperatorFeePeriodUpdate event', async () => {
-
+    await expect(ssvNetworkContract.updateDeclareOperatorFeePeriod(1200))
+      .to.emit(ssvNetworkContract, 'DeclareOperatorFeePeriodUpdate');
   });
 
   it('DAO: update declare fee period fails no owner', async () => {
-
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).updateDeclareOperatorFeePeriod(1200))
+      .to.be.revertedWith('caller is not the owner');
   });
 
   it('DAO: update execute fee period success emits ExecuteOperatorFeePeriodUpdate event', async () => {
-
+    await expect(ssvNetworkContract.updateExecuteOperatorFeePeriod(1200))
+      .to.emit(ssvNetworkContract, 'ExecuteOperatorFeePeriodUpdate');
   });
 
   it('DAO: update execute fee period fails no owner', async () => {
-
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).updateExecuteOperatorFeePeriod(1200))
+      .to.be.revertedWith('caller is not the owner');
   });
 
   it('DAO: get fee increase limit equal init value', async () => {
-
+    expect(await ssvNetworkContract.getOperatorFeeIncreaseLimit()).to.equal(helpers.CONFIG.operatorMaxFeeIncrease);
   });
 
   it('DAO: get execute fee period equal init value', async () => {
-
+    expect(await ssvNetworkContract.getExecuteOperatorFeePeriod()).to.equal(helpers.CONFIG.executeOperatorFeePeriod);
   });
 
   it('DAO: get declared fee period equal init value', async () => {
-
+    expect(await ssvNetworkContract.getDeclaredOperatorFeePeriod()).to.equal(helpers.CONFIG.declareOperatorFeePeriod);
   });
 });
