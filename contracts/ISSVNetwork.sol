@@ -78,13 +78,17 @@ interface ISSVNetwork {
     /** errors */
     error FeeTooLow();
     error CallerNotOwner();
-
-
-
-
+    error OperatorDoesNotExist();
+    error NotEnoughBalance();
+    error ValidatorAlreadyExists();
+    error AccountLiquidatable();
     error InvalidPublicKeyLength();
     error OessDataStructureInvalid();
     error ValidatorNotOwned();
+    error InvalidCluster();
+    error ClusterAlreadyExists();
+    error ParametersMismatch();
+    error NegativeBalance();
 
     /** errors */
 //    error validatorWithPublicKeyNotExist();
@@ -98,7 +102,6 @@ interface ISSVNetwork {
 //    error notEnoughBalance();
 //    error burnRatePositive();
 //    error accountAlreadyEnabled();
-//    error negativeBalance();
 
 
     /**
@@ -178,7 +181,8 @@ interface ISSVNetwork {
         bytes[] calldata validatorPK,
         bytes32 fromPodId,
         bytes32 toPodId,
-        bytes[] calldata shares
+        bytes[] calldata shares,
+        uint64 amount
     ) external;
 
 
