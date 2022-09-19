@@ -3,25 +3,29 @@ import { expect } from 'chai';
 export enum GasGroup {
   REGISTER_OPERATOR,
   REMOVE_OPERATOR,
-  REGISTER_VALIDATOR_EXISTED_POD,
-  REGISTER_VALIDATOR_EXISTED_CLUSTER,
+  REGISTER_VALIDATOR_EXISTING_POD,
+  REGISTER_VALIDATOR_EXISTING_CLUSTER,
   REGISTER_VALIDATOR_NEW_STATE,
   REMOVE_VALIDATOR,
-  TRANSFER_VALIDATOR_NEW_POD,
-  TRANSFER_VALIDATOR_EXISTED_POD,
-  TRANSFER_VALIDATOR_EXISTED_CLUSTER,
+  TRANSFER_VALIDATOR_NEW_CLUSTER,
+  TRANSFER_VALIDATOR,
+  TRANSFER_VALIDATOR_NON_EXISTING_POD,
+  BULK_TRANSFER_VALIDATOR,
+  BULK_TRANSFER_VALIDATOR_NON_EXISTING_POD,
 }
 
 const MAX_GAS_PER_GROUP: any = {
   [GasGroup.REGISTER_OPERATOR]: 110000,
   [GasGroup.REMOVE_OPERATOR]: 50000,
-  [GasGroup.REGISTER_VALIDATOR_EXISTED_POD]: 230000,
-  [GasGroup.REGISTER_VALIDATOR_EXISTED_CLUSTER]: 260000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]: 230000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]: 260000,
   [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 410000,
   [GasGroup.REMOVE_VALIDATOR]: 130000,
-  [GasGroup.TRANSFER_VALIDATOR_NEW_POD]: 420000,
-  [GasGroup.TRANSFER_VALIDATOR_EXISTED_POD]: 270000,
-  [GasGroup.TRANSFER_VALIDATOR_EXISTED_CLUSTER]: 310000,
+  [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]: 420000,
+  [GasGroup.TRANSFER_VALIDATOR]: 260000,
+  [GasGroup.TRANSFER_VALIDATOR_NON_EXISTING_POD]: 290000,
+  [GasGroup.BULK_TRANSFER_VALIDATOR]: 344000,
+  [GasGroup.BULK_TRANSFER_VALIDATOR_NON_EXISTING_POD]: 344000,
 };
 
 class GasStats {
@@ -55,9 +59,11 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Prom
 
   groups && [...new Set(groups)].forEach(group => {
     const gasUsed = parseInt(receipt.gasUsed);
-    const maxGas = MAX_GAS_PER_GROUP[group];
 
-    expect(gasUsed).to.be.lessThanOrEqual(maxGas, 'gasUsed higher than max allowed gas');
+    if (!process.env.NO_GAS_ENFORCE) {
+      const maxGas = MAX_GAS_PER_GROUP[group];
+      expect(gasUsed).to.be.lessThanOrEqual(maxGas, 'gasUsed higher than max allowed gas');
+    }
 
     gasUsageStats.get(group.toString()).addStat(gasUsed);
   });

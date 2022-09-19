@@ -60,13 +60,13 @@ describe("Validators", () => {
         // await deployedSSVNetworkContract.createGroup([1,2,3,4]);
         // await deployedSSVNetworkContract.createGroup([1,2,3,4]);
 
-        await deployedSSVNetworkContract.deposit("100000000000");
-        await log({
-            action: 'deposit',
-            operatorIds: [1, 2, 3, 4]
-        });
+        // await deployedSSVNetworkContract.deposit("100000000000");
+        // await log({
+        //     action: 'deposit',
+        //     operatorIds: [1, 2, 3, 4]
+        // });
         // validator 1
-        await progressBlocks(97);
+        await progressBlocks(98);
         let resultRegister = (await (await deployedSSVNetworkContract.registerValidator(
             validatorPK + "f",
             [1,2,3,4],
@@ -238,8 +238,8 @@ describe("Validators", () => {
             results.map(r => r.validatorPK),
             outputRegister.groupId,
             outputRegister3.groupId,
-            results.map(r => sharePKs[4])
-
+            results.map(r => sharePKs[4]),
+            '10000'
         )).wait()).logs;
 
         // await log({
