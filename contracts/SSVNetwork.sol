@@ -36,8 +36,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     struct OperatorFeeChangeRequest {
         uint64 fee;
-        uint256 approvalBeginTime;
-        uint256 approvalEndTime;
+        uint64 approvalBeginTime;
+        uint64 approvalEndTime;
     }
 
     struct DAO {
@@ -74,8 +74,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     mapping(bytes32 => Validator) _validatorPKs;
 
     uint64 private _networkFee;
-    uint256 private _declareOperatorFeePeriod;
-    uint256 private _executeOperatorFeePeriod;
+    uint64 private _declareOperatorFeePeriod;
+    uint64 private _executeOperatorFeePeriod;
     uint64 private _operatorMaxFeeIncrease;
 
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
@@ -90,8 +90,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function initialize(
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
-        uint256 declareOperatorFeePeriod_,
-        uint256 executeOperatorFeePeriod_
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_
     ) external override {
         __SSVNetwork_init(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
     }
@@ -99,8 +99,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function __SSVNetwork_init(
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
-        uint256 declareOperatorFeePeriod_,
-        uint256 executeOperatorFeePeriod_
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_
     ) internal initializer {
         __Ownable_init_unchained();
         __SSVNetwork_init_unchained(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
@@ -109,8 +109,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function __SSVNetwork_init_unchained(
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
-        uint256 declareOperatorFeePeriod_,
-        uint256 executeOperatorFeePeriod_
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_
     ) internal onlyInitializing {
         _token = token_;
         _updateOperatorFeeIncreaseLimit(operatorMaxFeeIncrease_);
@@ -169,8 +169,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         */
         _operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
             fee.shrink(),
-            block.timestamp + _declareOperatorFeePeriod,
-            block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod
+            uint64(block.timestamp) + _declareOperatorFeePeriod,
+            uint64(block.timestamp) + _declareOperatorFeePeriod + _executeOperatorFeePeriod
         );
         emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, fee.shrinkable());
     }
@@ -464,11 +464,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _operatorMaxFeeIncrease;
     }
 
-    function getExecuteOperatorFeePeriod() external view returns (uint256) {
+    function getExecuteOperatorFeePeriod() external view returns (uint64) {
         return _executeOperatorFeePeriod;
     }
 
-    function getDeclaredOperatorFeePeriod() external view returns (uint256) {
+    function getDeclaredOperatorFeePeriod() external view returns (uint64) {
         return _declareOperatorFeePeriod;
     }
 
@@ -476,11 +476,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _updateOperatorFeeIncreaseLimit(newOperatorMaxFeeIncrease);
     }
 
-    function updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) external onlyOwner {
+    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external onlyOwner {
         _updateDeclareOperatorFeePeriod(newDeclareOperatorFeePeriod);
     }
 
-    function updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) external onlyOwner {
+    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external onlyOwner {
         _updateExecuteOperatorFeePeriod(newExecuteOperatorFeePeriod);
     }
 
@@ -500,13 +500,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     }
 
-    function _updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) private {
+    function _updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) private {
         _declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
 
         emit DeclareOperatorFeePeriodUpdate(newDeclareOperatorFeePeriod);
     }
 
-    function _updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) private {
+    function _updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) private {
         _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
 
         emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);

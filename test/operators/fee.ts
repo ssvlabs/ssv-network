@@ -87,7 +87,6 @@ describe('Operator Fee Tests', () => {
 
   it('Execute declared fee fails not within timeframe', async () => {
     await trackGas(ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10), [GasGroup.REGISTER_OPERATOR]);
-
     await expect(ssvNetworkContract.executeOperatorFee(1))
       .to.be.revertedWith('ApprovalNotWithinTimeframe');
   });

@@ -149,8 +149,8 @@ interface ISSVNetwork {
     function initialize(
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
-        uint256 declareOperatorFeePeriod_,
-        uint256 executeOperatorFeePeriod_
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_
     ) external;
 
     /**
@@ -223,13 +223,13 @@ interface ISSVNetwork {
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
-    function updateDeclareOperatorFeePeriod(uint256 newDeclareOperatorFeePeriod) external;
+    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external;
 
-    function updateExecuteOperatorFeePeriod(uint256 newExecuteOperatorFeePeriod) external;
+    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
 
     function getOperatorFeeIncreaseLimit() external view returns (uint64);
 
-    function getExecuteOperatorFeePeriod() external view returns (uint256);
+    function getExecuteOperatorFeePeriod() external view returns (uint64);
 
-    function getDeclaredOperatorFeePeriod() external view returns (uint256);
+    function getDeclaredOperatorFeePeriod() external view returns (uint64);
 }
