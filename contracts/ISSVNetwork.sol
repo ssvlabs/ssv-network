@@ -111,6 +111,7 @@ interface ISSVNetwork {
     error NoPendingFeeChangeRequest();
     error ApprovalNotWithinTimeframe();
     error OperatorWithPublicKeyNotExist();
+    error OperatorNotFound();
 
     error OperatorDoesNotExist();
     error NotEnoughBalance();
@@ -231,6 +232,4 @@ interface ISSVNetwork {
     function getExecuteOperatorFeePeriod() external view returns (uint256);
 
     function getDeclaredOperatorFeePeriod() external view returns (uint256);
-
-
 }

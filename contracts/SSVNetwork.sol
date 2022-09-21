@@ -203,6 +203,24 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         delete _operatorFeeChangeRequests[operatorId];
     }
 
+    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256) {
+        OperatorFeeChangeRequest memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
+
+        if(feeChangeRequest.fee == 0) {
+            revert NoPendingFeeChangeRequest();
+        }
+
+        return (feeChangeRequest.fee.expand(), feeChangeRequest.approvalBeginTime, feeChangeRequest.approvalEndTime);
+    }
+
+    function getOperatorFee(uint64 operatorId) external view returns (uint256) {
+        Operator memory operator = _operators[operatorId];
+
+        if (operator.owner == address(0)) revert OperatorNotFound();
+
+        return operator.fee.expand();
+    }
+
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,

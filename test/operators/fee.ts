@@ -2,6 +2,7 @@ import * as helpers from '../helpers/contract-helpers';
 
 import { expect } from 'chai';
 import { progressTime } from '../helpers/utils';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any;
 
@@ -17,7 +18,7 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Declare fee success as contract owner', async () => {
-    await ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10);
+    await trackGas(ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10), [GasGroup.REGISTER_OPERATOR]);
   });
 
   it('Declare fee fails no owner', async () => {
@@ -43,9 +44,8 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Cancel declared fee success as contract owner', async () => {
-    await ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee + helpers.CONFIG.minimalOperatorFee / 10);
-
-    await ssvNetworkContract.cancelDeclaredOperatorFee(1);
+    await trackGas(ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10), [GasGroup.REGISTER_OPERATOR]);
+    await trackGas(ssvNetworkContract.cancelDeclaredOperatorFee(1), [GasGroup.REGISTER_OPERATOR]);
   });
 
   it('Cancel declared fee fails no pending request', async () => {
@@ -54,7 +54,7 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Cancel declared fee fails no owner', async () => {
-    await ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee + helpers.CONFIG.minimalOperatorFee / 10);
+    await trackGas(ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10), [GasGroup.REGISTER_OPERATOR]);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).cancelDeclaredOperatorFee(1))
       .to.be.revertedWith('CallerNotOwner');
@@ -68,13 +68,13 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Execute declared fee success as contract owner', async () => {
-    await ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee + helpers.CONFIG.minimalOperatorFee / 10);
+    await trackGas(ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10), [GasGroup.REGISTER_OPERATOR]);
     await progressTime(helpers.CONFIG.declareOperatorFeePeriod);
-    await ssvNetworkContract.executeOperatorFee(1);
+    await trackGas(ssvNetworkContract.executeOperatorFee(1), [GasGroup.REGISTER_OPERATOR]);
   });
 
   it('Execute declared fee fee fails no owner', async () => {
-    await ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee + helpers.CONFIG.minimalOperatorFee / 10);
+    await trackGas(ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10), [GasGroup.REGISTER_OPERATOR]);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).executeOperatorFee(1))
       .to.be.revertedWith('CallerNotOwner');
@@ -86,7 +86,7 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Execute declared fee fails not within timeframe', async () => {
-    await ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee + helpers.CONFIG.minimalOperatorFee / 10);
+    await trackGas(ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10), [GasGroup.REGISTER_OPERATOR]);
 
     await expect(ssvNetworkContract.executeOperatorFee(1))
       .to.be.revertedWith('ApprovalNotWithinTimeframe');
@@ -126,6 +126,19 @@ describe('Operator Fee Tests', () => {
     expect(await ssvNetworkContract.getOperatorFeeIncreaseLimit()).to.equal(helpers.CONFIG.operatorMaxFeeIncrease);
   });
 
+  it('DAO: get declared fee', async () => {
+    const newFee = helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10;
+    await trackGas(ssvNetworkContract.declareOperatorFee(1, newFee), [GasGroup.REGISTER_OPERATOR]);
+    const [ feeDeclaredInContract ] = await ssvNetworkContract.getOperatorDeclaredFee(1);
+    expect(feeDeclaredInContract).to.equal(newFee);
+  });
+
+  it('DAO: get declared fee fails no pending request', async () => {
+    await trackGas(ssvNetworkContract.declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee +  helpers.CONFIG.minimalOperatorFee / 10), [GasGroup.REGISTER_OPERATOR]);
+    await expect(ssvNetworkContract.getOperatorDeclaredFee(2))
+      .to.be.revertedWith('NoPendingFeeChangeRequest');
+  });
+
   it('DAO: get execute fee period equal init value', async () => {
     expect(await ssvNetworkContract.getExecuteOperatorFeePeriod()).to.equal(helpers.CONFIG.executeOperatorFeePeriod);
   });
@@ -133,4 +146,9 @@ describe('Operator Fee Tests', () => {
   it('DAO: get declared fee period equal init value', async () => {
     expect(await ssvNetworkContract.getDeclaredOperatorFeePeriod()).to.equal(helpers.CONFIG.declareOperatorFeePeriod);
   });
+
+  it('Get fee', async () => {
+    expect(await ssvNetworkContract.getOperatorFee(1)).to.equal(helpers.CONFIG.minimalOperatorFee);
+  });
+
 });
