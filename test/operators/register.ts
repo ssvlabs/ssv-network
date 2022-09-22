@@ -14,14 +14,14 @@ describe('Register Operator Tests', () => {
   it('Register operator with expected emit', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),
-      '10'
+      helpers.CONFIG.minimalOperatorFee
     )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, helpers.DataGenerator.publicKey(0));
   });
 
   it('Register operator', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),
-      '10'
+      helpers.CONFIG.minimalOperatorFee
     ), [GasGroup.REGISTER_OPERATOR]);
   });
 
@@ -29,20 +29,20 @@ describe('Register Operator Tests', () => {
     // Register operator
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),
-      '10'
+      helpers.CONFIG.minimalOperatorFee
     ), [GasGroup.REGISTER_OPERATOR]);
 
     // Register operator with same public key / owner
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),
-      '10'
+      helpers.CONFIG.minimalOperatorFee
     ), [GasGroup.REGISTER_OPERATOR]);
   });
 
   it('Fails to register with low fee', async () => {
     await expect(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.publicKey(0),
-      '0'
+      helpers.CONFIG.minimalOperatorFee
     )).to.be.revertedWith('FeeTooLow');
   });
 
@@ -50,16 +50,8 @@ describe('Register Operator Tests', () => {
   it('Fails to register with an invalid public key', async () => {
     await expect(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.shares(0),
-      '10'
+      helpers.CONFIG.minimalOperatorFee
     )).to.be.revertedWith('InvalidPublicKey');
   });
-
-  // // To add some sort of validity here maybe?
-  // it('Register operator invalid fee', async () => {
-  //   await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
-  //     helpers.DataGenerator.publicKey(0),
-  //     'abc'
-  //     )).to.be.revertedWith('InvalidFee');
-  // });
 
 });

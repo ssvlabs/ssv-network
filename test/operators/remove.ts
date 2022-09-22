@@ -3,7 +3,7 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any;
+let ssvNetworkContract: any, minDepositAmount: any;
 
 describe('Remove Operator Tests', () => {
   beforeEach(async () => {
@@ -11,7 +11,10 @@ describe('Remove Operator Tests', () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
 
     //Register an operator
-    await helpers.registerOperators(0, 1, '10');
+    await helpers.registerOperators(0, 1, helpers.CONFIG.minimalOperatorFee);
+
+    // Define a minimum deposit amount
+    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4;
   });
 
   it('Remove operator emits OperatorRemoved event', async () => {
@@ -24,13 +27,13 @@ describe('Remove Operator Tests', () => {
 
   it('Remove operators with validators', async () => {
     // Register 3 operators
-    await helpers.registerOperators(0, 3, '10');
+    await helpers.registerOperators(0, 3, helpers.CONFIG.minimalOperatorFee);
 
     // Deposit into account
-    await helpers.deposit([2], ['100000']);
+    await helpers.deposit([2], [`${minDepositAmount * 2}`]);
 
     // Register 5 validators
-    await helpers.registerValidators(2, 5, '10000', [1, 2, 3, 4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await helpers.registerValidators(2, 5, minDepositAmount, [1, 2, 3, 4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
     // Remove all the operators
     for (let i = 1; i < 5; i++) await trackGas(ssvNetworkContract.removeOperator(i), [GasGroup.REMOVE_OPERATOR]);
@@ -45,7 +48,7 @@ describe('Remove Operator Tests', () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR]);
 
     // Add same operator
-    await trackGas(ssvNetworkContract.registerOperator(helpers.DataGenerator.publicKey(0), '10'), [GasGroup.REGISTER_OPERATOR]);
+    await trackGas(ssvNetworkContract.registerOperator(helpers.DataGenerator.publicKey(0), helpers.CONFIG.minimalOperatorFee), [GasGroup.REGISTER_OPERATOR]);
 
     // Remove operator again
     await trackGas(ssvNetworkContract.removeOperator(2), [GasGroup.REMOVE_OPERATOR]);
