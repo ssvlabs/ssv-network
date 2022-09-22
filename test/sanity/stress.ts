@@ -38,7 +38,7 @@ describe('Stress Tests', () => {
         publicKey,
         [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
         helpers.DataGenerator.shares(0),
-        '100000'
+        helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4
       ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
       validators.push({ publicKey, owner: randomOwner })
     }
@@ -46,10 +46,14 @@ describe('Stress Tests', () => {
 
   // NEED TO UPDATE WITH GAS TRACK ONCE UPDATE OPERATOR FEE IS ADDED
   it('Update 1000 operators', async () => {
-    for (let i = 0; i < 250; i++) await ssvNetworkContract.connect(helpers.DB.owners[0]).updateOperatorFee(i + 1, 9);
-    for (let i = 250; i < 500; i++) await ssvNetworkContract.connect(helpers.DB.owners[1]).updateOperatorFee(i + 1, 9);
-    for (let i = 500; i < 750; i++) await ssvNetworkContract.connect(helpers.DB.owners[2]).updateOperatorFee(i + 1, 9);
-    for (let i = 750; i < 1000; i++) await ssvNetworkContract.connect(helpers.DB.owners[3]).updateOperatorFee(i + 1, 9);
+    for (let i = 0; i < 1000; i++) {
+      let owner = 0
+      if (i > 249 && i < 500) owner = 1
+      else if (i > 499 && i < 750) owner = 2
+      else if (i > 749) owner = 3
+      await ssvNetworkContract.connect(helpers.DB.owners[owner]).declareOperatorFee(i + 1, helpers.CONFIG.minimalOperatorFee * 1.1);
+      await ssvNetworkContract.connect(helpers.DB.owners[owner]).executeOperatorFee(i + 1);
+    }
   });
 
   it('Remove 1000 operators', async () => {
@@ -66,8 +70,8 @@ describe('Stress Tests', () => {
         validators[i].publicKey,
         [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
         helpers.DataGenerator.shares(0),
-        '100001'
-      ), [GasGroup.TRANSFER_VALIDATOR_NEW_POD])
+        helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4
+      ), [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER])
     }
   });
 
