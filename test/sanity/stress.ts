@@ -12,10 +12,10 @@ describe('Stress Tests', () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
 
     // Register operators
-    await helpers.registerOperators(0, 250, '10');
-    await helpers.registerOperators(1, 250, '10');
-    await helpers.registerOperators(2, 250, '10');
-    await helpers.registerOperators(3, 250, '10');
+    await helpers.registerOperators(0, 250, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(1, 250, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(2, 250, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(3, 250, helpers.CONFIG.minimalOperatorFee);
 
     // Deposit into accounts
     for (let i = 0; i < 9; i++) {
