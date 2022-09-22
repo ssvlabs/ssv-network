@@ -1,6 +1,7 @@
 // Define imports
 import * as helpers from '../helpers/contract-helpers';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
+import { progressTime } from '../helpers/utils';
 
 // Define global variables
 let ssvNetworkContract: any
@@ -51,7 +52,8 @@ describe('Stress Tests', () => {
       if (i > 249 && i < 500) owner = 1
       else if (i > 499 && i < 750) owner = 2
       else if (i > 749) owner = 3
-      await ssvNetworkContract.connect(helpers.DB.owners[owner]).declareOperatorFee(i + 1, helpers.CONFIG.minimalOperatorFee * 1.1);
+      await ssvNetworkContract.connect(helpers.DB.owners[owner]).declareOperatorFee(i + 1, 110000000);
+      await progressTime(helpers.CONFIG.declareOperatorFeePeriod)
       await ssvNetworkContract.connect(helpers.DB.owners[owner]).executeOperatorFee(i + 1);
     }
   });
