@@ -11,19 +11,19 @@ describe('Remove Operator Tests', () => {
   });
 
   it('Remove operator emits OperatorRemoved event', async () => {
-    await helpers.registerOperators(0, 1, '10');
+    await helpers.registerOperators(0, 1, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(1))
       .to.emit(ssvNetworkContract, 'OperatorRemoved').withArgs(1);
   });
 
   it('Fails to remove operator with no owner', async () => {
-    await helpers.registerOperators(0, 1, '10');
+    await helpers.registerOperators(0, 1, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1))
       .to.be.revertedWith('CallerNotOwner');
   });
 
   it('Remove operator gas limits', async () => {
-    await helpers.registerOperators(0, 1, '10');
+    await helpers.registerOperators(0, 1, helpers.CONFIG.minimalOperatorFee);
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR]);
   });
 

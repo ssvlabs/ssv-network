@@ -7,9 +7,13 @@ import "./ISSVNetwork.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "./utils/Types.sol";
+
 import "hardhat/console.sol";
 
 contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
+    using Types256 for uint256;
+    using Types64 for uint64;
 
     using Counters for Counters.Counter;
 
@@ -30,6 +34,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Snapshot snapshot;
     }
 
+    struct OperatorFeeChangeRequest {
+        uint64 fee;
+        uint64 approvalBeginTime;
+        uint64 approvalEndTime;
+    }
+
     struct DAO {
         uint64 validatorCount;
         uint64 withdrawn;
@@ -42,7 +52,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     struct Pod {
-        uint64 balance;
         uint64 validatorCount;
         Snapshot usage;
     }
@@ -53,41 +62,79 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         bool active;
     }
 
-
-
     // global vars
     Counters.Counter private lastOperatorId;
     Counters.Counter private lastPodId;
 
     // operator vars
     mapping(uint64 => Operator) private _operators;
+    mapping(uint64 => OperatorFeeChangeRequest) private _operatorFeeChangeRequests;
     mapping(bytes32 => Cluster) private _clusters;
     mapping(bytes32 => Pod) private _pods;
-    mapping(address => uint64) _availableBalances;
     mapping(bytes32 => Validator) _validatorPKs;
 
     uint64 private _networkFee;
+    uint64 private _declareOperatorFeePeriod;
+    uint64 private _executeOperatorFeePeriod;
+    uint64 private _operatorMaxFeeIncrease;
+
     uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
+    uint64 constant MINIMAL_OPERATOR_FEE = 100000000;
+
     // uint64 constant NETWORK_FEE_PER_BLOCK = 1;
 
 
     DAO private _dao;
     IERC20 private _token;
 
-    function initialize(IERC20 token_) external initializer override {
+    function initialize(
+        IERC20 token_,
+        uint64 operatorMaxFeeIncrease_,
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_
+    ) external override {
+        __SSVNetwork_init(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
+    }
+
+    function __SSVNetwork_init(
+        IERC20 token_,
+        uint64 operatorMaxFeeIncrease_,
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_
+    ) internal initializer {
+        __Ownable_init_unchained();
+        __SSVNetwork_init_unchained(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
+    }
+
+    function __SSVNetwork_init_unchained(
+        IERC20 token_,
+        uint64 operatorMaxFeeIncrease_,
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_
+    ) internal onlyInitializing {
         _token = token_;
+        _updateOperatorFeeIncreaseLimit(operatorMaxFeeIncrease_);
+        _updateDeclareOperatorFeePeriod(declareOperatorFeePeriod_);
+        _updateExecuteOperatorFeePeriod(executeOperatorFeePeriod_);
+    }
+
+    modifier onlyOperatorOwnerOrContractOwner(uint64 operatorId) {
+        _onlyOperatorOwnerOrContractOwner(operatorId);
+        _;
     }
 
     function registerOperator(
         bytes calldata encryptionPK,
-        uint64 fee
+        uint256 fee
     ) external returns (uint64 id) {
-        if (fee <= 0) revert FeeTooLow();
+        if (fee < MINIMAL_OPERATOR_FEE) {
+            revert FeeTooLow();
+        }
 
         lastOperatorId.increment();
         id = uint64(lastOperatorId.current());
-        _operators[id] = Operator({ owner: msg.sender, snapshot: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee});
-        emit OperatorAdded(id, msg.sender, encryptionPK);
+        _operators[id] = Operator({ owner: msg.sender, snapshot: Snapshot({ block: uint64(block.number), index: 0, balance: 0}), validatorCount: 0, fee: fee.shrink()});
+        emit OperatorAdded(id, msg.sender, encryptionPK, fee.shrinkable());
     }
 
     function removeOperator(uint64 operatorId) external {
@@ -104,13 +151,74 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit OperatorRemoved(operatorId);
     }
 
-    function updateOperatorFee(uint64 operatorId, uint64 fee) external {
+    function declareOperatorFee(uint64 operatorId, uint256 fee) onlyOperatorOwnerOrContractOwner(operatorId) external {
         Operator memory operator = _operators[operatorId];
-        if (operator.owner != msg.sender) revert CallerNotOwner();
 
-        _operators[operatorId] = _setFee(operator, fee);
+        if (fee < MINIMAL_OPERATOR_FEE) {
+            revert FeeTooLow();
+        }
 
-        emit OperatorFeeSet(operatorId, fee);
+        if (fee.shrink() > operator.fee * (10000 + _operatorMaxFeeIncrease) / 10000) {
+            revert FeeExceedsIncreaseLimit();
+        }
+
+        /*
+        if (operatorFee <= operator.fee) {
+            _updateOperatorFeeUnsafe(operatorId, operatorFee);
+        } else {
+        */
+        _operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
+            fee.shrink(),
+            uint64(block.timestamp) + _declareOperatorFeePeriod,
+            uint64(block.timestamp) + _declareOperatorFeePeriod + _executeOperatorFeePeriod
+        );
+        emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, fee.shrinkable());
+    }
+
+    function cancelDeclaredOperatorFee(uint64 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external {
+        OperatorFeeChangeRequest memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
+
+        if(feeChangeRequest.fee == 0) {
+            revert NoPendingFeeChangeRequest();
+        }
+
+        delete _operatorFeeChangeRequests[operatorId];
+
+        emit DeclaredOperatorFeeCancelation(msg.sender, operatorId);
+    }
+
+    function executeOperatorFee(uint64 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external {
+        OperatorFeeChangeRequest memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
+
+        if(feeChangeRequest.fee == 0) {
+            revert NoPendingFeeChangeRequest();
+        }
+
+        if(block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime) {
+            revert ApprovalNotWithinTimeframe();
+        }
+
+        _updateOperatorFeeUnsafe(operatorId, feeChangeRequest.fee);
+
+        delete _operatorFeeChangeRequests[operatorId];
+    }
+
+    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256) {
+        OperatorFeeChangeRequest memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
+
+        if(feeChangeRequest.fee == 0) {
+            revert NoPendingFeeChangeRequest();
+        }
+
+        return (feeChangeRequest.fee.expand(), feeChangeRequest.approvalBeginTime, feeChangeRequest.approvalEndTime);
+    }
+
+    function getOperatorFee(uint64 operatorId) external view returns (uint256) {
+        Operator memory operator = _operators[operatorId];
+
+        if (operator.owner == address(0)) revert OperatorNotFound();
+
+        return operator.fee.expand();
     }
 
     function registerValidator(
@@ -126,14 +234,19 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         // Operator[] memory operators;
         bytes32 clusterId = _getOrCreateCluster(operatorIds);
+        bytes32 hashedValidator = keccak256(publicKey);
+        bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
         {
             Pod memory pod;
-            _availableBalances[msg.sender] -= amount;
-            pod = _updatePodData(clusterId, amount, true);
+
+            pod = _updatePodData(clusterId, amount, hashedPod, true);
 
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
                     Operator memory operator = _operators[operatorIds[i]];
+                    if (operator.owner == address(0)) {
+                        revert OperatorDoesNotExist();
+                    }
                     operator.snapshot = _getSnapshot(operator, uint64(block.number));
                     ++operator.validatorCount;
                     _operators[operatorIds[i]] = operator;
@@ -147,12 +260,17 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 _dao = dao;
             }
 
-            require(!_liquidatable(pod.balance, pod.validatorCount, operatorIds), "account liquidatable");
+            if (_liquidatable(pod.usage.balance, pod.validatorCount, operatorIds)) {
+                revert AccountLiquidatable();
+            }
 
-            _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = pod;
+            _pods[hashedPod] = pod;
         }
 
-        _validatorPKs[keccak256(publicKey)] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
+        if (_validatorPKs[hashedValidator].clusterId > 0) {
+            revert ValidatorAlreadyExists();
+        }
+        _validatorPKs[hashedValidator] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
 
         emit ValidatorAdded(publicKey, clusterId, shares);
     }
@@ -163,18 +281,19 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         bytes calldata shares,
         uint64 amount
     ) external {
-        uint64 currentBlock = uint64(block.number);
-        bytes32 clusterId = _validatorPKs[keccak256(publicKey)].clusterId;
+        bytes32 hashedValidator = keccak256(publicKey);
+        bytes32 clusterId = _validatorPKs[hashedValidator].clusterId;
 
-        if (_validatorPKs[keccak256(publicKey)].owner != msg.sender) {
+        if (_validatorPKs[hashedValidator].owner != msg.sender) {
             revert ValidatorNotOwned();
         }
 
         {
-            _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = _updatePodData(clusterId, 0, false);
+            bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
+            _pods[hashedPod] = _updatePodData(clusterId, 0, hashedPod, false);
             // if (pod.validatorCount == 0) {
             // _availableBalances[msg.sender] += _ownerPodBalance(pod, podIndex);
-            // pod.balance -= _ownerPodBalance(pod, podIndex);
+            // pod.usage.balance -= _ownerPodBalance(pod, podIndex);
             // }
         }
 
@@ -183,17 +302,17 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             _updateOperatorsValidatorMove(cluster.operatorIds, operatorIds, 1);
         }
 
-
         {
             bytes32 newClusterId = _getOrCreateCluster(operatorIds);
 
             {
                 Pod memory pod;
                 {
-                    _availableBalances[msg.sender] -= amount;
+                    bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, newClusterId));
 
-                    _pods[keccak256(abi.encodePacked(msg.sender, newClusterId))] = _updatePodData(newClusterId, amount, true);
-                    _validatorPKs[keccak256(publicKey)].clusterId = newClusterId;
+                    pod = _updatePodData(newClusterId, amount, hashedPod, true);
+                    _validatorPKs[hashedValidator].clusterId = newClusterId;
+                    _pods[hashedPod] = pod;
                 }
 
                 {
@@ -202,7 +321,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                     _dao = dao;
                 }
 
-                require(!_liquidatable(pod.balance, pod.validatorCount, operatorIds), "account liquidatable");
+                if (_liquidatable(pod.usage.balance, pod.validatorCount, operatorIds)) {
+                    revert AccountLiquidatable();
+                }
+
             }
 
             emit ValidatorTransferred(publicKey, newClusterId, shares);
@@ -212,26 +334,28 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function removeValidator(
         bytes calldata validatorPK
     ) external {
-        if (_validatorPKs[keccak256(validatorPK)].owner != msg.sender) {
+        bytes32 hashedValidator = keccak256(validatorPK);
+        if (_validatorPKs[hashedValidator].owner != msg.sender) {
             revert ValidatorNotOwned();
         }
 
-        bytes32 clusterId = _validatorPKs[keccak256(validatorPK)].clusterId;
+        bytes32 clusterId = _validatorPKs[hashedValidator].clusterId;
+        bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
 
         {
-            Pod memory pod = _pods[keccak256(abi.encodePacked(msg.sender, clusterId))];
+            Pod memory pod = _pods[hashedPod];
             Cluster memory cluster = _clusters[clusterId];
             uint64 currentBlock = uint64(block.number);
 
             uint64 podIndex = _clusterCurrentIndex(clusterId);
-            pod.balance = _ownerPodBalance(pod, podIndex);
+            pod.usage.balance = _ownerPodBalance(pod, podIndex);
             pod.usage.index = podIndex;
             pod.usage.block = currentBlock;
             --pod.validatorCount;
 
             if (pod.validatorCount == 0) {
                 // _availableBalances[msg.sender] += _ownerPodBalance(pod, podIndex);
-                // pod.balance -= _ownerPodBalance(pod, podIndex);
+                // pod.usage.balance -= _ownerPodBalance(pod, podIndex);
             }
 
 
@@ -249,57 +373,116 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 _dao = dao;
             }
 
-            _pods[keccak256(abi.encodePacked(msg.sender, clusterId))] = pod;
+            _pods[hashedPod] = pod;
         }
+
+        delete _validatorPKs[hashedValidator];
 
         emit ValidatorRemoved(validatorPK, clusterId);
     }
 
+    function deposit(address owner, bytes32 clusterId, uint64 amount) external {
+        _deposit(owner, clusterId, amount);
+    }
+
+    function deposit(bytes32 clusterId, uint64 amount) external {
+        _deposit(msg.sender, clusterId, amount);
+    }
+
+    function createPod(uint64[] memory operatorIds, uint64 amount) external returns (bytes32) {
+        bytes32 clusterId = _getOrCreateCluster(operatorIds);
+
+        _deposit(msg.sender, clusterId, amount);
+
+        return clusterId;
+    }
+
     function bulkTransferValidators(
         bytes[] calldata validatorPK,
-        bytes32 fromPodId,
-        bytes32 toPodId,
-        bytes[] calldata shares
+        bytes32 fromClusterId,
+        bytes32 toClusterId,
+        bytes[] calldata shares,
+        uint64 amount
     ) external {
-        // _validateValidatorParams
+        if (validatorPK.length != shares.length) {
+            revert ParametersMismatch();
+        }
+
         uint64 activeValidatorCount = 0;
 
         for (uint64 index = 0; index < validatorPK.length; ++index) {
-            Validator memory validator = _validatorPKs[keccak256(validatorPK[index])];
+            bytes32 hashedValidator = keccak256(validatorPK[index]);
+            Validator memory validator = _validatorPKs[hashedValidator];
 
             if (validator.owner != msg.sender) {
                 revert ValidatorNotOwned();
             }
 
-            validator.clusterId = toPodId;
-            _validatorPKs[keccak256(validatorPK[index])] = validator;
+            validator.clusterId = toClusterId;
+            _validatorPKs[hashedValidator] = validator;
 
             if (validator.active) {
                 ++activeValidatorCount;
             }
             // Changing to a single event reducing by 15K gas
         }
-        emit BulkValidatorTransferred(validatorPK, toPodId, shares);
+        emit BulkValidatorTransferred(validatorPK, toClusterId, shares);
 
-        uint64[] memory newOperatorIds = _clusters[toPodId].operatorIds;
+        uint64[] memory oldOperatorIds = _clusters[fromClusterId].operatorIds;
+        uint64[] memory newOperatorIds = _clusters[toClusterId].operatorIds;
 
-        _updateOperatorsValidatorMove(_clusters[fromPodId].operatorIds, newOperatorIds, activeValidatorCount);
+        if (oldOperatorIds.length == 0 || newOperatorIds.length == 0) {
+            revert InvalidCluster();
+        }
 
-        Pod memory pod = _pods[keccak256(abi.encodePacked(msg.sender, fromPodId))];
-        pod.usage.index = _clusterCurrentIndex(fromPodId);
+        _updateOperatorsValidatorMove(oldOperatorIds, newOperatorIds, activeValidatorCount);
+
+        Pod memory pod = _pods[keccak256(abi.encodePacked(msg.sender, fromClusterId))];
+        uint64 podIndex = _clusterCurrentIndex(fromClusterId);
+        pod.usage.balance = _ownerPodBalance(pod, podIndex) + amount;
+        pod.usage.index = podIndex;
         pod.usage.block = uint64(block.number);
         pod.validatorCount -= activeValidatorCount;
 
-        pod = _pods[keccak256(abi.encodePacked(msg.sender, toPodId))];
-        pod.usage.index = _clusterCurrentIndex(toPodId);
+        pod = _pods[keccak256(abi.encodePacked(msg.sender, toClusterId))];
+        podIndex = _clusterCurrentIndex(toClusterId);
+        pod.usage.balance = _ownerPodBalance(pod, podIndex) + amount;
+        pod.usage.index = podIndex;
         pod.usage.block = uint64(block.number);
         pod.validatorCount += activeValidatorCount;
 
-        require(!_liquidatable(pod.balance, pod.validatorCount, newOperatorIds), "account liquidatable");
+        if (_liquidatable(pod.usage.balance, pod.validatorCount, newOperatorIds)) {
+            revert AccountLiquidatable();
+        }
     }
 
-
     // TODO add external functions below to interface
+
+    // @dev external dao functions
+
+    function getOperatorFeeIncreaseLimit() external view returns (uint64) {
+        return _operatorMaxFeeIncrease;
+    }
+
+    function getExecuteOperatorFeePeriod() external view returns (uint64) {
+        return _executeOperatorFeePeriod;
+    }
+
+    function getDeclaredOperatorFeePeriod() external view returns (uint64) {
+        return _declareOperatorFeePeriod;
+    }
+
+    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external onlyOwner {
+        _updateOperatorFeeIncreaseLimit(newOperatorMaxFeeIncrease);
+    }
+
+    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external onlyOwner {
+        _updateDeclareOperatorFeePeriod(newDeclareOperatorFeePeriod);
+    }
+
+    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external onlyOwner {
+        _updateExecuteOperatorFeePeriod(newExecuteOperatorFeePeriod);
+    }
 
     // @dev external operators functions
 
@@ -308,10 +491,31 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return (s.block, s.index, s.balance);
     }
 
+    // @dev internal dao functions
+
+    function _updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) private {
+        _operatorMaxFeeIncrease = newOperatorMaxFeeIncrease;
+
+        emit OperatorFeeIncreaseLimitUpdate(_operatorMaxFeeIncrease);
+
+    }
+
+    function _updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) private {
+        _declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
+
+        emit DeclareOperatorFeePeriodUpdate(newDeclareOperatorFeePeriod);
+    }
+
+    function _updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) private {
+        _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
+
+        emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
+    }
+
     // @dev internal operators functions
 
-    function _getSnapshot(Operator memory operator, uint64 currentBlock) private view returns (Snapshot memory) {
-        uint64 blockDiffFee = (currentBlock - operator.snapshot.block)* operator.fee;
+    function _getSnapshot(Operator memory operator, uint64 currentBlock) private pure returns (Snapshot memory) {
+        uint64 blockDiffFee = (currentBlock - operator.snapshot.block) * operator.fee;
 
         operator.snapshot.index += blockDiffFee;
         operator.snapshot.balance += blockDiffFee * operator.validatorCount;
@@ -365,8 +569,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-
-    function _setFee(Operator memory operator, uint64 fee) private returns (Operator memory) {
+    function _setFee(Operator memory operator, uint64 fee) private view returns (Operator memory) {
         operator.snapshot = _getSnapshot(operator, uint64(block.number));
         operator.fee = fee;
 
@@ -374,7 +577,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function _updateOperatorsData(uint64[] memory operatorIds, bool increase) private {
-        uint64 currentBlock = uint64(block.number);
         for (uint64 i = 0; i < operatorIds.length; ++i) {
             Operator memory operator = _operators[operatorIds[i]];
             operator.snapshot = _getSnapshot(operator, uint64(block.number));
@@ -387,10 +589,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-    function _updatePodData(bytes32 clusterId, uint64 amount, bool increase) private returns (Pod memory) {
-        Pod memory pod = _pods[keccak256(abi.encodePacked(msg.sender, clusterId))];
+    function _updatePodData(bytes32 clusterId, uint64 amount, bytes32 hashedPod, bool increase) private view returns (Pod memory) {
+        Pod memory pod = _pods[hashedPod];
         uint64 podIndex = _clusterCurrentIndex(clusterId);
-        pod.balance = _ownerPodBalance(pod, podIndex) + amount;
+        pod.usage.balance = _ownerPodBalance(pod, podIndex) + amount;
         pod.usage.index = podIndex;
         pod.usage.block = uint64(block.number);
         if (increase) {
@@ -401,7 +603,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         if (pod.validatorCount == 0) {
             // _availableBalances[msg.sender] += _ownerPodBalance(pod, podIndex);
-            // pod.balance -= _ownerPodBalance(pod, podIndex);
+            // pod.usage.balance -= _ownerPodBalance(pod, podIndex);
         }
         return pod;
     }
@@ -410,8 +612,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Pod memory pod = _pods[keccak256(abi.encodePacked(owner, clusterId))];
         return _ownerPodBalance(pod, _clusterCurrentIndex(clusterId));
     }
-
-
 
     /**
      * @dev Validates the params for a validator.
@@ -431,35 +631,33 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-    function deposit(uint64 amount) public {
-        _availableBalances[msg.sender] += amount;
+    function _deposit(address owner, bytes32 clusterId, uint64 amount) private {
+        Pod storage pod = _pods[keccak256(abi.encodePacked(owner, clusterId))];
+
+        pod.usage.balance += amount;
     }
 
-    function _createCluster(uint64[] memory operators) private returns (uint64 podId) {
-        for (uint64 index = 0; index < operators.length; ++index) {
-            require(_operators[operators[index]].owner != address(0), "operator not found");
-        }
-
-        _clusters[keccak256(abi.encodePacked(operators))] = Cluster({ operatorIds: operators });
-    }
-
-    function _getOrCreateCluster(uint64[] memory operatorIds) private returns (bytes32) { // , Cluster memory
+    function _createClusterUnsafe(bytes32 key, uint64[] memory operatorIds) private {
         for (uint64 i = 0; i < operatorIds.length - 1;) {
             require(operatorIds[i] <= operatorIds[++i]);
         }
 
+        _clusters[key] = Cluster({operatorIds: operatorIds});
+    }
+
+    function _getOrCreateCluster(uint64[] memory operatorIds) private returns (bytes32) { // , Cluster memory
         bytes32 key = keccak256(abi.encodePacked(operatorIds));
 
         Cluster storage cluster = _clusters[key];
         if (cluster.operatorIds.length == 0) {
-            cluster.operatorIds = operatorIds;
+            _createClusterUnsafe(key, operatorIds);
         }
 
         return key;
     }
 
 
-    function _updateDAOEarnings(DAO memory dao) private returns (DAO memory) {
+    function _updateDAOEarnings(DAO memory dao) private view returns (DAO memory) {
         dao.earnings.balance = _networkTotalEarnings(dao);
         dao.earnings.block = uint64(block.number);
 
@@ -491,9 +689,14 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
+    function _ownerPodBalance(Pod memory pod, uint64 currentPodIndex) private pure returns (uint64) {
+        uint64 usage = (currentPodIndex - pod.usage.index) * pod.validatorCount;
 
-    function _ownerPodBalance(Pod memory pod, uint64 currentPodIndex) private view returns (uint64) {
-        return pod.balance - (currentPodIndex - pod.usage.index) * pod.validatorCount;
+        if (usage > pod.usage.balance) {
+            revert NegativeBalance();
+        }
+
+        return pod.usage.balance - usage;
     }
 
     function _burnRatePerValidator(Operator[] memory operators) private pure returns (uint64 rate) {
@@ -504,6 +707,26 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _liquidatable(uint64 balance, uint64 validatorCount, uint64[] memory operatorIds) private view returns (bool) {
         return balance < LIQUIDATION_MIN_BLOCKS * (_burnRatePerValidator(_extractOperators(operatorIds)) + _networkFee) * validatorCount;
+    }
+
+    function _updateOperatorFeeUnsafe(uint64 operatorId, uint64 fee) private {
+        Operator memory operator = _operators[operatorId];
+
+        _operators[operatorId] = _setFee(operator, fee);
+
+        emit OperatorFeeExecution(msg.sender, operatorId, block.number, fee.expand());
+    }
+
+    function _onlyOperatorOwnerOrContractOwner(uint64 operatorId) private view {
+        Operator memory operator = _operators[operatorId];
+
+        if(operator.owner == address(0)) {
+            revert OperatorWithPublicKeyNotExist();
+        }
+
+        if(msg.sender != operator.owner && msg.sender != owner()) {
+            revert CallerNotOwner();
+        }
     }
 
     /*
