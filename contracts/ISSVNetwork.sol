@@ -111,6 +111,13 @@ interface ISSVNetwork {
      */
     event NetworkFeeUpdate(uint256 oldFee, uint256 newFee);
 
+    /**
+     * @dev Emitted when transfer fees are withdrawn.
+     * @param value The amount of tokens withdrawn.
+     * @param recipient The recipient address.
+     */
+    event NetworkFeesWithdrawal(uint256 value, address recipient);
+
     /** errors */
     error CallerNotOwner();
     error FeeTooLow();

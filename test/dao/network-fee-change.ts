@@ -17,16 +17,16 @@ describe('Network Fee Tests', () => {
     expect(await ssvNetworkContract.getNetworkFee()).to.equal(0);
   });
 
-  it('Change network fee', async () => {
-    await ssvNetworkContract.updateNetworkFee(networkFee);
-    expect(await ssvNetworkContract.getNetworkFee()).to.equal(networkFee);
+  it('Change network fee emits NetworkFeeUpdate event', async () => {
+    await expect(ssvNetworkContract.updateNetworkFee(networkFee))
+      .to.emit(ssvNetworkContract, 'NetworkFeeUpdate').withArgs(0, networkFee);
   });
 
-  it('Change network fee with a small number error', async () => {
+  it('Change network fee fails small number error', async () => {
     await expect(ssvNetworkContract.updateNetworkFee(networkFee - 1)).to.be.revertedWith('Precision is over the maximum defined');
   });
 
-  it('Change network fee with an invalid owner', async () => {
+  it('Change network fee fails no owner', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).updateNetworkFee(networkFee)).to.be.revertedWith('caller is not the owner');
   });
 });

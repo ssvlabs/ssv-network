@@ -490,9 +490,25 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _dao = dao;
 
         _updateNetworkFeeIndex();
-        _networkFee = fee.shrink();
 
         emit NetworkFeeUpdate(_networkFee.expand(), fee);
+
+        _networkFee = fee.shrink();
+    }
+
+    function withdrawDAOEarnings(uint256 amount) external onlyOwner {
+        DAO memory dao = _dao;
+
+        if(amount.shrink() > _networkBalance(dao)) {
+            revert NotEnoughBalance();
+        }
+
+        dao.withdrawn += amount.shrink();
+        _dao = dao;
+
+        _token.transfer(msg.sender, amount);
+
+        emit NetworkFeesWithdrawal(amount, msg.sender);
     }
 
     // @dev external operators functions
