@@ -1,5 +1,4 @@
 import * as helpers from '../helpers/contract-helpers';
-import * as utils from '../helpers/utils';
 
 import { expect } from 'chai';
 
@@ -9,9 +8,6 @@ describe('Network Fee Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     ssvNetworkContract = (await helpers.initializeContract()).contract;
-
-    // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
 
     // Define minumum allowed network fee to pass shrinkable validation
     networkFee = helpers.CONFIG.minimalOperatorFee / 10;
