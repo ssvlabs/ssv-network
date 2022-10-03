@@ -104,6 +104,13 @@ interface ISSVNetwork {
 
     event ExecuteOperatorFeePeriodUpdate(uint256 value);
 
+    /**
+     * @dev Emitted when the network fee is updated.
+     * @param oldFee The old fee
+     * @param newFee The new fee
+     */
+    event NetworkFeeUpdate(uint256 oldFee, uint256 newFee);
+
     /** errors */
     error CallerNotOwner();
     error FeeTooLow();
@@ -176,7 +183,7 @@ interface ISSVNetwork {
      * @return index the index of the operator.
      * @return balance the current balance of the operator.
      */
-    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint64 balance);
+    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
 
 
     /**
@@ -190,7 +197,7 @@ interface ISSVNetwork {
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata shares,
-        uint64 amount
+        uint256 amount
     ) external;
 
     /**
@@ -210,7 +217,7 @@ interface ISSVNetwork {
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata shares,
-        uint64 amount
+        uint256 amount
     ) external;
 
     function bulkTransferValidators(
@@ -218,7 +225,7 @@ interface ISSVNetwork {
         bytes32 fromPodId,
         bytes32 toPodId,
         bytes[] calldata shares,
-        uint64 amount
+        uint256 amount
     ) external;
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;

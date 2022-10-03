@@ -1,129 +1,92 @@
-declare const ethers: any;
-
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
-import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 import { expect } from 'chai';
+import { GasGroup } from '../helpers/gas-usage';
 
-const numberOfOperators = 6;
-const operatorFee = 1;
-
-let registryContract: any, operatorIDs: any, shares: any, owner: any;
+let ssvNetworkContract: any, clusterResult1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any;
 
 describe('Balance Tests', () => {
-  // beforeEach(async () => {
-  //   const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
-  //   registryContract = contractData.contract;
-  //   operatorIDs = contractData.operatorIDs;
-  //   shares = contractData.shares;
-  //   owner = contractData.owner;
-  // });
+  beforeEach(async () => {
+    // Initialize contract
+    ssvNetworkContract = (await helpers.initializeContract()).contract;
 
-  // it('Check balances', async () => {
-  //   const validatorPK = `0x98765432109876543210987654321098765432109876543210987654321098765432109876543210987654321098100`
+    // Register operators
+    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
 
-  //   expect(await registryContract.operatorEarningsOf(1)).to.equal('0');
+    networkFee = helpers.CONFIG.minimalOperatorFee;
+    burnPerBlock = helpers.CONFIG.minimalOperatorFee * 4 + networkFee;
+    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * burnPerBlock;
 
-  //   // Register a validator
-  //   const validator1 = await trackGas(registryContract.registerValidator(
-  //       `${validatorPK}0`,
-  //       [1, 2, 3, 4],
-  //       shares[0],
-  //       "10000"
-  //   ), [ GasGroup.registerValidator ]);
+    // Deposit into accounts
+    // await helpers.deposit([4], [minDepositAmount]);
 
-  //   const outputRegister = validator1.eventsByName.ValidatorAdded[0];
+    // Set network fee
+    await ssvNetworkContract.updateNetworkFee(networkFee);
 
-  //   // Progress 50 blocks and check operator balances and group balance
-  //   await utils.progressBlocks(50)
-  //   expect(await registryContract.operatorEarningsOf(1)).to.equal('50')
-  //   expect(await registryContract.operatorEarningsOf(2)).to.equal('50')
-  //   expect(await registryContract.operatorEarningsOf(3)).to.equal('50')
-  //   expect(await registryContract.operatorEarningsOf(4)).to.equal('50')
-  // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 150)
+    // Register validators
+    clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+  });
 
-  // // Update one of the operator fees
-  // await registryContract.updateOperatorFee(1, 10)
+  it('Check pod balance in three blocks, one after the other', async () => {
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(minDepositAmount - burnPerBlock);
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(minDepositAmount - burnPerBlock * 2);
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(minDepositAmount - burnPerBlock * 3);
+  });
 
-  // // Progress 50 blocks and check operator balances and group balance
-  // await utils.progressBlocks(50)
-  // expect(await registryContract.operatorEarningsOf(1)).to.equal('551')
-  // expect(await registryContract.operatorEarningsOf(2)).to.equal('101')
-  // expect(await registryContract.operatorEarningsOf(3)).to.equal('101')
-  // expect(await registryContract.operatorEarningsOf(4)).to.equal('101')
-  // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 904)
+  it('Check pod balance in two and twelve blocks, after network fee updates', async () => {
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(minDepositAmount - burnPerBlock);
+    const newBurnPerBlock = burnPerBlock + networkFee;
+    await ssvNetworkContract.updateNetworkFee(networkFee * 2);
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock);
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 2);
+    await utils.progressBlocks(10);
+    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 12);
+  });
 
-  // // Update 3 operator fees
-  // await registryContract.updateOperatorFee(2, 20)
-  // await registryContract.updateOperatorFee(3, 20)
-  // await registryContract.updateOperatorFee(4, 20)
+  it('Check DAO earnings in three blocks, one after the other', async () => {
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.getNetworkBalance()).to.equal(networkFee);
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.getNetworkBalance()).to.equal(networkFee * 2);
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.getNetworkBalance()).to.equal(networkFee * 3);
+  });
 
-  // // Progress 50 blocks and check operator balances and group balance
-  // await utils.progressBlocks(50)
-  // expect(await registryContract.operatorEarningsOf(1)).to.equal('1081')
-  // expect(await registryContract.operatorEarningsOf(2)).to.equal('1142')
-  // expect(await registryContract.operatorEarningsOf(3)).to.equal('1123')
-  // expect(await registryContract.operatorEarningsOf(4)).to.equal('1104')
-  // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 4500)
+  it('Check DAO earnings in two and twelve blocks, after network fee updates', async () => {
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.getNetworkBalance()).to.equal(networkFee);
+    const newNetworkFee = networkFee * 2;
+    await ssvNetworkContract.updateNetworkFee(newNetworkFee);
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.getNetworkBalance()).to.equal(networkFee * 2 + newNetworkFee);
+    await utils.progressBlocks(1);
+    expect(await ssvNetworkContract.getNetworkBalance()).to.equal(networkFee * 2 + newNetworkFee * 2);
+    await utils.progressBlocks(10);
+    expect(await ssvNetworkContract.getNetworkBalance()).to.equal(networkFee * 2 + newNetworkFee * 12);
+  });
 
-  // // Add another validator
-  // await registryContract.registerValidator(
-  //     [1, 2, 3, 5],
-  //     `${validatorPK}1`,
-  //     shares[1],
-  //     "10000"
-  // )
-
-  // // Progress 50 blocks and check operator balances and group balance
-  // await utils.progressBlocks(50)
-  // expect(await registryContract.operatorEarningsOf(1)).to.equal('2091')
-  // expect(await registryContract.operatorEarningsOf(2)).to.equal('3162')
-  // expect(await registryContract.operatorEarningsOf(3)).to.equal('3143')
-  // expect(await registryContract.operatorEarningsOf(4)).to.equal('2124')
-  // expect(await registryContract.operatorEarningsOf(5)).to.equal('5000')
-  // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 4500)
-
-  // // Remove an operator
-  // await registryContract.removeOperator(1)
-
-  // // Progress 50 blocks and check operator balances and group balance
-  // await utils.progressBlocks(50)
-  // expect(await registryContract.operatorEarningsOf(1)).to.equal('2091')
-  // expect(await registryContract.operatorEarningsOf(2)).to.equal('3162')
-  // expect(await registryContract.operatorEarningsOf(3)).to.equal('3143')
-  // expect(await registryContract.operatorEarningsOf(4)).to.equal('2124')
-  // expect(await registryContract.operatorEarningsOf(5)).to.equal('5000')
-  // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 4500)
-
-  // // Update a validator
-  // await registryContract.updateValidator(
-  //     [1, 2, 3, 5],
-  //     `${validatorPK}0`,
-  //     shares[1],
-  //     "10"
-  // )
-
-  // // Progress 50 blocks and check operator balances and group balance
-  // await utils.progressBlocks(50)
-  // expect(await registryContract.operatorEarningsOf(1)).to.equal('2091')
-  // expect(await registryContract.operatorEarningsOf(2)).to.equal('3162')
-  // expect(await registryContract.operatorEarningsOf(3)).to.equal('3143')
-  // expect(await registryContract.operatorEarningsOf(4)).to.equal('2124')
-  // expect(await registryContract.operatorEarningsOf(5)).to.equal('5000')
-  // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 4500)
-
-  // // Remove a validator
-  // await registryContract.removeValidator(`${validatorPK}0`, outputRegister.groupId)
-
-  // // Progress 50 blocks and check operator balances and group balance
-  // await utils.progressBlocks(50)
-  // expect(await registryContract.operatorEarningsOf(1)).to.equal('2091')
-  // expect(await registryContract.operatorEarningsOf(2)).to.equal('3162')
-  // expect(await registryContract.operatorEarningsOf(3)).to.equal('3143')
-  // expect(await registryContract.operatorEarningsOf(4)).to.equal('2124')
-  // expect(await registryContract.operatorEarningsOf(5)).to.equal('5000')
-  // expect(await registryContract.groupBalanceOf(owner.address, outputRegister.groupId)).to.equal(10000 - 4500)
-  // });
-
+  it('Check operators earnings in three blocks, one after the other', async () => {
+    await utils.progressBlocks(1);
+    expect((await ssvNetworkContract.operatorSnapshot(1)).balance).to.equal(helpers.CONFIG.minimalOperatorFee);
+    expect((await ssvNetworkContract.operatorSnapshot(2)).balance).to.equal(helpers.CONFIG.minimalOperatorFee);
+    expect((await ssvNetworkContract.operatorSnapshot(3)).balance).to.equal(helpers.CONFIG.minimalOperatorFee);
+    expect((await ssvNetworkContract.operatorSnapshot(4)).balance).to.equal(helpers.CONFIG.minimalOperatorFee);
+    await utils.progressBlocks(1);
+    expect((await ssvNetworkContract.operatorSnapshot(1)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 2);
+    expect((await ssvNetworkContract.operatorSnapshot(2)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 2);
+    expect((await ssvNetworkContract.operatorSnapshot(3)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 2);
+    expect((await ssvNetworkContract.operatorSnapshot(4)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 2);
+    await utils.progressBlocks(1);
+    expect((await ssvNetworkContract.operatorSnapshot(1)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
+    expect((await ssvNetworkContract.operatorSnapshot(2)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
+    expect((await ssvNetworkContract.operatorSnapshot(3)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
+    expect((await ssvNetworkContract.operatorSnapshot(4)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
+  });
 });
