@@ -37,11 +37,11 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register two validators into an existing cluster', async () => {
-    await helpers.registerValidators(0, 1, minDepositAmount, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    await helpers.registerValidators(0, 1, `${minDepositAmount * 2}`, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
   });
 
   it('Register two validators into an existing cluster', async () => {
-    await helpers.registerValidators(1, 1, minDepositAmount, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    await helpers.registerValidators(1, 1, `${minDepositAmount * 2}`, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
   });
 
   it('Invalid operator amount', async () => {
@@ -76,7 +76,7 @@ describe('Register Validator Tests', () => {
       helpers.DataGenerator.publicKey(0),
       [1, 2, 3, 4],
       helpers.DataGenerator.shares(0),
-      '1000'
+      minDepositAmount / 10
     )).to.be.revertedWith('AccountLiquidatable');
   });
 
