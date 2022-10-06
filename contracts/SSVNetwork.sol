@@ -430,7 +430,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         Pod memory pod = _pods[keccak256(abi.encodePacked(msg.sender, fromClusterId))];
         uint64 podIndex = _clusterCurrentIndex(fromClusterId);
-        pod.usage.balance = _ownerPodBalance(pod, podIndex) + amount.shrink();
+        pod.usage.balance = _ownerPodBalance(pod, podIndex) - amount.shrink();
         pod.usage.index = podIndex;
         pod.usage.block = uint64(block.number);
         pod.validatorCount -= activeValidatorCount;
