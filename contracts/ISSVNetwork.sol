@@ -98,6 +98,8 @@ interface ISSVNetwork {
         uint256 fee
     );
 
+    event AccountLiquidated(address ownerAddress, bytes32 podId);
+
     event OperatorFeeIncreaseLimitUpdate(uint64 value);
 
     event DeclareOperatorFeePeriodUpdate(uint256 value);
@@ -117,6 +119,7 @@ interface ISSVNetwork {
     error NotEnoughBalance();
     error ValidatorAlreadyExists();
     error AccountLiquidatable();
+    error AccountNotLiquidatable();
     error InvalidPublicKeyLength();
     error OessDataStructureInvalid();
     error ValidatorNotOwned();
@@ -212,6 +215,8 @@ interface ISSVNetwork {
         bytes calldata shares,
         uint64 amount
     ) external;
+
+    function liquidate(address ownerAddress, uint64[] memory operatorIds) external;
 
     function bulkTransferValidators(
         bytes[] calldata validatorPK,

@@ -169,3 +169,10 @@ export const bulkTransferValidator = async (ownerId: number, publicKey: string[]
 
   // return { podId };
 };
+
+export const liquidate = async (executorOwnerId: number, liquidatedOwnerId: number, operatorIds: number[], gasGroups?: GasGroup[]) => {
+    const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[executorOwnerId]).liquidate(
+    DB.owners[liquidatedOwnerId].address,
+    operatorIds
+  ), gasGroups);
+}
