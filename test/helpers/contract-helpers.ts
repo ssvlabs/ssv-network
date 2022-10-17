@@ -110,11 +110,13 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
     const publicKey = DataGenerator.publicKey(DB.validators.length);
     const shares = DataGenerator.shares(DB.validators.length);
 
+    // initialize cluster by operatorIds and deposit a pod
+    const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).initializeCluster(operatorIds, amount)).wait();
+
     const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
       publicKey,
-      operatorIds,
+      clusterTx.events[0].args.clusterId,
       shares,
-      amount,
     ), gasGroups);
 
     clusterId = eventsByName.ValidatorAdded[0].args.podId;
@@ -130,12 +132,14 @@ export const transferValidator = async (ownerId: number, publicKey: string, oper
   let podId: any;
   const shares = DataGenerator.shares(DB.validators.length);
 
+  // initialize cluster by operatorIds and deposit a pod
+  const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).initializeCluster(operatorIds, amount)).wait();
+
   // Transfer validator
   const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).transferValidator(
     publicKey,
-    operatorIds,
+    clusterTx.events[0].args.clusterId,
     shares,
-    amount,
   ), gasGroups);
 
   // FOR ADAM TO UPDATE
@@ -152,13 +156,14 @@ export const bulkTransferValidator = async (ownerId: number, publicKey: string[]
   let podId: any;
   const shares = Array(publicKey.length).fill(DataGenerator.shares(0));
 
+  await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).initializeCluster(DataGenerator.cluster.byId(toCluster), amount);
+
   // Bulk transfer validators
   const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).bulkTransferValidators(
     publicKey,
     fromCluster,
     toCluster,
     shares,
-    amount,
   ), gasGroups);
 
   // FOR ADAM TO UPDATE

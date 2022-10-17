@@ -48,12 +48,14 @@ describe('Remove Validator Tests', () => {
     // Remove validator
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
 
+    // initialize cluster by operatorIds and deposit a pod
+    const tx = await (await ssvNetworkContract.connect(helpers.DB.owners[4]).initializeCluster([1, 2, 3, 4], minDepositAmount)).wait();
+
     // Re-register validator
     await ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      [1, 2, 3, 4],
+      tx.events[0].args.clusterId,
       helpers.DataGenerator.shares(0),
-      minDepositAmount
     );
 
     // Remove the validator again
