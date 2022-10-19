@@ -21,11 +21,9 @@ describe('Transfer Validator Tests', () => {
   });
 
   it('Transfer validator emits ValidatorTransferred event', async () => {
-    const tx = await (await ssvNetworkContract.connect(helpers.DB.owners[4]).initializeCluster(helpers.DataGenerator.cluster.new(), minDepositAmount)).wait();
-
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       clusterResult1.validators[0].publicKey,
-      tx.events[0].args.clusterId,
+      (await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.new(), minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(helpers.DB.validators.length),
     )).to.emit(ssvNetworkContract, 'ValidatorTransferred');
   });
@@ -35,22 +33,17 @@ describe('Transfer Validator Tests', () => {
   });
 
   it('Transfer validator with an invalid owner', async () => {
-
-    const cluster5 = await (await ssvNetworkContract.connect(helpers.DB.owners[5]).initializeCluster(helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).wait();
-
     // Transfer validator with an invalid owner
     await expect(ssvNetworkContract.connect(helpers.DB.owners[5]).transferValidator(
       clusterResult1.validators[0].publicKey,
-      cluster5.events[0].args.clusterId,
+      (await helpers.ensureClusterAndDeposit(5, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(helpers.DB.validators.length),
     )).to.be.revertedWith('ValidatorNotOwned');
-
-    const cluster4 = await (await ssvNetworkContract.connect(helpers.DB.owners[4]).initializeCluster(helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).wait();
 
     // Transfer validator with an invalid public key
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       helpers.DataGenerator.shares(0),
-      cluster4.events[0].args.clusterId,
+      (await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(helpers.DB.validators.length),
     )).to.be.revertedWith('ValidatorNotOwned');
   });
@@ -67,12 +60,10 @@ describe('Transfer Validator Tests', () => {
     // Register validator
     const { clusterId } = await helpers.registerValidators(4, 1, minDepositAmount, [1, 2, 3, 9]);
 
-    const tx = await (await ssvNetworkContract.connect(helpers.DB.owners[4]).initializeCluster(helpers.DataGenerator.cluster.byId(clusterId), helpers.CONFIG.minimalOperatorFee)).wait();
-
     // Transfer to cluster with not enough amount
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       clusterResult1.validators[0].publicKey,
-      tx.events[0].args.clusterId,
+      (await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterId), helpers.CONFIG.minimalOperatorFee)).clusterId,
       helpers.DataGenerator.shares(helpers.DB.validators.length),
     )).to.be.revertedWith('AccountLiquidatable');
   });

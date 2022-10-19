@@ -106,7 +106,7 @@ interface ISSVNetwork {
 
     event ExecuteOperatorFeePeriodUpdate(uint256 value);
 
-    event ClusterInitialized(bytes32 clusterId);
+    event ClusterCreated(bytes32 clusterId);
 
     /** errors */
     error CallerNotOwner();
@@ -123,12 +123,13 @@ interface ISSVNetwork {
     error AccountLiquidatable();
     error AccountNotLiquidatable();
     error InvalidPublicKeyLength();
-    error OessDataStructureInvalid();
+    error OperatorIdsStructureInvalid();
     error ValidatorNotOwned();
     error InvalidCluster();
-    error ClusterAlreadyExists();
     error ParametersMismatch();
     error NegativeBalance();
+    error ClusterAlreadyExists();
+    error ClusterNotExists();
 
     /** errors */
 //    error validatorWithPublicKeyNotExist();

@@ -23,7 +23,7 @@ describe('Bulk Transfer Validator Tests', () => {
   });
 
   it('Bulk transfer 10 validators emits BulkValidatorTransferred event', async () => {
-    await ssvNetworkContract.connect(helpers.DB.owners[4]).initializeCluster(helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
+    await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
@@ -34,7 +34,7 @@ describe('Bulk Transfer Validator Tests', () => {
   });
 
   it('Bulk transfer validator with an invalid owner', async () => {
-    await ssvNetworkContract.connect(helpers.DB.owners[5]).initializeCluster(helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
+    await helpers.ensureClusterAndDeposit(5, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[5]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
@@ -47,7 +47,7 @@ describe('Bulk Transfer Validator Tests', () => {
   it('Bulk transfer validator with an unowned validator', async () => {
     const account5cluster = await helpers.registerValidators(5, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    await ssvNetworkContract.connect(helpers.DB.owners[4]).initializeCluster(helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
+    await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, account5cluster.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],

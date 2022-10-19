@@ -384,18 +384,36 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _deposit(msg.sender, clusterId, amount.shrink());
     }
 
-    function initializeCluster(uint64[] memory operatorIds, uint256 amount) external {
+    function getClusterId(uint64[] memory operatorIds) external view returns(bytes32) {
         if (operatorIds.length < 4 || operatorIds.length % 3 != 1) {
-            revert OessDataStructureInvalid();
+            revert OperatorIdsStructureInvalid();
         }
 
-        bytes32 clusterId = _getOrCreateCluster(operatorIds);
+        bytes32 clusterId = keccak256(abi.encodePacked(operatorIds));
+
+        if (_clusters[clusterId].operatorIds.length == 0) {
+            revert ClusterNotExists();
+        }
+
+        return clusterId;
+    }
+
+    function ensurePodAndDeposit(uint64[] memory operatorIds, uint256 amount) external {
+        if (operatorIds.length < 4 || operatorIds.length % 3 != 1) {
+            revert OperatorIdsStructureInvalid();
+        }
+
+        bytes32 clusterId = keccak256(abi.encodePacked(operatorIds));
+
+        if (_clusters[clusterId].operatorIds.length > 0) {
+            revert ClusterAlreadyExists();
+        }
+
+        _createClusterUnsafe(clusterId, operatorIds);
 
         if (amount > 0) {
             _deposit(msg.sender, clusterId, amount.shrink());
         }
-
-        emit ClusterInitialized(clusterId);
     }
 
     function liquidate(address ownerAddress, uint64[] memory operatorIds) external {
@@ -646,6 +664,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
 
         _clusters[key] = Cluster({operatorIds: operatorIds});
+
+        emit ClusterCreated(key);
     }
 
     function _getOrCreateCluster(uint64[] memory operatorIds) private returns (bytes32) { // , Cluster memory
