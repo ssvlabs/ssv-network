@@ -427,8 +427,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         for (uint64 index = 0; index < operatorIds.length; ++index) {
             _operators[operatorIds[index]].validatorCount -= pod.validatorCount;
-            _dao.validatorCount -= pod.validatorCount;
         }
+
+        _dao.validatorCount -= pod.validatorCount;
 
         _token.transfer(msg.sender, pod.usage.balance);
 
