@@ -53,6 +53,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     struct Pod {
         uint64 validatorCount;
+        uint64 networkFee;
+        uint64 networkFeeIndex;
         Snapshot usage;
     }
 
@@ -74,6 +76,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     mapping(bytes32 => Validator) _validatorPKs;
 
     uint64 private _networkFee;
+    uint64 private _networkFeeIndex;
+    uint64 private _networkFeeIndexBlockNumber;
+
     uint64 private _declareOperatorFeePeriod;
     uint64 private _executeOperatorFeePeriod;
     uint64 private _operatorMaxFeeIncrease;
@@ -338,21 +343,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
 
         {
-            Pod memory pod = _pods[hashedPod];
+            _pods[hashedPod] = _updatePodData(clusterId, 0, hashedPod, false);
+
             Cluster memory cluster = _clusters[clusterId];
-            uint64 currentBlock = uint64(block.number);
-
-            uint64 podIndex = _clusterCurrentIndex(clusterId);
-            pod.usage.balance = _ownerPodBalance(pod, podIndex);
-            pod.usage.index = podIndex;
-            pod.usage.block = currentBlock;
-            --pod.validatorCount;
-
-            if (pod.validatorCount == 0) {
-                // _availableBalances[msg.sender] += _ownerPodBalance(pod, podIndex);
-                // pod.usage.balance -= _ownerPodBalance(pod, podIndex);
-            }
-
 
             for (uint64 i = 0; i < cluster.operatorIds.length; ++i) {
                 uint64 id = cluster.operatorIds[i];
@@ -367,8 +360,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 --dao.validatorCount;
                 _dao = dao;
             }
-
-            _pods[hashedPod] = pod;
         }
 
         delete _validatorPKs[hashedValidator];
@@ -512,6 +503,15 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _declareOperatorFeePeriod;
     }
 
+    function getNetworkFee() external view returns (uint256) {
+        return _networkFee.expand();
+    }
+
+    function getNetworkBalance() external onlyOwner view returns (uint256) {
+        DAO memory dao = _dao;
+        return _networkBalance(dao).expand();
+    }
+
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external onlyOwner {
         _updateOperatorFeeIncreaseLimit(newOperatorMaxFeeIncrease);
     }
@@ -524,11 +524,38 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _updateExecuteOperatorFeePeriod(newExecuteOperatorFeePeriod);
     }
 
+    function updateNetworkFee(uint256 fee) external onlyOwner {
+        DAO memory dao = _dao;
+        dao = _updateDAOEarnings(dao);
+        _dao = dao;
+
+        _updateNetworkFeeIndex();
+
+        emit NetworkFeeUpdate(_networkFee.expand(), fee);
+
+        _networkFee = fee.shrink();
+    }
+
+    function withdrawDAOEarnings(uint256 amount) external onlyOwner {
+        DAO memory dao = _dao;
+
+        if(amount.shrink() > _networkBalance(dao)) {
+            revert NotEnoughBalance();
+        }
+
+        dao.withdrawn += amount.shrink();
+        _dao = dao;
+
+        _token.transfer(msg.sender, amount);
+
+        emit NetworkFeesWithdrawal(amount, msg.sender);
+    }
+
     // @dev external operators functions
 
-    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint64 balance) {
+    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance) {
         Snapshot memory s = _getSnapshot(_operators[id], uint64(block.number));
-        return (s.block, s.index, s.balance);
+        return (s.block, s.index, s.balance.expand());
     }
 
     // @dev internal dao functions
@@ -635,6 +662,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         pod.usage.balance = _ownerPodBalance(pod, podIndex) + amount;
         pod.usage.index = podIndex;
         pod.usage.block = uint64(block.number);
+
+        pod.networkFee = _ownerPodNetworkFee(pod);
+        pod.networkFeeIndex = _currentNetworkFeeIndex();
+
         if (increase) {
             ++pod.validatorCount;
         } else {
@@ -648,9 +679,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return pod;
     }
 
-    function podBalanceOf(address owner, bytes32 clusterId) external view returns (uint64) {
+    function podBalanceOf(address owner, bytes32 clusterId) external view returns (uint256) {
         Pod memory pod = _pods[keccak256(abi.encodePacked(owner, clusterId))];
-        return _ownerPodBalance(pod, _clusterCurrentIndex(clusterId));
+        return _ownerPodBalance(pod, _clusterCurrentIndex(clusterId)).expand();
     }
 
     function _deposit(address owner, bytes32 clusterId, uint64 amount) private {
@@ -680,12 +711,20 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return key;
     }
 
-
     function _updateDAOEarnings(DAO memory dao) private view returns (DAO memory) {
         dao.earnings.balance = _networkTotalEarnings(dao);
         dao.earnings.block = uint64(block.number);
 
         return dao;
+    }
+
+    function _updateNetworkFeeIndex() private {
+        _networkFeeIndex = _currentNetworkFeeIndex();
+        _networkFeeIndexBlockNumber = uint64(block.number);
+    }
+
+    function _currentNetworkFeeIndex() private view returns(uint64) {
+        return _networkFeeIndex + uint64(block.number - _networkFeeIndexBlockNumber) * _networkFee;
     }
 
     function _extractOperators(uint64[] memory operatorIds) private view returns (Operator[] memory) {
@@ -713,14 +752,18 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-    function _ownerPodBalance(Pod memory pod, uint64 currentPodIndex) private pure returns (uint64) {
-        uint64 usage = (currentPodIndex - pod.usage.index) * pod.validatorCount;
+    function _ownerPodBalance(Pod memory pod, uint64 currentPodIndex) private view returns (uint64) {
+        uint64 usage = (currentPodIndex - pod.usage.index) * pod.validatorCount + _ownerPodNetworkFee(pod);
 
         if (usage > pod.usage.balance) {
             revert NegativeBalance();
         }
 
         return pod.usage.balance - usage;
+    }
+
+    function _ownerPodNetworkFee(Pod memory pod) private view returns (uint64) {
+        return pod.networkFee + uint64(_currentNetworkFeeIndex() - pod.networkFeeIndex) * pod.validatorCount;
     }
 
     function _burnRatePerValidator(Operator[] memory operators) private pure returns (uint64 rate) {
@@ -752,122 +795,4 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             revert CallerNotOwner();
         }
     }
-
-    /*
-    function liquidate(address owner, bytes32 podId) external {
-        Cluster memory cluster = _clusters[podId];
-        Operator[] memory operators = new Operator[](cluster.operatorIds.length);
-        for (uint64 i = 0; i < cluster.operatorIds.length; ++i) {
-            operators[i] = _operators[cluster.operatorIds[i]];
-        }
-        uint64 podIndex = _clusterCurrentIndex(operators);
-        Pod memory pod = _pods[owner][podId];
-        uint64 balance = _ownerPodBalance(pod, podIndex);
-        require(_liquidatable(balance, pod.validatorCount, operators));
-        _availableBalances[msg.sender] += balance;
-        uint64 currentBlock = uint64(block.number);
-        {
-            for (uint64 i = 0; i < operators.length; ++i) {
-                operators[i].earnings = _updateOperatorEarnings(operators[i], currentBlock);
-                operators[i].earnRate -= operators[i].fee;
-                --operators[i].validatorCount;
-            }
-        }
-    }
-    */
-
-//    function addOperatorToValidator(
-//    function _validateRegistryState(
-//        uint64[] memory usedOperators,
-//        uint64[] memory validatorCnt,
-//    bytes32 root
-//    ) private view {
-//        require(_registryStateRoot(usedOperators, validatorCnt) == root, "operator registry hash invalid");
-//    }
-//
-//    uint16 constant OPERATORS_INDX = 0;
-//    uint16 constant OPERATORS_CNT_INDX = 1;
-//    uint16 constant USED_OPERATORS_INDX = 2;
-//    uint16 constant SHARES_PK_INDX = 0;
-//    uint16 constant ENCRYPTED_SHARES_INDX = 1;
-//    function registerValidator(
-//        uint64[][] memory db,
-//        bytes calldata validatorPK,
-//        bytes[][] calldata shares
-//    ) external {
-//        uint64 currentBlock = uint64(block.number);
-//        Validator memory validator = validators[msg.sender];
-//        DAO memory _dao = dao;
-//
-//        _validateRegistryState(db[OPERATORS_INDX], db[OPERATORS_CNT_INDX], validator.operatorRegistryHash);
-//
-//        for (uint64 index = 0; index < db[USED_OPERATORS_INDX].length; ++index) {
-//            uint64 id = db[OPERATORS_INDX][db[USED_OPERATORS_INDX][index]];
-//            // update and save operator
-//            uint64 operatorLastIndex = _updateOperatorCurrentIndex(id, currentBlock);
-//
-//            // update operator in use
-//            validator.aggregatedIndex.lastIndex += operatorLastIndex;
-//            db[1][db[USED_OPERATORS_INDX][index]] ++;
-//        }
-//        validator.aggregatedIndex.validatorCount ++;
-//        validator.operatorRegistryHash = _registryStateRoot(db[OPERATORS_INDX], db[OPERATORS_CNT_INDX]);
-//
-//        // update DAO earnings
-//        uint64 indexChange = (currentBlock - _dao.index.block)*NETWORK_FEE_PER_BLOCK;
-//        _dao.index.lastIndex += indexChange;
-//        _dao.index.block = currentBlock;
-//        _dao.index.accumulated += indexChange * _dao.index.validatorCount;
-//        _dao.index.validatorCount++;
-//        // update validator DAO debt
-//        validator.aggregatedIndex.lastIndex += _dao.index.lastIndex;
-//
-//        // save to storage
-//        validators[msg.sender] = validator;
-//        dao = _dao;
-//
-////        require(_liquidatable(validator, db, _dao.index.lastIndex, currentBlock) == false, "not enough ssv in balance");
-//
-//        emit ValidatorAdded(validatorPK);
-//    }
-//
-//    function daoCurrentIndex(DAO memory _dao, uint64 currentBlock) private view returns (uint64) {
-//        return _dao.index.lastIndex + (currentBlock - _dao.index.block)*NETWORK_FEE_PER_BLOCK;
-//    }
-//
-
-// //    function liquidatable(
-// //        address account,
-// //        uint64[][] calldata db
-// //    ) public view returns (bool) {
-// //        Validator memory validator = validators[account];
-// //        uint64 currentBlock = uint64(block.number);
-// //        uint64 daoIndex = daoCurrentIndex(dao, currentBlock);
-// //        return _liquidatable(validator, db, daoIndex, currentBlock);
-// //    }
-// //
-//     function balanceOf() public view returns (uint64) {
-//         return 1000000; // hard coded for now
-//     }
-
-//     function _validatorLifetimeCost(
-//         DebtIndex memory debtIndex,
-//         uint64[] memory usedOperators,
-//         uint64 validatorCnt,
-//         uint64 daoCurrentIndex,
-//         uint64 currentBlock
-//     ) private view returns (uint64) {
-//         uint64 aggregatedCurrentIndex = 0;
-
-//         for (uint256 index = 0; index < usedOperators.length; ++index) {
-//             uint64 operatorId = usedOperators[index];
-//             Operator memory operator = _operators[usedOperators[index]];
-//             aggregatedCurrentIndex += operatorCurrentIndex(operator, currentBlock) * validatorCnt;
-//         }
-
-//         aggregatedCurrentIndex += daoCurrentIndex * validatorCnt;
-//         uint64 accumulatedCost = debtIndex.accumulated + (aggregatedCurrentIndex - debtIndex.lastIndex);
-
-//         return accumulatedCost;
-//     }
 }

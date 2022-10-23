@@ -107,6 +107,19 @@ interface ISSVNetwork {
     event ExecuteOperatorFeePeriodUpdate(uint256 value);
 
     event ClusterCreated(bytes32 clusterId);
+    /**
+     * @dev Emitted when the network fee is updated.
+     * @param oldFee The old fee
+     * @param newFee The new fee
+     */
+    event NetworkFeeUpdate(uint256 oldFee, uint256 newFee);
+
+    /**
+     * @dev Emitted when transfer fees are withdrawn.
+     * @param value The amount of tokens withdrawn.
+     * @param recipient The recipient address.
+     */
+    event NetworkFeesWithdrawal(uint256 value, address recipient);
 
     /** errors */
     error CallerNotOwner();
@@ -182,7 +195,7 @@ interface ISSVNetwork {
      * @return index the index of the operator.
      * @return balance the current balance of the operator.
      */
-    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint64 balance);
+    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
 
 
     /**

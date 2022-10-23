@@ -39,7 +39,7 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register two validators into an existing cluster', async () => {
-    await helpers.registerValidators(1, 1, minDepositAmount, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    await helpers.registerValidators(1, 1, `${minDepositAmount * 2}`, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
   });
 
   it('Invalid operator amount', async () => {
