@@ -14,11 +14,7 @@ describe('Bulk Transfer Validator Tests', () => {
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
     await helpers.registerOperators(0, 1, helpers.CONFIG.minimalOperatorFee);
 
-    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4;
-
-    // Deposit into accounts
-    // await helpers.deposit([4], [`${minDepositAmount * 12}`]);
-    // await helpers.deposit([5], [minDepositAmount]);
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 4;
 
     // Register validators
     clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
@@ -27,33 +23,37 @@ describe('Bulk Transfer Validator Tests', () => {
   });
 
   it('Bulk transfer 10 validators emits BulkValidatorTransferred event', async () => {
+    await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
+
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
-      `${minDepositAmount * 12}`
     )).to.emit(ssvNetworkContract, 'BulkValidatorTransferred');
   });
 
   it('Bulk transfer validator with an invalid owner', async () => {
+    await helpers.ensureClusterAndDeposit(5, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
+
     await expect(ssvNetworkContract.connect(helpers.DB.owners[5]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
-      minDepositAmount
     )).to.be.revertedWith('ValidatorNotOwned');
   });
 
   it('Bulk transfer validator with an unowned validator', async () => {
     const account5cluster = await helpers.registerValidators(5, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+
+    await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
+
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, account5cluster.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
       Array(clusterResult2.validators.length + 2).fill(helpers.DataGenerator.shares(0)),
-      `${minDepositAmount * 12}`
     )).to.be.revertedWith('ValidatorNotOwned');
   });
 
@@ -63,7 +63,6 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterResult1.clusterId,
       clusterResult3.clusterId,
       Array(clusterResult2.validators.length + 2).fill(helpers.DataGenerator.shares(0)),
-      minDepositAmount
     )).to.be.revertedWith('ValidatorNotOwned');
   });
 
@@ -73,13 +72,13 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterResult3.clusterId,
-      `${minDepositAmount * 12}`,
+      `${minDepositAmount * 10 }`,
       [GasGroup.BULK_TRANSFER_VALIDATOR]);
   });
 
   it('Bulk transfer 10 validators to a cluster with 7 operators', async () => {
     // Register validator with 7 operators
-    const { clusterId } = await helpers.registerValidators(4, 1, minDepositAmount + minDepositAmount * 3, [1, 2, 3, 4, 5, 6, 7]);
+    const { clusterId } = await helpers.registerValidators(4, 1, `${(minDepositAmount / 4) * 7}`, [1, 2, 3, 4, 5, 6, 7]);
 
     // Transfer validator to an existing cluster
     await helpers.bulkTransferValidator(
@@ -87,7 +86,7 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterId,
-      `${minDepositAmount * 19}`,
+      `${(minDepositAmount / 4) * 7 * 10}`,
       [GasGroup.BULK_TRANSFER_VALIDATOR_NON_EXISTING_POD]);
   });
 
@@ -101,7 +100,7 @@ describe('Bulk Transfer Validator Tests', () => {
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId,
       clusterId,
-      `${minDepositAmount * 14}`,
+      `${minDepositAmount * 10}`,
       [GasGroup.BULK_TRANSFER_VALIDATOR_NON_EXISTING_POD]);
   });
 
@@ -111,7 +110,6 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterResult1.clusterId.slice(0, -1) + 'a',
       clusterResult1.clusterId,
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
-      '10000'
     )).to.be.revertedWith('InvalidCluster');
   });
 
@@ -122,7 +120,6 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterResult1.clusterId,
       clusterResult3.clusterId,
       Array(clusterResult2.validators.length).fill(helpers.DataGenerator.shares(0)),
-      '10000'
     )).to.be.revertedWith('ParametersMismatch');
 
     // 9 validators and 8 shares
@@ -131,7 +128,6 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterResult1.clusterId,
       clusterResult3.clusterId,
       Array(clusterResult2.validators.length - 1).fill(helpers.DataGenerator.shares(0)),
-      '10000'
     )).to.be.revertedWith('ParametersMismatch');
   });
 
@@ -142,7 +138,6 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterResult1.clusterId,
       clusterId,
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
-      minDepositAmount / 10
     )).to.be.revertedWith('AccountLiquidatable');
   });
 

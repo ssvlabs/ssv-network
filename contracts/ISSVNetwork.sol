@@ -65,9 +65,9 @@ interface ISSVNetwork {
     /**
      * @dev Emitted when the validator is removed.
      * @param publicKey The public key of a validator.
-     * @param podId The pod id the validator has been removed from.
+     * @param clusterId The pod id the validator has been removed from.
      */
-    event ValidatorRemoved(bytes publicKey, bytes32 podId);
+    event ValidatorRemoved(bytes publicKey, bytes32 clusterId);
 
     event OperatorFeeDeclaration(
         address indexed ownerAddress,
@@ -98,12 +98,15 @@ interface ISSVNetwork {
         uint256 fee
     );
 
+    event AccountLiquidated(address ownerAddress, bytes32 podId);
+
     event OperatorFeeIncreaseLimitUpdate(uint64 value);
 
     event DeclareOperatorFeePeriodUpdate(uint256 value);
 
     event ExecuteOperatorFeePeriodUpdate(uint256 value);
 
+    event ClusterCreated(bytes32 clusterId);
     /**
      * @dev Emitted when the network fee is updated.
      * @param oldFee The old fee
@@ -131,13 +134,15 @@ interface ISSVNetwork {
     error NotEnoughBalance();
     error ValidatorAlreadyExists();
     error AccountLiquidatable();
+    error AccountNotLiquidatable();
     error InvalidPublicKeyLength();
-    error OessDataStructureInvalid();
+    error OperatorIdsStructureInvalid();
     error ValidatorNotOwned();
     error InvalidCluster();
-    error ClusterAlreadyExists();
     error ParametersMismatch();
     error NegativeBalance();
+    error ClusterAlreadyExists();
+    error ClusterNotExists();
 
     /** errors */
 //    error validatorWithPublicKeyNotExist();
@@ -196,15 +201,13 @@ interface ISSVNetwork {
     /**
      * @dev Registers a new validator.
      * @param publicKey Validator public key.
-     * @param operatorIds Operator ids.
+     * @param clusterId Cluster id.
      * @param shares snappy compressed shares(a set of encrypted and public shares).
-     * @param amount amount of tokens to be deposited for the validator's pod.
      */
     function registerValidator(
         bytes calldata publicKey,
-        uint64[] memory operatorIds,
-        bytes calldata shares,
-        uint256 amount
+        bytes32 clusterId,
+        bytes calldata shares
     ) external;
 
     /**
@@ -216,23 +219,22 @@ interface ISSVNetwork {
     /**
      * @dev Transfers a validator.
      * @param publicKey Validator public key.
-     * @param operatorIds new Operator ids(cluster) to transfer the validator to.
+     * @param newClusterId new cluster id to transfer the validator to.
      * @param shares snappy compressed shares(a set of encrypted and public shares).
-     * @param amount amount of tokens to be deposited for the validator's pod.
      */
     function transferValidator(
         bytes calldata publicKey,
-        uint64[] memory operatorIds,
-        bytes calldata shares,
-        uint256 amount
+        bytes32 newClusterId,
+        bytes calldata shares
     ) external;
+
+    function liquidate(address ownerAddress, uint64[] memory operatorIds) external;
 
     function bulkTransferValidators(
         bytes[] calldata validatorPK,
-        bytes32 fromPodId,
-        bytes32 toPodId,
-        bytes[] calldata shares,
-        uint256 amount
+        bytes32 fromClusterId,
+        bytes32 toClusterId,
+        bytes[] calldata shares
     ) external;
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
