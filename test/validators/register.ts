@@ -35,7 +35,7 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register two validators in the same pod', async () => {
-    await helpers.registerValidators(0, 1, minDepositAmount, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+    await helpers.registerValidators(0, 1, minDepositAmount, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
 
   it('Register two validators into an existing cluster', async () => {
@@ -63,7 +63,7 @@ describe('Register Validator Tests', () => {
       helpers.DataGenerator.publicKey(0),
       (await helpers.ensureClusterAndDeposit(0, helpers.DataGenerator.cluster.new(), '0')).clusterId,
       helpers.DataGenerator.shares(0),
-    )).to.be.revertedWith('AccountLiquidatable');
+    )).to.be.revertedWith('NotEnoughBalance');
   });
 
   it('Non existent operator', async () => {
