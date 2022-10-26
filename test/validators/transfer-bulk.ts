@@ -138,7 +138,7 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterResult1.clusterId,
       clusterId,
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
-    )).to.be.revertedWith('AccountLiquidatable');
+    )).to.be.revertedWith('PodLiquidatable');
   });
 
   // TODO: fix after connecting the token

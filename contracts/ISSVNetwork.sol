@@ -29,36 +29,36 @@ interface ISSVNetwork {
     /**
      * @dev Emitted when the validator has been added.
      * @param publicKey The public key of a validator.
-     * @param podId The pod id the validator been added to.
+     * @param clusterId The cluster id the validator been added to.
      * @param shares snappy compressed shares(a set of encrypted and public shares).
      */
     event ValidatorAdded(
         bytes publicKey,
-        bytes32 podId,
+        bytes32 clusterId,
         bytes shares
     );
 
     /**
      * @dev Emitted when validator was transferred between pods.
      * @param publicKey The public key of a validator.
-     * @param podId The validator's new pod id.
+     * @param clusterId The validator's new cluster id.
      * @param shares snappy compressed shares(a set of encrypted and public shares).
      */
     event ValidatorTransferred(
         bytes publicKey,
-        bytes32 podId,
+        bytes32 clusterId,
         bytes shares
     );
 
     /**
      * @dev Emitted when validators were transferred between pods.
      * @param publicKeys An array of transferred public keys.
-     * @param podId The validators new pod id.
+     * @param clusterId The validators new pod id.
      * @param shares an array of snappy compressed shares(a set of encrypted and public shares).
      */
     event BulkValidatorTransferred(
         bytes[] publicKeys,
-        bytes32 podId,
+        bytes32 clusterId,
         bytes[] shares
     );
 
@@ -98,7 +98,9 @@ interface ISSVNetwork {
         uint256 fee
     );
 
-    event AccountLiquidated(address ownerAddress, bytes32 podId);
+    event PodLiquidated(address ownerAddress, bytes32 clusterId);
+
+    event PodEnabled(address ownerAddress, bytes32 clusterId);
 
     event OperatorFeeIncreaseLimitUpdate(uint64 value);
 
@@ -133,8 +135,8 @@ interface ISSVNetwork {
     error OperatorDoesNotExist();
     error NotEnoughBalance();
     error ValidatorAlreadyExists();
-    error AccountLiquidatable();
-    error AccountNotLiquidatable();
+    error PodLiquidatable();
+    error PodNotLiquidatable();
     error InvalidPublicKeyLength();
     error OperatorIdsStructureInvalid();
     error ValidatorNotOwned();
@@ -143,6 +145,7 @@ interface ISSVNetwork {
     error NegativeBalance();
     error ClusterAlreadyExists();
     error ClusterNotExists();
+    error PodAlreadyEnabled();
 
     /** errors */
 //    error validatorWithPublicKeyNotExist();
@@ -228,7 +231,13 @@ interface ISSVNetwork {
         bytes calldata shares
     ) external;
 
-    function liquidate(address ownerAddress, uint64[] memory operatorIds) external;
+    function liquidate(address ownerAddress, bytes32 clusterId) external;
+
+    function isLiquidatable(address ownerAddress, bytes32 clusterId) external view returns(bool);
+
+    function isLiquidated(address ownerAddress, bytes32 clusterId) external view returns(bool);
+
+    function reactivatePod(bytes32 clusterId, uint256 amount) external;
 
     function bulkTransferValidators(
         bytes[] calldata validatorPK,

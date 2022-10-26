@@ -129,8 +129,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
       (await ensureClusterAndDeposit(ownerId, operatorIds, amount)).clusterId,
       shares,
     ), gasGroups);
-
-    clusterId = eventsByName.ValidatorAdded[0].args.podId;
+    clusterId = eventsByName.ValidatorAdded[0].args.clusterId;
     DB.clusters[clusterId] = ({ id: clusterId, operatorIds });
     DB.validators.push({ publicKey, clusterId, shares });
     validators.push({ publicKey, shares });
@@ -184,8 +183,12 @@ export const bulkTransferValidator = async (ownerId: number, publicKey: string[]
 };
 
 export const liquidate = async (executorOwnerId: number, liquidatedOwnerId: number, operatorIds: number[], gasGroups?: GasGroup[]) => {
-    const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[executorOwnerId]).liquidate(
+  const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[executorOwnerId]).liquidate(
     DB.owners[liquidatedOwnerId].address,
-    operatorIds
+    await DB.ssvNetwork.contract.getClusterId(operatorIds),
   ), gasGroups);
-}
+
+  const clusterId = eventsByName.AccountLiquidated[0].args.clusterId;
+  return { clusterId };
+};
+

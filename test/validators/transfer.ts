@@ -65,7 +65,7 @@ describe('Transfer Validator Tests', () => {
       clusterResult1.validators[0].publicKey,
       (await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterId), helpers.CONFIG.minimalOperatorFee)).clusterId,
       helpers.DataGenerator.shares(helpers.DB.validators.length),
-    )).to.be.revertedWith('AccountLiquidatable');
+    )).to.be.revertedWith('NotEnoughBalance');
   });
 
   // GOING ABOVE GAS LIMIT
