@@ -280,7 +280,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         if (_validatorPKs[hashedValidator].clusterId > 0) {
             revert ValidatorAlreadyExists();
         }
-
         _validatorPKs[hashedValidator] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
 
         emit ValidatorAdded(publicKey, clusterId, shares);

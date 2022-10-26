@@ -1,5 +1,3 @@
-declare const ethers: any;
-
 import * as helpers from '../helpers/contract-helpers';
 
 import { expect } from 'chai';
