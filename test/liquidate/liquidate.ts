@@ -2,7 +2,7 @@ import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
 
 import { expect } from 'chai';
-import { GasGroup } from '../helpers/gas-usage';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, clusterResult1: any, minDepositAmount: any;
 
@@ -38,5 +38,11 @@ describe('Transfer Validator Tests', () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
     expect(await ssvNetworkContract.isLiquidated(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
+  });
+
+  it('Liquidate gas limits', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_VALIDATOR]);
   });
 });
