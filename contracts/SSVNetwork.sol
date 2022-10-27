@@ -241,7 +241,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
                     Operator memory operator = _operators[operatorIds[i]];
-                    if (!pod.disabled) {
+                    // @dev operator.owner != address(0) checked in case operator was removed
+                    if (!pod.disabled && operator.owner != address(0)) {
                         operator.snapshot = _getSnapshot(operator, uint64(block.number));
                         ++operator.validatorCount;
                         _operators[operatorIds[i]] = operator;
