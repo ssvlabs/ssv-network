@@ -160,8 +160,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             revert FeeTooLow();
         }
 
-
-        if (fee.shrink() > operator.fee * (10000 + _operatorMaxFeeIncrease) / 10000) {
+        // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
+        uint64 maxAllowedFee = operator.fee * (10000 + _operatorMaxFeeIncrease) / 10000;
+        if (fee.shrink() > maxAllowedFee) {
             revert FeeExceedsIncreaseLimit();
         }
 
