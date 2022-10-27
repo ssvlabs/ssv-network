@@ -147,13 +147,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Operator memory operator = _operators[operatorId];
         if (operator.owner != msg.sender) revert CallerNotOwner();
 
-        uint64 currentBlock = uint64(block.number);
+        // TODO withdraw remaining balance before delete
 
-        operator.snapshot = _getSnapshot(operator, currentBlock);
-        operator.fee = 0;
-        operator.validatorCount = 0;
-        _operators[operatorId] = operator;
-
+        delete _operators[operatorId];
         emit OperatorRemoved(operatorId);
     }
 
