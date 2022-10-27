@@ -12,20 +12,22 @@ export enum GasGroup {
   TRANSFER_VALIDATOR_NON_EXISTING_POD,
   BULK_TRANSFER_VALIDATOR,
   BULK_TRANSFER_VALIDATOR_NON_EXISTING_POD,
+  LIQUIDATE_VALIDATOR,
 }
 
 const MAX_GAS_PER_GROUP: any = {
-  [GasGroup.REGISTER_OPERATOR]: 100000,
-  [GasGroup.REMOVE_OPERATOR]: 40000,
-  [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]: 190000,
-  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]: 230000,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 400000,
+  [GasGroup.REGISTER_OPERATOR]: 105000,
+  [GasGroup.REMOVE_OPERATOR]: 45000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]: 202000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]: 220000,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 333000, // 313000
   [GasGroup.REMOVE_VALIDATOR]: 120000,
   [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]: 400000,
   [GasGroup.TRANSFER_VALIDATOR]: 260000,
   [GasGroup.TRANSFER_VALIDATOR_NON_EXISTING_POD]: 290000,
-  [GasGroup.BULK_TRANSFER_VALIDATOR]: 340000,
-  [GasGroup.BULK_TRANSFER_VALIDATOR_NON_EXISTING_POD]: 340000,
+  [GasGroup.BULK_TRANSFER_VALIDATOR]: 362000,
+  [GasGroup.BULK_TRANSFER_VALIDATOR_NON_EXISTING_POD]: 379000,
+  [GasGroup.LIQUIDATE_VALIDATOR]: 101000,
 };
 
 class GasStats {
@@ -62,7 +64,7 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Prom
 
     if (!process.env.NO_GAS_ENFORCE) {
       const maxGas = MAX_GAS_PER_GROUP[group];
-      expect(gasUsed).to.be.lessThanOrEqual(maxGas);
+      expect(gasUsed).to.be.lessThanOrEqual(maxGas, 'gasUsed higher than max allowed gas');
     }
 
     gasUsageStats.get(group.toString()).addStat(gasUsed);

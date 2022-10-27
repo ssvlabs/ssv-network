@@ -1,11 +1,6 @@
 import * as helpers from '../helpers/contract-helpers';
 
-import { expect } from 'chai';
-
-const numberOfOperators = 4;
-const operatorFee = 4;
-
-let ssvNetworkContract: any, operatorIDs: any, shares: any, owner: any;
+let ssvNetworkContract: any;
 
 describe('Withdraw Tests', () => {
   beforeEach(async () => {

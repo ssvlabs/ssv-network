@@ -1,4 +1,4 @@
-declare const ethers: any;
+/*declare const ethers: any;
 
 import * as helpers from '../helpers/contract-helpers';
 
@@ -9,6 +9,7 @@ const operatorFee = 1;
 
 let registryContract: any, operatorIDs: any, shares: any;
 const validatorData: any = [];
+*/
 
 describe('Stress Tests', () => {
   // beforeEach(async () => {
