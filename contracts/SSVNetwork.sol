@@ -540,12 +540,16 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         pod.usage.block = uint64(block.number);
         pod.validatorCount -= activeValidatorCount;
 
+        _pods[keccak256(abi.encodePacked(msg.sender, fromClusterId))] = pod;
+
         pod = _pods[keccak256(abi.encodePacked(msg.sender, toClusterId))];
         podIndex = _clusterCurrentIndex(toClusterId);
         pod.usage.balance = _podBalance(pod, podIndex);
         pod.usage.index = podIndex;
         pod.usage.block = uint64(block.number);
         pod.validatorCount += activeValidatorCount;
+
+        _pods[keccak256(abi.encodePacked(msg.sender, toClusterId))] = pod;
 
         if (_liquidatable(pod.disabled, _podBalance(pod, podIndex), pod.validatorCount, newOperatorIds)) {
             revert PodLiquidatable();
@@ -737,7 +741,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function _deposit(address owner, bytes32 clusterId, uint64 amount) private {
-        Pod storage pod = _pods[keccak256(abi.encodePacked(owner, clusterId))];
+        Pod memory pod = _pods[keccak256(abi.encodePacked(owner, clusterId))];
+
         if (pod.usage.block == 0) {
             pod.usage.block = uint64(block.number);
             emit PodCreated(owner, clusterId);
@@ -745,31 +750,21 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         if (amount > 0) {
             pod.usage.balance += amount;
         }
+
+        _pods[keccak256(abi.encodePacked(owner, clusterId))] = pod;
     }
 
     function _createClusterUnsafe(bytes32 key, uint64[] memory operatorIds) private {
-        for (uint64 i = 0; i < operatorIds.length - 1;) {
+        for (uint64 i = 0; i < operatorIds.length; i++) {
             if (_operators[operatorIds[i]].owner == address(0)) {
                 revert OperatorDoesNotExist();
             }
-
-            require(operatorIds[i] <= operatorIds[++i]);
+            if (i+1 < operatorIds.length) {
+                require(operatorIds[i] <= operatorIds[i+1]);
+            }
         }
 
         _clusters[key] = Cluster({operatorIds: operatorIds});
-
-        emit ClusterCreated(key);
-    }
-
-    function _getOrCreateCluster(uint64[] memory operatorIds) private returns (bytes32) { // , Cluster memory
-        bytes32 key = keccak256(abi.encodePacked(operatorIds));
-
-        Cluster storage cluster = _clusters[key];
-        if (cluster.operatorIds.length == 0) {
-            _createClusterUnsafe(key, operatorIds);
-        }
-
-        return key;
     }
 
     function _updateDAOEarnings(DAO memory dao) private view returns (DAO memory) {

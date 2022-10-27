@@ -23,7 +23,7 @@ describe('Register Validator Tests', () => {
     // register validator using cluster Id
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(1),
-      (await helpers.ensureClusterAndDeposit(0, helpers.DataGenerator.cluster.new(), minDepositAmount)).clusterId,
+      (await helpers.registerPodAndDeposit(0, helpers.DataGenerator.cluster.new(), minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(0)
     )).to.emit(ssvNetworkContract, 'ValidatorAdded');
   });
@@ -42,16 +42,16 @@ describe('Register Validator Tests', () => {
 
   it('Invalid operator amount', async () => {
     // 2 Operators
-    await expect(helpers.ensureClusterAndDeposit(0, [1, 2], minDepositAmount)).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerPodAndDeposit(0, [1, 2], minDepositAmount)).to.be.revertedWith('OperatorIdsStructureInvalid');
 
     // 6 Operators
-    await expect(helpers.ensureClusterAndDeposit(0, [1, 2, 3, 4, 5, 6], minDepositAmount)).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerPodAndDeposit(0, [1, 2, 3, 4, 5, 6], minDepositAmount)).to.be.revertedWith('OperatorIdsStructureInvalid');
   });
 
   it('Invalid public key length', async () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.shares(0),
-      (await helpers.ensureClusterAndDeposit(0, helpers.DataGenerator.cluster.new(), minDepositAmount)).clusterId,
+      (await helpers.registerPodAndDeposit(0, helpers.DataGenerator.cluster.new(), minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(0),
     )).to.be.revertedWith('InvalidPublicKeyLength');
   });
@@ -59,23 +59,19 @@ describe('Register Validator Tests', () => {
   it('Not enough amount', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      (await helpers.ensureClusterAndDeposit(0, helpers.DataGenerator.cluster.new(), '0')).clusterId,
+      (await helpers.registerPodAndDeposit(0, helpers.DataGenerator.cluster.new(), '0')).clusterId,
       helpers.DataGenerator.shares(0),
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
   it('Non existent operator', async () => {
-    await expect(ssvNetworkContract.registerValidator(
-      helpers.DataGenerator.publicKey(0),
-      (await helpers.ensureClusterAndDeposit(0, [1, 2, 3, 25], minDepositAmount)).clusterId,
-      helpers.DataGenerator.shares(0),
-    )).to.be.revertedWith('OperatorDoesNotExist');
+    await expect(helpers.registerPodAndDeposit(0, [1, 2, 3, 25], minDepositAmount)).to.be.revertedWith('OperatorDoesNotExist');
   });
 
   it('Register with existing validator', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      (await helpers.ensureClusterAndDeposit(1, [1, 2, 3, 4], minDepositAmount)).clusterId,
+      (await helpers.registerPodAndDeposit(1, [1, 2, 3, 4], minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(0),
     )).to.be.revertedWith('ValidatorAlreadyExists');
   });

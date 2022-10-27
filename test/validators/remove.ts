@@ -48,7 +48,7 @@ describe('Remove Validator Tests', () => {
     // Re-register validator
     await ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      (await helpers.ensureClusterAndDeposit(4, [1, 2, 3, 4], minDepositAmount)).clusterId,
+      (await helpers.registerPodAndDeposit(4, [1, 2, 3, 4], minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(0),
     );
 
