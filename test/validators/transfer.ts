@@ -79,7 +79,7 @@ describe('Transfer Validator Tests', () => {
     const clusterResult3 = await helpers.registerValidators(5, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
     // Transfer validator
-    const transfredValidator1 = await helpers.transferValidator(4, clusterResult1.validators[0].publicKey, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * 2}`, [GasGroup.TRANSFER_VALIDATOR_NON_EXISTING_POD]);
+    await helpers.transferValidator(4, clusterResult1.validators[0].publicKey, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * 2}`, [GasGroup.TRANSFER_VALIDATOR_NON_EXISTING_POD]);
 
     // expect(clusterResult3.clusterId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.podId);
   });

@@ -95,11 +95,13 @@ export const registerOperators = async (ownerId: number, numberOfOperators: numb
   }
 };
 
+/*
 export const deposit = async (ownerIds: number[], amounts: string[]) => {
   // for (let i = 0; i < ownerIds.length; ++i) {
   //   await DB.ssvNetwork.contract.connect(DB.owners[ownerIds[i]]).deposit(amounts[i]);
   // }
 };
+*/
 
 export const ensureClusterAndDeposit = async(ownerId: number, operatorIds: number[], amount: string): Promise<any> => {
   let clusterId;
@@ -139,11 +141,11 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
 };
 
 export const transferValidator = async (ownerId: number, publicKey: string, operatorIds: number[], amount: string, gasGroups?: GasGroup[]) => {
-  let podId: any;
+  // let podId: any;
   const shares = DataGenerator.shares(DB.validators.length);
 
   // Transfer validator
-  const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).transferValidator(
+  await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).transferValidator(
     publicKey,
     (await ensureClusterAndDeposit(ownerId, operatorIds, amount)).clusterId,
     shares,
@@ -160,13 +162,12 @@ export const transferValidator = async (ownerId: number, publicKey: string, oper
 
 
 export const bulkTransferValidator = async (ownerId: number, publicKey: string[], fromCluster: string, toCluster: string, amount: string, gasGroups?: GasGroup[]) => {
-  let podId: any;
   const shares = Array(publicKey.length).fill(DataGenerator.shares(0));
 
   await ensureClusterAndDeposit(ownerId, DataGenerator.cluster.byId(toCluster), amount);
 
   // Bulk transfer validators
-  const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).bulkTransferValidators(
+  await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).bulkTransferValidators(
     publicKey,
     fromCluster,
     toCluster,

@@ -15,9 +15,6 @@ describe('Remove Validator Tests', () => {
     // Register operators
     await helpers.registerOperators(0, 4, helpers.CONFIG.minimalOperatorFee);
 
-    // Deposit into accounts
-    await helpers.deposit([4], [minDepositAmount]);
-
     // Register a validator
     clusterResult = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
