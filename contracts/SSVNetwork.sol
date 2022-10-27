@@ -383,9 +383,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function getClusterId(uint64[] memory operatorIds) external view returns(bytes32) {
-        if (operatorIds.length < 4 || operatorIds.length % 3 != 1) {
-            revert OperatorIdsStructureInvalid();
-        }
+        _validateOperatorIds(operatorIds);
 
         bytes32 clusterId = keccak256(abi.encodePacked(operatorIds));
 
@@ -397,9 +395,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function registerPod(uint64[] memory operatorIds, uint256 amount) external {
-        if (operatorIds.length < 4 || operatorIds.length % 3 != 1) {
-            revert OperatorIdsStructureInvalid();
-        }
+        _validateOperatorIds(operatorIds);
 
         bytes32 clusterId = keccak256(abi.encodePacked(operatorIds));
 
@@ -861,6 +857,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function _validatePublicKey(bytes memory publicKey) private pure {
         if (publicKey.length != 48) {
             revert InvalidPublicKeyLength();
+        }
+    }
+
+    function _validateOperatorIds(uint64[] memory operatorIds) private pure {
+        if (operatorIds.length < 4 || operatorIds.length > 13 || operatorIds.length % 3 != 1) {
+            revert OperatorIdsStructureInvalid();
         }
     }
 }
