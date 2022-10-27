@@ -348,8 +348,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
             for (uint64 i = 0; i < cluster.operatorIds.length; ++i) {
                 uint64 id = cluster.operatorIds[i];
-                _operators[id].snapshot = _getSnapshot(_operators[id], uint64(block.number));
-                --_operators[id].validatorCount;
+                Operator memory operator = _operators[id];
+
+                if (operator.owner != address(0)) {
+                    operator.snapshot = _getSnapshot(operator, uint64(block.number));
+                    --operator.validatorCount;
+                    _operators[id] = operator;
+                }
             }
 
             {
