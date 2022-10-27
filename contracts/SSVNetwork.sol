@@ -230,8 +230,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         uint64[] memory operatorIds = _clusters[clusterId].operatorIds;
 
-        // Operator[] memory operators;
         bytes32 hashedValidator = keccak256(publicKey);
+        if (_validatorPKs[hashedValidator].clusterId > 0) {
+            revert ValidatorAlreadyExists();
+        }
+
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
         {
             Pod memory pod;
@@ -266,9 +269,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             _pods[hashedPod] = pod;
         }
 
-        if (_validatorPKs[hashedValidator].clusterId > 0) {
-            revert ValidatorAlreadyExists();
-        }
+
         _validatorPKs[hashedValidator] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
 
         emit ValidatorAdded(publicKey, clusterId, shares);
