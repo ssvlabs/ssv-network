@@ -23,7 +23,7 @@ describe('Transfer Validator Tests', () => {
   it('Transfer validator emits ValidatorTransferred event', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       clusterResult1.validators[0].publicKey,
-      (await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.new(), minDepositAmount)).clusterId,
+      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.new(), minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(helpers.DB.validators.length),
     )).to.emit(ssvNetworkContract, 'ValidatorTransferred');
   });
@@ -33,19 +33,19 @@ describe('Transfer Validator Tests', () => {
   });
 
   it('Transfer validator with an invalid owner', async () => {
-    // Transfer validator with an invalid owner
     await expect(ssvNetworkContract.connect(helpers.DB.owners[5]).transferValidator(
       clusterResult1.validators[0].publicKey,
-      (await helpers.ensureClusterAndDeposit(5, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
+      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(helpers.DB.validators.length),
     )).to.be.revertedWith('ValidatorNotOwned');
+  });
 
-    // Transfer validator with an invalid public key
+  it('transfer with an invalid public key', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       helpers.DataGenerator.shares(0),
-      (await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
+      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(helpers.DB.validators.length),
-    )).to.be.revertedWith('ValidatorNotOwned');
+    )).to.be.revertedWith('InvalidPublicKeyLength');
   });
 
   it('Transfer validator to a cluster with 7 operators', async () => {
@@ -63,7 +63,7 @@ describe('Transfer Validator Tests', () => {
     // Transfer to cluster with not enough amount
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       clusterResult1.validators[0].publicKey,
-      (await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterId), helpers.CONFIG.minimalOperatorFee)).clusterId,
+      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterId), helpers.CONFIG.minimalOperatorFee)).clusterId,
       helpers.DataGenerator.shares(helpers.DB.validators.length),
     )).to.be.revertedWith('NotEnoughBalance');
   });

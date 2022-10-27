@@ -108,7 +108,7 @@ interface ISSVNetwork {
 
     event ExecuteOperatorFeePeriodUpdate(uint256 value);
 
-    event ClusterCreated(bytes32 clusterId);
+    event PodCreated(address ownerAddress, bytes32 clusterId);
     /**
      * @dev Emitted when the network fee is updated.
      * @param oldFee The old fee

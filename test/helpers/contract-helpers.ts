@@ -103,7 +103,7 @@ export const deposit = async (ownerIds: number[], amounts: string[]) => {
 };
 */
 
-export const ensureClusterAndDeposit = async(ownerId: number, operatorIds: number[], amount: string): Promise<any> => {
+export const registerPodAndDeposit = async(ownerId: number, operatorIds: number[], amount: string): Promise<any> => {
   let clusterId;
   try {
     clusterId = await DB.ssvNetwork.contract.getClusterId(operatorIds);
@@ -128,7 +128,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
 
     const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
       publicKey,
-      (await ensureClusterAndDeposit(ownerId, operatorIds, amount)).clusterId,
+      (await registerPodAndDeposit(ownerId, operatorIds, amount)).clusterId,
       shares,
     ), gasGroups);
     clusterId = eventsByName.ValidatorAdded[0].args.clusterId;
@@ -147,7 +147,7 @@ export const transferValidator = async (ownerId: number, publicKey: string, oper
   // Transfer validator
   await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).transferValidator(
     publicKey,
-    (await ensureClusterAndDeposit(ownerId, operatorIds, amount)).clusterId,
+    (await registerPodAndDeposit(ownerId, operatorIds, amount)).clusterId,
     shares,
   ), gasGroups);
 
@@ -164,7 +164,7 @@ export const transferValidator = async (ownerId: number, publicKey: string, oper
 export const bulkTransferValidator = async (ownerId: number, publicKey: string[], fromCluster: string, toCluster: string, amount: string, gasGroups?: GasGroup[]) => {
   const shares = Array(publicKey.length).fill(DataGenerator.shares(0));
 
-  await ensureClusterAndDeposit(ownerId, DataGenerator.cluster.byId(toCluster), amount);
+  await registerPodAndDeposit(ownerId, DataGenerator.cluster.byId(toCluster), amount);
 
   // Bulk transfer validators
   await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).bulkTransferValidators(

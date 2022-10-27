@@ -23,7 +23,7 @@ describe('Bulk Transfer Validator Tests', () => {
   });
 
   it('Bulk transfer 10 validators emits BulkValidatorTransferred event', async () => {
-    await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
+    await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
@@ -34,7 +34,7 @@ describe('Bulk Transfer Validator Tests', () => {
   });
 
   it('Bulk transfer validator with an invalid owner', async () => {
-    await helpers.ensureClusterAndDeposit(5, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
+    await helpers.registerPodAndDeposit(5, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[5]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
@@ -47,7 +47,7 @@ describe('Bulk Transfer Validator Tests', () => {
   it('Bulk transfer validator with an unowned validator', async () => {
     const account5cluster = await helpers.registerValidators(5, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    await helpers.ensureClusterAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
+    await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * (clusterResult2.validators.length + 1) }`);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, account5cluster.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
@@ -63,7 +63,7 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterResult1.clusterId,
       clusterResult3.clusterId,
       Array(clusterResult2.validators.length + 2).fill(helpers.DataGenerator.shares(0)),
-    )).to.be.revertedWith('ValidatorNotOwned');
+    )).to.be.revertedWith('InvalidPublicKeyLength');
   });
 
   it('Bulk transfer 10 validators', async () => {
@@ -110,7 +110,7 @@ describe('Bulk Transfer Validator Tests', () => {
       clusterResult1.clusterId.slice(0, -1) + 'a',
       clusterResult1.clusterId,
       Array(clusterResult2.validators.length + 1).fill(helpers.DataGenerator.shares(0)),
-    )).to.be.revertedWith('InvalidCluster');
+    )).to.be.revertedWith('ClusterNotExists');
   });
 
   it('Validator and share length mismatch', async () => {
