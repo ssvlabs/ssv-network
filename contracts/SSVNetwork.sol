@@ -244,10 +244,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             {
                 for (uint64 i = 0; i < operatorIds.length; ++i) {
                     Operator memory operator = _operators[operatorIds[i]];
-                    if (operator.owner == address(0)) {
-                        revert OperatorDoesNotExist();
-                    }
-
                     if (!pod.disabled) {
                         operator.snapshot = _getSnapshot(operator, uint64(block.number));
                         ++operator.validatorCount;
@@ -399,15 +395,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         bytes32 clusterId = keccak256(abi.encodePacked(operatorIds));
 
-        if (_clusters[clusterId].operatorIds.length > 0) {
-            revert ClusterAlreadyExists();
+        if (_clusters[clusterId].operatorIds.length == 0) {
+            _createClusterUnsafe(clusterId, operatorIds);
         }
 
-        _createClusterUnsafe(clusterId, operatorIds);
-
-        if (amount > 0) {
-            _deposit(msg.sender, clusterId, amount.shrink());
-        }
+        _deposit(msg.sender, clusterId, amount.shrink());
     }
 
     function liquidate(address ownerAddress, bytes32 clusterId) external {
@@ -746,12 +738,21 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _deposit(address owner, bytes32 clusterId, uint64 amount) private {
         Pod storage pod = _pods[keccak256(abi.encodePacked(owner, clusterId))];
-
-        pod.usage.balance += amount;
+        if (pod.usage.block == 0) {
+            pod.usage.block = uint64(block.number);
+            emit PodCreated(owner, clusterId);
+        }
+        if (amount > 0) {
+            pod.usage.balance += amount;
+        }
     }
 
     function _createClusterUnsafe(bytes32 key, uint64[] memory operatorIds) private {
         for (uint64 i = 0; i < operatorIds.length - 1;) {
+            if (_operators[operatorIds[i]].owner == address(0)) {
+                revert OperatorDoesNotExist();
+            }
+
             require(operatorIds[i] <= operatorIds[++i]);
         }
 

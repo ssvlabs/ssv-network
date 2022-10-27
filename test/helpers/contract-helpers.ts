@@ -111,7 +111,7 @@ export const ensureClusterAndDeposit = async(ownerId: number, operatorIds: numbe
       await DB.ssvNetwork.contract.connect(DB.owners[ownerId])['deposit(bytes32,uint256)'](clusterId, amount);
     }
   } catch (e) {
-    const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).ensurePodAndDeposit(operatorIds, amount)).wait();
+    const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerPod(operatorIds, amount)).wait();
     clusterId = clusterTx.events[0].args.clusterId;
   }
   return { clusterId };
