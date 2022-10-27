@@ -147,13 +147,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Operator memory operator = _operators[operatorId];
         if (operator.owner != msg.sender) revert CallerNotOwner();
 
-        uint64 currentBlock = uint64(block.number);
+        // TODO withdraw remaining balance before delete
 
-        operator.snapshot = _getSnapshot(operator, currentBlock);
-        operator.fee = 0;
-        operator.validatorCount = 0;
-        _operators[operatorId] = operator;
-
+        delete _operators[operatorId];
         emit OperatorRemoved(operatorId);
     }
 
@@ -164,8 +160,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             revert FeeTooLow();
         }
 
-
-        if (fee.shrink() > operator.fee * (10000 + _operatorMaxFeeIncrease) / 10000) {
+        // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
+        uint64 maxAllowedFee = operator.fee * (10000 + _operatorMaxFeeIncrease) / 10000;
+        if (fee.shrink() > maxAllowedFee) {
             revert FeeExceedsIncreaseLimit();
         }
 
