@@ -119,9 +119,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 executeOperatorFeePeriod_
     ) internal onlyInitializing {
         _token = token_;
-        _updateOperatorFeeIncreaseLimit(operatorMaxFeeIncrease_);
-        _updateDeclareOperatorFeePeriod(declareOperatorFeePeriod_);
-        _updateExecuteOperatorFeePeriod(executeOperatorFeePeriod_);
+        _operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
+        _declareOperatorFeePeriod = declareOperatorFeePeriod_;
+        _executeOperatorFeePeriod = executeOperatorFeePeriod_;
     }
 
     modifier onlyOperatorOwnerOrContractOwner(uint64 operatorId) {
@@ -294,10 +294,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         {
             bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
             _pods[hashedPod] = _updatePodData(clusterId, 0, hashedPod, false);
-            // if (pod.validatorCount == 0) {
-            // _availableBalances[msg.sender] += _ownerPodBalance(pod, podIndex);
-            // pod.usage.balance -= _ownerPodBalance(pod, podIndex);
-            // }
         }
 
         {
@@ -585,15 +581,18 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external onlyOwner {
-        _updateOperatorFeeIncreaseLimit(newOperatorMaxFeeIncrease);
+        _operatorMaxFeeIncrease = newOperatorMaxFeeIncrease;
+        emit OperatorFeeIncreaseLimitUpdate(_operatorMaxFeeIncrease);
     }
 
     function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external onlyOwner {
-        _updateDeclareOperatorFeePeriod(newDeclareOperatorFeePeriod);
+        _declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
+        emit DeclareOperatorFeePeriodUpdate(newDeclareOperatorFeePeriod);
     }
 
     function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external onlyOwner {
-        _updateExecuteOperatorFeePeriod(newExecuteOperatorFeePeriod);
+        _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
+        emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
     }
 
     function updateNetworkFee(uint256 fee) external onlyOwner {
@@ -632,24 +631,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     // @dev internal dao functions
 
-    function _updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) private {
-        _operatorMaxFeeIncrease = newOperatorMaxFeeIncrease;
-
-        emit OperatorFeeIncreaseLimitUpdate(_operatorMaxFeeIncrease);
-
-    }
-
-    function _updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) private {
-        _declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
-
-        emit DeclareOperatorFeePeriodUpdate(newDeclareOperatorFeePeriod);
-    }
-
-    function _updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) private {
-        _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
-
-        emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
-    }
 
     // @dev internal operators functions
 
@@ -731,10 +712,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             --pod.validatorCount;
         }
 
-        if (pod.validatorCount == 0) {
-            // _availableBalances[msg.sender] += _ownerPodBalance(pod, podIndex);
-            // pod.usage.balance -= _ownerPodBalance(pod, podIndex);
-        }
         return pod;
     }
 
