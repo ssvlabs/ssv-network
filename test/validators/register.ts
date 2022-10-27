@@ -58,7 +58,7 @@ describe('Register Validator Tests', () => {
 
   it('Not enough amount', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
-      helpers.DataGenerator.publicKey(0),
+      helpers.DataGenerator.publicKey(1),
       (await helpers.registerPodAndDeposit(0, helpers.DataGenerator.cluster.new(), '0')).clusterId,
       helpers.DataGenerator.shares(0),
     )).to.be.revertedWith('NotEnoughBalance');
