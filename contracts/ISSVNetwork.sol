@@ -123,6 +123,10 @@ interface ISSVNetwork {
      */
     event NetworkFeesWithdrawal(uint256 value, address recipient);
 
+    event FundsWithdrawal(uint256 value, bytes32 clusterId, address owner);
+
+    event FundsDeposit(uint256 value, bytes32 clusterId, address owner);
+
     /** errors */
     error CallerNotOwner();
     error FeeTooLow();
@@ -146,6 +150,7 @@ interface ISSVNetwork {
     error ClusterAlreadyExists();
     error ClusterNotExists();
     error PodAlreadyEnabled();
+    error BurnRatePositive();
 
     /** errors */
 //    error validatorWithPublicKeyNotExist();
@@ -257,4 +262,8 @@ interface ISSVNetwork {
     function getExecuteOperatorFeePeriod() external view returns (uint64);
 
     function getDeclaredOperatorFeePeriod() external view returns (uint64);
+
+    function withdraw(bytes32 clusterId, uint256 tokenAmount) external;
+
+    function withdrawAll(bytes32 clusterId) external;
 }
