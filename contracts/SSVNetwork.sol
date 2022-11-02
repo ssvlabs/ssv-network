@@ -314,12 +314,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 _pods[hashedPod] = pod;
             }
 
-            {
-                DAO memory dao = _dao;
-                dao = _updateDAOEarnings(dao);
-                _dao = dao;
-            }
-
             if (_liquidatable(pod.disabled, _podBalance(pod, _clusterCurrentIndex(newClusterId)), pod.validatorCount, operatorIds)) {
                 revert NotEnoughBalance();
             }
