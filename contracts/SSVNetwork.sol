@@ -53,7 +53,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     struct Pod {
         uint64 validatorCount;
-        uint64 withdrawn;
 
         uint64 networkFee;
         uint64 networkFeeIndex;
@@ -388,7 +387,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             revert NotEnoughBalance();
         }
 
-        pod.withdrawn += amount.shrink();
+        pod.usage.balance -= amount.shrink();
+
         _pods[hashedPod] = pod;
 
         _token.transfer(msg.sender, amount);
@@ -413,7 +413,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             revert BurnRatePositive();
         }
 
-        pod.withdrawn += podBalance;
+        pod.usage.balance -= podBalance;
+
         _pods[hashedPod] = pod;
 
         _token.transfer(msg.sender, podBalance.expand());
