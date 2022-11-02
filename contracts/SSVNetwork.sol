@@ -443,6 +443,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             _createClusterUnsafe(clusterId, operatorIds);
         }
 
+        bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
+
+        if (_pods[hashedPod].usage.block == 0) {
+            _pods[hashedPod].usage.block = uint64(block.number);
+            emit PodCreated(msg.sender, clusterId);
+        }
+
         _deposit(msg.sender, clusterId, amount.shrink());
     }
 
@@ -774,13 +781,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function _deposit(address owner, bytes32 clusterId, uint64 amount) private {
         bytes32 hashedPod = keccak256(abi.encodePacked(owner, clusterId));
 
-        if (_pods[hashedPod].usage.block == 0) {
-            _pods[hashedPod].usage.block = uint64(block.number);
-            emit PodCreated(owner, clusterId);
-        }
-        if (amount > 0) {
-            _pods[hashedPod].usage.balance += amount;
-        }
+        _pods[hashedPod].usage.balance += amount;
 
         _token.transferFrom(msg.sender, address(this), amount.expand()); // 20k gas usage
 
