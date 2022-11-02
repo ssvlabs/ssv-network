@@ -1,7 +1,7 @@
 import * as helpers from '../helpers/contract-helpers';
 
 import { expect } from 'chai';
-import { GasGroup } from '../helpers/gas-usage';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, clusterResult: any, minDepositAmount: any;
 
@@ -17,6 +17,11 @@ describe('Register Validator Tests', () => {
 
     // Register a validator
     clusterResult = await helpers.registerValidators(0, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+  });
+
+  it('Register pod gas limit', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPod(helpers.DataGenerator.cluster.new(), minDepositAmount), [GasGroup.REGISTER_POD]);
   });
 
   it('Register validator emits ValidatorAdded event', async () => {
