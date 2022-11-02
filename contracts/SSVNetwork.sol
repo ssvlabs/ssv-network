@@ -773,21 +773,18 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _deposit(address owner, bytes32 clusterId, uint64 amount) private {
         bytes32 hashedPod = keccak256(abi.encodePacked(owner, clusterId));
-        Pod memory pod = _pods[hashedPod];
 
-        if (pod.usage.block == 0) {
-            pod.usage.block = uint64(block.number);
+        if (_pods[hashedPod].usage.block == 0) {
+            _pods[hashedPod].usage.block = uint64(block.number);
             emit PodCreated(owner, clusterId);
         }
         if (amount > 0) {
-            pod.usage.balance += amount;
+            _pods[hashedPod].usage.balance += amount;
         }
 
-        _pods[hashedPod] = pod;
+        _token.transferFrom(msg.sender, address(this), amount.expand()); // 20k gas usage
 
-        _token.transferFrom(msg.sender, address(this), amount.expand());
-
-        emit FundsDeposit(amount.expand(), clusterId, owner);
+        emit FundsDeposit(amount.expand(), clusterId, owner); // 2k gas usage
     }
 
     function _createClusterUnsafe(bytes32 key, uint64[] memory operatorIds) private {
