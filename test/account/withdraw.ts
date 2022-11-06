@@ -20,19 +20,23 @@ describe('Withdraw Tests', () => {
     clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('Withdraw emits FundsWithdrawal event', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee)).to.emit(ssvNetworkContract, 'FundsWithdrawal');
+  it('Withdraw emits ValidatorFundsWithdrawal event', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['withdraw(bytes,uint256)'](clusterResult1.validators[0].publicKey, helpers.CONFIG.minimalOperatorFee)).to.emit(ssvNetworkContract, 'ValidatorFundsWithdrawal');
   });
 
-  it('Withdraw all returns - BurnRatePositive', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawAll(clusterResult1.clusterId)).to.be.revertedWith('BurnRatePositive');
+  it('Withdraw all emits OperatorFundsWithdrawal event', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).withdrawAll(1)).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
+  });
+
+  it('Withdraw all gas limits', async () => {
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0]).withdrawAll(1), [GasGroup.WITHDRAW]);
   });
 
   it('Withdraw returns error - NotEnoughBalance', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).withdraw(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee)).to.be.revertedWith('NotEnoughBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['withdraw(bytes,uint256)'](clusterResult1.validators[0].publicKey, minDepositAmount)).to.be.revertedWith('NotEnoughBalance');
   });
 
   it('Withdraw gas limits', async () => {
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee), [GasGroup.WITHDRAW]);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4])['withdraw(bytes,uint256)'](clusterResult1.validators[0].publicKey, helpers.CONFIG.minimalOperatorFee), [GasGroup.WITHDRAW]);
   });
 });

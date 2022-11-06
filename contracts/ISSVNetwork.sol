@@ -123,7 +123,9 @@ interface ISSVNetwork {
      */
     event NetworkFeesWithdrawal(uint256 value, address recipient);
 
-    event FundsWithdrawal(uint256 value, bytes32 clusterId, address owner);
+    event ValidatorFundsWithdrawal(uint256 value, bytes publicKey, address owner);
+    event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address owner);
+
 
     event FundsDeposit(uint256 value, bytes32 clusterId, address owner);
 
@@ -245,7 +247,7 @@ interface ISSVNetwork {
     function reactivatePod(bytes32 clusterId, uint256 amount) external;
 
     function bulkTransferValidators(
-        bytes[] calldata validatorPK,
+        bytes[] calldata publicKey,
         bytes32 fromClusterId,
         bytes32 toClusterId,
         bytes[] calldata shares
@@ -263,7 +265,9 @@ interface ISSVNetwork {
 
     function getDeclaredOperatorFeePeriod() external view returns (uint64);
 
-    function withdraw(bytes32 clusterId, uint256 tokenAmount) external;
+    function withdraw(bytes calldata publicKey, uint256 tokenAmount) external;
 
-    function withdrawAll(bytes32 clusterId) external;
+    function withdraw(uint64 operatorId, uint256 tokenAmount) external;
+
+    function withdrawAll(uint64 operatorId) external;
 }
