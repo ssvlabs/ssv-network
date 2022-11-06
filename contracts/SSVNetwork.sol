@@ -70,7 +70,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     // global vars
     Counters.Counter private lastOperatorId;
-    Counters.Counter private lastPodId;
 
     // operator vars
     mapping(uint64 => Operator) private _operators;
@@ -758,15 +757,19 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         while (oldIndex < oldOperatorIds.length && newIndex < newOperatorIds.length) {
             if (oldOperatorIds[oldIndex] < newOperatorIds[newIndex]) {
                 Operator memory operator = _operators[oldOperatorIds[oldIndex]];
-                operator.snapshot = _getSnapshot(operator, currentBlock);
-                operator.validatorCount -= validatorCount;
-                _operators[oldOperatorIds[oldIndex]] = operator;
+                if (operator.owner != address(0)) {
+                    operator.snapshot = _getSnapshot(operator, currentBlock);
+                    operator.validatorCount -= validatorCount;
+                    _operators[oldOperatorIds[oldIndex]] = operator;
+                }
                 ++oldIndex;
             } else if (newOperatorIds[newIndex] < oldOperatorIds[oldIndex]) {
                 Operator memory operator = _operators[newOperatorIds[newIndex]];
-                operator.snapshot = _getSnapshot(operator, currentBlock);
-                operator.validatorCount += validatorCount;
-                _operators[newOperatorIds[newIndex]] = operator;
+                if (operator.owner != address(0)) {
+                    operator.snapshot = _getSnapshot(operator, currentBlock);
+                    operator.validatorCount += validatorCount;
+                    _operators[newOperatorIds[newIndex]] = operator;
+                }
                 ++newIndex;
             } else {
                 ++oldIndex;
@@ -776,17 +779,21 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         while (oldIndex < oldOperatorIds.length) {
             Operator memory operator = _operators[oldOperatorIds[oldIndex]];
-            operator.snapshot = _getSnapshot(operator, currentBlock);
-            operator.validatorCount -= validatorCount;
-            _operators[oldOperatorIds[oldIndex]] = operator;
+            if (operator.owner != address(0)) {
+                operator.snapshot = _getSnapshot(operator, currentBlock);
+                operator.validatorCount -= validatorCount;
+                _operators[oldOperatorIds[oldIndex]] = operator;
+            }
             ++oldIndex;
         }
 
         while (newIndex < newOperatorIds.length) {
             Operator memory operator = _operators[newOperatorIds[newIndex]];
-            operator.snapshot = _getSnapshot(operator, currentBlock);
-            operator.validatorCount += validatorCount;
-            _operators[newOperatorIds[newIndex]] = operator;
+            if (operator.owner != address(0)) {
+                operator.snapshot = _getSnapshot(operator, currentBlock);
+                operator.validatorCount += validatorCount;
+                _operators[newOperatorIds[newIndex]] = operator;
+            }
             ++newIndex;
         }
     }
@@ -838,7 +845,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 revert OperatorDoesNotExist();
             }
             if (i+1 < operatorIds.length) {
-                require(operatorIds[i] <= operatorIds[i+1]);
+                require(operatorIds[i] <= operatorIds[i+1], "The operators list should be in ascending order");
             }
         }
 
