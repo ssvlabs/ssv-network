@@ -352,7 +352,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             }
 
             {
-                // // update DAO earnings
+                // update DAO earnings
                 DAO memory dao = _dao;
                 dao = _updateDAOEarnings(dao);
                 --dao.validatorCount;
@@ -510,7 +510,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 }
             }
 
-            _dao.validatorCount -= pod.validatorCount;
+            {
+                // update DAO earnings
+                DAO memory dao = _dao;
+                dao = _updateDAOEarnings(dao);
+                dao.validatorCount -= pod.validatorCount;
+                _dao = dao;
+            }
 
             _token.transfer(msg.sender, podBalance.expand());
         }

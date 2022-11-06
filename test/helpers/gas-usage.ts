@@ -34,7 +34,7 @@ const MAX_GAS_PER_GROUP: any = {
   [GasGroup.DEPOSIT]: 17000,
   [GasGroup.WITHDRAW]: 102000,
   [GasGroup.REGISTER_POD]: 137000,
-  [GasGroup.LIQUIDATE_POD]: 150000,
+  [GasGroup.LIQUIDATE_POD]: 156000,
   [GasGroup.REACTIVATE_POD]: 163000,
 };
 
