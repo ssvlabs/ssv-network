@@ -3,7 +3,7 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, clusterResult1: any, clusterResult2: any, minDepositAmount: any;
+let ssvNetworkContract: any, clusterResult1: any, clusterResult2: any, minDepositAmount: any, clusters: any;
 
 describe('Transfer Validator Tests', () => {
   beforeEach(async () => {
@@ -11,13 +11,18 @@ describe('Transfer Validator Tests', () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
 
     // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 15, helpers.CONFIG.minimalOperatorFee);
 
-    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4;
+    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 5;
 
+
+    clusters = {};
     // Register validators
-    clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    clusterResult2 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    clusters.one = helpers.DataGenerator.cluster.new();
+    clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, clusters.one, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    clusters.two = helpers.DataGenerator.cluster.new();
+    clusterResult2 = await helpers.registerValidators(4, 1, minDepositAmount, clusters.two, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    clusters.three = helpers.DataGenerator.cluster.new();
   });
 
   it('Transfer validator emits ValidatorTransferred event', async () => {
@@ -28,8 +33,13 @@ describe('Transfer Validator Tests', () => {
     )).to.emit(ssvNetworkContract, 'ValidatorTransferred');
   });
 
-  it('Transfer validator into a new cluster', async () => {
-    await helpers.transferValidator(4, clusterResult1.validators[0].publicKey, helpers.DataGenerator.cluster.new(), minDepositAmount, [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]);
+  it('Transfer validator into a new cluster A-Z', async () => {
+    await helpers.transferValidator(4, clusterResult2.validators[0].publicKey, clusters.three, minDepositAmount, [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]);
+  });
+
+  it('Transfer validator into a new cluster Z-A', async () => {
+    const cluster = await helpers.registerValidators(4, 1, minDepositAmount, clusters.three, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await helpers.transferValidator(4, cluster.validators[0].publicKey, clusters.one, minDepositAmount, [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]);
   });
 
   it('Transfer validator with an invalid owner', async () => {
@@ -76,7 +86,7 @@ describe('Transfer Validator Tests', () => {
   // GOING ABOVE GAS LIMIT
   it('Transfer validator to an existing cluster', async () => {
     // Register validator with different user
-    const clusterResult3 = await helpers.registerValidators(5, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    const clusterResult3 = await helpers.registerValidators(5, 1, minDepositAmount, clusters.one, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
     // Transfer validator
     await helpers.transferValidator(4, clusterResult1.validators[0].publicKey, helpers.DataGenerator.cluster.byId(clusterResult3.clusterId), `${minDepositAmount * 2}`, [GasGroup.TRANSFER_VALIDATOR_NON_EXISTING_POD]);

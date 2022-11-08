@@ -11,8 +11,7 @@ describe('Bulk Transfer Validator Tests', () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
 
     // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
-    await helpers.registerOperators(0, 1, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 15, helpers.CONFIG.minimalOperatorFee);
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 4;
 

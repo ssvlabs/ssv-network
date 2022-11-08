@@ -364,32 +364,20 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit ValidatorRemoved(publicKey, clusterId);
     }
 
-    function deposit(address owner, bytes calldata publicKey, uint256 amount) external {
-        _validatePublicKey(publicKey);
-        bytes32 hashedValidator = keccak256(publicKey);
+    function deposit(address owner, bytes32 clusterId, uint256 amount) external {
+        _validateClusterId(clusterId);
 
-        _deposit(owner, _validatorPKs[hashedValidator].clusterId, amount.shrink());
+        _deposit(owner, clusterId, amount.shrink());
     }
 
-    function deposit(bytes calldata publicKey, uint256 amount) external {
-        _validatePublicKey(publicKey);
-        bytes32 hashedValidator = keccak256(publicKey);
+    function deposit(bytes32 clusterId, uint256 amount) external {
+        _validateClusterId(clusterId);
 
-        if (_validatorPKs[hashedValidator].owner != msg.sender) {
-            revert ValidatorNotOwned();
-        }
-
-        _deposit(msg.sender, _validatorPKs[hashedValidator].clusterId, amount.shrink());
+        _deposit(msg.sender, clusterId, amount.shrink());
     }
 
-    function withdraw(bytes calldata publicKey, uint256 amount) external override {
-        _validatePublicKey(publicKey);
-        bytes32 hashedValidator = keccak256(publicKey);
-        bytes32 clusterId = _validatorPKs[hashedValidator].clusterId;
-
-        if (_validatorPKs[hashedValidator].owner != msg.sender) {
-            revert ValidatorNotOwned();
-        }
+    function withdrawPodBalance(bytes32 clusterId, uint256 amount) external override {
+        _validateClusterId(clusterId);
 
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
         uint64[] memory operatorIds = _clusters[clusterId].operatorIds;
@@ -407,10 +395,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _token.transfer(msg.sender, amount);
 
-        emit ValidatorFundsWithdrawal(amount, publicKey, msg.sender);
+        emit PodFundsWithdrawal(amount, clusterId, msg.sender);
     }
 
-    function withdraw(uint64 operatorId, uint256 amount) external override {
+    function withdrawOperatorBalance(uint64 operatorId, uint256 amount) external override {
         Operator memory operator = _operators[operatorId];
 
         if (operator.owner != msg.sender) revert CallerNotOwner();
@@ -432,7 +420,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit OperatorFundsWithdrawal(amount.shrink(), operatorId, msg.sender);
     }
 
-    function withdrawAll(uint64 operatorId) external override {
+    function withdrawOperatorBalance(uint64 operatorId) external override {
         Operator memory operator = _operators[operatorId];
 
         if (operator.owner != msg.sender) revert CallerNotOwner();
@@ -626,10 +614,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         uint64[] memory oldOperatorIds = _clusters[fromClusterId].operatorIds;
         uint64[] memory newOperatorIds = _clusters[toClusterId].operatorIds;
-
-        if (oldOperatorIds.length == 0 || newOperatorIds.length == 0) {
-            revert InvalidCluster();
-        }
 
         _updateOperatorsOnTransfer(oldOperatorIds, newOperatorIds, activeValidatorCount);
 

@@ -6,7 +6,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, clusterResult1: any, minDepositAmount: any;
 
-describe('Transfer Validator Tests', () => {
+describe('Liquidate Validator Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     ssvNetworkContract = (await helpers.initializeContract()).contract;

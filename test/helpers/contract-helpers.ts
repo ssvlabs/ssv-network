@@ -33,7 +33,6 @@ export const DataGenerator = {
       if (result.length < size) {
         throw new Error('No new clusters. Try to register more operators.');
       }
-
       return result;
     },
     byId: (id: any) => DB.clusters[id].operatorIds
