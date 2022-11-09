@@ -31,6 +31,9 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true
+    },
+    goerli: {
+      allowUnlimitedContractSize: true
     }
   },
   etherscan: {

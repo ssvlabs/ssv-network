@@ -7,6 +7,13 @@ async function main() {
     executeOperatorFeePeriod: 86400, // DAY
   };
 
+  const [deployer] = await ethers.getSigners();
+  console.log(
+    'Deploying the contracts with the account:',
+    await deployer.getAddress()
+  );
+  console.log('Account balance:', (await deployer.getBalance()).toString());
+
   // Define accounts
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
   const deployArguments = [
