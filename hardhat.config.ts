@@ -31,9 +31,6 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true
-    },
-    goerli: {
-      allowUnlimitedContractSize: true
     }
   },
   etherscan: {
@@ -53,7 +50,8 @@ if (process.env.GOERLI_ETH_NODE_URL) {
     url: process.env.GOERLI_ETH_NODE_URL,
     accounts: [`0x${process.env.GOERLI_OWNER_PRIVATE_KEY}`],
     gasPrice: process.env.GAS_PRICE == "auto" ? "auto" : Number(process.env.GAS_PRICE),
-    gas: process.env.GAS == "auto" ? "auto" : Number(process.env.GAS)
+    gas: process.env.GAS == "auto" ? "auto" : Number(process.env.GAS),
+    allowUnlimitedContractSize: true
   };
 }
 
