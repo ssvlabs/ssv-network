@@ -22,12 +22,14 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            // TODO: should be 10,000 but because in local testnet project
-            //       it fails to deploy because of contract size - we use 100 for now.
-            //       Should fix it in that way when local testnet will be able to
-            //       deploy contract too.
-            //       @url https://github.com/bloxapp/hamlet
-            runs: process.env.SOLIDITY_COMPILER_OPTIMIZER_RUNS || 1
+            /**
+             * Should be 10,000 but because in local testnet project
+             * it fails to deploy because of contract size - we use 100 for now.
+             * Should fix it in that way when local testnet will be able to
+             * deploy contract too.
+             * @url https://github.com/bloxapp/hamlet/blob/master/hamlet/services/ssv/services/hardhat.py
+             */
+            runs: process.env.SOLIDITY_COMPILER_OPTIMIZER_RUNS || 10000
           }
         }
       }
