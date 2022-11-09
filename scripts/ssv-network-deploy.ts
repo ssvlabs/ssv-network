@@ -9,12 +9,14 @@ async function main() {
 
   // Define accounts
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
-  const contract = await upgrades.deployProxy(ssvNetwork, [
+  const deployArguments = [
     process.env.SSVTOKEN_ADDRESS,
     config.operatorMaxFeeIncrease,
     config.declareOperatorFeePeriod,
     config.executeOperatorFeePeriod
-  ]);
+  ];
+  console.log('Deploy arguments: ', deployArguments);
+  const contract = await upgrades.deployProxy(ssvNetwork, deployArguments);
 
   await contract.deployed();
   console.log(`SSVNetwork deployed to: ${contract.address}`);
