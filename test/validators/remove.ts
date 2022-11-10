@@ -1,4 +1,5 @@
 import * as helpers from '../helpers/contract-helpers';
+import * as utils from '../helpers/utils';
 
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
@@ -25,7 +26,12 @@ describe('Remove Validator Tests', () => {
     )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
   });
 
-  it('Remove validator', async () => {
+  it('Remove validator track gas', async () => {
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
+  });
+
+  it('Remove validator with removed operator in a cluster', async () => {
+    await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR]);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
   });
 

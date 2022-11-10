@@ -15,4 +15,4 @@ jobs:
       - run: npm install
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-      - run: IS_TEST_SOL_COV=1 npx hardhat coverage
+      - run: NO_GAS_ENFORCE=1 npx hardhat coverage

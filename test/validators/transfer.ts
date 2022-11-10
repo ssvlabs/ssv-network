@@ -1,4 +1,5 @@
 import * as helpers from '../helpers/contract-helpers';
+import * as utils from '../helpers/utils';
 
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
@@ -93,6 +94,32 @@ describe('Transfer Validator Tests', () => {
 
     // expect(clusterResult3.clusterId).equals(transfredValidator1.eventsByName.ValidatorTransferred[0].args.podId);
   });
+
+  it('Transfer validator with removed operator in old cluster A-Z', async () => {
+    await ssvNetworkContract.removeOperator(helpers.DataGenerator.cluster.byId(clusterResult1.clusterId)[0]);
+    await helpers.transferValidator(4, clusterResult1.validators[0].publicKey, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), `${minDepositAmount * 2}`, [GasGroup.TRANSFER_VALIDATOR]);
+  });
+
+  it('Transfer validator with removed operator in new cluster A-Z', async () => {
+    await ssvNetworkContract.removeOperator(helpers.DataGenerator.cluster.byId(clusterResult2.clusterId)[0]);
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
+    await helpers.transferValidator(4, clusterResult1.validators[0].publicKey, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), `${minDepositAmount * 2}`, [GasGroup.TRANSFER_VALIDATOR]);
+  });
+
+  it('Transfer validator with removed operator in old cluster Z-A', async () => {
+    const cluster = await helpers.registerValidators(4, 1, minDepositAmount, clusters.three, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await ssvNetworkContract.removeOperator(clusters.three[0]);
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
+    await helpers.transferValidator(4, cluster.validators[0].publicKey, clusters.one, `${minDepositAmount * 2}`, [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]);
+  });
+
+  it('Transfer validator with removed operator in new cluster Z-A', async () => {
+    const cluster = await helpers.registerValidators(4, 1, minDepositAmount, clusters.three, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await ssvNetworkContract.removeOperator(clusters.one[0]);
+    await helpers.transferValidator(4, cluster.validators[0].publicKey, clusters.one, minDepositAmount, [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]);
+  });
+
+
 
   // TODO: fix after connecting the token
   it('Transfer validator with not enough balance', async () => {

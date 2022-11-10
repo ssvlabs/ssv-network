@@ -44,8 +44,16 @@ describe('Withdraw Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64,uint256)'](1, helpers.CONFIG.minimalOperatorFee)).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
   });
 
+  it('Withdraw operator balance returns error - CallerNotOwner', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorBalance(uint64,uint256)'](1, minDepositAmount)).to.be.revertedWith('CallerNotOwner');
+  });
+
   it('Withdraw operator balance returns error - NotEnoughBalance', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64,uint256)'](1, minDepositAmount)).to.be.revertedWith('NotEnoughBalance');
+  });
+
+  it('Withdraw total operator balance returns error - CallerNotOwner', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorBalance(uint64)'](12)).to.be.revertedWith('CallerNotOwner');
   });
 
   it('Withdraw total operator balance returns error - NotEnoughBalance', async () => {

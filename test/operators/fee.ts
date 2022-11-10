@@ -173,4 +173,8 @@ describe('Operator Fee Tests', () => {
     expect(await ssvNetworkContract.getOperatorFee(1)).to.equal(initialFee);
   });
 
+  it('Get fee returns error - OperatorNotFound', async () => {
+    await expect(ssvNetworkContract.getOperatorFee(12)).to.be.revertedWith('OperatorNotFound');
+  });
+
 });
