@@ -29,7 +29,7 @@ const config: HardhatUserConfig = {
              * deploy contract too.
              * @url https://github.com/bloxapp/hamlet/blob/master/hamlet/services/ssv/services/hardhat.py
              */
-            runs: process.env.SOLIDITY_COMPILER_OPTIMIZER_RUNS || 10000
+            runs: Number(process.env.SOLIDITY_COMPILER_OPTIMIZER_RUNS || 10000)
           }
         }
       }
