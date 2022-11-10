@@ -28,6 +28,11 @@ describe('Withdraw Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, minDepositAmount)).to.be.revertedWith('NotEnoughBalance');
   });
 
+  it('Withdraw balance of liquidatable pod returns error - NotEnoughBalance', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee)).to.be.revertedWith('NotEnoughBalance');
+  });
+
   it('Withdraw pod balance gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee), [GasGroup.WITHDRAW]);
   });
