@@ -573,9 +573,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         operator.snapshot = _getSnapshot(operator, uint64(block.number));
 
-        uint64 operatorBalance = operator.snapshot.balance;
-
-        if (operatorBalance < amount.shrink()) {
+        if (operator.snapshot.balance < amount.shrink()) {
             revert NotEnoughBalance();
         }
 
