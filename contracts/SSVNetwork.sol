@@ -191,14 +191,16 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             revert FeeTooLow();
         }
 
+        uint64 shrunkFee = fee.shrink();
+
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
         uint64 maxAllowedFee = operator.fee * (10000 + _operatorMaxFeeIncrease) / 10000;
-        if (fee.shrink() > maxAllowedFee) {
+        if (shrunkFee > maxAllowedFee) {
             revert FeeExceedsIncreaseLimit();
         }
 
         _operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
-            fee.shrink(),
+            shrunkFee,
             uint64(block.timestamp) + _declareOperatorFeePeriod,
             uint64(block.timestamp) + _declareOperatorFeePeriod + _executeOperatorFeePeriod
         );
@@ -573,15 +575,17 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         operator.snapshot = _getSnapshot(operator, uint64(block.number));
 
-        if (operator.snapshot.balance < amount.shrink()) {
+        uint64 shrunkAmount = amount.shrink();
+
+        if (operator.snapshot.balance < shrunkAmount) {
             revert NotEnoughBalance();
         }
 
-        operator.snapshot.balance -= amount.shrink();
+        operator.snapshot.balance -= shrunkAmount;
 
         _operators[operatorId] = operator;
 
-        _token.transfer(msg.sender, amount.shrink());
+        _token.transfer(msg.sender, shrunkAmount);
 
         emit OperatorFundsWithdrawal(amount.shrink(), operatorId, msg.sender);
     }
@@ -603,9 +607,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _operators[operatorId] = operator;
 
-        _token.transfer(msg.sender, operatorBalance.expand());
+        uint256 expandedOperatorBalance = operatorBalance.expand();
 
-        emit OperatorFundsWithdrawal(operatorBalance.expand(), operatorId, msg.sender);
+        _token.transfer(msg.sender, expandedOperatorBalance);
+
+        emit OperatorFundsWithdrawal(expandedOperatorBalance, operatorId, msg.sender);
     }
 
     function withdrawPodBalance(bytes32 clusterId, uint256 amount) external override {
@@ -617,11 +623,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Pod memory pod = _pods[hashedPod];
         uint64 podBalance = _podBalance(pod, _clusterCurrentIndex(clusterId));
 
-        if (podBalance < amount.shrink() || _liquidatable(pod.disabled, podBalance, pod.validatorCount, operatorIds)) {
+        uint64 shrunkAmount = amount.shrink();
+
+        if (podBalance < shrunkAmount || _liquidatable(pod.disabled, podBalance, pod.validatorCount, operatorIds)) {
             revert NotEnoughBalance();
         }
 
-        pod.usage.balance -= amount.shrink();
+        pod.usage.balance -= shrunkAmount;
 
         _pods[hashedPod] = pod;
 
@@ -649,11 +657,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function withdrawDAOEarnings(uint256 amount) external onlyOwner override {
         DAO memory dao = _dao;
 
-        if(amount.shrink() > _networkBalance(dao)) {
+        uint64 shrunkAmount = amount.shrink();
+
+        if(shrunkAmount > _networkBalance(dao)) {
             revert NotEnoughBalance();
         }
 
-        dao.withdrawn += amount.shrink();
+        dao.withdrawn += shrunkAmount;
         _dao = dao;
 
         _token.transfer(msg.sender, amount);
@@ -938,9 +948,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _pods[hashedPod].usage.balance += amount; // 22k gas usage
 
-        _token.transferFrom(msg.sender, address(this), amount.expand()); // 20k gas usage
+        uint256 expandedAmount = amount.expand();
 
-        emit FundsDeposit(amount.expand(), clusterId, owner); // 2k gas usage
+        _token.transferFrom(msg.sender, address(this), expandedAmount); // 20k gas usage
+
+        emit FundsDeposit(expandedAmount, clusterId, owner); // 2k gas usage
     }
 
     function _updateNetworkFeeIndex() private {
