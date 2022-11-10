@@ -5,6 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
 interface ISSVNetwork {
+    /**********/
+    /* Events */
+    /**********/
 
     /**
     * @dev Emitted when a new operator has been added.
@@ -123,7 +126,16 @@ interface ISSVNetwork {
      */
     event NetworkFeesWithdrawal(uint256 value, address recipient);
 
-    /** errors */
+    event PodFundsWithdrawal(uint256 value, bytes32 clusterId, address owner);
+    event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address owner);
+
+
+    event FundsDeposit(uint256 value, bytes32 clusterId, address owner);
+
+    /**********/
+    /* Errors */
+    /**********/
+
     error CallerNotOwner();
     error FeeTooLow();
     error FeeExceedsIncreaseLimit();
@@ -131,7 +143,6 @@ interface ISSVNetwork {
     error ApprovalNotWithinTimeframe();
     error OperatorWithPublicKeyNotExist();
     error OperatorNotFound();
-
     error OperatorDoesNotExist();
     error NotEnoughBalance();
     error ValidatorAlreadyExists();
@@ -146,20 +157,11 @@ interface ISSVNetwork {
     error ClusterAlreadyExists();
     error ClusterNotExists();
     error PodAlreadyEnabled();
+    error BurnRatePositive();
 
-    /** errors */
-//    error validatorWithPublicKeyNotExist();
-//    error callerNotValidatorOwner();
-//    error operatorWithPublicKeyNotExist();
-//    error callerNotOperatorOwner();
-//    error feeTooLow();
-//    error feeExceedsIncreaseLimit();
-//    error noPendingFeeChangeRequest();
-//    error approvalNotWithinTimeframe();
-//    error notEnoughBalance();
-//    error burnRatePositive();
-//    error accountAlreadyEnabled();
-
+    /****************/
+    /* Initializers */
+    /****************/
 
     /**
     * @dev Initializes the contract.
@@ -174,6 +176,10 @@ interface ISSVNetwork {
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_
     ) external;
+
+    /*******************************/
+    /* Operator External Functions */
+    /*******************************/
 
     /**
      * @dev Registers a new operator.
@@ -191,15 +197,15 @@ interface ISSVNetwork {
      */
     function removeOperator(uint64 id) external;
 
-    /**
-     * @dev Gets the operators current snapshot.
-     * @param id Operator's id.
-     * @return currentBlock the block that the snapshot is updated to.
-     * @return index the index of the operator.
-     * @return balance the current balance of the operator.
-     */
-    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
+    function declareOperatorFee(uint64 operatorId, uint256 fee) external;
 
+    function executeOperatorFee(uint64 operatorId) external;
+
+    function cancelDeclaredOperatorFee(uint64 operatorId) external;
+
+    /********************************/
+    /* Validator External Functions */
+    /********************************/
 
     /**
      * @dev Registers a new validator.
@@ -231,26 +237,92 @@ interface ISSVNetwork {
         bytes calldata shares
     ) external;
 
-    function liquidate(address ownerAddress, bytes32 clusterId) external;
-
-    function isLiquidatable(address ownerAddress, bytes32 clusterId) external view returns(bool);
-
-    function isLiquidated(address ownerAddress, bytes32 clusterId) external view returns(bool);
-
-    function reactivatePod(bytes32 clusterId, uint256 amount) external;
-
     function bulkTransferValidators(
-        bytes[] calldata validatorPK,
+        bytes[] calldata publicKey,
         bytes32 fromClusterId,
         bytes32 toClusterId,
         bytes[] calldata shares
     ) external;
+
+    /**************************/
+    /* Pod External Functions */
+    /**************************/
+
+    function registerPod(uint64[] memory operatorIds, uint256 amount) external;
+
+    function liquidate(address ownerAddress, bytes32 clusterId) external;
+
+    function reactivatePod(bytes32 clusterId, uint256 amount) external;
+
+    /******************************/
+    /* Balance External Functions */
+    /******************************/
+
+    function deposit(address owner, bytes32 clusterId, uint256 amount) external;
+
+    function deposit(bytes32 clusterId, uint256 amount) external;
+
+    function withdrawOperatorBalance(uint64 operatorId, uint256 tokenAmount) external;
+
+    function withdrawOperatorBalance(uint64 operatorId) external;
+
+    function withdrawPodBalance(bytes32 clusterId, uint256 tokenAmount) external;
+
+    /**************************/
+    /* DAO External Functions */
+    /**************************/
+
+    function updateNetworkFee(uint256 fee) external;
+
+    function withdrawDAOEarnings(uint256 amount) external;
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
     function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external;
 
     function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
+
+
+    /************************************/
+    /* Operator External View Functions */
+    /************************************/
+
+    function getOperatorFee(uint64 operatorId) external view returns (uint256);
+
+    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
+
+    /*******************************/
+    /* Pod External View Functions */
+    /*******************************/
+
+    function getClusterId(uint64[] memory operatorIds) external view returns(bytes32);
+
+    function isLiquidatable(address ownerAddress, bytes32 clusterId) external view returns(bool);
+
+    function isLiquidated(address ownerAddress, bytes32 clusterId) external view returns(bool);
+
+    /***********************************/
+    /* Balance External View Functions */
+    /***********************************/
+
+    /**
+     * @dev Gets the operators current snapshot.
+     * @param id Operator's id.
+     * @return currentBlock the block that the snapshot is updated to.
+     * @return index the index of the operator.
+     * @return balance the current balance of the operator.
+     */
+    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
+
+    function podBalanceOf(address owner, bytes32 clusterId) external view returns (uint256);
+
+    /*******************************/
+    /* DAO External View Functions */
+    /*******************************/
+
+    function getNetworkFee() external view returns (uint256);
+
+    function getNetworkBalance() external view returns (uint256);
 
     function getOperatorFeeIncreaseLimit() external view returns (uint64);
 

@@ -31,6 +31,16 @@ describe('Operator Fee Tests', () => {
       .to.be.revertedWith('CallerNotOwner');
   });
 
+  it('Declare fee fails no owner', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(1, initialFee +  initialFee / 10 ))
+      .to.be.revertedWith('CallerNotOwner');
+  });
+
+  it('Declare fee fails no operator with public key', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(12, initialFee +  initialFee / 10 ))
+      .to.be.revertedWith('OperatorWithPublicKeyNotExist');
+  });
+
   it('Declare fee fails fee too low', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee - 1))
       .to.be.revertedWith('FeeTooLow');
@@ -161,6 +171,10 @@ describe('Operator Fee Tests', () => {
 
   it('Get fee', async () => {
     expect(await ssvNetworkContract.getOperatorFee(1)).to.equal(initialFee);
+  });
+
+  it('Get fee returns error - OperatorNotFound', async () => {
+    await expect(ssvNetworkContract.getOperatorFee(12)).to.be.revertedWith('OperatorNotFound');
   });
 
 });
