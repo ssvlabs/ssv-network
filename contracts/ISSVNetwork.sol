@@ -157,6 +157,7 @@ interface ISSVNetwork {
     error ClusterAlreadyExists();
     error ClusterNotExists();
     error PodAlreadyEnabled();
+    error PodAlreadyExists();
     error BurnRatePositive();
 
     /****************/

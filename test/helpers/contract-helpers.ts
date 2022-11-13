@@ -108,14 +108,14 @@ export const deposit = async (ownerId: number, clusterId: string, amount: string
 export const registerPodAndDeposit = async(ownerId: number, operatorIds: number[], amount: string): Promise<any> => {
   let clusterId;
   try {
+    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
+    const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerPod(operatorIds, amount)).wait();
+    clusterId = clusterTx.events[0].args.clusterId;
+  } catch (e) {
     clusterId = await DB.ssvNetwork.contract.getClusterId(operatorIds);
     if (+amount > 0) {
       await deposit(ownerId, clusterId, amount);
     }
-  } catch (e) {
-    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
-    const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerPod(operatorIds, amount)).wait();
-    clusterId = clusterTx.events[0].args.clusterId;
   }
   return { clusterId };
 };

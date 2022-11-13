@@ -29,11 +29,11 @@ describe('Deposit Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,bytes32,uint256)'](helpers.DB.owners[1].address, clusterResult1.clusterId, minDepositAmount)).to.emit(ssvNetworkContract, 'FundsDeposit');
   });
 
-  it('Deposit as owner returns error - ClusterNotExists', async () => {
+  it('Deposit as owner returns an error - ClusterNotExists', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(bytes32,uint256)']('0x392791df626408017a264f53fde61065d5a93a32b60171df9d8a46afdf82992c', minDepositAmount)).to.be.revertedWith('ClusterNotExists');
   });
 
-  it('Deposit as non-owner returns error - ClusterNotExists', async () => {
+  it('Deposit as non-owner returns an error - ClusterNotExists', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,bytes32,uint256)'](helpers.DB.owners[1].address, '0x392791df626408017a264f53fde61065d5a93a32b60171df9d8a46afdf82992c', minDepositAmount)).to.be.revertedWith('ClusterNotExists');
   });
 

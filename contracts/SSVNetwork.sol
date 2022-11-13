@@ -459,10 +459,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
 
-        if (_pods[hashedPod].usage.block == 0) {
-            _pods[hashedPod].usage.block = uint64(block.number);
-            emit PodCreated(msg.sender, clusterId);
+        if (_pods[hashedPod].usage.block != 0) {
+            revert PodAlreadyExists();
         }
+
+        _pods[hashedPod].usage.block = uint64(block.number);
+
+        emit PodCreated(msg.sender, clusterId);
 
         _deposit(msg.sender, clusterId, amount.shrink());
     }
