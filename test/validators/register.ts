@@ -39,11 +39,19 @@ describe('Register Validator Tests', () => {
     await expect(ssvNetworkContract.registerPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId), 0)).to.be.revertedWith('PodAlreadyExists');
   });
 
-  it('Get clusterId returns - ClusterNotExists', async () => {
-    await expect(ssvNetworkContract.getClusterId([5,6,7,8])).to.be.revertedWith('ClusterNotExists');
+  it('Get pod returns an error - ClusterNotExists', async () => {
+    await expect(ssvNetworkContract.getPod([5,6,7,8])).to.be.revertedWith('ClusterNotExists');
   });
 
-  it('Register pod returns - OperatorDoesNotExist', async () => {
+  it('Get pod returns an error - PoNotExists', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).getPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId))).to.be.revertedWith('PodNotExists');
+  });
+
+  it('Get pod returns a cluster id', async () => {
+    expect(await ssvNetworkContract.getPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId))).to.equal(clusterResult.clusterId);
+  });
+
+  it('Register pod returns an error - OperatorDoesNotExist', async () => {
     await expect(ssvNetworkContract.registerPod([1, 2, 3, 25], minDepositAmount)).to.be.revertedWith('OperatorDoesNotExist');
   });
 

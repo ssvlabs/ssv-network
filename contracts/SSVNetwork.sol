@@ -727,6 +727,24 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return clusterId;
     }
 
+    function getPod(uint64[] memory operatorIds) external view override returns(bytes32) {
+        _validateOperatorIds(operatorIds);
+
+        bytes32 clusterId = keccak256(abi.encodePacked(operatorIds));
+
+        if (_clusters[clusterId].operatorIds.length == 0) {
+            revert ClusterNotExists();
+        }
+
+        bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
+
+        if (_pods[hashedPod].usage.block == 0) {
+            revert PodNotExists();
+        }
+
+        return clusterId;
+    }
+
     function isLiquidatable(address ownerAddress, bytes32 clusterId) external view override returns (bool) {
         _validateClusterId(clusterId);
 
