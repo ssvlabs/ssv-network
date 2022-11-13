@@ -39,6 +39,10 @@ describe('Register Validator Tests', () => {
     await expect(ssvNetworkContract.registerPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId), 0)).to.be.revertedWith('PodAlreadyExists');
   });
 
+  it('Get cluster id returns an error - ClusterNotExists', async () => {
+    await expect(ssvNetworkContract.getClusterId([5,6,7,8])).to.be.revertedWith('ClusterNotExists');
+  });
+
   it('Get pod returns an error - ClusterNotExists', async () => {
     await expect(ssvNetworkContract.getPod([5,6,7,8])).to.be.revertedWith('ClusterNotExists');
   });

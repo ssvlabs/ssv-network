@@ -112,7 +112,7 @@ export const registerPodAndDeposit = async(ownerId: number, operatorIds: number[
     const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerPod(operatorIds, amount)).wait();
     clusterId = clusterTx.events[0].args.clusterId;
   } catch (e) {
-    clusterId = await DB.ssvNetwork.contract.getPod(operatorIds);
+    clusterId = await DB.ssvNetwork.contract.getClusterId(operatorIds);
     if (+amount > 0) {
       await deposit(ownerId, clusterId, amount);
     }
