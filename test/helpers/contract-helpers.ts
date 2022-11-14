@@ -33,7 +33,6 @@ export const DataGenerator = {
       if (result.length < size) {
         throw new Error('No new clusters. Try to register more operators.');
       }
-
       return result;
     },
     byId: (id: any) => DB.clusters[id].operatorIds
@@ -79,7 +78,13 @@ export const initializeContract = async () => {
 
   DB.ssvNetwork.owner = DB.owners[0];
 
-  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner };
+  await DB.ssvToken.mint(DB.owners[1].address, '1000000000000000');
+  await DB.ssvToken.mint(DB.owners[2].address, '1000000000000000');
+  await DB.ssvToken.mint(DB.owners[3].address, '1000000000000000');
+  await DB.ssvToken.mint(DB.owners[4].address, '1000000000000000');
+  await DB.ssvToken.mint(DB.owners[5].address, '1000000000000000');
+
+  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken };
 };
 
 export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR]) => {
@@ -95,24 +100,22 @@ export const registerOperators = async (ownerId: number, numberOfOperators: numb
   }
 };
 
-/*
-export const deposit = async (ownerIds: number[], amounts: string[]) => {
-  // for (let i = 0; i < ownerIds.length; ++i) {
-  //   await DB.ssvNetwork.contract.connect(DB.owners[ownerIds[i]]).deposit(amounts[i]);
-  // }
+export const deposit = async (ownerId: number, clusterId: string, amount: string) => {
+  await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
+  await DB.ssvNetwork.contract.connect(DB.owners[ownerId])['deposit(bytes32,uint256)'](clusterId, amount);
 };
-*/
 
 export const registerPodAndDeposit = async(ownerId: number, operatorIds: number[], amount: string): Promise<any> => {
   let clusterId;
   try {
-    clusterId = await DB.ssvNetwork.contract.getClusterId(operatorIds);
-    if (+amount > 0) {
-      await DB.ssvNetwork.contract.connect(DB.owners[ownerId])['deposit(bytes32,uint256)'](clusterId, amount);
-    }
-  } catch (e) {
+    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
     const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerPod(operatorIds, amount)).wait();
     clusterId = clusterTx.events[0].args.clusterId;
+  } catch (e) {
+    clusterId = await DB.ssvNetwork.contract.getClusterId(operatorIds);
+    if (+amount > 0) {
+      await deposit(ownerId, clusterId, amount);
+    }
   }
   return { clusterId };
 };
@@ -186,7 +189,7 @@ export const bulkTransferValidator = async (ownerId: number, publicKey: string[]
 export const liquidate = async (executorOwnerId: number, liquidatedOwnerId: number, operatorIds: number[], gasGroups?: GasGroup[]) => {
   const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[executorOwnerId]).liquidate(
     DB.owners[liquidatedOwnerId].address,
-    await DB.ssvNetwork.contract.getClusterId(operatorIds),
+    await DB.ssvNetwork.contract.getPod(operatorIds),
   ), gasGroups);
 
   const clusterId = eventsByName.AccountLiquidated[0].args.clusterId;
