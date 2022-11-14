@@ -459,10 +459,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
 
-        if (_pods[hashedPod].usage.block == 0) {
-            _pods[hashedPod].usage.block = uint64(block.number);
-            emit PodCreated(msg.sender, clusterId);
+        if (_pods[hashedPod].usage.block != 0) {
+            revert PodAlreadyExists();
         }
+
+        _pods[hashedPod].usage.block = uint64(block.number);
+
+        emit PodCreated(msg.sender, clusterId);
 
         _deposit(msg.sender, clusterId, amount.shrink());
     }
@@ -719,6 +722,18 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         if (_clusters[clusterId].operatorIds.length == 0) {
             revert ClusterNotExists();
+        }
+
+        return clusterId;
+    }
+
+    function getPod(uint64[] memory operatorIds) external view override returns(bytes32) {
+        _validateOperatorIds(operatorIds);
+
+        bytes32 clusterId = keccak256(abi.encodePacked(operatorIds));
+
+        if (_pods[keccak256(abi.encodePacked(msg.sender, clusterId))].usage.block == 0) {
+            revert PodNotExists();
         }
 
         return clusterId;

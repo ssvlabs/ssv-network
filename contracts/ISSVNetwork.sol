@@ -157,6 +157,8 @@ interface ISSVNetwork {
     error ClusterAlreadyExists();
     error ClusterNotExists();
     error PodAlreadyEnabled();
+    error PodAlreadyExists();
+    error PodNotExists();
     error BurnRatePositive();
 
     /****************/
@@ -296,6 +298,8 @@ interface ISSVNetwork {
     /*******************************/
 
     function getClusterId(uint64[] memory operatorIds) external view returns(bytes32);
+
+    function getPod(uint64[] memory operatorIds) external view returns(bytes32);
 
     function isLiquidatable(address ownerAddress, bytes32 clusterId) external view returns(bool);
 

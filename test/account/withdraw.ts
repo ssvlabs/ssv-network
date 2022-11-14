@@ -24,11 +24,11 @@ describe('Withdraw Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee)).to.emit(ssvNetworkContract, 'PodFundsWithdrawal');
   });
 
-  it('Withdraw pod balance returns error - NotEnoughBalance', async () => {
+  it('Withdraw pod balance returns an error - NotEnoughBalance', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, minDepositAmount)).to.be.revertedWith('NotEnoughBalance');
   });
 
-  it('Withdraw balance of liquidatable pod returns error - NotEnoughBalance', async () => {
+  it('Withdraw balance of liquidatable pod returns an error - NotEnoughBalance', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee)).to.be.revertedWith('NotEnoughBalance');
   });
@@ -49,19 +49,19 @@ describe('Withdraw Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64,uint256)'](1, helpers.CONFIG.minimalOperatorFee)).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
   });
 
-  it('Withdraw operator balance returns error - CallerNotOwner', async () => {
+  it('Withdraw operator balance returns an error - CallerNotOwner', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorBalance(uint64,uint256)'](1, minDepositAmount)).to.be.revertedWith('CallerNotOwner');
   });
 
-  it('Withdraw operator balance returns error - NotEnoughBalance', async () => {
+  it('Withdraw operator balance returns an error - NotEnoughBalance', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64,uint256)'](1, minDepositAmount)).to.be.revertedWith('NotEnoughBalance');
   });
 
-  it('Withdraw total operator balance returns error - CallerNotOwner', async () => {
+  it('Withdraw total operator balance returns an error - CallerNotOwner', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorBalance(uint64)'](12)).to.be.revertedWith('CallerNotOwner');
   });
 
-  it('Withdraw total operator balance returns error - NotEnoughBalance', async () => {
+  it('Withdraw total operator balance returns an error - NotEnoughBalance', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64)'](12)).to.be.revertedWith('NotEnoughBalance');
   });
 
