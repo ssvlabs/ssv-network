@@ -130,11 +130,9 @@ Your environment will have everything you need to build a Dapp powered by Hardha
 The SSV Network ABI can be obtained by going to a direct URL.
 You must know the version of the ABI you want.
 
-URL Format - Fill in for {ABI_VERSION}
-https://bloxapp.github.io/ssv-network/abi/{ABI_VERSION}/SSVNetwork.json
+URL Format - Fill in for {ABI_VERSION}: https://bloxapp.github.io/ssv-network/abi/{ABI_VERSION}/SSVNetwork.json: 
 
-Here is an example of the 20001 version of the ABI
-https://bloxapp.github.io/ssv-network/abi/20001/SSVNetwork.json
+Example of the 20001 version of the ABI: https://bloxapp.github.io/ssv-network/abi/20001/SSVNetwork.json
 
 ## Security Audit [OLD Version]
 
