@@ -70,11 +70,7 @@ Output of this action will be smart SSV Network contract proxy address.
 
 ### Step 3: Verify implementation contract on etherscan (each time after upgrade)
 Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is implementation smart contract address.
-We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an 
-
-
-
-lity to upgrade them later.
+We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an ability to upgrade them later.
 To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `deploy.ts` file.
 Run this:
 ```sh
