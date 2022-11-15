@@ -178,7 +178,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Operator memory operator = _operators[operatorId];
         if (operator.owner != msg.sender) revert CallerNotOwner();
 
-        // TODO withdraw remaining balance before delete
+        operator.snapshot = _getSnapshot(operator, uint64(block.number));
+
+        if (operator.snapshot.balance > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, operator.snapshot.balance.expand());
+        }
 
         delete _operators[operatorId];
         emit OperatorRemoved(operatorId);
@@ -588,9 +592,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _operators[operatorId] = operator;
 
-        _token.transfer(msg.sender, shrunkAmount);
-
-        emit OperatorFundsWithdrawal(amount.shrink(), operatorId, msg.sender);
+        _transferOperatorBalanceUnsafe(operatorId, amount);
     }
 
     function withdrawOperatorBalance(uint64 operatorId) external override {
@@ -610,11 +612,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _operators[operatorId] = operator;
 
-        uint256 expandedOperatorBalance = operatorBalance.expand();
-
-        _token.transfer(msg.sender, expandedOperatorBalance);
-
-        emit OperatorFundsWithdrawal(expandedOperatorBalance, operatorId, msg.sender);
+        _transferOperatorBalanceUnsafe(operatorId, operatorBalance.expand());
     }
 
     function withdrawPodBalance(bytes32 clusterId, uint256 amount) external override {
@@ -911,6 +909,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         operator.snapshot.block = currentBlock;
 
         return operator.snapshot;
+    }
+
+    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
+        _token.transfer(msg.sender, amount);
+        emit OperatorFundsWithdrawal(amount, operatorId, msg.sender);
     }
 
     /*************************/
