@@ -381,6 +381,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
+    /*
     function bulkTransferValidators(
         bytes[] calldata publicKeys,
         bytes32 fromClusterId,
@@ -443,7 +444,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             revert PodLiquidatable();
         }
     }
-
+    */
     /**************************/
     /* Pod External Functions */
     /**************************/

@@ -239,12 +239,14 @@ interface ISSVNetwork {
         bytes calldata shares
     ) external;
 
+    /*
     function bulkTransferValidators(
         bytes[] calldata publicKey,
         bytes32 fromClusterId,
         bytes32 toClusterId,
         bytes[] calldata shares
     ) external;
+    */
 
     /**************************/
     /* Pod External Functions */
