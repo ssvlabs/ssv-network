@@ -70,7 +70,11 @@ Output of this action will be smart SSV Network contract proxy address.
 
 ### Step 3: Verify implementation contract on etherscan (each time after upgrade)
 Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is implementation smart contract address.
-We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an ability to upgrade them later.
+We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an 
+
+
+
+lity to upgrade them later.
 To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `deploy.ts` file.
 Run this:
 ```sh
@@ -123,8 +127,14 @@ Your environment will have everything you need to build a Dapp powered by Hardha
 - [Waffle](https://github.com/EthWorks/Waffle/): To have Ethereum-specific Chai assertions/mathers.
 
 ## ABI
+The SSV Network ABI can be obtained by going to a direct URL.
+You must know the version of the ABI you want.
 
-[SSV Network ABI](https://bloxapp.github.io/ssv-network/abi/20001/SSVNetwork.json)
+URL Format - Fill in for {ABI_VERSION}
+https://bloxapp.github.io/ssv-network/abi/{ABI_VERSION}/SSVNetwork.json
+
+Here is an example of the 20001 version of the ABI
+https://bloxapp.github.io/ssv-network/abi/20001/SSVNetwork.json
 
 ## Security Audit [OLD Version]
 
