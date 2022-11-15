@@ -341,6 +341,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit ValidatorRemoved(publicKey, clusterId);
     }
 
+    /*
     function transferValidator(
         bytes calldata publicKey,
         bytes32 newClusterId,
@@ -447,6 +448,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             revert PodLiquidatable();
         }
     }
+    */
 
     /**************************/
     /* Pod External Functions */
@@ -474,6 +476,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _deposit(msg.sender, clusterId, amount.shrink());
     }
 
+    /*
     function liquidate(address ownerAddress, bytes32 clusterId) external override {
         _validateClusterId(clusterId);
 
@@ -558,6 +561,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         emit PodEnabled(msg.sender, clusterId);
     }
+    */
 
     /******************************/
     /* Balance External Functions */
@@ -615,6 +619,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _transferOperatorBalanceUnsafe(operatorId, operatorBalance.expand());
     }
 
+    /*
     function withdrawPodBalance(bytes32 clusterId, uint256 amount) external override {
         _validateClusterId(clusterId);
 
@@ -638,11 +643,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         emit PodFundsWithdrawal(amount, clusterId, msg.sender);
     }
+    */
 
     /**************************/
     /* DAO External Functions */
     /**************************/
 
+    /*
     function updateNetworkFee(uint256 fee) external onlyOwner override {
         DAO memory dao = _dao;
         dao = _updateDAOEarnings(dao);
@@ -686,6 +693,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
         emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
     }
+    */
 
     /************************************/
     /* Operator External View Functions */
@@ -737,6 +745,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return clusterId;
     }
 
+    /*
     function isLiquidatable(address ownerAddress, bytes32 clusterId) external view override returns (bool) {
         _validateClusterId(clusterId);
 
@@ -755,6 +764,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         return _pods[hashedPod].disabled;
     }
+    */
 
     /***********************************/
     /* Balance External View Functions */
@@ -952,10 +962,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return pod;
     }
 
+    /*
     function _liquidatable(bool disabled, uint64 balance, uint64 validatorCount, uint64[] memory operatorIds) private view returns (bool) {
         return !disabled && balance < LIQUIDATION_MIN_BLOCKS * (_burnRatePerValidator(operatorIds) + _networkFee) * validatorCount;
     }
-
+    */
 
     /*****************************/
     /* Balance Private Functions */
