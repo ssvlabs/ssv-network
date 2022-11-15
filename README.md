@@ -58,7 +58,7 @@ Before run the cli command, in `.env` need to add the following seetings:
 
 ```sh
 SSVREGISTRY_ADDRESS=#SSV Registry contract address
-SSVTOKEN_ADDRESS=#SSV Token contract address
+SSV_TOKEN_ADDRESS=#SSV Token contract address
 ```
 
 After that:

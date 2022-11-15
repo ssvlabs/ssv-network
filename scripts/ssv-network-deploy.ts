@@ -17,7 +17,7 @@ async function main() {
   // Define accounts
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
   const deployArguments = [
-    process.env.SSVTOKEN_ADDRESS,
+    process.env.SSV_TOKEN_ADDRESS,
     config.operatorMaxFeeIncrease,
     config.declareOperatorFeePeriod,
     config.executeOperatorFeePeriod
