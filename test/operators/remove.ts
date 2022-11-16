@@ -1,4 +1,5 @@
 import * as helpers from '../helpers/contract-helpers';
+import * as utils from '../helpers/utils';
 
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
@@ -27,4 +28,15 @@ describe('Remove Operator Tests', () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR]);
   });
 
+  it('Remove operator with withdraw emits OperatorFundsWithdrawal event', async () => {
+    await helpers.registerOperators(0, 4, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1,2,3,4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await expect(ssvNetworkContract.removeOperator(1)).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
+  });
+
+  it('Remove operator with withdraw gas limits', async () => {
+    await helpers.registerOperators(0, 4, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1,2,3,4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
+  });
 });
