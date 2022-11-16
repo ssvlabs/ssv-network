@@ -54,18 +54,6 @@ interface ISSVNetwork {
     );
 
     /**
-     * @dev Emitted when validators were transferred between pods.
-     * @param publicKeys An array of transferred public keys.
-     * @param clusterId The validators new pod id.
-     * @param shares an array of snappy compressed shares(a set of encrypted and public shares).
-     */
-    event BulkValidatorTransferred(
-        bytes[] publicKeys,
-        bytes32 clusterId,
-        bytes[] shares
-    );
-
-    /**
      * @dev Emitted when the validator is removed.
      * @param publicKey The public key of a validator.
      * @param clusterId The pod id the validator has been removed from.
@@ -118,13 +106,6 @@ interface ISSVNetwork {
      * @param newFee The new fee
      */
     event NetworkFeeUpdate(uint256 oldFee, uint256 newFee);
-
-    /**
-     * @dev Emitted when transfer fees are withdrawn.
-     * @param value The amount of tokens withdrawn.
-     * @param recipient The recipient address.
-     */
-    event NetworkFeesWithdrawal(uint256 value, address recipient);
 
     event PodFundsWithdrawal(uint256 value, bytes32 clusterId, address owner);
     event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address owner);
@@ -239,13 +220,6 @@ interface ISSVNetwork {
         bytes calldata shares
     ) external;
 
-    function bulkTransferValidators(
-        bytes[] calldata publicKey,
-        bytes32 fromClusterId,
-        bytes32 toClusterId,
-        bytes[] calldata shares
-    ) external;
-
     /**************************/
     /* Pod External Functions */
     /**************************/
@@ -275,8 +249,6 @@ interface ISSVNetwork {
     /**************************/
 
     function updateNetworkFee(uint256 fee) external;
-
-    function withdrawDAOEarnings(uint256 amount) external;
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
