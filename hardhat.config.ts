@@ -16,31 +16,24 @@ const config: HardhatUserConfig = {
     timeout: 40000000000000000
   },
   solidity: {
-    version: '0.8.13',
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: Number(process.env.SOLIDITY_COMPILER_OPTIMIZER_RUNS || 10000),
-      },
-    },
-    // compilers: [
-    //   {
-    //     version: '0.8.13',
-    //     settings: {
-    //       optimizer: {
-    //         enabled: true,
-    //         /**
-    //          * Should be 10,000 but because in local testnet project
-    //          * it fails to deploy because of contract size - we use 100 for now.
-    //          * Should fix it in that way when local testnet will be able to
-    //          * deploy contract too.
-    //          * @url https://github.com/bloxapp/hamlet/blob/master/hamlet/services/ssv/services/hardhat.py
-    //          */
-    //         runs: Number(process.env.SOLIDITY_COMPILER_OPTIMIZER_RUNS || 10000)
-    //       }
-    //     }
-    //   }
-    // ],
+    compilers: [
+      {
+        version: '0.8.13',
+        settings: {
+          optimizer: {
+            enabled: true,
+            /**
+             * Should be 10,000 but because in local testnet project
+             * it fails to deploy because of contract size - we use 100 for now.
+             * Should fix it in that way when local testnet will be able to
+             * deploy contract too.
+             * @url https://github.com/bloxapp/hamlet/blob/master/hamlet/services/ssv/services/hardhat.py
+             */
+            runs: Number(process.env.SOLIDITY_COMPILER_OPTIMIZER_RUNS || 10000)
+          }
+        }
+      }
+    ],
   },
   networks: {
     hardhat: {
