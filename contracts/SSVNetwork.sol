@@ -262,7 +262,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         {
             Pod memory pod;
 
-            pod = _updatePodData(clusterId, 0, hashedPod, 1);
+            pod = _updatePodData(pod, clusterId, 0, 1);
 
             {
                 if (!pod.disabled) {
@@ -286,18 +286,22 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 }
             }
 
+            /*
             if (_liquidatable(pod.disabled, _podBalance(pod, _clusterCurrentIndex(clusterId)), pod.validatorCount, operatorIds)) {
                 revert NotEnoughBalance();
             }
+            */
 
-            _pods[hashedPod] = pod;
+            // _pods[hashedPod] = pod;
         }
 
         _validatorPKs[hashedValidator] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
 
+        emit ValidatorMetadataUpdated(publicKey, clusterId, shares);
         emit ValidatorAdded(publicKey, clusterId, shares);
     }
 
+    /*
     function removeValidator(
         bytes calldata publicKey
     ) external override {
@@ -340,6 +344,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         emit ValidatorRemoved(publicKey, clusterId);
     }
+    */
 
     /*
     function transferValidator(
@@ -775,10 +780,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return (s.block, s.index, s.balance.expand());
     }
 
+    /*
     function podBalanceOf(address owner, bytes32 clusterId) external view override returns (uint256) {
         Pod memory pod = _pods[keccak256(abi.encodePacked(owner, clusterId))];
         return _podBalance(pod, _clusterCurrentIndex(clusterId)).expand();
     }
+    */
 
     /*******************************/
     /* DAO External View Functions */
@@ -943,14 +950,21 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _clusters[key] = Cluster({operatorIds: operatorIds});
     }
 
-    function _updatePodData(bytes32 clusterId, uint64 amount, bytes32 hashedPod, int8 changedTo) private view returns (Pod memory) {
-        Pod memory pod = _pods[hashedPod];
-        uint64 podIndex = _clusterCurrentIndex(clusterId);
-        pod.usage.balance = _podBalance(pod, podIndex) + amount;
-        pod.usage.index = podIndex;
-        pod.usage.block = uint64(block.number);
+    function _updatePodData(Pod memory pod, bytes32 clusterId, uint64 amount, int8 changedTo) private view returns (Pod memory) {
+        // Pod memory pod = _pods[hashedPod];
+        uint64 clusterIndex = _clusterCurrentIndex(clusterId);
+        pod.usage.balance = _podBalance(
+            pod.usage.balance,
+            clusterIndex,
+            pod.usage.index,
+            pod.validatorCount,
+            pod.networkFee,
+            pod.networkFeeIndex
+        ) + amount;
+        pod.usage.index = clusterIndex;
+        // pod.usage.block = uint64(block.number);
 
-        pod.networkFee = _podNetworkFee(pod);
+        pod.networkFee = _podNetworkFee(pod.networkFee, pod.networkFeeIndex, pod.validatorCount);
         pod.networkFeeIndex = _currentNetworkFeeIndex();
 
         if (changedTo == 1) {
@@ -1008,27 +1022,34 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _networkTotalEarnings(dao) - dao.withdrawn;
     }
 
-    function _clusterCurrentIndex(bytes32 podId) private view returns (uint64 podIndex) {
-        Cluster memory cluster = _clusters[podId];
+    function _clusterCurrentIndex(bytes32 clusterId) private view returns (uint64 clusterIndex) {
+        Cluster memory cluster = _clusters[clusterId];
         uint64 currentBlock = uint64(block.number);
         for (uint64 i = 0; i < cluster.operatorIds.length; ++i) {
             Snapshot memory s = _operators[cluster.operatorIds[i]].snapshot;
-            podIndex += s.index + (currentBlock - s.block) * _operators[cluster.operatorIds[i]].fee;
+            clusterIndex += s.index + (currentBlock - s.block) * _operators[cluster.operatorIds[i]].fee;
         }
     }
 
-    function _podBalance(Pod memory pod, uint64 currentPodIndex) private view returns (uint64) {
-        uint64 usage = (currentPodIndex - pod.usage.index) * pod.validatorCount + _podNetworkFee(pod);
+    function _podBalance(
+        uint64 balance,
+        uint64 newIndex,
+        uint64 oldIndex,
+        uint32 validatorCount,
+        uint64 networkFee,
+        uint64 networkFeeIndex
+    ) private view returns (uint64) {
+        uint64 usage = (newIndex - oldIndex) * validatorCount + _podNetworkFee(networkFee, networkFeeIndex, validatorCount);
 
-        if (usage > pod.usage.balance) {
+        if (usage > balance) {
             revert NegativeBalance();
         }
 
-        return pod.usage.balance - usage;
+        return balance - usage;
     }
 
-    function _podNetworkFee(Pod memory pod) private view returns (uint64) {
-        return pod.networkFee + uint64(_currentNetworkFeeIndex() - pod.networkFeeIndex) * pod.validatorCount;
+    function _podNetworkFee(uint64 networkFee, uint64 networkFeeIndex, uint32 validatorCount) private view returns (uint64) {
+        return networkFee + uint64(_currentNetworkFeeIndex() - networkFeeIndex) * validatorCount;
     }
 
     function _burnRatePerValidator(uint64[] memory operatorIds) private view returns (uint64 rate) {
