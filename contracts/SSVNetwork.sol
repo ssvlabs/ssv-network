@@ -55,10 +55,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         Snapshot earnings;
     }
-
+    /*
     struct Cluster {
         uint64[] operatorIds;
     }
+    */
 
     struct Pod {
         uint32 validatorCount;
@@ -66,13 +67,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 networkFee;
         uint64 networkFeeIndex;
 
-        Snapshot usage;
+        uint64 usageIndex;
+        uint64 usageBalance;
 
-        bool disabled;
+        // bool disabled;
     }
 
     struct Validator {
-        bytes32 clusterId;
         address owner;
         bool active;
     }
@@ -96,8 +97,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     mapping(uint64 => Operator) private _operators;
     mapping(uint64 => OperatorFeeChangeRequest) private _operatorFeeChangeRequests;
-    mapping(bytes32 => Cluster) private _clusters;
-    mapping(bytes32 => Pod) private _pods;
+    // mapping(bytes32 => Cluster) private _clusters;
+    mapping(bytes32 => bytes32) private _pods;
     mapping(bytes32 => Validator) _validatorPKs;
 
     uint64 private _networkFee;
@@ -242,49 +243,69 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /********************************/
     /* Validator External Functions */
     /********************************/
-
     function registerValidator(
         bytes calldata publicKey,
-        bytes32 clusterId,
-        bytes calldata shares
+        uint64[] memory operatorIds,
+        bytes calldata shares,
+        uint256 amount,
+        uint32 validatorCount,
+        uint64 networkFee,
+        uint64 networkFeeIndex,
+        uint64 usageIndex,
+        uint64 usageBalance
     ) external override {
-        _validateClusterId(clusterId);
+        _validateOperatorIds(operatorIds);
         _validatePublicKey(publicKey);
 
-        uint64[] memory operatorIds = _clusters[clusterId].operatorIds;
-
-        bytes32 hashedValidator = keccak256(publicKey);
-        if (_validatorPKs[hashedValidator].clusterId > 0) {
-            revert ValidatorAlreadyExists();
+        {
+            bytes32 hashedValidator = keccak256(publicKey);
+            if (_validatorPKs[hashedValidator].owner != address(0)) {
+                revert ValidatorAlreadyExists();
+            }
+            _validatorPKs[hashedValidator] = Validator({ owner: msg.sender, active: true});
         }
 
-        bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, clusterId));
+        bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, operatorIds));
         {
-            Pod memory pod;
+            bytes32 hashedPodData = keccak256(abi.encodePacked(validatorCount, networkFee, networkFeeIndex, usageIndex, usageBalance ));
+            if (_pods[hashedPod] != bytes32(0) && _pods[hashedPod] != hashedPodData) {
+                revert PodDataIsBroken();
+            }
+        }
+        
+        if (amount > 0) {
+            _deposit(msg.sender, hashedPod, amount.shrink());
+        }
 
-            pod = _updatePodData(pod, clusterId, 0, 1);
-
-            {
-                if (!pod.disabled) {
-                    for (uint64 i = 0; i < operatorIds.length; ++i) {
-                        Operator memory operator = _operators[operatorIds[i]];
-                        if (operator.owner != address(0)) {
-                            operator.snapshot = _getSnapshot(operator, uint64(block.number));
-                            ++operator.validatorCount;
-                            _operators[operatorIds[i]] = operator;
-                        }
-                    }
-                }
+        Pod memory pod;
+        {
+            if (_pods[hashedPod] == bytes32(0)) {
+                pod = Pod({ validatorCount: 0, networkFee: 0, networkFeeIndex: 0, usageIndex: 0, usageBalance: 0 });
+            } else {
+                pod = Pod({ validatorCount: validatorCount, networkFee: networkFee, networkFeeIndex: networkFeeIndex, usageIndex: usageIndex, usageBalance: usageBalance });
             }
 
-            {
-                if (!pod.disabled) {
-                    DAO memory dao = _dao;
-                    dao = _updateDAOEarnings(dao);
-                    ++dao.validatorCount;
-                    _dao = dao;
+            pod = _updatePodData(pod, operatorIds, amount.shrink(), 1);
+
+        }
+
+        {
+            for (uint64 i = 0; i < operatorIds.length; ++i) {
+                Operator memory operator = _operators[operatorIds[i]];
+                if (operator.owner != address(0)) {
+                    operator.snapshot = _getSnapshot(operator, uint64(block.number));
+                    ++operator.validatorCount;
+                    _operators[operatorIds[i]] = operator;
                 }
             }
+        }
+
+        {
+            DAO memory dao = _dao;
+            dao = _updateDAOEarnings(dao);
+            ++dao.validatorCount;
+            _dao = dao;
+        }
 
             /*
             if (_liquidatable(pod.disabled, _podBalance(pod, _clusterCurrentIndex(clusterId)), pod.validatorCount, operatorIds)) {
@@ -293,12 +314,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             */
 
             // _pods[hashedPod] = pod;
-        }
 
-        _validatorPKs[hashedValidator] = Validator({ owner: msg.sender, clusterId: clusterId, active: true});
-
-        emit ValidatorMetadataUpdated(publicKey, clusterId, shares);
-        emit ValidatorAdded(publicKey, clusterId, shares);
+        emit ValidatorMetadataUpdated(hashedPod, validatorCount, networkFee, networkFeeIndex, usageIndex, usageBalance);
+        emit ValidatorAdded(publicKey, operatorIds, shares);
     }
 
     /*
@@ -459,6 +477,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Pod External Functions */
     /**************************/
 
+    /*
     function registerPod(uint64[] memory operatorIds, uint256 amount) external override {
         _validateOperatorIds(operatorIds);
 
@@ -480,6 +499,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _deposit(msg.sender, clusterId, amount.shrink());
     }
+    */
 
     /*
     function liquidate(address ownerAddress, bytes32 clusterId) external override {
@@ -572,6 +592,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Balance External Functions */
     /******************************/
 
+    /*
     function deposit(address owner, bytes32 clusterId, uint256 amount) external override {
         _validateClusterId(clusterId);
 
@@ -583,6 +604,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _deposit(msg.sender, clusterId, amount.shrink());
     }
+    */
 
     function withdrawOperatorBalance(uint64 operatorId, uint256 amount) external override {
         Operator memory operator = _operators[operatorId];
@@ -726,6 +748,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Pod External View Functions */
     /*******************************/
 
+    /*
     function getClusterId(uint64[] memory operatorIds) external view override returns(bytes32) {
         _validateOperatorIds(operatorIds);
 
@@ -737,7 +760,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         return clusterId;
     }
+    */
 
+    /*
     function getPod(uint64[] memory operatorIds) external view override returns(bytes32) {
         _validateOperatorIds(operatorIds);
 
@@ -749,6 +774,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         return clusterId;
     }
+    */
 
     /*
     function isLiquidatable(address ownerAddress, bytes32 clusterId) external view override returns (bool) {
@@ -828,11 +854,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
+    /*
     function _validateClusterId(bytes32 clusterId) private view {
         if (_clusters[clusterId].operatorIds.length == 0) {
             revert ClusterNotExists();
         }
     }
+    */
 
     function _validatePublicKey(bytes memory publicKey) private pure {
         if (publicKey.length != 48) {
@@ -937,6 +965,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Pod Private Functions */
     /*************************/
 
+    /*
     function _createClusterUnsafe(bytes32 key, uint64[] memory operatorIds) private {
         for (uint64 i = 0; i < operatorIds.length; i++) {
             if (_operators[operatorIds[i]].owner == address(0)) {
@@ -949,20 +978,19 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _clusters[key] = Cluster({operatorIds: operatorIds});
     }
+    */
 
-    function _updatePodData(Pod memory pod, bytes32 clusterId, uint64 amount, int8 changedTo) private view returns (Pod memory) {
-        // Pod memory pod = _pods[hashedPod];
-        uint64 clusterIndex = _clusterCurrentIndex(clusterId);
-        pod.usage.balance = _podBalance(
-            pod.usage.balance,
+    function _updatePodData(Pod memory pod, uint64[] memory operatorIds, uint64 amount, int8 changedTo) private view returns (Pod memory) {
+        uint64 clusterIndex = _clusterCurrentIndex(operatorIds);
+        pod.usageBalance = _podBalance(
+            pod.usageBalance,
             clusterIndex,
-            pod.usage.index,
+            pod.usageIndex,
             pod.validatorCount,
             pod.networkFee,
             pod.networkFeeIndex
         ) + amount;
-        pod.usage.index = clusterIndex;
-        // pod.usage.block = uint64(block.number);
+        pod.usageIndex = clusterIndex;
 
         pod.networkFee = _podNetworkFee(pod.networkFee, pod.networkFeeIndex, pod.validatorCount);
         pod.networkFeeIndex = _currentNetworkFeeIndex();
@@ -986,16 +1014,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Balance Private Functions */
     /*****************************/
 
-    function _deposit(address owner, bytes32 clusterId, uint64 amount) private {
-        bytes32 hashedPod = keccak256(abi.encodePacked(owner, clusterId));
-
-        _pods[hashedPod].usage.balance += amount; // 22k gas usage
-
-        uint256 expandedAmount = amount.expand();
-
-        _token.transferFrom(msg.sender, address(this), expandedAmount); // 20k gas usage
-
-        emit FundsDeposit(expandedAmount, clusterId, owner); // 2k gas usage
+    function _deposit(address owner, bytes32 hashedPod, uint64 amount) private {
+        _token.transferFrom(msg.sender, address(this), amount.expand());
+        emit FundsDeposit(amount.expand(), hashedPod, owner);
     }
 
     function _updateNetworkFeeIndex() private {
@@ -1022,12 +1043,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _networkTotalEarnings(dao) - dao.withdrawn;
     }
 
-    function _clusterCurrentIndex(bytes32 clusterId) private view returns (uint64 clusterIndex) {
-        Cluster memory cluster = _clusters[clusterId];
+    function _clusterCurrentIndex(uint64[] memory operatorIds) private view returns (uint64 clusterIndex) {
         uint64 currentBlock = uint64(block.number);
-        for (uint64 i = 0; i < cluster.operatorIds.length; ++i) {
-            Snapshot memory s = _operators[cluster.operatorIds[i]].snapshot;
-            clusterIndex += s.index + (currentBlock - s.block) * _operators[cluster.operatorIds[i]].fee;
+        for (uint64 i = 0; i < operatorIds.length; ++i) {
+            Snapshot memory s = _operators[operatorIds[i]].snapshot;
+            clusterIndex += s.index + (currentBlock - s.block) * _operators[operatorIds[i]].fee;
         }
     }
 
