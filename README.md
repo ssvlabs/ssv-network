@@ -122,6 +122,14 @@ Your environment will have everything you need to build a Dapp powered by Hardha
 - [ethers.js](https://docs.ethers.io/ethers.js/html/): A JavaScript library for interacting with Ethereum.
 - [Waffle](https://github.com/EthWorks/Waffle/): To have Ethereum-specific Chai assertions/mathers.
 
+## ABI
+The SSV Network ABI can be obtained by going to a direct URL.
+You must know the version of the ABI you want.
+
+URL Format - Fill in for {ABI_VERSION}: https://bloxapp.github.io/ssv-network/abi/{ABI_VERSION}/SSVNetwork.json: 
+
+Example of the 20001 version of the ABI: https://bloxapp.github.io/ssv-network/abi/20001/SSVNetwork.json
+
 ## Security Audit [OLD Version]
 
 Full audit report [CoinFabrik Report](./docs/SSV_Token_Dex&Vesting_audit.pdf)
