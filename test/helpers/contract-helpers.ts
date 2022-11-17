@@ -105,21 +105,6 @@ export const deposit = async (ownerId: number, clusterId: string, amount: string
   await DB.ssvNetwork.contract.connect(DB.owners[ownerId])['deposit(bytes32,uint256)'](clusterId, amount);
 };
 
-export const registerPodAndDeposit = async(ownerId: number, operatorIds: number[], amount: string): Promise<any> => {
-  let clusterId;
-  try {
-    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
-    const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerPod(operatorIds, amount)).wait();
-    clusterId = clusterTx.events[0].args.clusterId;
-  } catch (e) {
-    clusterId = await DB.ssvNetwork.contract.getClusterId(operatorIds);
-    if (+amount > 0) {
-      await deposit(ownerId, clusterId, amount);
-    }
-  }
-  return { clusterId };
-};
-
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
   const validators: any = [];
   let clusterId: any;
@@ -131,8 +116,14 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
 
     const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
       publicKey,
-      (await registerPodAndDeposit(ownerId, operatorIds, amount)).clusterId,
+      operatorIds,
       shares,
+      amount,
+      0,
+      0,
+      0,
+      0,
+      0
     ), gasGroups);
     clusterId = eventsByName.ValidatorAdded[0].args.clusterId;
     DB.clusters[clusterId] = ({ id: clusterId, operatorIds });
