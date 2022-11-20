@@ -10,7 +10,7 @@ describe('Register Operator Tests', () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
   });
 
-  it('Register operator', async () => {
+  it('Register operator with emit', async () => {
     const publicKey = helpers.DataGenerator.publicKey(0);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       publicKey,
