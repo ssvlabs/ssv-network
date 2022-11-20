@@ -18,9 +18,22 @@ describe('Register Validator Tests', () => {
 
     // Register a validator
     // clusterResult = await helpers.registerValidators(0, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
+    await ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
+      helpers.DataGenerator.publicKey(9),
+      helpers.DataGenerator.cluster.new(),
+      helpers.DataGenerator.shares(0),
+      minDepositAmount,
+      0,
+      0,
+      0,
+      0,
+      0
+    );
+
   });
 
-  it('Register new validator gas usage', async () => {
+  it('Register 1 new validator gas usage', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -35,7 +48,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('Register two validators in same pod gas usage', async () => {
+  it('Register 2 validators in same pod gas usage', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -53,7 +66,7 @@ describe('Register Validator Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
       [1,2,3,4],
-      helpers.DataGenerator.shares(1),
+      helpers.DataGenerator.shares(0),
       minDepositAmount,
       0,
       0,
@@ -63,6 +76,73 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
 
+  it('Register 2 validators in same pod and 1 validator in new pod gas usage', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1,2,3,4],
+      helpers.DataGenerator.shares(0),
+      minDepositAmount,
+      0,
+      0,
+      0,
+      0,
+      0
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1,2,3,4],
+      helpers.DataGenerator.shares(0),
+      minDepositAmount,
+      0,
+      0,
+      0,
+      0,
+      0
+    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
+      helpers.DataGenerator.publicKey(4),
+      [2,3,4,5],
+      helpers.DataGenerator.shares(0),
+      minDepositAmount,
+      0,
+      0,
+      0,
+      0,
+      0
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+  });
+
+  it('Register 2 validators in same pod with one time deposit gas usage', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1,2,3,4],
+      helpers.DataGenerator.shares(0),
+      minDepositAmount,
+      0,
+      0,
+      0,
+      0,
+      0
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITH_DOUBLE_DEPOSIT]);
+
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1,2,3,4],
+      helpers.DataGenerator.shares(0),
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT]);
+  });
   /*
   it('Register new pod with new cluster gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);

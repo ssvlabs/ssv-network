@@ -315,6 +315,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
             // _pods[hashedPod] = pod;
 
+        _pods[hashedPod] = keccak256(abi.encodePacked(validatorCount, networkFee, networkFeeIndex, usageIndex, usageBalance ));
+
         emit ValidatorMetadataUpdated(hashedPod, validatorCount, networkFee, networkFeeIndex, usageIndex, usageBalance);
         emit ValidatorAdded(publicKey, operatorIds, shares);
     }
