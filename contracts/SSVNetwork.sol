@@ -307,13 +307,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             _dao = dao;
         }
 
-            /*
-            if (_liquidatable(pod.disabled, _podBalance(pod, _clusterCurrentIndex(clusterId)), pod.validatorCount, operatorIds)) {
-                revert NotEnoughBalance();
-            }
-            */
-
-            // _pods[hashedPod] = pod;
+        if (_liquidatable(pod.usageBalance, pod.validatorCount, operatorIds)) {
+            revert NotEnoughBalance();
+        }
 
         _pods[hashedPod] = keccak256(abi.encodePacked(validatorCount, networkFee, networkFeeIndex, usageIndex, usageBalance ));
 
@@ -983,16 +979,16 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     */
 
     function _updatePodData(Pod memory pod, uint64[] memory operatorIds, uint64 amount, int8 changedTo) private view returns (Pod memory) {
-        uint64 clusterIndex = _clusterCurrentIndex(operatorIds);
+        uint64 podIndex = _podIndex(operatorIds);
         pod.usageBalance = _podBalance(
             pod.usageBalance,
-            clusterIndex,
+            podIndex,
             pod.usageIndex,
             pod.validatorCount,
             pod.networkFee,
             pod.networkFeeIndex
         ) + amount;
-        pod.usageIndex = clusterIndex;
+        pod.usageIndex = podIndex;
 
         pod.networkFee = _podNetworkFee(pod.networkFee, pod.networkFeeIndex, pod.validatorCount);
         pod.networkFeeIndex = _currentNetworkFeeIndex();
@@ -1006,11 +1002,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return pod;
     }
 
-    /*
-    function _liquidatable(bool disabled, uint64 balance, uint64 validatorCount, uint64[] memory operatorIds) private view returns (bool) {
-        return !disabled && balance < LIQUIDATION_MIN_BLOCKS * (_burnRatePerValidator(operatorIds) + _networkFee) * validatorCount;
+    function _liquidatable(uint64 balance, uint64 validatorCount, uint64[] memory operatorIds) private view returns (bool) {
+        return balance < LIQUIDATION_MIN_BLOCKS * (_burnRatePerValidator(operatorIds) + _networkFee) * validatorCount;
     }
-    */
 
     /*****************************/
     /* Balance Private Functions */
@@ -1045,7 +1039,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _networkTotalEarnings(dao) - dao.withdrawn;
     }
 
-    function _clusterCurrentIndex(uint64[] memory operatorIds) private view returns (uint64 clusterIndex) {
+    function _podIndex(uint64[] memory operatorIds) private view returns (uint64 clusterIndex) {
         uint64 currentBlock = uint64(block.number);
         for (uint64 i = 0; i < operatorIds.length; ++i) {
             Snapshot memory s = _operators[operatorIds[i]].snapshot;

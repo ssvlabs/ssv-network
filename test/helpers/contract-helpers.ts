@@ -134,6 +134,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
   return { validators, clusterId };
 };
 
+/*
 export const transferValidator = async (ownerId: number, publicKey: string, operatorIds: number[], amount: string, gasGroups?: GasGroup[]) => {
   // let podId: any;
   const shares = DataGenerator.shares(DB.validators.length);
@@ -186,4 +187,4 @@ export const liquidate = async (executorOwnerId: number, liquidatedOwnerId: numb
   const clusterId = eventsByName.AccountLiquidated[0].args.clusterId;
   return { clusterId };
 };
-
+*/
