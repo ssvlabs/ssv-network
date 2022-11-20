@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Types.sol";
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /*************/
@@ -67,8 +67,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 networkFee;
         uint64 networkFeeIndex;
 
-        uint64 usageIndex;
-        uint64 usageBalance;
+        uint64 index;
+        uint64 balance;
 
         // bool disabled;
     }
@@ -251,70 +251,95 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint32 validatorCount,
         uint64 networkFee,
         uint64 networkFeeIndex,
-        uint64 usageIndex,
-        uint64 usageBalance
+        uint64 index,
+        uint64 balance
     ) external override {
-        _validateOperatorIds(operatorIds);
-        _validatePublicKey(publicKey);
+        {
+            uint256 startGas = gasleft();
+            _validateOperatorIds(operatorIds);
+            _validatePublicKey(publicKey);        
+            console.log("validation", startGas - gasleft());
+        }
 
         {
+            uint256 startGas = gasleft();
             bytes32 hashedValidator = keccak256(publicKey);
-            if (_validatorPKs[hashedValidator].owner != address(0)) {
+            if (_validatorPKs[keccak256(publicKey)].owner != address(0)) {
                 revert ValidatorAlreadyExists();
             }
             _validatorPKs[hashedValidator] = Validator({ owner: msg.sender, active: true});
+            console.log("validator pk", startGas - gasleft());
         }
 
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, operatorIds));
         {
-            bytes32 hashedPodData = keccak256(abi.encodePacked(validatorCount, networkFee, networkFeeIndex, usageIndex, usageBalance ));
+            uint256 startGas = gasleft();
+            bytes32 hashedPodData = keccak256(abi.encodePacked(validatorCount, networkFee, networkFeeIndex, index, balance ));
             if (_pods[hashedPod] != bytes32(0) && _pods[hashedPod] != hashedPodData) {
                 revert PodDataIsBroken();
             }
+            console.log("validate pod data", startGas - gasleft());
         }
         
-        if (amount > 0) {
-            _deposit(msg.sender, hashedPod, amount.shrink());
-        }
-
         Pod memory pod;
         {
+            uint256 startGas = gasleft();
             if (_pods[hashedPod] == bytes32(0)) {
-                pod = Pod({ validatorCount: 0, networkFee: 0, networkFeeIndex: 0, usageIndex: 0, usageBalance: 0 });
+                pod = Pod({ validatorCount: 0, networkFee: 0, networkFeeIndex: 0, index: 0, balance: 0 });
             } else {
-                pod = Pod({ validatorCount: validatorCount, networkFee: networkFee, networkFeeIndex: networkFeeIndex, usageIndex: usageIndex, usageBalance: usageBalance });
+                pod = Pod({ validatorCount: validatorCount, networkFee: networkFee, networkFeeIndex: networkFeeIndex, index: index, balance: balance });
             }
 
-            pod = _updatePodData(pod, operatorIds, amount.shrink(), 1);
+            if (amount > 0) {
+                _deposit(msg.sender, hashedPod, amount.shrink());
+                pod.balance += amount.shrink();
+            }
 
+            pod = _updatePodData(pod, operatorIds, 1);
+            console.log("generate pod in memory", startGas - gasleft());
         }
 
         {
+            uint256 startGas = gasleft();
             for (uint64 i = 0; i < operatorIds.length; ++i) {
-                Operator memory operator = _operators[operatorIds[i]];
-                if (operator.owner != address(0)) {
-                    operator.snapshot = _getSnapshot(operator, uint64(block.number));
-                    ++operator.validatorCount;
-                    _operators[operatorIds[i]] = operator;
+                // Operator memory operator = _operators[operatorIds[i]];
+                if (_operators[operatorIds[i]].owner != address(0)) {
+                    _operators[operatorIds[i]].snapshot = _getSnapshot(_operators[operatorIds[i]], uint64(block.number));
+                    ++_operators[operatorIds[i]].validatorCount;
                 }
             }
+            console.log("operator snapshop", startGas - gasleft());
         }
 
         {
+            uint256 startGas = gasleft();
             DAO memory dao = _dao;
             dao = _updateDAOEarnings(dao);
             ++dao.validatorCount;
             _dao = dao;
+            console.log("dao snapshop", startGas - gasleft());
         }
 
-        if (_liquidatable(pod.usageBalance, pod.validatorCount, operatorIds)) {
-            revert NotEnoughBalance();
+        {
+            uint256 startGas = gasleft();
+            if (_liquidatable(pod.balance, pod.validatorCount, operatorIds)) {
+                revert NotEnoughBalance();
+            }
+            console.log("is liquidatable", startGas - gasleft());
         }
 
-        _pods[hashedPod] = keccak256(abi.encodePacked(validatorCount, networkFee, networkFeeIndex, usageIndex, usageBalance ));
+        {
+            uint256 startGas = gasleft();
+            _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance ));
+            console.log("save pod hash", startGas - gasleft());
+        }
 
-        emit ValidatorMetadataUpdated(hashedPod, validatorCount, networkFee, networkFeeIndex, usageIndex, usageBalance);
-        emit ValidatorAdded(publicKey, operatorIds, shares);
+        {
+            uint256 startGas = gasleft();
+            emit ValidatorMetadataUpdated(hashedPod, pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance);
+            emit ValidatorAdded(publicKey, operatorIds, shares);
+            console.log("emit events", startGas - gasleft());
+        }
     }
 
     /*
@@ -978,17 +1003,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
     */
 
-    function _updatePodData(Pod memory pod, uint64[] memory operatorIds, uint64 amount, int8 changedTo) private view returns (Pod memory) {
+    function _updatePodData(Pod memory pod, uint64[] memory operatorIds, int8 changedTo) private view returns (Pod memory) {
         uint64 podIndex = _podIndex(operatorIds);
-        pod.usageBalance = _podBalance(
-            pod.usageBalance,
-            podIndex,
-            pod.usageIndex,
-            pod.validatorCount,
-            pod.networkFee,
-            pod.networkFeeIndex
-        ) + amount;
-        pod.usageIndex = podIndex;
+        pod.balance = _podBalance(pod, podIndex);
+        pod.index = podIndex;
 
         pod.networkFee = _podNetworkFee(pod.networkFee, pod.networkFeeIndex, pod.validatorCount);
         pod.networkFeeIndex = _currentNetworkFeeIndex();
@@ -1047,21 +1065,14 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-    function _podBalance(
-        uint64 balance,
-        uint64 newIndex,
-        uint64 oldIndex,
-        uint32 validatorCount,
-        uint64 networkFee,
-        uint64 networkFeeIndex
-    ) private view returns (uint64) {
-        uint64 usage = (newIndex - oldIndex) * validatorCount + _podNetworkFee(networkFee, networkFeeIndex, validatorCount);
+    function _podBalance(Pod memory pod, uint64 newIndex) private view returns (uint64) {
+        uint64 usage = (newIndex - pod.index) * pod.validatorCount + _podNetworkFee(pod.networkFee, pod.networkFeeIndex, pod.validatorCount);
 
-        if (usage > balance) {
+        if (usage > pod.balance) {
             revert NegativeBalance();
         }
 
-        return balance - usage;
+        return pod.balance - usage;
     }
 
     function _podNetworkFee(uint64 networkFee, uint64 networkFeeIndex, uint32 validatorCount) private view returns (uint64) {

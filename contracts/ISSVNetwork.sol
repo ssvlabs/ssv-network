@@ -137,8 +137,8 @@ interface ISSVNetwork {
         uint32 validatorCount,
         uint64 networkFee,
         uint64 networkFeeIndex,
-        uint64 usageIndex,
-        uint64 usageBalance
+        uint64 index,
+        uint64 balance
     );
 
     /**********/
