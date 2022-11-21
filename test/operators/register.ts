@@ -26,7 +26,7 @@ describe('Register Operator Tests', () => {
     ), [GasGroup.REGISTER_OPERATOR]);
   });
 
-  it('Register operator reverts with "FeeTooLow"', async () => {
+  it('Register operator with not enough fee reverts with "FeeTooLow"', async () => {
     await expect(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.publicKey(0),
       '10'
