@@ -21,67 +21,67 @@ describe('Withdraw Tests', () => {
     clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('Withdraw owner pod balance emits "PodFundsWithdrawal"', async () => {
+  it('Withdraw from a pod I own emits "PodFundsWithdrawal"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee
     )).to.emit(ssvNetworkContract, 'PodFundsWithdrawal');
   });
 
-  it('Withdraw owner pod balance gas limits', async () => {
+  it('Withdraw from a pod I own gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee), [GasGroup.WITHDRAW]);
   });
 
-  it('Withdraw owner pod balance reverts "NotEnoughBalance"', async () => {
+  it('Withdraw from a pod I own with not enough balance reverts "NotEnoughBalance"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, minDepositAmount
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
-  it('Withdraw owner liquidatable pod balance reverts "NotEnoughBalance"', async () => {
+  it('Withdraw from a liquidatable pod I own reverts "NotEnoughBalance"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
 
-  it('Withdraw operator balance emits "OperatorFundsWithdrawal"', async () => {
+  it('Withdraw from operator balance I own emits "OperatorFundsWithdrawal"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64,uint256)'](1, helpers.CONFIG.minimalOperatorFee
     )).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
   });
 
-  it('Withdraw operator balance gas limits', async () => {
+  it('Withdraw from operator balance I own gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64,uint256)'](1, helpers.CONFIG.minimalOperatorFee), [GasGroup.WITHDRAW]);
   });
 
-  it('Withdraw operator balance reverts "CallerNotOwner"', async () => {
+  it('Withdraw from operator balance I do not own reverts "CallerNotOwner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorBalance(uint64,uint256)'](1, minDepositAmount
     )).to.be.revertedWith('CallerNotOwner');
   });
 
-  it('Withdraw operator balance reverts "NotEnoughBalance"', async () => {
+  it('Withdraw from operator balance I own with not enough balance reverts "NotEnoughBalance"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64,uint256)'](1, minDepositAmount
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
   //withdraw total operator balance
-  it('Withdraw total operator balance emits "OperatorFundsWithdrawal"', async () => {
+  it('Withdraw from total operator balance I own emits "OperatorFundsWithdrawal"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64)'](1
     )).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
   });
 
-  it('Withdraw total operator balance gas limits', async () => {
+  it('Withdraw from total operator I own balance gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64)'](1), [GasGroup.WITHDRAW]);
   });
 
   //Test to removed - Duplicate 
-  it('Withdraw total operator balance gas limits', async () => {
+  it('Withdraw from total operator balance I own gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64)'](1), [GasGroup.WITHDRAW]);
   });
 
-  it('Withdraw total operator balance reverts "CallerNotOwner"', async () => {
+  it('Withdraw from total operator balance I do not own reverts "CallerNotOwner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorBalance(uint64)'](12
     )).to.be.revertedWith('CallerNotOwner');
   });
 
-  it('Withdraw total operator balance reverts "NotEnoughBalance"', async () => {
+  it('Withdraw from total operator balance I own with not enough balance reverts "NotEnoughBalance"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64)'](12
     )).to.be.revertedWith('NotEnoughBalance');
   });
