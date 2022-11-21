@@ -28,7 +28,8 @@ describe('Register Validator Tests', () => {
       0,
       0,
       0,
-      0
+      0,
+      false
     );
 
   });
@@ -44,7 +45,8 @@ describe('Register Validator Tests', () => {
       0,
       0,
       0,
-      0
+      0,
+      false
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
@@ -59,10 +61,11 @@ describe('Register Validator Tests', () => {
       0,
       0,
       0,
-      0
+      0,
+      false
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    const args = eventsByName.ValidatorMetadataUpdated[0].args;
+    const args = eventsByName.PodMetadataUpdated[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -74,7 +77,8 @@ describe('Register Validator Tests', () => {
       args.networkFee,
       args.networkFeeIndex,
       args.index,
-      args.balance
+      args.balance,
+      args.disabled
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
 
@@ -89,10 +93,11 @@ describe('Register Validator Tests', () => {
       0,
       0,
       0,
-      0
+      0,
+      false
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    const args = eventsByName.ValidatorMetadataUpdated[0].args;
+    const args = eventsByName.PodMetadataUpdated[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -104,7 +109,8 @@ describe('Register Validator Tests', () => {
       args.networkFee,
       args.networkFeeIndex,
       args.index,
-      args.balance
+      args.balance,
+      args.disabled
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
@@ -117,7 +123,8 @@ describe('Register Validator Tests', () => {
       0,
       0,
       0,
-      0
+      0,
+      false
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
@@ -132,10 +139,11 @@ describe('Register Validator Tests', () => {
       0,
       0,
       0,
-      0
+      0,
+      false
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITH_DOUBLE_DEPOSIT]);
 
-    const args = eventsByName.ValidatorMetadataUpdated[0].args;
+    const args = eventsByName.PodMetadataUpdated[0].args;
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
       [1,2,3,4],
@@ -145,7 +153,8 @@ describe('Register Validator Tests', () => {
       args.networkFee,
       args.networkFeeIndex,
       args.index,
-      args.balance
+      args.balance,
+      args.disabled
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT]);
   });
   /*

@@ -36,8 +36,9 @@ interface ISSVNetwork {
      * @param shares snappy compressed shares(a set of encrypted and public shares).
      */
     event ValidatorAdded(
-        bytes publicKey,
+        address ownerAddress,
         uint64[] operatorIds,
+        bytes publicKey,
         bytes shares
     );
 
@@ -101,7 +102,7 @@ interface ISSVNetwork {
         uint256 fee
     );
 
-    event PodLiquidated(address ownerAddress, bytes32 clusterId);
+    event PodLiquidated(address ownerAddress, uint64[] operatorIds);
 
     event PodEnabled(address ownerAddress, bytes32 clusterId);
 
@@ -132,13 +133,15 @@ interface ISSVNetwork {
 
     event FundsDeposit(uint256 value, bytes32 hashedPod, address owner);
 
-    event ValidatorMetadataUpdated(
-        bytes32 hashedPod,
+    event PodMetadataUpdated(
+        address ownerAddress,
+        uint64[] operatorIds,
         uint32 validatorCount,
         uint64 networkFee,
         uint64 networkFeeIndex,
         uint64 index,
-        uint64 balance
+        uint64 balance,
+        bool disabled
     );
 
     /**********/
@@ -228,7 +231,8 @@ interface ISSVNetwork {
         uint64 networkFee,
         uint64 networkFeeIndex,
         uint64 usageIndex,
-        uint64 usageBalance
+        uint64 usageBalance,
+        bool disabled
     ) external;
 
     // function removeValidator(bytes calldata publicKey) external;
@@ -254,7 +258,17 @@ interface ISSVNetwork {
 
     // function registerPod(uint64[] memory operatorIds, uint256 amount) external;
 
-    // function liquidate(address ownerAddress, bytes32 clusterId) external;
+    function liquidate(
+        address ownerAddress,
+        uint64[] memory operatorIds,
+
+        uint32 validatorCount,
+        uint64 networkFee,
+        uint64 networkFeeIndex,
+        uint64 index,
+        uint64 balance,
+        bool disabled    
+    ) external;
 
     // function reactivatePod(bytes32 clusterId, uint256 amount) external;
 

@@ -70,7 +70,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 index;
         uint64 balance;
 
-        // bool disabled;
+        bool disabled;
     }
 
     struct Validator {
@@ -252,7 +252,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 networkFee,
         uint64 networkFeeIndex,
         uint64 index,
-        uint64 balance
+        uint64 balance,
+        bool disabled
     ) external override {
         {
             uint256 startGas = gasleft();
@@ -263,40 +264,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         {
             uint256 startGas = gasleft();
-            bytes32 hashedValidator = keccak256(publicKey);
             if (_validatorPKs[keccak256(publicKey)].owner != address(0)) {
                 revert ValidatorAlreadyExists();
             }
-            _validatorPKs[hashedValidator] = Validator({ owner: msg.sender, active: true});
+            _validatorPKs[keccak256(publicKey)] = Validator({ owner: msg.sender, active: true});
             console.log("validator pk", startGas - gasleft());
-        }
-
-        bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, operatorIds));
-        {
-            uint256 startGas = gasleft();
-            bytes32 hashedPodData = keccak256(abi.encodePacked(validatorCount, networkFee, networkFeeIndex, index, balance ));
-            if (_pods[hashedPod] != bytes32(0) && _pods[hashedPod] != hashedPodData) {
-                revert PodDataIsBroken();
-            }
-            console.log("validate pod data", startGas - gasleft());
-        }
-        
-        Pod memory pod;
-        {
-            uint256 startGas = gasleft();
-            if (_pods[hashedPod] == bytes32(0)) {
-                pod = Pod({ validatorCount: 0, networkFee: 0, networkFeeIndex: 0, index: 0, balance: 0 });
-            } else {
-                pod = Pod({ validatorCount: validatorCount, networkFee: networkFee, networkFeeIndex: networkFeeIndex, index: index, balance: balance });
-            }
-
-            if (amount > 0) {
-                _deposit(msg.sender, hashedPod, amount.shrink());
-                pod.balance += amount.shrink();
-            }
-
-            pod = _updatePodData(pod, operatorIds, 1);
-            console.log("generate pod in memory", startGas - gasleft());
         }
 
         {
@@ -309,6 +281,34 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 }
             }
             console.log("operator snapshop", startGas - gasleft());
+        }
+
+        bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, operatorIds));
+        {
+            uint256 startGas = gasleft();
+            bytes32 hashedPodData = keccak256(abi.encodePacked(validatorCount, networkFee, networkFeeIndex, index, balance, disabled ));
+            if (_pods[hashedPod] != bytes32(0) && _pods[hashedPod] != hashedPodData) {
+                revert PodDataIsBroken();
+            }
+            console.log("validate pod data", startGas - gasleft());
+        }
+        
+        Pod memory pod;
+        {
+            uint256 startGas = gasleft();
+            if (_pods[hashedPod] == bytes32(0)) {
+                pod = Pod({ validatorCount: 0, networkFee: 0, networkFeeIndex: 0, index: 0, balance: 0, disabled: false });
+            } else {
+                pod = Pod({ validatorCount: validatorCount, networkFee: networkFee, networkFeeIndex: networkFeeIndex, index: index, balance: balance, disabled: disabled });
+            }
+
+            if (amount > 0) {
+                _deposit(msg.sender, hashedPod, amount.shrink());
+                pod.balance += amount.shrink();
+            }
+
+            pod = _updatePodData(pod, operatorIds, 1);
+            console.log("generate pod in memory", startGas - gasleft());
         }
 
         {
@@ -330,14 +330,14 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         {
             uint256 startGas = gasleft();
-            _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance ));
+            _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
             console.log("save pod hash", startGas - gasleft());
         }
 
         {
             uint256 startGas = gasleft();
-            emit ValidatorMetadataUpdated(hashedPod, pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance);
-            emit ValidatorAdded(publicKey, operatorIds, shares);
+            // emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
+            emit PodMetadataUpdated(msg.sender, operatorIds, pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled);
             console.log("emit events", startGas - gasleft());
         }
     }
@@ -524,51 +524,91 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
     */
 
-    /*
-    function liquidate(address ownerAddress, bytes32 clusterId) external override {
-        _validateClusterId(clusterId);
+    function liquidate(
+        address ownerAddress,
+        uint64[] memory operatorIds,
 
-        uint64[] memory operatorIds = _clusters[clusterId].operatorIds;
-        bytes32 hashedPod = keccak256(abi.encodePacked(ownerAddress, clusterId));
+        uint32 validatorCount,
+        uint64 networkFee,
+        uint64 networkFeeIndex,
+        uint64 index,
+        uint64 balance,
+        bool disabled
+    ) external override {
 
-        Pod memory pod = _pods[hashedPod];
-        uint64 podBalance = _podBalance(pod, _clusterCurrentIndex(clusterId)); // 4k gas usage
+        bytes32 hashedPod = keccak256(abi.encodePacked(ownerAddress, operatorIds));
         {
-            if (!_liquidatable(pod.disabled, podBalance, pod.validatorCount, operatorIds)) {
+            uint256 startGas = gasleft();
+            bytes32 hashedPodData = keccak256(abi.encodePacked(validatorCount, networkFee, networkFeeIndex, index, balance, disabled ));
+            if (_pods[hashedPod] != bytes32(0) && _pods[hashedPod] != hashedPodData) {
+                revert PodDataIsBroken();
+            }
+            console.log("validate pod data", startGas - gasleft());
+        }
+        
+        Pod memory pod;
+        {
+            uint256 startGas = gasleft();
+            if (_pods[hashedPod] == bytes32(0)) {
+                pod = Pod({ validatorCount: 0, networkFee: 0, networkFeeIndex: 0, index: 0, balance: 0, disabled: false });
+            } else {
+                pod = Pod({ validatorCount: validatorCount, networkFee: networkFee, networkFeeIndex: networkFeeIndex, index: index, balance: balance, disabled: disabled });
+            }
+
+            pod = _updatePodData(pod, operatorIds, 0);
+            console.log("generate pod in memory", startGas - gasleft());
+        }
+
+        {
+            uint256 startGas = gasleft();
+            if (!_liquidatable(pod.balance, pod.validatorCount, operatorIds)) {
                 revert PodNotLiquidatable();
             }
 
-            for (uint64 index = 0; index < operatorIds.length; ++index) { // 19k gas usage
-                uint64 id = operatorIds[index];
-                Operator memory operator = _operators[id];
+            _token.transfer(msg.sender, pod.balance.expand());
 
-                if (operator.owner != address(0)) {
-                    operator.snapshot = _getSnapshot(operator, uint64(block.number));
-                    operator.validatorCount -= pod.validatorCount;
-                    _operators[operatorIds[index]] = operator;
-                }
-            }
+            pod.disabled = true;
+            pod.balance = 0;
 
-            {
-                // update DAO earnings
-                DAO memory dao = _dao;
-                dao = _updateDAOEarnings(dao);
-                dao.validatorCount -= pod.validatorCount;
-                _dao = dao;
-            }
-
-            _token.transfer(msg.sender, podBalance.expand());
+            console.log("liquidate and transfer", startGas - gasleft());
         }
 
-        pod.disabled = true;
-        pod.usage.balance -= podBalance;
+        {
+            uint256 startGas = gasleft();
+            for (uint64 i = 0; i < operatorIds.length; ++i) {
+                // Operator memory operator = _operators[operatorIds[i]];
+                if (_operators[operatorIds[i]].owner != address(0)) {
+                    _operators[operatorIds[i]].snapshot = _getSnapshot(_operators[operatorIds[i]], uint64(block.number));
+                   _operators[operatorIds[i]].validatorCount -= pod.validatorCount;
+                }
+            }
+            console.log("operator snapshop", startGas - gasleft());
+        }
 
-        emit PodLiquidated(ownerAddress, clusterId);
+        {
+            uint256 startGas = gasleft();
+            DAO memory dao = _dao;
+            dao = _updateDAOEarnings(dao);
+            dao.validatorCount -= pod.validatorCount;
+            _dao = dao;
+            console.log("dao snapshop", startGas - gasleft());
+        }
 
-        _pods[hashedPod] = pod;
+        {
+            uint256 startGas = gasleft();
+            _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
+            console.log("save pod hash", startGas - gasleft());
+        }
 
+        {
+            uint256 startGas = gasleft();
+            emit PodMetadataUpdated(ownerAddress, operatorIds, pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled);
+            emit PodLiquidated(ownerAddress, operatorIds);
+            console.log("emit events", startGas - gasleft());
+        }
     }
 
+    /*
     function reactivatePod(bytes32 clusterId, uint256 amount) external override {
          _validateClusterId(clusterId);
 

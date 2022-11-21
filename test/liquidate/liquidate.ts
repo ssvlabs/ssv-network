@@ -15,16 +15,41 @@ describe('Liquidate Validator Tests', () => {
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
-
-    // Register validators
-    clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
   it('Liquidatable', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1,2,3,4],
+      helpers.DataGenerator.shares(0),
+      minDepositAmount,
+      0,
+      0,
+      0,
+      0,
+      0,
+      false
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    const args = eventsByName.PodMetadataUpdated[0].args;
+
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    expect(await ssvNetworkContract.isLiquidatable(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
+
+    await expect(ssvNetworkContract.liquidate(
+      args.ownerAddress,
+      args.operatorIds,
+      args.validatorCount,
+      args.networkFee,
+      args.networkFeeIndex,
+      args.index,
+      args.balance,
+      args.disabled
+    )).to.emit(ssvNetworkContract, 'PodLiquidated');
+    //await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    //expect(await ssvNetworkContract.isLiquidatable(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
   });
 
+  /*
   it('Liquidate emits PodLiquidated event', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await expect(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.emit(ssvNetworkContract, 'PodLiquidated');
@@ -69,4 +94,5 @@ describe('Liquidate Validator Tests', () => {
 
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
   });
+  */
 });
