@@ -20,38 +20,32 @@ describe('Deposit Tests', () => {
     clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  //Owner deposit
-  it('Owner deposits emits "FundsDeposit"', async () => {
+  
+  it('Deposit to a pod I own emits "FundsDeposit"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(bytes32,uint256)'](clusterResult1.clusterId, minDepositAmount
     )).to.emit(ssvNetworkContract, 'FundsDeposit');
   });
 
-  it('Owner deposits gas limits', async () => {
+  it('Deposit to a pod I own gas limits', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(bytes32,uint256)'](clusterResult1.clusterId, minDepositAmount), [GasGroup.DEPOSIT]);
   });
 
-  it('Owner deposits reverts "ClusterNotExists"', async () => {
+  it('Deposit to a not existent cluster reverts "ClusterNotExists"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(bytes32,uint256)']('0x392791df626408017a264f53fde61065d5a93a32b60171df9d8a46afdf82992c', minDepositAmount
     )).to.be.revertedWith('ClusterNotExists');
   });
 
-  //Non-owner deposit
-  it('Non-owner deposits emits "FundsDeposit"', async () => {
+
+  it('Deposit to a pod I do not own emits "FundsDeposit"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[0]).approve(ssvNetworkContract.address, minDepositAmount);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,bytes32,uint256)'](helpers.DB.owners[1].address, clusterResult1.clusterId, minDepositAmount
     )).to.emit(ssvNetworkContract, 'FundsDeposit');
   });
 
-  it('Non-owner deposits gas limits', async () => {
+  it('Deposit to a pod I do not own gas limits', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[0]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,bytes32,uint256)'](helpers.DB.owners[1].address, clusterResult1.clusterId, minDepositAmount), [GasGroup.DEPOSIT]);
   });
 });
-
-
-
-
-
-
