@@ -15,11 +15,26 @@ describe('Liquidate Validator Tests', () => {
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
+
+    // cold register
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
+    await ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(
+      helpers.DataGenerator.publicKey(9),
+      [1,2,3,4],
+      helpers.DataGenerator.shares(0),
+      minDepositAmount,
+      0,
+      0,
+      0,
+      0,
+      0,
+      false
+    );
   });
 
   it('Liquidatable', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
-    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+    const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
       [1,2,3,4],
       helpers.DataGenerator.shares(0),
@@ -31,20 +46,20 @@ describe('Liquidate Validator Tests', () => {
       0,
       false
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const registerArgs = register.eventsByName.PodMetadataUpdated[0].args;
 
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
 
-    await expect(ssvNetworkContract.liquidate(
-      args.ownerAddress,
-      args.operatorIds,
-      args.validatorCount,
-      args.networkFee,
-      args.networkFeeIndex,
-      args.index,
-      args.balance,
-      args.disabled
-    )).to.emit(ssvNetworkContract, 'PodLiquidated');
+    const liquidate = await trackGas(ssvNetworkContract.liquidate(
+      registerArgs.ownerAddress,
+      registerArgs.operatorIds,
+      registerArgs.validatorCount,
+      registerArgs.networkFee,
+      registerArgs.networkFeeIndex,
+      registerArgs.index,
+      registerArgs.balance,
+      registerArgs.disabled
+    ), [GasGroup.LIQUIDATE_POD]);
     //await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     //expect(await ssvNetworkContract.isLiquidatable(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
   });
