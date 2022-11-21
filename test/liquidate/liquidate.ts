@@ -14,13 +14,13 @@ describe('Liquidate Validator Tests', () => {
     // Register operators
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
 
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 7;
 
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
     await ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(
       helpers.DataGenerator.publicKey(9),
-      [1,2,3,4],
+      [1,2,3,4,5,6,7],
       helpers.DataGenerator.shares(0),
       minDepositAmount,
       0,
@@ -36,7 +36,7 @@ describe('Liquidate Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4],
+      [1,2,3,4,5,6,7],
       helpers.DataGenerator.shares(0),
       minDepositAmount,
       0,
