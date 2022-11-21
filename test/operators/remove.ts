@@ -36,7 +36,7 @@ describe('Remove Operator Tests', () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
   });
 
-  it('Remove operator reverts "CallerNotOwner"', async () => {
+  it('Remove operator I do not own reverts "CallerNotOwner"', async () => {
     await helpers.registerOperators(0, 1, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1
     )).to.be.revertedWith('CallerNotOwner');
