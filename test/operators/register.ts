@@ -1,8 +1,9 @@
+//Declare imports
 import * as helpers from '../helpers/contract-helpers';
-
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
+//Declare globals
 let ssvNetworkContract: any;
 
 describe('Register Operator Tests', () => {
@@ -10,19 +11,12 @@ describe('Register Operator Tests', () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
   });
 
-  it('Register operator with emit', async () => {
+  it('Register operator emits "OperatorAdded"', async () => {
     const publicKey = helpers.DataGenerator.publicKey(0);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       publicKey,
       helpers.CONFIG.minimalOperatorFee,
     )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey, helpers.CONFIG.minimalOperatorFee);
-  });
-
-  it('Fails to register with low fee', async () => {
-    await expect(ssvNetworkContract.registerOperator(
-      helpers.DataGenerator.publicKey(0),
-      '10'
-    )).to.be.revertedWith('FeeTooLow');
   });
 
   it('Register operator gas limits', async () => {
@@ -32,4 +26,10 @@ describe('Register Operator Tests', () => {
     ), [GasGroup.REGISTER_OPERATOR]);
   });
 
+  it('Register operator reverts with "FeeTooLow"', async () => {
+    await expect(ssvNetworkContract.registerOperator(
+      helpers.DataGenerator.publicKey(0),
+      '10'
+    )).to.be.revertedWith('FeeTooLow');
+  });
 });
