@@ -41,7 +41,6 @@ describe('Withdraw Tests', () => {
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
-
   it('Withdraw from operator balance emits "OperatorFundsWithdrawal"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64,uint256)'](1, helpers.CONFIG.minimalOperatorFee
     )).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
