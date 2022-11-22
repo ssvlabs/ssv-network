@@ -19,7 +19,6 @@ describe('Deposit Tests', () => {
     // Register validators
     clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
-
   
   it('Deposit to a pod I own emits "FundsDeposit"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
@@ -36,7 +35,6 @@ describe('Deposit Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(bytes32,uint256)']('0x392791df626408017a264f53fde61065d5a93a32b60171df9d8a46afdf82992c', minDepositAmount
     )).to.be.revertedWith('ClusterNotExists');
   });
-
 
   it('Deposit to a pod I do not own emits "FundsDeposit"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[0]).approve(ssvNetworkContract.address, minDepositAmount);
