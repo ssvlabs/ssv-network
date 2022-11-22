@@ -12,7 +12,7 @@ describe('Network Fee Tests', () => {
     // Define minumum allowed network fee to pass shrinkable validation
     networkFee = helpers.CONFIG.minimalOperatorFee / 10;
   });
-
+  
   it('Get network fee', async () => {
     expect(await ssvNetworkContract.getNetworkFee()).to.equal(0);
   });
@@ -22,11 +22,11 @@ describe('Network Fee Tests', () => {
       .to.emit(ssvNetworkContract, 'NetworkFeeUpdate').withArgs(0, networkFee);
   });
 
-  it('Change network fee fails small number error', async () => {
+  it('Change network fee too low reverts "Precision is over the maximum defined"', async () => {
     await expect(ssvNetworkContract.updateNetworkFee(networkFee - 1)).to.be.revertedWith('Precision is over the maximum defined');
   });
 
-  it('Change network fee fails no owner', async () => {
+  it('Not a Dao change network fee fails no owner', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).updateNetworkFee(networkFee)).to.be.revertedWith('caller is not the owner');
   });
 });

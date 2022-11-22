@@ -38,24 +38,27 @@ describe('DAO Network Fee Withdraw Tests', () => {
   it('Get withdrawable network earnings', async () => {
     expect(await ssvNetworkContract.getNetworkBalance()).to.above(0);
   });
-
+// test to be removed - everyone can see network earnings
   it('Get withdrawable network earnings fails no owner', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkBalance()).to.be.revertedWith('caller is not the owner');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkBalance(
+    )).to.be.revertedWith('caller is not the owner');
   });
 
   it('Withdraw network earnings emits NetworkFeesWithdrawal event', async () => {
     const amount = await ssvNetworkContract.getNetworkBalance();
-    await expect(ssvNetworkContract.withdrawDAOEarnings(amount))
-      .to.emit(ssvNetworkContract, 'NetworkFeesWithdrawal').withArgs(amount, helpers.DB.owners[0].address);
+    await expect(ssvNetworkContract.withdrawDAOEarnings(amount
+    )).to.emit(ssvNetworkContract, 'NetworkFeesWithdrawal').withArgs(amount, helpers.DB.owners[0].address);
   });
 
-  it('Withdraw network earnings fails balance is lower', async () => {
+  it('Withdraw network earnings with not enough balance reverts "NotEnoughBalance"', async () => {
     const amount = await ssvNetworkContract.getNetworkBalance() * 2;
-    await expect(ssvNetworkContract.withdrawDAOEarnings(amount)).to.be.revertedWith('NotEnoughBalance');
+    await expect(ssvNetworkContract.withdrawDAOEarnings(amount
+    )).to.be.revertedWith('NotEnoughBalance');
   });
 
-  it('Withdraw network earnings fails no owner', async () => {
+  it('Not a Dao withdraw network earnings reverts "caller is not the owner"', async () => {
     const amount = await ssvNetworkContract.getNetworkBalance();
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawDAOEarnings(amount)).to.be.revertedWith('caller is not the owner');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawDAOEarnings(amount
+    )).to.be.revertedWith('caller is not the owner');
   });
 });
