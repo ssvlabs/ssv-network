@@ -1,9 +1,10 @@
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
-
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
 
+// Declare globals
 let ssvNetworkContract: any, minDepositAmount: any, burnPerBlock: any, networkFee: any;
 
 describe('DAO Network Fee Withdraw Tests', () => {
@@ -38,13 +39,14 @@ describe('DAO Network Fee Withdraw Tests', () => {
   it('Get withdrawable network earnings', async () => {
     expect(await ssvNetworkContract.getNetworkBalance()).to.above(0);
   });
-// test to be removed - everyone can see network earnings
-  it('Get withdrawable network earnings fails no owner', async () => {
+
+    // test to be removed - everyone can see network earnings
+  it('Get withdrawable network earnings reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkBalance(
     )).to.be.revertedWith('caller is not the owner');
   });
 
-  it('Withdraw network earnings emits NetworkFeesWithdrawal event', async () => {
+  it('Withdraw network earnings emits "NetworkFeesWithdrawal"', async () => {
     const amount = await ssvNetworkContract.getNetworkBalance();
     await expect(ssvNetworkContract.withdrawDAOEarnings(amount
     )).to.emit(ssvNetworkContract, 'NetworkFeesWithdrawal').withArgs(amount, helpers.DB.owners[0].address);

@@ -1,10 +1,10 @@
-//Declare imports
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-//Declare globals
+// Declare globals
 let ssvNetworkContract: any, clusterResult1: any, minDepositAmount: any;
 
 describe('Withdraw Tests', () => {
@@ -60,7 +60,7 @@ describe('Withdraw Tests', () => {
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
-  //withdraw total operator balance
+  // Withdraw total operator balance
   it('Withdraw from total operator balance emits "OperatorFundsWithdrawal"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64)'](1
     )).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
@@ -70,7 +70,7 @@ describe('Withdraw Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64)'](1), [GasGroup.WITHDRAW]);
   });
 
-  //Test to removed - Duplicate 
+  // Test to removed - Duplicate 
   it('Withdraw from total operator balance gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64)'](1), [GasGroup.WITHDRAW]);
   });
