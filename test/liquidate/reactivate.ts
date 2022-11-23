@@ -1,9 +1,10 @@
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
-
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
+// Decalre globals
 let ssvNetworkContract: any, clusterResult1: any, minDepositAmount: any;
 
 describe('Reactivate Validator Tests', () => {
@@ -20,24 +21,32 @@ describe('Reactivate Validator Tests', () => {
     clusterResult1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('Reactivate emits PodEnabled', async () => {
+  it('Reactivate emits "PodEnabled"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, minDepositAmount)).to.emit(ssvNetworkContract, 'PodEnabled');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, minDepositAmount
+    )).to.emit(ssvNetworkContract, 'PodEnabled');
+  });
+  
+  it('Reactivate gas limits', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, minDepositAmount), [GasGroup.REACTIVATE_POD]);
   });
 
-  it('Reactivate returns an error - PodAlreadyEnabled', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, minDepositAmount)).to.be.revertedWith('PodAlreadyEnabled');
+  it('Reactivate an active pod reverts "PodAlreadyEnabled"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, minDepositAmount
+    )).to.be.revertedWith('PodAlreadyEnabled');
   });
 
-  it('Reactivate returns an error - NegativeBalance', async () => {
+  it('Reactivate with not enough balance reverts "NegativeBalance"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee * 4);
-
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee * 4)).to.be.revertedWith('NegativeBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee * 4
+    )).to.be.revertedWith('NegativeBalance');
   });
 
   it('Reactivate with removed operator in a cluster', async () => {
@@ -45,14 +54,6 @@ describe('Reactivate Validator Tests', () => {
     await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
     await ssvNetworkContract.removeOperator(1);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, minDepositAmount), [GasGroup.REACTIVATE_POD]);
-  });
-
-  it('Reactivate gas limits', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, minDepositAmount), [GasGroup.REACTIVATE_POD]);
   });
 });
