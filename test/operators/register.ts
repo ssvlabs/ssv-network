@@ -1,9 +1,9 @@
-//Declare imports
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-//Declare globals
+// Declare globals
 let ssvNetworkContract: any;
 
 describe('Register Operator Tests', () => {
@@ -26,7 +26,7 @@ describe('Register Operator Tests', () => {
     ), [GasGroup.REGISTER_OPERATOR]);
   });
 
-  it('Register operator with not enough fee reverts with "FeeTooLow"', async () => {
+  it('Register an operator with a fee thats too low reverts "FeeTooLow"', async () => {
     await expect(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.publicKey(0),
       '10'

@@ -23,12 +23,12 @@ describe('Network Fee Tests', () => {
     )).to.emit(ssvNetworkContract, 'NetworkFeeUpdate').withArgs(0, networkFee);
   });
 
-  it('Change network fee is too low reverts "Precision is over the maximum defined"', async () => {
+  it('Change the network fee to a number below the minimum fee reverts "Precision is over the maximum defined"', async () => {
     await expect(ssvNetworkContract.updateNetworkFee(networkFee - 1
     )).to.be.revertedWith('Precision is over the maximum defined');
   });
 
-  it('Not a Dao change network fee reverts "caller is not the owner"', async () => {
+  it('Change network fee from an address thats not the DAO reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).updateNetworkFee(networkFee
     )).to.be.revertedWith('caller is not the owner');
   });

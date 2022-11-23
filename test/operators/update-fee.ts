@@ -1,10 +1,10 @@
-//Declare imports
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { progressTime } from '../helpers/utils';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-//Declare globals
+// Declare globals
 let ssvNetworkContract: any, initialFee: any;
 
 describe('Operator Fee Tests', () => {
@@ -17,26 +17,24 @@ describe('Operator Fee Tests', () => {
   it('Get operator fee', async () => {
     expect(await ssvNetworkContract.getOperatorFee(1)).to.equal(initialFee);
   });
-
-  it('Get operator fee that does not exsist reverts "OperatorNotFound"', async () => {
+  //get fee from operator that does not
+  it('Get get fee from operator that does not exist reverts "OperatorNotFound"', async () => {
     await expect(ssvNetworkContract.getOperatorFee(12
     )).to.be.revertedWith('OperatorNotFound');
   });
 
-  //Declare
   it('Declare fee emits "OperatorFeeDeclaration"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10
     )).to.emit(ssvNetworkContract, 'OperatorFeeDeclaration');
   });
 
-  it('Declare fee in contract', async () => {
-    await trackGas(ssvNetworkContract.declareOperatorFee(1, initialFee - initialFee / 20), [GasGroup.REGISTER_OPERATOR]);
-  });
-
-  it('Declare fee gas limits', async () => {
+  it('Declare a lower fee gas limits', async () => {
     await trackGas(ssvNetworkContract.declareOperatorFee(1, initialFee + initialFee / 10), [GasGroup.REGISTER_OPERATOR]);
   });
 
+  it('Declare a higher fee gas limit', async () => {
+    await trackGas(ssvNetworkContract.declareOperatorFee(1, initialFee - initialFee / 20), [GasGroup.REGISTER_OPERATOR]);
+  });
   it('Declare fee of operator I do not own reverts "CallerNotOwner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(1, initialFee + initialFee / 10
     )).to.be.revertedWith('CallerNotOwner');
@@ -52,18 +50,17 @@ describe('Operator Fee Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(12, initialFee + initialFee / 10
     )).to.be.revertedWith('OperatorWithPublicKeyNotExist');
   });
-
-  it('Declare fee with fee too low reverts "FeeTooLow"', async () => {
+  
+  it('Declare fee with too low of a fee reverts "FeeTooLow"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee - 1
     )).to.be.revertedWith('FeeTooLow');
   });
 
-  it('Declare fee is above limit reverts "FeeExceedsIncreaseLimit"', async () => {
+  it('Declare fee above the operators max fee increase limit reverts "FeeExceedsIncreaseLimit"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 5
     )).to.be.revertedWith('FeeExceedsIncreaseLimit');
   });
 
-  //Cancel declare 
   it('Cancel declared fee emits "DeclaredOperatorFeeCancelation"', async () => {
     await ssvNetworkContract.declareOperatorFee(1, initialFee + initialFee / 10);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).cancelDeclaredOperatorFee(1
@@ -80,7 +77,7 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWith('NoPendingFeeChangeRequest');
   });
 
-  it('Cancel declared fee of operator I do not own reverts "CallerNotOwner"', async () => {
+  it('Cancel declared fee of an operator I do not own reverts "CallerNotOwner"', async () => {
     await trackGas(ssvNetworkContract.declareOperatorFee(1, initialFee + initialFee / 10), [GasGroup.REGISTER_OPERATOR]);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).cancelDeclaredOperatorFee(1
     )).to.be.revertedWith('CallerNotOwner');
@@ -100,7 +97,7 @@ describe('Operator Fee Tests', () => {
     await trackGas(ssvNetworkContract.executeOperatorFee(1), [GasGroup.REGISTER_OPERATOR]);
   });
 
-  it('Execute declared fee of operator I do not own reverts "CallerNotOwner"', async () => {
+  it('Execute declared fee of an operator I do not own reverts "CallerNotOwner"', async () => {
     await trackGas(ssvNetworkContract.declareOperatorFee(1, initialFee + initialFee / 10), [GasGroup.REGISTER_OPERATOR]);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).executeOperatorFee(1
     )).to.be.revertedWith('CallerNotOwner');
@@ -145,7 +142,7 @@ describe('Operator Fee Tests', () => {
     expect(await ssvNetworkContract.getExecuteOperatorFeePeriod()).to.equal(helpers.CONFIG.executeOperatorFeePeriod);
   });
   
-  it('DAO increase the fee limit emits "OperatorFeeIncreaseLimitUpdate"', async () => {
+  it('DAO increase the fee emits "OperatorFeeIncreaseLimitUpdate"', async () => {
     await expect(ssvNetworkContract.updateOperatorFeeIncreaseLimit(1000
     )).to.emit(ssvNetworkContract, 'OperatorFeeIncreaseLimitUpdate');
   });
@@ -159,18 +156,18 @@ describe('Operator Fee Tests', () => {
     await expect(ssvNetworkContract.updateExecuteOperatorFeePeriod(1200
     )).to.emit(ssvNetworkContract, 'ExecuteOperatorFeePeriodUpdate');
   });
-
-  it('Not a DAO increase fee limit reverts "caller is not the owner"', async () => {
+ 
+  it('Increase fee from an address thats not the DAO reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).updateOperatorFeeIncreaseLimit(1000
     )).to.be.revertedWith('caller is not the owner');
   });
 
-  it('Not a DAO update the declare fee period reverts "caller is not the owner"', async () => {
+  it('Update the declare fee period from an address thats not the DAO reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).updateDeclareOperatorFeePeriod(1200
     )).to.be.revertedWith('caller is not the owner');
   });
 
-  it('Not a DAO update the execute fee period reverts "caller is not the owner"', async () => {
+  it('Update the execute fee period from an address thats not the DAO reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).updateExecuteOperatorFeePeriod(1200))
       .to.be.revertedWith('caller is not the owner');
   });

@@ -40,7 +40,6 @@ describe('DAO Network Fee Withdraw Tests', () => {
     expect(await ssvNetworkContract.getNetworkBalance()).to.above(0);
   });
 
-    // test to be removed - everyone can see network earnings
   it('Get withdrawable network earnings reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkBalance(
     )).to.be.revertedWith('caller is not the owner');
@@ -58,7 +57,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
-  it('Not a Dao withdraw network earnings reverts "caller is not the owner"', async () => {
+  it('Withdraw network earnings from an address thats not the DAO reverts "caller is not the owner"', async () => {
     const amount = await ssvNetworkContract.getNetworkBalance();
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawDAOEarnings(amount
     )).to.be.revertedWith('caller is not the owner');
