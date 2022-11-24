@@ -30,25 +30,12 @@ describe('Remove Validator Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator with a removed operator in a cluster', async () => {
+  it('Remove validator with a removed operator in the cluster', async () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator I do not own reverts "ValidatorNotOwned"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(clusterResult.validators[0].publicKey
-    )).to.be.revertedWith('ValidatorNotOwned');
-  });
-
-  it('Remove same validator twice reverts "ValidatorNotOwned"', async () => {
-    // Remove validator
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
-
-    // Remove validator again
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey)).to.be.revertedWith('ValidatorNotOwned');
-  });
-
-  it('Register a removed validator and remove again', async () => {
+  it('Register a removed validator and remove the same validator again', async () => {
     // Remove validator
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
 
@@ -61,6 +48,20 @@ describe('Remove Validator Tests', () => {
 
     // Remove the validator again
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(helpers.DataGenerator.publicKey(0)), [GasGroup.REMOVE_VALIDATOR]);
+  });
+
+  it('Remove validator I do not own reverts "ValidatorNotOwned"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(clusterResult.validators[0].publicKey
+    )).to.be.revertedWith('ValidatorNotOwned');
+  });
+
+  it('Remove the same validator twice reverts "ValidatorNotOwned"', async () => {
+    // Remove validator
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey), [GasGroup.REMOVE_VALIDATOR]);
+
+    // Remove validator again
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).removeValidator(clusterResult.validators[0].publicKey
+    )).to.be.revertedWith('ValidatorNotOwned');
   });
 
   // TODO: Once liquidation is updated

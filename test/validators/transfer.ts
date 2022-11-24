@@ -27,7 +27,7 @@ describe('Transfer Validator Tests', () => {
     clusters.three = helpers.DataGenerator.cluster.new();
   });
 
-  it('Transfer validator emits "ValidatorTransferred" event"', async () => {
+  it('Transfer validator emits "ValidatorTransferred"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
       clusterResult1.validators[0].publicKey,
       (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.new(), minDepositAmount)).clusterId,
@@ -38,26 +38,10 @@ describe('Transfer Validator Tests', () => {
   it('Transfer validator into a new cluster A-Z', async () => {
     await helpers.transferValidator(4, clusterResult2.validators[0].publicKey, clusters.three, minDepositAmount, [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]);
   });
-// To remove - Duplicate 
+  // same test name as above but different testing 
   it('Transfer validator into a new cluster Z-A', async () => {
     const cluster = await helpers.registerValidators(4, 1, minDepositAmount, clusters.three, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await helpers.transferValidator(4, cluster.validators[0].publicKey, clusters.one, minDepositAmount, [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]);
-  });
-
-  it('Transfer validator I do not own "ValidatorNotOwned"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[5]).transferValidator(
-      clusterResult1.validators[0].publicKey,
-      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
-      helpers.DataGenerator.shares(helpers.DB.validators.length),
-    )).to.be.revertedWith('ValidatorNotOwned');
-  });
-
-  it('transfer with an invalid public key revert "InvalidPublicKeyLength"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
-      helpers.DataGenerator.shares(0),
-      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
-      helpers.DataGenerator.shares(helpers.DB.validators.length),
-    )).to.be.revertedWith('InvalidPublicKeyLength');
   });
 
   it('Transfer validator to a cluster with 7 operators', async () => {
@@ -66,18 +50,6 @@ describe('Transfer Validator Tests', () => {
 
     // Transfer validator to an existing cluster
     await helpers.transferValidator(4, clusterResult1.validators[0].publicKey, helpers.DataGenerator.cluster.byId(clusterId), `${minDepositAmount / 4 * 7 * 2}`, [GasGroup.TRANSFER_VALIDATOR_NON_EXISTING_POD]);
-  });
-
-  it('Transfer validator with not enough amount reverts "NotEnoughBalance"', async () => {
-    // Register validator
-    const { clusterId } = await helpers.registerValidators(4, 1, minDepositAmount, [1, 2, 3, 9]);
-
-    // Transfer to cluster with not enough amount
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
-      clusterResult1.validators[0].publicKey,
-      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterId), helpers.CONFIG.minimalOperatorFee)).clusterId,
-      helpers.DataGenerator.shares(helpers.DB.validators.length),
-    )).to.be.revertedWith('NotEnoughBalance');
   });
 
   // GOING ABOVE GAS LIMIT
@@ -107,6 +79,7 @@ describe('Transfer Validator Tests', () => {
     await helpers.transferValidator(4, clusterResult1.validators[0].publicKey, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), `${minDepositAmount * 2}`, [GasGroup.TRANSFER_VALIDATOR]);
   });
 
+  // The same tests name but different testing
   it('Transfer validator with removed operator in old cluster Z-A', async () => {
     const cluster = await helpers.registerValidators(4, 1, minDepositAmount, clusters.three, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await ssvNetworkContract.removeOperator(clusters.three[0]);
@@ -120,7 +93,33 @@ describe('Transfer Validator Tests', () => {
     await helpers.transferValidator(4, cluster.validators[0].publicKey, clusters.one, minDepositAmount, [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]);
   });
 
+  it('Transfer validator I do not own reverts "ValidatorNotOwned"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[5]).transferValidator(
+      clusterResult1.validators[0].publicKey,
+      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
+      helpers.DataGenerator.shares(helpers.DB.validators.length),
+    )).to.be.revertedWith('ValidatorNotOwned');
+  });
 
+  it('transfer validator with an invalid public key reverts "InvalidPublicKeyLength"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
+      helpers.DataGenerator.shares(0),
+      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterResult2.clusterId), minDepositAmount)).clusterId,
+      helpers.DataGenerator.shares(helpers.DB.validators.length),
+    )).to.be.revertedWith('InvalidPublicKeyLength');
+  });
+
+  it('Transfer validator with not enough balance reverts "NotEnoughBalance"', async () => {
+    // Register validator
+    const { clusterId } = await helpers.registerValidators(4, 1, minDepositAmount, [1, 2, 3, 9]);
+
+    // Transfer to cluster with not enough amount
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).transferValidator(
+      clusterResult1.validators[0].publicKey,
+      (await helpers.registerPodAndDeposit(4, helpers.DataGenerator.cluster.byId(clusterId), helpers.CONFIG.minimalOperatorFee)).clusterId,
+      helpers.DataGenerator.shares(helpers.DB.validators.length),
+    )).to.be.revertedWith('NotEnoughBalance');
+  });
 
   // TODO: fix after connecting the token
   it('Transfer validator with not enough balance', async () => {
