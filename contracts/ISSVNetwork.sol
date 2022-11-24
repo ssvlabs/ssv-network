@@ -143,7 +143,6 @@ interface ISSVNetwork {
     error ApprovalNotWithinTimeframe();
     error OperatorWithPublicKeyNotExist();
     error OperatorNotFound();
-    error OperatorDoesNotExist();
     error NotEnoughBalance();
     error ValidatorAlreadyExists();
     error PodLiquidatable();
@@ -250,7 +249,7 @@ interface ISSVNetwork {
     /* Pod External Functions */
     /**************************/
 
-    function registerPod(uint64[] memory operatorIds, uint256 amount) external;
+    function registerPod(uint24[] memory operatorIds, uint256 amount) external;
 
     function liquidate(address ownerAddress, bytes32 clusterId) external;
 
@@ -289,17 +288,17 @@ interface ISSVNetwork {
     /* Operator External View Functions */
     /************************************/
 
-    function getOperatorFee(uint64 operatorId) external view returns (uint256);
+    function getOperatorFee(uint24 operatorId) external view returns (uint256);
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
+    function getOperatorDeclaredFee(uint24 operatorId) external view returns (uint256, uint256, uint256);
 
     /*******************************/
     /* Pod External View Functions */
     /*******************************/
 
-    function getClusterId(uint64[] memory operatorIds) external view returns(bytes32);
+    function getClusterId(uint24[] memory operatorIds) external view returns(bytes32);
 
-    function getPod(uint64[] memory operatorIds) external view returns(bytes32);
+    function getPod(uint24[] memory operatorIds) external view returns(bytes32);
 
     function isLiquidatable(address ownerAddress, bytes32 clusterId) external view returns(bool);
 

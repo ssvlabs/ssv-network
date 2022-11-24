@@ -51,8 +51,8 @@ describe('Register Validator Tests', () => {
     expect(await ssvNetworkContract.getPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId))).to.equal(clusterResult.clusterId);
   });
 
-  it('Register pod returns an error - OperatorDoesNotExist', async () => {
-    await expect(ssvNetworkContract.registerPod([1, 2, 3, 25], minDepositAmount)).to.be.revertedWith('OperatorDoesNotExist');
+  it('Register pod returns an error - OperatorNotFound', async () => {
+    await expect(ssvNetworkContract.registerPod([1, 2, 3, 25], minDepositAmount)).to.be.revertedWith('OperatorNotFound');
   });
 
   it('Register validator emits ValidatorAdded event', async () => {

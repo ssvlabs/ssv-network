@@ -32,12 +32,11 @@ describe('Reactivate Validator Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, minDepositAmount)).to.be.revertedWith('PodAlreadyEnabled');
   });
 
-  it('Reactivate returns an error - NegativeBalance', async () => {
+  it('Reactivate returns an error - PodLiquidatable', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee * 4);
-
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee * 4)).to.be.revertedWith('NegativeBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).reactivatePod(clusterResult1.clusterId, helpers.CONFIG.minimalOperatorFee * 4)).to.be.revertedWith('PodLiquidatable');
   });
 
   it('Reactivate with removed operator in a cluster', async () => {
