@@ -38,6 +38,7 @@ describe('Transfer Validator Tests', () => {
   it('Transfer validator into a new cluster A-Z', async () => {
     await helpers.transferValidator(4, clusterResult2.validators[0].publicKey, clusters.three, minDepositAmount, [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]);
   });
+
   // same test name as above but different testing 
   it('Transfer validator into a new cluster Z-A', async () => {
     const cluster = await helpers.registerValidators(4, 1, minDepositAmount, clusters.three, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);

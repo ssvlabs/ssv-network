@@ -37,17 +37,13 @@ describe('Register Validator Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId), minDepositAmount), [GasGroup.REGISTER_POD]);
   });
 
-  it('Register validator emits "ValidatorAdded"', async () => {
+  it('Register validator emits ValidatorAdded event', async () => {
     // register validator using cluster Id
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(1),
       (await helpers.registerPodAndDeposit(0, helpers.DataGenerator.cluster.new(), minDepositAmount)).clusterId,
       helpers.DataGenerator.shares(0)
     )).to.emit(ssvNetworkContract, 'ValidatorAdded');
-  });
-
-  it('Get pod returns a cluster id', async () => {
-    expect(await ssvNetworkContract.getPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId))).to.equal(clusterResult.clusterId);
   });
 
   it('Register validator with a removed operator in the cluster', async () => {
@@ -68,6 +64,10 @@ describe('Register Validator Tests', () => {
 
   it('Register two validators into an existing cluster', async () => {
     await helpers.registerValidators(1, 1, `${minDepositAmount * 2}`, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
+  });
+
+  it('Get pod returns a cluster id', async () => {
+    expect(await ssvNetworkContract.getPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId))).to.equal(clusterResult.clusterId);
   });
 
   it('Register an existed pod reverts "PodAlreadyExists"', async () => {
@@ -156,11 +156,3 @@ describe('Register Validator Tests', () => {
     // )).to.be.revertedWith('NotEnoughBalance');
   });
 });
-
-
-
-
-
-
-
-
