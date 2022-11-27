@@ -24,12 +24,14 @@ describe('Register Validator Tests', () => {
       helpers.DataGenerator.cluster.new(),
       helpers.DataGenerator.shares(0),
       minDepositAmount,
-      0,
-      0,
-      0,
-      0,
-      0,
-      false
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     );
 
   });
@@ -41,12 +43,14 @@ describe('Register Validator Tests', () => {
       helpers.DataGenerator.cluster.new(),
       helpers.DataGenerator.shares(0),
       minDepositAmount,
-      0,
-      0,
-      0,
-      0,
-      0,
-      false
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
@@ -57,12 +61,14 @@ describe('Register Validator Tests', () => {
       [1,2,3,4],
       helpers.DataGenerator.shares(0),
       minDepositAmount,
-      0,
-      0,
-      0,
-      0,
-      0,
-      false
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
     const args = eventsByName.PodMetadataUpdated[0].args;
@@ -73,12 +79,7 @@ describe('Register Validator Tests', () => {
       [1,2,3,4],
       helpers.DataGenerator.shares(0),
       minDepositAmount,
-      args.validatorCount,
-      args.networkFee,
-      args.networkFeeIndex,
-      args.index,
-      args.balance,
-      args.disabled
+      args.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
 
@@ -89,12 +90,14 @@ describe('Register Validator Tests', () => {
       [1,2,3,4],
       helpers.DataGenerator.shares(0),
       minDepositAmount,
-      0,
-      0,
-      0,
-      0,
-      0,
-      false
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
     const args = eventsByName.PodMetadataUpdated[0].args;
@@ -105,12 +108,7 @@ describe('Register Validator Tests', () => {
       [1,2,3,4],
       helpers.DataGenerator.shares(0),
       minDepositAmount,
-      args.validatorCount,
-      args.networkFee,
-      args.networkFeeIndex,
-      args.index,
-      args.balance,
-      args.disabled
+      args.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
@@ -119,12 +117,14 @@ describe('Register Validator Tests', () => {
       [2,3,4,5],
       helpers.DataGenerator.shares(0),
       minDepositAmount,
-      0,
-      0,
-      0,
-      0,
-      0,
-      false
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
@@ -135,12 +135,14 @@ describe('Register Validator Tests', () => {
       [1,2,3,4],
       helpers.DataGenerator.shares(0),
       `${minDepositAmount*2}`,
-      0,
-      0,
-      0,
-      0,
-      0,
-      false
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITH_DOUBLE_DEPOSIT]);
 
     const args = eventsByName.PodMetadataUpdated[0].args;
@@ -149,12 +151,7 @@ describe('Register Validator Tests', () => {
       [1,2,3,4],
       helpers.DataGenerator.shares(0),
       0,
-      args.validatorCount,
-      args.networkFee,
-      args.networkFeeIndex,
-      args.index,
-      args.balance,
-      args.disabled
+      args.pod
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT]);
   });
   /*

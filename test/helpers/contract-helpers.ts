@@ -134,6 +134,11 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
   return { validators, clusterId };
 };
 
+export const getPod = (payload: any) => ethers.utils.AbiCoder.prototype.encode(
+  ['tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool disabled) pod'],
+  [ payload ]
+);
+
 /*
 export const transferValidator = async (ownerId: number, publicKey: string, operatorIds: number[], amount: string, gasGroups?: GasGroup[]) => {
   // let podId: any;

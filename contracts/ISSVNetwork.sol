@@ -5,6 +5,19 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
 interface ISSVNetwork {
+
+    struct Pod {
+        uint32 validatorCount;
+
+        uint64 networkFee;
+        uint64 networkFeeIndex;
+
+        uint64 index;
+        uint64 balance;
+
+        bool disabled;
+    }
+
     /**********/
     /* Events */
     /**********/
@@ -136,12 +149,7 @@ interface ISSVNetwork {
     event PodMetadataUpdated(
         address ownerAddress,
         uint64[] operatorIds,
-        uint32 validatorCount,
-        uint64 networkFee,
-        uint64 networkFeeIndex,
-        uint64 index,
-        uint64 balance,
-        bool disabled
+        Pod pod
     );
 
     /**********/
@@ -227,12 +235,7 @@ interface ISSVNetwork {
         uint64[] memory operatorIds,
         bytes calldata shares,
         uint256 amount,
-        uint32 validatorCount,
-        uint64 networkFee,
-        uint64 networkFeeIndex,
-        uint64 usageIndex,
-        uint64 usageBalance,
-        bool disabled
+        Pod memory pod
     ) external;
 
     // function removeValidator(bytes calldata publicKey) external;
@@ -261,13 +264,7 @@ interface ISSVNetwork {
     function liquidate(
         address ownerAddress,
         uint64[] memory operatorIds,
-
-        uint32 validatorCount,
-        uint64 networkFee,
-        uint64 networkFeeIndex,
-        uint64 index,
-        uint64 balance,
-        bool disabled    
+        Pod memory pod
     ) external;
 
     // function reactivatePod(bytes32 clusterId, uint256 amount) external;
