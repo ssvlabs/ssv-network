@@ -4,10 +4,10 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-// Decalre globals
+// Declare globals
 let ssvNetworkContract: any, clusterResult1: any, minDepositAmount: any;
 
-describe('Reactivate Validator Tests', () => {
+describe('Reactivate Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     ssvNetworkContract = (await helpers.initializeContract()).contract;
