@@ -32,6 +32,17 @@ describe('Liquidate Validator Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
   });
 
+  it('Get if the pod is liquidatable', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    expect(await ssvNetworkContract.isLiquidatable(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
+  });
+
+  it('Get if the pod is liquidated', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
+    expect(await ssvNetworkContract.isLiquidated(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
+  });
+
   it('Liquidate validator with removed operator in a cluster', async () => {
     await ssvNetworkContract.removeOperator(1);
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
@@ -57,17 +68,6 @@ describe('Liquidate Validator Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(helpers.DataGenerator.publicKey(9), clusterResult1.clusterId, helpers.DataGenerator.shares(0)), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
   
-  it('Get if the pod is liquidatable', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    expect(await ssvNetworkContract.isLiquidatable(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
-  });
-
-  it('Get if the pod is liquidated', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
-    expect(await ssvNetworkContract.isLiquidated(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
-  });
-
   it('Liquidate a pod that is not liquidatable reverts"PodNotLiquidatable"', async () => {
     await expect(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId
     )).to.be.revertedWith('PodNotLiquidatable');
