@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Types.sol";
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /*************/
@@ -239,24 +239,24 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         Pod memory pod
     ) external override {
         {
-            // uint256 startGas = gasleft();
+            uint256 startGas = gasleft();
             _validateOperatorIds(operatorIds);
             _validatePublicKey(publicKey);        
-            // console.log("validation", startGas - gasleft());
+            console.log("validation", startGas - gasleft());
         }
 
         {
-            // uint256 startGas = gasleft();
+            uint256 startGas = gasleft();
             if (_validatorPKs[keccak256(publicKey)].owner != address(0)) {
                 revert ValidatorAlreadyExists();
             }
             _validatorPKs[keccak256(publicKey)] = Validator({ owner: msg.sender, active: true});
-            // console.log("validator pk", startGas - gasleft());
+            console.log("validator pk", startGas - gasleft());
         }
 
         uint64 podIndex;
         {
-            // uint256 startGas = gasleft();
+            uint256 startGas = gasleft();
             for (uint8 i = 0; i < operatorIds.length; ++i) {
                 Operator memory operator = _operators[operatorIds[i]];
                 if (operator.owner != address(0)) {
@@ -266,60 +266,64 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                     _operators[operatorIds[i]] = operator;
                 }
             }
-            // console.log("operator snapshop", startGas - gasleft());
+            console.log("operator snapshop", startGas - gasleft());
         }
 
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, operatorIds));
         {
-            // uint256 startGas = gasleft();
+            uint256 startGas = gasleft();
             bytes32 hashedPodData = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
             if (_pods[hashedPod] != bytes32(0) && _pods[hashedPod] != hashedPodData) {
                 revert PodDataIsBroken();
             } else if (_pods[hashedPod] == bytes32(0)) {
                 pod = Pod({ validatorCount: 0, networkFee: 0, networkFeeIndex: 0, index: 0, balance: 0, disabled: false });
             }
-            // console.log("validate pod data", startGas - gasleft());
+            console.log("validate pod data", startGas - gasleft());
         }
         
         {
-            // uint256 startGas = gasleft();
+            uint256 startGas = gasleft();
             if (amount > 0) {
                 _deposit(msg.sender, hashedPod, amount.shrink());
                 pod.balance += amount.shrink();
             }
-
-            pod = _updatePodData(pod, podIndex, 1);
-            // console.log("generate pod in memory", startGas - gasleft());
+            console.log("deposit", startGas - gasleft());
         }
 
         {
-            // uint256 startGas = gasleft();
+            uint256 startGas = gasleft();
+            pod = _updatePodData(pod, podIndex, 1);
+            console.log("update pod", startGas - gasleft());
+        }
+
+        {
+            uint256 startGas = gasleft();
             DAO memory dao = _dao;
             dao = _updateDAOEarnings(dao);
             ++dao.validatorCount;
             _dao = dao;
-            // console.log("dao snapshop", startGas - gasleft());
+            console.log("dao snapshop", startGas - gasleft());
         }
 
         {
-            // uint256 startGas = gasleft();
+            uint256 startGas = gasleft();
             if (_liquidatable(pod.balance, pod.validatorCount, operatorIds)) {
                 revert NotEnoughBalance();
             }
-            // console.log("is liquidatable", startGas - gasleft());
+            console.log("is liquidatable", startGas - gasleft());
         }
 
         {
-            // uint256 startGas = gasleft();
+            uint256 startGas = gasleft();
             _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
-            // console.log("save pod hash", startGas - gasleft());
+            console.log("save pod hash", startGas - gasleft());
         }
 
         {
-            // uint256 startGas = gasleft();
+            uint256 startGas = gasleft();
             // emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
             emit PodMetadataUpdated(msg.sender, operatorIds, pod);
-            // console.log("emit events", startGas - gasleft());
+            console.log("emit events", startGas - gasleft());
         }
     }
 
