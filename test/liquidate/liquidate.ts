@@ -4,7 +4,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-// Liquidate Tests
+// Declare globals
 let ssvNetworkContract: any, clusterResult1: any, minDepositAmount: any;
 
 describe('Liquidate Tests', () => {
@@ -43,13 +43,13 @@ describe('Liquidate Tests', () => {
     expect(await ssvNetworkContract.isLiquidated(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
   });
 
-  it('Liquidate validator with removed operator in a cluster', async () => {
+  it('Liquidate validator with a removed operator in a cluster', async () => {
     await ssvNetworkContract.removeOperator(1);
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
     await trackGas(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
   });
 
-  it('Liquidate and register validator in disabled pod', async () => {
+  it('Liquidate and register validator to disabled pod', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await trackGas(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);

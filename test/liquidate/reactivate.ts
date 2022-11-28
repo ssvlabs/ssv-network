@@ -49,7 +49,7 @@ describe('Reactivate Tests', () => {
     )).to.be.revertedWith('PodAlreadyEnabled');
   });
 
-  it('Reactivate a pod when the balance is not enough reverts "NegativeBalance"', async () => {
+  it('Reactivate a pod when the amount is not enough reverts "NegativeBalance"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee * 4);
