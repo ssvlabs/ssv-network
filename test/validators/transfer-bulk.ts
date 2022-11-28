@@ -100,7 +100,7 @@ describe('Bulk Transfer Validator Tests', () => {
     )).to.be.revertedWith('InvalidPublicKeyLength');
   });
 
-  it('Bulk transfer 10 validators to a cluster that does not exists reverts "ClusterNotExists"', async () => {
+  it('Bulk transfer 10 validators to a cluster that does not exist reverts "ClusterNotExists"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
       clusterResult1.clusterId.slice(0, -1) + 'a',

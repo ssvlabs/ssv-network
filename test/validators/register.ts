@@ -37,7 +37,7 @@ describe('Register Validator Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId), minDepositAmount), [GasGroup.REGISTER_POD]);
   });
 
-  it('Register validator emits ValidatorAdded event', async () => {
+  it('Register validator emits ValidatorAdded', async () => {
     // register validator using cluster Id
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -66,21 +66,21 @@ describe('Register Validator Tests', () => {
     await helpers.registerValidators(1, 1, `${minDepositAmount * 2}`, helpers.DataGenerator.cluster.byId(clusterResult.clusterId), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
   });
 
-  it('Get pod returns a cluster id', async () => {
+  it('Get pod returns the cluster id', async () => {
     expect(await ssvNetworkContract.getPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId))).to.equal(clusterResult.clusterId);
   });
 
-  it('Register an existed pod reverts "PodAlreadyExists"', async () => {
+  it('Register an existing pod reverts "PodAlreadyExists"', async () => {
     await expect(ssvNetworkContract.registerPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId), 0
     )).to.be.revertedWith('PodAlreadyExists');
   });
 
-  it('Get the cluster id of a cluster that does not exists reverts "ClusterNotExists"', async () => {
+  it('Get the cluster id of a cluster that does not exist reverts "ClusterNotExists"', async () => {
     await expect(ssvNetworkContract.getClusterId([5, 6, 7, 8]
     )).to.be.revertedWith('ClusterNotExists');
   });
 
-  it('Get the pod address of a pod that does not exists reverts "PodNotExists"', async () => {
+  it('Get the pod address of a pod that does not exist reverts "PodNotExists"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).getPod(helpers.DataGenerator.cluster.byId(clusterResult.clusterId)
     )).to.be.revertedWith('PodNotExists');
   });
