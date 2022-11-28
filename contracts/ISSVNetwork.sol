@@ -6,6 +6,16 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork {
 
+    struct Operator {
+        uint64 id;
+        address owner;
+        uint64 fee;
+        uint32 validatorCount;
+        uint64 block;
+        uint64 index;
+        uint64 balance;
+    }
+
     struct Pod {
         uint32 validatorCount;
 
@@ -152,6 +162,11 @@ interface ISSVNetwork {
         Pod pod
     );
 
+    event OperatorMetadataUpdated(
+        uint64 id,
+        Operator operator
+    );
+
     /**********/
     /* Errors */
     /**********/
@@ -214,17 +229,13 @@ interface ISSVNetwork {
         uint256 fee
     ) external returns (uint64);
 
-    /**
-     * @dev Removes an operator.
-     * @param id Operator's id.
-     */
-    function removeOperator(uint64 id) external;
+    // function removeOperator(uint64 id) external;
 
-    function declareOperatorFee(uint64 operatorId, uint256 fee) external;
+    function declareOperatorFee(Operator memory operator, uint256 fee) external;
 
-    function executeOperatorFee(uint64 operatorId) external;
+    function executeOperatorFee(Operator memory operator) external;
 
-    function cancelDeclaredOperatorFee(uint64 operatorId) external;
+    function cancelDeclaredOperatorFee(Operator memory operator) external;
 
     /********************************/
     /* Validator External Functions */
@@ -232,7 +243,7 @@ interface ISSVNetwork {
 
     function registerValidator(
         bytes calldata publicKey,
-        uint64[] memory operatorIds,
+        Operator[] memory operators,
         bytes calldata shares,
         uint256 amount,
         Pod memory pod
@@ -261,11 +272,13 @@ interface ISSVNetwork {
 
     // function registerPod(uint64[] memory operatorIds, uint256 amount) external;
 
+    /*
     function liquidate(
         address ownerAddress,
-        uint64[] memory operatorIds,
+        Operator[] memory operators,
         Pod memory pod
     ) external;
+    */
 
     // function reactivatePod(bytes32 clusterId, uint256 amount) external;
 
@@ -277,9 +290,9 @@ interface ISSVNetwork {
 
     // function deposit(bytes32 clusterId, uint256 amount) external;
 
-    function withdrawOperatorBalance(uint64 operatorId, uint256 tokenAmount) external;
+    // function withdrawOperatorBalance(uint64 operatorId, uint256 tokenAmount) external;
 
-    function withdrawOperatorBalance(uint64 operatorId) external;
+    // function withdrawOperatorBalance(uint64 operatorId) external;
 
     // function withdrawPodBalance(bytes32 clusterId, uint256 tokenAmount) external;
 
@@ -302,9 +315,9 @@ interface ISSVNetwork {
     /* Operator External View Functions */
     /************************************/
 
-    function getOperatorFee(uint64 operatorId) external view returns (uint256);
+    // function getOperatorFee(uint64 operatorId) external view returns (uint256);
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
+    // function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
 
     /*******************************/
     /* Pod External View Functions */
@@ -322,14 +335,7 @@ interface ISSVNetwork {
     /* Balance External View Functions */
     /***********************************/
 
-    /**
-     * @dev Gets the operators current snapshot.
-     * @param id Operator's id.
-     * @return currentBlock the block that the snapshot is updated to.
-     * @return index the index of the operator.
-     * @return balance the current balance of the operator.
-     */
-    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
+    // function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
 
     // function podBalanceOf(address owner, bytes32 clusterId) external view returns (uint256);
 

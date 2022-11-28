@@ -33,7 +33,6 @@ describe('Register Validator Tests', () => {
         disabled: false
       }
     );
-
   });
 
   it('Register 1 new validator gas usage', async () => {

@@ -22,7 +22,7 @@ export const DataGenerator = {
       const result = [];
       for (const operator of DB.operators) {
         if (operator && !usedOperatorIds[operator.id]) {
-          result.push(operator.id);
+          result.push(operator.operator);
           usedOperatorIds[operator.id] = true;
 
           if (result.length == size) {
@@ -93,9 +93,9 @@ export const registerOperators = async (ownerId: number, numberOfOperators: numb
       DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerOperator(DataGenerator.publicKey(i), fee),
       gasGroups
     );
-    const event = eventsByName.OperatorAdded[0];
+    const event = eventsByName.OperatorMetadataUpdated[0];
     DB.operators[event.args.id] = {
-      id: event.args.id, ownerId: ownerId, publicKey: DataGenerator.publicKey(i)
+      id: event.args.id, ownerId: ownerId, operator: event.args.operator
     };
   }
 };
