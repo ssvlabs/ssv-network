@@ -59,7 +59,7 @@ describe('Withdraw Tests', () => {
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
-  it('Withdraw bakance from an operator I do not own reverts "CallerNotOwner"', async () => {
+  it('Withdraw balance from an operator I do not own reverts "CallerNotOwner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorBalance(uint64,uint256)'](1, minDepositAmount
     )).to.be.revertedWith('CallerNotOwner');
   });
