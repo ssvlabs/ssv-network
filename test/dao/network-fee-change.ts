@@ -14,13 +14,13 @@ describe('Network Fee Tests', () => {
     networkFee = helpers.CONFIG.minimalOperatorFee / 10;
   });
   
-  it('Get network fee', async () => {
-    expect(await ssvNetworkContract.getNetworkFee()).to.equal(0);
-  });
-
   it('Change network fee emits "NetworkFeeUpdate"', async () => {
     await expect(ssvNetworkContract.updateNetworkFee(networkFee
     )).to.emit(ssvNetworkContract, 'NetworkFeeUpdate').withArgs(0, networkFee);
+  });
+
+  it('Get network fee', async () => {
+    expect(await ssvNetworkContract.getNetworkFee()).to.equal(0);
   });
 
   it('Change the network fee to a number below the minimum fee reverts "Precision is over the maximum defined"', async () => {

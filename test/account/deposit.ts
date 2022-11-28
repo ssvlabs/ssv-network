@@ -43,12 +43,12 @@ describe('Deposit Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,bytes32,uint256)'](helpers.DB.owners[1].address, clusterResult1.clusterId, minDepositAmount), [GasGroup.DEPOSIT]);
   });
 
-  it('Deposit to a pod I do own with a cluster that does not exists reverts "ClusterNotExists"', async () => {
+  it('Deposit to a pod I do own with a cluster that does not exist reverts "ClusterNotExists"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(bytes32,uint256)']('0x392791df626408017a264f53fde61065d5a93a32b60171df9d8a46afdf82992c', minDepositAmount
     )).to.be.revertedWith('ClusterNotExists');
   });
 
-  it('Deposit to a pod I do not own with a cluster that does not exists reverts "ClusterNotExists"', async () => {
+  it('Deposit to a pod I do not own with a cluster that does not exist reverts "ClusterNotExists"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,bytes32,uint256)'](helpers.DB.owners[1].address, '0x392791df626408017a264f53fde61065d5a93a32b60171df9d8a46afdf82992c', minDepositAmount
     )).to.be.revertedWith('ClusterNotExists');
   });

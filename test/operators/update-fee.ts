@@ -55,7 +55,7 @@ describe('Operator Fee Tests', () => {
     expect(await ssvNetworkContract.getOperatorFee(1)).to.equal(initialFee);
   });
   
-  it('Get get fee from operator that does not exist reverts "OperatorNotFound"', async () => {
+  it('Get fee from operator that does not exist reverts "OperatorNotFound"', async () => {
     await expect(ssvNetworkContract.getOperatorFee(12
     )).to.be.revertedWith('OperatorNotFound');
   });
@@ -64,13 +64,7 @@ describe('Operator Fee Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(1, initialFee + initialFee / 10
     )).to.be.revertedWith('CallerNotOwner');
   });
-
-  //Test to be removed - Duplicate
-  it('Declare fee of operator I do not own reverts "CallerNotOwner"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(1, initialFee + initialFee / 10
-    )).to.be.revertedWith('CallerNotOwner');
-  });
-
+  
   it('Declare fee with a wrong Publickey reverts "OperatorWithPublicKeyNotExist"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(12, initialFee + initialFee / 10
     )).to.be.revertedWith('OperatorWithPublicKeyNotExist');

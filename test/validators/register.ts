@@ -1,6 +1,6 @@
-// Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
+
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
@@ -146,8 +146,6 @@ describe('Register Validator Tests', () => {
     // )).to.be.revertedWith('NotEnoughBalance');
   });
 });
-
-
 
 
 
