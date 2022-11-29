@@ -109,7 +109,7 @@ describe('Bulk Transfer Validator Tests', () => {
     )).to.be.revertedWith('ClusterNotExists');
   });
 
-  it('Validator and share length parameters are not the same amount reverts "ParametersMismatch"', async () => {
+  it('Validator and share length parameters are not the same length reverts "ParametersMismatch"', async () => {
     // 10 validators and 11 shares
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
@@ -127,7 +127,7 @@ describe('Bulk Transfer Validator Tests', () => {
     )).to.be.revertedWith('ParametersMismatch');
   });
 
-  it('Bulk transfer 10 validator with not enough balance reverts "PodLiquidatable"', async () => {
+  it('Bulk transfer 10 validators with not enough amount reverts "PodLiquidatable"', async () => {
     const { clusterId } = await helpers.registerValidators(5, 1, minDepositAmount, [9, 10, 11, 12], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).bulkTransferValidators(
       [clusterResult1.validators[0].publicKey, ...clusterResult2.validators.map((validator: any) => validator.publicKey)],
