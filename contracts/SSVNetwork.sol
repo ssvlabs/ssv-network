@@ -260,7 +260,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         {
             // uint256 startGas = gasleft();
             for (uint8 i = 0; i < operators.length; ++i) {
-
                 bytes32 hashedOperatorData = keccak256(abi.encodePacked(operators[i].id, operators[i].block, operators[i].index, operators[i].balance, operators[i].validatorCount, operators[i].fee));
                 if (_operators[operators[i].hashedId] == bytes32(0)) {
                     revert OperatorDoesNotExist();
@@ -274,6 +273,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 operatorIds[i] = operators[i].id;
                 podIndex += operators[i].index + (uint64(block.number) - operators[i].block) * operators[i].fee;
                 burnRate += operators[i].fee;
+                _operators[operators[i].hashedId] = keccak256(abi.encodePacked(operators[i].id, operators[i].block, operators[i].index, operators[i].balance, operators[i].validatorCount, operators[i].fee));
                 emit OperatorMetadataUpdated(operators[i].id, operators[i]);
             }
             // console.log("operator snapshop", startGas - gasleft());
@@ -283,10 +283,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         {
             // uint256 startGas = gasleft();
             bytes32 hashedPodData = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
-            if (_pods[hashedPod] != bytes32(0) && _pods[hashedPod] != hashedPodData) {
-                revert PodDataIsBroken();
-            } else if (_pods[hashedPod] == bytes32(0)) {
+            if (_pods[hashedPod] == bytes32(0)) {
                 pod = Pod({ validatorCount: 0, networkFee: 0, networkFeeIndex: 0, index: 0, balance: 0, disabled: false });
+            } else if (_pods[hashedPod] != hashedPodData) {
+                revert PodDataIsBroken();
             }
             // console.log("validate pod data", startGas - gasleft());
         }
