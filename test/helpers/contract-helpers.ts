@@ -11,15 +11,11 @@ export const DataGenerator = {
   publicKey: (index: number) => `0x${index.toString(16).padStart(96, '1')}`,
   shares: (index: number) => `0x${index.toString(16).padStart(360, '1')}`,
   cluster: {
-    new: (size = 4, secondValidator = 0) => {
+    new: (size = 4, addUsedOperators?: any) => {
       const usedOperatorIds: any = {};
 
-      // DELETE THIS LOGIC, DIRTY HACK
-      if (secondValidator === 1) {
-        usedOperatorIds[1] = true;
-        usedOperatorIds[2] = true;
-        usedOperatorIds[3] = true;
-        usedOperatorIds[4] = true;
+      if (addUsedOperators !== undefined) {
+        for (let i = 0; i < addUsedOperators.length; i++) usedOperatorIds[addUsedOperators[i]] = true;
       }
 
       for (const clusterId in DB.clusters) {

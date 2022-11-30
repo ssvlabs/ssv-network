@@ -39,7 +39,7 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 2);
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      helpers.DataGenerator.cluster.new(4, 1),
+      helpers.DataGenerator.cluster.new(4, [1,2,3,4]),
       helpers.DataGenerator.shares(0),
       minDepositAmount * 2,
       {
@@ -57,7 +57,7 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const tx = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      helpers.DataGenerator.cluster.new(4, 1),
+      helpers.DataGenerator.cluster.new(4, [1,2,3,4]),
       helpers.DataGenerator.shares(0),
       minDepositAmount,
       {
@@ -86,7 +86,7 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 2);
     const tx = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      helpers.DataGenerator.cluster.new(4, 1),
+      helpers.DataGenerator.cluster.new(4, [1,2,3,4]),
       helpers.DataGenerator.shares(0),
       minDepositAmount * 2,
       {
