@@ -7,8 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 interface ISSVNetwork {
 
     struct Operator {
-        uint64 id;
-        address owner;
+        bytes32 hashedId;
+        uint32 id;
         uint64 fee;
         uint32 validatorCount;
         uint64 block;
@@ -40,7 +40,7 @@ interface ISSVNetwork {
     * @param fee Operator's fee.
     */
     event OperatorAdded(
-        uint64 id,
+        uint32 id,
         address indexed owner,
         bytes publicKey,
         uint256 fee
@@ -60,7 +60,7 @@ interface ISSVNetwork {
      */
     event ValidatorAdded(
         address ownerAddress,
-        uint64[] operatorIds,
+        uint32[] operatorIds,
         bytes publicKey,
         bytes shares
     );
@@ -98,7 +98,7 @@ interface ISSVNetwork {
 
     event OperatorFeeDeclaration(
         address indexed ownerAddress,
-        uint64 operatorId,
+        uint32 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
@@ -108,9 +108,9 @@ interface ISSVNetwork {
      * @param id operator's ID.
      * @param fee operator's new fee.
      */
-    event OperatorFeeSet(uint64 id, uint64 fee);
+    event OperatorFeeSet(uint32 id, uint64 fee);
 
-    event DeclaredOperatorFeeCancelation(address indexed ownerAddress, uint64 operatorId);
+    event DeclaredOperatorFeeCancelation(address indexed ownerAddress, uint32 operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -120,7 +120,7 @@ interface ISSVNetwork {
      */
     event OperatorFeeExecution(
         address indexed ownerAddress,
-        uint64 operatorId,
+        uint32 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
@@ -158,7 +158,6 @@ interface ISSVNetwork {
 
     event PodMetadataUpdated(
         address ownerAddress,
-        uint64[] operatorIds,
         Pod pod
     );
 
@@ -196,6 +195,7 @@ interface ISSVNetwork {
     error PodNotExists();
     error BurnRatePositive();
     error PodDataIsBroken();
+    error OperatorDataIsBroken();
 
     /****************/
     /* Initializers */
@@ -227,9 +227,9 @@ interface ISSVNetwork {
     function registerOperator(
         bytes calldata publicKey,
         uint256 fee
-    ) external returns (uint64);
+    ) external;
 
-    // function removeOperator(uint64 id) external;
+    function removeOperator(Operator memory operator) external;
 
     function declareOperatorFee(Operator memory operator, uint256 fee) external;
 
