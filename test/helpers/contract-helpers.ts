@@ -11,7 +11,7 @@ export const DataGenerator = {
   publicKey: (index: number) => `0x${index.toString(16).padStart(96, '1')}`,
   shares: (index: number) => `0x${index.toString(16).padStart(360, '1')}`,
   cluster: {
-    new: (size = 4, addUsedOperators?: any) => {
+    new: (size = 4, addUsedOperators?: number[]) => {
       const usedOperatorIds: any = {};
 
       if (addUsedOperators !== undefined) {
