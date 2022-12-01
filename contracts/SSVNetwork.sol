@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Types.sol";
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /*************/
@@ -259,17 +259,15 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint32[] memory operatorIds = new uint32[](operators.length);
         {
             for (uint8 i = 0; i < operators.length; ++i) {
+                uint256 startGas = gasleft();
                 bytes32 hashedOperatorData = keccak256(abi.encodePacked(operators[i].id, operators[i].block, operators[i].index, operators[i].balance, operators[i].validatorCount, operators[i].fee));
-                // uint256 startGas = gasleft();
-                bytes32 hashedOperatorInStorage = _operators[operators[i].hashedId];
-                if (hashedOperatorInStorage == bytes32(0)) {
+                if (_operators[operators[i].hashedId] == bytes32(0)) {
                     revert OperatorDoesNotExist();
-                } else if (hashedOperatorInStorage != hashedOperatorData) {
+                } else if (_operators[operators[i].hashedId] != hashedOperatorData) {
                     revert OperatorDataIsBroken();
                 } else if (i+1 < operators.length) {
                     require(operators[i].id <= operators[i+1].id, "OperatorsListDoesNotSorted");
                 }
-                // console.log("emit", operators[i].id, startGas - gasleft());
                 operators[i] = _getSnapshot(operators[i], uint64(block.number));
                 ++operators[i].validatorCount;
                 operatorIds[i] = operators[i].id;
@@ -277,6 +275,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 burnRate += operators[i].fee;
                 _operators[operators[i].hashedId] = keccak256(abi.encodePacked(operators[i].id, operators[i].block, operators[i].index, operators[i].balance, operators[i].validatorCount, operators[i].fee));
                 emit OperatorMetadataUpdated(operators[i].id, operators[i]);
+                console.log("emit", operators[i].id, startGas - gasleft());
             }
         }
 
