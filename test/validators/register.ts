@@ -39,7 +39,7 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 2);
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      helpers.DataGenerator.cluster.new(4, [1,2,3,4]),
+      helpers.DataGenerator.cluster.new(4, [1, 2, 3, 4]),
       helpers.DataGenerator.shares(0),
       minDepositAmount * 2,
       {
@@ -57,7 +57,7 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const tx = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      helpers.DataGenerator.cluster.new(4, [1,2,3,4]),
+      helpers.DataGenerator.cluster.new(4, [1, 2, 3, 4]),
       helpers.DataGenerator.shares(0),
       minDepositAmount,
       {
@@ -70,15 +70,13 @@ describe('Register Validator Tests', () => {
       }
     );
     const receipt = await tx.wait();
-    const operatorData = [receipt.events[0].args.operator, receipt.events[1].args.operator, receipt.events[2].args.operator, receipt.events[3].args.operator];
-
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      operatorData,
+      receipt.events[0].args.operators,
       helpers.DataGenerator.shares(0),
       minDepositAmount,
-      receipt.events[8].args.pod
+      receipt.events[5].args.pod
     );
   });
 
@@ -86,7 +84,7 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 2);
     const tx = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(0),
-      helpers.DataGenerator.cluster.new(4, [1,2,3,4]),
+      helpers.DataGenerator.cluster.new(4, [1, 2, 3, 4]),
       helpers.DataGenerator.shares(0),
       minDepositAmount * 2,
       {
@@ -99,14 +97,13 @@ describe('Register Validator Tests', () => {
       }
     );
     const receipt = await tx.wait();
-    const operatorData = [receipt.events[0].args.operator, receipt.events[1].args.operator, receipt.events[2].args.operator, receipt.events[3].args.operator];
 
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      operatorData,
+      receipt.events[0].args.operators,
       helpers.DataGenerator.shares(0),
       0,
-      receipt.events[8].args.pod
+      receipt.events[5].args.pod
     );
   });
 
