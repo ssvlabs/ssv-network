@@ -148,7 +148,6 @@ interface ISSVNetwork {
 
     event PodMetadataUpdated(
         address ownerAddress,
-        uint64[] operatorIds,
         Pod pod
     );
 

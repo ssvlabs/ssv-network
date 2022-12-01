@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Types.sol";
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /*************/
@@ -258,9 +258,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 burnRate;
         {
             for (uint8 i = 0; i < operatorIds.length; ++i) {
-                // uint256 startGas = gasleft();
+                uint256 startGas = gasleft();
                 Operator memory operator = _operators[operatorIds[i]];
-                // console.log("operator snapshop", startGas - gasleft());
                 if (operator.owner == address(0)) {
                     revert OperatorDoesNotExist();
                 } else if (i+1 < operatorIds.length) {
@@ -271,6 +270,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 podIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
                 burnRate += operator.fee;
                 _operators[operatorIds[i]] = operator;
+                console.log("operator snapshop", startGas - gasleft());
             }
         }
 
@@ -325,10 +325,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
 
         {
-            // uint256 startGas = gasleft();
-            // emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
-            emit PodMetadataUpdated(msg.sender, operatorIds, pod);
-            // console.log("emit events", startGas - gasleft());
+            uint256 startGas = gasleft();
+            emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
+            emit PodMetadataUpdated(msg.sender, pod);
+            console.log("emit events", startGas - gasleft());
         }
     }
 
@@ -580,7 +580,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         {
             // uint256 startGas = gasleft();
-            emit PodMetadataUpdated(ownerAddress, operatorIds, pod);
+            emit PodMetadataUpdated(ownerAddress, pod);
             emit PodLiquidated(ownerAddress, operatorIds);
             // console.log("emit events", startGas - gasleft());
         }
