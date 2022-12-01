@@ -11,8 +11,13 @@ export const DataGenerator = {
   publicKey: (index: number) => `0x${index.toString(16).padStart(96, '1')}`,
   shares: (index: number) => `0x${index.toString(16).padStart(360, '1')}`,
   cluster: {
-    new: (size = 4) => {
+    new: (size = 4, addUsedOperators?: number[]) => {
       const usedOperatorIds: any = {};
+
+      if (addUsedOperators !== undefined) {
+        for (let i = 0; i < addUsedOperators.length; i++) usedOperatorIds[addUsedOperators[i]] = true;
+      }
+
       for (const clusterId in DB.clusters) {
         for (const operatorId of DB.clusters[clusterId].operatorIds) {
           usedOperatorIds[operatorId] = true;
@@ -24,7 +29,6 @@ export const DataGenerator = {
         if (operator && !usedOperatorIds[operator.id]) {
           result.push(operator.operator);
           usedOperatorIds[operator.id] = true;
-
           if (result.length == size) {
             break;
           }
