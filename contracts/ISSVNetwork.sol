@@ -166,6 +166,8 @@ interface ISSVNetwork {
         Operator operator
     );
 
+    event OperatorsMetadataUpdated(Operator[] operators);
+
     /**********/
     /* Errors */
     /**********/

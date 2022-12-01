@@ -259,7 +259,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint32[] memory operatorIds = new uint32[](operators.length);
         {
             for (uint8 i = 0; i < operators.length; ++i) {
-                uint256 startGas = gasleft();
                 bytes32 hashedOperatorData = keccak256(abi.encodePacked(operators[i].id, operators[i].block, operators[i].index, operators[i].balance, operators[i].validatorCount, operators[i].fee));
                 if (_operators[operators[i].hashedId] == bytes32(0)) {
                     revert OperatorDoesNotExist();
@@ -274,9 +273,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 podIndex += operators[i].index + (uint64(block.number) - operators[i].block) * operators[i].fee;
                 burnRate += operators[i].fee;
                 _operators[operators[i].hashedId] = keccak256(abi.encodePacked(operators[i].id, operators[i].block, operators[i].index, operators[i].balance, operators[i].validatorCount, operators[i].fee));
-                emit OperatorMetadataUpdated(operators[i].id, operators[i]);
-                console.log("emit", operators[i].id, startGas - gasleft());
+                // emit OperatorMetadataUpdated(operators[i].id, operators[i]);
             }
+            uint256 startGas = gasleft();
+            emit OperatorsMetadataUpdated(operators);
+            console.log("emit", startGas - gasleft());
         }
 
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, operatorIds));
