@@ -258,16 +258,18 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 burnRate;
         uint32[] memory operatorIds = new uint32[](operators.length);
         {
-            // uint256 startGas = gasleft();
             for (uint8 i = 0; i < operators.length; ++i) {
                 bytes32 hashedOperatorData = keccak256(abi.encodePacked(operators[i].id, operators[i].block, operators[i].index, operators[i].balance, operators[i].validatorCount, operators[i].fee));
-                if (_operators[operators[i].hashedId] == bytes32(0)) {
+                // uint256 startGas = gasleft();
+                bytes32 hashedOperatorInStorage = _operators[operators[i].hashedId];
+                if (hashedOperatorInStorage == bytes32(0)) {
                     revert OperatorDoesNotExist();
-                } else if (_operators[operators[i].hashedId] != hashedOperatorData) {
+                } else if (hashedOperatorInStorage != hashedOperatorData) {
                     revert OperatorDataIsBroken();
                 } else if (i+1 < operators.length) {
                     require(operators[i].id <= operators[i+1].id, "OperatorsListDoesNotSorted");
                 }
+                // console.log("emit", operators[i].id, startGas - gasleft());
                 operators[i] = _getSnapshot(operators[i], uint64(block.number));
                 ++operators[i].validatorCount;
                 operatorIds[i] = operators[i].id;
@@ -276,7 +278,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 _operators[operators[i].hashedId] = keccak256(abi.encodePacked(operators[i].id, operators[i].block, operators[i].index, operators[i].balance, operators[i].validatorCount, operators[i].fee));
                 emit OperatorMetadataUpdated(operators[i].id, operators[i]);
             }
-            // console.log("operator snapshop", startGas - gasleft());
         }
 
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, operatorIds));
