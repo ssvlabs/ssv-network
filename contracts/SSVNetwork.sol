@@ -335,7 +335,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         {
             // uint256 startGas = gasleft();
-            // emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
+            emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
             emit PodMetadataUpdated(msg.sender, pod);
             // console.log("emit events", startGas - gasleft());
         }
