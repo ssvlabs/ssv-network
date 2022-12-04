@@ -245,7 +245,8 @@ interface ISSVNetwork {
 
     function registerValidator(
         bytes calldata publicKey,
-        Operator[] memory operators,
+        // Operator[] memory operators,
+        bytes calldata operatorsBytes,
         bytes calldata shares,
         uint256 amount,
         Pod memory pod

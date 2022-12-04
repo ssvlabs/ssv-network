@@ -14,14 +14,14 @@ describe('Register Validator Tests', () => {
     // Register operators
     await helpers.registerOperators(0, 11, helpers.CONFIG.minimalOperatorFee);
 
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 4;
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 7;
 
     // Register a validator
     // clusterResult = await helpers.registerValidators(0, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
     await ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
       helpers.DataGenerator.publicKey(9),
-      helpers.DataGenerator.cluster.new(),
+      helpers.DataGenerator.cluster.new(4),
       helpers.DataGenerator.shares(0),
       minDepositAmount,
       {

@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Types.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /*************/
@@ -232,26 +232,29 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /********************************/
     function registerValidator(
         bytes calldata publicKey,
-        Operator[] memory operators,
+        // Operator[] memory operators,
+        bytes calldata operatorsBytes,
         bytes calldata shares,
         uint256 amount,
         Pod memory pod
     ) external override {
+        Operator[] memory operators = abi.decode(operatorsBytes, (Operator[]));
+        // console.log(operators.length, operators[1].id);
         {
-            uint256 startGas = gasleft();
+            // uint256 startGas = gasleft();
             _validateOperatorsLength(operators);
             _validatePublicKey(publicKey);        
-            console.log("validation", startGas - gasleft());
+            // console.log("validation", startGas - gasleft());
         }
 
         {
-            uint256 startGas = gasleft();
+            // uint256 startGas = gasleft();
             bytes32 keyHash = keccak256(publicKey);
             if (_validatorPKs[keyHash].owner != address(0)) {
                 revert ValidatorAlreadyExists();
             }
             _validatorPKs[keyHash] = Validator({ owner: msg.sender, active: true});
-            console.log("validator pk", startGas - gasleft());
+            // console.log("validator pk", startGas - gasleft());
         }
 
         uint64 podIndex;
@@ -275,66 +278,66 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 _operators[operators[i].hashedId] = keccak256(abi.encodePacked(operators[i].id, operators[i].block, operators[i].index, operators[i].balance, operators[i].validatorCount, operators[i].fee));
                 // emit OperatorMetadataUpdated(operators[i].id, operators[i]);
             }
-            uint256 startGas = gasleft();
+            // uint256 startGas = gasleft();
             emit OperatorsMetadataUpdated(operators);
-            console.log("emit", startGas - gasleft());
+            // console.log("emit", startGas - gasleft());
         }
 
         bytes32 hashedPod = keccak256(abi.encodePacked(msg.sender, operatorIds));
         {
-            uint256 startGas = gasleft();
+            // uint256 startGas = gasleft();
             bytes32 hashedPodData = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
             if (_pods[hashedPod] == bytes32(0)) {
                 pod = Pod({ validatorCount: 0, networkFee: 0, networkFeeIndex: 0, index: 0, balance: 0, disabled: false });
             } else if (_pods[hashedPod] != hashedPodData) {
                 revert PodDataIsBroken();
             }
-            console.log("validate pod data", startGas - gasleft());
+            // console.log("validate pod data", startGas - gasleft());
         }
         
         {
-            uint256 startGas = gasleft();
+            // uint256 startGas = gasleft();
             if (amount > 0) {
                 _deposit(msg.sender, hashedPod, amount.shrink());
                 pod.balance += amount.shrink();
             }
-            console.log("deposit", startGas - gasleft());
+            // console.log("deposit", startGas - gasleft());
         }
 
         {
-            uint256 startGas = gasleft();
+            // uint256 startGas = gasleft();
             pod = _updatePodData(pod, podIndex, 1);
-            console.log("update pod", startGas - gasleft());
+            // console.log("update pod", startGas - gasleft());
         }
 
         {
-            uint256 startGas = gasleft();
+            // uint256 startGas = gasleft();
             DAO memory dao = _dao;
             dao = _updateDAOEarnings(dao);
             ++dao.validatorCount;
             _dao = dao;
-            console.log("dao snapshop", startGas - gasleft());
+            // console.log("dao snapshop", startGas - gasleft());
         }
 
         {
-            uint256 startGas = gasleft();
+            // uint256 startGas = gasleft();
             if (_liquidatable(pod.balance, pod.validatorCount, burnRate)) {
                 revert NotEnoughBalance();
             }
-            console.log("is liquidatable", startGas - gasleft());
+            // console.log("is liquidatable", startGas - gasleft());
         }
 
         {
-            uint256 startGas = gasleft();
+            // uint256 startGas = gasleft();
             _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
-            console.log("save pod hash", startGas - gasleft());
+            // console.log("save pod hash", startGas - gasleft());
         }
 
         {
-            uint256 startGas = gasleft();
-            emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
+            // uint256 startGas = gasleft();
+            // emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
             emit PodMetadataUpdated(msg.sender, pod);
-            console.log("emit events", startGas - gasleft());
+            // console.log("emit events", startGas - gasleft());
         }
     }
 

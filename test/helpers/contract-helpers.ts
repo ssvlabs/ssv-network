@@ -7,6 +7,24 @@ import { trackGas, GasGroup } from './gas-usage';
 export let DB: any;
 export let CONFIG: any;
 
+const encodeOperators = (operators: any) => ethers.utils.defaultAbiCoder.encode(
+  [{
+    type: 'tuple[]',
+    name: 'operators',
+    components: [
+      { name: 'hashedId', type: 'bytes32' },
+      { name: 'id', type: 'uint32' },
+      { name: 'fee', type:'uint64' },
+      { name: 'validatorCount', type:'uint32' },
+
+      { name: 'block', type:'uint64' },
+      { name: 'index', type:'uint64' },
+      { name: 'balance', type:'uint64' },
+    ]
+  }],
+  [ operators ],
+);
+
 export const DataGenerator = {
   publicKey: (index: number) => `0x${index.toString(16).padStart(96, '1')}`,
   shares: (index: number) => `0x${index.toString(16).padStart(360, '1')}`,
@@ -37,7 +55,7 @@ export const DataGenerator = {
       if (result.length < size) {
         throw new Error('No new clusters. Try to register more operators.');
       }
-      return result;
+      return encodeOperators(result);
     },
     byId: (id: any) => DB.clusters[id].operatorIds
   }
