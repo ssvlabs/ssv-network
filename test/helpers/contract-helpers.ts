@@ -7,7 +7,7 @@ import { trackGas, GasGroup } from './gas-usage';
 export let DB: any;
 export let CONFIG: any;
 
-const encodeOperators = (operators: any) => ethers.utils.defaultAbiCoder.encode(
+export const encodeOperators = (operators: any) => ethers.utils.defaultAbiCoder.encode(
   [{
     type: 'tuple[]',
     name: 'operators',
