@@ -14,6 +14,23 @@ describe('Deposit Tests', () => {
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
 
+    // cold register
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
+    await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      [1,2,3,4],
+      helpers.DataGenerator.shares(0),
+      '1000000000000000',
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    );
+
     // Register validators
     pod1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });

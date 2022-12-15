@@ -13,6 +13,9 @@ describe('Remove Validator Tests', () => {
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
 
+    // Register operators
+    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
+
     // Register a validator
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
