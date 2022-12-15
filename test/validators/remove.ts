@@ -13,9 +13,6 @@ describe('Remove Validator Tests', () => {
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
 
-    // Register operators
-    await helpers.registerOperators(0, 4, helpers.CONFIG.minimalOperatorFee);
-
     // Register a validator
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
@@ -71,6 +68,7 @@ describe('Remove Validator Tests', () => {
 
   it('Remove validator with removed operator in a pod', async () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
       firstPod.operatorIds,
