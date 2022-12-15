@@ -17,10 +17,10 @@ describe('Liquidate Validator Tests', () => {
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
 
     // cold register
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
+    await ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
       helpers.DataGenerator.publicKey(9),
-      [1,2,3,4],
+      helpers.DataGenerator.cluster.new(),
       helpers.DataGenerator.shares(0),
       minDepositAmount,
       {
@@ -77,7 +77,7 @@ describe('Liquidate Validator Tests', () => {
     ), [GasGroup.LIQUIDATE_POD]);
   });
 
-  it('Liquidate and register in disabled pod', async () => {
+  it('Liquidate and register validator in disabled pod', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
@@ -96,30 +96,36 @@ describe('Liquidate Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
 
-  /*
-  it('Liquidate and register validator in disabled pod', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await trackGas(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(bytes32,uint256)'](clusterResult1.clusterId, minDepositAmount), [GasGroup.DEPOSIT]);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(helpers.DataGenerator.publicKey(9), clusterResult1.clusterId, helpers.DataGenerator.shares(0)), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
-  });
-
-  it('Liquidate errors', async () => {
-    await expect(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.be.revertedWith('PodNotLiquidatable');
+  it('Liquidate returns error - PodNotLiquidatable', async () => {
+    await expect(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    )).to.be.revertedWith('PodNotLiquidatable');
   });
 
   it('Is liquidated', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
-    expect(await ssvNetworkContract.isLiquidated(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
+    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+
+    expect(await ssvNetworkContract.isLiquidated(firstPod.ownerAddress, firstPod.operatorIds, updatedPod.pod)).to.equal(true);
   });
 
-  it('Liquidate gas limits', async () => {
+  it('Is liquidated returns error - PodNotExists', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
 
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
+    await expect(ssvNetworkContract.isLiquidated(helpers.DB.owners[0].address, firstPod.operatorIds, updatedPod.pod)).to.be.revertedWith('PodNotExists');
   });
-  */
+
 });

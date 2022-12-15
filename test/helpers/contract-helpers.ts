@@ -107,31 +107,51 @@ export const deposit = async (ownerId: number, clusterId: string, amount: string
 
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
   const validators: any = [];
-  let clusterId: any;
+  let args: any;
+  // cold register
+  await DB.ssvToken.connect(DB.owners[5]).approve(DB.ssvNetwork.contract.address, '1000000000000000');
+  await DB.ssvNetwork.contract.connect(DB.owners[5]).registerValidator(
+    DataGenerator.publicKey(9),
+    DataGenerator.cluster.new(),
+    DataGenerator.shares(0),
+    '1000000000000000',
+    {
+      validatorCount: 0,
+      networkFee: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0,
+      disabled: false
+    }
+  );
 
   // Register validators to contract
   for (let i = 0; i < numberOfValidators; i++) {
     const publicKey = DataGenerator.publicKey(DB.validators.length);
     const shares = DataGenerator.shares(DB.validators.length);
 
-    const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
+    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
+    const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
       publicKey,
       operatorIds,
       shares,
       amount,
-      0,
-      0,
-      0,
-      0,
-      0
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     ), gasGroups);
-    clusterId = eventsByName.ValidatorAdded[0].args.clusterId;
-    DB.clusters[clusterId] = ({ id: clusterId, operatorIds });
-    DB.validators.push({ publicKey, clusterId, shares });
+    args = result.eventsByName.PodMetadataUpdated[0].args;
+
+    DB.validators.push({ publicKey, operatorIds, shares });
     validators.push({ publicKey, shares });
   }
 
-  return { validators, clusterId };
+  return { validators, args };
 };
 
 export const getPod = (payload: any) => ethers.utils.AbiCoder.prototype.encode(

@@ -150,16 +150,14 @@ interface ISSVNetwork {
     error InvalidPublicKeyLength();
     error OperatorIdsStructureInvalid();
     error ValidatorNotOwned();
-    error InvalidCluster();
     error ParametersMismatch();
     error NegativeBalance();
-    error ClusterAlreadyExists();
-    error ClusterNotExists();
     error PodAlreadyEnabled();
-    error PodAlreadyExists();
+    error PodIsLiquidated();
     error PodNotExists();
     error BurnRatePositive();
     error PodDataIsBroken();
+    error OperatorsListDoesNotSorted();
 
     /****************/
     /* Initializers */
@@ -235,8 +233,8 @@ interface ISSVNetwork {
 
     function reactivatePod(
         uint64[] memory operatorIds,
-        Pod memory pod,
-        uint256 amount
+        uint256 amount,
+        Pod memory pod
     ) external;
 
     /******************************/
@@ -246,14 +244,14 @@ interface ISSVNetwork {
     function deposit(
         address owner,
         uint64[] memory operatorIds,
-        Pod memory pod,
-        uint256 amount
+        uint256 amount,
+        Pod memory pod
     ) external;
 
     function deposit(
         uint64[] memory operatorIds,
-        Pod memory pod,
-        uint256 amount
+        uint256 amount,
+        Pod memory pod
     ) external;
 
     function withdrawOperatorBalance(uint64 operatorId, uint256 tokenAmount) external;
@@ -262,8 +260,8 @@ interface ISSVNetwork {
 
     function withdrawPodBalance(
         uint64[] memory operatorIds,
-        Pod memory pod,
-        uint256 tokenAmount
+        uint256 tokenAmount,
+        Pod memory pod
     ) external;
 
     /**************************/
