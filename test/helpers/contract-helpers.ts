@@ -83,6 +83,7 @@ export const initializeContract = async () => {
   await DB.ssvToken.mint(DB.owners[3].address, '1000000000000000');
   await DB.ssvToken.mint(DB.owners[4].address, '1000000000000000');
   await DB.ssvToken.mint(DB.owners[5].address, '1000000000000000');
+  await DB.ssvToken.mint(DB.owners[6].address, '1000000000000000');
 
   return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken };
 };
@@ -108,23 +109,6 @@ export const deposit = async (ownerId: number, clusterId: string, amount: string
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
   const validators: any = [];
   let args: any;
-  // cold register
-  await DB.ssvToken.connect(DB.owners[5]).approve(DB.ssvNetwork.contract.address, '1000000000000000');
-  await DB.ssvNetwork.contract.connect(DB.owners[5]).registerValidator(
-    DataGenerator.publicKey(9),
-    DataGenerator.cluster.new(),
-    DataGenerator.shares(0),
-    '1000000000000000',
-    {
-      validatorCount: 0,
-      networkFee: 0,
-      networkFeeIndex: 0,
-      index: 0,
-      balance: 0,
-      disabled: false
-    }
-  );
-
   // Register validators to contract
   for (let i = 0; i < numberOfValidators; i++) {
     const publicKey = DataGenerator.publicKey(DB.validators.length);

@@ -17,6 +17,24 @@ describe('Remove Validator Tests', () => {
     await helpers.registerOperators(0, 4, helpers.CONFIG.minimalOperatorFee);
 
     // Register a validator
+    // cold register
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
+    await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      [1,2,3,4],
+      helpers.DataGenerator.shares(0),
+      '1000000000000000',
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    );
+
+    // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -51,7 +69,7 @@ describe('Remove Validator Tests', () => {
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator with removed operator in a cluster', async () => {
+  it('Remove validator with removed operator in a pod', async () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),

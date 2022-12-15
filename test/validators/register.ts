@@ -16,14 +16,13 @@ describe('Register Validator Tests', () => {
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 13;
 
-    // Register a validator
-    // clusterResult = await helpers.registerValidators(0, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
-    await ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
-      helpers.DataGenerator.publicKey(9),
-      helpers.DataGenerator.cluster.new(),
+    // cold register
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
+    await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      [1,2,3,4],
       helpers.DataGenerator.shares(0),
-      minDepositAmount,
+      '1000000000000000',
       {
         validatorCount: 0,
         networkFee: 0,
@@ -450,18 +449,18 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register pod returns an error - The operators list should be in ascending order', async () => {
-    await expect(helpers.registerValidators(3, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWith('OperatorsListDoesNotSorted');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWith('OperatorsListDoesNotSorted');
   });
 
   it('Invalid operator amount', async () => {
     // 2 Operators
-    await expect(helpers.registerValidators(3, 1, minDepositAmount, [1, 2])).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2])).to.be.revertedWith('OperatorIdsStructureInvalid');
 
     // 6 Operators
-    await expect(helpers.registerValidators(3, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6])).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6])).to.be.revertedWith('OperatorIdsStructureInvalid');
 
     // 14 Operators
-    await expect(helpers.registerValidators(3, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('OperatorIdsStructureInvalid');
   });
 
   it('Register validator returns an error - InvalidPublicKeyLength', async () => {
@@ -500,9 +499,10 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register validator returns an error - ValidatorAlreadyExists', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
-      helpers.DataGenerator.publicKey(9),
-      helpers.DataGenerator.cluster.new(),
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      [1,2,3,4],
       helpers.DataGenerator.shares(0),
       minDepositAmount,
       {

@@ -18,12 +18,12 @@ describe('Reactivate Validator Tests', () => {
 
     // Register validators
     // cold register
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
-    await ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
-      helpers.DataGenerator.publicKey(9),
-      helpers.DataGenerator.cluster.new(),
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
+    await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      [1,2,3,4],
       helpers.DataGenerator.shares(0),
-      minDepositAmount,
+      '1000000000000000',
       {
         validatorCount: 0,
         networkFee: 0,
