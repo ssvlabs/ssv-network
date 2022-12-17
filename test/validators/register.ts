@@ -20,8 +20,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       '1000000000000000',
       {
         validatorCount: 0,
@@ -39,7 +40,8 @@ describe('Register Validator Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
       helpers.DataGenerator.cluster.new(),
-      helpers.DataGenerator.shares(0),
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -56,8 +58,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -69,13 +72,14 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
@@ -85,8 +89,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -98,13 +103,14 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
@@ -112,8 +118,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
       helpers.DataGenerator.publicKey(4),
-      [2,3,4,5],
-      helpers.DataGenerator.shares(0),
+      [2, 3, 4, 5],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -127,12 +134,13 @@ describe('Register Validator Tests', () => {
   });
 
   it('4 operators: Register 2 validators in same pod with one time deposit gas usage', async () => {
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
-      `${minDepositAmount*2}`,
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
+      `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
         networkFee: 0,
@@ -143,11 +151,12 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       0,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT]);
@@ -160,7 +169,8 @@ describe('Register Validator Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
       helpers.DataGenerator.cluster.new(7),
-      helpers.DataGenerator.shares(0),
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -177,8 +187,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -190,13 +201,14 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4,5,6,7],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_7]);
@@ -206,8 +218,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -219,13 +232,14 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4,5,6,7],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_7]);
@@ -233,8 +247,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
       helpers.DataGenerator.publicKey(4),
-      [2,3,4,5,6,7,8],
-      helpers.DataGenerator.shares(0),
+      [2, 3, 4, 5, 6, 7, 8],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -248,12 +263,13 @@ describe('Register Validator Tests', () => {
   });
 
   it('7 operators: Register 2 validators in same pod with one time deposit gas usage', async () => {
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7],
-      helpers.DataGenerator.shares(0),
-      `${minDepositAmount*2}`,
+      [1, 2, 3, 4, 5, 6, 7],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
+      `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
         networkFee: 0,
@@ -264,11 +280,12 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4,5,6,7],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       0,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT_7]);
@@ -281,7 +298,8 @@ describe('Register Validator Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
       helpers.DataGenerator.cluster.new(13),
-      helpers.DataGenerator.shares(0),
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -298,8 +316,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7,8,9,10,11,12,13],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -311,13 +330,14 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4,5,6,7,8,9,10,11,12,13],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_13]);
@@ -327,8 +347,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7,8,9,10,11,12,13],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -340,13 +361,14 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4,5,6,7,8,9,10,11,12,13],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_13]);
@@ -354,8 +376,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
       helpers.DataGenerator.publicKey(4),
-      [2,3,4,5,6,7,8,9,10,11,12,13,14],
-      helpers.DataGenerator.shares(0),
+      [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -369,12 +392,13 @@ describe('Register Validator Tests', () => {
   });
 
   it('13 operators: Register 2 validators in same pod with one time deposit gas usage', async () => {
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7,8,9,10,11,12,13],
-      helpers.DataGenerator.shares(0),
-      `${minDepositAmount*2}`,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
+      `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
         networkFee: 0,
@@ -385,11 +409,12 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4,5,6,7,8,9,10,11,12,13],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       0,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT_13]);
@@ -399,7 +424,8 @@ describe('Register Validator Tests', () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(2),
       [1, 2, 3, 25],
-      helpers.DataGenerator.shares(0),
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -417,7 +443,8 @@ describe('Register Validator Tests', () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(2),
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(0),
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -435,7 +462,8 @@ describe('Register Validator Tests', () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(1),
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(0),
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -457,17 +485,18 @@ describe('Register Validator Tests', () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2])).to.be.revertedWith('OperatorIdsStructureInvalid');
 
     // 6 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6])).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2, 3, 4, 5, 6])).to.be.revertedWith('OperatorIdsStructureInvalid');
 
     // 14 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('OperatorIdsStructureInvalid');
   });
 
   it('Register validator returns an error - InvalidPublicKeyLength', async () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.shares(0),
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(0),
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -485,7 +514,8 @@ describe('Register Validator Tests', () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(1),
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(0),
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       helpers.CONFIG.minimalOperatorFee,
       {
         validatorCount: 0,
@@ -502,8 +532,9 @@ describe('Register Validator Tests', () => {
     await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
