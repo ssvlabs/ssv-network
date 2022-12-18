@@ -9,7 +9,7 @@ describe('Remove Operator Tests', () => {
   beforeEach(async () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
     // Register operators
-    await helpers.registerOperators(0, 4, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 5, helpers.CONFIG.minimalOperatorFee);
 
     // Register a validator
     // cold register
@@ -42,6 +42,10 @@ describe('Remove Operator Tests', () => {
 
   it('Remove operator gas limits', async () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR]);
+  });
+
+  it('Remove operator with 0 balance', async () => {
+    await expect(ssvNetworkContract.removeOperator(5)).not.to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
   });
 
   it('Remove operator with withdraw emits OperatorFundsWithdrawal event', async () => {

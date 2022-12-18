@@ -62,6 +62,21 @@ describe('Reactivate Validator Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(updatedPod.operatorIds, minDepositAmount, updatedPod.pod)).to.emit(ssvNetworkContract, 'PodEnabled');
   });
 
+  it('Reactivate with 0 deposit and no validators emits PodEnabled', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod), [GasGroup.LIQUIDATE_POD]);
+    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+
+    const remove = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(1),
+      firstPod.operatorIds,
+      updatedPod.pod
+    ), [GasGroup.REMOVE_VALIDATOR]);
+    const updatedPodAfrerRemove = remove.eventsByName.PodMetadataUpdated[0].args;
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(updatedPodAfrerRemove.operatorIds, 0, updatedPodAfrerRemove.pod)).to.emit(ssvNetworkContract, 'PodEnabled');
+  });
+
   it('Reactivate returns an error - PodAlreadyEnabled', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(firstPod.operatorIds, minDepositAmount, firstPod.pod)).to.be.revertedWith('PodAlreadyEnabled');
   });

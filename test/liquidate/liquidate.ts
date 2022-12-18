@@ -57,6 +57,12 @@ describe('Liquidate Validator Tests', () => {
     expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
   });
 
+  it('Liquidatable with removed operator', async () => {
+    await ssvNetworkContract.removeOperator(1);
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
+    expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
+  });
+
   it('Liquidate emits PodLiquidated event', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
 
@@ -102,6 +108,37 @@ describe('Liquidate Validator Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     )).to.be.revertedWith('PodNotLiquidatable');
+  });
+
+  it('Liquidate returns error - PodDataIsBroken', async () => {
+    await expect(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    )).to.be.revertedWith('PodDataIsBroken');
+  });
+
+  it('Try to liquidate second time returns error - PodIsLiquidated', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+
+    await expect(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      updatedPod.operatorIds,
+      updatedPod.pod
+    )).to.be.revertedWith('PodIsLiquidated');
   });
 
   it('Is liquidated', async () => {

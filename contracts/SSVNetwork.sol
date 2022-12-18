@@ -716,15 +716,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             }
         }
 
-        bytes32 hashedPod = keccak256(abi.encodePacked(owner, operatorIds));
-        {
-            bytes32 hashedPodData = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
-            if (_pods[hashedPod] == bytes32(0)) {
-                revert PodNotExists();
-            } else if (_pods[hashedPod] != hashedPodData) {
-                revert PodDataIsBroken();
-            }
-        }
+        _validateHashedPod(owner, operatorIds, pod);
 
         return _podBalance(pod, podIndex).expand();
     }
@@ -893,14 +885,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _networkBalance(DAO memory dao) private view returns (uint64) {
         return _networkTotalEarnings(dao) - dao.withdrawn;
-    }
-
-    function _podIndex(uint64[] memory operatorIds) private view returns (uint64 clusterIndex) {
-        uint64 currentBlock = uint64(block.number);
-        for (uint64 i = 0; i < operatorIds.length; ++i) {
-            Snapshot memory s = _operators[operatorIds[i]].snapshot;
-            clusterIndex += s.index + (currentBlock - s.block) * _operators[operatorIds[i]].fee;
-        }
     }
 
     function _podBalance(Pod memory pod, uint64 newIndex) private view returns (uint64) {
