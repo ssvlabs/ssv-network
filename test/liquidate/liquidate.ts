@@ -4,7 +4,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, clusterResult1: any, minDepositAmount: any;
+let ssvNetworkContract: any, minDepositAmount: any, firstPod: any;
 
 describe('Liquidate Validator Tests', () => {
   beforeEach(async () => {
@@ -14,100 +14,155 @@ describe('Liquidate Validator Tests', () => {
     // Register operators
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
 
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 7;
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
 
     // cold register
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(
-      helpers.DataGenerator.publicKey(9),
-      [1,2,3,4,5,6,7],
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
+    await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      [1,2,3,4],
       helpers.DataGenerator.shares(0),
-      minDepositAmount,
-      0,
-      0,
-      0,
-      0,
-      0,
-      false
+      '1000000000000000',
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     );
-  });
 
-  it('Liquidatable', async () => {
+    // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7],
+      [1,2,3,4],
       helpers.DataGenerator.shares(0),
       minDepositAmount,
-      0,
-      0,
-      0,
-      0,
-      0,
-      false
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    const registerArgs = register.eventsByName.PodMetadataUpdated[0].args;
-
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-
-    const liquidate = await trackGas(ssvNetworkContract.liquidate(
-      registerArgs.ownerAddress,
-      registerArgs.operatorIds,
-      registerArgs.validatorCount,
-      registerArgs.networkFee,
-      registerArgs.networkFeeIndex,
-      registerArgs.index,
-      registerArgs.balance,
-      registerArgs.disabled
-    ), [GasGroup.LIQUIDATE_POD]);
-    //await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    //expect(await ssvNetworkContract.isLiquidatable(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
+    firstPod = register.eventsByName.PodMetadataUpdated[0].args;
   });
 
-  /*
-  it('Liquidate emits PodLiquidated event', async () => {
+  it('Liquidatable', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await expect(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.emit(ssvNetworkContract, 'PodLiquidated');
+    expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
   });
 
-  it('Liquidate validator with removed operator in a cluster', async () => {
+  it('Liquidatable with removed operator', async () => {
     await ssvNetworkContract.removeOperator(1);
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
-    await trackGas(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
+    expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
   });
 
-  it('Liquidate and register in disabled pod', async () => {
+  it('Liquidate emits PodLiquidated event', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await trackGas(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(bytes32,uint256)'](clusterResult1.clusterId, minDepositAmount), [GasGroup.DEPOSIT]);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(helpers.DataGenerator.publicKey(9), clusterResult1.clusterId, helpers.DataGenerator.shares(0)), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
+
+    await expect(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    )).to.emit(ssvNetworkContract, 'PodLiquidated');
+  });
+
+  it('Liquidate validator with removed operator in a pod', async () => {
+    await ssvNetworkContract.removeOperator(1);
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
+    await trackGas(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.LIQUIDATE_POD]);
   });
 
   it('Liquidate and register validator in disabled pod', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await trackGas(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
+    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(bytes32,uint256)'](clusterResult1.clusterId, minDepositAmount), [GasGroup.DEPOSIT]);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(helpers.DataGenerator.publicKey(9), clusterResult1.clusterId, helpers.DataGenerator.shares(0)), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      updatedPod.operatorIds,
+      helpers.DataGenerator.shares(0),
+      `${minDepositAmount*2}`,
+      updatedPod.pod
+    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
 
-  it('Liquidate errors', async () => {
-    await expect(ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.be.revertedWith('PodNotLiquidatable');
+  it('Liquidate returns error - PodNotLiquidatable', async () => {
+    await expect(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    )).to.be.revertedWith('PodNotLiquidatable');
+  });
+
+  it('Liquidate returns error - PodDataIsBroken', async () => {
+    await expect(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    )).to.be.revertedWith('PodDataIsBroken');
+  });
+
+  it('Try to liquidate second time returns error - PodIsLiquidated', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+
+    await expect(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      updatedPod.operatorIds,
+      updatedPod.pod
+    )).to.be.revertedWith('PodIsLiquidated');
   });
 
   it('Is liquidated', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await ssvNetworkContract.liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId);
-    expect(await ssvNetworkContract.isLiquidated(helpers.DB.owners[4].address, clusterResult1.clusterId)).to.equal(true);
+    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+
+    expect(await ssvNetworkContract.isLiquidated(firstPod.ownerAddress, firstPod.operatorIds, updatedPod.pod)).to.equal(true);
   });
 
-  it('Liquidate gas limits', async () => {
+  it('Is liquidated returns error - PodNotExists', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
 
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).liquidate(helpers.DB.owners[4].address, clusterResult1.clusterId), [GasGroup.LIQUIDATE_POD]);
+    await expect(ssvNetworkContract.isLiquidated(helpers.DB.owners[0].address, firstPod.operatorIds, updatedPod.pod)).to.be.revertedWith('PodNotExists');
   });
-  */
+
 });
