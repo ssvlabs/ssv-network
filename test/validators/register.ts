@@ -1,5 +1,5 @@
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
-
 import { expect } from 'chai';
 
 import { trackGas, GasGroup } from '../helpers/gas-usage';
@@ -485,7 +485,7 @@ describe('Register Validator Tests', () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWith('OperatorsListDoesNotSorted');
   });
 
-  it('Invalid operator amount', async () => {
+  it('Invalid operator amount reverts "OperatorIdsStructureInvalid"', async () => {
     // 2 Operators
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2])).to.be.revertedWith('OperatorIdsStructureInvalid');
 
@@ -496,7 +496,7 @@ describe('Register Validator Tests', () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('OperatorIdsStructureInvalid');
   });
 
-  it('Register validator returns an error - InvalidPublicKeyLength', async () => {
+  it('Register validator with an invalild public key reverts "InvalidPublicKeyLength"', async () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.shares(0),
       [1, 2, 3, 4],

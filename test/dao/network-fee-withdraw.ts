@@ -1,9 +1,10 @@
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
-
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
 
+// Declare globals
 let ssvNetworkContract: any, minDepositAmount: any, burnPerBlock: any, networkFee: any;
 
 describe('DAO Network Fee Withdraw Tests', () => {
@@ -51,28 +52,31 @@ describe('DAO Network Fee Withdraw Tests', () => {
     // Mint tokens
     await helpers.DB.ssvToken.mint(ssvNetworkContract.address, minDepositAmount);
   });
+  
+  it('Withdraw network earnings emits "NetworkFeesWithdrawal"', async () => {
+    const amount = await ssvNetworkContract.getNetworkBalance();
+    await expect(ssvNetworkContract.withdrawDAOEarnings(amount
+    )).to.emit(ssvNetworkContract, 'NetworkFeesWithdrawal').withArgs(amount, helpers.DB.owners[0].address);
+  });
 
   it('Get withdrawable network earnings', async () => {
     expect(await ssvNetworkContract.getNetworkBalance()).to.above(0);
   });
 
-  it('Get withdrawable network earnings fails no owner', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkBalance()).to.be.revertedWith('caller is not the owner');
+  it('Get withdrawable network earnings reverts "caller is not the owner"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkBalance(
+    )).to.be.revertedWith('caller is not the owner');
   });
 
-  it('Withdraw network earnings emits NetworkFeesWithdrawal event', async () => {
-    const amount = await ssvNetworkContract.getNetworkBalance();
-    await expect(ssvNetworkContract.withdrawDAOEarnings(amount))
-      .to.emit(ssvNetworkContract, 'NetworkFeesWithdrawal').withArgs(amount, helpers.DB.owners[0].address);
-  });
-
-  it('Withdraw network earnings fails balance is lower', async () => {
+  it('Withdraw network earnings with not enough balance reverts "NotEnoughBalance"', async () => {
     const amount = await ssvNetworkContract.getNetworkBalance() * 2;
-    await expect(ssvNetworkContract.withdrawDAOEarnings(amount)).to.be.revertedWith('NotEnoughBalance');
+    await expect(ssvNetworkContract.withdrawDAOEarnings(amount
+    )).to.be.revertedWith('NotEnoughBalance');
   });
 
-  it('Withdraw network earnings fails no owner', async () => {
+  it('Withdraw network earnings from an address thats not the DAO reverts "caller is not the owner"', async () => {
     const amount = await ssvNetworkContract.getNetworkBalance();
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawDAOEarnings(amount)).to.be.revertedWith('caller is not the owner');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawDAOEarnings(amount
+    )).to.be.revertedWith('caller is not the owner');
   });
 });

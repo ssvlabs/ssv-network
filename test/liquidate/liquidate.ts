@@ -1,12 +1,12 @@
+// Decalre imports
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
-
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, minDepositAmount: any, firstPod: any;
 
-describe('Liquidate Validator Tests', () => {
+describe('Liquidate Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     ssvNetworkContract = (await helpers.initializeContract()).contract;
@@ -52,7 +52,7 @@ describe('Liquidate Validator Tests', () => {
     firstPod = register.eventsByName.PodMetadataUpdated[0].args;
   });
 
-  it('Liquidatable', async () => {
+  it('Get if the pod is liquidatable', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
   });
@@ -102,7 +102,7 @@ describe('Liquidate Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
 
-  it('Liquidate returns error - PodNotLiquidatable', async () => {
+  it('Liquidate a pod that is not liquidatable reverts "PodNotLiquidatable"', async () => {
     await expect(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
       firstPod.operatorIds,
@@ -110,7 +110,7 @@ describe('Liquidate Validator Tests', () => {
     )).to.be.revertedWith('PodNotLiquidatable');
   });
 
-  it('Liquidate returns error - PodDataIsBroken', async () => {
+  it('Liquidate a pod that is not liquidatable reverts "PodDataIsBroken"', async () => {
     await expect(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
       firstPod.operatorIds,
@@ -125,7 +125,7 @@ describe('Liquidate Validator Tests', () => {
     )).to.be.revertedWith('PodDataIsBroken');
   });
 
-  it('Try to liquidate second time returns error - PodIsLiquidated', async () => {
+  it('Liquidate second time a pod that is liquidated already reverts "PodIsLiquidated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
@@ -153,7 +153,7 @@ describe('Liquidate Validator Tests', () => {
     expect(await ssvNetworkContract.isLiquidated(firstPod.ownerAddress, firstPod.operatorIds, updatedPod.pod)).to.equal(true);
   });
 
-  it('Is liquidated returns error - PodNotExists', async () => {
+  it('Is liquidated reverts "PodNotExists"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,

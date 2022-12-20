@@ -1,8 +1,9 @@
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
-
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
+// Declare globals
 let ssvNetworkContract: any;
 
 describe('Remove Operator Tests', () => {
@@ -30,12 +31,12 @@ describe('Remove Operator Tests', () => {
     );
   });
 
-  it('Remove operator emits OperatorRemoved event', async () => {
+  it('Remove operator emits "OperatorRemoved"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(1))
       .to.emit(ssvNetworkContract, 'OperatorRemoved').withArgs(1);
   });
 
-  it('Fails to remove operator with no owner', async () => {
+  it('Remove operator I do not own reverts "CallerNotOwner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1))
       .to.be.revertedWith('CallerNotOwner');
   });
@@ -48,12 +49,12 @@ describe('Remove Operator Tests', () => {
     await expect(ssvNetworkContract.removeOperator(5)).not.to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
   });
 
-  it('Remove operator with withdraw emits OperatorFundsWithdrawal event', async () => {
+  it('Remove operator with a balance emits "OperatorFundsWithdrawal"', async () => {
     await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1,2,3,4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await expect(ssvNetworkContract.removeOperator(1)).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
   });
 
-  it('Remove operator with withdraw gas limits', async () => {
+  it('Remove operator with a balance gas limits', async () => {
     await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1,2,3,4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
   });
