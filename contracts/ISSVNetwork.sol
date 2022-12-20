@@ -131,6 +131,11 @@ interface ISSVNetwork {
         Pod pod
     );
 
+    event FeeRecipientAddressAdded(
+        address ownerAddress,
+        address recipientAddress
+    );
+
     /**********/
     /* Errors */
     /**********/
@@ -286,6 +291,8 @@ interface ISSVNetwork {
     function getOperatorFee(uint64 operatorId) external view returns (uint256);
 
     function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
+
+    function feeRecipientAddress(address feeRecipientAddress) external;
 
     /*******************************/
     /* Pod External View Functions */
