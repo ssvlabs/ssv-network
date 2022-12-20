@@ -83,6 +83,7 @@ export const initializeContract = async () => {
   await DB.ssvToken.mint(DB.owners[3].address, '1000000000000000');
   await DB.ssvToken.mint(DB.owners[4].address, '1000000000000000');
   await DB.ssvToken.mint(DB.owners[5].address, '1000000000000000');
+  await DB.ssvToken.mint(DB.owners[6].address, '1000000000000000');
 
   return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken };
 };
@@ -105,44 +106,44 @@ export const deposit = async (ownerId: number, clusterId: string, amount: string
   await DB.ssvNetwork.contract.connect(DB.owners[ownerId])['deposit(bytes32,uint256)'](clusterId, amount);
 };
 
-export const registerPodAndDeposit = async(ownerId: number, operatorIds: number[], amount: string): Promise<any> => {
-  let clusterId;
-  try {
-    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
-    const clusterTx = await (await DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerPod(operatorIds, amount)).wait();
-    clusterId = clusterTx.events[0].args.clusterId;
-  } catch (e) {
-    clusterId = await DB.ssvNetwork.contract.getClusterId(operatorIds);
-    if (+amount > 0) {
-      await deposit(ownerId, clusterId, amount);
-    }
-  }
-  return { clusterId };
-};
-
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
   const validators: any = [];
-  let clusterId: any;
-
+  let args: any;
   // Register validators to contract
   for (let i = 0; i < numberOfValidators; i++) {
     const publicKey = DataGenerator.publicKey(DB.validators.length);
     const shares = DataGenerator.shares(DB.validators.length);
 
-    const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
+    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
+    const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
       publicKey,
-      (await registerPodAndDeposit(ownerId, operatorIds, amount)).clusterId,
+      operatorIds,
       shares,
+      amount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
     ), gasGroups);
-    clusterId = eventsByName.ValidatorAdded[0].args.clusterId;
-    DB.clusters[clusterId] = ({ id: clusterId, operatorIds });
-    DB.validators.push({ publicKey, clusterId, shares });
+    args = result.eventsByName.PodMetadataUpdated[0].args;
+
+    DB.validators.push({ publicKey, operatorIds, shares });
     validators.push({ publicKey, shares });
   }
 
-  return { validators, clusterId };
+  return { validators, args };
 };
 
+export const getPod = (payload: any) => ethers.utils.AbiCoder.prototype.encode(
+  ['tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool disabled) pod'],
+  [ payload ]
+);
+
+/*
 export const transferValidator = async (ownerId: number, publicKey: string, operatorIds: number[], amount: string, gasGroups?: GasGroup[]) => {
   // let podId: any;
   const shares = DataGenerator.shares(DB.validators.length);
@@ -195,4 +196,4 @@ export const liquidate = async (executorOwnerId: number, liquidatedOwnerId: numb
   const clusterId = eventsByName.AccountLiquidated[0].args.clusterId;
   return { clusterId };
 };
-
+*/
