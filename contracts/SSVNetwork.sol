@@ -654,6 +654,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return (feeChangeRequest.fee.expand(), feeChangeRequest.approvalBeginTime, feeChangeRequest.approvalEndTime);
     }
 
+    function feeRecipientAddress(address recipientAddress) external override {
+        emit FeeRecipientAddressAdded(msg.sender, recipientAddress);
+    }
+
     /*******************************/
     /* Pod External View Functions */
     /*******************************/
