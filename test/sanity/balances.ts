@@ -1,9 +1,10 @@
+// Declare imports 
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
-
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
 
+// Decalre globals
 let ssvNetworkContract: any, pod1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any, initNetworkFeeBalance: any;
 
 describe('Balance Tests', () => {
@@ -109,15 +110,14 @@ describe('Balance Tests', () => {
     expect((await ssvNetworkContract.operatorSnapshot(4)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 2);
   });
 
-  it('Check pod balance returns error - NegativeBalance', async () => {
-    await utils.progressBlocks(1000);
-    await expect(ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.be.revertedWith('NegativeBalance');
-  });
-
   it('Check pod balance with removed operator', async () => {
     await ssvNetworkContract.removeOperator(1); // TODO remove operator logic rething
     await utils.progressBlocks(10);
     expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).not.equals(0);
   });
 
+  it('Check pod balance returns error - NegativeBalance', async () => {
+    await utils.progressBlocks(1000);
+    await expect(ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.be.revertedWith('NegativeBalance');
+  });
 });
