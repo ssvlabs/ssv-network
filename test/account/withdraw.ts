@@ -62,7 +62,7 @@ describe('Withdraw Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorBalance(uint64)'](1), [GasGroup.WITHDRAW_OPERATOR_BALANCE]);
   });
 
-  it('Withdraw from pod after removed operator emits "PodFundsWithdrawal"', async () => {
+  it('Withdraw from a pod that has a removed operator emits "PodFundsWithdrawal"', async () => {
     await ssvNetworkContract.removeOperator(1); // TODO remove operator logic rething
     await utils.progressBlocks(10);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdrawPodBalance(pod1.args.operatorIds, helpers.CONFIG.minimalOperatorFee, pod1.args.pod)).to.emit(ssvNetworkContract, 'PodFundsWithdrawal');
