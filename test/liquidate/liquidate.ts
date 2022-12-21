@@ -52,18 +52,7 @@ describe('Liquidate Tests', () => {
     firstPod = register.eventsByName.PodMetadataUpdated[0].args;
   });
 
-  it('Get if the pod is liquidatable', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
-  });
-
-  it('Liquidatable with removed operator', async () => {
-    await ssvNetworkContract.removeOperator(1);
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
-    expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
-  });
-
-  it('Liquidate emits PodLiquidated event', async () => {
+  it('Liquidate a pod emits "PodLiquidated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
 
     await expect(ssvNetworkContract.liquidatePod(
@@ -71,6 +60,29 @@ describe('Liquidate Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     )).to.emit(ssvNetworkContract, 'PodLiquidated');
+  });
+
+  it('Get if the pod is liquidatable', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
+  });
+
+  it('Get if the pod is liquidated', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
+      firstPod.ownerAddress,
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+
+    expect(await ssvNetworkContract.isLiquidated(firstPod.ownerAddress, firstPod.operatorIds, updatedPod.pod)).to.equal(true);
+  });
+
+  it('Liquidatable with removed operator', async () => {
+    await ssvNetworkContract.removeOperator(1);
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
+    expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
   });
 
   it('Liquidate validator with removed operator in a pod', async () => {
@@ -83,7 +95,7 @@ describe('Liquidate Tests', () => {
     ), [GasGroup.LIQUIDATE_POD]);
   });
 
-  it('Liquidate and register validator in disabled pod', async () => {
+  it('Liquidate and register validator to disabled pod', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
@@ -125,7 +137,7 @@ describe('Liquidate Tests', () => {
     )).to.be.revertedWith('PodDataIsBroken');
   });
 
-  it('Liquidate second time a pod that is liquidated already reverts "PodIsLiquidated"', async () => {
+  it('Liquidate a pod that is already liquidated reverts "PodIsLiquidated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
@@ -141,19 +153,7 @@ describe('Liquidate Tests', () => {
     )).to.be.revertedWith('PodIsLiquidated');
   });
 
-  it('Is liquidated', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
-      firstPod.ownerAddress,
-      firstPod.operatorIds,
-      firstPod.pod
-    ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
-
-    expect(await ssvNetworkContract.isLiquidated(firstPod.ownerAddress, firstPod.operatorIds, updatedPod.pod)).to.equal(true);
-  });
-
-  it('Is liquidated reverts "PodNotExists"', async () => {
+  it('Get if a pod that does not exist is liquidated reverts "PodNotExists"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
@@ -164,5 +164,4 @@ describe('Liquidate Tests', () => {
 
     await expect(ssvNetworkContract.isLiquidated(helpers.DB.owners[0].address, firstPod.operatorIds, updatedPod.pod)).to.be.revertedWith('PodNotExists');
   });
-
 });
