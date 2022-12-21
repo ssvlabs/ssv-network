@@ -63,7 +63,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     struct Validator {
         address owner;
-        bool active;
     }
 
     /*************/
@@ -247,7 +246,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             if (_validatorPKs[keccak256(publicKey)].owner != address(0)) {
                 revert ValidatorAlreadyExists();
             }
-            _validatorPKs[keccak256(publicKey)] = Validator({ owner: msg.sender, active: true});
+            _validatorPKs[keccak256(publicKey)] = Validator({ owner: msg.sender });
         }
 
         uint64 podIndex;
