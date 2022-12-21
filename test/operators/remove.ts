@@ -37,17 +37,8 @@ describe('Remove Operator Tests', () => {
       .to.emit(ssvNetworkContract, 'OperatorRemoved').withArgs(1);
   });
 
-  it('Remove operator I do not own reverts "CallerNotOwner"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1))
-      .to.be.revertedWith('CallerNotOwner');
-  });
-
   it('Remove operator gas limits', async () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR]);
-  });
-
-  it('Remove operator with 0 balance', async () => {
-    await expect(ssvNetworkContract.removeOperator(5)).not.to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
   });
 
   it('Remove operator with a balance emits "OperatorFundsWithdrawal"', async () => {
@@ -58,5 +49,14 @@ describe('Remove Operator Tests', () => {
   it('Remove operator with a balance gas limits', async () => {
     await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1, 2, 3, 4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
+  });
+  
+  it('Remove operator without a balance emits "OperatorFundsWithdrawal"', async () => {
+    await expect(ssvNetworkContract.removeOperator(5)).not.to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
+  });
+
+  it('Remove operator I do not own reverts "CallerNotOwner"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1))
+      .to.be.revertedWith('CallerNotOwner');
   });
 });
