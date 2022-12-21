@@ -5,6 +5,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
+// Decalre globals
 let ssvNetworkContract: any, minDepositAmount: any, firstPod: any;
 
 describe('Remove Validator Tests', () => {
@@ -56,7 +57,7 @@ describe('Remove Validator Tests', () => {
     firstPod = register.eventsByName.ValidatorAdded[0].args;
   });
 
-  it('Remove validator emits ValidatorRemoved event', async () => {
+  it('Remove validator emits "ValidatorRemoved"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
       firstPod.operatorIds,
@@ -64,7 +65,7 @@ describe('Remove Validator Tests', () => {
     )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
   });
 
-  it('Remove validator track gas', async () => {
+  it('Remove validator gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
       firstPod.operatorIds,
@@ -72,7 +73,7 @@ describe('Remove Validator Tests', () => {
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator with removed operator in a pod', async () => {
+  it('Remove validator with a removed operator in the cluster', async () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
@@ -82,31 +83,7 @@ describe('Remove Validator Tests', () => {
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator with an invalid owner', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(
-      helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
-    )).to.be.revertedWith('ValidatorNotOwned');
-  });
-
-  it('Remove validator twice', async () => {
-    // Remove validator
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
-      helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
-    ), [GasGroup.REMOVE_VALIDATOR]);
-
-    // Remove validator again
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
-      helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
-    )).to.be.revertedWith('ValidatorNotOwned');
-  });
-
-  it('Register / remove validator twice', async () => {
+  it('Register a removed validator and remove the same validator again', async () => {
     // Remove validator
     const remove = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
@@ -134,7 +111,31 @@ describe('Remove Validator Tests', () => {
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator from a liquidated pod', async () => {
+  it('Remove validator I do not own reverts "ValidatorNotOwned"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(
+      helpers.DataGenerator.publicKey(1),
+      firstPod.operatorIds,
+      firstPod.pod
+    )).to.be.revertedWith('ValidatorNotOwned');
+  });
+
+  it('Remove the same validator twice reverts "ValidatorNotOwned"', async () => {
+    // Remove validator
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(1),
+      firstPod.operatorIds,
+      firstPod.pod
+    ), [GasGroup.REMOVE_VALIDATOR]);
+
+    // Remove validator again
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(1),
+      firstPod.operatorIds,
+      firstPod.pod
+    )).to.be.revertedWith('ValidatorNotOwned');
+  });
+
+  it('Remove validator from a liquidated cluster', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
