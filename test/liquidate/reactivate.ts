@@ -4,6 +4,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
+// Deaclare globals
 let ssvNetworkContract: any, minDepositAmount: any, firstPod: any;
 
 describe('Reactivate Tests', () => {
