@@ -4,6 +4,7 @@ import { expect } from 'chai';
 
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
+// Decalre globals
 let ssvNetworkContract: any, minDepositAmount: any;
 
 describe('Register Validator Tests', () => {
@@ -35,7 +36,26 @@ describe('Register Validator Tests', () => {
     );
   });
 
-  it('4 operators: Register 1 new validator gas usage', async () => {
+  it('Register validator emits "ValidatorAdded"', async () => {
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, minDepositAmount);
+    await expect(ssvNetworkContract.registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    )).to.emit(ssvNetworkContract, 'ValidatorAdded');
+  });
+
+  it('Register a validator to a pod with 4 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -54,7 +74,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('4 operators: Register 2 validators in same pod gas usage', async () => {
+  it('Register 2 validators to the same pod with 4 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -85,7 +105,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
 
-  it('4 operators: Register 2 validators in same pod and 1 validator in new pod gas usage', async () => {
+  it('Register 2 validators to the same pod with 4 operators and 1 validator to a new pod with 4 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -133,7 +153,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('4 operators: Register 2 validators in same pod with one time deposit gas usage', async () => {
+  it('Register 2 validators to the same pod with 4 operators and a deposit gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -164,7 +184,7 @@ describe('Register Validator Tests', () => {
 
   // 7 operators
 
-  it('7 operators: Register 1 new validator gas usage', async () => {
+  it('Register a validator with 7 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -183,7 +203,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
   });
 
-  it('7 operators: Register 2 validators in same pod gas usage', async () => {
+  it('Register 2 validators to the same pod with 7 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -214,7 +234,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_7]);
   });
 
-  it('7 operators: Register 2 validators in same pod and 1 validator in new pod gas usage', async () => {
+  it('Register 2 validators to the same pod with 7 operators and 1 validator to a new pod with 7 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -262,7 +282,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
   });
 
-  it('7 operators: Register 2 validators in same pod with one time deposit gas usage', async () => {
+  it('Register 2 validators to the same pod with 7 operators and a deposit gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -293,7 +313,7 @@ describe('Register Validator Tests', () => {
 
   // 13 operators
 
-  it('13 operators: Register 1 new validator gas usage', async () => {
+  it('Register a validator with 13 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -312,7 +332,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
   });
 
-  it('13 operators: Register 2 validators in same pod gas usage', async () => {
+  it('Register 2 validators to the same pod with 13 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -343,7 +363,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_13]);
   });
 
-  it('13 operators: Register 2 validators in same pod and 1 validator in new pod gas usage', async () => {
+  it('Register 2 validators to the same pod with 13 operators and 1 validator to a new pod with 13 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -391,7 +411,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
   });
 
-  it('13 operators: Register 2 validators in same pod with one time deposit gas usage', async () => {
+  it('Register 2 validators to the same pod with 13 operators and a deposit gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -420,7 +440,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT_13]);
   });
 
-  it('Register validator returns an error - PodDataIsBroken', async () => {
+  it('Register validator with the wrong data reverts "PodDataIsBroken"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
@@ -455,7 +475,7 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWith('PodDataIsBroken');
   });
 
-  it('Register validator returns an error - OperatorDoesNotExist', async () => {
+  it('Register a pod when an operator does not exsit in the cluster reverts "OperatorDoesNotExist"', async () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(2),
       [1, 2, 3, 25],
@@ -473,7 +493,7 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWith('OperatorDoesNotExist');
   });
 
-  it('Register validator with removed operator returns an error - OperatorDoesNotExist', async () => {
+  it('Register a pod with a removed operator reverts "OperatorDoesNotExist"', async () => {
     await ssvNetworkContract.removeOperator(1);
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(2),
@@ -492,26 +512,7 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWith('OperatorDoesNotExist');
   });
 
-  it('Register validator emits ValidatorAdded event', async () => {
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(ssvNetworkContract.registerValidator(
-      helpers.DataGenerator.publicKey(1),
-      [1, 2, 3, 4],
-      Array(4).fill(helpers.DataGenerator.publicKey(0)),
-      Array(4).fill(helpers.DataGenerator.shares(0)),
-      minDepositAmount,
-      {
-        validatorCount: 0,
-        networkFee: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        disabled: false
-      }
-    )).to.emit(ssvNetworkContract, 'ValidatorAdded');
-  });
-
-  it('Register pod returns an error - The operators list should be in ascending order', async () => {
+  it('Register a pod with unsorted operators reverts "The operators list should be in ascending order"', async () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWith('OperatorsListDoesNotSorted');
   });
 
@@ -544,7 +545,7 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWith('InvalidPublicKeyLength');
   });
 
-  it('Register validator returns an error - NotEnoughBalance', async () => {
+  it('Register validator with not enough amount reverts "NotEnoughBalance"', async () => {
     await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -563,7 +564,7 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
-  it('Register validator returns an error - ValidatorAlreadyExists', async () => {
+  it('Register an existing validator reverts "ValidatorAlreadyExists"', async () => {
     await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
