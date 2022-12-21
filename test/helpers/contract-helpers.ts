@@ -9,7 +9,7 @@ export let CONFIG: any;
 
 export const DataGenerator = {
   publicKey: (index: number) => `0x${index.toString(16).padStart(96, '1')}`,
-  shares: (index: number) => `0x${index.toString(16).padStart(360, '1')}`,
+  shares: (index: number) => `0x${index.toString(16).padStart(832, '1')}`,
   cluster: {
     new: (size = 4) => {
       const usedOperatorIds: any = {};
@@ -112,13 +112,15 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
   // Register validators to contract
   for (let i = 0; i < numberOfValidators; i++) {
     const publicKey = DataGenerator.publicKey(DB.validators.length);
-    const shares = DataGenerator.shares(DB.validators.length);
+    const sharesPublic = Array(4).fill(DataGenerator.publicKey(0));
+    const sharesEncrypted = Array(4).fill(DataGenerator.shares(0));
 
     await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
     const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
       publicKey,
       operatorIds,
-      shares,
+      sharesPublic,
+      sharesEncrypted,
       amount,
       {
         validatorCount: 0,
@@ -129,10 +131,10 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
         disabled: false
       }
     ), gasGroups);
-    args = result.eventsByName.PodMetadataUpdated[0].args;
+    args = result.eventsByName.ValidatorAdded[0].args;
 
-    DB.validators.push({ publicKey, operatorIds, shares });
-    validators.push({ publicKey, shares });
+    DB.validators.push({ publicKey, operatorIds, sharesPublic, sharesEncrypted });
+    validators.push({ publicKey, sharesPublic, sharesEncrypted });
   }
 
   return { validators, args };

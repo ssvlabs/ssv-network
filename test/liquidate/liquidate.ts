@@ -20,8 +20,9 @@ describe('Liquidate Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       '1000000000000000',
       {
         validatorCount: 0,
@@ -37,8 +38,9 @@ describe('Liquidate Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -49,7 +51,7 @@ describe('Liquidate Tests', () => {
         disabled: false
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    firstPod = register.eventsByName.PodMetadataUpdated[0].args;
+    firstPod = register.eventsByName.ValidatorAdded[0].args;
   });
 
   it('Get if the pod is liquidatable', async () => {
@@ -90,14 +92,15 @@ describe('Liquidate Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
       updatedPod.operatorIds,
-      helpers.DataGenerator.shares(0),
-      `${minDepositAmount*2}`,
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
+      `${minDepositAmount * 2}`,
       updatedPod.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
@@ -132,7 +135,7 @@ describe('Liquidate Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
 
     await expect(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
@@ -148,7 +151,7 @@ describe('Liquidate Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
 
     expect(await ssvNetworkContract.isLiquidated(firstPod.ownerAddress, firstPod.operatorIds, updatedPod.pod)).to.equal(true);
   });
@@ -160,7 +163,7 @@ describe('Liquidate Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
 
     await expect(ssvNetworkContract.isLiquidated(helpers.DB.owners[0].address, firstPod.operatorIds, updatedPod.pod)).to.be.revertedWith('PodNotExists');
   });

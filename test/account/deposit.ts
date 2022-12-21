@@ -20,8 +20,9 @@ describe('Deposit Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       '1000000000000000',
       {
         validatorCount: 0,
@@ -62,6 +63,6 @@ describe('Deposit Tests', () => {
   });
 
   it('Deposit to a pod I do not own with a pod that does not exist reverts "PodNotExists"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))']([1,2,4,5], minDepositAmount, pod1.args.pod)).to.be.revertedWith('PodNotExists');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))']([1, 2, 4, 5], minDepositAmount, pod1.args.pod)).to.be.revertedWith('PodNotExists');
   });
 });

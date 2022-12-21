@@ -32,8 +32,9 @@ describe('DAO Network Fee Withdraw Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      [1, 2, 3, 4],
+      Array(4).fill(helpers.DataGenerator.publicKey(0)),
+      Array(4).fill(helpers.DataGenerator.shares(0)),
       '1000000000000000',
       {
         validatorCount: 0,
@@ -52,7 +53,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     // Mint tokens
     await helpers.DB.ssvToken.mint(ssvNetworkContract.address, minDepositAmount);
   });
-  
+
   it('Withdraw network earnings emits "NetworkFeesWithdrawal"', async () => {
     const amount = await ssvNetworkContract.getNetworkBalance();
     await expect(ssvNetworkContract.withdrawDAOEarnings(amount
