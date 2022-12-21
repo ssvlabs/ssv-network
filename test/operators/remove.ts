@@ -50,7 +50,7 @@ describe('Remove Operator Tests', () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
   });
 
-  it('Remove operator without balance emits "OperatorFundsWithdrawal"', async () => {
+  it('Remove operator without a balance emits "OperatorFundsWithdrawal"', async () => {
     await expect(ssvNetworkContract.removeOperator(5)).not.to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
   });
 
