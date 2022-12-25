@@ -143,50 +143,6 @@ export const getPod = (payload: any) => ethers.utils.AbiCoder.prototype.encode(
   [ payload ]
 );
 
-/*
-export const transferValidator = async (ownerId: number, publicKey: string, operatorIds: number[], amount: string, gasGroups?: GasGroup[]) => {
-  // let podId: any;
-  const shares = DataGenerator.shares(DB.validators.length);
-
-  // Transfer validator
-  await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).transferValidator(
-    publicKey,
-    (await registerPodAndDeposit(ownerId, operatorIds, amount)).clusterId,
-    shares,
-  ), gasGroups);
-
-  // FOR ADAM TO UPDATE
-  // podId = eventsByName.ValidatorTransferred[0].args.podId;
-  // DB.clusters[podId] = ({ id: podId, operatorIds });
-  // DB.validators[publicKey].podId = podId;
-  // DB.validators[publicKey].shares = shares;
-
-  // return { podId };
-};
-
-
-export const bulkTransferValidator = async (ownerId: number, publicKey: string[], fromCluster: string, toCluster: string, amount: string, gasGroups?: GasGroup[]) => {
-  const shares = Array(publicKey.length).fill(DataGenerator.shares(0));
-
-  await registerPodAndDeposit(ownerId, DataGenerator.cluster.byId(toCluster), amount);
-
-  // Bulk transfer validators
-  await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).bulkTransferValidators(
-    publicKey,
-    fromCluster,
-    toCluster,
-    shares,
-  ), gasGroups);
-
-  // FOR ADAM TO UPDATE
-  // podId = eventsByName.ValidatorTransferred[0].args.podId;
-  // DB.clusters[podId] = ({ id: podId, operatorIds });
-  // DB.validators[publicKey].podId = podId;
-  // DB.validators[publicKey].shares = shares;
-
-  // return { podId };
-};
-
 export const liquidate = async (executorOwnerId: number, liquidatedOwnerId: number, operatorIds: number[], gasGroups?: GasGroup[]) => {
   const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[executorOwnerId]).liquidate(
     DB.owners[liquidatedOwnerId].address,
@@ -196,4 +152,4 @@ export const liquidate = async (executorOwnerId: number, liquidatedOwnerId: numb
   const clusterId = eventsByName.AccountLiquidated[0].args.clusterId;
   return { clusterId };
 };
-*/
+
