@@ -78,12 +78,12 @@ export const initializeContract = async () => {
 
   DB.ssvNetwork.owner = DB.owners[0];
 
-  await DB.ssvToken.mint(DB.owners[1].address, '1000000000000000');
-  await DB.ssvToken.mint(DB.owners[2].address, '1000000000000000');
-  await DB.ssvToken.mint(DB.owners[3].address, '1000000000000000');
-  await DB.ssvToken.mint(DB.owners[4].address, '1000000000000000');
-  await DB.ssvToken.mint(DB.owners[5].address, '1000000000000000');
-  await DB.ssvToken.mint(DB.owners[6].address, '1000000000000000');
+  await DB.ssvToken.mint(DB.owners[1].address, '100000000000000000');
+  await DB.ssvToken.mint(DB.owners[2].address, '100000000000000000');
+  await DB.ssvToken.mint(DB.owners[3].address, '100000000000000000');
+  await DB.ssvToken.mint(DB.owners[4].address, '100000000000000000');
+  await DB.ssvToken.mint(DB.owners[5].address, '100000000000000000');
+  await DB.ssvToken.mint(DB.owners[6].address, '100000000000000000');
 
   return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken };
 };

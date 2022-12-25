@@ -1,55 +1,147 @@
-/*declare const ethers: any;
-
+// Define imports
 import * as helpers from '../helpers/contract-helpers';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
+import { progressTime } from '../helpers/utils';
 
-import { expect } from 'chai';
-
-const numberOfOperators = 1000;
-const operatorFee = 1;
-
-let registryContract: any, operatorIDs: any, shares: any;
-const validatorData: any = [];
-*/
+// Define global variables
+let ssvNetworkContract: any;
+let validatorData: any = [];
 
 describe('Stress Tests', () => {
-  // beforeEach(async () => {
-  //   const contractData = await helpers.initializeContract(numberOfOperators, operatorFee);
-  //   registryContract = contractData.contract;
-  //   operatorIDs = contractData.operatorIDs;
-  //   shares = contractData.shares;
+  beforeEach(async () => {
+    // Initialize contract
+    ssvNetworkContract = (await helpers.initializeContract()).contract;
 
-  //   // Register 1000 validators
-  //   validatorData = await helpers.registerValidators(1000, '10000', numberOfOperators, registryContract);
-  // });
+    validatorData = [];
 
-  // it('Update 1000 operators', async () => {
-  //   for (let i = 0; i < operatorIDs.length; i++) {
-  //     await registryContract.updateOperatorFee(operatorIDs[i], 10);
-  //   }
-  // });
+    for (let i = 0; i < 7; i++) {
+      await helpers.DB.ssvToken.connect(helpers.DB.owners[i]).approve(helpers.DB.ssvNetwork.contract.address, '90000000000000000000');
+    }
+    // Register operators
+    await helpers.registerOperators(0, 250, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(1, 250, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(2, 250, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(3, 250, helpers.CONFIG.minimalOperatorFee);
 
-  // it('Transfer 1000 validators', async () => {
-  //   for (let i = 1000; i < (validatorData.length + 1000); i++) {
-  //     const randomOperator = Math.floor(Math.random() * (numberOfOperators - 4));
-  //     await registryContract.transferValidator(
-  //       validatorData[i-1000].publicKey,
-  //       [randomOperator, randomOperator + 1, randomOperator + 2, randomOperator + 3],
-  //       shares[1],
-  //       '10001'
-  //     );
-  //   }
-  // });
+    for (let i = 1000; i < 2001; i++) {
+      // Define random values
+      const randomOwner = Math.floor(Math.random() * 6);
+      const randomOperatorPoint = 1 + Math.floor(Math.random() * 995);
+      const validatorPublicKey = `0x${'0'.repeat(92)}${i}`;
 
-  // it('Remove 1000 operators', async () => {
-  //   for (let i = 0; i < operatorIDs.length; i++) {
-  //     await registryContract.removeOperator(operatorIDs[i]);
-  //   }
-  // });
+      // Define minimum deposit amount
+      const minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation * 500) * helpers.CONFIG.minimalOperatorFee * 4;
 
-  // it('Remove 1000 validators', async () => {
-  //   for (let i = 0; i < validatorData.length; i++) {
-  //     await registryContract.removeValidator(validatorData[i].publicKey);
-  //   }
-  // });
+      // Define empty pod data to send
+      let podData = {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      };
+
+      // Loop through all created validators to see if the pod you chose is created or not
+      for (let j = validatorData.length-1; j >= 0; j--) {
+        if (validatorData[j].operatorPoint === randomOperatorPoint && validatorData[j].owner === randomOwner) {
+          podData = validatorData[j].pod;
+          break;
+        }
+      }
+
+      // Register a validator
+      const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[randomOwner]).registerValidator(
+        validatorPublicKey,
+        [randomOperatorPoint,randomOperatorPoint+1,randomOperatorPoint+2,randomOperatorPoint+3],
+        helpers.DataGenerator.shares(0),
+        minDepositAmount,
+        podData
+      ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+
+      // Get the pod event
+      const args = (eventsByName.PodMetadataUpdated[0].args).pod;
+
+      // Break the pod event to a struct
+      const pod =   {
+        validatorCount: args.validatorCount,
+        networkFee: args.networkFee,
+        networkFeeIndex: args.networkFeeIndex,
+        index: args.index,
+        balance: args.balance,
+        disabled: args.disabled
+      };
+
+      // Push the validator to an array
+      validatorData.push({publicKey: validatorPublicKey, operatorPoint: randomOperatorPoint, owner: randomOwner, pod: pod});
+    }
+  });
+
+  it('Update 1000 operators', async () => {
+    for (let i = 0; i < 1000; i++) {
+      let owner = 0;
+      if (i > 249 && i < 500) owner = 1;
+      else if (i > 499 && i < 750) owner = 2;
+      else if (i > 749) owner = 3;
+      await ssvNetworkContract.connect(helpers.DB.owners[owner]).declareOperatorFee(i + 1, 110000000);
+      await progressTime(helpers.CONFIG.declareOperatorFeePeriod);
+      await ssvNetworkContract.connect(helpers.DB.owners[owner]).executeOperatorFee(i + 1);
+    }
+  });
+
+  it('Remove 1000 operators', async () => {
+    for (let i = 0; i < 250; i++) await trackGas(await ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(i + 1), [GasGroup.REMOVE_OPERATOR]);
+    for (let i = 250; i < 500; i++) await trackGas(await ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(i + 1), [GasGroup.REMOVE_OPERATOR]);
+    for (let i = 500; i < 750; i++) await trackGas(await ssvNetworkContract.connect(helpers.DB.owners[2]).removeOperator(i + 1), [GasGroup.REMOVE_OPERATOR]);
+    for (let i = 750; i < 1000; i++) await trackGas(await ssvNetworkContract.connect(helpers.DB.owners[3]).removeOperator(i + 1), [GasGroup.REMOVE_OPERATOR]);
+  });
+
+  it('Remove 1000 validators', async () => {
+    const newValidatorData: any = [];
+
+    for (let i = 0; i < validatorData.length-1; i++) {
+
+      let podData: any;
+
+      // Loop and get latest pod
+      for (let j = validatorData.length-1; j >= 0; j--) {
+        if (validatorData[j].operatorPoint === validatorData[i].operatorPoint && validatorData[j].owner === validatorData[i].owner) {
+          podData = validatorData[j].pod;
+          break;
+        }
+      }
+
+      // Loop through new emits to get even more up to date pod if neeeded
+      for (let j = newValidatorData.length-1; j >= 0; j--) {
+        if (newValidatorData[j].operatorPoint === validatorData[i].operatorPoint && newValidatorData[j].owner === validatorData[i].owner) {
+          podData = newValidatorData[j].pod;
+          break;
+        }
+      }
+
+      // Remove a validator
+      const { eventsByName } = await trackGas(await ssvNetworkContract.connect(helpers.DB.owners[validatorData[i].owner]).removeValidator(
+        validatorData[i].publicKey,
+        [validatorData[i].operatorPoint, validatorData[i].operatorPoint+1, validatorData[i].operatorPoint+2, validatorData[i].operatorPoint+3],
+        podData
+      ), [GasGroup.REMOVE_VALIDATOR]);
+
+      // Get removal event
+      const args = (eventsByName.PodMetadataUpdated[0].args).pod;
+
+      // Form a pod struct
+      const pod =   {
+        validatorCount: args.validatorCount,
+        networkFee: args.networkFee,
+        networkFeeIndex: args.networkFeeIndex,
+        index: args.index,
+        balance: args.balance,
+        disabled: args.disabled
+      };
+
+      // Save new validator data
+      newValidatorData.push({publicKey: validatorData[i].validatorPublicKey, operatorPoint: validatorData[i].operatorPoint, owner: validatorData[i].owner, pod: pod});
+    }
+  });
 
 });
