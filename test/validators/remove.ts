@@ -72,7 +72,6 @@ describe('Remove Validator Tests', () => {
 
   it('Remove validator with removed operator in a pod', async () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
       firstPod.operatorIds,

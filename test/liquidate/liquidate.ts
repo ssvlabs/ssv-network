@@ -58,8 +58,8 @@ describe('Liquidate Tests', () => {
   });
 
   it('Liquidatable with removed operator', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await ssvNetworkContract.removeOperator(1);
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
     expect(await ssvNetworkContract.isLiquidatable(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod)).to.equal(true);
   });
 
@@ -74,8 +74,8 @@ describe('Liquidate Tests', () => {
   });
 
   it('Liquidate validator with removed operator in a pod', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await ssvNetworkContract.removeOperator(1);
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation); // TMP IT FAILS WITH PROGRESS BLOCK, CRITICAL ERROR IN INDEX MATH LOGIC
     await trackGas(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
       firstPod.operatorIds,
