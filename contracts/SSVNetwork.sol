@@ -169,11 +169,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         operator.snapshot = _getSnapshot(operator, uint64(block.number));
 
+        delete _operators[operatorId];
+        
         if (operator.snapshot.balance > 0) {
             _transferOperatorBalanceUnsafe(operatorId, operator.snapshot.balance.expand());
         }
-
-        delete _operators[operatorId];
+        
         emit OperatorRemoved(operatorId);
     }
 
@@ -285,11 +286,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             }
         }
 
-        if (amount > 0) {
-            _deposit(msg.sender, hashedPod, amount.shrink());
-            pod.balance += amount.shrink();
-        }
-
+        pod.balance += amount.shrink();
         pod = _updatePodData(pod, podIndex, 1);
 
         if (_liquidatable(_podBalance(pod, podIndex), pod.validatorCount, burnRate)) {
@@ -306,6 +303,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
+
+        if (amount > 0) {
+            _deposit(msg.sender, hashedPod, amount.shrink());
+        }
 
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
         emit PodMetadataUpdated(msg.sender, operatorIds, pod);
@@ -390,12 +391,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             }
         }
 
+        uint256 podBalance = _podBalance(pod, podIndex).expand();
+
         {
             if (!_liquidatable(_podBalance(pod, podIndex), pod.validatorCount, burnRate)) {
                 revert PodNotLiquidatable();
             }
-
-            _token.transfer(msg.sender, _podBalance(pod, podIndex).expand());
 
             pod.disabled = true;
             pod.balance = 0;
@@ -410,6 +411,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
+
+        _token.transfer(msg.sender, podBalance);
 
         emit PodLiquidated(owner, operatorIds);
         emit PodMetadataUpdated(owner, operatorIds, pod);
@@ -444,11 +447,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         bytes32 hashedPod = _validateHashedPod(msg.sender, operatorIds, pod);
 
-        if (amount > 0) {
-            _deposit(msg.sender, hashedPod, amount.shrink());
-            pod.balance += amount.shrink();
-        }
-
+        pod.balance += amount.shrink();
         pod.disabled = false;
         pod.index = podIndex;
 
@@ -466,6 +465,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
+
+        if (amount > 0) {
+            _deposit(msg.sender, hashedPod, amount.shrink());
+        }
 
         emit PodEnabled(msg.sender, operatorIds);
         emit PodMetadataUpdated(msg.sender, operatorIds, pod);
@@ -489,9 +492,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         pod.balance += shrunkAmount;
 
-        _deposit(owner, hashedPod, shrunkAmount);
-
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
+
+        _deposit(owner, hashedPod, shrunkAmount);
 
         emit PodMetadataUpdated(owner, operatorIds, pod);
     }
@@ -509,9 +512,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         pod.balance += shrunkAmount;
 
-        _deposit(msg.sender, hashedPod, shrunkAmount);
-
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
+        
+        _deposit(msg.sender, hashedPod, shrunkAmount);
 
         emit PodMetadataUpdated(msg.sender, operatorIds, pod);
     }
@@ -589,9 +592,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         pod.balance -= shrunkAmount;
 
-        _token.transfer(msg.sender, amount);
-
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
+
+        _token.transfer(msg.sender, amount);
 
         emit PodFundsWithdrawal(msg.sender, operatorIds, amount);
         emit PodMetadataUpdated(msg.sender, operatorIds, pod);
