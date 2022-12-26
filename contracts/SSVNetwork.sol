@@ -262,7 +262,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                     }
                     operator.snapshot = _getSnapshot(operator, uint64(block.number));
                     ++operator.validatorCount;
-                    podIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
+                    podIndex += operator.snapshot.index;
                     burnRate += operator.fee;
                     _operators[operatorIds[i]] = operator;
                 }
