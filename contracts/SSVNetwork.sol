@@ -600,7 +600,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _networkFee = fee.shrink();
     }
 
-    function withdrawDAOEarnings(uint256 amount) external onlyOwner override {
+    function withdrawNetworkEarnings(uint256 amount) external onlyOwner override {
         DAO memory dao = _dao;
 
         uint64 shrunkAmount = amount.shrink();
@@ -614,7 +614,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _token.transfer(msg.sender, amount);
 
-        emit NetworkFeesWithdrawal(amount, msg.sender);
+        emit NetworkEarningsWithdrawal(amount, msg.sender);
     }
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external onlyOwner override {
@@ -733,7 +733,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _networkFee.expand();
     }
 
-    function getNetworkBalance() external view onlyOwner override returns (uint256) {
+    function getNetworkEarnings() external view override returns (uint256) {
         DAO memory dao = _dao;
         return _networkBalance(dao).expand();
     }

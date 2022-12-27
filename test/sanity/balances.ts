@@ -43,7 +43,7 @@ describe('Balance Tests', () => {
     );
 
     pod1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    initNetworkFeeBalance = await ssvNetworkContract.getNetworkBalance();
+    initNetworkFeeBalance = await ssvNetworkContract.getNetworkEarnings();
   });
 
   it('Check pod balance in three blocks, one after the other', async () => {
@@ -70,24 +70,24 @@ describe('Balance Tests', () => {
 
   it('Check DAO earnings in three blocks, one after the other', async () => {
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.getNetworkBalance() - initNetworkFeeBalance).to.equal(networkFee * 2);
+    expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 2);
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.getNetworkBalance() - initNetworkFeeBalance).to.equal(networkFee * 4);
+    expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4);
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.getNetworkBalance() - initNetworkFeeBalance).to.equal(networkFee * 6);
+    expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 6);
   });
 
   it('Check DAO earnings in two and twelve blocks, after network fee updates', async () => {
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.getNetworkBalance() - initNetworkFeeBalance).to.equal(networkFee * 2);
+    expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 2);
     const newNetworkFee = networkFee * 2;
     await ssvNetworkContract.updateNetworkFee(newNetworkFee);
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.getNetworkBalance() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 2);
+    expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 2);
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.getNetworkBalance() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 4);
+    expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 4);
     await utils.progressBlocks(10);
-    expect(await ssvNetworkContract.getNetworkBalance() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 24);
+    expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 24);
   });
 
   it('Check operators earnings in three blocks, one after the other', async () => {

@@ -117,7 +117,7 @@ interface ISSVNetwork {
      * @param value The amount of tokens withdrawn.
      * @param recipient The recipient address.
      */
-    event NetworkFeesWithdrawal(uint256 value, address recipient);
+    event NetworkEarningsWithdrawal(uint256 value, address recipient);
 
     event PodFundsWithdrawal(address ownerAddress, uint64[] operatorIds, uint256 value);
     event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address ownerAddress);
@@ -275,7 +275,7 @@ interface ISSVNetwork {
 
     function updateNetworkFee(uint256 fee) external;
 
-    function withdrawDAOEarnings(uint256 amount) external;
+    function withdrawNetworkEarnings(uint256 amount) external;
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
@@ -335,7 +335,7 @@ interface ISSVNetwork {
 
     function getNetworkFee() external view returns (uint256);
 
-    function getNetworkBalance() external view returns (uint256);
+    function getNetworkEarnings() external view returns (uint256);
 
     function getOperatorFeeIncreaseLimit() external view returns (uint64);
 
