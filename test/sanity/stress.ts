@@ -51,16 +51,18 @@ describe('Stress Tests', () => {
       }
 
       // Register a validator
-      const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[randomOwner]).registerValidator(
+      const tx = await ssvNetworkContract.connect(helpers.DB.owners[randomOwner]).registerValidator(
         validatorPublicKey,
         [randomOperatorPoint,randomOperatorPoint+1,randomOperatorPoint+2,randomOperatorPoint+3],
         helpers.DataGenerator.shares(0),
         minDepositAmount,
         podData
-      ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+      );
+
+      const receipt = await tx.wait();
 
       // Get the pod event
-      const args = (eventsByName.PodMetadataUpdated[0].args).pod;
+      const args = (receipt.events[4].args[2]);
 
       // Break the pod event to a struct
       const pod =   {
