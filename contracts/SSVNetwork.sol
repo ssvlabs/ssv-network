@@ -173,7 +173,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             _transferOperatorBalanceUnsafe(operatorId, operator.snapshot.balance.expand());
         }
 
-        operator.owner = address(0);
         operator.snapshot.block = 0;
         operator.snapshot.balance = 0;
         operator.validatorCount = 0;
@@ -255,7 +254,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             if (!pod.disabled) {
                 for (uint8 i = 0; i < operatorIds.length; ++i) {
                     Operator memory operator = _operators[operatorIds[i]];
-                    if (operator.owner == address(0)) {
+                    if (operator.snapshot.block == 0) {
                         revert OperatorDoesNotExist();
                     } else if (i+1 < operatorIds.length && operatorIds[i] > operatorIds[i+1]) {
                         revert OperatorsListDoesNotSorted();
@@ -325,7 +324,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             if (!pod.disabled) {
                 for (uint8 i = 0; i < operatorIds.length; ++i) {
                     Operator memory operator = _operators[operatorIds[i]];
-                    if (operator.owner != address(0)) {
+                    if (operator.snapshot.block != 0) {
                         operator.snapshot = _getSnapshot(operator, uint64(block.number));
                         --operator.validatorCount;
                         _operators[operatorIds[i]] = operator;
@@ -371,7 +370,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             for (uint8 i = 0; i < operatorIds.length; ++i) {
                 Operator memory operator = _operators[operatorIds[i]];
                 uint64 currentBlock = uint64(block.number);
-                if (operator.owner != address(0)) {
+                if (operator.snapshot.block != 0) {
                     operator.snapshot = _getSnapshot(operator, currentBlock);
                     operator.validatorCount -= pod.validatorCount;
                     burnRate += operator.fee;
@@ -422,7 +421,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         {
             for (uint8 i = 0; i < operatorIds.length; ++i) {
                 Operator memory operator = _operators[operatorIds[i]];
-                if (operator.owner != address(0)) {
+                if (operator.snapshot.block != 0) {
                     operator.snapshot = _getSnapshot(operator, uint64(block.number));
                     operator.validatorCount += pod.validatorCount;
                     burnRate += operator.fee;
@@ -639,7 +638,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
         Operator memory operator = _operators[operatorId];
 
-        if (operator.owner == address(0)) revert OperatorNotFound();
+        if (operator.snapshot.block == 0) revert OperatorNotFound();
 
         return operator.fee.expand();
     }
@@ -753,7 +752,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function _onlyOperatorOwnerOrContractOwner(uint64 operatorId) private view {
         Operator memory operator = _operators[operatorId];
 
-        if(operator.owner == address(0)) {
+        if(operator.snapshot.block == 0) {
             revert OperatorWithPublicKeyNotExist();
         }
 
