@@ -71,7 +71,8 @@ export const initializeContract = async () => {
     DB.ssvToken.address,
     CONFIG.operatorMaxFeeIncrease,
     CONFIG.declareOperatorFeePeriod,
-    CONFIG.executeOperatorFeePeriod
+    CONFIG.executeOperatorFeePeriod,
+    CONFIG.minimalBlocksBeforeLiquidation
   ]);
 
   await DB.ssvNetwork.contract.deployed();
