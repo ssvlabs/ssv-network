@@ -70,7 +70,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Constants */
     /*************/
 
-    uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6570;
+    uint64 constant LIQUIDATION_MIN_BLOCKS = 50;
     uint64 constant MINIMAL_OPERATOR_FEE = 100000000;
 
     /********************/
@@ -96,7 +96,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     uint64 private _declareOperatorFeePeriod;
     uint64 private _executeOperatorFeePeriod;
     uint64 private _operatorMaxFeeIncrease;
-    uint64 private _minimumBlocksBeforeLiquidation;
+
 
     DAO private _dao;
     IERC20 private _token;
@@ -109,35 +109,31 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 executeOperatorFeePeriod_
     ) external override {
-        __SSVNetwork_init(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_, minimumBlocksBeforeLiquidation_);
+        __SSVNetwork_init(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
     }
 
     function __SSVNetwork_init(
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 executeOperatorFeePeriod_
     ) internal initializer {
         __Ownable_init_unchained();
-        __SSVNetwork_init_unchained(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_, minimumBlocksBeforeLiquidation_);
+        __SSVNetwork_init_unchained(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
     }
 
     function __SSVNetwork_init_unchained(
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 executeOperatorFeePeriod_
     ) internal onlyInitializing {
         _token = token_;
         _operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
         _declareOperatorFeePeriod = declareOperatorFeePeriod_;
         _executeOperatorFeePeriod = executeOperatorFeePeriod_;
-        _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
     }
 
     /*************/
@@ -228,10 +224,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         delete _operatorFeeChangeRequests[operatorId];
 
         emit DeclaredOperatorFeeCancelation(msg.sender, operatorId);
-    }
-
-    function feeRecipientAddress(address recipientAddress) external override {
-        emit FeeRecipientAddressAdded(msg.sender, recipientAddress);
     }
 
     /********************************/
@@ -607,7 +599,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _networkFee = fee.shrink();
     }
 
-    function withdrawNetworkEarnings(uint256 amount) external onlyOwner override {
+    function withdrawDAOEarnings(uint256 amount) external onlyOwner override {
         DAO memory dao = _dao;
 
         uint64 shrunkAmount = amount.shrink();
@@ -621,7 +613,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _token.transfer(msg.sender, amount);
 
-        emit NetworkEarningsWithdrawal(amount, msg.sender);
+        emit NetworkFeesWithdrawal(amount, msg.sender);
     }
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external onlyOwner override {
@@ -639,23 +631,16 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
     }
 
-    function updateLiquidationThresholdPeriod(uint64 blocks) external onlyOwner override {
-        if(blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
-            revert BelowMinimumBlockPeriod();
-        }
-
-        _minimumBlocksBeforeLiquidation = blocks;
-        emit LiquidationThresholdPeriodUpdate(blocks);
-    }
-
     /************************************/
     /* Operator External View Functions */
     /************************************/
 
     function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
-        if (_operators[operatorId].snapshot.block == 0) revert OperatorNotFound();
+        Operator memory operator = _operators[operatorId];
 
-        return _operators[operatorId].fee.expand();
+        if (operator.snapshot.block == 0) revert OperatorNotFound();
+
+        return operator.fee.expand();
     }
 
     function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint256, uint256) {
@@ -668,10 +653,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return (feeChangeRequest.fee.expand(), feeChangeRequest.approvalBeginTime, feeChangeRequest.approvalEndTime);
     }
 
-    function getOperatorById(uint64 operatorId) external view override returns (address owner, uint256 fee, uint32 validatorCount) {
-        if (_operators[operatorId].owner == address(0)) revert OperatorNotFound();
-
-        return (_operators[operatorId].owner, _operators[operatorId].fee.expand(), _operators[operatorId].validatorCount);
+    function feeRecipientAddress(address recipientAddress) external override {
+        emit FeeRecipientAddressAdded(msg.sender, recipientAddress);
     }
 
     /*******************************/
@@ -685,10 +668,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     ) external view override returns (bool) {
         uint64 podIndex;
         uint64 burnRate;
-        for (uint8 i = 0; i < operatorIds.length; ++i) {
-            Operator memory operator = _operators[operatorIds[i]];
-            podIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
-            burnRate += operator.fee;
+        {
+            for (uint8 i = 0; i < operatorIds.length; ++i) {
+                Operator memory operator = _operators[operatorIds[i]];
+                podIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
+                burnRate += operator.fee;
+            }
         }
 
         _validateHashedPod(owner, operatorIds, pod);
@@ -698,23 +683,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function isLiquidated(
         address owner,
-        uint64[] calldata operatorIds,
+        uint64[] memory operatorIds,
         Pod memory pod
     ) external view override returns (bool) {
         _validateHashedPod(owner, operatorIds, pod);
 
         return pod.disabled;
-    }
-
-    function getPodBurnRate(uint64[] memory operatorIds) external view override returns (uint256) {
-        uint64 burnRate;
-        for (uint8 i = 0; i < operatorIds.length; ++i) {
-            Operator memory operator = _operators[operatorIds[i]];
-            if (operator.owner != address(0)) {
-                burnRate += operator.fee;
-            }
-        }
-        return burnRate.expand();
     }
 
     /***********************************/
@@ -754,7 +728,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _networkFee.expand();
     }
 
-    function getNetworkEarnings() external view override returns (uint256) {
+    function getNetworkBalance() external view onlyOwner override returns (uint256) {
         DAO memory dao = _dao;
         return _networkBalance(dao).expand();
     }
@@ -769,10 +743,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function getDeclaredOperatorFeePeriod() external view override returns (uint64) {
         return _declareOperatorFeePeriod;
-    }
-
-    function getLiquidationThresholdPeriod() external view override returns (uint64) {
-        return _minimumBlocksBeforeLiquidation;
     }
 
     /********************************/
@@ -880,7 +850,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function _liquidatable(uint64 balance, uint64 validatorCount, uint64 burnRate) private view returns (bool) {
-        return balance < _minimumBlocksBeforeLiquidation * (burnRate + _networkFee) * validatorCount;
+        return balance < LIQUIDATION_MIN_BLOCKS * (burnRate + _networkFee) * validatorCount;
     }
 
     /*****************************/

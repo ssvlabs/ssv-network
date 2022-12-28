@@ -101,11 +101,9 @@ interface ISSVNetwork {
 
     event OperatorFeeIncreaseLimitUpdate(uint64 value);
 
-    event DeclareOperatorFeePeriodUpdate(uint64 value);
+    event DeclareOperatorFeePeriodUpdate(uint256 value);
 
-    event ExecuteOperatorFeePeriodUpdate(uint64 value);
-
-    event LiquidationThresholdPeriodUpdate(uint64 value);
+    event ExecuteOperatorFeePeriodUpdate(uint256 value);
 
     /**
      * @dev Emitted when the network fee is updated.
@@ -119,7 +117,7 @@ interface ISSVNetwork {
      * @param value The amount of tokens withdrawn.
      * @param recipient The recipient address.
      */
-    event NetworkEarningsWithdrawal(uint256 value, address recipient);
+    event NetworkFeesWithdrawal(uint256 value, address recipient);
 
     event PodFundsWithdrawal(address ownerAddress, uint64[] operatorIds, uint256 value);
     event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address ownerAddress);
@@ -165,7 +163,6 @@ interface ISSVNetwork {
     error BurnRatePositive();
     error PodDataIsBroken();
     error OperatorsListDoesNotSorted();
-    error BelowMinimumBlockPeriod();
 
     /****************/
     /* Initializers */
@@ -182,8 +179,7 @@ interface ISSVNetwork {
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 executeOperatorFeePeriod_
     ) external;
 
     /*******************************/
@@ -211,8 +207,6 @@ interface ISSVNetwork {
     function executeOperatorFee(uint64 operatorId) external;
 
     function cancelDeclaredOperatorFee(uint64 operatorId) external;
-
-    function feeRecipientAddress(address feeRecipientAddress) external;
 
     /********************************/
     /* Validator External Functions */
@@ -281,7 +275,7 @@ interface ISSVNetwork {
 
     function updateNetworkFee(uint256 fee) external;
 
-    function withdrawNetworkEarnings(uint256 amount) external;
+    function withdrawDAOEarnings(uint256 amount) external;
 
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
@@ -289,7 +283,6 @@ interface ISSVNetwork {
 
     function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
 
-    function updateLiquidationThresholdPeriod(uint64 blocks) external;
 
     /************************************/
     /* Operator External View Functions */
@@ -299,7 +292,7 @@ interface ISSVNetwork {
 
     function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
 
-    function getOperatorById(uint64 operatorId) external view returns (address owner, uint256 fee, uint32 validatorCount);
+    function feeRecipientAddress(address feeRecipientAddress) external;
 
     /*******************************/
     /* Pod External View Functions */
@@ -316,8 +309,6 @@ interface ISSVNetwork {
         uint64[] memory operatorIds,
         Pod memory pod
     ) external view returns(bool);
-
-    function getPodBurnRate(uint64[] memory operatorIds) external view returns (uint256);
 
     /***********************************/
     /* Balance External View Functions */
@@ -344,13 +335,11 @@ interface ISSVNetwork {
 
     function getNetworkFee() external view returns (uint256);
 
-    function getNetworkEarnings() external view returns (uint256);
+    function getNetworkBalance() external view returns (uint256);
 
     function getOperatorFeeIncreaseLimit() external view returns (uint64);
 
     function getExecuteOperatorFeePeriod() external view returns (uint64);
 
     function getDeclaredOperatorFeePeriod() external view returns (uint64);
-
-    function getLiquidationThresholdPeriod() external view returns (uint64);
 }
