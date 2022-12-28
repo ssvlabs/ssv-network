@@ -45,7 +45,7 @@ export const initializeContract = async () => {
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY
     minimalOperatorFee: 100000000,
-    minimalBlocksBeforeLiquidation: 50,
+    minimalBlocksBeforeLiquidation: 6570,
   };
 
   DB = {
