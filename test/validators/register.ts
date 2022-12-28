@@ -548,4 +548,12 @@ describe('Register Validator Tests', () => {
       }
     )).to.be.revertedWith('ValidatorAlreadyExists');
   });
+
+  it('Get pod burn rate', async () => {
+    expect(await ssvNetworkContract.getPodBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
+  });
+
+  it('Get pod burn rate by not existed operator in the list', async () => {
+    expect(await ssvNetworkContract.getPodBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
+  });
 });

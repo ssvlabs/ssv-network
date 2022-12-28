@@ -52,31 +52,30 @@ describe('DAO Network Fee Withdraw Tests', () => {
     // Mint tokens
     await helpers.DB.ssvToken.mint(ssvNetworkContract.address, minDepositAmount);
   });
-  
-  it('Withdraw network earnings emits "NetworkFeesWithdrawal"', async () => {
-    const amount = await ssvNetworkContract.getNetworkBalance();
-    await expect(ssvNetworkContract.withdrawDAOEarnings(amount
-    )).to.emit(ssvNetworkContract, 'NetworkFeesWithdrawal').withArgs(amount, helpers.DB.owners[0].address);
+
+  it('Withdraw network earnings emits "NetworkEarningsWithdrawal"', async () => {
+    const amount = await ssvNetworkContract.getNetworkEarnings();
+    await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
+    )).to.emit(ssvNetworkContract, 'NetworkEarningsWithdrawal').withArgs(amount, helpers.DB.owners[0].address);
   });
 
   it('Get withdrawable network earnings', async () => {
-    expect(await ssvNetworkContract.getNetworkBalance()).to.above(0);
+    expect(await ssvNetworkContract.getNetworkEarnings()).to.above(0);
   });
 
-  it('Get withdrawable network earnings reverts "caller is not the owner"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkBalance(
-    )).to.be.revertedWith('caller is not the owner');
+  it('Get withdrawable network earnings as not owner', async () => {
+    await ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkEarnings();
   });
 
   it('Withdraw network earnings with not enough balance reverts "NotEnoughBalance"', async () => {
-    const amount = await ssvNetworkContract.getNetworkBalance() * 2;
-    await expect(ssvNetworkContract.withdrawDAOEarnings(amount
+    const amount = await ssvNetworkContract.getNetworkEarnings() * 2;
+    await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
     )).to.be.revertedWith('NotEnoughBalance');
   });
 
   it('Withdraw network earnings from an address thats not the DAO reverts "caller is not the owner"', async () => {
-    const amount = await ssvNetworkContract.getNetworkBalance();
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawDAOEarnings(amount
+    const amount = await ssvNetworkContract.getNetworkEarnings();
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawNetworkEarnings(amount
     )).to.be.revertedWith('caller is not the owner');
   });
 });
