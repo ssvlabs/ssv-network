@@ -130,7 +130,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
         disabled: false
       }
     ), gasGroups);
-    args = result.eventsByName.PodMetadataUpdated[0].args;
+    args = result.eventsByName.ValidatorAdded[0].args;
 
     DB.validators.push({ publicKey, operatorIds, shares });
     validators.push({ publicKey, shares });

@@ -49,7 +49,7 @@ describe('Liquidate Tests', () => {
         disabled: false
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    firstPod = register.eventsByName.PodMetadataUpdated[0].args;
+    firstPod = register.eventsByName.ValidatorAdded[0].args;
   });
 
   it('Get if the pod is liquidatable', async () => {
@@ -90,7 +90,7 @@ describe('Liquidate Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -132,7 +132,7 @@ describe('Liquidate Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
 
     await expect(ssvNetworkContract.liquidatePod(
       firstPod.ownerAddress,
@@ -148,7 +148,7 @@ describe('Liquidate Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
 
     expect(await ssvNetworkContract.isLiquidated(firstPod.ownerAddress, firstPod.operatorIds, updatedPod.pod)).to.equal(true);
   });
@@ -160,7 +160,7 @@ describe('Liquidate Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
 
     await expect(ssvNetworkContract.isLiquidated(helpers.DB.owners[0].address, firstPod.operatorIds, updatedPod.pod)).to.be.revertedWith('PodNotExists');
   });

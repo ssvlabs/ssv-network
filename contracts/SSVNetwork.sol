@@ -308,8 +308,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
 
-        emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares);
-        emit PodMetadataUpdated(msg.sender, operatorIds, pod);
+        emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares, pod);
     }
 
     function removeValidator(
@@ -359,8 +358,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
 
-        emit ValidatorRemoved(msg.sender, operatorIds, publicKey);
-        emit PodMetadataUpdated(msg.sender, operatorIds, pod);
+        emit ValidatorRemoved(msg.sender, operatorIds, publicKey, pod);
     }
 
     function liquidatePod(
@@ -410,8 +408,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
 
-        emit PodLiquidated(owner, operatorIds);
-        emit PodMetadataUpdated(owner, operatorIds, pod);
+        emit PodLiquidated(owner, operatorIds, pod);
     }
 
     function reactivatePod(
@@ -465,8 +462,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
 
-        emit PodEnabled(msg.sender, operatorIds);
-        emit PodMetadataUpdated(msg.sender, operatorIds, pod);
+        emit PodEnabled(msg.sender, operatorIds, pod);
     }
 
     /******************************/

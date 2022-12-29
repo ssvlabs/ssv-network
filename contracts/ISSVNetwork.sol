@@ -47,23 +47,27 @@ interface ISSVNetwork {
      * @param publicKey The public key of a validator.
      * @param operatorIds The operator ids list.
      * @param shares snappy compressed shares(a set of encrypted and public shares).
+     * @param pod All the pod data.
      */
     event ValidatorAdded(
         address ownerAddress,
         uint64[] operatorIds,
         bytes publicKey,
-        bytes shares
+        bytes shares,
+        Pod pod
     );
 
     /**
      * @dev Emitted when the validator is removed.
      * @param publicKey The public key of a validator.
      * @param operatorIds The operator ids list.
+     * @param pod All the pod data.
      */
     event ValidatorRemoved(
         address ownerAddress,
         uint64[] operatorIds,
-        bytes publicKey
+        bytes publicKey,
+        Pod pod
     );
 
     event OperatorFeeDeclaration(
@@ -95,9 +99,9 @@ interface ISSVNetwork {
         uint256 fee
     );
 
-    event PodLiquidated(address ownerAddress, uint64[] operatorIds);
+    event PodLiquidated(address ownerAddress, uint64[] operatorIds, Pod pod);
 
-    event PodEnabled(address ownerAddress, uint64[] operatorIds);
+    event PodEnabled(address ownerAddress, uint64[] operatorIds, Pod pod);
 
     event OperatorFeeIncreaseLimitUpdate(uint64 value);
 
