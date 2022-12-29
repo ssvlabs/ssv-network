@@ -51,7 +51,7 @@ describe('Remove Validator Tests', () => {
         disabled: false
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    firstPod = register.eventsByName.PodMetadataUpdated[0].args;
+    firstPod = register.eventsByName.ValidatorAdded[0].args;
   });
 
   it('Remove validator emits ValidatorRemoved event', async () => {
@@ -110,7 +110,7 @@ describe('Remove Validator Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.REMOVE_VALIDATOR]);
-    const updatedPod = remove.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = remove.eventsByName.ValidatorRemoved[0].args;
 
     // Re-register validator
     const newRegister = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -120,7 +120,7 @@ describe('Remove Validator Tests', () => {
       0,
       updatedPod.pod
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
-    const afterRegisterPod = newRegister.eventsByName.PodMetadataUpdated[0].args;
+    const afterRegisterPod = newRegister.eventsByName.ValidatorAdded[0].args;
 
     // Remove the validator again
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
@@ -137,7 +137,7 @@ describe('Remove Validator Tests', () => {
       firstPod.operatorIds,
       firstPod.pod
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
 
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),

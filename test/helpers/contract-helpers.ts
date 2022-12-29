@@ -45,7 +45,7 @@ export const initializeContract = async () => {
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY
     minimalOperatorFee: 100000000,
-    minimalBlocksBeforeLiquidation: 50,
+    minimalBlocksBeforeLiquidation: 6570,
   };
 
   DB = {
@@ -71,7 +71,8 @@ export const initializeContract = async () => {
     DB.ssvToken.address,
     CONFIG.operatorMaxFeeIncrease,
     CONFIG.declareOperatorFeePeriod,
-    CONFIG.executeOperatorFeePeriod
+    CONFIG.executeOperatorFeePeriod,
+    CONFIG.minimalBlocksBeforeLiquidation
   ]);
 
   await DB.ssvNetwork.contract.deployed();
@@ -129,7 +130,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
         disabled: false
       }
     ), gasGroups);
-    args = result.eventsByName.PodMetadataUpdated[0].args;
+    args = result.eventsByName.ValidatorAdded[0].args;
 
     DB.validators.push({ publicKey, operatorIds, shares });
     validators.push({ publicKey, shares });

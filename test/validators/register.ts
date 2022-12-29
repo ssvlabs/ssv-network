@@ -69,7 +69,7 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -98,7 +98,7 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -143,7 +143,7 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
       [1,2,3,4],
@@ -190,7 +190,7 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -219,7 +219,7 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -264,7 +264,7 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
       [1,2,3,4,5,6,7],
@@ -311,7 +311,7 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -340,7 +340,7 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -385,7 +385,7 @@ describe('Register Validator Tests', () => {
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
-    const args = eventsByName.PodMetadataUpdated[0].args;
+    const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
       [1,2,3,4,5,6,7,8,9,10,11,12,13],
@@ -547,5 +547,13 @@ describe('Register Validator Tests', () => {
         disabled: false
       }
     )).to.be.revertedWith('ValidatorAlreadyExists');
+  });
+
+  it('Get pod burn rate', async () => {
+    expect(await ssvNetworkContract.getPodBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
+  });
+
+  it('Get pod burn rate by not existed operator in the list', async () => {
+    expect(await ssvNetworkContract.getPodBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
   });
 });

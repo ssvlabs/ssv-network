@@ -50,13 +50,13 @@ describe('Reactivate Tests', () => {
         disabled: false
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    firstPod = register.eventsByName.PodMetadataUpdated[0].args;
+    firstPod = register.eventsByName.ValidatorAdded[0].args;
   });
 
   it('Reactivate a disabled pod emits "PodEnabled"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(updatedPod.operatorIds, minDepositAmount, updatedPod.pod)).to.emit(ssvNetworkContract, 'PodEnabled');
@@ -65,14 +65,14 @@ describe('Reactivate Tests', () => {
   it('Reactivate with 0 deposit and no validators emits PodEnabled', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
 
     const remove = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
       firstPod.operatorIds,
       updatedPod.pod
     ), [GasGroup.REMOVE_VALIDATOR]);
-    const updatedPodAfrerRemove = remove.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPodAfrerRemove = remove.eventsByName.ValidatorRemoved[0].args;
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(updatedPodAfrerRemove.operatorIds, 0, updatedPodAfrerRemove.pod)).to.emit(ssvNetworkContract, 'PodEnabled');
   });
@@ -84,7 +84,7 @@ describe('Reactivate Tests', () => {
   it('Reactivate a pod when the amount is not enough reverts "NegativeBalance"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(updatedPod.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedPod.pod)).to.be.revertedWith('NotEnoughBalance');
@@ -93,7 +93,7 @@ describe('Reactivate Tests', () => {
   it('Reactivate a pod with a removed operator in the cluster', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(firstPod.ownerAddress, firstPod.operatorIds, firstPod.pod), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodMetadataUpdated[0].args;
+    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
     await ssvNetworkContract.removeOperator(1);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);

@@ -32,4 +32,24 @@ describe('Register Operator Tests', () => {
       '10'
     )).to.be.revertedWith('FeeTooLow');
   });
+
+  it('Get operator by id', async () => {
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(0),
+      helpers.CONFIG.minimalOperatorFee,
+    ), [GasGroup.REGISTER_OPERATOR]);
+
+    expect((await ssvNetworkContract.getOperatorById(1)).owner).to.equal(helpers.DB.owners[1].address);
+    expect((await ssvNetworkContract.getOperatorById(1)).fee).to.equal(helpers.CONFIG.minimalOperatorFee);
+    expect((await ssvNetworkContract.getOperatorById(1)).validatorCount).to.equal(0);
+  });
+
+  it('Get operator by id reverts "OperatorNotFound"', async () => {
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(0),
+      helpers.CONFIG.minimalOperatorFee,
+    ), [GasGroup.REGISTER_OPERATOR]);
+
+    await expect(ssvNetworkContract.getOperatorById(3)).to.be.revertedWith('OperatorNotFound');
+  });
 });
