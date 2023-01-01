@@ -125,13 +125,13 @@ interface ISSVNetwork {
      */
     event NetworkEarningsWithdrawal(uint256 value, address recipient);
 
-    event PodFundsWithdrawal(address ownerAddress, uint64[] operatorIds, uint256 value);
+    event PodFundsWithdrawal(address ownerAddress, uint64[] operatorIds, uint256 value, Pod pod);
     event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address ownerAddress);
 
 
-    event FundsDeposit(uint256 value, bytes32 hashedPod, address owner);
+    event FundsDeposit(uint256 value, uint64[] operatorIds, address owner);
 
-    event PodMetadataUpdated(
+    event PodDeposited(
         address ownerAddress,
         uint64[] operatorIds,
         Pod pod

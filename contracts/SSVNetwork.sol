@@ -287,7 +287,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
 
         if (amount > 0) {
-            _deposit(msg.sender, hashedPod, amount.shrink());
+            _deposit(msg.sender, operatorIds, amount.shrink());
             pod.balance += amount.shrink();
         }
 
@@ -440,7 +440,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         bytes32 hashedPod = _validateHashedPod(msg.sender, operatorIds, pod);
 
         if (amount > 0) {
-            _deposit(msg.sender, hashedPod, amount.shrink());
+            _deposit(msg.sender, operatorIds, amount.shrink());
             pod.balance += amount.shrink();
         }
 
@@ -483,11 +483,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         pod.balance += shrunkAmount;
 
-        _deposit(owner, hashedPod, shrunkAmount);
+        _deposit(owner, operatorIds, shrunkAmount);
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
 
-        emit PodMetadataUpdated(owner, operatorIds, pod);
+        emit PodDeposited(owner, operatorIds, pod);
     }
 
     function deposit(
@@ -503,11 +503,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         pod.balance += shrunkAmount;
 
-        _deposit(msg.sender, hashedPod, shrunkAmount);
+        _deposit(msg.sender, operatorIds, shrunkAmount);
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
 
-        emit PodMetadataUpdated(msg.sender, operatorIds, pod);
+        emit PodDeposited(msg.sender, operatorIds, pod);
     }
 
     function withdrawOperatorBalance(uint64 operatorId, uint256 amount) external override {
@@ -583,8 +583,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
 
-        emit PodFundsWithdrawal(msg.sender, operatorIds, amount);
-        emit PodMetadataUpdated(msg.sender, operatorIds, pod);
+        emit PodFundsWithdrawal(msg.sender, operatorIds, amount, pod);
     }
 
     /**************************/
@@ -883,9 +882,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Balance Private Functions */
     /*****************************/
 
-    function _deposit(address owner, bytes32 hashedPod, uint64 amount) private {
+    function _deposit(address owner, uint64[] memory operatorIds, uint64 amount) private {
         _token.transferFrom(msg.sender, address(this), amount.expand());
-        emit FundsDeposit(amount.expand(), hashedPod, owner);
+        emit FundsDeposit(amount.expand(), operatorIds, owner);
     }
 
     function _updateNetworkFeeIndex() private {
