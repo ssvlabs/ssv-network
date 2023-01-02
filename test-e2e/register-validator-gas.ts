@@ -224,8 +224,8 @@ describe('Register Validator Gas Tests', () => {
     gasTable.push({ Operator_Count: 13, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
 
     // Log the table
-    const transformed = gasTable.reduce((acc: any, {Operator_Count, ...x}) => { acc[Operator_Count] = x; return acc;}, {});
-    console.log('First pod ever: ' + firstPodEverGas);
-    console.table(transformed);
+    const parsedGasTable = gasTable.reduce((acc: any, {Operator_Count, ...x}) => { acc[Operator_Count] = x; return acc;}, {});
+    console.log(`First validator ever: ${firstPodEverGas}`);
+    console.table(parsedGasTable);
   });
 });
