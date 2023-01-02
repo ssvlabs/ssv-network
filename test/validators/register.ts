@@ -6,7 +6,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, minDepositAmount: any;
 
-describe.only('Register Validator Tests', () => {
+describe('Register Validator Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     ssvNetworkContract = (await helpers.initializeContract()).contract;
@@ -34,7 +34,7 @@ describe.only('Register Validator Tests', () => {
     );
   });
 
-  it('4 operators: Register 1 new validator gas usage', async () => {
+  it('4 operators: Register 1 new validator gas usage (ECC shares)', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -52,7 +52,7 @@ describe.only('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('4 operators: Register 2 validators in same pod gas usage', async () => {
+  it('4 operators: Register 2 validators in same pod gas usage (ECC shares)', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -81,7 +81,7 @@ describe.only('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
 
-  it('4 operators: Register 2 validators in same pod and 1 validator in new pod gas usage', async () => {
+  it('4 operators: Register 2 validators in same pod and 1 validator in new pod gas usage (ECC shares)', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -126,7 +126,7 @@ describe.only('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('4 operators: Register 2 validators in same pod with one time deposit gas usage', async () => {
+  it('4 operators: Register 2 validators in same pod with one time deposit gas usage (ECC shares)', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -151,6 +151,125 @@ describe.only('Register Validator Tests', () => {
       0,
       args.pod
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT]);
+  });
+
+  it('4 operators: Register 1 new validator gas usage (RSA shares)', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      helpers.DataGenerator.cluster.new(),
+      helpers.DataGenerator.sharesRSA(),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_RSA]);
+  });
+
+  it('4 operators: Register 2 validators in same pod gas usage (RSA shares)', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1,2,3,4],
+      helpers.DataGenerator.sharesRSA(),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_RSA]);
+
+    const args = eventsByName.ValidatorAdded[0].args;
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1,2,3,4],
+      helpers.DataGenerator.sharesRSA(),
+      minDepositAmount,
+      args.pod
+    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_RSA]);
+  });
+
+  it('4 operators: Register 2 validators in same pod and 1 validator in new pod gas usage (RSA shares)', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1,2,3,4],
+      helpers.DataGenerator.sharesRSA(),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_RSA]);
+
+    const args = eventsByName.ValidatorAdded[0].args;
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1,2,3,4],
+      helpers.DataGenerator.sharesRSA(),
+      minDepositAmount,
+      args.pod
+    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_RSA]);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
+      helpers.DataGenerator.publicKey(4),
+      [2,3,4,5],
+      helpers.DataGenerator.sharesRSA(),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_RSA]);
+  });
+
+  it('4 operators: Register 2 validators in same pod with one time deposit gas usage (RSA shares)', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1,2,3,4],
+      helpers.DataGenerator.sharesRSA(),
+      `${minDepositAmount*2}`,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_RSA]);
+
+    const args = eventsByName.ValidatorAdded[0].args;
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1,2,3,4],
+      helpers.DataGenerator.sharesRSA(),
+      0,
+      args.pod
+    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT_RSA]);
   });
 
   // 7 operators
