@@ -4,7 +4,7 @@ import * as helpers from '../test/helpers/contract-helpers';
 // Declare globals
 let ssvNetworkContract: any, minDepositAmount: any;
 type gasStruct = {
-  Operator_Count: number,
+  Operators: number,
   New_Pod: number,
   Second_Val_With_Deposit: number,
   Third_Val_No_Deposit: number,
@@ -89,7 +89,7 @@ describe('Register Validator Gas Tests', () => {
     const receipt3 = await tx3.wait();
 
     // Save the gas costs
-    gasTable.push({ Operator_Count: 4, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
+    gasTable.push({ Operators: 4, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
   });
 
   it('7 Operators Gas Usage', async () => {
@@ -133,7 +133,7 @@ describe('Register Validator Gas Tests', () => {
     const receipt3 = await tx3.wait();
 
     // Save the gas costs
-    gasTable.push({ Operator_Count: 7, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
+    gasTable.push({ Operators: 7, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
   });
 
   it('10 Operators Gas Usage', async () => {
@@ -177,7 +177,7 @@ describe('Register Validator Gas Tests', () => {
     const receipt3 = await tx3.wait();
 
     // Save the gas costs
-    gasTable.push({ Operator_Count: 10, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
+    gasTable.push({ Operators: 10, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
   });
 
   it('13 Operators Gas Usage', async () => {
@@ -221,11 +221,10 @@ describe('Register Validator Gas Tests', () => {
     const receipt3 = await tx3.wait();
 
     // Save the gas costs
-    gasTable.push({ Operator_Count: 13, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
+    gasTable.push({ Operators: 13, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
 
     // Log the table
-    const parsedGasTable = gasTable.reduce((acc: any, {Operator_Count, ...x}) => { acc[Operator_Count] = x; return acc;}, {});
     console.log(`First validator ever: ${firstPodEverGas}`);
-    console.table(parsedGasTable);
+    console.table(gasTable);
   });
 });
