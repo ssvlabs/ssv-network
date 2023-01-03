@@ -235,7 +235,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /********************************/
     function registerValidator(
         bytes calldata publicKey,
-        uint64[] calldata operatorIds,
+        uint64[] memory operatorIds,
         bytes calldata shares,
         uint256 amount,
         Pod memory pod
@@ -315,7 +315,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function removeValidator(
         bytes calldata publicKey,
-        uint64[] calldata operatorIds,
+        uint64[] memory operatorIds,
         Pod memory pod
     ) external override {
         uint operatorsLength = operatorIds.length;
@@ -368,7 +368,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function liquidatePod(
         address owner,
-        uint64[] calldata operatorIds,
+        uint64[] memory operatorIds,
         Pod memory pod
     ) external override {
         _validatePodIsNotLiquidated(pod);
@@ -420,7 +420,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function reactivatePod(
-        uint64[] calldata operatorIds,
+        uint64[] memory operatorIds,
         uint256 amount,
         Pod memory pod
     ) external override {
@@ -561,7 +561,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     }
 
     function withdrawPodBalance(
-        uint64[] calldata operatorIds,
+        uint64[] memory operatorIds,
         uint256 amount,
         Pod memory pod
     ) external override {
@@ -860,7 +860,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Pod Private Functions */
     /*************************/
 
-    function _validateHashedPod(address owner, uint64[] calldata operatorIds, Pod memory pod) private view returns (bytes32) {
+    function _validateHashedPod(address owner, uint64[] memory operatorIds, Pod memory pod) private view returns (bytes32) {
         bytes32 hashedPod = keccak256(abi.encodePacked(owner, operatorIds));
         {
             bytes32 hashedPodData = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
@@ -900,7 +900,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Balance Private Functions */
     /*****************************/
 
-    function _deposit(address owner, uint64[] calldata operatorIds, uint64 amount) private {
+    function _deposit(address owner, uint64[] memory operatorIds, uint64 amount) private {
         _token.transferFrom(msg.sender, address(this), amount.expand());
         emit FundsDeposit(amount.expand(), operatorIds, owner);
     }
