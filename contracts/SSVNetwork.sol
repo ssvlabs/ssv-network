@@ -181,14 +181,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 operatorId,
         uint256 fee
     ) external override onlyOperatorOwnerOrContractOwner(operatorId) {
-        Operator memory operator = _operators[operatorId];
-
         if (fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
 
         uint64 shrunkFee = fee.shrink();
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operator.fee *
+        uint64 maxAllowedFee = (_operators[operatorId].fee *
             (10000 + _operatorMaxFeeIncrease)) / 10000;
 
         if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
@@ -226,10 +224,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     function cancelDeclaredOperatorFee(
         uint64 operatorId
     ) external override onlyOperatorOwnerOrContractOwner(operatorId) {
-        OperatorFeeChangeRequest
-            memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
-
-        if (feeChangeRequest.fee == 0) revert NoPendingFeeChangeRequest();
+        if (_operatorFeeChangeRequests[operatorId].fee == 0)
+            revert NoPendingFeeChangeRequest();
 
         delete _operatorFeeChangeRequests[operatorId];
 
@@ -250,8 +246,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint256 amount,
         Pod memory pod
     ) external override {
+        uint operatorsLength = operatorIds.length;
+
         {
-            _validateOperatorIds(operatorIds);
+            _validateOperatorIds(operatorsLength);
             _validatePublicKey(publicKey);
         }
 
@@ -269,15 +267,15 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 burnRate;
         {
             if (!pod.disabled) {
-                for (uint8 i = 0; i < operatorIds.length; ++i) {
+                for (uint i; i < operatorsLength; ) {
+                    if (i + 1 < operatorsLength) {
+                        if (operatorIds[i] > operatorIds[i + 1]) {
+                            revert OperatorsListDoesNotSorted();
+                        }
+                    }
                     Operator memory operator = _operators[operatorIds[i]];
                     if (operator.snapshot.block == 0) {
                         revert OperatorDoesNotExist();
-                    } else if (
-                        i + 1 < operatorIds.length &&
-                        operatorIds[i] > operatorIds[i + 1]
-                    ) {
-                        revert OperatorsListDoesNotSorted();
                     }
                     operator.snapshot = _getSnapshot(
                         operator,
@@ -287,6 +285,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                     podIndex += operator.snapshot.index;
                     burnRate += operator.fee;
                     _operators[operatorIds[i]] = operator;
+                    unchecked {
+                        ++i;
+                    }
                 }
             }
         }
@@ -319,11 +320,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             }
         }
 
-        if (amount > 0) {
-            _deposit(msg.sender, operatorIds, amount.shrink());
-            pod.balance += amount.shrink();
-        }
-
+        pod.balance += amount.shrink();
         pod = _updatePodData(pod, podIndex, 1);
 
         if (
@@ -356,6 +353,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             )
         );
 
+        if (amount > 0) {
+            _deposit(msg.sender, operatorIds, amount.shrink());
+        }
+
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares, pod);
     }
 
@@ -364,8 +365,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64[] memory operatorIds,
         Pod memory pod
     ) external override {
+        uint operatorsLength = operatorIds.length;
+
         {
-            _validateOperatorIds(operatorIds);
+            _validateOperatorIds(operatorsLength);
             _validatePublicKey(publicKey);
         }
 
@@ -377,7 +380,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 podIndex;
         {
             if (!pod.disabled) {
-                for (uint8 i = 0; i < operatorIds.length; ++i) {
+                for (uint i; i < operatorsLength; ) {
                     Operator memory operator = _operators[operatorIds[i]];
                     if (operator.snapshot.block != 0) {
                         operator.snapshot = _getSnapshot(
@@ -389,6 +392,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                     }
 
                     podIndex += operator.snapshot.index;
+                    unchecked {
+                        ++i;
+                    }
                 }
             }
         }
@@ -433,7 +439,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 podIndex;
         uint64 burnRate;
         {
-            for (uint8 i = 0; i < operatorIds.length; ++i) {
+            uint operatorsLength = operatorIds.length;
+            for (uint i; i < operatorsLength; ) {
                 Operator memory operator = _operators[operatorIds[i]];
                 uint64 currentBlock = uint64(block.number);
                 if (operator.snapshot.block != 0) {
@@ -444,21 +451,19 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 }
 
                 podIndex += operator.snapshot.index;
+                unchecked {
+                    ++i;
+                }
             }
         }
 
         {
-            if (
-                !_liquidatable(
-                    _podBalance(pod, podIndex),
-                    pod.validatorCount,
-                    burnRate
-                )
-            ) {
+            uint64 podBalance = _podBalance(pod, podIndex);
+            if (!_liquidatable(podBalance, pod.validatorCount, burnRate)) {
                 revert PodNotLiquidatable();
             }
 
-            _token.transfer(msg.sender, _podBalance(pod, podIndex).expand());
+            _token.transfer(msg.sender, podBalance.expand());
 
             pod.disabled = true;
             pod.balance = 0;
@@ -498,7 +503,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 podIndex;
         uint64 burnRate;
         {
-            for (uint8 i = 0; i < operatorIds.length; ++i) {
+            uint operatorsLength = operatorIds.length;
+            for (uint i; i < operatorsLength; ) {
                 Operator memory operator = _operators[operatorIds[i]];
                 if (operator.snapshot.block != 0) {
                     operator.snapshot = _getSnapshot(
@@ -511,16 +517,15 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 }
 
                 podIndex += operator.snapshot.index;
+                unchecked {
+                    ++i;
+                }
             }
         }
 
         bytes32 hashedPod = _validateHashedPod(msg.sender, operatorIds, pod);
 
-        if (amount > 0) {
-            _deposit(msg.sender, operatorIds, amount.shrink());
-            pod.balance += amount.shrink();
-        }
-
+        pod.balance += amount.shrink();
         pod.disabled = false;
         pod.index = podIndex;
 
@@ -554,6 +559,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             )
         );
 
+        if (amount > 0) {
+            _deposit(msg.sender, operatorIds, amount.shrink());
+        }
+
         emit PodEnabled(msg.sender, operatorIds, pod);
     }
 
@@ -563,7 +572,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function deposit(
         address owner,
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         uint256 amount,
         Pod memory pod
     ) external override {
@@ -574,8 +583,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         bytes32 hashedPod = _validateHashedPod(owner, operatorIds, pod);
 
         pod.balance += shrunkAmount;
-
-        _deposit(owner, operatorIds, shrunkAmount);
 
         _pods[hashedPod] = keccak256(
             abi.encodePacked(
@@ -588,11 +595,13 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             )
         );
 
+        _deposit(owner, operatorIds, shrunkAmount);
+
         emit PodDeposited(owner, operatorIds, pod);
     }
 
     function deposit(
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         uint256 amount,
         Pod memory pod
     ) external override {
@@ -675,13 +684,17 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 podIndex;
         uint64 burnRate;
         {
-            for (uint8 i = 0; i < operatorIds.length; ++i) {
+            uint operatorsLength = operatorIds.length;
+            for (uint i; i < operatorsLength; ) {
                 Operator memory operator = _operators[operatorIds[i]];
                 podIndex +=
                     operator.snapshot.index +
                     (uint64(block.number) - operator.snapshot.block) *
                     operator.fee;
                 burnRate += operator.fee;
+                unchecked {
+                    ++i;
+                }
             }
         }
 
@@ -702,8 +715,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         pod.balance -= shrunkAmount;
 
-        _token.transfer(msg.sender, amount);
-
         _pods[hashedPod] = keccak256(
             abi.encodePacked(
                 pod.validatorCount,
@@ -714,6 +725,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                 pod.disabled
             )
         );
+
+        _token.transfer(msg.sender, amount);
 
         emit PodFundsWithdrawal(msg.sender, operatorIds, amount, pod);
     }
@@ -839,18 +852,22 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function isLiquidatable(
         address owner,
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         Pod memory pod
     ) external view override returns (bool) {
         uint64 podIndex;
         uint64 burnRate;
-        for (uint8 i = 0; i < operatorIds.length; ++i) {
+        uint operatorsLength = operatorIds.length;
+        for (uint i; i < operatorsLength; ) {
             Operator memory operator = _operators[operatorIds[i]];
             podIndex +=
                 operator.snapshot.index +
                 (uint64(block.number) - operator.snapshot.block) *
                 operator.fee;
             burnRate += operator.fee;
+            unchecked {
+                ++i;
+            }
         }
 
         _validateHashedPod(owner, operatorIds, pod);
@@ -877,10 +894,14 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64[] memory operatorIds
     ) external view override returns (uint256) {
         uint64 burnRate;
-        for (uint8 i = 0; i < operatorIds.length; ++i) {
+        uint operatorsLength = operatorIds.length;
+        for (uint i; i < operatorsLength; ) {
             Operator memory operator = _operators[operatorIds[i]];
             if (operator.owner != address(0)) {
                 burnRate += operator.fee;
+            }
+            unchecked {
+                ++i;
             }
         }
         return burnRate.expand();
@@ -904,19 +925,23 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function podBalanceOf(
         address owner,
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         Pod memory pod
     ) external view override returns (uint256) {
         _validatePodIsNotLiquidated(pod);
 
         uint64 podIndex;
         {
-            for (uint8 i = 0; i < operatorIds.length; ++i) {
+            uint operatorsLength = operatorIds.length;
+            for (uint i; i < operatorsLength; ) {
                 Operator memory operator = _operators[operatorIds[i]];
                 podIndex +=
                     operator.snapshot.index +
                     (uint64(block.number) - operator.snapshot.block) *
                     operator.fee;
+                unchecked {
+                    ++i;
+                }
             }
         }
 
@@ -1027,17 +1052,17 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-    function _validatePublicKey(bytes memory publicKey) private pure {
+    function _validatePublicKey(bytes calldata publicKey) private pure {
         if (publicKey.length != 48) {
             revert InvalidPublicKeyLength();
         }
     }
 
-    function _validateOperatorIds(uint64[] memory operatorIds) private pure {
+    function _validateOperatorIds(uint operatorsLength) private pure {
         if (
-            operatorIds.length < 4 ||
-            operatorIds.length > 13 ||
-            operatorIds.length % 3 != 1
+            operatorsLength < 4 ||
+            operatorsLength > 13 ||
+            operatorsLength % 3 != 1
         ) {
             revert OperatorIdsStructureInvalid();
         }
