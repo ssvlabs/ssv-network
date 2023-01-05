@@ -50,7 +50,7 @@ interface ISSVNetwork {
      * @param cluster All the cluster data.
      */
     event ValidatorAdded(
-        address ownerAddress,
+        address owner,
         uint64[] operatorIds,
         bytes publicKey,
         bytes shares,
@@ -64,14 +64,14 @@ interface ISSVNetwork {
      * @param cluster All the cluster data.
      */
     event ValidatorRemoved(
-        address ownerAddress,
+        address owner,
         uint64[] operatorIds,
         bytes publicKey,
         Cluster cluster
     );
 
     event OperatorFeeDeclaration(
-        address indexed ownerAddress,
+        address indexed owner,
         uint64 operatorId,
         uint256 blockNumber,
         uint256 fee
@@ -84,24 +84,24 @@ interface ISSVNetwork {
      */
     event OperatorFeeSet(uint64 id, uint64 fee);
 
-    event DeclaredOperatorFeeCancelation(address indexed ownerAddress, uint64 operatorId);
+    event OperatorFeeCancelationDeclared(address indexed owner, uint64 operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.
-     * @param ownerAddress Operator's owner.
+     * @param owner Operator's owner.
      * @param blockNumber from which block number.
      * @param fee updated fee value.
      */
     event OperatorFeeExecution(
-        address indexed ownerAddress,
+        address indexed owner,
         uint64 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
 
-    event ClusterLiquidated(address ownerAddress, uint64[] operatorIds, Cluster cluster);
+    event ClusterLiquidated(address owner, uint64[] operatorIds, Cluster cluster);
 
-    event ClusterReactivated(address ownerAddress, uint64[] operatorIds, Cluster cluster);
+    event ClusterReactivated(address owner, uint64[] operatorIds, Cluster cluster);
 
     event OperatorFeeIncreaseLimitUpdate(uint64 value);
 
@@ -123,20 +123,20 @@ interface ISSVNetwork {
      * @param value The amount of tokens withdrawn.
      * @param recipient The recipient address.
      */
-    event NetworkEarningsWithdrawal(uint256 value, address recipient);
+    event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
-    event ClusterFundsWithdrawal(address ownerAddress, uint64[] operatorIds, uint256 value, Cluster cluster);
-    event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address ownerAddress);
+    event ClusterWithdrawn(address owner, uint64[] operatorIds, uint256 value, Cluster cluster);
+    event OperatoWithdrawn(uint256 value, uint64 operatorId, address owner);
 
-    event ClusterDeposited(
-        address ownerAddress,
+    event ClusterDeposit(
+        address owner,
         uint64[] operatorIds,
         uint256 value,
         Cluster cluster
     );
 
-    event FeeRecipientAddressAdded(
-        address ownerAddress,
+    event FeeRecipientAddressUpdated(
+        address owner,
         address recipientAddress
     );
 
@@ -147,27 +147,25 @@ interface ISSVNetwork {
     error CallerNotOwner();
     error FeeTooLow();
     error FeeExceedsIncreaseLimit();
-    error NoPendingFeeChangeRequest();
+    error NoFeeDelcared();
     error ApprovalNotWithinTimeframe();
-    error OperatorWithPublicKeyNotExist();
-    error OperatorNotFound();
     error OperatorDoesNotExist();
-    error NotEnoughBalance();
+    error InsufficientBalance();
     error ValidatorAlreadyExists();
     error ClusterLiquidatable();
     error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
-    error OperatorIdsStructureInvalid();
-    error ValidatorNotOwned();
+    error InvalidOperatorIdsLengthuctureInvalid();
+    error NoValidatorOwnershipned();
     error ParametersMismatch();
-    error NegativeBalance();
+    error InsufficientFunds();
     error ClusterAlreadyEnabled();
     error ClusterIsLiquidated();
-    error ClusterNotExists();
+    error ClusterDoesNotExists();
     error BurnRatePositive();
-    error ClusterDataIsBroken();
-    error OperatorsListDoesNotSorted();
-    error BelowMinimumBlockPeriod();
+    error IncorrectClusterState();
+    error UnsortedOperatorsList();
+    error NewBlockPeriodIsBelowMinimum();
     error ExceedValidatorLimit();
 
     /****************/
@@ -215,7 +213,7 @@ interface ISSVNetwork {
 
     function cancelDeclaredOperatorFee(uint64 operatorId) external;
 
-    function feeRecipientAddress(address feeRecipientAddress) external;
+    function setFeeRecipientAddress(address feeRecipientAddress) external;
 
     /********************************/
     /* Validator External Functions */
@@ -240,7 +238,7 @@ interface ISSVNetwork {
     /**************************/
 
     function liquidate(
-        address ownerAddress,
+        address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external;
@@ -309,13 +307,13 @@ interface ISSVNetwork {
     /*******************************/
 
     function isLiquidatable(
-        address ownerAddress,
+        address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external view returns(bool);
 
     function isLiquidated(
-        address ownerAddress,
+        address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external view returns(bool);
@@ -333,10 +331,10 @@ interface ISSVNetwork {
      * @return index the index of the operator.
      * @return balance the current balance of the operator.
      */
-    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
+    function getOperatorEarnings(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
 
-    function clusterBalanceOf(
-        address ownerAddress,
+    function getBalance(
+        address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external view returns (uint256);

@@ -26,7 +26,7 @@ describe('Operator Fee Tests', () => {
   it('Declare a higher fee gas limit', async () => {
     await trackGas(ssvNetworkContract.declareOperatorFee(1, initialFee - initialFee / 20), [GasGroup.REGISTER_OPERATOR]);
   });
-  
+
   it('Cancel declared fee emits "DeclaredOperatorFeeCancelation"', async () => {
     await ssvNetworkContract.declareOperatorFee(1, initialFee + initialFee / 10);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).cancelDeclaredOperatorFee(1
@@ -54,22 +54,22 @@ describe('Operator Fee Tests', () => {
   it('Get operator fee', async () => {
     expect(await ssvNetworkContract.getOperatorFee(1)).to.equal(initialFee);
   });
-  
-  it('Get fee from operator that does not exist reverts "OperatorNotFound"', async () => {
+
+  it('Get fee from operator that does not exist reverts "OperatorDoesNotExist"', async () => {
     await expect(ssvNetworkContract.getOperatorFee(12
-    )).to.be.revertedWith('OperatorNotFound');
+    )).to.be.revertedWith('OperatorDoesNotExist');
   });
 
   it('Declare fee of operator I do not own reverts "CallerNotOwner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(1, initialFee + initialFee / 10
     )).to.be.revertedWith('CallerNotOwner');
   });
-  
-  it('Declare fee with a wrong Publickey reverts "OperatorWithPublicKeyNotExist"', async () => {
+
+  it('Declare fee with a wrong Publickey reverts "OperatorDoesNotExist"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(12, initialFee + initialFee / 10
-    )).to.be.revertedWith('OperatorWithPublicKeyNotExist');
+    )).to.be.revertedWith('OperatorDoesNotExist');
   });
-  
+
   it('Declare fee with too low of a fee reverts "FeeTooLow"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee - 1
     )).to.be.revertedWith('FeeTooLow');
@@ -80,9 +80,9 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWith('FeeExceedsIncreaseLimit');
   });
 
-  it('Cancel declared fee without a pending request reverts "NoPendingFeeChangeRequest"', async () => {
+  it('Cancel declared fee without a pending request reverts "NoFeeDelcared"', async () => {
     await expect(ssvNetworkContract.cancelDeclaredOperatorFee(1
-    )).to.be.revertedWith('NoPendingFeeChangeRequest');
+    )).to.be.revertedWith('NoFeeDelcared');
   });
 
   it('Cancel declared fee of an operator I do not own reverts "CallerNotOwner"', async () => {
@@ -97,9 +97,9 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWith('CallerNotOwner');
   });
 
-  it('Execute declared fee without a pending request reverts "NoPendingFeeChangeRequest"', async () => {
+  it('Execute declared fee without a pending request reverts "NoFeeDelcared"', async () => {
     await expect(ssvNetworkContract.executeOperatorFee(1
-    )).to.be.revertedWith('NoPendingFeeChangeRequest');
+    )).to.be.revertedWith('NoFeeDelcared');
   });
 
   it('Execute declared fee too early reverts "ApprovalNotWithinTimeframe"', async () => {
@@ -131,7 +131,7 @@ describe('Operator Fee Tests', () => {
     await expect(ssvNetworkContract.updateExecuteOperatorFeePeriod(1200
     )).to.emit(ssvNetworkContract, 'ExecuteOperatorFeePeriodUpdate');
   });
- 
+
   it('DAO get fee increase limit', async () => {
     expect(await ssvNetworkContract.getOperatorFeeIncreaseLimit()).to.equal(helpers.CONFIG.operatorMaxFeeIncrease);
   });
@@ -150,7 +150,7 @@ describe('Operator Fee Tests', () => {
   it('DAO get execute fee period', async () => {
     expect(await ssvNetworkContract.getExecuteOperatorFeePeriod()).to.equal(helpers.CONFIG.executeOperatorFeePeriod);
   });
-  
+
   it('Increase fee from an address thats not the DAO reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).updateOperatorFeeIncreaseLimit(1000
     )).to.be.revertedWith('caller is not the owner');
@@ -166,9 +166,9 @@ describe('Operator Fee Tests', () => {
       .to.be.revertedWith('caller is not the owner');
   });
 
-  it('DAO declared fee without a pending request reverts "NoPendingFeeChangeRequest"', async () => {
+  it('DAO declared fee without a pending request reverts "NoFeeDelcared"', async () => {
     await trackGas(ssvNetworkContract.declareOperatorFee(1, initialFee + initialFee / 10), [GasGroup.REGISTER_OPERATOR]);
     await expect(ssvNetworkContract.getOperatorDeclaredFee(2
-    )).to.be.revertedWith('NoPendingFeeChangeRequest');
+    )).to.be.revertedWith('NoFeeDelcared');
   });
 });

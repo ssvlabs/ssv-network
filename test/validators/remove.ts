@@ -84,7 +84,7 @@ describe('Remove Validator Tests', () => {
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
       firstCluster.cluster
-    )).to.be.revertedWith('ValidatorNotOwned');
+    )).to.be.revertedWith('NoValidatorOwnershipned');
   });
 
   it('Remove validator twice', async () => {
@@ -100,7 +100,7 @@ describe('Remove Validator Tests', () => {
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
       firstCluster.cluster
-    )).to.be.revertedWith('ValidatorNotOwned');
+    )).to.be.revertedWith('NoValidatorOwnershipned');
   });
 
   it('Register / remove validator twice', async () => {

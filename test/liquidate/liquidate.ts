@@ -110,7 +110,7 @@ describe('Liquidate Tests', () => {
     )).to.be.revertedWith('ClusterNotLiquidatable');
   });
 
-  it('Liquidate a cluster that is not liquidatable reverts "ClusterDataIsBroken"', async () => {
+  it('Liquidate a cluster that is not liquidatable reverts "IncorrectClusterState"', async () => {
     await expect(ssvNetworkContract.liquidate(
       firstCluster.ownerAddress,
       firstCluster.operatorIds,
@@ -122,7 +122,7 @@ describe('Liquidate Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('ClusterDataIsBroken');
+    )).to.be.revertedWith('IncorrectClusterState');
   });
 
   it('Liquidate second time a cluster that is liquidated already reverts "ClusterIsLiquidated"', async () => {

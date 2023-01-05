@@ -395,7 +395,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT_13]);
   });
 
-  it('Register validator returns an error - ClusterDataIsBroken', async () => {
+  it('Register validator returns an error - IncorrectClusterState', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
@@ -425,7 +425,7 @@ describe('Register Validator Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('ClusterDataIsBroken');
+    )).to.be.revertedWith('IncorrectClusterState');
   });
 
   it('Register validator returns an error - OperatorDoesNotExist', async () => {
@@ -482,18 +482,18 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register cluster returns an error - The operators list should be in ascending order', async () => {
-    await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWith('OperatorsListDoesNotSorted');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWith('UnsortedOperatorsList');
   });
 
-  it('Invalid operator amount reverts "OperatorIdsStructureInvalid"', async () => {
+  it('Invalid operator amount reverts "InvalidOperatorIdsLengthuctureInvalid"', async () => {
     // 2 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2])).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2])).to.be.revertedWith('InvalidOperatorIdsLengthuctureInvalid');
 
     // 6 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6])).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6])).to.be.revertedWith('InvalidOperatorIdsLengthuctureInvalid');
 
     // 14 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('OperatorIdsStructureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('InvalidOperatorIdsLengthuctureInvalid');
   });
 
   it('Register validator with an invalild public key reverts "InvalidPublicKeyLength"', async () => {
@@ -513,7 +513,7 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWith('InvalidPublicKeyLength');
   });
 
-  it('Register validator returns an error - NotEnoughBalance', async () => {
+  it('Register validator returns an error - InsufficientBalance', async () => {
     await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -528,7 +528,7 @@ describe('Register Validator Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('NotEnoughBalance');
+    )).to.be.revertedWith('InsufficientBalance');
   });
 
   it('Register validator returns an error - ValidatorAlreadyExists', async () => {
