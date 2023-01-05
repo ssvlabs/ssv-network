@@ -3,18 +3,13 @@
 pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-
 interface ISSVNetwork {
-
     struct Pod {
         uint32 validatorCount;
-
         uint64 networkFee;
         uint64 networkFeeIndex;
-
         uint64 index;
         uint64 balance;
-
         bool disabled;
     }
 
@@ -23,12 +18,12 @@ interface ISSVNetwork {
     /**********/
 
     /**
-    * @dev Emitted when a new operator has been added.
-    * @param id operator's ID.
-    * @param owner Operator's ethereum address that can collect fees.
-    * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
-    * @param fee Operator's fee.
-    */
+     * @dev Emitted when a new operator has been added.
+     * @param id operator's ID.
+     * @param owner Operator's ethereum address that can collect fees.
+     * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
+     * @param fee Operator's fee.
+     */
     event OperatorAdded(
         uint64 id,
         address indexed owner,
@@ -84,7 +79,10 @@ interface ISSVNetwork {
      */
     event OperatorFeeSet(uint64 id, uint64 fee);
 
-    event DeclaredOperatorFeeCancelation(address indexed ownerAddress, uint64 operatorId);
+    event DeclaredOperatorFeeCancelation(
+        address indexed ownerAddress,
+        uint64 operatorId
+    );
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -125,17 +123,21 @@ interface ISSVNetwork {
      */
     event NetworkEarningsWithdrawal(uint256 value, address recipient);
 
-    event PodFundsWithdrawal(address ownerAddress, uint64[] operatorIds, uint256 value, Pod pod);
-    event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address ownerAddress);
-
+    event PodFundsWithdrawal(
+        address ownerAddress,
+        uint64[] operatorIds,
+        uint256 value,
+        Pod pod
+    );
+    event OperatorFundsWithdrawal(
+        uint256 value,
+        uint64 operatorId,
+        address ownerAddress
+    );
 
     event FundsDeposit(uint256 value, uint64[] operatorIds, address owner);
 
-    event PodDeposited(
-        address ownerAddress,
-        uint64[] operatorIds,
-        Pod pod
-    );
+    event PodDeposited(address ownerAddress, uint64[] operatorIds, Pod pod);
 
     event FeeRecipientAddressAdded(
         address ownerAddress,
@@ -176,12 +178,12 @@ interface ISSVNetwork {
     /****************/
 
     /**
-    * @dev Initializes the contract.
-    * @param token_ The network token.
-    * @param operatorMaxFeeIncrease_ The step limit to increase the operator fee
-    * @param declareOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
-    * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
-    */
+     * @dev Initializes the contract.
+     * @param token_ The network token.
+     * @param operatorMaxFeeIncrease_ The step limit to increase the operator fee
+     * @param declareOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
+     * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
+     */
     function initialize(
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
@@ -269,7 +271,10 @@ interface ISSVNetwork {
         Pod memory pod
     ) external;
 
-    function withdrawOperatorBalance(uint64 operatorId, uint256 tokenAmount) external;
+    function withdrawOperatorBalance(
+        uint64 operatorId,
+        uint256 tokenAmount
+    ) external;
 
     function withdrawOperatorBalance(uint64 operatorId) external;
 
@@ -287,11 +292,17 @@ interface ISSVNetwork {
 
     function withdrawNetworkEarnings(uint256 amount) external;
 
-    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
+    function updateOperatorFeeIncreaseLimit(
+        uint64 newOperatorMaxFeeIncrease
+    ) external;
 
-    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external;
+    function updateDeclareOperatorFeePeriod(
+        uint64 newDeclareOperatorFeePeriod
+    ) external;
 
-    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
+    function updateExecuteOperatorFeePeriod(
+        uint64 newExecuteOperatorFeePeriod
+    ) external;
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external;
 
@@ -301,9 +312,13 @@ interface ISSVNetwork {
 
     function getOperatorFee(uint64 operatorId) external view returns (uint256);
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
+    function getOperatorDeclaredFee(
+        uint64 operatorId
+    ) external view returns (uint256, uint256, uint256);
 
-    function getOperatorById(uint64 operatorId) external view returns (address owner, uint256 fee, uint32 validatorCount);
+    function getOperatorById(
+        uint64 operatorId
+    ) external view returns (address owner, uint256 fee, uint32 validatorCount);
 
     /*******************************/
     /* Pod External View Functions */
@@ -313,15 +328,17 @@ interface ISSVNetwork {
         address ownerAddress,
         uint64[] memory operatorIds,
         Pod memory pod
-    ) external view returns(bool);
+    ) external view returns (bool);
 
     function isLiquidated(
         address ownerAddress,
         uint64[] memory operatorIds,
         Pod memory pod
-    ) external view returns(bool);
+    ) external view returns (bool);
 
-    function getPodBurnRate(uint64[] memory operatorIds) external view returns (uint256);
+    function getPodBurnRate(
+        uint64[] memory operatorIds
+    ) external view returns (uint256);
 
     /***********************************/
     /* Balance External View Functions */
@@ -334,7 +351,12 @@ interface ISSVNetwork {
      * @return index the index of the operator.
      * @return balance the current balance of the operator.
      */
-    function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
+    function operatorSnapshot(
+        uint64 id
+    )
+        external
+        view
+        returns (uint64 currentBlock, uint64 index, uint256 balance);
 
     function podBalanceOf(
         address ownerAddress,
