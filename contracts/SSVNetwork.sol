@@ -523,7 +523,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit ClusterDeposit(msg.sender, operatorIds, amount, cluster);
     }
 
-    function withdrawOperatorEarning(uint64 operatorId, uint256 amount) external override {
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
         Operator memory operator = _operators[operatorId];
 
         if (operator.owner != msg.sender) revert CallerNotOwner();
