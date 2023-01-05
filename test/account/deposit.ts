@@ -37,9 +37,9 @@ describe('Deposit Tests', () => {
     pod1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('Deposit to a pod I own emits "FundsDeposit', async () => {
+  it('Deposit to a pod I own emits "PodDeposited', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](pod1.args.operatorIds, minDepositAmount, pod1.args.pod)).to.emit(ssvNetworkContract, 'FundsDeposit');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](pod1.args.operatorIds, minDepositAmount, pod1.args.pod)).to.emit(ssvNetworkContract, 'PodDeposited');
   });
 
   it('Deposit to a pod I own gas limits', async () => {
@@ -47,9 +47,9 @@ describe('Deposit Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](pod1.args.operatorIds, minDepositAmount, pod1.args.pod), [GasGroup.DEPOSIT]);
   });
 
-  it('Deposit to a pod I do not own emits "FundsDeposit"', async () => {
+  it('Deposit to a pod I do not own emits "PodDeposited"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[0]).approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](helpers.DB.owners[4].address, pod1.args.operatorIds, minDepositAmount, pod1.args.pod)).to.emit(ssvNetworkContract, 'FundsDeposit');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](helpers.DB.owners[4].address, pod1.args.operatorIds, minDepositAmount, pod1.args.pod)).to.emit(ssvNetworkContract, 'PodDeposited');
   });
 
   it('Deposit to a pod I do not own gas limits', async () => {

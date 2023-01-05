@@ -128,12 +128,10 @@ interface ISSVNetwork {
     event PodFundsWithdrawal(address ownerAddress, uint64[] operatorIds, uint256 value, Pod pod);
     event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address ownerAddress);
 
-
-    event FundsDeposit(uint256 value, uint64[] operatorIds, address owner);
-
     event PodDeposited(
         address ownerAddress,
         uint64[] operatorIds,
+        uint256 value,
         Pod pod
     );
 
@@ -170,6 +168,7 @@ interface ISSVNetwork {
     error PodDataIsBroken();
     error OperatorsListDoesNotSorted();
     error BelowMinimumBlockPeriod();
+    error ExceedValidatorLimit();
 
     /****************/
     /* Initializers */

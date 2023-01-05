@@ -72,6 +72,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6570;
     uint64 constant MINIMAL_OPERATOR_FEE = 100000000;
+    uint32 constant VALIDATORS_PER_OPERATOR_LIMIT = 2000;
 
     /********************/
     /* Global Variables */
@@ -269,7 +270,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                         revert OperatorDoesNotExist();
                     }
                     operator.snapshot = _getSnapshot(operator, uint64(block.number));
-                    ++operator.validatorCount;
+                    if (++operator.validatorCount > VALIDATORS_PER_OPERATOR_LIMIT) {
+                        revert ExceedValidatorLimit();
+                    }
                     podIndex += operator.snapshot.index;
                     burnRate += operator.fee;
                     _operators[operatorIds[i]] = operator;
@@ -497,7 +500,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _deposit(owner, operatorIds, shrunkAmount);
 
-        emit PodDeposited(owner, operatorIds, pod);
+        emit PodDeposited(owner, operatorIds, amount, pod);
     }
 
     function deposit(
@@ -517,7 +520,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _pods[hashedPod] = keccak256(abi.encodePacked(pod.validatorCount, pod.networkFee, pod.networkFeeIndex, pod.index, pod.balance, pod.disabled ));
 
-        emit PodDeposited(msg.sender, operatorIds, pod);
+        emit PodDeposited(msg.sender, operatorIds, amount, pod);
     }
 
     function withdrawOperatorBalance(uint64 operatorId, uint256 amount) external override {
@@ -902,7 +905,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _deposit(address owner, uint64[] memory operatorIds, uint64 amount) private {
         _token.transferFrom(msg.sender, address(this), amount.expand());
-        emit FundsDeposit(amount.expand(), operatorIds, owner);
     }
 
     function _updateNetworkFeeIndex() private {
