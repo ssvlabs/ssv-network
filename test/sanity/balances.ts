@@ -4,7 +4,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, pod1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any, initNetworkFeeBalance: any;
+let ssvNetworkContract: any, cluster1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any, initNetworkFeeBalance: any;
 
 describe('Balance Tests', () => {
   beforeEach(async () => {
@@ -42,30 +42,30 @@ describe('Balance Tests', () => {
       }
     );
 
-    pod1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    cluster1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     initNetworkFeeBalance = await ssvNetworkContract.getNetworkEarnings();
   });
 
-  it('Check pod balance in three blocks, one after the other', async () => {
+  it('Check cluster balance in three blocks, one after the other', async () => {
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.equal(minDepositAmount - burnPerBlock);
+    expect(await ssvNetworkContract.clusterBalanceOf(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.equal(minDepositAmount - burnPerBlock * 2);
+    expect(await ssvNetworkContract.clusterBalanceOf(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2);
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.equal(minDepositAmount - burnPerBlock * 3);
+    expect(await ssvNetworkContract.clusterBalanceOf(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 3);
   });
 
-  it('Check pod balance in two and twelve blocks, after network fee updates', async () => {
+  it('Check cluster balance in two and twelve blocks, after network fee updates', async () => {
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.equal(minDepositAmount - burnPerBlock);
+    expect(await ssvNetworkContract.clusterBalanceOf(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
     const newBurnPerBlock = burnPerBlock + networkFee;
     await ssvNetworkContract.updateNetworkFee(networkFee * 2);
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock);
+    expect(await ssvNetworkContract.clusterBalanceOf(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock);
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 2);
+    expect(await ssvNetworkContract.clusterBalanceOf(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 2);
     await utils.progressBlocks(10);
-    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 12);
+    expect(await ssvNetworkContract.clusterBalanceOf(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 12);
   });
 
   it('Check DAO earnings in three blocks, one after the other', async () => {
@@ -109,14 +109,14 @@ describe('Balance Tests', () => {
     expect((await ssvNetworkContract.operatorSnapshot(4)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 2);
   });
 
-  it('Check pod balance returns error - NegativeBalance', async () => {
+  it('Check cluster balance returns error - NegativeBalance', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
-    await expect(ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.be.revertedWith('NegativeBalance');
+    await expect(ssvNetworkContract.clusterBalanceOf(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.revertedWith('NegativeBalance');
   });
 
-  it('Check pod balance with removed operator', async () => {
+  it('Check cluster balance with removed operator', async () => {
     await ssvNetworkContract.removeOperator(1);
-    expect(await ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).not.equals(0);
+    expect(await ssvNetworkContract.clusterBalanceOf(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).not.equals(0);
   });
 
 });

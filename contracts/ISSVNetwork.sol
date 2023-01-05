@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork {
 
-    struct Pod {
+    struct Cluster {
         uint32 validatorCount;
 
         uint64 networkFee;
@@ -47,27 +47,27 @@ interface ISSVNetwork {
      * @param publicKey The public key of a validator.
      * @param operatorIds The operator ids list.
      * @param shares snappy compressed shares(a set of encrypted and public shares).
-     * @param pod All the pod data.
+     * @param cluster All the cluster data.
      */
     event ValidatorAdded(
         address ownerAddress,
         uint64[] operatorIds,
         bytes publicKey,
         bytes shares,
-        Pod pod
+        Cluster cluster
     );
 
     /**
      * @dev Emitted when the validator is removed.
      * @param publicKey The public key of a validator.
      * @param operatorIds The operator ids list.
-     * @param pod All the pod data.
+     * @param cluster All the cluster data.
      */
     event ValidatorRemoved(
         address ownerAddress,
         uint64[] operatorIds,
         bytes publicKey,
-        Pod pod
+        Cluster cluster
     );
 
     event OperatorFeeDeclaration(
@@ -99,9 +99,9 @@ interface ISSVNetwork {
         uint256 fee
     );
 
-    event PodLiquidated(address ownerAddress, uint64[] operatorIds, Pod pod);
+    event ClusterLiquidated(address ownerAddress, uint64[] operatorIds, Cluster cluster);
 
-    event PodEnabled(address ownerAddress, uint64[] operatorIds, Pod pod);
+    event ClusterReactivated(address ownerAddress, uint64[] operatorIds, Cluster cluster);
 
     event OperatorFeeIncreaseLimitUpdate(uint64 value);
 
@@ -125,14 +125,14 @@ interface ISSVNetwork {
      */
     event NetworkEarningsWithdrawal(uint256 value, address recipient);
 
-    event PodFundsWithdrawal(address ownerAddress, uint64[] operatorIds, uint256 value, Pod pod);
+    event ClusterFundsWithdrawal(address ownerAddress, uint64[] operatorIds, uint256 value, Cluster cluster);
     event OperatorFundsWithdrawal(uint256 value, uint64 operatorId, address ownerAddress);
 
-    event PodDeposited(
+    event ClusterDeposited(
         address ownerAddress,
         uint64[] operatorIds,
         uint256 value,
-        Pod pod
+        Cluster cluster
     );
 
     event FeeRecipientAddressAdded(
@@ -154,18 +154,18 @@ interface ISSVNetwork {
     error OperatorDoesNotExist();
     error NotEnoughBalance();
     error ValidatorAlreadyExists();
-    error PodLiquidatable();
-    error PodNotLiquidatable();
+    error ClusterLiquidatable();
+    error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
     error OperatorIdsStructureInvalid();
     error ValidatorNotOwned();
     error ParametersMismatch();
     error NegativeBalance();
-    error PodAlreadyEnabled();
-    error PodIsLiquidated();
-    error PodNotExists();
+    error ClusterAlreadyEnabled();
+    error ClusterIsLiquidated();
+    error ClusterNotExists();
     error BurnRatePositive();
-    error PodDataIsBroken();
+    error ClusterDataIsBroken();
     error OperatorsListDoesNotSorted();
     error BelowMinimumBlockPeriod();
     error ExceedValidatorLimit();
@@ -224,31 +224,31 @@ interface ISSVNetwork {
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata shares,
+        bytes calldata sharesEncrypted,
         uint256 amount,
-        Pod memory pod
+        Cluster memory cluster
     ) external;
 
     function removeValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        Pod memory pod
+        Cluster memory cluster
     ) external;
 
     /**************************/
-    /* Pod External Functions */
+    /* Cluster External Functions */
     /**************************/
 
-    function liquidatePod(
+    function liquidate(
         address ownerAddress,
         uint64[] memory operatorIds,
-        Pod memory pod
+        Cluster memory cluster
     ) external;
 
-    function reactivatePod(
+    function reactivate(
         uint64[] memory operatorIds,
         uint256 amount,
-        Pod memory pod
+        Cluster memory cluster
     ) external;
 
     /******************************/
@@ -259,23 +259,23 @@ interface ISSVNetwork {
         address owner,
         uint64[] memory operatorIds,
         uint256 amount,
-        Pod memory pod
+        Cluster memory cluster
     ) external;
 
     function deposit(
         uint64[] memory operatorIds,
         uint256 amount,
-        Pod memory pod
+        Cluster memory cluster
     ) external;
 
-    function withdrawOperatorBalance(uint64 operatorId, uint256 tokenAmount) external;
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 tokenAmount) external;
 
-    function withdrawOperatorBalance(uint64 operatorId) external;
+    function withdrawOperatorEarnings(uint64 operatorId) external;
 
-    function withdrawPodBalance(
+    function withdraw(
         uint64[] memory operatorIds,
         uint256 tokenAmount,
-        Pod memory pod
+        Cluster memory cluster
     ) external;
 
     /**************************/
@@ -305,22 +305,22 @@ interface ISSVNetwork {
     function getOperatorById(uint64 operatorId) external view returns (address owner, uint256 fee, uint32 validatorCount);
 
     /*******************************/
-    /* Pod External View Functions */
+    /* Cluster External View Functions */
     /*******************************/
 
     function isLiquidatable(
         address ownerAddress,
         uint64[] memory operatorIds,
-        Pod memory pod
+        Cluster memory cluster
     ) external view returns(bool);
 
     function isLiquidated(
         address ownerAddress,
         uint64[] memory operatorIds,
-        Pod memory pod
+        Cluster memory cluster
     ) external view returns(bool);
 
-    function getPodBurnRate(uint64[] memory operatorIds) external view returns (uint256);
+    function getClusterBurnRate(uint64[] memory operatorIds) external view returns (uint256);
 
     /***********************************/
     /* Balance External View Functions */
@@ -335,10 +335,10 @@ interface ISSVNetwork {
      */
     function operatorSnapshot(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
 
-    function podBalanceOf(
+    function clusterBalanceOf(
         address ownerAddress,
         uint64[] memory operatorIds,
-        Pod memory pod
+        Cluster memory cluster
     ) external view returns (uint256);
 
     /*******************************/
