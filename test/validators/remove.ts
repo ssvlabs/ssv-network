@@ -133,7 +133,7 @@ describe('Remove Validator Tests', () => {
   it('Remove validator from a liquidated cluster', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
-      firstCluster.ownerAddress,
+      firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
     ), [GasGroup.LIQUIDATE_POD]);

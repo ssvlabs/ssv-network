@@ -55,7 +55,7 @@ describe('Reactivate Tests', () => {
 
   it('Reactivate a disabled cluster emits "ClusterReactivated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.ownerAddress, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
 
@@ -64,7 +64,7 @@ describe('Reactivate Tests', () => {
 
   it('Reactivate with 0 deposit and no validators emits ClusterReactivated', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.ownerAddress, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     const remove = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
@@ -83,7 +83,7 @@ describe('Reactivate Tests', () => {
 
   it('Reactivate a cluster when the amount is not enough reverts "InsufficientFunds"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.ownerAddress, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
 
@@ -92,7 +92,7 @@ describe('Reactivate Tests', () => {
 
   it('Reactivate a cluster with a removed operator in the cluster', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.ownerAddress, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     await ssvNetworkContract.removeOperator(1);
 

@@ -57,11 +57,11 @@ describe('Deposit Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster), [GasGroup.DEPOSIT]);
   });
 
-  it('Deposit to a cluster I do own with a cluster that does not exist reverts "ClusterNotExists"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.be.revertedWith('ClusterNotExists');
+  it('Deposit to a cluster I do own with a cluster that does not exist reverts "ClusterDoesNotExists"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.be.revertedWith('ClusterDoesNotExists');
   });
 
-  it('Deposit to a cluster I do not own with a cluster that does not exist reverts "ClusterNotExists"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))']([1,2,4,5], minDepositAmount, cluster1.args.cluster)).to.be.revertedWith('ClusterNotExists');
+  it('Deposit to a cluster I do not own with a cluster that does not exist reverts "ClusterDoesNotExists"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))']([1,2,4,5], minDepositAmount, cluster1.args.cluster)).to.be.revertedWith('ClusterDoesNotExists');
   });
 });

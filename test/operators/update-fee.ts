@@ -27,10 +27,10 @@ describe('Operator Fee Tests', () => {
     await trackGas(ssvNetworkContract.declareOperatorFee(1, initialFee - initialFee / 20), [GasGroup.REGISTER_OPERATOR]);
   });
 
-  it('Cancel declared fee emits "DeclaredOperatorFeeCancelation"', async () => {
+  it('Cancel declared fee emits "OperatorFeeCancelationDeclared"', async () => {
     await ssvNetworkContract.declareOperatorFee(1, initialFee + initialFee / 10);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).cancelDeclaredOperatorFee(1
-    )).to.emit(ssvNetworkContract, 'DeclaredOperatorFeeCancelation');
+    )).to.emit(ssvNetworkContract, 'OperatorFeeCancelationDeclared');
   });
 
   it('Cancel declared fee gas limits', async () => {
