@@ -69,7 +69,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6570;
     uint64 constant MINIMAL_OPERATOR_FEE = 100000000;
-    uint32 constant VALIDATORS_PER_OPERATOR_LIMIT = 2000;
 
     /********************/
     /* Global Variables */
@@ -267,7 +266,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
                         revert OperatorDoesNotExist();
                     }
                     operator.snapshot = _getSnapshot(operator, uint64(block.number));
-                    if (++operator.validatorCount > VALIDATORS_PER_OPERATOR_LIMIT) {
+
+                    if (++operator.validatorCount > _validatorsPerOperatorLimit) {
                         revert ExceedValidatorLimit();
                     }
                     clusterIndex += operator.snapshot.index;

@@ -531,7 +531,7 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWith('InsufficientBalance');
   });
 
-  it('Register validator returns an error - ValidatorAlreadyExists', async () => {
+  it('Register validator with same public key reverts ValidatorAlreadyExists', async () => {
     await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
@@ -547,6 +547,26 @@ describe('Register Validator Tests', () => {
         disabled: false
       }
     )).to.be.revertedWith('ValidatorAlreadyExists');
+  });
+
+  it('Register validator with operator exceed validators limit reverts ExceedValidatorLimit', async () => {
+    await ssvNetworkContract.updateValidatorsPerOperatorLimit(1);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1,2,3,4],
+      helpers.DataGenerator.shares(0),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    )).to.be.revertedWith('ExceedValidatorLimit');
   });
 
   it('Get cluster burn rate', async () => {
