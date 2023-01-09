@@ -154,7 +154,7 @@ interface ISSVNetwork {
     error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
     error InvalidOperatorIdsLengthuctureInvalid();
-    error NoValidatorOwnershipned();
+    error NoValidatorOwnership();
     error ParametersMismatch();
     error InsufficientFunds();
     error ClusterAlreadyEnabled();

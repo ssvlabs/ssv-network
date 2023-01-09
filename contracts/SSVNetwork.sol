@@ -329,7 +329,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         bytes32 hashedValidator = keccak256(publicKey);
         if (_validatorPKs[hashedValidator].owner != msg.sender) {
-            revert NoValidatorOwnershipned();
+            revert NoValidatorOwnership();
         }
 
         uint64 clusterIndex;
