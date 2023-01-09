@@ -46,7 +46,7 @@ interface ISSVNetwork {
      * @param cluster All the cluster data.
      */
     event ValidatorAdded(
-        address owner,
+        address indexed owner,
         uint64[] operatorIds,
         bytes publicKey,
         bytes shares,
@@ -60,7 +60,7 @@ interface ISSVNetwork {
      * @param cluster All the cluster data.
      */
     event ValidatorRemoved(
-        address owner,
+        address indexed owner,
         uint64[] operatorIds,
         bytes publicKey,
         Cluster cluster
@@ -95,9 +95,9 @@ interface ISSVNetwork {
         uint256 fee
     );
 
-    event ClusterLiquidated(address owner, uint64[] operatorIds, Cluster cluster);
+    event ClusterLiquidated(address indexed owner, uint64[] operatorIds, Cluster cluster);
 
-    event ClusterReactivated(address owner, uint64[] operatorIds, Cluster cluster);
+    event ClusterReactivated(address indexed owner, uint64[] operatorIds, Cluster cluster);
 
     event OperatorFeeIncreaseLimitUpdate(uint64 value);
 
@@ -123,11 +123,11 @@ interface ISSVNetwork {
      */
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
-    event ClusterWithdrawn(address owner, uint64[] operatorIds, uint256 value, Cluster cluster);
+    event ClusterWithdrawn(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
     event OperatorWithdrawn(uint256 value, uint64 operatorId, address owner);
 
     event ClusterDeposit(
-        address owner,
+        address indexed owner,
         uint64[] operatorIds,
         uint256 value,
         Cluster cluster
