@@ -46,6 +46,7 @@ export const initializeContract = async () => {
     executeOperatorFeePeriod: 86400, // DAY
     minimalOperatorFee: 100000000,
     minimalBlocksBeforeLiquidation: 6570,
+    validatorsPerOperatorLimit: 2000
   };
 
   DB = {
@@ -72,7 +73,8 @@ export const initializeContract = async () => {
     CONFIG.operatorMaxFeeIncrease,
     CONFIG.declareOperatorFeePeriod,
     CONFIG.executeOperatorFeePeriod,
-    CONFIG.minimalBlocksBeforeLiquidation
+    CONFIG.minimalBlocksBeforeLiquidation,
+    CONFIG.validatorsPerOperatorLimit
   ]);
 
   await DB.ssvNetwork.contract.deployed();

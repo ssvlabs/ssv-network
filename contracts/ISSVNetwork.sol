@@ -107,6 +107,8 @@ interface ISSVNetwork {
 
     event LiquidationThresholdPeriodUpdate(uint64 value);
 
+    event ValidatorsPerOperatorLimitUpdate(uint64 value);
+
     /**
      * @dev Emitted when the network fee is updated.
      * @param oldFee The old fee
@@ -174,13 +176,15 @@ interface ISSVNetwork {
      * @param operatorMaxFeeIncrease_ The step limit to increase the operator fee
      * @param declareOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
      * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
+     * @param validatorsPerOperatorLimit_ The limit of validators per operator
      */
     function initialize(
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint64 validatorsPerOperatorLimit_
     ) external;
 
     /*******************************/
@@ -294,6 +298,8 @@ interface ISSVNetwork {
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external;
 
+    function updateValidatorsPerOperatorLimit(uint64 limit) external;
+
     /************************************/
     /* Operator External View Functions */
     /************************************/
@@ -360,4 +366,6 @@ interface ISSVNetwork {
     function getDeclaredOperatorFeePeriod() external view returns (uint64);
 
     function getLiquidationThresholdPeriod() external view returns (uint64);
+
+    function getValidatorsPerOperatorLimit() external view returns (uint64);
 }

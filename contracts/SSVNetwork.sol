@@ -96,6 +96,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     uint64 private _executeOperatorFeePeriod;
     uint64 private _operatorMaxFeeIncrease;
     uint64 private _minimumBlocksBeforeLiquidation;
+    uint64 private _validatorsPerOperatorLimit;
 
     DAO private _dao;
     IERC20 private _token;
@@ -118,14 +119,16 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint64 validatorsPerOperatorLimit_
     ) external override {
         __SSVNetwork_init(
             token_,
             operatorMaxFeeIncrease_,
             declareOperatorFeePeriod_,
             executeOperatorFeePeriod_,
-            minimumBlocksBeforeLiquidation_
+            minimumBlocksBeforeLiquidation_,
+            validatorsPerOperatorLimit_
         );
     }
 
@@ -667,6 +670,11 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         emit LiquidationThresholdPeriodUpdate(blocks);
     }
 
+    function updateValidatorsPerOperatorLimit(uint64 limit) external onlyOwner override {
+        _validatorsPerOperatorLimit = limit;
+        emit ValidatorsPerOperatorLimitUpdate(limit);
+    }
+
     /************************************/
     /* Operator External View Functions */
     /************************************/
@@ -835,6 +843,15 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         return _minimumBlocksBeforeLiquidation;
     }
 
+    function getValidatorsPerOperatorLimit()
+        external
+        view
+        override
+        returns (uint64)
+    {
+        return _validatorsPerOperatorLimit;
+    }
+
     /**********************/
     /* Internal Functions */
     /**********************/
@@ -845,7 +862,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint64 validatorsPerOperatorLimit_
     ) internal initializer {
         __Ownable_init_unchained();
         __SSVNetwork_init_unchained(
@@ -853,7 +871,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             operatorMaxFeeIncrease_,
             declareOperatorFeePeriod_,
             executeOperatorFeePeriod_,
-            minimumBlocksBeforeLiquidation_
+            minimumBlocksBeforeLiquidation_,
+            validatorsPerOperatorLimit_
         );
     }
 
@@ -863,13 +882,15 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint64 validatorsPerOperatorLimit_
     ) internal onlyInitializing {
         _token = token_;
         _operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
         _declareOperatorFeePeriod = declareOperatorFeePeriod_;
         _executeOperatorFeePeriod = executeOperatorFeePeriod_;
         _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        _validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
     }
 
     /********************************/
