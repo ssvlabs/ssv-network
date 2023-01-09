@@ -23,9 +23,9 @@ describe('Network Fee Tests', () => {
     expect(await ssvNetworkContract.getNetworkFee()).to.equal(0);
   });
 
-  it('Change the network fee to a number below the minimum fee reverts "Precision is over the maximum defined"', async () => {
+  it('Change the network fee to a number below the minimum fee reverts "Max precision exceeded"', async () => {
     await expect(ssvNetworkContract.updateNetworkFee(networkFee - 1
-    )).to.be.revertedWith('Precision is over the maximum defined');
+    )).to.be.revertedWith('Max precision exceeded');
   });
 
   it('Change network fee from an address thats not the DAO reverts "caller is not the owner"', async () => {

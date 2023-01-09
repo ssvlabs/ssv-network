@@ -3,18 +3,14 @@
 pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-
 interface ISSVNetwork {
 
     struct Cluster {
         uint32 validatorCount;
-
         uint64 networkFee;
         uint64 networkFeeIndex;
-
         uint64 index;
         uint64 balance;
-
         bool disabled;
     }
 
@@ -23,12 +19,12 @@ interface ISSVNetwork {
     /**********/
 
     /**
-    * @dev Emitted when a new operator has been added.
-    * @param id operator's ID.
-    * @param owner Operator's ethereum address that can collect fees.
-    * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
-    * @param fee Operator's fee.
-    */
+     * @dev Emitted when a new operator has been added.
+     * @param id operator's ID.
+     * @param owner Operator's ethereum address that can collect fees.
+     * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
+     * @param fee Operator's fee.
+     */
     event OperatorAdded(
         uint64 id,
         address indexed owner,
@@ -173,12 +169,12 @@ interface ISSVNetwork {
     /****************/
 
     /**
-    * @dev Initializes the contract.
-    * @param token_ The network token.
-    * @param operatorMaxFeeIncrease_ The step limit to increase the operator fee
-    * @param declareOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
-    * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
-    */
+     * @dev Initializes the contract.
+     * @param token_ The network token.
+     * @param operatorMaxFeeIncrease_ The step limit to increase the operator fee
+     * @param declareOperatorFeePeriod_ The period an operator needs to wait before they can approve their fee.
+     * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
+     */
     function initialize(
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
@@ -284,11 +280,17 @@ interface ISSVNetwork {
 
     function withdrawNetworkEarnings(uint256 amount) external;
 
-    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
+    function updateOperatorFeeIncreaseLimit(
+        uint64 newOperatorMaxFeeIncrease
+    ) external;
 
-    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external;
+    function updateDeclareOperatorFeePeriod(
+        uint64 newDeclareOperatorFeePeriod
+    ) external;
 
-    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
+    function updateExecuteOperatorFeePeriod(
+        uint64 newExecuteOperatorFeePeriod
+    ) external;
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external;
 
@@ -298,9 +300,13 @@ interface ISSVNetwork {
 
     function getOperatorFee(uint64 operatorId) external view returns (uint256);
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
+    function getOperatorDeclaredFee(
+        uint64 operatorId
+    ) external view returns (uint256, uint256, uint256);
 
-    function getOperatorById(uint64 operatorId) external view returns (address owner, uint256 fee, uint32 validatorCount);
+    function getOperatorById(
+        uint64 operatorId
+    ) external view returns (address owner, uint256 fee, uint32 validatorCount);
 
     /*******************************/
     /* Cluster External View Functions */
