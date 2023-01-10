@@ -485,15 +485,15 @@ describe('Register Validator Tests', () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWith('UnsortedOperatorsList');
   });
 
-  it('Invalid operator amount reverts "InvalidOperatorIdsLengthuctureInvalid"', async () => {
+  it('Invalid operator amount reverts "InvalidOperatorIdsLength"', async () => {
     // 2 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2])).to.be.revertedWith('InvalidOperatorIdsLengthuctureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2])).to.be.revertedWith('InvalidOperatorIdsLength');
 
     // 6 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6])).to.be.revertedWith('InvalidOperatorIdsLengthuctureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6])).to.be.revertedWith('InvalidOperatorIdsLength');
 
     // 14 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('InvalidOperatorIdsLengthuctureInvalid');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('InvalidOperatorIdsLength');
   });
 
   it('Register validator with an invalild public key reverts "InvalidPublicKeyLength"', async () => {

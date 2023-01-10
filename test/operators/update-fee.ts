@@ -38,11 +38,11 @@ describe('Operator Fee Tests', () => {
     await trackGas(ssvNetworkContract.cancelDeclaredOperatorFee(1), [GasGroup.REGISTER_OPERATOR]);
   });
 
-  it('Execute declared fee emits "OperatorFeeExecution"', async () => {
+  it('Execute declared fee emits "OperatorFeeExecuted"', async () => {
     await ssvNetworkContract.declareOperatorFee(1, initialFee + initialFee / 10);
     await progressTime(helpers.CONFIG.declareOperatorFeePeriod);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1
-    )).to.emit(ssvNetworkContract, 'OperatorFeeExecution');
+    )).to.emit(ssvNetworkContract, 'OperatorFeeExecuted');
   });
 
   it('Execute declared fee gas limits', async () => {
@@ -117,19 +117,19 @@ describe('Operator Fee Tests', () => {
   });
 
   //Dao
-  it('DAO increase the fee emits "OperatorFeeIncreaseLimitUpdate"', async () => {
+  it('DAO increase the fee emits "OperatorFeeIncreaseLimitUpdated"', async () => {
     await expect(ssvNetworkContract.updateOperatorFeeIncreaseLimit(1000
-    )).to.emit(ssvNetworkContract, 'OperatorFeeIncreaseLimitUpdate');
+    )).to.emit(ssvNetworkContract, 'OperatorFeeIncreaseLimitUpdated');
   });
 
-  it('DAO update the declare fee period emits "DeclareOperatorFeePeriodUpdate"', async () => {
+  it('DAO update the declare fee period emits "DeclareOperatorFeePeriodUpdated"', async () => {
     await expect(ssvNetworkContract.updateDeclareOperatorFeePeriod(1200
-    )).to.emit(ssvNetworkContract, 'DeclareOperatorFeePeriodUpdate');
+    )).to.emit(ssvNetworkContract, 'DeclareOperatorFeePeriodUpdated');
   });
 
-  it('DAO update the execute fee period emits "ExecuteOperatorFeePeriodUpdate"', async () => {
+  it('DAO update the execute fee period emits "ExecuteOperatorFeePeriodUpdated"', async () => {
     await expect(ssvNetworkContract.updateExecuteOperatorFeePeriod(1200
-    )).to.emit(ssvNetworkContract, 'ExecuteOperatorFeePeriodUpdate');
+    )).to.emit(ssvNetworkContract, 'ExecuteOperatorFeePeriodUpdated');
   });
 
   it('DAO get fee increase limit', async () => {

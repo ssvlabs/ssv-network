@@ -613,7 +613,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _updateNetworkFeeIndex();
 
-        emit NetworkFeeUpdate(_networkFee.expand(), fee);
+        emit NetworkFeeUpdated(_networkFee.expand(), fee);
 
         _networkFee = fee.shrink();
     }
@@ -641,21 +641,21 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 newOperatorMaxFeeIncrease
     ) external override onlyOwner {
         _operatorMaxFeeIncrease = newOperatorMaxFeeIncrease;
-        emit OperatorFeeIncreaseLimitUpdate(_operatorMaxFeeIncrease);
+        emit OperatorFeeIncreaseLimitUpdated(_operatorMaxFeeIncrease);
     }
 
     function updateDeclareOperatorFeePeriod(
         uint64 newDeclareOperatorFeePeriod
     ) external override onlyOwner {
         _declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
-        emit DeclareOperatorFeePeriodUpdate(newDeclareOperatorFeePeriod);
+        emit DeclareOperatorFeePeriodUpdated(newDeclareOperatorFeePeriod);
     }
 
     function updateExecuteOperatorFeePeriod(
         uint64 newExecuteOperatorFeePeriod
     ) external override onlyOwner {
         _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
-        emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
+        emit ExecuteOperatorFeePeriodUpdated(newExecuteOperatorFeePeriod);
     }
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external onlyOwner override {
@@ -664,7 +664,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
 
         _minimumBlocksBeforeLiquidation = blocks;
-        emit LiquidationThresholdPeriodUpdate(blocks);
+        emit LiquidationThresholdPeriodUpdated(blocks);
     }
 
     /************************************/
@@ -896,7 +896,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _validateOperatorIds(uint operatorsLength) private pure {
         if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
-            revert InvalidOperatorIdsLengthuctureInvalid();
+            revert InvalidOperatorIdsLength();
         }
     }
 
@@ -925,7 +925,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _operators[operatorId] = _setFee(operator, fee);
 
-        emit OperatorFeeExecution(
+        emit OperatorFeeExecuted(
             msg.sender,
             operatorId,
             block.number,
