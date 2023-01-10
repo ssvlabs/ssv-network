@@ -14,16 +14,16 @@ describe('Liquidation Threshold Tests', () => {
     networkFee = helpers.CONFIG.minimalOperatorFee / 10;
   });
 
-  it('Change liquidation threshold period emits "LiquidationThresholdPeriodUpdate"', async () => {
-    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'LiquidationThresholdPeriodUpdate').withArgs(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
+  it('Change liquidation threshold period emits "LiquidationThresholdPeriodUpdated"', async () => {
+    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'LiquidationThresholdPeriodUpdated').withArgs(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
   });
 
   it('Get liquidation threshold period', async () => {
     expect(await ssvNetworkContract.getLiquidationThresholdPeriod()).to.equal(helpers.CONFIG.minimalBlocksBeforeLiquidation);
   });
 
-  it('Change liquidation threshold period reverts "BelowMinimumBlockPeriod"', async () => {
-    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation - 10)).to.be.revertedWith('BelowMinimumBlockPeriod');
+  it('Change liquidation threshold period reverts "NewBlockPeriodIsBelowMinimum"', async () => {
+    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation - 10)).to.be.revertedWith('NewBlockPeriodIsBelowMinimum');
   });
 
   it('Change liquidation threshold period reverts "caller is not the owner"', async () => {

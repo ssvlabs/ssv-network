@@ -5,7 +5,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, minDepositAmount: any, firstPod: any;
+let ssvNetworkContract: any, minDepositAmount: any, firstCluster: any;
 
 describe('Remove Validator Tests', () => {
   beforeEach(async () => {
@@ -51,98 +51,98 @@ describe('Remove Validator Tests', () => {
         disabled: false
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    firstPod = register.eventsByName.ValidatorAdded[0].args;
+    firstCluster = register.eventsByName.ValidatorAdded[0].args;
   });
 
   it('Remove validator emits ValidatorRemoved event', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
+      firstCluster.operatorIds,
+      firstCluster.cluster
     )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
   });
 
   it('Remove validator track gas', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
+      firstCluster.operatorIds,
+      firstCluster.cluster
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator with removed operator in a pod', async () => {
+  it('Remove validator with removed operator in a cluster', async () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
+      firstCluster.operatorIds,
+      firstCluster.cluster
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
   it('Remove validator with an invalid owner', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
-    )).to.be.revertedWith('ValidatorNotOwned');
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    )).to.be.revertedWith('NoValidatorOwnership');
   });
 
   it('Remove validator twice', async () => {
     // Remove validator
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
+      firstCluster.operatorIds,
+      firstCluster.cluster
     ), [GasGroup.REMOVE_VALIDATOR]);
 
     // Remove validator again
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
-    )).to.be.revertedWith('ValidatorNotOwned');
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    )).to.be.revertedWith('NoValidatorOwnership');
   });
 
   it('Register / remove validator twice', async () => {
     // Remove validator
     const remove = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      firstPod.operatorIds,
-      firstPod.pod
+      firstCluster.operatorIds,
+      firstCluster.cluster
     ), [GasGroup.REMOVE_VALIDATOR]);
-    const updatedPod = remove.eventsByName.ValidatorRemoved[0].args;
+    const updatedCluster = remove.eventsByName.ValidatorRemoved[0].args;
 
     // Re-register validator
     const newRegister = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      updatedPod.operatorIds,
+      updatedCluster.operatorIds,
       helpers.DataGenerator.shares(0),
       0,
-      updatedPod.pod
+      updatedCluster.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
-    const afterRegisterPod = newRegister.eventsByName.ValidatorAdded[0].args;
+    const afterRegisterCluster = newRegister.eventsByName.ValidatorAdded[0].args;
 
     // Remove the validator again
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      afterRegisterPod.operatorIds,
-      afterRegisterPod.pod
+      afterRegisterCluster.operatorIds,
+      afterRegisterCluster.cluster
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator from a liquidated pod', async () => {
+  it('Remove validator from a liquidated cluster', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedPod = await trackGas(ssvNetworkContract.liquidatePod(
-      firstPod.ownerAddress,
-      firstPod.operatorIds,
-      firstPod.pod
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
+      firstCluster.owner,
+      firstCluster.operatorIds,
+      firstCluster.cluster
     ), [GasGroup.LIQUIDATE_POD]);
-    const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      updatedPod.operatorIds,
-      updatedPod.pod
+      updatedCluster.operatorIds,
+      updatedCluster.cluster
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 });

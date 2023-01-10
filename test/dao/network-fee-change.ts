@@ -13,10 +13,10 @@ describe('Network Fee Tests', () => {
     // Define minumum allowed network fee to pass shrinkable validation
     networkFee = helpers.CONFIG.minimalOperatorFee / 10;
   });
-  
-  it('Change network fee emits "NetworkFeeUpdate"', async () => {
+
+  it('Change network fee emits "NetworkFeeUpdated"', async () => {
     await expect(ssvNetworkContract.updateNetworkFee(networkFee
-    )).to.emit(ssvNetworkContract, 'NetworkFeeUpdate').withArgs(0, networkFee);
+    )).to.emit(ssvNetworkContract, 'NetworkFeeUpdated').withArgs(0, networkFee);
   });
 
   it('Get network fee', async () => {
