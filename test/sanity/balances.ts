@@ -98,7 +98,6 @@ describe('Balance Tests', () => {
     expect((await ssvNetworkContract.getOperatorEarnings(4)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 2);
     await utils.progressBlocks(1);
     expect((await ssvNetworkContract.getOperatorEarnings(1)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
-    console.log(1);
     expect((await ssvNetworkContract.getOperatorEarnings(2)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
     expect((await ssvNetworkContract.getOperatorEarnings(3)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
     expect((await ssvNetworkContract.getOperatorEarnings(4)).balance).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);

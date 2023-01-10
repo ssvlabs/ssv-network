@@ -309,7 +309,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
         if (amount > 0) {
-            _deposit(msg.sender, operatorIds, amount.shrink());
+            _deposit(amount.shrink());
         }
 
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesEncrypted, cluster);
@@ -474,7 +474,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
         if (amount > 0) {
-            _deposit(msg.sender, operatorIds, amount.shrink());
+            _deposit(amount.shrink());
         }
 
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
@@ -500,7 +500,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
-        _deposit(owner, operatorIds, shrunkAmount);
+        _deposit(shrunkAmount);
 
         emit ClusterDeposit(owner, operatorIds, amount, cluster);
     }
@@ -518,7 +518,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         cluster.balance += shrunkAmount;
 
-        _deposit(msg.sender, operatorIds, shrunkAmount);
+        _deposit(shrunkAmount);
 
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
@@ -616,7 +616,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _updateNetworkFeeIndex();
 
-        emit NetworkFeeUpdate(_networkFee.expand(), fee);
+        emit NetworkFeeUpdated(_networkFee.expand(), fee);
 
         _networkFee = fee.shrink();
     }
@@ -644,21 +644,21 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 newOperatorMaxFeeIncrease
     ) external override onlyOwner {
         _operatorMaxFeeIncrease = newOperatorMaxFeeIncrease;
-        emit OperatorFeeIncreaseLimitUpdate(_operatorMaxFeeIncrease);
+        emit OperatorFeeIncreaseLimitUpdated(_operatorMaxFeeIncrease);
     }
 
     function updateDeclareOperatorFeePeriod(
         uint64 newDeclareOperatorFeePeriod
     ) external override onlyOwner {
         _declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
-        emit DeclareOperatorFeePeriodUpdate(newDeclareOperatorFeePeriod);
+        emit DeclareOperatorFeePeriodUpdated(newDeclareOperatorFeePeriod);
     }
 
     function updateExecuteOperatorFeePeriod(
         uint64 newExecuteOperatorFeePeriod
     ) external override onlyOwner {
         _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
-        emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
+        emit ExecuteOperatorFeePeriodUpdated(newExecuteOperatorFeePeriod);
     }
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external onlyOwner override {
@@ -667,7 +667,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
 
         _minimumBlocksBeforeLiquidation = blocks;
-        emit LiquidationThresholdPeriodUpdate(blocks);
+        emit LiquidationThresholdPeriodUpdated(blocks);
     }
 
     function updateValidatorsPerOperatorLimit(uint64 limit) external onlyOwner override {
@@ -917,7 +917,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
     function _validateOperatorIds(uint operatorsLength) private pure {
         if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
-            revert InvalidOperatorIdsLengthuctureInvalid();
+            revert InvalidOperatorIdsLength();
         }
     }
 
@@ -946,7 +946,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _operators[operatorId] = _setFee(operator, fee);
 
-        emit OperatorFeeExecution(
+        emit OperatorFeeExecuted(
             msg.sender,
             operatorId,
             block.number,
@@ -1028,11 +1028,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Balance Private Functions */
     /*****************************/
 
-    function _deposit(
-        address owner,
-        uint64[] memory operatorIds,
-        uint64 amount
-    ) private {
+    function _deposit(uint64 amount) private {
         _token.transferFrom(msg.sender, address(this), amount.expand());
     }
 

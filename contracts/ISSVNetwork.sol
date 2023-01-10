@@ -88,7 +88,7 @@ interface ISSVNetwork {
      * @param blockNumber from which block number.
      * @param fee updated fee value.
      */
-    event OperatorFeeExecution(
+    event OperatorFeeExecuted(
         address indexed owner,
         uint64 operatorId,
         uint256 blockNumber,
@@ -99,13 +99,13 @@ interface ISSVNetwork {
 
     event ClusterReactivated(address owner, uint64[] operatorIds, Cluster cluster);
 
-    event OperatorFeeIncreaseLimitUpdate(uint64 value);
+    event OperatorFeeIncreaseLimitUpdated(uint64 value);
 
-    event DeclareOperatorFeePeriodUpdate(uint64 value);
+    event DeclareOperatorFeePeriodUpdated(uint64 value);
 
-    event ExecuteOperatorFeePeriodUpdate(uint64 value);
+    event ExecuteOperatorFeePeriodUpdated(uint64 value);
 
-    event LiquidationThresholdPeriodUpdate(uint64 value);
+    event LiquidationThresholdPeriodUpdated(uint64 value);
 
     event ValidatorsPerOperatorLimitUpdate(uint64 value);
 
@@ -114,7 +114,7 @@ interface ISSVNetwork {
      * @param oldFee The old fee
      * @param newFee The new fee
      */
-    event NetworkFeeUpdate(uint256 oldFee, uint256 newFee);
+    event NetworkFeeUpdated(uint256 oldFee, uint256 newFee);
 
     /**
      * @dev Emitted when transfer fees are withdrawn.
@@ -153,7 +153,7 @@ interface ISSVNetwork {
     error ClusterLiquidatable();
     error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
-    error InvalidOperatorIdsLengthuctureInvalid();
+    error InvalidOperatorIdsLength();
     error NoValidatorOwnership();
     error ParametersMismatch();
     error InsufficientFunds();
