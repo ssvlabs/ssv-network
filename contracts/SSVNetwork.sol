@@ -306,7 +306,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
         if (amount > 0) {
-            _deposit(msg.sender, operatorIds, amount.shrink());
+            _deposit(amount.shrink());
         }
 
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesEncrypted, cluster);
@@ -471,7 +471,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
         if (amount > 0) {
-            _deposit(msg.sender, operatorIds, amount.shrink());
+            _deposit(amount.shrink());
         }
 
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
@@ -497,7 +497,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
-        _deposit(owner, operatorIds, shrunkAmount);
+        _deposit(shrunkAmount);
 
         emit ClusterDeposit(owner, operatorIds, amount, cluster);
     }
@@ -515,7 +515,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         cluster.balance += shrunkAmount;
 
-        _deposit(msg.sender, operatorIds, shrunkAmount);
+        _deposit(shrunkAmount);
 
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
@@ -1007,11 +1007,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /* Balance Private Functions */
     /*****************************/
 
-    function _deposit(
-        address owner,
-        uint64[] memory operatorIds,
-        uint64 amount
-    ) private {
+    function _deposit(uint64 amount) private {
         _token.transferFrom(msg.sender, address(this), amount.expand());
     }
 
