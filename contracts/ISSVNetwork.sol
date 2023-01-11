@@ -66,19 +66,12 @@ interface ISSVNetwork {
         Cluster cluster
     );
 
-    event OperatorFeeDeclaration(
+    event OperatorFeeDeclared(
         address indexed owner,
         uint64 operatorId,
         uint256 blockNumber,
         uint256 fee
     );
-
-    /**
-     * @dev Emitted when operator changed fee.
-     * @param id operator's ID.
-     * @param fee operator's new fee.
-     */
-    event OperatorFeeSet(uint64 id, uint64 fee);
 
     event OperatorFeeCancelationDeclared(address indexed owner, uint64 operatorId);
 
@@ -148,6 +141,7 @@ interface ISSVNetwork {
     error OperatorDoesNotExist();
     error InsufficientBalance();
     error ValidatorAlreadyExists();
+    error ValidatorDoesNotExist();
     error ClusterLiquidatable();
     error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
