@@ -44,12 +44,12 @@ describe('Register Operator Tests', () => {
     expect((await ssvNetworkContract.getOperatorById(1)).validatorCount).to.equal(0);
   });
 
-  it('Get operator by id reverts "OperatorNotFound"', async () => {
+  it('Get operator by id reverts "OperatorDoesNotExist"', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),
       helpers.CONFIG.minimalOperatorFee,
     ), [GasGroup.REGISTER_OPERATOR]);
 
-    await expect(ssvNetworkContract.getOperatorById(3)).to.be.revertedWithCustomError(ssvNetworkContract,'OperatorNotFound');
+    await expect(ssvNetworkContract.getOperatorById(3)).to.be.revertedWithCustomError(ssvNetworkContract,'OperatorDoesNotExist');
   });
 });

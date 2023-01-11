@@ -46,12 +46,12 @@ describe('Remove Operator Tests', () => {
   });
 
   it('Remove operator with 0 balance', async () => {
-    await expect(ssvNetworkContract.removeOperator(5)).not.to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
+    await expect(ssvNetworkContract.removeOperator(5)).not.to.emit(ssvNetworkContract, 'OperatorWithdrawn');
   });
 
-  it('Remove operator with a balance emits "OperatorFundsWithdrawal"', async () => {
+  it('Remove operator with a balance emits "OperatorWithdrawn"', async () => {
     await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1,2,3,4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    await expect(ssvNetworkContract.removeOperator(1)).to.emit(ssvNetworkContract, 'OperatorFundsWithdrawal');
+    await expect(ssvNetworkContract.removeOperator(1)).to.emit(ssvNetworkContract, 'OperatorWithdrawn');
   });
 
   it('Remove operator with a balance gas limits', async () => {

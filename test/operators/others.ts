@@ -10,11 +10,11 @@ describe('Others Operator Tests', () => {
     ssvNetworkContract = (await helpers.initializeContract()).contract;
   });
 
-  it('Add fee recipient address emits "FeeRecipientAddressAdded"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).feeRecipientAddress(
+  it('Add fee recipient address emits "FeeRecipientAddressUpdated"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).setFeeRecipientAddress(
       helpers.DB.owners[2].address
     ))
-      .to.emit(ssvNetworkContract, 'FeeRecipientAddressAdded')
+      .to.emit(ssvNetworkContract, 'FeeRecipientAddressUpdated')
       .withArgs(helpers.DB.owners[1].address, helpers.DB.owners[2].address);
   });
 });

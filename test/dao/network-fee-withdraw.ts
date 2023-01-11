@@ -53,10 +53,10 @@ describe('DAO Network Fee Withdraw Tests', () => {
     await helpers.DB.ssvToken.mint(ssvNetworkContract.address, minDepositAmount);
   });
 
-  it('Withdraw network earnings emits "NetworkEarningsWithdrawal"', async () => {
+  it('Withdraw network earnings emits "NetworkEarningsWithdrawn"', async () => {
     const amount = await ssvNetworkContract.getNetworkEarnings();
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
-    )).to.emit(ssvNetworkContract, 'NetworkEarningsWithdrawal').withArgs(amount, helpers.DB.owners[0].address);
+    )).to.emit(ssvNetworkContract, 'NetworkEarningsWithdrawn').withArgs(amount, helpers.DB.owners[0].address);
   });
 
   it('Get withdrawable network earnings', async () => {
@@ -67,10 +67,10 @@ describe('DAO Network Fee Withdraw Tests', () => {
     await ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkEarnings();
   });
 
-  it('Withdraw network earnings with not enough balance reverts "NotEnoughBalance"', async () => {
+  it('Withdraw network earnings with not enough balance reverts "InsufficientBalance"', async () => {
     const amount = await ssvNetworkContract.getNetworkEarnings() * 2;
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
-    )).to.be.revertedWithCustomError(ssvNetworkContract,'NotEnoughBalance');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 
   it('Withdraw network earnings from an address thats not the DAO reverts "caller is not the owner"', async () => {

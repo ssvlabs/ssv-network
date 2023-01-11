@@ -13,19 +13,19 @@ describe('Network Fee Tests', () => {
     // Define minumum allowed network fee to pass shrinkable validation
     networkFee = helpers.CONFIG.minimalOperatorFee / 10;
   });
-  
-  it('Change network fee emits "NetworkFeeUpdate"', async () => {
+
+  it('Change network fee emits "NetworkFeeUpdated"', async () => {
     await expect(ssvNetworkContract.updateNetworkFee(networkFee
-    )).to.emit(ssvNetworkContract, 'NetworkFeeUpdate').withArgs(0, networkFee);
+    )).to.emit(ssvNetworkContract, 'NetworkFeeUpdated').withArgs(0, networkFee);
   });
 
   it('Get network fee', async () => {
     expect(await ssvNetworkContract.getNetworkFee()).to.equal(0);
   });
 
-  it('Change the network fee to a number below the minimum fee reverts "Precision is over the maximum defined"', async () => {
+  it('Change the network fee to a number below the minimum fee reverts "Max precision exceeded"', async () => {
     await expect(ssvNetworkContract.updateNetworkFee(networkFee - 1
-    )).to.be.revertedWith('Precision is over the maximum defined');
+    )).to.be.revertedWith('Max precision exceeded');
   });
 
   it('Change network fee from an address thats not the DAO reverts "caller is not the owner"', async () => {
