@@ -38,7 +38,7 @@ describe('Remove Operator Tests', () => {
 
   it('Remove operator I do not own reverts "CallerNotOwner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1))
-      .to.be.revertedWith('CallerNotOwner');
+      .to.be.revertedWithCustomError(ssvNetworkContract,'CallerNotOwner');
   });
 
   it('Remove operator gas limits', async () => {

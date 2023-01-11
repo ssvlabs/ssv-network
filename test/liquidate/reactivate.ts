@@ -78,7 +78,7 @@ describe('Reactivate Tests', () => {
   });
 
   it('Reactivate an enabled pod reverts "PodAlreadyEnabled"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(firstPod.operatorIds, minDepositAmount, firstPod.pod)).to.be.revertedWith('PodAlreadyEnabled');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(firstPod.operatorIds, minDepositAmount, firstPod.pod)).to.be.revertedWithCustomError(ssvNetworkContract,'PodAlreadyEnabled');
   });
 
   it('Reactivate a pod when the amount is not enough reverts "NegativeBalance"', async () => {
@@ -87,7 +87,7 @@ describe('Reactivate Tests', () => {
     const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
 
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(updatedPod.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedPod.pod)).to.be.revertedWith('NotEnoughBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivatePod(updatedPod.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedPod.pod)).to.be.revertedWithCustomError(ssvNetworkContract,'NotEnoughBalance');
   });
 
   it('Reactivate a pod with a removed operator in the cluster', async () => {

@@ -30,6 +30,6 @@ describe('Network Fee Tests', () => {
 
   it('Change network fee from an address thats not the DAO reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).updateNetworkFee(networkFee
-    )).to.be.revertedWith('caller is not the owner');
+    )).to.be.revertedWith('Ownable: caller is not the owner');
   });
 });

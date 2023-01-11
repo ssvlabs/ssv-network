@@ -110,7 +110,7 @@ describe('Balance Tests', () => {
 
   it('Check pod balance returns error - NegativeBalance', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
-    await expect(ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.be.revertedWith('NegativeBalance');
+    await expect(ssvNetworkContract.podBalanceOf(helpers.DB.owners[4].address, pod1.args.operatorIds, pod1.args.pod)).to.be.revertedWithCustomError(ssvNetworkContract,'NegativeBalance');
   });
 
   it('Check pod balance with removed operator', async () => {

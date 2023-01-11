@@ -1,17 +1,16 @@
 // File: contracts/SSVRegistry.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.2;
+pragma solidity 0.8.17;
 
 import "./ISSVNetwork.sol";
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Types.sol";
 
-// import "hardhat/console.sol";
-
-contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
+contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /*************/
     /* Libraries */
     /*************/
@@ -111,17 +110,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_
-    ) external override {
-        __SSVNetwork_init(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_, minimumBlocksBeforeLiquidation_);
-    }
-
-    function __SSVNetwork_init(
-        IERC20 token_,
-        uint64 operatorMaxFeeIncrease_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
-    ) internal initializer {
+    ) external override initializer {
+        __UUPSUpgradeable_init();
         __Ownable_init_unchained();
         __SSVNetwork_init_unchained(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_, minimumBlocksBeforeLiquidation_);
     }
@@ -139,6 +129,12 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         _executeOperatorFeePeriod = executeOperatorFeePeriod_;
         _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
     }
+
+    /*****************/
+    /* UUPS required */
+    /*****************/
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /*************/
     /* Modifiers */

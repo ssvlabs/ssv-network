@@ -107,7 +107,7 @@ describe('Liquidate Tests', () => {
       firstPod.ownerAddress,
       firstPod.operatorIds,
       firstPod.pod
-    )).to.be.revertedWith('PodNotLiquidatable');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'PodNotLiquidatable');
   });
 
   it('Liquidate a pod that is not liquidatable reverts "PodDataIsBroken"', async () => {
@@ -122,7 +122,7 @@ describe('Liquidate Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('PodDataIsBroken');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'PodDataIsBroken');
   });
 
   it('Liquidate second time a pod that is liquidated already reverts "PodIsLiquidated"', async () => {
@@ -138,7 +138,7 @@ describe('Liquidate Tests', () => {
       firstPod.ownerAddress,
       updatedPod.operatorIds,
       updatedPod.pod
-    )).to.be.revertedWith('PodIsLiquidated');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'PodIsLiquidated');
   });
 
   it('Is liquidated', async () => {
@@ -162,7 +162,7 @@ describe('Liquidate Tests', () => {
     ), [GasGroup.LIQUIDATE_POD]);
     const updatedPod = liquidatedPod.eventsByName.PodLiquidated[0].args;
 
-    await expect(ssvNetworkContract.isLiquidated(helpers.DB.owners[0].address, firstPod.operatorIds, updatedPod.pod)).to.be.revertedWith('PodNotExists');
+    await expect(ssvNetworkContract.isLiquidated(helpers.DB.owners[0].address, firstPod.operatorIds, updatedPod.pod)).to.be.revertedWithCustomError(ssvNetworkContract,'PodNotExists');
   });
 
 });

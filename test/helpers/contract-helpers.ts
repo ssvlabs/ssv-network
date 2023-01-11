@@ -73,7 +73,10 @@ export const initializeContract = async () => {
     CONFIG.declareOperatorFeePeriod,
     CONFIG.executeOperatorFeePeriod,
     CONFIG.minimalBlocksBeforeLiquidation
-  ]);
+  ],
+  {
+    kind: 'uups'
+  });
 
   await DB.ssvNetwork.contract.deployed();
 

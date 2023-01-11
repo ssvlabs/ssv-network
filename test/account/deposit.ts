@@ -58,10 +58,10 @@ describe('Deposit Tests', () => {
   });
 
   it('Deposit to a pod I do own with a pod that does not exist reverts "PodNotExists"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](pod1.args.operatorIds, minDepositAmount, pod1.args.pod)).to.be.revertedWith('PodNotExists');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](pod1.args.operatorIds, minDepositAmount, pod1.args.pod)).to.be.revertedWithCustomError(ssvNetworkContract,'PodNotExists');
   });
 
   it('Deposit to a pod I do not own with a pod that does not exist reverts "PodNotExists"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))']([1,2,4,5], minDepositAmount, pod1.args.pod)).to.be.revertedWith('PodNotExists');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))']([1,2,4,5], minDepositAmount, pod1.args.pod)).to.be.revertedWithCustomError(ssvNetworkContract,'PodNotExists');
   });
 });

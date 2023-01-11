@@ -84,7 +84,7 @@ describe('Remove Validator Tests', () => {
       helpers.DataGenerator.publicKey(1),
       firstPod.operatorIds,
       firstPod.pod
-    )).to.be.revertedWith('ValidatorNotOwned');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorNotOwned');
   });
 
   it('Remove validator twice', async () => {
@@ -100,7 +100,7 @@ describe('Remove Validator Tests', () => {
       helpers.DataGenerator.publicKey(1),
       firstPod.operatorIds,
       firstPod.pod
-    )).to.be.revertedWith('ValidatorNotOwned');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorNotOwned');
   });
 
   it('Register / remove validator twice', async () => {
