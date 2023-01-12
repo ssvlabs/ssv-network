@@ -3,7 +3,11 @@
   "scripts": {
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
-    "solidity-coverage": "NO_GAS_ENFORCE=1 npx hardhat coverage"
+    "solidity-coverage": "NO_GAS_ENFORCE=1 npx hardhat coverage",
+    "test": "npx hardhat test",
+    "deploy-goerli": "npx hardhat run --network goerli scripts/ssv-network-deploy.ts",
+    "validate-upgrade-goerli": "npx hardhat run --network goerli scripts/ssv-network-validate-upgrade.ts",
+    "upgrade-goerli": "npx hardhat run --network goerli scripts/ssv-network-upgrade.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
