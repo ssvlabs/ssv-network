@@ -1,17 +1,16 @@
 // File: contracts/SSVRegistry.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.2;
+pragma solidity 0.8.16;
 
 import "./ISSVNetwork.sol";
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Types.sol";
 
-// import "hardhat/console.sol";
-
-contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
+contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /*************/
     /* Libraries */
     /*************/
@@ -68,7 +67,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     /*************/
 
     uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6570;
-    uint64 constant MINIMAL_OPERATOR_FEE = 100000000;
+    uint64 constant MINIMAL_OPERATOR_FEE = 1e8;
     uint32 constant VALIDATORS_PER_OPERATOR_LIMIT = 2000;
 
     /********************/
@@ -100,6 +99,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
     DAO private _dao;
     IERC20 private _token;
 
+    // @dev reserve storage space for future new state variables in base contract
+    uint256[50] __gap;
+
     /*************/
     /* Modifiers */
     /*************/
@@ -119,15 +121,31 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_
-    ) external override {
-        __SSVNetwork_init(
-            token_,
-            operatorMaxFeeIncrease_,
-            declareOperatorFeePeriod_,
-            executeOperatorFeePeriod_,
-            minimumBlocksBeforeLiquidation_
-        );
+    ) external override initializer onlyProxy {
+        __UUPSUpgradeable_init();
+        __Ownable_init_unchained();
+        __SSVNetwork_init_unchained(token_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_, minimumBlocksBeforeLiquidation_);
     }
+
+    function __SSVNetwork_init_unchained(
+        IERC20 token_,
+        uint64 operatorMaxFeeIncrease_,
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_,
+        uint64 minimumBlocksBeforeLiquidation_
+    ) internal onlyInitializing {
+        _token = token_;
+        _operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
+        _declareOperatorFeePeriod = declareOperatorFeePeriod_;
+        _executeOperatorFeePeriod = executeOperatorFeePeriod_;
+        _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+    }
+
+    /*****************/
+    /* UUPS required */
+    /*****************/
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /*******************************/
     /* Operator External Functions */
@@ -152,10 +170,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         if (operator.owner != msg.sender) revert CallerNotOwner();
 
         operator.snapshot = _getSnapshot(operator, uint64(block.number));
-
-        if (operator.snapshot.balance > 0) {
-            _transferOperatorBalanceUnsafe(id, operator.snapshot.balance.expand());
-        }
+        uint64 currentBalance = operator.snapshot.balance;
 
         operator.snapshot.block = 0;
         operator.snapshot.balance = 0;
@@ -163,6 +178,10 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         operator.fee = 0;
 
         _operators[id] = operator;
+
+        if (currentBalance > 0) {
+            _transferOperatorBalanceUnsafe(id, currentBalance.expand());
+        }
         emit OperatorRemoved(id);
     }
 
@@ -400,18 +419,15 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
             }
         }
 
-        {
-            uint64 clusterBalance = _clusterBalance(cluster, clusterIndex);
-            if (!_liquidatable(clusterBalance, cluster.validatorCount, burnRate)) {
-                revert ClusterNotLiquidatable();
-            }
-
-            _token.transfer(msg.sender, clusterBalance.expand());
-
-            cluster.disabled = true;
-            cluster.balance = 0;
-            cluster.index = 0;
+        uint64 clusterBalance = _clusterBalance(cluster, clusterIndex);
+        if (!_liquidatable(clusterBalance, cluster.validatorCount, burnRate)) {
+            revert ClusterNotLiquidatable();
         }
+
+        cluster.disabled = true;
+        cluster.balance = 0;
+        cluster.index = 0;
+
 
         {
             DAO memory dao = _dao;
@@ -421,6 +437,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         }
 
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
+
+        _token.transfer(msg.sender, clusterBalance.expand());
 
         emit ClusterLiquidated(owner, operatorIds, cluster);
     }
@@ -519,9 +537,9 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
 
         cluster.balance += shrunkAmount;
 
-        _deposit(shrunkAmount);
-
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
+
+        _deposit(shrunkAmount);
 
         emit ClusterDeposit(msg.sender, operatorIds, amount, cluster);
     }
@@ -837,43 +855,6 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork {
         returns (uint64)
     {
         return _minimumBlocksBeforeLiquidation;
-    }
-
-    /**********************/
-    /* Internal Functions */
-    /**********************/
-
-    // solhint-disable-next-line func-name-mixedcase
-    function __SSVNetwork_init(
-        IERC20 token_,
-        uint64 operatorMaxFeeIncrease_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
-    ) internal initializer {
-        __Ownable_init_unchained();
-        __SSVNetwork_init_unchained(
-            token_,
-            operatorMaxFeeIncrease_,
-            declareOperatorFeePeriod_,
-            executeOperatorFeePeriod_,
-            minimumBlocksBeforeLiquidation_
-        );
-    }
-
-    // solhint-disable-next-line func-name-mixedcase
-    function __SSVNetwork_init_unchained(
-        IERC20 token_,
-        uint64 operatorMaxFeeIncrease_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
-    ) internal onlyInitializing {
-        _token = token_;
-        _operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
-        _declareOperatorFeePeriod = declareOperatorFeePeriod_;
-        _executeOperatorFeePeriod = executeOperatorFeePeriod_;
-        _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
     }
 
     /********************************/

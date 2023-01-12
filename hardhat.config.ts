@@ -1,14 +1,11 @@
 import 'dotenv/config';
 
 import { HardhatUserConfig, task } from 'hardhat/config';
-import '@nomiclabs/hardhat-waffle';
-import '@nomiclabs/hardhat-ethers';
-import '@nomiclabs/hardhat-etherscan';
+import '@nomicfoundation/hardhat-toolbox';
 import '@openzeppelin/hardhat-upgrades';
-import 'hardhat-gas-reporter';
 import 'hardhat-tracer';
-import 'solidity-coverage';
 import '@nomiclabs/hardhat-solhint';
+import 'hardhat-contract-sizer';
 
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
@@ -18,11 +15,11 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: '0.8.13',
+        version: '0.8.16',
         settings: {
           optimizer: {
             enabled: true,
-            runs: 10000
+            runs: 600
           }
         }
       }
@@ -39,6 +36,7 @@ const config: HardhatUserConfig = {
     apiKey: process.env.ETHERSCAN_KEY
   },
   gasReporter: {
+    enabled: true,
     currency: 'USD',
     gasPrice: 0.3
   }

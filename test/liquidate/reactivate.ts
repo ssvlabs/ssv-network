@@ -78,7 +78,7 @@ describe('Reactivate Tests', () => {
   });
 
   it('Reactivate an enabled cluster reverts "ClusterAlreadyEnabled"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(firstCluster.operatorIds, minDepositAmount, firstCluster.cluster)).to.be.revertedWith('ClusterAlreadyEnabled');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(firstCluster.operatorIds, minDepositAmount, firstCluster.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterAlreadyEnabled');
   });
 
   it('Reactivate a cluster when the amount is not enough reverts "InsufficientFunds"', async () => {
@@ -87,7 +87,7 @@ describe('Reactivate Tests', () => {
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
 
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedCluster.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedCluster.cluster)).to.be.revertedWith('InsufficientBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedCluster.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 
   it('Reactivate a cluster with a removed operator in the cluster', async () => {

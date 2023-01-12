@@ -9,8 +9,11 @@ async function main() {
     process.env.OPERATOR_MAX_FEE_INCREASE,
     process.env.DECLARE_OPERATOR_FEE_PERIOD,
     process.env.EXECUTE_OPERATOR_FEE_PERIOD,
-    process.env.MINIMAL_BLOCKS_BEFORE_LIQUIDATION,
-  ]);
+    process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION
+  ],
+    {
+      kind: "uups"
+    });
   await contract.deployed();
   console.log(`SSVNetwork deployed to: ${contract.address}`);
 }

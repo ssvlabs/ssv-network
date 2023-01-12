@@ -84,7 +84,7 @@ describe('Remove Validator Tests', () => {
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
       firstCluster.cluster
-    )).to.be.revertedWith('NoValidatorOwnership');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'NoValidatorOwnership');
   });
 
   it('Remove validator twice', async () => {
@@ -100,7 +100,7 @@ describe('Remove Validator Tests', () => {
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
       firstCluster.cluster
-    )).to.be.revertedWith('ValidatorDoesNotExist');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorDoesNotExist');
   });
 
   it('Register / remove validator twice', async () => {

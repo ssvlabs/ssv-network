@@ -23,10 +23,10 @@ describe('Liquidation Threshold Tests', () => {
   });
 
   it('Change liquidation threshold period reverts "NewBlockPeriodIsBelowMinimum"', async () => {
-    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation - 10)).to.be.revertedWith('NewBlockPeriodIsBelowMinimum');
+    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation - 10)).to.be.revertedWithCustomError(ssvNetworkContract,'NewBlockPeriodIsBelowMinimum');
   });
 
   it('Change liquidation threshold period reverts "caller is not the owner"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation)).to.be.revertedWith('caller is not the owner');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation)).to.be.revertedWith('Ownable: caller is not the owner');
   });
 });

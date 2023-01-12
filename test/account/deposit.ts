@@ -58,10 +58,10 @@ describe('Deposit Tests', () => {
   });
 
   it('Deposit to a cluster I do own with a cluster that does not exist reverts "ClusterDoesNotExists"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.be.revertedWith('ClusterDoesNotExists');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))'](cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterDoesNotExists');
   });
 
   it('Deposit to a cluster I do not own with a cluster that does not exist reverts "ClusterDoesNotExists"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))']([1,2,4,5], minDepositAmount, cluster1.args.cluster)).to.be.revertedWith('ClusterDoesNotExists');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(uint64[],uint256,(uint32,uint64,uint64,uint64,uint64,bool))']([1,2,4,5], minDepositAmount, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterDoesNotExists');
   });
 });

@@ -68,28 +68,28 @@ describe('Withdraw Tests', () => {
   });
 
   it('Withdraw more than the cluster balance reverts "InsufficientBalance"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.be.revertedWith('InsufficientBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 
   it('Withdraw from a liquidatable cluster reverts "InsufficientBalance"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.args.cluster)).to.be.revertedWith('InsufficientBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 
   it('Withdraw balance from an operator I do not own reverts "CallerNotOwner"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorEarnings(uint64,uint256)'](1, minDepositAmount)).to.be.revertedWith('CallerNotOwner');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorEarnings(uint64,uint256)'](1, minDepositAmount)).to.be.revertedWithCustomError(ssvNetworkContract,'CallerNotOwner');
   });
 
   it('Withdraw more than the operator balance reverts "InsufficientBalance"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorEarnings(uint64,uint256)'](1, minDepositAmount
-    )).to.be.revertedWith('InsufficientBalance');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 
   it('Withdraw the total balance from an operator I do not own reverts "CallerNotOwner"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorEarnings(uint64)'](12)).to.be.revertedWith('CallerNotOwner');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorEarnings(uint64)'](12)).to.be.revertedWithCustomError(ssvNetworkContract,'CallerNotOwner');
   });
 
   it('Withdraw more than the operator total balance reverts "InsufficientBalance"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorEarnings(uint64)'](12)).to.be.revertedWith('InsufficientBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorEarnings(uint64)'](12)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 });

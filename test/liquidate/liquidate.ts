@@ -107,7 +107,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    )).to.be.revertedWith('ClusterNotLiquidatable');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterNotLiquidatable');
   });
 
   it('Liquidate a cluster that is not liquidatable reverts "IncorrectClusterState"', async () => {
@@ -122,7 +122,7 @@ describe('Liquidate Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('IncorrectClusterState');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'IncorrectClusterState');
   });
 
   it('Liquidate second time a cluster that is liquidated already reverts "ClusterIsLiquidated"', async () => {
@@ -138,7 +138,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       updatedCluster.operatorIds,
       updatedCluster.cluster
-    )).to.be.revertedWith('ClusterIsLiquidated');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterIsLiquidated');
   });
 
   it('Is liquidated', async () => {
@@ -162,7 +162,7 @@ describe('Liquidate Tests', () => {
     ), [GasGroup.LIQUIDATE_POD]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
-    await expect(ssvNetworkContract.isLiquidated(helpers.DB.owners[0].address, firstCluster.operatorIds, updatedCluster.cluster)).to.be.revertedWith('ClusterDoesNotExists');
+    await expect(ssvNetworkContract.isLiquidated(helpers.DB.owners[0].address, firstCluster.operatorIds, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterDoesNotExists');
   });
 
 });

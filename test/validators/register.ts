@@ -425,7 +425,7 @@ describe('Register Validator Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('IncorrectClusterState');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'IncorrectClusterState');
   });
 
   it('Register validator returns an error - OperatorDoesNotExist', async () => {
@@ -442,7 +442,7 @@ describe('Register Validator Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('OperatorDoesNotExist');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'OperatorDoesNotExist');
   });
 
   it('Register validator with removed operator returns an error - OperatorDoesNotExist', async () => {
@@ -460,7 +460,7 @@ describe('Register Validator Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('OperatorDoesNotExist');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'OperatorDoesNotExist');
   });
 
   it('Register validator emits ValidatorAdded event', async () => {
@@ -482,18 +482,18 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register cluster returns an error - The operators list should be in ascending order', async () => {
-    await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWith('UnsortedOperatorsList');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWithCustomError(ssvNetworkContract,'UnsortedOperatorsList');
   });
 
   it('Invalid operator amount reverts "InvalidOperatorIdsLength"', async () => {
     // 2 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2])).to.be.revertedWith('InvalidOperatorIdsLength');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2])).to.be.revertedWithCustomError(ssvNetworkContract,'InvalidOperatorIdsLength');
 
     // 6 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6])).to.be.revertedWith('InvalidOperatorIdsLength');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6])).to.be.revertedWithCustomError(ssvNetworkContract,'InvalidOperatorIdsLength');
 
     // 14 Operators
-    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWith('InvalidOperatorIdsLength');
+    await expect(helpers.registerValidators(2, 1, minDepositAmount,  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWithCustomError(ssvNetworkContract,'InvalidOperatorIdsLength');
   });
 
   it('Register validator with an invalild public key reverts "InvalidPublicKeyLength"', async () => {
@@ -510,7 +510,7 @@ describe('Register Validator Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('InvalidPublicKeyLength');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'InvalidPublicKeyLength');
   });
 
   it('Register validator returns an error - InsufficientBalance', async () => {
@@ -528,7 +528,7 @@ describe('Register Validator Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('InsufficientBalance');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 
   it('Register validator returns an error - ValidatorAlreadyExists', async () => {
@@ -546,7 +546,7 @@ describe('Register Validator Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWith('ValidatorAlreadyExists');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorAlreadyExists');
   });
 
   it('Get cluster burn rate', async () => {

@@ -30,7 +30,7 @@ describe('Register Operator Tests', () => {
     await expect(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.publicKey(0),
       '10'
-    )).to.be.revertedWith('FeeTooLow');
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'FeeTooLow');
   });
 
   it('Get operator by id', async () => {
@@ -50,6 +50,6 @@ describe('Register Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
     ), [GasGroup.REGISTER_OPERATOR]);
 
-    await expect(ssvNetworkContract.getOperatorById(3)).to.be.revertedWith('OperatorDoesNotExist');
+    await expect(ssvNetworkContract.getOperatorById(3)).to.be.revertedWithCustomError(ssvNetworkContract,'OperatorDoesNotExist');
   });
 });
