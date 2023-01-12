@@ -14,9 +14,9 @@ describe('Operator Fee Tests', () => {
     await helpers.registerOperators(2, 1, initialFee);
   });
 
-  it('Declare fee emits "OperatorFeeDeclaration"', async () => {
+  it('Declare fee emits "OperatorFeeDeclared"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10
-    )).to.emit(ssvNetworkContract, 'OperatorFeeDeclaration');
+    )).to.emit(ssvNetworkContract, 'OperatorFeeDeclared');
   });
 
   it('Declare a lower fee gas limits', async () => {
