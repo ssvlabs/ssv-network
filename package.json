@@ -7,7 +7,8 @@
     "test": "npx hardhat test",
     "deploy-goerli": "npx hardhat run --network goerli scripts/ssv-network-deploy.ts",
     "validate-upgrade-goerli": "npx hardhat run --network goerli scripts/ssv-network-validate-upgrade.ts",
-    "upgrade-goerli": "npx hardhat run --network goerli scripts/ssv-network-upgrade.ts"
+    "upgrade-goerli": "npx hardhat run --network goerli scripts/ssv-network-upgrade.ts",
+    "slither": "slither contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
