@@ -206,7 +206,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
                 _declareOperatorFeePeriod +
                 _executeOperatorFeePeriod
         );
-        emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, fee);
+        emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
 
     function executeOperatorFee(
@@ -338,14 +338,18 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     ) external override {
         uint operatorsLength = operatorIds.length;
 
+        bytes32 hashedValidator = keccak256(publicKey);
+        address owner = _validatorPKs[hashedValidator].owner;
+        if (owner == address(0)) {
+            revert ValidatorDoesNotExist();
+        }
+        if (owner != msg.sender) {
+            revert NoValidatorOwnership();
+        }
+
         {
             _validateOperatorIds(operatorsLength);
             _validatePublicKey(publicKey);
-        }
-
-        bytes32 hashedValidator = keccak256(publicKey);
-        if (_validatorPKs[hashedValidator].owner != msg.sender) {
-            revert NoValidatorOwnership();
         }
 
         uint64 clusterIndex;
