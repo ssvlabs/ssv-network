@@ -23,7 +23,7 @@ describe('Withdraw Tests', () => {
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
       [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      helpers.DataGenerator.shares(4),
       '1000000000000000',
       {
         validatorCount: 0,
