@@ -93,10 +93,10 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Prom
   groups && [...new Set(groups)].forEach(group => {
     const gasUsed = parseInt(receipt.gasUsed);
 
-   // if (!process.env.NO_GAS_ENFORCE) {
+    if (!process.env.NO_GAS_ENFORCE) {
       const maxGas = MAX_GAS_PER_GROUP[group];
       expect(gasUsed).to.be.lessThanOrEqual(maxGas, 'gasUsed higher than max allowed gas');
-   // }
+    }
 
     gasUsageStats.get(group.toString()).addStat(gasUsed);
   });
