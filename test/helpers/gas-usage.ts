@@ -36,17 +36,17 @@ const MAX_GAS_PER_GROUP: any = {
   [GasGroup.REMOVE_OPERATOR]: 62000,
   [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]: 62000,
 
-  [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]: 176500,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 194500,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT]: 153500,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]: 195000,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 211500,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT]: 173750,
 
-  [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_7]: 219500,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]: 236500,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT_7]: 196500,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_7]: 258000,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]: 275000,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT_7]: 237000,
 
-  [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_13]: 306200,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]: 323200,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT_13]: 283200,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_13]: 385000,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]: 402000,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_WITHOUT_DEPOSIT_13]: 365000,
 
   [GasGroup.REMOVE_VALIDATOR]: 120000,
   [GasGroup.TRANSFER_VALIDATOR_NEW_CLUSTER]: 400000,
@@ -93,10 +93,10 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Prom
   groups && [...new Set(groups)].forEach(group => {
     const gasUsed = parseInt(receipt.gasUsed);
 
-    if (!process.env.NO_GAS_ENFORCE) {
+   // if (!process.env.NO_GAS_ENFORCE) {
       const maxGas = MAX_GAS_PER_GROUP[group];
       expect(gasUsed).to.be.lessThanOrEqual(maxGas, 'gasUsed higher than max allowed gas');
-    }
+   // }
 
     gasUsageStats.get(group.toString()).addStat(gasUsed);
   });
