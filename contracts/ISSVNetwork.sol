@@ -117,7 +117,7 @@ interface ISSVNetwork {
     event ClusterWithdrawn(address owner, uint64[] operatorIds, uint256 value, Cluster cluster);
     event OperatorWithdrawn(uint256 value, uint64 operatorId, address owner);
 
-    event ClusterDeposit(
+    event ClusterDeposited(
         address owner,
         uint64[] operatorIds,
         uint256 value,
@@ -146,13 +146,11 @@ interface ISSVNetwork {
     error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
     error InvalidOperatorIdsLength();
-    error NoValidatorOwnership();
-    error ParametersMismatch();
+    error ValidatorOwnedByOtherAddress();
     error InsufficientFunds();
     error ClusterAlreadyEnabled();
     error ClusterIsLiquidated();
     error ClusterDoesNotExists();
-    error BurnRatePositive();
     error IncorrectClusterState();
     error UnsortedOperatorsList();
     error NewBlockPeriodIsBelowMinimum();
@@ -250,12 +248,6 @@ interface ISSVNetwork {
         Cluster memory cluster
     ) external;
 
-    function deposit(
-        uint64[] memory operatorIds,
-        uint256 amount,
-        Cluster memory cluster
-    ) external;
-
     function withdrawOperatorEarnings(uint64 operatorId, uint256 tokenAmount) external;
 
     function withdrawOperatorEarnings(uint64 operatorId) external;
@@ -327,11 +319,9 @@ interface ISSVNetwork {
     /**
      * @dev Gets the operators current snapshot.
      * @param id Operator's id.
-     * @return currentBlock the block that the snapshot is updated to.
-     * @return index the index of the operator.
      * @return balance the current balance of the operator.
      */
-    function getOperatorEarnings(uint64 id) external view returns (uint64 currentBlock, uint64 index, uint256 balance);
+    function getOperatorEarnings(uint64 id) external view returns (uint256 balance);
 
     function getBalance(
         address owner,

@@ -344,7 +344,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             revert ValidatorDoesNotExist();
         }
         if (owner != msg.sender) {
-            revert NoValidatorOwnership();
+            revert ValidatorOwnedByOtherAddress();
         }
 
         {
@@ -521,39 +521,25 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         _deposit(shrunkAmount);
 
-        emit ClusterDeposit(owner, operatorIds, amount, cluster);
+        emit ClusterDeposited(owner, operatorIds, amount, cluster);
     }
 
-    function deposit(
-        uint64[] calldata operatorIds,
-        uint256 amount,
-        Cluster memory cluster
-    ) external override {
-        _validateClusterIsNotLiquidated(cluster);
 
-        uint64 shrunkAmount = amount.shrink();
+    function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount) private  {
 
-        bytes32 hashedCluster = _validateHashedCluster(msg.sender, operatorIds, cluster);
-
-        cluster.balance += shrunkAmount;
-
-        _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
-
-        _deposit(shrunkAmount);
-
-        emit ClusterDeposit(msg.sender, operatorIds, amount, cluster);
-    }
-
-    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
         Operator memory operator = _operators[operatorId];
 
         if (operator.owner != msg.sender) revert CallerNotOwner();
 
         operator.snapshot = _getSnapshot(operator, uint64(block.number));
 
-        uint64 shrunkAmount = amount.shrink();
+        uint64 shrunkAmount;
 
-        if (operator.snapshot.balance < shrunkAmount) {
+        if(amount == 0 && operator.snapshot.balance > 0) {
+            shrunkAmount = operator.snapshot.balance;
+        } else if(amount > 0 && operator.snapshot.balance >= amount.shrink()) {
+            shrunkAmount = amount.shrink();
+        } else {
             revert InsufficientBalance();
         }
 
@@ -561,27 +547,17 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         _operators[operatorId] = operator;
 
-        _transferOperatorBalanceUnsafe(operatorId, amount);
+        _transferOperatorBalanceUnsafe(operatorId, shrunkAmount.expand());
+
+    }
+
+
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
+        _withdrawOperatorEarnings(operatorId, amount);
     }
 
     function withdrawOperatorEarnings(uint64 operatorId) external override {
-        Operator memory operator = _operators[operatorId];
-
-        if (operator.owner != msg.sender) revert CallerNotOwner();
-
-        operator.snapshot = _getSnapshot(operator, uint64(block.number));
-
-        uint64 operatorBalance = operator.snapshot.balance;
-
-        if (operatorBalance <= 0) {
-            revert InsufficientBalance();
-        }
-
-        operator.snapshot.balance -= operatorBalance;
-
-        _operators[operatorId] = operator;
-
-        _transferOperatorBalanceUnsafe(operatorId, operatorBalance.expand());
+        _withdrawOperatorEarnings(operatorId, 0);
     }
 
     function withdraw(
@@ -781,9 +757,9 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /* Balance External View Functions */
     /***********************************/
 
-    function getOperatorEarnings(uint64 id) external view override returns (uint64 currentBlock, uint64 index, uint256 balance) {
+    function getOperatorEarnings(uint64 id) external view override returns (uint256) {
         Snapshot memory s = _getSnapshot(_operators[id], uint64(block.number));
-        return (s.block, s.index, s.balance.expand());
+        return s.balance.expand();
     }
 
     function getBalance(
