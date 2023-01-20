@@ -21,7 +21,7 @@ describe('Liquidate Tests', () => {
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
       [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      helpers.DataGenerator.shares(4),
       '1000000000000000',
       {
         validatorCount: 0,
@@ -38,7 +38,7 @@ describe('Liquidate Tests', () => {
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
       [1,2,3,4],
-      helpers.DataGenerator.shares(0),
+      helpers.DataGenerator.shares(4),
       minDepositAmount,
       {
         validatorCount: 0,
@@ -96,7 +96,7 @@ describe('Liquidate Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
       updatedCluster.operatorIds,
-      helpers.DataGenerator.shares(0),
+      helpers.DataGenerator.shares(4),
       `${minDepositAmount*2}`,
       updatedCluster.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
