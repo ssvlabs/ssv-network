@@ -4,7 +4,6 @@ pragma solidity 0.8.16;
 
 import "./ISSVNetwork.sol";
 import "./IOperator.sol";
-import "./ICluster.sol";
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -576,11 +575,12 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             this
         );
 
+        uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(this);
+
         cluster.balance += amount.shrink();
         cluster.disabled = false;
         cluster.index = clusterIndex;
 
-        uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(this);
 
         cluster = cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex, 0);
 
@@ -877,10 +877,6 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     }
 
     /*****************************/
-    /* Cluster Private Functions */
-    /*****************************/
-
-    /*****************************/
     /* Balance Private Functions */
     /*****************************/
 
@@ -892,18 +888,4 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         _networkFeeIndex = NetworkLib.currentNetworkFeeIndex(this);
         _networkFeeIndexBlockNumber = uint64(block.number);
     }
-
-    /*
-    function _currentNetworkFeeIndex() private view returns (uint64) {
-        return
-            _networkFeeIndex +
-            uint64(block.number - _networkFeeIndexBlockNumber) *
-            _networkFee;
-    }
-    */
-    /*
-    function _clusterNetworkFee(uint64 networkFee, uint64 networkFeeIndex, uint32 validatorCount) private view returns (uint64) {
-        return networkFee + uint64(_currentNetworkFeeIndex() - networkFeeIndex) * validatorCount;
-    }
-  */
 }

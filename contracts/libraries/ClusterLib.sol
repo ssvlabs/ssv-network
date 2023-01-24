@@ -103,7 +103,7 @@ library ClusterLib {
         uint64 clusterIndex,
         uint64 currentNetworkFeeIndex,
         int8 changedTo
-    ) internal view returns (ISSVNetwork.Cluster memory) {
+    ) internal pure returns (ISSVNetwork.Cluster memory) {
         if (!cluster.disabled) {
             cluster.balance = clusterBalance(cluster,
                 clusterIndex,

@@ -4,7 +4,6 @@ pragma solidity 0.8.16;
 
 import "./SSVNetwork.sol";
 import "./ISSVNetwork.sol";
-import "./ICluster.sol";
 import "./IOperator.sol";
 import "./utils/Types.sol";
 import "./libraries/ClusterLib.sol";
