@@ -5,6 +5,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork {
 
+    struct Snapshot {   
+        /// @dev block is the last block in which last index was set
+        uint64 block;
+        /// @dev index is the last index calculated by index += (currentBlock - block) * fee
+        uint64 index;
+        /// @dev accumulated is all the accumulated earnings, calculated by accumulated + lastIndex * validatorCount
+        uint64 balance;
+    }
+
     struct Cluster {
         uint32 validatorCount;
         uint64 networkFee;
@@ -12,6 +21,12 @@ interface ISSVNetwork {
         uint64 index;
         uint64 balance;
         bool disabled;
+    }
+
+    struct DAO {
+        uint32 validatorCount;
+        uint64 withdrawn;
+        Snapshot earnings;
     }
 
     /**********/
@@ -136,22 +151,22 @@ interface ISSVNetwork {
     error CallerNotOwner();
     error FeeTooLow();
     error FeeExceedsIncreaseLimit();
-    error NoFeeDelcared();
+    //error NoFeeDelcared();
     error ApprovalNotWithinTimeframe();
-    error OperatorDoesNotExist();
+    //error OperatorDoesNotExist();
     error InsufficientBalance();
     error ValidatorAlreadyExists();
     error ValidatorDoesNotExist();
-    error ClusterLiquidatable();
-    error ClusterNotLiquidatable();
+    //error ClusterLiquidatable();
+    //error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
     error InvalidOperatorIdsLength();
     error ValidatorOwnedByOtherAddress();
     error InsufficientFunds();
-    error ClusterAlreadyEnabled();
-    error ClusterIsLiquidated();
-    error ClusterDoesNotExists();
-    error IncorrectClusterState();
+    //error ClusterAlreadyEnabled();
+    //error ClusterIsLiquidated();
+    //error ClusterDoesNotExists();
+    //error IncorrectClusterState();
     error UnsortedOperatorsList();
     error NewBlockPeriodIsBelowMinimum();
     error ExceedValidatorLimit();
@@ -283,7 +298,7 @@ interface ISSVNetwork {
     /************************************/
     /* Operator External View Functions */
     /************************************/
-
+/*
     function getOperatorFee(uint64 operatorId) external view returns (uint256);
 
     function getOperatorDeclaredFee(
@@ -293,11 +308,11 @@ interface ISSVNetwork {
     function getOperatorById(
         uint64 operatorId
     ) external view returns (address owner, uint256 fee, uint32 validatorCount);
-
+*/
     /*******************************/
     /* Cluster External View Functions */
     /*******************************/
-
+/*
     function isLiquidatable(
         address owner,
         uint64[] memory operatorIds,
@@ -311,28 +326,23 @@ interface ISSVNetwork {
     ) external view returns(bool);
 
     function getClusterBurnRate(uint64[] memory operatorIds) external view returns (uint256);
-
+*/
     /***********************************/
     /* Balance External View Functions */
     /***********************************/
 
-    /**
-     * @dev Gets the operators current snapshot.
-     * @param id Operator's id.
-     * @return balance the current balance of the operator.
-     */
-    function getOperatorEarnings(uint64 id) external view returns (uint256 balance);
-
+    //function getOperatorEarnings(uint64 id) external view returns (uint256 balance);
+/*
     function getBalance(
         address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external view returns (uint256);
-
+*/
     /*******************************/
     /* DAO External View Functions */
     /*******************************/
-
+/*
     function getNetworkFee() external view returns (uint256);
 
     function getNetworkEarnings() external view returns (uint256);
@@ -344,4 +354,5 @@ interface ISSVNetwork {
     function getDeclaredOperatorFeePeriod() external view returns (uint64);
 
     function getLiquidationThresholdPeriod() external view returns (uint64);
+    */
 }
