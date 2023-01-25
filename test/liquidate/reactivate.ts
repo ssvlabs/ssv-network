@@ -6,6 +6,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, minDepositAmount: any, firstCluster: any;
 
+// Declare globals
 describe('Reactivate Tests', () => {
   beforeEach(async () => {
     // Initialize contract

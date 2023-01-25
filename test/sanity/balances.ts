@@ -1,11 +1,12 @@
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
-
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, cluster1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any, initNetworkFeeBalance: any;
 
+// Declare globals
 describe('Balance Tests', () => {
   beforeEach(async () => {
     // Initialize contract

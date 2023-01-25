@@ -6,6 +6,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, minDepositAmount: any, firstCluster: any;
 
+// Declare globals
 describe('Liquidate Tests', () => {
   beforeEach(async () => {
     // Initialize contract
@@ -97,7 +98,7 @@ describe('Liquidate Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
   });
   
-  it('Is liquidated', async () => {
+  it('Liquidate cluster and check isLiquidated true', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
       firstCluster.owner,
@@ -137,7 +138,7 @@ describe('Liquidate Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract,'IncorrectClusterState');
   });
 
-  it('Liquidate second time a cluster that is liquidated already reverts "ClusterIsLiquidated"', async () => {
+  it('Liquidate already liquidated cluster reverts "ClusterIsLiquidated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
       firstCluster.owner,
