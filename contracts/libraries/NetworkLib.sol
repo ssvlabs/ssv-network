@@ -34,10 +34,10 @@ library NetworkLib {
             dao.validatorCount;
     }
 
-    function currentNetworkFeeIndex(SSVNetwork ssvNetwork) internal view returns (uint64) {
+    function currentNetworkFeeIndex(ISSVNetwork.Network memory network) internal view returns (uint64) {
         return
-            ssvNetwork._networkFeeIndex() +
-            uint64(block.number - ssvNetwork._networkFeeIndexBlockNumber()) *
-            ssvNetwork._networkFee();
+            network.networkFeeIndex +
+            uint64(block.number - network.networkFeeIndexBlockNumber) *
+            network.networkFee;
     }
 }

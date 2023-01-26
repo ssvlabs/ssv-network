@@ -14,6 +14,19 @@ interface ISSVNetwork {
         uint64 balance;
     }
 
+    struct Operator {
+        address owner;
+        uint64 fee;
+        uint32 validatorCount;
+        ISSVNetwork.Snapshot snapshot;
+    }
+
+    struct OperatorFeeChangeRequest {
+        uint64 fee;
+        uint64 approvalBeginTime;
+        uint64 approvalEndTime;
+    }
+
     struct Cluster {
         uint32 validatorCount;
         uint64 networkFee;
@@ -29,6 +42,11 @@ interface ISSVNetwork {
         Snapshot earnings;
     }
 
+    struct Network {
+        uint64 networkFee;
+        uint64 networkFeeIndex;
+        uint64 networkFeeIndexBlockNumber;
+    }
     /**********/
     /* Events */
     /**********/
@@ -151,9 +169,9 @@ interface ISSVNetwork {
     error CallerNotOwner();
     error FeeTooLow();
     error FeeExceedsIncreaseLimit();
-    //error NoFeeDelcared();
+    error NoFeeDelcared();
     error ApprovalNotWithinTimeframe();
-    //error OperatorDoesNotExist();
+    error OperatorDoesNotExist();
     error InsufficientBalance();
     error ValidatorAlreadyExists();
     error ValidatorDoesNotExist();

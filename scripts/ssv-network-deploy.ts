@@ -16,6 +16,17 @@ async function main() {
     });
   await contract.deployed();
   console.log(`SSVNetwork deployed to: ${contract.address}`);
+
+  const ssvViewsFactory = await ethers.getContractFactory('SSVNetworkViews');
+  console.log(`Deploying SSVNetworkViews with SSVNetwork ${contract.address}...`);
+  const viewsContract = await upgrades.deployProxy(ssvViewsFactory, [
+    contract.address
+  ],
+    {
+      kind: "uups"
+    });
+  await viewsContract.deployed();
+  console.log(`SSVNetworkViews deployed to: ${viewsContract.address}`);
 }
 
 main()

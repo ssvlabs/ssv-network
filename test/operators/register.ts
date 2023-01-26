@@ -4,11 +4,13 @@ import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any;
+let ssvNetworkContract: any, ssvViews: any;
 
 describe('Register Operator Tests', () => {
   beforeEach(async () => {
-    ssvNetworkContract = (await helpers.initializeContract()).contract;
+    const metadata = (await helpers.initializeContract());
+    ssvNetworkContract = metadata.contract;
+    ssvViews = metadata.ssvViews;
   });
 
   it('Register operator emits "OperatorAdded"', async () => {
@@ -39,9 +41,9 @@ describe('Register Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
     ), [GasGroup.REGISTER_OPERATOR]);
 
-    expect((await ssvNetworkContract.getOperatorById(1)).owner).to.equal(helpers.DB.owners[1].address);
-    expect((await ssvNetworkContract.getOperatorById(1)).fee).to.equal(helpers.CONFIG.minimalOperatorFee);
-    expect((await ssvNetworkContract.getOperatorById(1)).validatorCount).to.equal(0);
+    expect((await ssvViews.getOperatorById(1))[0]).to.equal(helpers.DB.owners[1].address); // owner
+    expect((await ssvViews.getOperatorById(1))[1]).to.equal(helpers.CONFIG.minimalOperatorFee); // fee
+    expect((await ssvViews.getOperatorById(1))[2]).to.equal(0); // validatorCount
   });
 
   it('Get operator by id reverts "OperatorDoesNotExist"', async () => {
@@ -50,6 +52,6 @@ describe('Register Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
     ), [GasGroup.REGISTER_OPERATOR]);
 
-    await expect(ssvNetworkContract.getOperatorById(3)).to.be.revertedWithCustomError(ssvNetworkContract,'OperatorDoesNotExist');
+    await expect(ssvViews.getOperatorById(3)).to.be.revertedWithCustomError(ssvNetworkContract,'OperatorDoesNotExist');
   });
 });

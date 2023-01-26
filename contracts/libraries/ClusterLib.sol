@@ -11,7 +11,6 @@ library ClusterLib {
     error ClusterDoesNotExists();
     error IncorrectClusterState();
     error ClusterIsLiquidated();
-    error InsufficientFunds();
 
     /*****************************/
     /* Cluster Private Functions */
@@ -30,7 +29,7 @@ library ClusterLib {
             networkFee;
 
         if (usage > cluster.balance) {
-            revert InsufficientFunds();
+            revert ISSVNetwork.InsufficientFunds();
         }
 
         balance = cluster.balance - usage;
@@ -84,26 +83,12 @@ library ClusterLib {
         return hashedCluster;
     }
 
-    function liquidatable(
-        uint32 validatorCount,
-        uint64 networkFee,
-        uint64 balance,
-        uint64 burnRate,
-        uint64 minimumBlocksBeforeLiquidation
-    ) internal pure returns (bool) {
-        return
-            balance <
-            minimumBlocksBeforeLiquidation *
-                (burnRate + networkFee) *
-                validatorCount;
-    }
-
     function updateClusterData(
         ISSVNetwork.Cluster memory cluster,
         uint64 clusterIndex,
         uint64 currentNetworkFeeIndex,
         int8 changedTo
-    ) internal pure returns (ISSVNetwork.Cluster memory) {
+    ) internal pure {
         if (!cluster.disabled) {
             cluster.balance = clusterBalance(cluster,
                 clusterIndex,
@@ -123,7 +108,5 @@ library ClusterLib {
         } else if (changedTo == -1) {
             --cluster.validatorCount;
         }
-
-        return cluster;
     }
 }
