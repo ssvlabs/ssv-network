@@ -6,6 +6,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, minDepositAmount: any, firstCluster: any;
 
+// Declare globals
 describe('Reactivate Tests', () => {
   beforeEach(async () => {
     // Initialize contract
@@ -77,6 +78,16 @@ describe('Reactivate Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedClusterAfrerRemove.operatorIds, 0, updatedClusterAfrerRemove.cluster)).to.emit(ssvNetworkContract, 'ClusterReactivated');
   });
 
+  it('Reactivate a cluster with a removed operator in the cluster', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
+    await ssvNetworkContract.removeOperator(1);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedCluster.operatorIds, minDepositAmount, updatedCluster.cluster), [GasGroup.REACTIVATE_POD]);
+  });
+
   it('Reactivate an enabled cluster reverts "ClusterAlreadyEnabled"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(firstCluster.operatorIds, minDepositAmount, firstCluster.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterAlreadyEnabled');
   });
@@ -88,15 +99,5 @@ describe('Reactivate Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedCluster.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
-  });
-
-  it('Reactivate a cluster with a removed operator in the cluster', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
-    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
-    await ssvNetworkContract.removeOperator(1);
-
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedCluster.operatorIds, minDepositAmount, updatedCluster.cluster), [GasGroup.REACTIVATE_POD]);
   });
 });

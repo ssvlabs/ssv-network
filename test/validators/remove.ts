@@ -1,10 +1,10 @@
 // Decalre imports
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
-
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
+// Declare globals
 let ssvNetworkContract: any, minDepositAmount: any, firstCluster: any;
 
 describe('Remove Validator Tests', () => {
@@ -54,7 +54,7 @@ describe('Remove Validator Tests', () => {
     firstCluster = register.eventsByName.ValidatorAdded[0].args;
   });
 
-  it('Remove validator emits ValidatorRemoved event', async () => {
+  it('Remove validator emits "ValidatorRemoved"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
@@ -62,7 +62,7 @@ describe('Remove Validator Tests', () => {
     )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
   });
 
-  it('Remove validator track gas', async () => {
+  it('Remove validator gas limit', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
@@ -70,7 +70,7 @@ describe('Remove Validator Tests', () => {
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator with removed operator in a cluster', async () => {
+  it('Remove validator with a removed operator in the cluster', async () => {
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
@@ -79,31 +79,7 @@ describe('Remove Validator Tests', () => {
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator with an invalid owner', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(
-      helpers.DataGenerator.publicKey(1),
-      firstCluster.operatorIds,
-      firstCluster.cluster
-    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorOwnedByOtherAddress');
-  });
-
-  it('Remove validator twice', async () => {
-    // Remove validator
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
-      helpers.DataGenerator.publicKey(1),
-      firstCluster.operatorIds,
-      firstCluster.cluster
-    ), [GasGroup.REMOVE_VALIDATOR]);
-
-    // Remove validator again
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
-      helpers.DataGenerator.publicKey(1),
-      firstCluster.operatorIds,
-      firstCluster.cluster
-    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorDoesNotExist');
-  });
-
-  it('Register / remove validator twice', async () => {
+  it('Register a removed validator and remove the same validator again', async () => {
     // Remove validator
     const remove = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
@@ -144,5 +120,29 @@ describe('Remove Validator Tests', () => {
       updatedCluster.operatorIds,
       updatedCluster.cluster
     ), [GasGroup.REMOVE_VALIDATOR]);
+  });
+
+  it('Remove validator with an invalid owner reverts "ValidatorOwnedByOtherAddress"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(
+      helpers.DataGenerator.publicKey(1),
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorOwnedByOtherAddress');
+  });
+
+  it('Remove the same validator twice reverts "ValidatorDoesNotExist"', async () => {
+    // Remove validator
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(1),
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ), [GasGroup.REMOVE_VALIDATOR]);
+
+    // Remove validator again
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(1),
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorDoesNotExist');
   });
 });
