@@ -2,22 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.16;
 
-import "../ISSVNetwork.sol";
+import "../ISSVNetworkCore.sol";
 import "../SSVNetwork.sol";
 
 library ClusterLib {
-    error ClusterNotLiquidatable();
-    error ClusterAlreadyEnabled();
-    error ClusterDoesNotExists();
-    error IncorrectClusterState();
-    error ClusterIsLiquidated();
-
     /*****************************/
     /* Cluster Private Functions */
     /*****************************/
 
     function clusterBalance(
-        ISSVNetwork.Cluster memory cluster,
+        ISSVNetworkCore.Cluster memory cluster,
         uint64 newIndex,
         uint64 currentNetworkFeeIndex
     ) internal pure returns (uint64 balance) {
@@ -29,14 +23,14 @@ library ClusterLib {
             networkFee;
 
         if (usage > cluster.balance) {
-            revert ISSVNetwork.InsufficientFunds();
+            revert ISSVNetworkCore.InsufficientFunds();
         }
 
         balance = cluster.balance - usage;
     }
 
     function liquidatable(
-        ISSVNetwork.Cluster memory cluster,
+        ISSVNetworkCore.Cluster memory cluster,
         uint64 burnRate,
         uint64 networkFee,
         uint64 minimumBlocksBeforeLiquidation
@@ -49,15 +43,15 @@ library ClusterLib {
     }
 
     function validateClusterIsNotLiquidated(
-        ISSVNetwork.Cluster memory cluster
+        ISSVNetworkCore.Cluster memory cluster
     ) internal pure {
         if (cluster.disabled) {
-            revert ClusterIsLiquidated();
+            revert ISSVNetworkCore.ClusterIsLiquidated();
         }
     }
 
     function validateHashedCluster(
-        ISSVNetwork.Cluster memory cluster,
+        ISSVNetworkCore.Cluster memory cluster,
         address owner,
         uint64[] memory operatorIds,
         SSVNetwork ssvNetwork
@@ -74,23 +68,24 @@ library ClusterLib {
             )
         );
 
-        if (ssvNetwork._clusters(hashedCluster) == bytes32(0)) {
-            revert ClusterDoesNotExists();
-        } else if (ssvNetwork._clusters(hashedCluster) != hashedClusterData) {
-            revert IncorrectClusterState();
+        if (ssvNetwork.clusters(hashedCluster) == bytes32(0)) {
+            revert ISSVNetworkCore.ClusterDoesNotExists();
+        } else if (ssvNetwork.clusters(hashedCluster) != hashedClusterData) {
+            revert ISSVNetworkCore.IncorrectClusterState();
         }
 
         return hashedCluster;
     }
 
     function updateClusterData(
-        ISSVNetwork.Cluster memory cluster,
+        ISSVNetworkCore.Cluster memory cluster,
         uint64 clusterIndex,
         uint64 currentNetworkFeeIndex,
         int8 changedTo
     ) internal pure {
         if (!cluster.disabled) {
-            cluster.balance = clusterBalance(cluster,
+            cluster.balance = clusterBalance(
+                cluster,
                 clusterIndex,
                 currentNetworkFeeIndex
             );

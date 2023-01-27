@@ -3,8 +3,8 @@
 pragma solidity 0.8.16;
 
 import "./SSVNetwork.sol";
-import "./ISSVNetwork.sol";
-import "./utils/Types.sol";
+import "./ISSVNetworkViews.sol";
+import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/NetworkLib.sol";
@@ -12,12 +12,12 @@ import "./libraries/NetworkLib.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
+contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable, ISSVNetworkViews {
     using Types256 for uint256;
     using Types64 for uint64;
-    using ClusterLib for ISSVNetwork.Cluster;
-    using OperatorLib for ISSVNetwork.Operator;
-    using NetworkLib for ISSVNetwork.DAO;
+    using ClusterLib for Cluster;
+    using OperatorLib for Operator;
+    using NetworkLib for DAO;
 
     SSVNetwork _ssvNetwork;
 
@@ -36,26 +36,26 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
     /* Operator External View Functions */
     /************************************/
 
-    function getOperatorFee(uint64 operatorId) external view returns (uint256) {
-        (, uint64 fee, , ISSVNetwork.Snapshot memory snapshot) = _ssvNetwork
-            ._operators(operatorId);
-        if (snapshot.block == 0) revert ISSVNetwork.OperatorDoesNotExist();
+    function getOperatorFee(uint64 operatorId) external override view returns (uint256) {
+        (, uint64 fee, , Snapshot memory snapshot) = _ssvNetwork
+            .operators(operatorId);
+        if (snapshot.block == 0) revert OperatorDoesNotExist();
 
         return fee.expand();
     }
 
-    // use _operatorFeeChangeRequests(operatorId) direct call?
+    // use operatorFeeChangeRequests(operatorId) direct call?
     function getOperatorDeclaredFee(
         uint64 operatorId
-    ) external view returns (uint256, uint256, uint256) {
+    ) external override view returns (uint256, uint256, uint256) {
         (
             uint64 fee,
             uint64 approvalBeginTime,
             uint64 approvalEndTime
-        ) = _ssvNetwork._operatorFeeChangeRequests(operatorId);
+        ) = _ssvNetwork.operatorFeeChangeRequests(operatorId);
 
         if (fee == 0) {
-            revert ISSVNetwork.NoFeeDelcared();
+            revert NoFeeDelcared();
         }
 
         return (fee.expand(), approvalBeginTime, approvalEndTime);
@@ -63,12 +63,12 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
 
     function getOperatorById(
         uint64 operatorId
-    ) external view returns (address, uint256, uint32) {
-        (address owner, uint64 fee, uint32 validatorCount, ) = _ssvNetwork
-            ._operators(operatorId);
-        if (owner == address(0)) revert ISSVNetwork.OperatorDoesNotExist();
+    ) external override view returns (address, uint256, uint32) {
+        (address operatorOwner, uint64 fee, uint32 validatorCount, ) = _ssvNetwork
+            .operators(operatorId);
+        if (operatorOwner == address(0)) revert OperatorDoesNotExist();
 
-        return (owner, fee.expand(), validatorCount);
+        return (operatorOwner, fee.expand(), validatorCount);
     }
 
     /***********************************/
@@ -78,14 +78,14 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
     function isLiquidatable(
         address owner,
         uint64[] calldata operatorIds,
-        ISSVNetwork.Cluster memory cluster
-    ) external view returns (bool) {
+        Cluster memory cluster
+    ) external override view returns (bool) {
         uint64 clusterIndex;
         uint64 burnRate;
         uint operatorsLength = operatorIds.length;
         for (uint i; i < operatorsLength; ++i) {
-            (, uint64 fee, , ISSVNetwork.Snapshot memory snapshot) = _ssvNetwork
-                ._operators(operatorIds[i]);
+            (, uint64 fee, , Snapshot memory snapshot) = _ssvNetwork
+                .operators(operatorIds[i]);
             clusterIndex +=
                 snapshot.index +
                 (uint64(block.number) - snapshot.block) *
@@ -99,12 +99,12 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
             uint64 networkFee,
             uint64 networkFeeIndex,
             uint64 networkFeeIndexBlockNumber
-        ) = _ssvNetwork._network();
+        ) = _ssvNetwork.network();
 
         cluster.balance = cluster.clusterBalance(
             clusterIndex,
             NetworkLib.currentNetworkFeeIndex(
-                ISSVNetwork.Network(
+                Network(
                     networkFee,
                     networkFeeIndex,
                     networkFeeIndexBlockNumber
@@ -115,15 +115,15 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
             cluster.liquidatable(
                 burnRate,
                 networkFee,
-                _ssvNetwork._minimumBlocksBeforeLiquidation()
+                _ssvNetwork.minimumBlocksBeforeLiquidation()
             );
     }
 
     function isLiquidated(
         address owner,
         uint64[] calldata operatorIds,
-        ISSVNetwork.Cluster memory cluster
-    ) external view returns (bool) {
+        Cluster memory cluster
+    ) external override view returns (bool) {
         cluster.validateHashedCluster(owner, operatorIds, _ssvNetwork);
 
         return cluster.disabled;
@@ -135,10 +135,10 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
         uint64 burnRate;
         uint operatorsLength = operatorIds.length;
         for (uint i; i < operatorsLength; ++i) {
-            (address owner, uint64 fee, , ) = _ssvNetwork._operators(
+            (address operatorOwner, uint64 fee, , ) = _ssvNetwork.operators(
                 operatorIds[i]
             );
-            if (owner != address(0)) {
+            if (operatorOwner != address(0)) {
                 burnRate += fee;
             }
         }
@@ -149,18 +149,18 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
     /* Balance External View Functions */
     /***********************************/
 
-    function getOperatorEarnings(uint64 id) external view returns (uint256) {
+    function getOperatorEarnings(uint64 id) external override view returns (uint256) {
         (
-            address owner,
+            address operatorOwner,
             uint64 fee,
             uint32 validatorCount,
-            ISSVNetwork.Snapshot memory snapshot
-        ) = _ssvNetwork._operators(id);
+            Snapshot memory snapshot
+        ) = _ssvNetwork.operators(id);
 
-        ISSVNetwork.Operator memory operator = ISSVNetwork.Operator({
-            owner: owner,
+        Operator memory operator = Operator({
+            owner: operatorOwner,
             fee: fee,
-            snapshot: ISSVNetwork.Snapshot({
+            snapshot: Snapshot({
                 block: snapshot.block,
                 index: snapshot.index,
                 balance: snapshot.balance
@@ -175,8 +175,8 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
     function getBalance(
         address owner,
         uint64[] calldata operatorIds,
-        ISSVNetwork.Cluster memory cluster
-    ) external view returns (uint256) {
+        Cluster memory cluster
+    ) external override view returns (uint256) {
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
@@ -187,8 +187,8 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
                     ,
                     uint64 fee,
                     ,
-                    ISSVNetwork.Snapshot memory snapshot
-                ) = _ssvNetwork._operators(operatorIds[i]);
+                    Snapshot memory snapshot
+                ) = _ssvNetwork.operators(operatorIds[i]);
                 clusterIndex +=
                     snapshot.index +
                     (uint64(block.number) - snapshot.block) *
@@ -202,10 +202,10 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
             uint64 networkFee,
             uint64 networkFeeIndex,
             uint64 networkFeeIndexBlockNumber
-        ) = _ssvNetwork._network();
+        ) = _ssvNetwork.network();
 
         uint64 currrentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(
-            ISSVNetwork.Network(
+            Network(
                 networkFee,
                 networkFeeIndex,
                 networkFeeIndexBlockNumber
@@ -222,45 +222,45 @@ contract SSVNetworkViews is UUPSUpgradeable, OwnableUpgradeable {
     /* DAO External View Functions */
     /*******************************/
 
-    function getNetworkFee() external view returns (uint256) {
-        (uint64 networkFee, , ) = _ssvNetwork._network();
+    function getNetworkFee() external override view returns (uint256) {
+        (uint64 networkFee, , ) = _ssvNetwork.network();
         return networkFee.expand();
     }
 
-    function getNetworkEarnings() external view returns (uint256) {
+    function getNetworkEarnings() external override view returns (uint256) {
         (
             uint32 validatorCount,
             uint64 withdrawn,
-            ISSVNetwork.Snapshot memory snapshot
-        ) = _ssvNetwork._dao();
+            Snapshot memory snapshot
+        ) = _ssvNetwork.dao();
 
-        ISSVNetwork.DAO memory dao = ISSVNetwork.DAO({
+        DAO memory dao = DAO({
             validatorCount: validatorCount,
             withdrawn: withdrawn,
-            earnings: ISSVNetwork.Snapshot({
+            earnings: Snapshot({
                 block: snapshot.block,
                 index: snapshot.index,
                 balance: snapshot.balance
             })
         });
-        (uint64 networkFee, , ) = _ssvNetwork._network();
+        (uint64 networkFee, , ) = _ssvNetwork.network();
 
         return dao.networkBalance(networkFee).expand();
     }
 
-    function getOperatorFeeIncreaseLimit() external view returns (uint64) {
-        return _ssvNetwork._operatorMaxFeeIncrease();
+    function getOperatorFeeIncreaseLimit() external override view returns (uint64) {
+        return _ssvNetwork.operatorMaxFeeIncrease();
     }
 
-    function getExecuteOperatorFeePeriod() external view returns (uint64) {
-        return _ssvNetwork._executeOperatorFeePeriod();
+    function getExecuteOperatorFeePeriod() external override view returns (uint64) {
+        return _ssvNetwork.executeOperatorFeePeriod();
     }
 
-    function getDeclaredOperatorFeePeriod() external view returns (uint64) {
-        return _ssvNetwork._declareOperatorFeePeriod();
+    function getDeclaredOperatorFeePeriod() external override view returns (uint64) {
+        return _ssvNetwork.declareOperatorFeePeriod();
     }
 
-    function getLiquidationThresholdPeriod() external view returns (uint64) {
-        return _ssvNetwork._minimumBlocksBeforeLiquidation();
+    function getLiquidationThresholdPeriod() external override view returns (uint64) {
+        return _ssvNetwork.minimumBlocksBeforeLiquidation();
     }
 }

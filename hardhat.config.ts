@@ -6,6 +6,7 @@ import '@openzeppelin/hardhat-upgrades';
 import 'hardhat-tracer';
 import '@nomiclabs/hardhat-solhint';
 import 'hardhat-contract-sizer';
+import 'hardhat-storage-layout-changes';
 
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
