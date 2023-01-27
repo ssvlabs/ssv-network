@@ -23,8 +23,12 @@ npx hardhat node
 For more details about it and how to use MainNet forking you can find [here](https://hardhat.org/hardhat-network/).
 
 ### Compile contracts
-Take a look at `contracts/` folder, you should be able to find `SSVNetwork.sol`.
-To compile it, simply run:
+Take a look at `contracts/` folder, you should be able to find:
+`SSVNetwork.sol`: Base contract for SSV Network operations.
+`SSVNetworkViews.sol`: Contract with view functions only to retrive information from SSVNetwork contract.
+`libraries`: Folder which contains library contracts that implement operators, clusters and network functionalities.
+
+To compile them, simply run:
 
 ```sh
 npx hardhat compile
@@ -43,7 +47,13 @@ npx hardhat test
 
 ### Step 2: Deploy new contracts
 We use [UUPS Proxy Upgrade pattern](https://docs.openzeppelin.com/contracts/4.x/api/proxy) for smart contracts to have an ability to upgrade them later.
-To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `ssv-network-deploy.ts` and `ssv-network-upgrade.ts` files.
+To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find:
+`deploy-all.ts`: Deploys both `SSVNetwork.sol` and `SSVNetworkViews.sol`.
+`validate-upgrade-ssv-network`: Validates if `SSVNetwork` is upgrade safe.
+`validate-upgrade-ssv-network-views`: Validates if `SSVNetworkViews` is upgrade safe.
+`upgrade-ssv-network`: Upgrades `SSVNetwork` contract.
+`upgrade-ssv-network-views`: Upgrades `SSVNetworkViews` contract.
+
 As general rule, you can target any network configured in the `hardhat.config.ts`,
 specifying the right [network]_ETH_NODE_URL and [network]_OWNER_PRIVATE_KEY in `.env` file.
 
@@ -64,21 +74,31 @@ DECLARE_OPERATOR_FEE_PERIOD=# custom param
 EXECUTE_OPERATOR_FEE_PERIOD=# custom param
 VALIDATORS_PER_OPERATOR_LIMIT=# custom param
 REGISTERED_OPERATORS_PER_ACCOUNT_LIMIT=# custom param
-PROXY_ADDRESS=# Proxy address, set it when runnning ssv-network-upgrade.ts script
+SSVNETWORK_PROXY_ADDRESS=# SSVNetwork proxy address, set it when runnning upgrade-ssv-network.ts script
+SSVNETWORKVIEWS_PROXY_ADDRESS=# SSVNetworkViews proxy address, set it when runnning upgrade-ssv-network-views.ts script
 ```
 
 ```sh
-npx hardhat run --network <your-network> scripts/ssv-network-deploy.ts
+npx hardhat run --network <your-network> scripts/deploy-all.ts
 ```
-Output of this action will be smart SSV Network contract proxy address.
+Output of this action will be like:
+```sh
+Deploying contracts with the account:0xf39Fd6...
+Deploying SSVNetwork with ssvToken 0x6471F7...
+SSVNetwork proxy deployed to: 0x8A7916...
+SSVNetwork implementation deployed to: 0x2279B7...
+Deploying SSVNetworkViews with SSVNetwork 0x8A7916...
+SSVNetworkViews proxy deployed to: 0xB7f8BC...
+SSVNetworkViews implementation deployed to: 0x610178...
+```
 
 ### Step 3: Verify implementation contract on etherscan (each time after upgrade)
 Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is implementation smart contract address.
-We use [UUPS Proxy Upgrade pattern](https://docs.openzeppelin.com/contracts/4.x/api/proxy) for smart contracts to have an ability to upgrade them later.
-To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `ssv-network-deploy.ts` file.
+You can take it from the output of the `deploy-all.ts` script.
+
 Run this:
 ```sh
-npx hardhat  verify --network <network> <implementation-address>
+npx hardhat verify --network <network> <implementation-address>
 ```
 
 ### Step 4: Link proxy contract with implementation on etherscan (each time after upgrade)
@@ -91,10 +111,10 @@ The proxy\'s (<proxy-address) implementation contract is found at: <implementati
 To be sure that values are correct and click `Save` button. As result on etherscan proxy address page in `Contract` tab you will find two new buttons:
 `Write as Proxy` and `Read as Proxy` which will represent implementation smart contract functions interface and the actual state.
 
-### Step 5: Upgrade SSVNetwork contract
-Once we have tested our new implementation, for example `contracts/SSVNetwork.sol` we can prepare the upgrade.
+### Upgrade SSVNetwork contract
+Once we have tested our new implementation, for example `contracts/SSVNetwork_V2.sol` we can prepare the upgrade.
 
-In `.env` file, remember to set `PROXY_ADDRESS`.
+In `.env` file, remember to set `SSVNETWORK_PROXY_ADDRESS`.
 
 **Important**
 Pay special attention when changing storage layout, for example adding new storage variables
@@ -104,11 +124,11 @@ the size of the new variables added. More info: [Storage Gaps](https://docs.open
 
 To validate the upgrade before running it:
 ```sh
-npx hardhat run --network <your-network> scripts/ssv-network-validate-upgrade.ts
+npx hardhat run --network <your-network> scripts/validate-upgrade-ssv-network.ts
 ```
 To fire the upgrade process:
 ```sh
-npx hardhat run --network <your-network> scripts/ssv-network-upgrade.ts
+npx hardhat run --network <your-network> scripts/upgrade-ssv-network.ts
 ```
 
 If you get the error:
@@ -119,10 +139,22 @@ code: 'INVALID_ARGUMENT',
 `
 Set or change the parameters `GAS_PRICE` and `GAS` in `.env` file.
 
-### dApp UI to interact with smart contract
+### Upgrade SSVNetworkViews contract
+Once we have tested our new implementation, for example `contracts/SSVNetworkViews_V2.sol` we can prepare the upgrade.
 
+In `.env` file, remember to set `SSVNETWORKVIEWS_PROXY_ADDRESS`.
+
+**Important**
+Pay special attention when changing storage layout, for example adding new storage variables
+in `SSVNetworkViews` (base) contract.
+There is a state variable `uint256[50] __gap;` that you should reduce the size according to
+the size of the new variables added. More info: [Storage Gaps](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps)
+
+To validate the upgrade before running it:
 ```sh
-https://eth95.dev/?network=1&address=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+npx hardhat run --network <your-network> scripts/validate-upgrade-ssv-network-views.ts
 ```
-
-UI dApp [direct link](https://eth95.dev/?network=1&address=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0)
+To fire the upgrade process:
+```sh
+npx hardhat run --network <your-network> scripts/upgrade-ssv-network-views.ts
+```
