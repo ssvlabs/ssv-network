@@ -37,7 +37,7 @@ interface ISSVNetwork is ISSVNetworkCore{
      * @param cluster All the cluster data.
      */
     event ValidatorAdded(
-        address owner,
+        address indexed owner,
         uint64[] operatorIds,
         bytes publicKey,
         bytes shares,
@@ -51,7 +51,7 @@ interface ISSVNetwork is ISSVNetworkCore{
      * @param cluster All the cluster data.
      */
     event ValidatorRemoved(
-        address owner,
+        address indexed owner,
         uint64[] operatorIds,
         bytes publicKey,
         Cluster cluster
@@ -125,7 +125,7 @@ interface ISSVNetwork is ISSVNetworkCore{
     event OperatorWithdrawn(uint256 value, uint64 operatorId, address owner);
 
     event ClusterDeposited(
-        address owner,
+        address indexed owner,
         uint64[] operatorIds,
         uint256 value,
         Cluster cluster

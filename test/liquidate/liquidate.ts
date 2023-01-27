@@ -6,6 +6,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, firstCluster: any;
 
+// Declare globals
 describe('Liquidate Tests', () => {
   beforeEach(async () => {
     // Initialize contract
@@ -54,18 +55,7 @@ describe('Liquidate Tests', () => {
     firstCluster = register.eventsByName.ValidatorAdded[0].args;
   });
 
-  it('Get if the cluster is liquidatable', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    expect(await ssvViews.isLiquidatable(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(true);
-  });
-
-  it('Liquidatable with removed operator', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await ssvNetworkContract.removeOperator(1);
-    expect(await ssvViews.isLiquidatable(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(true);
-  });
-
-  it('Liquidate emits ClusterLiquidated event', async () => {
+  it('Liquidate a cluster emits "ClusterLiquidated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
 
     await expect(ssvNetworkContract.liquidate(
@@ -73,6 +63,12 @@ describe('Liquidate Tests', () => {
       firstCluster.operatorIds,
       firstCluster.cluster
     )).to.emit(ssvNetworkContract, 'ClusterLiquidated');
+  });
+
+  it('Liquidatable with removed operator', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await ssvNetworkContract.removeOperator(1);
+    expect(await ssvViews.isLiquidatable(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(true);
   });
 
   it('Liquidate validator with removed operator in a cluster', async () => {
@@ -85,7 +81,7 @@ describe('Liquidate Tests', () => {
     ), [GasGroup.LIQUIDATE_POD]);
   });
 
-  it('Liquidate and register validator in disabled cluster', async () => {
+  it('Liquidate and register validator in a disabled cluster', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
       firstCluster.owner,
@@ -102,6 +98,23 @@ describe('Liquidate Tests', () => {
       `${minDepositAmount*2}`,
       updatedCluster.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
+  });
+  
+  it('Liquidate cluster and check isLiquidated true', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
+      firstCluster.owner,
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
+
+    expect(await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, updatedCluster.cluster)).to.equal(true);
+  });
+
+  it('Get if the cluster is liquidatable', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    expect(await ssvViews.isLiquidatable(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(true);
   });
 
   it('Liquidate a cluster that is not liquidatable reverts "ClusterNotLiquidatable"', async () => {
@@ -127,7 +140,7 @@ describe('Liquidate Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract,'IncorrectClusterState');
   });
 
-  it('Liquidate second time a cluster that is liquidated already reverts "ClusterIsLiquidated"', async () => {
+  it('Liquidate already liquidated cluster reverts "ClusterIsLiquidated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
       firstCluster.owner,
@@ -143,18 +156,6 @@ describe('Liquidate Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterIsLiquidated');
   });
 
-  it('Is liquidated', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
-      firstCluster.owner,
-      firstCluster.operatorIds,
-      firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD]);
-    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
-
-    expect(await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, updatedCluster.cluster)).to.equal(true);
-  });
-
   it('Is liquidated reverts "ClusterDoesNotExists"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
@@ -166,5 +167,4 @@ describe('Liquidate Tests', () => {
 
     await expect(ssvViews.isLiquidated(helpers.DB.owners[0].address, firstCluster.operatorIds, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterDoesNotExists');
   });
-
 });
