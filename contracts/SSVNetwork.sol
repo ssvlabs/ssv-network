@@ -100,6 +100,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     IERC20 private _token;
 
     // @dev reserve storage space for future new state variables in base contract
+    // slither-disable-next-line shadowing-state
     uint256[50] __gap;
 
     /*************/
@@ -438,7 +439,9 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
-        _token.transfer(msg.sender, clusterBalance.expand());
+        if(!_token.transfer(msg.sender, clusterBalance.expand())) {
+            revert TokenTransferFailed();
+        }
 
         emit ClusterLiquidated(owner, operatorIds, cluster);
     }
@@ -595,7 +598,9 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
-        _token.transfer(msg.sender, amount);
+        if(!_token.transfer(msg.sender, amount)) {
+            revert TokenTransferFailed();
+        }
 
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
     }
@@ -630,7 +635,9 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         dao.withdrawn += shrunkAmount;
         _dao = dao;
 
-        _token.transfer(msg.sender, amount);
+        if(!_token.transfer(msg.sender, amount)) {
+            revert TokenTransferFailed();
+        }
 
         emit NetworkEarningsWithdrawn(amount, msg.sender);
     }
@@ -912,7 +919,9 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         uint64 operatorId,
         uint256 amount
     ) private {
-        _token.transfer(msg.sender, amount);
+        if(!_token.transfer(msg.sender, amount)) {
+            revert TokenTransferFailed();
+        }
         emit OperatorWithdrawn(amount, operatorId, msg.sender);
     }
 
@@ -969,7 +978,9 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /*****************************/
 
     function _deposit(uint64 amount) private {
-        _token.transferFrom(msg.sender, address(this), amount.expand());
+        if(!_token.transferFrom(msg.sender, address(this), amount.expand())) {
+            revert TokenTransferFailed();
+        }
     }
 
     function _updateNetworkFeeIndex() private {

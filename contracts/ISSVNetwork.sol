@@ -155,6 +155,7 @@ interface ISSVNetwork {
     error UnsortedOperatorsList();
     error NewBlockPeriodIsBelowMinimum();
     error ExceedValidatorLimit();
+    error TokenTransferFailed();
 
     /****************/
     /* Initializers */
