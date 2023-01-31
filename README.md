@@ -119,6 +119,25 @@ code: 'INVALID_ARGUMENT',
 `
 Set or change the parameters `GAS_PRICE` and `GAS` in `.env` file.
 
+### Modify the limit of validators that an operator can manage
+In `SSVNetwork` contract, the state variable `validatorsPerOperatorLimit` is used to represent the máximum number of validators that can be registered per operator. Its default value is `2000`.
+
+To change it, the upgrade process should be fired. The assignement to a new value must be in a new initializer function. Pay special attention to the `reinitializer` modifier where there should be a number higher than the one consumed in previous initialized contracts. More info [here](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Initializable-reinitializer-uint8-)
+Example upgrade contract:
+```
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity 0.8.16;
+
+import "../SSVNetwork.sol";
+
+contract SSVNetwork_v2 is SSVNetwork {
+    
+    function initializev2(uint32 validatorsPerOperatorLimit_) reinitializer(2) external {
+        validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+    }
+}
+```
+
 ### dApp UI to interact with smart contract
 
 ```sh
