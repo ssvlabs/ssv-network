@@ -1,10 +1,8 @@
-// File: contracts/ISSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.16;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork {
-
     struct Cluster {
         uint32 validatorCount;
         uint64 networkFee;
@@ -73,7 +71,10 @@ interface ISSVNetwork {
         uint256 fee
     );
 
-    event OperatorFeeCancelationDeclared(address indexed owner, uint64 operatorId);
+    event OperatorFeeCancelationDeclared(
+        address indexed owner,
+        uint64 operatorId
+    );
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -88,9 +89,17 @@ interface ISSVNetwork {
         uint256 fee
     );
 
-    event ClusterLiquidated(address indexed owner, uint64[] operatorIds, Cluster cluster);
+    event ClusterLiquidated(
+        address indexed owner,
+        uint64[] operatorIds,
+        Cluster cluster
+    );
 
-    event ClusterReactivated(address indexed owner, uint64[] operatorIds, Cluster cluster);
+    event ClusterReactivated(
+        address indexed owner,
+        uint64[] operatorIds,
+        Cluster cluster
+    );
 
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
 
@@ -114,7 +123,12 @@ interface ISSVNetwork {
      */
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
-    event ClusterWithdrawn(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
+    event ClusterWithdrawn(
+        address indexed owner,
+        uint64[] operatorIds,
+        uint256 value,
+        Cluster cluster
+    );
     event OperatorWithdrawn(uint256 value, uint64 operatorId, address owner);
 
     event ClusterDeposited(
@@ -124,10 +138,7 @@ interface ISSVNetwork {
         Cluster cluster
     );
 
-    event FeeRecipientAddressUpdated(
-        address owner,
-        address recipientAddress
-    );
+    event FeeRecipientAddressUpdated(address owner, address recipientAddress);
 
     /**********/
     /* Errors */
@@ -248,7 +259,10 @@ interface ISSVNetwork {
         Cluster memory cluster
     ) external;
 
-    function withdrawOperatorEarnings(uint64 operatorId, uint256 tokenAmount) external;
+    function withdrawOperatorEarnings(
+        uint64 operatorId,
+        uint256 tokenAmount
+    ) external;
 
     function withdrawOperatorEarnings(uint64 operatorId) external;
 
@@ -302,15 +316,17 @@ interface ISSVNetwork {
         address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external view returns(bool);
+    ) external view returns (bool);
 
     function isLiquidated(
         address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external view returns(bool);
+    ) external view returns (bool);
 
-    function getClusterBurnRate(uint64[] memory operatorIds) external view returns (uint256);
+    function getClusterBurnRate(
+        uint64[] memory operatorIds
+    ) external view returns (uint256);
 
     /***********************************/
     /* Balance External View Functions */
@@ -321,7 +337,9 @@ interface ISSVNetwork {
      * @param id Operator's id.
      * @return balance the current balance of the operator.
      */
-    function getOperatorEarnings(uint64 id) external view returns (uint256 balance);
+    function getOperatorEarnings(
+        uint64 id
+    ) external view returns (uint256 balance);
 
     function getBalance(
         address owner,
