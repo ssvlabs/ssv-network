@@ -119,6 +119,11 @@ code: 'INVALID_ARGUMENT',
 `
 Set or change the parameters `GAS_PRICE` and `GAS` in `.env` file.
 
+### Transfer the ownership of the contract
+The process of transferring the ownership of the SSVNetwork contract is implemented using OpenZeppelin's `Ownable2StepUpgradeable` contract, and consists of the following steps:
+1. Current owner calls SSVNetwork's `transferOwnership` function with the new owner address as parameter.
+2. The new owner calls SSVNetwork's `acceptOwnership` fucntion and the ownership of the contract is transferred.
+
 ### dApp UI to interact with smart contract
 
 ```sh
