@@ -87,6 +87,8 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     mapping(bytes32 => bytes32) private _clusters;
     mapping(bytes32 => Validator) _validatorPKs;
 
+    uint8 public version;
+
     uint64 private _networkFee;
     uint64 private _networkFeeIndex;
     uint64 private _networkFeeIndexBlockNumber;
@@ -139,6 +141,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         _declareOperatorFeePeriod = declareOperatorFeePeriod_;
         _executeOperatorFeePeriod = executeOperatorFeePeriod_;
         _minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        version = _getInitializedVersion();
     }
 
     /*****************/

@@ -119,6 +119,26 @@ code: 'INVALID_ARGUMENT',
 `
 Set or change the parameters `GAS_PRICE` and `GAS` in `.env` file.
 
+#### Version tracking
+
+`SSVNetwork` contract keeps its version number using the state variable `version`, which can be queried at any time but is only updated via the upgrade process. The assignement of the new version number takes place in the initializer function of the new contract, particularly in the `reinitializer` modifier. The new version should be higher than the previous one. More info [here](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Initializable-reinitializer-uint8-)
+Example upgrade contract:
+```
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity 0.8.16;
+
+import "./SSVNetwork.sol";
+
+contract SSVNetwork_v2 is SSVNetwork {
+    function initializev2() external reinitializer(version + 1) {
+         version = _getInitializedVersion();
+    }
+}
+```
+Here the current `version` number incremented by one is passed to the `reinitializer` function. Then, `Initializable._getInitializedVersion()` picks that new number and its assigned to the SSVNetwork's `version` state variable.
+So following this method, the SSVNetwork's version number is synced with the `Initializable` logic, making it more easy to follow a solid upgrade process.
+
+
 ### dApp UI to interact with smart contract
 
 ```sh
