@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 
 import "../SSVNetwork.sol";
 
-contract SSVNetwork_V2 is SSVNetwork {
+contract SSVNetworkBasicUpgrade is SSVNetwork {
     uint256 public operatorsUpdated;
 
     function resetOperatorFee(uint64 operatorId) external {

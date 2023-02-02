@@ -117,6 +117,10 @@ describe('Liquidate Tests', () => {
     expect(await ssvViews.isLiquidatable(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(true);
   });
 
+  it('Get if the cluster is not liquidatable', async () => {
+    expect(await ssvViews.isLiquidatable(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(false);
+  });
+
   it('Liquidate a cluster that is not liquidatable reverts "ClusterNotLiquidatable"', async () => {
     await expect(ssvNetworkContract.liquidate(
       firstCluster.owner,

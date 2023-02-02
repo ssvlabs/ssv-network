@@ -6,10 +6,6 @@ import "../ISSVNetworkCore.sol";
 import "../SSVNetwork.sol";
 
 library ClusterLib {
-    /*****************************/
-    /* Cluster Private Functions */
-    /*****************************/
-
     function clusterBalance(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 newIndex,

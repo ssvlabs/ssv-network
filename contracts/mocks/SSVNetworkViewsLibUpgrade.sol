@@ -4,10 +4,10 @@ pragma solidity 0.8.16;
 
 import "../SSVNetworkViews.sol";
 import "../ISSVNetworkCore.sol";
-import "./libraries/NetworkLib_V2.sol";
+import "./libraries/NetworkLibUpgrade.sol";
 
-contract SSVNetworkViews_V2_2 is SSVNetworkViews {
-    using NetworkLib_V2 for ISSVNetworkCore.DAO;
+contract SSVNetworkViewsLibUpgrade is SSVNetworkViews {
+    using NetworkLibUpgrade for ISSVNetworkCore.DAO;
 
     function getFixedNetworkRawBalance() external view returns (uint64) {
         ISSVNetworkCore.DAO memory dao = ISSVNetworkCore.DAO({

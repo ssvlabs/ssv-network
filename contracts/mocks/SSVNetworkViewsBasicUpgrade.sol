@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 
 import "../SSVNetworkViews.sol";
 
-contract SSVNetworkViews_V2 is SSVNetworkViews {
+contract SSVNetworkViewsBasicUpgrade is SSVNetworkViews {
     function getOperatorOwnerdById(
         uint64 operatorId
     ) external view returns (address) {

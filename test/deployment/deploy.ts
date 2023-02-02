@@ -23,28 +23,33 @@ describe('Deployment tests', () => {
         expect((await ssvNetworkViews.getOperatorById(1))[2]).to.equal(0); // validatorCount
     });
 
+    it('Upgrade SSVNetwork contract failed when using not owner account', async () => {
+        const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade", DB.owners[2]);
+        await expect(upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, { kind: 'uups' })).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
     it('Upgrade SSVNetwork contract. Check new function execution', async () => {
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
             CONFIG.minimalOperatorFee,
         );
 
-        const SSVNetwork_V2 = await ethers.getContractFactory("SSVNetwork_V2");
-        const ssvNetworkV2 = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetwork_V2, { kind: 'uups' });
-        await ssvNetworkV2.deployed();
+        const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
+        const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, { kind: 'uups' });
+        await ssvNetworkUpgrade.deployed();
 
-        await ssvNetworkV2.connect(DB.owners[1]).resetOperatorFee(1);
+        await ssvNetworkUpgrade.connect(DB.owners[1]).resetOperatorFee(1);
         expect((await ssvNetworkViews.getOperatorById(1))[1]).to.equal(0); // fee
-        expect((await ssvNetworkV2.operatorsUpdated())).to.equal(1);
+        expect((await ssvNetworkUpgrade.operatorsUpdated())).to.equal(1);
     });
 
     it('Upgrade SSVNetwork contract. Check base contract is not re-initialized', async () => {
-        const SSVNetwork_V2 = await ethers.getContractFactory("SSVNetwork_V2");
-        const ssvNetworkV2 = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetwork_V2, { kind: 'uups' });
-        await ssvNetworkV2.deployed();
+        const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
+        const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, { kind: 'uups' });
+        await ssvNetworkUpgrade.deployed();
 
-        const address = await upgrades.erc1967.getImplementationAddress(ssvNetworkV2.address);
-        const instance = await SSVNetwork_V2.attach(address);
+        const address = await upgrades.erc1967.getImplementationAddress(ssvNetworkUpgrade.address);
+        const instance = await ssvNetworkUpgrade.attach(address);
 
         await expect(instance.connect(DB.owners[1]).initialize('0x6471F70b932390f527c6403773D082A0Db8e8A9F',
             2000000,
@@ -54,29 +59,34 @@ describe('Deployment tests', () => {
     });
 
     it('Upgrade SSVNetwork contract with a new initializer', async () => {
-        const SSVNetwork_V2_1 = await ethers.getContractFactory("SSVNetwork_V2_1");
-        const ssvNetworkV2_1 = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetwork_V2_1, {
+        const SSVNetworkReinitializable = await ethers.getContractFactory("SSVNetworkReinitializable");
+        const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkReinitializable, {
             kind: 'uups',
             call: 'initializeV2'
         });
-        await ssvNetworkV2_1.deployed();
+        await ssvNetworkUpgrade.deployed();
 
-        expect((await ssvNetworkV2_1.count())).to.equal(100);
+        expect((await ssvNetworkUpgrade.count())).to.equal(100);
     });
 
     it('Upgrade SSVNetwork contract reusing initializer version', async () => {
-        const SSVNetwork_V2_1 = await ethers.getContractFactory("SSVNetwork_V2_1");
-        let ssvNetworkV2_1 = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetwork_V2_1, {
+        const SSVNetworkReinitializable = await ethers.getContractFactory("SSVNetworkReinitializable");
+        let ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkReinitializable, {
             kind: 'uups',
             call: 'initializeV2'
         });
-        await ssvNetworkV2_1.deployed();
+        await ssvNetworkUpgrade.deployed();
 
-        await expect(upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetwork_V2_1, {
+        await expect(upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkReinitializable, {
             kind: 'uups',
             call: 'initializeV2'
         })).to.be.revertedWith('Initializable: contract is already initialized');
 
+    });
+
+    it('Upgrade SSVNetworkViews contract failed when using not owner account', async () => {
+        const SSVNetworkViewsBasicUpgrade = await ethers.getContractFactory("SSVNetworkViewsBasicUpgrade", DB.owners[2]);
+        await expect(upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViewsBasicUpgrade, { kind: 'uups' })).to.be.revertedWith('Ownable: caller is not the owner');
     });
 
     it('Upgrade SSVNetworkViews contract. Check new function execution', async () => {
@@ -85,39 +95,39 @@ describe('Deployment tests', () => {
             CONFIG.minimalOperatorFee,
         );
 
-        const SSVNetworkViews_V2 = await ethers.getContractFactory("SSVNetworkViews_V2");
-        const ssvNetworkViewsV2 = await upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViews_V2, { kind: 'uups' });
-        await ssvNetworkViewsV2.deployed();
+        const SSVNetworkViewsBasicUpgrade = await ethers.getContractFactory("SSVNetworkViewsBasicUpgrade");
+        const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViewsBasicUpgrade, { kind: 'uups' });
+        await ssvNetworkUpgrade.deployed();
 
-        expect(await ssvNetworkViewsV2.connect(DB.owners[0]).getOperatorOwnerdById(1)).to.equal(DB.owners[1].address);
+        expect(await ssvNetworkUpgrade.connect(DB.owners[0]).getOperatorOwnerdById(1)).to.equal(DB.owners[1].address);
     });
 
     it('Upgrade SSVNetworkViews contract with a new initializer', async () => {
-        const SSVNetworkViews_V2_1 = await ethers.getContractFactory("SSVNetworkViews_V2_1");
-        const ssvNetworkViewsV2_1 = await upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViews_V2_1, {
+        const SSVNetworkViewsReinitializable = await ethers.getContractFactory("SSVNetworkViewsReinitializable");
+        const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViewsReinitializable, {
             kind: 'uups',
             call: {
                 fn: 'initializeV2',
                 args: [4000]
             }
         });
-        await ssvNetworkViewsV2_1.deployed();
+        await ssvNetworkUpgrade.deployed();
 
-        expect((await ssvNetworkViewsV2_1.validatorsPerOperatorListed())).to.equal(4000);
+        expect((await ssvNetworkUpgrade.validatorsPerOperatorListed())).to.equal(4000);
     });
 
     it('Upgrade SSVNetworkViews contract reusing initializer version', async () => {
-        const SSVNetworkViews_V2_1 = await ethers.getContractFactory("SSVNetworkViews_V2_1");
-        let ssvNetworkViewsV2_1 = await upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViews_V2_1, {
+        const SSVNetworkViewsReinitializable = await ethers.getContractFactory("SSVNetworkViewsReinitializable");
+        let ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViewsReinitializable, {
             kind: 'uups',
             call: {
                 fn: 'initializeV2',
                 args: [4000]
             }
         });
-        await ssvNetworkViewsV2_1.deployed();
+        await ssvNetworkUpgrade.deployed();
 
-        await expect(upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViews_V2_1, {
+        await expect(upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViewsReinitializable, {
             kind: 'uups',
             call: {
                 fn: 'initializeV2',
@@ -128,16 +138,16 @@ describe('Deployment tests', () => {
     });
 
     it('Update NetworkLib and updgrade SSVNetwork and SSVNetworkViews', async () => {
-        const SSVNetwork_V2_2 = await ethers.getContractFactory("SSVNetwork_V2_2");
-        const ssvNetworkV2_2 = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetwork_V2_2, { kind: 'uups' });
-        await ssvNetworkV2_2.deployed();
+        const SSVNetworkLibUpgrade = await ethers.getContractFactory("SSVNetworkLibUpgrade");
+        const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkLibUpgrade, { kind: 'uups' });
+        await ssvNetworkUpgrade.deployed();
 
-        const SSVNetworkViews_V2_2 = await ethers.getContractFactory("SSVNetworkViews_V2_2");
-        const ssvNetworkViewsV2_2 = await upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViews_V2_2, { kind: 'uups' });
-        await ssvNetworkViewsV2_2.deployed();
+        const SSVNetworkViewsLibUpgrade = await ethers.getContractFactory("SSVNetworkViewsLibUpgrade");
+        const ssvNetworkViewsUpgrade = await upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViewsLibUpgrade, { kind: 'uups' });
+        await ssvNetworkViewsUpgrade.deployed();
 
-        expect(await ssvNetworkV2_2.connect(DB.owners[0]).getFixedNetworkRawBalance()).to.equal(100);
-        expect(await ssvNetworkViewsV2_2.connect(DB.owners[0]).getFixedNetworkRawBalance()).to.equal(100);
+        expect(await ssvNetworkUpgrade.connect(DB.owners[0]).getFixedNetworkRawBalance()).to.equal(100);
+        expect(await ssvNetworkViewsUpgrade.connect(DB.owners[0]).getFixedNetworkRawBalance()).to.equal(100);
 
     });
 });

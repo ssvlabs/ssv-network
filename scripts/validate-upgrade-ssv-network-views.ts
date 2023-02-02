@@ -1,4 +1,4 @@
-async function main() {
+async function validateUpgradeSSVNetworkViews() {
   const proxyAddress = process.env.SSVNETWORKVIEWS_PROXY_ADDRESS;
   const SSVNetworkViews = await ethers.getContractFactory("SSVNetworkViews_V2");
 
@@ -6,7 +6,7 @@ async function main() {
   console.log("Contract validation finished");
 }
 
-main()
+validateUpgradeSSVNetworkViews()
   .then(() => process.exit(0))
   .catch(error => {
     console.error(error);

@@ -6,7 +6,6 @@ import "./ISSVNetworkCore.sol";
 import "./SSVNetwork.sol";
 
 interface ISSVNetworkViews is ISSVNetworkCore {
-   
     /****************/
     /* Initializers */
     /****************/
@@ -15,14 +14,12 @@ interface ISSVNetworkViews is ISSVNetworkCore {
      * @dev Initializes the contract.
      * @param ssvNetwork_ The SSVNetwork contract.
      */
-    function initialize(
-        SSVNetwork ssvNetwork_
-    ) external;
+    function initialize(SSVNetwork ssvNetwork_) external;
 
     /************************************/
     /* Operator External View Functions */
     /************************************/
-    
+
     function getOperatorFee(uint64 operatorId) external view returns (uint256);
 
     function getOperatorDeclaredFee(
@@ -36,27 +33,31 @@ interface ISSVNetworkViews is ISSVNetworkCore {
     /*******************************/
     /* Cluster External View Functions */
     /*******************************/
-    
+
     function isLiquidatable(
         address owner,
         uint64[] memory operatorIds,
         ISSVNetwork.Cluster memory cluster
-    ) external view returns(bool);
+    ) external view returns (bool);
 
     function isLiquidated(
         address owner,
         uint64[] memory operatorIds,
         ISSVNetwork.Cluster memory cluster
-    ) external view returns(bool);
+    ) external view returns (bool);
 
-    function getClusterBurnRate(uint64[] memory operatorIds) external view returns (uint256);
+    function getClusterBurnRate(
+        uint64[] memory operatorIds
+    ) external view returns (uint256);
 
     /***********************************/
     /* Balance External View Functions */
     /***********************************/
 
-    function getOperatorEarnings(uint64 id) external view returns (uint256 balance);
-    
+    function getOperatorEarnings(
+        uint64 id
+    ) external view returns (uint256 balance);
+
     function getBalance(
         address owner,
         uint64[] memory operatorIds,
@@ -66,7 +67,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
     /*******************************/
     /* DAO External View Functions */
     /*******************************/
-    
+
     function getNetworkFee() external view returns (uint256);
 
     function getNetworkEarnings() external view returns (uint256);
@@ -78,5 +79,4 @@ interface ISSVNetworkViews is ISSVNetworkCore {
     function getDeclaredOperatorFeePeriod() external view returns (uint64);
 
     function getLiquidationThresholdPeriod() external view returns (uint64);
-    
 }

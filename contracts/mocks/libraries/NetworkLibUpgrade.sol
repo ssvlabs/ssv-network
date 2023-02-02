@@ -5,7 +5,7 @@ pragma solidity 0.8.16;
 import "../../ISSVNetwork.sol";
 import "../../SSVNetwork.sol";
 
-library NetworkLib_V2 {
+library NetworkLibUpgrade {
 
     function networkRawBalance(
         ISSVNetwork.DAO memory dao

@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 
 import "../SSVNetworkViews.sol";
 
-contract SSVNetworkViews_V2_1 is SSVNetworkViews {
+contract SSVNetworkViewsReinitializable is SSVNetworkViews {
    uint64 public validatorsPerOperatorListed;
 
     function initializeV2(uint64 newValidatorsPerOperatorListed) reinitializer(2) public {
