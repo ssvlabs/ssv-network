@@ -129,6 +129,8 @@ interface ISSVNetwork {
         address recipientAddress
     );
 
+    event FunctionLocked(bytes4 functionSelector, uint64 releaseTime, address locker);
+
     /**********/
     /* Errors */
     /**********/
@@ -155,6 +157,7 @@ interface ISSVNetwork {
     error UnsortedOperatorsList();
     error NewBlockPeriodIsBelowMinimum();
     error ExceedValidatorLimit();
+    error FunctionIsLocked();
 
     /****************/
     /* Initializers */

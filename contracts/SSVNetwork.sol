@@ -69,6 +69,8 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6570;
     uint64 constant MINIMAL_OPERATOR_FEE = 1e8;
     uint32 constant VALIDATORS_PER_OPERATOR_LIMIT = 2000;
+    uint64 constant TIMELOCK_PERIOD = 2 days;
+
 
     /********************/
     /* Global Variables */
@@ -86,6 +88,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     // mapping(bytes32 => Cluster) private _clusters;
     mapping(bytes32 => bytes32) private _clusters;
     mapping(bytes32 => Validator) _validatorPKs;
+    mapping(bytes32 => uint64) private _timelocks;
 
     uint64 private _networkFee;
     uint64 private _networkFeeIndex;
@@ -604,16 +607,23 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /* DAO External Functions */
     /**************************/
 
-    function updateNetworkFee(uint256 fee) external override onlyOwner {
-        DAO memory dao = _dao;
-        dao = _updateDAOEarnings(dao);
-        _dao = dao;
+    function updateNetworkFee(uint256 fee) external override onlyOwner {  
+        bytes32 fnData = keccak256(
+            abi.encodeWithSelector(this.updateNetworkFee.selector, fee)
+        );      
+        if (!isTimeLocked(this.updateNetworkFee.selector, fnData)) {
+            DAO memory dao = _dao;
+            dao = _updateDAOEarnings(dao);
+            _dao = dao;
 
-        _updateNetworkFeeIndex();
+            _updateNetworkFeeIndex();
 
-        emit NetworkFeeUpdated(_networkFee.expand(), fee);
+            emit NetworkFeeUpdated(_networkFee.expand(), fee);
 
-        _networkFee = fee.shrink();
+            _networkFee = fee.shrink();
+            
+            _timelocks[fnData] = 0;
+        }
     }
 
     function withdrawNetworkEarnings(
@@ -846,6 +856,21 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         if (msg.sender != operator.owner && msg.sender != owner()) {
             revert CallerNotOwner();
+        }
+    }
+
+    function isTimeLocked(bytes4 _fn, bytes32 fnData)
+        internal
+        returns (bool functionLocked)
+    {
+        if (_timelocks[fnData] == 0) {
+            uint64 releaseTime = uint64(block.timestamp) + TIMELOCK_PERIOD;
+            _timelocks[fnData] = releaseTime;
+
+            emit FunctionLocked(_fn, releaseTime, msg.sender);
+            functionLocked = true;
+        } else if (uint64(block.timestamp) <= _timelocks[fnData]) {
+            revert FunctionIsLocked();
         }
     }
 
