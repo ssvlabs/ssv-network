@@ -25,6 +25,8 @@ describe.only('Balance Tests', () => {
 
     // Set network fee
     await ssvNetworkContract.updateNetworkFee(networkFee);
+    await utils.progressTime(172800); // 2 days
+    await ssvNetworkContract.updateNetworkFee(networkFee);
 
     // Register validators
     // cold register
@@ -62,6 +64,8 @@ describe.only('Balance Tests', () => {
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
     const newBurnPerBlock = burnPerBlock + networkFee;
     await ssvNetworkContract.updateNetworkFee(networkFee * 2);
+    await utils.progressTime(172800); // 2 days
+    await ssvNetworkContract.updateNetworkFee(networkFee * 2);
     await utils.progressBlocks(1);
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock);
     await utils.progressBlocks(1);
@@ -84,7 +88,8 @@ describe.only('Balance Tests', () => {
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 2);
     const newNetworkFee = networkFee * 2;
     await ssvNetworkContract.updateNetworkFee(newNetworkFee);
-    await utils.progressBlocks(1);
+    await utils.progressTime(172800); // 2 days
+    await ssvNetworkContract.updateNetworkFee(newNetworkFee);
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 2);
     await utils.progressBlocks(1);
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 4);
