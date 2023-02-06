@@ -10,9 +10,7 @@ This repository contains a SSVNetwork smart contacts project.
 
   
 
-The first things you need to do are cloning this repository and installing its
-
-dependencies:
+The first things you need to do are cloning this repository and installing its dependencies:
 
   
 
@@ -191,15 +189,6 @@ Once we have tested our new implementation, for example `contracts/SSVNetwork_V2
   
 In `.env` file, remember to set `SSVNETWORK_PROXY_ADDRESS` with the address of the `SSVNetwork` proxy contract.
 
-  
-
-**Important**
-
-Pay special attention when changing storage layout, for example adding new storage variables in `SSVNetwork` (base) contract.
-
-There is a state variable `uint256[50] __gap;` that you should reduce the size according to the size of the new variables added. More info: [Storage Gaps](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps)
-
-  
 To validate the upgrade before running it:
 
 ```sh
@@ -228,17 +217,6 @@ Set or change the parameters `GAS_PRICE` and `GAS` in `.env` file.
 Once we have tested our new implementation, for example `contracts/SSVNetworkViews_V2.sol` we can prepare the upgrade.
 
 In `.env` file, remember to set `SSVNETWORKVIEWS_PROXY_ADDRESS` with the address of the `SSVNetworkViews` proxy .
-  
-
-**Important**
-
-Pay special attention when changing storage layout, for example adding new storage variables
-
-in `SSVNetworkViews` (base) contract.
-
-There is a state variable `uint256[50] __gap;` that you should reduce the size according to the size of the new variables added. More info: [Storage Gaps](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps)
-
-  
 
 To validate the upgrade before running it:
 
@@ -251,3 +229,9 @@ To fire the upgrade process:
 ```sh
 npx hardhat run --network <your-network> scripts/upgrade-ssv-network-views.ts
 ```
+
+**Important note on upgrades**
+
+Pay special attention when changing storage layout, for example adding new storage variables in `SSVNetwork` and `SSVNetworkViews` (base) contracts.
+
+There is a state variable `uint256[50] __gap;` that you should reduce the size according to the size of the new variables added. More info: [Storage Gaps](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps)
