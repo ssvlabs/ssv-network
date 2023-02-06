@@ -181,7 +181,7 @@ To be sure that values are correct and click `Save` button. As result on ethersc
 `Write as Proxy` and `Read as Proxy` which will represent implementation smart contract functions interface and the actual state.
 
   
-
+## Upgrade process
 ### Upgrade SSVNetwork contract
 
 Once we have tested our new implementation, for example `contracts/SSVNetwork_V2.sol` we can prepare the upgrade.
