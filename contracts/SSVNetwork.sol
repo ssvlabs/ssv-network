@@ -607,7 +607,9 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /* DAO External Functions */
     /**************************/
 
-    function updateNetworkFee(uint256 fee) external override onlyOwner {  
+    function updateNetworkFee(uint256 fee) external override onlyOwner {
+        uint64 networkFee = fee.shrink();
+        
         bytes32 fnData = keccak256(
             abi.encodeWithSelector(this.updateNetworkFee.selector, fee)
         );      
@@ -620,7 +622,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
             emit NetworkFeeUpdated(_networkFee.expand(), fee);
 
-            _networkFee = fee.shrink();
+            _networkFee = networkFee;
             
             _timelocks[fnData] = 0;
         }
@@ -629,20 +631,25 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     function withdrawNetworkEarnings(
         uint256 amount
     ) external override onlyOwner {
-        DAO memory dao = _dao;
-
         uint64 shrunkAmount = amount.shrink();
+        
+        bytes32 fnData = keccak256(
+            abi.encodeWithSelector(this.updateNetworkFee.selector, amount)
+        );      
+        if (!isTimeLocked(this.withdrawNetworkEarnings.selector, fnData)) {
+            DAO memory dao = _dao;
 
-        if(shrunkAmount > _networkBalance(dao)) {
-            revert InsufficientBalance();
+            if(shrunkAmount > _networkBalance(dao)) {
+                revert InsufficientBalance();
+            }
+
+            dao.withdrawn += shrunkAmount;
+            _dao = dao;
+
+            _token.transfer(msg.sender, amount);
+
+            emit NetworkEarningsWithdrawn(amount, msg.sender);
         }
-
-        dao.withdrawn += shrunkAmount;
-        _dao = dao;
-
-        _token.transfer(msg.sender, amount);
-
-        emit NetworkEarningsWithdrawn(amount, msg.sender);
     }
 
     function updateOperatorFeeIncreaseLimit(
@@ -859,7 +866,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-    function isTimeLocked(bytes4 _fn, bytes32 fnData)
+    function isTimeLocked(bytes4 selector, bytes32 fnData)
         internal
         returns (bool functionLocked)
     {
@@ -867,7 +874,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             uint64 releaseTime = uint64(block.timestamp) + TIMELOCK_PERIOD;
             _timelocks[fnData] = releaseTime;
 
-            emit FunctionLocked(_fn, releaseTime, msg.sender);
+            emit FunctionLocked(selector, releaseTime, msg.sender);
             functionLocked = true;
         } else if (uint64(block.timestamp) <= _timelocks[fnData]) {
             revert FunctionIsLocked();

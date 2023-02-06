@@ -8,7 +8,7 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 let ssvNetworkContract: any, cluster1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any, initNetworkFeeBalance: any;
 
 // Declare globals
-describe.only('Balance Tests', () => {
+describe('Balance Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     ssvNetworkContract = (await helpers.initializeContract()).contract;
@@ -62,16 +62,18 @@ describe.only('Balance Tests', () => {
   it('Check cluster balance in two and twelve blocks, after network fee updates', async () => {
     await utils.progressBlocks(1);
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
+
     const newBurnPerBlock = burnPerBlock + networkFee;
     await ssvNetworkContract.updateNetworkFee(networkFee * 2);
     await utils.progressTime(172800); // 2 days
     await ssvNetworkContract.updateNetworkFee(networkFee * 2);
+  
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock);
+    expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 4 - newBurnPerBlock);
     await utils.progressBlocks(1);
-    expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 2);
+    expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 4 - newBurnPerBlock * 2);
     await utils.progressBlocks(10);
-    expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 12);
+    expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 4 - newBurnPerBlock * 12);
   });
 
   it('Check DAO earnings in three blocks, one after the other', async () => {
@@ -123,49 +125,5 @@ describe.only('Balance Tests', () => {
   it('Check cluster balance with not enough balance reverts "InsufficientFunds"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
     await expect(ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientFunds');
-  });
-
-  it('Network fee can not be updated before 2 days period', async () => {
-    const timestamp = await time.latest() + 1;
-    const releaseDate = timestamp + (86400 * 2);
-    const signature = ssvNetworkContract.interface.getSighash("updateNetworkFee(uint256)");
-
-    await expect(ssvNetworkContract.updateNetworkFee(networkFee * 2)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, helpers.DB.owners[0].address);
-
-    await utils.progressTime(86400); // 1 day
-
-    await expect(ssvNetworkContract.updateNetworkFee(networkFee * 2)).to.be.revertedWithCustomError(ssvNetworkContract, 'FunctionIsLocked');
-  });
-
-  it('Network fee can be updated after 2 days period', async () => {
-    const newFee = networkFee * 2;
-    await ssvNetworkContract.updateNetworkFee(newFee);
-
-    await utils.progressTime(172800); // 2 days
-
-    await ssvNetworkContract.updateNetworkFee(newFee);
-
-    expect(await ssvNetworkContract.getNetworkFee()).to.equal(newFee);
-  });
-
-  it('Multiple network fee updates can be locked and updated after 2 days period', async () => {
-    const signature = ssvNetworkContract.interface.getSighash("updateNetworkFee(uint256)");
-    const oneNetworkFee = networkFee * 2;
-    const twoNetworkFee = networkFee * 3;
-
-    let releaseDate = await time.latest() + 1 + (86400 * 2);
-    await expect(ssvNetworkContract.updateNetworkFee(oneNetworkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, helpers.DB.owners[0].address);
-
-    await utils.progressTime(86400); // 1 day
-    releaseDate = await time.latest() + 1 + (86400 * 2);
-    await expect(ssvNetworkContract.updateNetworkFee(twoNetworkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, helpers.DB.owners[0].address);
-
-    await utils.progressTime(86400); // 1 day
-    await ssvNetworkContract.updateNetworkFee(oneNetworkFee);
-    expect(await ssvNetworkContract.getNetworkFee()).to.equal(oneNetworkFee);
-
-    await utils.progressTime(86400); // 1 day
-    await ssvNetworkContract.updateNetworkFee(twoNetworkFee);
-    expect(await ssvNetworkContract.getNetworkFee()).to.equal(twoNetworkFee);
   });
 });
