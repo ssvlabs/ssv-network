@@ -439,9 +439,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
-        if(!_token.transfer(msg.sender, clusterBalance.expand())) {
-            revert TokenTransferFailed();
-        }
+        _transfer(msg.sender, clusterBalance.expand());
 
         emit ClusterLiquidated(owner, operatorIds, cluster);
     }
@@ -598,9 +596,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         _clusters[hashedCluster] = keccak256(abi.encodePacked(cluster.validatorCount, cluster.networkFee, cluster.networkFeeIndex, cluster.index, cluster.balance, cluster.disabled ));
 
-        if(!_token.transfer(msg.sender, amount)) {
-            revert TokenTransferFailed();
-        }
+        _transfer(msg.sender, amount);
 
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
     }
@@ -635,9 +631,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         dao.withdrawn += shrunkAmount;
         _dao = dao;
 
-        if(!_token.transfer(msg.sender, amount)) {
-            revert TokenTransferFailed();
-        }
+        _transfer(msg.sender, amount);
 
         emit NetworkEarningsWithdrawn(amount, msg.sender);
     }
@@ -919,9 +913,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         uint64 operatorId,
         uint256 amount
     ) private {
-        if(!_token.transfer(msg.sender, amount)) {
-            revert TokenTransferFailed();
-        }
+        _transfer(msg.sender, amount);
         emit OperatorWithdrawn(amount, operatorId, msg.sender);
     }
 
@@ -1030,5 +1022,11 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
     function _clusterNetworkFee(uint64 networkFee, uint64 networkFeeIndex, uint32 validatorCount) private view returns (uint64) {
         return networkFee + uint64(_currentNetworkFeeIndex() - networkFeeIndex) * validatorCount;
+    }
+
+    function _transfer(address to, uint256 amount) private {
+        if(!_token.transfer(to, amount)) {
+            revert TokenTransferFailed();
+        }
     }
 }
