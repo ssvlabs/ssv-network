@@ -613,7 +613,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         bytes32 fnData = keccak256(
             abi.encodeWithSelector(this.updateNetworkFee.selector, fee)
         );      
-        if (!isTimeLocked(this.updateNetworkFee.selector, fnData)) {
+        if (!_isFunctionLocked(this.updateNetworkFee.selector, fnData)) {
             DAO memory dao = _dao;
             dao = _updateDAOEarnings(dao);
             _dao = dao;
@@ -636,7 +636,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         bytes32 fnData = keccak256(
             abi.encodeWithSelector(this.updateNetworkFee.selector, amount)
         );      
-        if (!isTimeLocked(this.withdrawNetworkEarnings.selector, fnData)) {
+        if (!_isFunctionLocked(this.withdrawNetworkEarnings.selector, fnData)) {
             DAO memory dao = _dao;
 
             if(shrunkAmount > _networkBalance(dao)) {
@@ -677,9 +677,13 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         if(blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
             revert NewBlockPeriodIsBelowMinimum();
         }
-
-        _minimumBlocksBeforeLiquidation = blocks;
-        emit LiquidationThresholdPeriodUpdated(blocks);
+        bytes32 fnData = keccak256(
+            abi.encodeWithSelector(this.updateLiquidationThresholdPeriod.selector, blocks)
+        );      
+        if (!_isFunctionLocked(this.updateLiquidationThresholdPeriod.selector, fnData)) {
+            _minimumBlocksBeforeLiquidation = blocks;
+            emit LiquidationThresholdPeriodUpdated(blocks);
+        }
     }
 
     /************************************/
@@ -865,22 +869,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             revert CallerNotOwner();
         }
     }
-
-    function isTimeLocked(bytes4 selector, bytes32 fnData)
-        internal
-        returns (bool functionLocked)
-    {
-        if (_timelocks[fnData] == 0) {
-            uint64 releaseTime = uint64(block.timestamp) + TIMELOCK_PERIOD;
-            _timelocks[fnData] = releaseTime;
-
-            emit FunctionLocked(selector, releaseTime, msg.sender);
-            functionLocked = true;
-        } else if (uint64(block.timestamp) <= _timelocks[fnData]) {
-            revert FunctionIsLocked();
-        }
-    }
-
+    
     function _validatePublicKey(bytes calldata publicKey) private pure {
         if (publicKey.length != 48) {
             revert InvalidPublicKeyLength();
@@ -1051,5 +1040,24 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
     function _clusterNetworkFee(uint64 networkFee, uint64 networkFeeIndex, uint32 validatorCount) private view returns (uint64) {
         return networkFee + uint64(_currentNetworkFeeIndex() - networkFeeIndex) * validatorCount;
+    }
+
+    /*******************************/
+    /* Time lock private functions */
+    /*******************************/
+
+    function _isFunctionLocked(bytes4 selector, bytes32 fnData)
+        internal
+        returns (bool functionLocked)
+    {
+        if (_timelocks[fnData] == 0) {
+            uint64 releaseTime = uint64(block.timestamp) + TIMELOCK_PERIOD;
+            _timelocks[fnData] = releaseTime;
+
+            emit FunctionLocked(selector, releaseTime, msg.sender);
+            functionLocked = true;
+        } else if (uint64(block.timestamp) <= _timelocks[fnData]) {
+            revert FunctionIsLocked();
+        }
     }
 }

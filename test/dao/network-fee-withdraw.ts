@@ -1,6 +1,6 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
-import * as utils from '../helpers/utils';
+import { progressTime, progressBlocks } from '../helpers/utils';
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
@@ -28,7 +28,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
 
     // Set network fee
     await ssvNetworkContract.updateNetworkFee(networkFee);
-    await utils.progressTime(172800); // 2 days
+    await progressTime(172800); // 2 days
     await ssvNetworkContract.updateNetworkFee(networkFee);
 
     // Register validators
@@ -50,7 +50,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     );
 
     await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-    await utils.progressBlocks(10);
+    await progressBlocks(10);
 
     // Temporary till deposit logic not available
     // Mint tokens
@@ -65,7 +65,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     const amount = await ssvNetworkContract.getNetworkEarnings();
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
     )).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, helpers.DB.owners[0].address);
-    await utils.progressTime(172800); // 2 days
+    await progressTime(172800); // 2 days
 
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
     )).to.emit(ssvNetworkContract, 'NetworkEarningsWithdrawn').withArgs(amount, helpers.DB.owners[0].address);
@@ -79,7 +79,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     const amount = await ssvNetworkContract.getNetworkEarnings();
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, helpers.DB.owners[0].address);
 
-    await utils.progressTime(86400); // 1 day
+    await progressTime(86400); // 1 day
 
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount)).to.be.revertedWithCustomError(ssvNetworkContract, 'FunctionIsLocked');
   });
@@ -95,7 +95,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
   it('Withdraw network earnings with not enough balance reverts "InsufficientBalance"', async () => {
     const amount = await ssvNetworkContract.getNetworkEarnings() * 2;
     await ssvNetworkContract.withdrawNetworkEarnings(amount);
-    await utils.progressTime(172800); // 2 days
+    await progressTime(172800); // 2 days
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });

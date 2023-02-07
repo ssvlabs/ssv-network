@@ -1,6 +1,8 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
+import { progressTime } from '../helpers/utils';
 import { expect } from 'chai';
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 // Declare globals
 let ssvNetworkContract: any, networkFee: any;
@@ -15,7 +17,23 @@ describe('Liquidation Threshold Tests', () => {
   });
 
   it('Change liquidation threshold period emits "LiquidationThresholdPeriodUpdated"', async () => {
+    const timestamp = await time.latest() + 1;
+    const releaseDate = timestamp + (86400 * 2);
+    const selector = ssvNetworkContract.interface.getSighash("updateLiquidationThresholdPeriod(uint64)");
+
+    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, helpers.DB.owners[0].address);
+    await progressTime(172800); // 2 days
     await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'LiquidationThresholdPeriodUpdated').withArgs(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
+  });
+
+  it('Change liquidation threshold period before 2 days period reverts "FunctionIsLocked"', async () => {
+    const timestamp = await time.latest() + 1;
+    const releaseDate = timestamp + (86400 * 2);
+    const selector = ssvNetworkContract.interface.getSighash("updateLiquidationThresholdPeriod(uint64)");
+
+    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, helpers.DB.owners[0].address);
+    await progressTime(86400); // 1 day
+    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.be.revertedWithCustomError(ssvNetworkContract, 'FunctionIsLocked');
   });
 
   it('Get liquidation threshold period', async () => {

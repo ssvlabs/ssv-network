@@ -1,9 +1,8 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
-import * as utils from '../helpers/utils';
+import { progressTime, progressBlocks } from '../helpers/utils';
 import { expect } from 'chai';
 import { GasGroup } from '../helpers/gas-usage';
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 let ssvNetworkContract: any, cluster1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any, initNetworkFeeBalance: any;
 
@@ -25,7 +24,7 @@ describe('Balance Tests', () => {
 
     // Set network fee
     await ssvNetworkContract.updateNetworkFee(networkFee);
-    await utils.progressTime(172800); // 2 days
+    await progressTime(172800); // 2 days
     await ssvNetworkContract.updateNetworkFee(networkFee);
 
     // Register validators
@@ -51,66 +50,66 @@ describe('Balance Tests', () => {
   });
 
   it('Check cluster balance in three blocks, one after the other', async () => {
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2);
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 3);
   });
 
   it('Check cluster balance in two and twelve blocks, after network fee updates', async () => {
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
 
     const newBurnPerBlock = burnPerBlock + networkFee;
     await ssvNetworkContract.updateNetworkFee(networkFee * 2);
-    await utils.progressTime(172800); // 2 days
+    await progressTime(172800); // 2 days
     await ssvNetworkContract.updateNetworkFee(networkFee * 2);
   
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 4 - newBurnPerBlock);
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 4 - newBurnPerBlock * 2);
-    await utils.progressBlocks(10);
+    await progressBlocks(10);
     expect(await ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 4 - newBurnPerBlock * 12);
   });
 
   it('Check DAO earnings in three blocks, one after the other', async () => {
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 2);
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4);
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 6);
   });
 
   it('Check DAO earnings in two and twelve blocks, after network fee updates', async () => {
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 2);
     const newNetworkFee = networkFee * 2;
     await ssvNetworkContract.updateNetworkFee(newNetworkFee);
-    await utils.progressTime(172800); // 2 days
+    await progressTime(172800); // 2 days
     await ssvNetworkContract.updateNetworkFee(newNetworkFee);
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 2);
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 4);
-    await utils.progressBlocks(10);
+    await progressBlocks(10);
     expect(await ssvNetworkContract.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 24);
   });
 
   it('Check operators earnings in three blocks, one after the other', async () => {
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 2);
     expect(await ssvNetworkContract.getOperatorEarnings(2)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 2);
     expect(await ssvNetworkContract.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 2);
     expect(await ssvNetworkContract.getOperatorEarnings(4)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 2);
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
     expect(await ssvNetworkContract.getOperatorEarnings(2)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
     expect(await ssvNetworkContract.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
     expect(await ssvNetworkContract.getOperatorEarnings(4)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
-    await utils.progressBlocks(1);
+    await progressBlocks(1);
     expect(await ssvNetworkContract.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 2);
     expect(await ssvNetworkContract.getOperatorEarnings(2)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 2);
     expect(await ssvNetworkContract.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 2);
@@ -123,7 +122,7 @@ describe('Balance Tests', () => {
   });
 
   it('Check cluster balance with not enough balance reverts "InsufficientFunds"', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
+    await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
     await expect(ssvNetworkContract.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientFunds');
   });
 });
