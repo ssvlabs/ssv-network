@@ -147,22 +147,44 @@ SSVNetworkViews proxy deployed to: 0xB7f8BC...
 SSVNetworkViews implementation deployed to: 0x610178...
 ```
 
-  
+You can now go to Etherscan and see:
+- `SSVNetwork` proxy contract is deployed to the address shown previously in `SSVNetwork proxy deployed to`
+- `SSVNetwork` implementation contract is deployed to the address shown previously in `SSVNetwork implementation deployed to`
+- `SSVNetworkViews` proxy contract is deployed to the address shown previously in `SSVNetworkViews proxy deployed to`
+- `SSVNetworkViews` implementation contract is deployed to the address shown previously in `SSVNetworkViews implementation deployed to`
+
+Example: [https://goerli.etherscan.io/address/0xe2e28fdea8ba1bb59a0056f6a5eabd443d47ec78](https://goerli.etherscan.io/address/0xe2e28fdea8ba1bb59a0056f6a5eabd443d47ec78)
+
 
 ### Step 3: Verify implementation contract on etherscan (each time after upgrade)
 
 Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is implementation smart contract address.
+You will find 2 `[impls.<hash>]` entries, one for `SSVNetwork` and another for `SSVNetworkViews`.
+Run this verification process for both.
 
 You can take it from the output of the `deploy-all.ts` script.
 
   
 
-Run this:
+To verify an implementation contract, run this:
 
 ```sh
 npx hardhat verify --network <network> <implementation-address>
 ```
 
+Output of this action will be:
+```sh
+Nothing to compile
+No need to generate any newer typings.
+Successfully submitted source code for contract
+contracts/SSVNetwork.sol:SSVNetwork at 0x2279B7...
+for verification on the block explorer. Waiting for verification result...
+
+Successfully verified contract SSVNetwork on Etherscan.
+https://goerli.etherscan.io/address/0x2279b7dea8ba1bb59a0056f6a5eabd443d47ec78#code
+```
+
+After this action, you can go to the proxy contract in Etherscan and start interacting with it.
   
 ## Upgrade process
 ### Upgrade SSVNetwork contract
