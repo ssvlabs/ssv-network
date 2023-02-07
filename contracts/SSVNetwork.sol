@@ -66,7 +66,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /* Constants */
     /*************/
 
-    uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6570;
+    uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6_570;
     uint64 constant MINIMAL_OPERATOR_FEE = 100_000_000;
 
     /********************/

@@ -19,7 +19,7 @@ describe('Register Validator Tests', () => {
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
-      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      helpers.DataGenerator.publicKey(90),
       [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       '1000000000000000',
@@ -543,7 +543,7 @@ describe('Register Validator Tests', () => {
   it('Register an existing validator reverts "ValidatorAlreadyExists"', async () => {
     await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
-      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      helpers.DataGenerator.publicKey(90),
       [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       minDepositAmount,
@@ -573,7 +573,7 @@ describe('Register Validator Tests', () => {
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(ssvNetwork_v2.address, minDepositAmount);
     await expect(ssvNetwork_v2.connect(helpers.DB.owners[6]).registerValidator(
-      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111129',
+      helpers.DataGenerator.publicKey(55),
       [8, 9, 12, 14],
       helpers.DataGenerator.shares(4),
       minDepositAmount,
