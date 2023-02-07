@@ -164,23 +164,6 @@ npx hardhat verify --network <network> <implementation-address>
 ```
 
   
-
-### Step 4: Link proxy contract with implementation on etherscan (each time after upgrade)
-
-Go to `https://<network>.etherscan.io/address/<proxy-address>` and click on `Contract` tab.
-
-On a right side click `More Options` dropbox and select `Is this a proxy?`. On a verification page enter proxy address inside field and click `Verify` button. As result you will see the message:
-
-```sh
-The proxy contract verification completed with the message:
-The proxy\'s (<proxy-address) implementation contract is found at: <implementation-address>
-```
-
-To be sure that values are correct and click `Save` button. As result on etherscan proxy address page in `Contract` tab you will find two new buttons:
-
-`Write as Proxy` and `Read as Proxy` which will represent implementation smart contract functions interface and the actual state.
-
-  
 ## Upgrade process
 ### Upgrade SSVNetwork contract
 
