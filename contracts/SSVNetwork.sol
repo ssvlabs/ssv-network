@@ -649,6 +649,8 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             _token.transfer(msg.sender, amount);
 
             emit NetworkEarningsWithdrawn(amount, msg.sender);
+
+            _timelocks[fnData] = 0;
         }
     }
 
@@ -683,6 +685,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         if (!_isFunctionLocked(this.updateLiquidationThresholdPeriod.selector, fnData)) {
             _minimumBlocksBeforeLiquidation = blocks;
             emit LiquidationThresholdPeriodUpdated(blocks);
+            _timelocks[fnData] = 0;
         }
     }
 
