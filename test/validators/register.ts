@@ -3,13 +3,14 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-// Declare globals
-let ssvNetworkContract: any, minDepositAmount: any;
+let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any;
 
 describe('Register Validator Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    ssvNetworkContract = (await helpers.initializeContract()).contract;
+    const metadata = (await helpers.initializeContract());
+    ssvNetworkContract = metadata.contract;
+    ssvViews = metadata.ssvViews;
 
     // Register operators
     await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
@@ -414,11 +415,11 @@ describe('Register Validator Tests', () => {
   });
 
   it('Get cluster burn rate', async () => {
-    expect(await ssvNetworkContract.getClusterBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
+    expect(await ssvViews.getClusterBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
   });
 
   it('Get cluster burn rate when one of the operators does not exsit', async () => {
-    expect(await ssvNetworkContract.getClusterBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
+    expect(await ssvViews.getClusterBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
   });
 
   it('Register validator with incorrect input data reverts "IncorrectClusterState"', async () => {
@@ -556,5 +557,13 @@ describe('Register Validator Tests', () => {
         disabled: false
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorAlreadyExists');
+  });
+
+  it('Get cluster burn rate', async () => {
+    expect(await ssvViews.getClusterBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
+  });
+
+  it('Get cluster burn rate by not existed operator in the list', async () => {
+    expect(await ssvViews.getClusterBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
   });
 });

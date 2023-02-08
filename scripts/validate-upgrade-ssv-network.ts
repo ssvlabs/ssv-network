@@ -1,14 +1,12 @@
-const { ethers, upgrades } = require("hardhat");
-
-async function main() {
-  const proxyAddress = process.env.PROXY_ADDRESS;
-  const SSVNetwork = await ethers.getContractFactory("SSVNetwork");
+async function validateUpgradeSSVNetwork() {
+  const proxyAddress = process.env.SSVNETWORK_PROXY_ADDRESS;
+  const SSVNetwork = await ethers.getContractFactory("SSVNetwork_V2");
 
   await upgrades.validateUpgrade(proxyAddress, SSVNetwork, { kind: 'uups' });
   console.log("Contract validation finished");
 }
 
-main()
+validateUpgradeSSVNetwork()
   .then(() => process.exit(0))
   .catch(error => {
     console.error(error);
