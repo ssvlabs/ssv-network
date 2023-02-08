@@ -35,6 +35,7 @@ describe('Register Operator Tests', () => {
     expect((await ssvNetworkContract.getOperatorById(1)).owner).to.equal(helpers.DB.owners[1].address);
     expect((await ssvNetworkContract.getOperatorById(1)).fee).to.equal(helpers.CONFIG.minimalOperatorFee);
     expect((await ssvNetworkContract.getOperatorById(1)).validatorCount).to.equal(0);
+    expect((await ssvNetworkContract.getOperatorById(1)).active).to.equal(true);
   });
 
   it('Get operator by id reverts "OperatorDoesNotExist"', async () => {
@@ -43,13 +44,26 @@ describe('Register Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
     ), [GasGroup.REGISTER_OPERATOR]);
 
-    await expect(ssvNetworkContract.getOperatorById(3)).to.be.revertedWithCustomError(ssvNetworkContract,'OperatorDoesNotExist');
+    await expect(ssvNetworkContract.getOperatorById(3)).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorDoesNotExist');
+  });
+
+  it('Get operator removed by id', async () => {
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(0),
+      helpers.CONFIG.minimalOperatorFee,
+    );
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1);
+
+    expect((await ssvNetworkContract.getOperatorById(1)).owner).to.equal(helpers.DB.owners[1].address);
+    expect((await ssvNetworkContract.getOperatorById(1)).fee).to.equal(0);
+    expect((await ssvNetworkContract.getOperatorById(1)).validatorCount).to.equal(0);
+    expect((await ssvNetworkContract.getOperatorById(1)).active).to.equal(false);
   });
 
   it('Register an operator with a fee thats too low reverts "FeeTooLow"', async () => {
     await expect(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.publicKey(0),
       '10'
-    )).to.be.revertedWithCustomError(ssvNetworkContract,'FeeTooLow');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooLow');
   });
 });

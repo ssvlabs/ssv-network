@@ -155,6 +155,8 @@ interface ISSVNetwork {
     error UnsortedOperatorsList();
     error NewBlockPeriodIsBelowMinimum();
     error ExceedValidatorLimit();
+    error ZeroFeeIncreaseNotAllowed();
+    error SameFeeChangeNotAllowed();
 
     /****************/
     /* Initializers */
@@ -292,7 +294,7 @@ interface ISSVNetwork {
 
     function getOperatorById(
         uint64 operatorId
-    ) external view returns (address owner, uint256 fee, uint32 validatorCount);
+    ) external view returns (address owner, uint256 fee, uint32 validatorCount, bool active);
 
     /*******************************/
     /* Cluster External View Functions */

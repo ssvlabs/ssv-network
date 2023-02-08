@@ -67,7 +67,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /*************/
 
     uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6570;
-    uint64 constant MINIMAL_OPERATOR_FEE = 1e8;
+    uint64 constant MINIMAL_OPERATOR_FEE = 10_000_000;
     uint32 constant VALIDATORS_PER_OPERATOR_LIMIT = 2000;
 
     /********************/
@@ -155,7 +155,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         bytes calldata publicKey,
         uint256 fee
     ) external override returns (uint64 id) {
-        if (fee < MINIMAL_OPERATOR_FEE) {
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert FeeTooLow();
         }
 
@@ -165,10 +165,8 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorAdded(id, msg.sender, publicKey, fee);
     }
 
-    function removeOperator(uint64 id) external override {
-        Operator memory operator = _operators[id];
-        if (operator.owner != msg.sender) revert CallerNotOwner();
-
+    function removeOperator(uint64 operatorId) external override onlyOperatorOwnerOrContractOwner(operatorId) {
+        Operator memory operator = _operators[operatorId];
         operator.snapshot = _getSnapshot(operator, uint64(block.number));
         uint64 currentBalance = operator.snapshot.balance;
 
@@ -177,24 +175,30 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         operator.validatorCount = 0;
         operator.fee = 0;
 
-        _operators[id] = operator;
+        _operators[operatorId] = operator;
 
         if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(id, currentBalance.expand());
+            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
         }
-        emit OperatorRemoved(id);
+        emit OperatorRemoved(operatorId);
     }
 
     function declareOperatorFee(
         uint64 operatorId,
         uint256 fee
     ) external override onlyOperatorOwnerOrContractOwner(operatorId) {
-        if (fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
-
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+        uint64 operatorFee = _operators[operatorId].fee;
         uint64 shrunkFee = fee.shrink();
+        
+        if(operatorFee == shrunkFee) {
+            revert SameFeeChangeNotAllowed();
+        } else if (shrunkFee != 0 && operatorFee == 0) {
+            revert ZeroFeeIncreaseNotAllowed();
+        }        
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (_operators[operatorId].fee *
+        uint64 maxAllowedFee = (operatorFee *
             (10000 + _operatorMaxFeeIncrease)) / 10000;
 
         if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
@@ -215,7 +219,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         OperatorFeeChangeRequest
             memory feeChangeRequest = _operatorFeeChangeRequests[operatorId];
 
-        if(feeChangeRequest.fee == 0) revert NoFeeDelcared();
+        if(feeChangeRequest.approvalBeginTime == 0) revert NoFeeDelcared();
 
         if (
             block.timestamp < feeChangeRequest.approvalBeginTime ||
@@ -230,7 +234,7 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function cancelDeclaredOperatorFee(uint64 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
-        if(_operatorFeeChangeRequests[operatorId].fee == 0) revert NoFeeDelcared();
+        if(_operatorFeeChangeRequests[operatorId].approvalBeginTime == 0) revert NoFeeDelcared();
 
         delete _operatorFeeChangeRequests[operatorId];
 
@@ -692,13 +696,18 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         );
     }
 
-    function getOperatorById(uint64 operatorId) external view override returns (address owner, uint256 fee, uint32 validatorCount) {
+    function getOperatorById(uint64 operatorId) external view override returns (address owner, uint256 fee, uint32 validatorCount, bool active) {
         if (_operators[operatorId].owner == address(0)) revert OperatorDoesNotExist();
+
+        if(_operators[operatorId].snapshot.block != 0) {
+            active = true;
+        }
 
         return (
             _operators[operatorId].owner,
             _operators[operatorId].fee.expand(),
-            _operators[operatorId].validatorCount
+            _operators[operatorId].validatorCount,
+            active
         );
     }
 

@@ -19,6 +19,11 @@ describe('Operator Fee Tests', () => {
     )).to.emit(ssvNetworkContract, 'OperatorFeeDeclared');
   });
 
+  it('Declare fee with zero value emits "OperatorFeeDeclared"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, 0
+    )).to.emit(ssvNetworkContract, 'OperatorFeeDeclared');
+  });
+
   it('Declare a lower fee gas limits', async () => {
     await trackGas(ssvNetworkContract.declareOperatorFee(1, initialFee + initialFee / 10), [GasGroup.REGISTER_OPERATOR]);
   });
@@ -70,11 +75,22 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract,'OperatorDoesNotExist');
   });
 
-  it('Declare fee with too low of a fee reverts "FeeTooLow"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, helpers.CONFIG.minimalOperatorFee - 1
-    )).to.be.revertedWithCustomError(ssvNetworkContract,'FeeTooLow');
+  it('Declare fee when previously set to zero reverts "ZeroFeeIncreaseNotAllowed"', async () => {
+    await ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, 0);
+    await progressTime(helpers.CONFIG.declareOperatorFeePeriod);
+    await ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ZeroFeeIncreaseNotAllowed');
   });
 
+  it('Declare same fee value as actual reverts "SameFeeChangeNotAllowed"', async () => {
+    await ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee / 10 );
+    await progressTime(helpers.CONFIG.declareOperatorFeePeriod);
+    await ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee / 10
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'SameFeeChangeNotAllowed');
+  });
+  
   it('Declare fee above the operators max fee increase limit reverts "FeeExceedsIncreaseLimit"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 5
     )).to.be.revertedWithCustomError(ssvNetworkContract,'FeeExceedsIncreaseLimit');
