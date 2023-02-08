@@ -165,8 +165,11 @@ contract SSVNetwork is  UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorAdded(id, msg.sender, publicKey, fee);
     }
 
-    function removeOperator(uint64 operatorId) external override onlyOperatorOwnerOrContractOwner(operatorId) {
+    function removeOperator(uint64 operatorId) external override {
         Operator memory operator = _operators[operatorId];
+        if (operator.owner != msg.sender) revert CallerNotOwner();
+        if (operator.snapshot.block == 0) revert OperatorDoesNotExist();
+    
         operator.snapshot = _getSnapshot(operator, uint64(block.number));
         uint64 currentBalance = operator.snapshot.balance;
 
