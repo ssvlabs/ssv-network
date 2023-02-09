@@ -26,6 +26,7 @@ contract SSVNetworkViews is
     SSVNetwork _ssvNetwork;
 
     // @dev reserve storage space for future new state variables in base contract
+    // slither-disable-next-line shadowing-state
     uint256[50] __gap;
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
