@@ -1,8 +1,7 @@
-// File: contracts/SSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.16;
 
-uint256 constant DEDUCTED_DIGITS = 10000000;
+uint256 constant DEDUCTED_DIGITS = 10_000_000;
 
 library Types64 {
     function expand(uint64 value) internal pure returns (uint256) {
@@ -16,10 +15,7 @@ library Types256 {
     }
 
     function shrinkable(uint256 value) internal pure returns (uint256) {
-        require(
-            value % DEDUCTED_DIGITS == 0,
-            "Max precision exceeded"
-        );
+        require(value % DEDUCTED_DIGITS == 0, "Max precision exceeded");
         return value;
     }
 }

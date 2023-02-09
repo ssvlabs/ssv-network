@@ -6,6 +6,7 @@ import '@openzeppelin/hardhat-upgrades';
 import 'hardhat-tracer';
 import '@nomiclabs/hardhat-solhint';
 import 'hardhat-contract-sizer';
+import 'hardhat-storage-layout-changes';
 
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
@@ -19,7 +20,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1000
+            runs: 2000
           }
         }
       }
