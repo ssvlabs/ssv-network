@@ -76,6 +76,7 @@ export const initializeContract = async () => {
     operators: [],
     clusters: [],
     ssvNetwork: {},
+    ssvViews: {},
     ssvToken: {},
   };
 
@@ -84,6 +85,7 @@ export const initializeContract = async () => {
 
   // Initialize contract
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
+  const ssvViews = await ethers.getContractFactory('SSVNetworkViews');
   const ssvToken = await ethers.getContractFactory('SSVTokenMock');
 
   DB.ssvToken = await ssvToken.deploy();
@@ -102,6 +104,15 @@ export const initializeContract = async () => {
 
   await DB.ssvNetwork.contract.deployed();
 
+  DB.ssvViews.contract = await upgrades.deployProxy(ssvViews, [
+    DB.ssvNetwork.contract.address
+  ],
+  {
+    kind: 'uups'
+  });
+
+  await DB.ssvViews.contract.deployed();
+
   DB.ssvNetwork.owner = DB.owners[0];
 
   await DB.ssvToken.mint(DB.owners[1].address, '10000000000000000000');
@@ -111,7 +122,7 @@ export const initializeContract = async () => {
   await DB.ssvToken.mint(DB.owners[5].address, '10000000000000000000');
   await DB.ssvToken.mint(DB.owners[6].address, '10000000000000000000');
 
-  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken };
+  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract };
 };
 
 export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR]) => {

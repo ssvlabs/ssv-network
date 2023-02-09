@@ -3,13 +3,14 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-// Declare globals
-let ssvNetworkContract: any, minDepositAmount: any;
+let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any;
 
 describe('Register Validator Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    ssvNetworkContract = (await helpers.initializeContract()).contract;
+    const metadata = (await helpers.initializeContract());
+    ssvNetworkContract = metadata.contract;
+    ssvViews = metadata.ssvViews;
 
     // Register operators
     await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
@@ -414,11 +415,11 @@ describe('Register Validator Tests', () => {
   });
 
   it('Get cluster burn rate', async () => {
-    expect(await ssvNetworkContract.getClusterBurnRate([1, 2, 3, 4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
+    expect(await ssvViews.getClusterBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
   });
 
   it('Get cluster burn rate when one of the operators does not exsit', async () => {
-    expect(await ssvNetworkContract.getClusterBurnRate([1, 2, 3, 41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
+    expect(await ssvViews.getClusterBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
   });
 
   it('Register validator with incorrect input data reverts "IncorrectClusterState"', async () => {
@@ -561,18 +562,18 @@ describe('Register Validator Tests', () => {
   it('Surpassing max number of validators per operator reverts "ExceedValidatorLimit"', async () => {
     helpers.registerValidatorsRaw(2, 50, minDepositAmount, [8, 9, 10, 11]);
 
-    const SSVNetwork_v2 = await ethers.getContractFactory("SSVNetwork_v2");
-    const ssvNetwork_v2 = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetwork_v2, {
+    const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperator");
+    const ssvNetwork = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkValidatorsPerOperator, {
       kind: 'uups',
       call: {
         fn: 'initializev2',
         args: [25]
       }
     });
-    await ssvNetwork_v2.deployed();
+    await ssvNetwork.deployed();
 
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(ssvNetwork_v2.address, minDepositAmount);
-    await expect(ssvNetwork_v2.connect(helpers.DB.owners[6]).registerValidator(
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(ssvNetwork.address, minDepositAmount);
+    await expect(ssvNetwork.connect(helpers.DB.owners[6]).registerValidator(
       helpers.DataGenerator.publicKey(55),
       [8, 9, 12, 14],
       helpers.DataGenerator.shares(4),
@@ -585,7 +586,15 @@ describe('Register Validator Tests', () => {
         balance: 0,
         disabled: false
       }
-    )).to.be.revertedWithCustomError(ssvNetwork_v2, 'ExceedValidatorLimit');
+    )).to.be.revertedWithCustomError(ssvNetwork, 'ExceedValidatorLimit');
 
+  });
+
+  it('Get cluster burn rate', async () => {
+    expect(await ssvViews.getClusterBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
+  });
+
+  it('Get cluster burn rate by not existed operator in the list', async () => {
+    expect(await ssvViews.getClusterBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
   });
 });
