@@ -60,6 +60,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     Network public network;
 
     // @dev reserve storage space for future new state variables in base contract
+    // slither-disable-next-line shadowing-state
     uint256[50] __gap;
 
     /*************/
@@ -514,9 +515,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             )
         );
 
-        if (!_token.transfer(msg.sender, cluster.balance.expand())) {
-            revert TokenTransferFailed();
-        }
+        _transfer(msg.sender, cluster.balance.expand());
 
         emit ClusterLiquidated(owner, operatorIds, cluster);
     }
@@ -740,9 +739,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             )
         );
 
-        if (!_token.transfer(msg.sender, amount)) {
-            revert TokenTransferFailed();
-        }
+        _transfer(msg.sender, amount);
 
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
     }
@@ -781,9 +778,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         dao_.withdrawn += shrunkAmount;
         dao = dao_;
 
-        if (!_token.transfer(msg.sender, amount)) {
-            revert TokenTransferFailed();
-        }
+        _transfer(msg.sender, amount);
 
         emit NetworkEarningsWithdrawn(amount, msg.sender);
     }
@@ -860,9 +855,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         uint64 operatorId,
         uint256 amount
     ) private {
-        if (!_token.transfer(msg.sender, amount)) {
-            revert TokenTransferFailed();
-        }
+        _transfer(msg.sender, amount);
         emit OperatorWithdrawn(amount, operatorId, msg.sender);
     }
 
@@ -872,6 +865,12 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
     function _deposit(uint64 amount) private {
         if (!_token.transferFrom(msg.sender, address(this), amount.expand())) {
+            revert TokenTransferFailed();
+        }
+    }
+
+    function _transfer(address to, uint256 amount) private {
+        if(!_token.transfer(to, amount)) {
             revert TokenTransferFailed();
         }
     }
