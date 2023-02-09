@@ -19,17 +19,17 @@ const SHARES_RSA = [
 ];
 
 export const DataGenerator = {
-  publicKey: (index: number) => `0x${index.toString(16).padStart(96, '1')}`,
+  publicKey: (index: number) => `0x${index.toString(16).padStart(96, '0')}`,
   shares: (index: number) => {
     switch (index) {
-    case 7:
-      return SHARES_RSA[1];
-    case 10:
-      return SHARES_RSA[2];
-    case 13:
-      return SHARES_RSA[3];
-    default:
-      return SHARES_RSA[0];
+      case 7:
+        return SHARES_RSA[1];
+      case 10:
+        return SHARES_RSA[2];
+      case 13:
+        return SHARES_RSA[3];
+      default:
+        return SHARES_RSA[0];
     }
   },
   cluster: {
@@ -98,9 +98,9 @@ export const initializeContract = async () => {
     CONFIG.executeOperatorFeePeriod,
     CONFIG.minimalBlocksBeforeLiquidation
   ],
-  {
-    kind: 'uups'
-  });
+    {
+      kind: 'uups'
+    });
 
   await DB.ssvNetwork.contract.deployed();
 
@@ -167,7 +167,6 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
       }
     ), gasGroups);
     args = result.eventsByName.ValidatorAdded[0].args;
-
     DB.validators.push({ publicKey, operatorIds, shares });
     validators.push({ publicKey, shares });
   }
@@ -175,9 +174,47 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
   return { validators, args };
 };
 
+export const registerValidatorsRaw = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[]) => {
+
+  let cluster: any = {
+    validatorCount: 0,
+    networkFee: 0,
+    networkFeeIndex: 0,
+    index: 0,
+    balance: 0,
+    disabled: false
+  };
+
+  for (let i = 0; i < numberOfValidators; i++) {
+    const shares = DataGenerator.shares(4);
+    const publicKey = DataGenerator.publicKey(i);
+    
+    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
+    const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
+      publicKey,
+      operatorIds,
+      shares,
+      amount,
+      cluster
+    ));
+
+    const clusterData = result.eventsByName.ValidatorAdded[0].args.cluster;
+    cluster = {
+      validatorCount: clusterData.validatorCount,
+      networkFee: clusterData.networkFee,
+      networkFeeIndex: clusterData.networkFeeIndex,
+      index: clusterData.index,
+      balance: clusterData.balance,
+      disabled: false
+    };
+
+  }
+}
+
+
 export const getCluster = (payload: any) => ethers.utils.AbiCoder.prototype.encode(
   ['tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool disabled) cluster'],
-  [ payload ]
+  [payload]
 );
 
 /*

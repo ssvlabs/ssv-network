@@ -240,3 +240,22 @@ npx hardhat run --network <your-network> scripts/upgrade-ssv-network-views.ts
 Pay special attention when changing storage layout, for example adding new storage variables in `SSVNetwork` and `SSVNetworkViews` (base) contracts.
 
 There is a state variable `uint256[50] __gap;` that you should reduce the size according to the size of the new variables added. More info: [Storage Gaps](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps)
+
+### Modify the limit of validators that an operator can manage
+In `SSVNetwork` contract, the state variable `validatorsPerOperatorLimit` is used to represent the máximum number of validators that can be registered per operator. Its default value is `2000`.
+
+To change it, the upgrade process should be fired. The assignement to a new value must be in a new initializer function. Pay special attention to the `reinitializer` modifier where there should be a number higher than the one consumed in previous initialized contracts. More info [here](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Initializable-reinitializer-uint8-)
+Example upgrade contract:
+```
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity 0.8.16;
+
+import "../SSVNetwork.sol";
+
+contract SSVNetwork_v2 is SSVNetwork {
+    
+    function initializev2(uint32 validatorsPerOperatorLimit_) reinitializer(2) external {
+        validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+    }
+}
+```
