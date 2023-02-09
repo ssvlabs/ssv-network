@@ -30,9 +30,8 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /* Constants */
     /*************/
 
-    uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6570;
+    uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6_570;
     uint64 constant MINIMAL_OPERATOR_FEE = 100_000_000;
-    uint32 constant VALIDATORS_PER_OPERATOR_LIMIT = 2000;
 
     /********************/
     /* Global Variables */
@@ -50,6 +49,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     mapping(bytes32 => bytes32) public clusters;
     mapping(bytes32 => Validator) private _validatorPKs;
 
+    uint32 public validatorsPerOperatorLimit;
     uint64 public declareOperatorFeePeriod;
     uint64 public executeOperatorFeePeriod;
     uint64 public operatorMaxFeeIncrease;
@@ -106,6 +106,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         declareOperatorFeePeriod = declareOperatorFeePeriod_;
         executeOperatorFeePeriod = executeOperatorFeePeriod_;
         minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        validatorsPerOperatorLimit = 2000;
     }
 
     /*****************/
@@ -299,10 +300,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
                         revert OperatorDoesNotExist();
                     }
                     operator.getSnapshot();
-                    if (
-                        ++operator.validatorCount >
-                        VALIDATORS_PER_OPERATOR_LIMIT
-                    ) {
+                    if (++operator.validatorCount > validatorsPerOperatorLimit) {
                         revert ExceedValidatorLimit();
                     }
                     clusterIndex += operator.snapshot.index;
