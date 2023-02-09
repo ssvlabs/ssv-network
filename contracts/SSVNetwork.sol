@@ -854,7 +854,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         uint256 amount
     ) private {
         _transfer(msg.sender, amount);
-        emit OperatorWithdrawn(amount, operatorId, msg.sender);
+        emit OperatorWithdrawn(msg.sender, operatorId, amount);
     }
 
     /*****************************/
