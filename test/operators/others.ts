@@ -17,4 +17,21 @@ describe('Others Operator Tests', () => {
       .to.emit(ssvNetworkContract, 'FeeRecipientAddressUpdated')
       .withArgs(helpers.DB.owners[1].address, helpers.DB.owners[2].address);
   });
+
+  it('Update max number of validators per operator', async () => {
+    expect((await ssvNetworkContract.validatorsPerOperatorLimit())).to.equal(2000);
+
+    const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperator");
+    const ssvNetwork = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkValidatorsPerOperator, {
+      kind: 'uups',
+      call: {
+        fn: 'initializev2',
+        args: [50]
+      }
+    });
+    await ssvNetwork.deployed();
+
+    expect((await ssvNetwork.validatorsPerOperatorLimit())).to.equal(50);
+  });
+
 });

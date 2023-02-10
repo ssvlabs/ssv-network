@@ -3,12 +3,14 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 
 // Declare globals
-let ssvNetworkContract: any, networkFee: any;
+let ssvNetworkContract: any, ssvViews: any, networkFee: any;
 
 describe('Network Fee Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    ssvNetworkContract = (await helpers.initializeContract()).contract;
+    const metadata = (await helpers.initializeContract());
+    ssvNetworkContract = metadata.contract;
+    ssvViews = metadata.ssvViews;
 
     // Define minumum allowed network fee to pass shrinkable validation
     networkFee = helpers.CONFIG.minimalOperatorFee / 10;
@@ -20,7 +22,7 @@ describe('Network Fee Tests', () => {
   });
 
   it('Get network fee', async () => {
-    expect(await ssvNetworkContract.getNetworkFee()).to.equal(0);
+    expect(await ssvViews.getNetworkFee()).to.equal(0);
   });
 
   it('Change the network fee to a number below the minimum fee reverts "Max precision exceeded"', async () => {
