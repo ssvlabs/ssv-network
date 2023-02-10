@@ -19,17 +19,17 @@ const SHARES_RSA = [
 ];
 
 export const DataGenerator = {
-  publicKey: (index: number) => `0x${index.toString(16).padStart(96, '1')}`,
+  publicKey: (index: number) => `0x${index.toString(16).padStart(96, '0')}`,
   shares: (index: number) => {
     switch (index) {
-    case 7:
-      return SHARES_RSA[1];
-    case 10:
-      return SHARES_RSA[2];
-    case 13:
-      return SHARES_RSA[3];
-    default:
-      return SHARES_RSA[0];
+      case 7:
+        return SHARES_RSA[1];
+      case 10:
+        return SHARES_RSA[2];
+      case 13:
+        return SHARES_RSA[3];
+      default:
+        return SHARES_RSA[0];
     }
   },
   cluster: {
@@ -76,6 +76,7 @@ export const initializeContract = async () => {
     operators: [],
     clusters: [],
     ssvNetwork: {},
+    ssvViews: {},
     ssvToken: {},
   };
 
@@ -84,6 +85,7 @@ export const initializeContract = async () => {
 
   // Initialize contract
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
+  const ssvViews = await ethers.getContractFactory('SSVNetworkViews');
   const ssvToken = await ethers.getContractFactory('SSVTokenMock');
 
   DB.ssvToken = await ssvToken.deploy();
@@ -96,11 +98,20 @@ export const initializeContract = async () => {
     CONFIG.executeOperatorFeePeriod,
     CONFIG.minimalBlocksBeforeLiquidation
   ],
+    {
+      kind: 'uups'
+    });
+
+  await DB.ssvNetwork.contract.deployed();
+
+  DB.ssvViews.contract = await upgrades.deployProxy(ssvViews, [
+    DB.ssvNetwork.contract.address
+  ],
   {
     kind: 'uups'
   });
 
-  await DB.ssvNetwork.contract.deployed();
+  await DB.ssvViews.contract.deployed();
 
   DB.ssvNetwork.owner = DB.owners[0];
 
@@ -111,7 +122,7 @@ export const initializeContract = async () => {
   await DB.ssvToken.mint(DB.owners[5].address, '10000000000000000000');
   await DB.ssvToken.mint(DB.owners[6].address, '10000000000000000000');
 
-  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken };
+  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract };
 };
 
 export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR]) => {
@@ -156,7 +167,6 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
       }
     ), gasGroups);
     args = result.eventsByName.ValidatorAdded[0].args;
-
     DB.validators.push({ publicKey, operatorIds, shares });
     validators.push({ publicKey, shares });
   }
@@ -164,9 +174,47 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
   return { validators, args };
 };
 
+export const registerValidatorsRaw = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[]) => {
+
+  let cluster: any = {
+    validatorCount: 0,
+    networkFee: 0,
+    networkFeeIndex: 0,
+    index: 0,
+    balance: 0,
+    disabled: false
+  };
+
+  for (let i = 0; i < numberOfValidators; i++) {
+    const shares = DataGenerator.shares(4);
+    const publicKey = DataGenerator.publicKey(i);
+    
+    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
+    const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
+      publicKey,
+      operatorIds,
+      shares,
+      amount,
+      cluster
+    ));
+
+    const clusterData = result.eventsByName.ValidatorAdded[0].args.cluster;
+    cluster = {
+      validatorCount: clusterData.validatorCount,
+      networkFee: clusterData.networkFee,
+      networkFeeIndex: clusterData.networkFeeIndex,
+      index: clusterData.index,
+      balance: clusterData.balance,
+      disabled: false
+    };
+
+  }
+}
+
+
 export const getCluster = (payload: any) => ethers.utils.AbiCoder.prototype.encode(
   ['tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool disabled) cluster'],
-  [ payload ]
+  [payload]
 );
 
 /*
