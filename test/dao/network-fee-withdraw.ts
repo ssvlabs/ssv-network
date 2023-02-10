@@ -7,12 +7,14 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 
 // Declare globals
-let ssvNetworkContract: any, minDepositAmount: any, burnPerBlock: any, networkFee: any;
+let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, burnPerBlock: any, networkFee: any;
 
 describe('DAO Network Fee Withdraw Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    ssvNetworkContract = (await helpers.initializeContract()).contract;
+    const metadata = (await helpers.initializeContract());
+    ssvNetworkContract = metadata.contract;
+    ssvViews = metadata.ssvViews;
 
     // Define minumum allowed network fee to pass shrinkable validation
     networkFee = helpers.CONFIG.minimalOperatorFee;
@@ -62,7 +64,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     const releaseDate = timestamp + (86400 * 2);
     const selector = ssvNetworkContract.interface.getSighash("withdrawNetworkEarnings(uint256)");
 
-    const amount = await ssvNetworkContract.getNetworkEarnings();
+    const amount = await ssvViews.getNetworkEarnings();
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
     )).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, helpers.DB.owners[0].address);
     await progressTime(172800); // 2 days
@@ -76,7 +78,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     const releaseDate = timestamp + (86400 * 2);
     const signature = ssvNetworkContract.interface.getSighash("withdrawNetworkEarnings(uint256)");
 
-    const amount = await ssvNetworkContract.getNetworkEarnings();
+    const amount = await ssvViews.getNetworkEarnings();
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, helpers.DB.owners[0].address);
 
     await progressTime(86400); // 1 day
@@ -85,15 +87,15 @@ describe('DAO Network Fee Withdraw Tests', () => {
   });
 
   it('Get withdrawable network earnings', async () => {
-    expect(await ssvNetworkContract.getNetworkEarnings()).to.above(0);
+    expect(await ssvViews.getNetworkEarnings()).to.above(0);
   });
 
   it('Get withdrawable network earnings as not owner', async () => {
-    await ssvNetworkContract.connect(helpers.DB.owners[3]).getNetworkEarnings();
+    await ssvViews.connect(helpers.DB.owners[3]).getNetworkEarnings();
   });
 
   it('Withdraw network earnings with not enough balance reverts "InsufficientBalance"', async () => {
-    const amount = await ssvNetworkContract.getNetworkEarnings() * 2;
+    const amount = await ssvViews.getNetworkEarnings() * 2;
     await ssvNetworkContract.withdrawNetworkEarnings(amount);
     await progressTime(172800); // 2 days
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
@@ -101,7 +103,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
   });
 
   it('Withdraw network earnings from an address thats not the DAO reverts "caller is not the owner"', async () => {
-    const amount = await ssvNetworkContract.getNetworkEarnings();
+    const amount = await ssvViews.getNetworkEarnings();
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawNetworkEarnings(amount
     )).to.be.revertedWith('Ownable: caller is not the owner');
   });

@@ -5,12 +5,14 @@ import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 // Declare globals
-let ssvNetworkContract: any, networkFee: any;
+let ssvNetworkContract: any, ssvViews: any, networkFee: any;
 
 describe('Network Fee Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    ssvNetworkContract = (await helpers.initializeContract()).contract;
+    const metadata = (await helpers.initializeContract());
+    ssvNetworkContract = metadata.contract;
+    ssvViews = metadata.ssvViews;
 
     // Define minumum allowed network fee to pass shrinkable validation
     networkFee = helpers.CONFIG.minimalOperatorFee / 10;
@@ -39,7 +41,7 @@ describe('Network Fee Tests', () => {
   });
 
   it('Get network fee', async () => {
-    expect(await ssvNetworkContract.getNetworkFee()).to.equal(0);
+    expect(await ssvViews.getNetworkFee()).to.equal(0);
   });
 
   it('Change the network fee to a number below the minimum fee reverts "Max precision exceeded"', async () => {
@@ -66,10 +68,10 @@ describe('Network Fee Tests', () => {
 
     await progressTime(86400); // 1 day
     await ssvNetworkContract.updateNetworkFee(oneNetworkFee);
-    expect(await ssvNetworkContract.getNetworkFee()).to.equal(oneNetworkFee);
+    expect(await ssvViews.getNetworkFee()).to.equal(oneNetworkFee);
 
     await progressTime(86400); // 1 day
     await ssvNetworkContract.updateNetworkFee(twoNetworkFee);
-    expect(await ssvNetworkContract.getNetworkFee()).to.equal(twoNetworkFee);
+    expect(await ssvViews.getNetworkFee()).to.equal(twoNetworkFee);
   });
 });

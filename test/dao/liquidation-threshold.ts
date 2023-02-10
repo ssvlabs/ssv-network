@@ -5,12 +5,14 @@ import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 // Declare globals
-let ssvNetworkContract: any, networkFee: any;
+let ssvNetworkContract: any, ssvViews: any, networkFee: any;
 
 describe('Liquidation Threshold Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    ssvNetworkContract = (await helpers.initializeContract()).contract;
+    const metadata = (await helpers.initializeContract());
+    ssvNetworkContract = metadata.contract;
+    ssvViews = metadata.ssvViews;
 
     // Define minumum allowed network fee to pass shrinkable validation
     networkFee = helpers.CONFIG.minimalOperatorFee / 10;
@@ -37,11 +39,11 @@ describe('Liquidation Threshold Tests', () => {
   });
 
   it('Get liquidation threshold period', async () => {
-    expect(await ssvNetworkContract.getLiquidationThresholdPeriod()).to.equal(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    expect(await ssvViews.getLiquidationThresholdPeriod()).to.equal(helpers.CONFIG.minimalBlocksBeforeLiquidation);
   });
 
   it('Change liquidation threshold period reverts "NewBlockPeriodIsBelowMinimum"', async () => {
-    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation - 10)).to.be.revertedWithCustomError(ssvNetworkContract,'NewBlockPeriodIsBelowMinimum');
+    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation - 10)).to.be.revertedWithCustomError(ssvNetworkContract, 'NewBlockPeriodIsBelowMinimum');
   });
 
   it('Change liquidation threshold period reverts "caller is not the owner"', async () => {
