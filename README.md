@@ -1,27 +1,18 @@
 # SSV Network Project
-
   
 
 This repository contains a SSVNetwork smart contacts project.
 
-  
-
 ## Quick start
-
-  
+ 
 
 The first things you need to do are cloning this repository and installing its dependencies:
-
-  
+ 
 
 ```sh
-
 git clone git@github.com:bloxapp/ssv-network.git
-
 cd ssv-network
-
 npm install
-
 ```
 
   
@@ -29,13 +20,10 @@ npm install
 ### Run locally HardHat TestNetwork node
 
 Once installed, to run Hardhat's testing network:
-
   
 
 ```sh
-
 npx hardhat node
-
 ```
 
   
@@ -58,9 +46,7 @@ To compile them, simply run:
   
 
 ```sh
-
 npx hardhat compile
-
 ```
 
   
@@ -130,12 +116,19 @@ SSVNETWORKVIEWS_PROXY_ADDRESS=# SSVNetworkViews proxy address, set it when runnn
   Then run:
 
 ```sh
-
 npx hardhat run --network <your-network> scripts/deploy-all.ts
-
 ```
 
-Output of this action will be:
+You will be guided to the process of creating or reusing a git tag for the new deployment. This is a mandatory step. We use [Semantic Versioning](https://semver.org/) to versioning contracts and tags are expected to be in that format.
+
+```sh
+Git tag to deploy? › - Use arrow-keys. Return to submit. # List all current tags to allow reusing or create a new one
+Tag name? › # If you choose to create a new tag, enter the name (SemVer format)
+Create and publish new tag? › # Confirm publishing the tag
+```
+
+
+After this, the deployment process is executed:
 
 ```sh
 Deploying contracts with the account:0xf39Fd6...
@@ -199,6 +192,7 @@ To validate the upgrade before running it:
 ```sh
 npx hardhat run --network <your-network> scripts/validate-upgrade-ssv-network.ts
 ```
+Like on the deployment process, you will be guided to the steps for creating or reusing a git tag for the new upgrade.
 
 To fire the upgrade process:
 
@@ -228,6 +222,7 @@ To validate the upgrade before running it:
 ```sh
 npx hardhat run --network <your-network> scripts/validate-upgrade-ssv-network-views.ts
 ```
+Like on the deployment process, you will be guided to the steps for creating or reusing a git tag for the new upgrade.
 
 To fire the upgrade process:
 
