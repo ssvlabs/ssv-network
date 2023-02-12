@@ -82,23 +82,15 @@ interface ISSVNetwork is ISSVNetworkCore {
     );
 
     event ClusterLiquidated(
-        
         address owner,
-       
         uint64[] operatorIds,
-       
         Cluster cluster
-    
     );
 
     event ClusterReactivated(
-        
         address owner,
-       
         uint64[] operatorIds,
-       
         Cluster cluster
-    
     );
 
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
@@ -124,15 +116,10 @@ interface ISSVNetwork is ISSVNetworkCore {
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
     event ClusterWithdrawn(
-        
         address owner,
-       
         uint64[] operatorIds,
-       
         uint256 value,
-       
         Cluster cluster
-    
     );
     event OperatorWithdrawn(uint256 value, uint64 operatorId, address owner);
 

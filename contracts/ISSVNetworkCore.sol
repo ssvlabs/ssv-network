@@ -45,8 +45,8 @@ interface ISSVNetworkCore {
 
     struct DAO {
         uint32 validatorCount;
-        uint64 withdrawn;
-        Snapshot earnings;
+        uint64 balance;
+        uint64 block;
     }
 
     struct Network {

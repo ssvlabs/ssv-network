@@ -12,12 +12,8 @@ contract SSVNetworkViewsLibUpgrade is SSVNetworkViews {
     function getFixedNetworkRawBalance() external view returns (uint64) {
         ISSVNetworkCore.DAO memory dao = ISSVNetworkCore.DAO({
             validatorCount: 0,
-            withdrawn: 0,
-            earnings: ISSVNetworkCore.Snapshot({
-                block: uint64(block.number),
-                index: 0,
-                balance: 100
-            })
+            balance: 100,
+            block: uint64(block.number)
         });
 
         return dao.networkRawBalance();

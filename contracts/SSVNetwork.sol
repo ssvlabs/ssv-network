@@ -334,7 +334,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         {
             if (!cluster.disabled) {
                 DAO memory dao_ = dao;
-                dao_ = dao_.updateDAOEarnings(network_.networkFee);
+                dao_.updateDAOEarnings(network_.networkFee);
                 ++dao_.validatorCount;
                 dao = dao_;
             }
@@ -420,7 +420,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         {
             if (!cluster.disabled) {
                 DAO memory dao_ = dao;
-                dao_ = dao_.updateDAOEarnings(network.networkFee);
+                dao_.updateDAOEarnings(network.networkFee);
                 --dao_.validatorCount;
                 dao = dao_;
             }
@@ -497,7 +497,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         {
             DAO memory dao_ = dao;
-            dao_ = dao_.updateDAOEarnings(networkFee);
+            dao_.updateDAOEarnings(networkFee);
             dao_.validatorCount -= cluster.validatorCount;
             dao = dao_;
         }
@@ -567,7 +567,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         {
             DAO memory dao_ = dao;
-            dao_ = dao_.updateDAOEarnings(networkFee);
+            dao_.updateDAOEarnings(networkFee);
             dao_.validatorCount += cluster.validatorCount;
             dao = dao_;
         }
@@ -750,7 +750,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         Network memory network_ = network;
 
         DAO memory dao_ = dao;
-        dao_ = dao_.updateDAOEarnings(network.networkFee);
+        dao_.updateDAOEarnings(network.networkFee);
         dao = dao_;
 
         network_.networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
@@ -769,11 +769,13 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
         uint64 shrunkAmount = amount.shrink();
 
-        if (shrunkAmount > dao_.networkBalance(network.networkFee)) {
+        uint64 networkBalance = dao_.networkTotalEarnings(network.networkFee);
+
+        if (shrunkAmount > networkBalance) {
             revert InsufficientBalance();
         }
 
-        dao_.withdrawn += shrunkAmount;
+        dao_.balance = networkBalance - shrunkAmount;
         dao = dao_;
 
         _transfer(msg.sender, amount);
