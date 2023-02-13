@@ -55,10 +55,7 @@ describe('Register Operator Tests', () => {
     );
     await ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1);
 
-    expect((await ssvViews.getOperatorById(1))[0]).to.equal(helpers.DB.owners[1].address);
-    expect((await ssvViews.getOperatorById(1))[1]).to.equal(0);
-    expect((await ssvViews.getOperatorById(1))[2]).to.equal(0);
-    expect((await ssvViews.getOperatorById(1))[3]).to.equal(false);
+    await expect(ssvViews.getOperatorById(1)).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorDoesNotExist');
   });
 
   it('Register an operator with a fee thats too low reverts "FeeTooLow"', async () => {

@@ -67,8 +67,8 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /* Modifiers */
     /*************/
 
-    modifier onlyOperatorOwnerOrContractOwner(uint64 operatorId) {
-        _onlyOperatorOwnerOrContractOwner(operatorId);
+    modifier onlyOperatorOwner(uint64 operatorId) {
+        _onlyOperatorOwner(operatorId);
         _;
     }
 
@@ -142,11 +142,8 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         emit OperatorAdded(id, msg.sender, publicKey, fee);
     }
 
-    function removeOperator(uint64 operatorId) external override {
+    function removeOperator(uint64 operatorId) external override onlyOperatorOwner(operatorId) {
         Operator memory operator = operators[operatorId];
-        if (operator.owner != msg.sender) revert CallerNotOwner();
-        if (operator.snapshot.block == 0) revert OperatorDoesNotExist();
-
         operator.getSnapshot();
         uint64 currentBalance = operator.snapshot.balance;
 
@@ -166,7 +163,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     function declareOperatorFee(
         uint64 operatorId,
         uint256 fee
-    ) external override onlyOperatorOwnerOrContractOwner(operatorId) {
+    ) external override onlyOperatorOwner(operatorId) {
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
         uint64 operatorFee = operators[operatorId].fee;
         uint64 shrunkFee = fee.shrink();
@@ -195,7 +192,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
     function executeOperatorFee(
         uint64 operatorId
-    ) external override onlyOperatorOwnerOrContractOwner(operatorId) {
+    ) external override onlyOperatorOwner(operatorId) {
         OperatorFeeChangeRequest
             memory feeChangeRequest = operatorFeeChangeRequests[operatorId];
 
@@ -227,7 +224,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
     function cancelDeclaredOperatorFee(
         uint64 operatorId
-    ) external override onlyOperatorOwnerOrContractOwner(operatorId) {
+    ) external override onlyOperatorOwner(operatorId) {
         if (operatorFeeChangeRequests[operatorId].approvalBeginTime == 0)
             revert NoFeeDelcared();
 
@@ -648,10 +645,8 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     function _withdrawOperatorEarnings(
         uint64 operatorId,
         uint256 amount
-    ) private {
+    ) private onlyOperatorOwner(operatorId) {
         Operator memory operator = operators[operatorId];
-
-        if (operator.owner != msg.sender) revert CallerNotOwner();
 
         operator.getSnapshot();
 
@@ -675,7 +670,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     function withdrawOperatorEarnings(
         uint64 operatorId,
         uint256 amount
-    ) external override {
+    ) external override onlyOperatorOwner(operatorId) {
         _withdrawOperatorEarnings(operatorId, amount);
     }
 
@@ -824,16 +819,10 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /* Validation Private Functions */
     /********************************/
 
-    function _onlyOperatorOwnerOrContractOwner(uint64 operatorId) private view {
+    function _onlyOperatorOwner(uint64 operatorId) private view {
         Operator memory operator = operators[operatorId];
-
-        if (operator.snapshot.block == 0) {
-            revert OperatorDoesNotExist();
-        }
-
-        if (msg.sender != operator.owner && msg.sender != owner()) {
-            revert CallerNotOwner();
-        }
+        if (operator.snapshot.block == 0) revert OperatorDoesNotExist();
+        if (operator.owner != msg.sender) revert CallerNotOwner();
     }
 
     function _validatePublicKey(bytes calldata publicKey) private pure {
