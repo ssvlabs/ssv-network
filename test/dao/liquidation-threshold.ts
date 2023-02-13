@@ -23,7 +23,7 @@ describe('Liquidation Threshold Tests', () => {
     const releaseDate = timestamp + (86400 * 2);
     const selector = ssvNetworkContract.interface.getSighash("updateLiquidationThresholdPeriod(uint64)");
 
-    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, helpers.DB.owners[0].address);
+    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate);
     await progressTime(172800); // 2 days
     await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'LiquidationThresholdPeriodUpdated').withArgs(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
   });
@@ -33,7 +33,7 @@ describe('Liquidation Threshold Tests', () => {
     const releaseDate = timestamp + (86400 * 2);
     const selector = ssvNetworkContract.interface.getSighash("updateLiquidationThresholdPeriod(uint64)");
 
-    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, helpers.DB.owners[0].address);
+    await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate);
     await progressTime(86400); // 1 day
     await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.be.revertedWithCustomError(ssvNetworkContract, 'FunctionIsLocked');
   });

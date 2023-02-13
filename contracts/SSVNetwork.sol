@@ -873,7 +873,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             uint64 releaseTime = uint64(block.timestamp) + TIMELOCK_PERIOD;
             _timelocks[fnData] = releaseTime;
 
-            emit FunctionLocked(selector, releaseTime, msg.sender);
+            emit FunctionLocked(selector, releaseTime);
             functionLocked = true;
         } else if (uint64(block.timestamp) <= _timelocks[fnData]) {
             revert FunctionIsLocked();

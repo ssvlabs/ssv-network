@@ -66,7 +66,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
 
     const amount = await ssvViews.getNetworkEarnings();
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
-    )).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, helpers.DB.owners[0].address);
+    )).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate);
     await progressTime(172800); // 2 days
 
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
@@ -79,7 +79,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     const signature = ssvNetworkContract.interface.getSighash("withdrawNetworkEarnings(uint256)");
 
     const amount = await ssvViews.getNetworkEarnings();
-    await expect(ssvNetworkContract.withdrawNetworkEarnings(amount)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, helpers.DB.owners[0].address);
+    await expect(ssvNetworkContract.withdrawNetworkEarnings(amount)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate);
 
     await progressTime(86400); // 1 day
 

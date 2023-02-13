@@ -23,7 +23,7 @@ describe('Network Fee Tests', () => {
     const releaseDate = timestamp + (86400 * 2);
     const selector = ssvNetworkContract.interface.getSighash("updateNetworkFee(uint256)");
 
-    await expect(ssvNetworkContract.updateNetworkFee(networkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, helpers.DB.owners[0].address);
+    await expect(ssvNetworkContract.updateNetworkFee(networkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate);
     await progressTime(172800); // 2 days
 
     await expect(ssvNetworkContract.updateNetworkFee(networkFee
@@ -35,7 +35,7 @@ describe('Network Fee Tests', () => {
     const releaseDate = timestamp + (86400 * 2);
     const selector = ssvNetworkContract.interface.getSighash("updateNetworkFee(uint256)");
 
-    await expect(ssvNetworkContract.updateNetworkFee(networkFee * 2)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, helpers.DB.owners[0].address);
+    await expect(ssvNetworkContract.updateNetworkFee(networkFee * 2)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate);
     await progressTime(86400); // 1 day
     await expect(ssvNetworkContract.updateNetworkFee(networkFee * 2)).to.be.revertedWithCustomError(ssvNetworkContract, 'FunctionIsLocked');
   });
@@ -60,11 +60,11 @@ describe('Network Fee Tests', () => {
     const twoNetworkFee = networkFee * 3;
 
     let releaseDate = await time.latest() + 1 + (86400 * 2);
-    await expect(ssvNetworkContract.updateNetworkFee(oneNetworkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, helpers.DB.owners[0].address);
+    await expect(ssvNetworkContract.updateNetworkFee(oneNetworkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate);
 
     await progressTime(86400); // 1 day
     releaseDate = await time.latest() + 1 + (86400 * 2);
-    await expect(ssvNetworkContract.updateNetworkFee(twoNetworkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, helpers.DB.owners[0].address);
+    await expect(ssvNetworkContract.updateNetworkFee(twoNetworkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate);
 
     await progressTime(86400); // 1 day
     await ssvNetworkContract.updateNetworkFee(oneNetworkFee);
