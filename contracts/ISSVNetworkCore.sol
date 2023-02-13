@@ -13,7 +13,7 @@ interface ISSVNetworkCore {
         bool active;
     }
     struct Snapshot {
-        /// @dev block is the last block in which last index was set
+        /// @dev block is the last block in which last index was set. For Operator, it's also used to identify an active / inactive one.
         uint64 block;
         /// @dev index is the last index calculated by index += (currentBlock - block) * fee
         uint64 index;
