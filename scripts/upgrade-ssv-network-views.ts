@@ -1,9 +1,6 @@
 import { ethers, upgrades } from 'hardhat';
-import { publishAbi } from './utils';
 
 async function upgradeSSVNetworkViews() {
-  const version = publishAbi(); // TODO pass version to the initializer function when version PR merge
-
   const proxyAddress: any = process.env.SSVNETWORKVIEWS_PROXY_ADDRESS;
   const [deployer] = await ethers.getSigners();
   console.log("Upgading contract with the account:", deployer.address);
