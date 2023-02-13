@@ -523,6 +523,12 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         uint256 amount,
         Cluster memory cluster
     ) external override {
+        bytes32 hashedCluster = cluster.validateHashedCluster(
+            msg.sender,
+            operatorIds,
+            this
+        );
+        
         if (!cluster.disabled) {
             revert ClusterAlreadyEnabled();
         }
@@ -546,12 +552,6 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
                 }
             }
         }
-
-        bytes32 hashedCluster = cluster.validateHashedCluster(
-            msg.sender,
-            operatorIds,
-            this
-        );
 
         uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(
             network
@@ -610,8 +610,6 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         uint256 amount,
         Cluster memory cluster
     ) external override {
-        cluster.validateClusterIsNotLiquidated();
-
         uint64 shrunkAmount = amount.shrink();
 
         bytes32 hashedCluster = cluster.validateHashedCluster(
@@ -681,6 +679,12 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         uint256 amount,
         Cluster memory cluster
     ) external override {
+        bytes32 hashedCluster = cluster.validateHashedCluster(
+            msg.sender,
+            operatorIds,
+            this
+        );
+
         cluster.validateClusterIsNotLiquidated();
 
         uint64 shrunkAmount = amount.shrink();
@@ -701,12 +705,6 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
                 }
             }
         }
-
-        bytes32 hashedCluster = cluster.validateHashedCluster(
-            msg.sender,
-            operatorIds,
-            this
-        );
 
         cluster.balance = cluster.clusterBalance(
             clusterIndex,

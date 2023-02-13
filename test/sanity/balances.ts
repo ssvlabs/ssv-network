@@ -2,7 +2,7 @@
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
 import { expect } from 'chai';
-import { GasGroup } from '../helpers/gas-usage';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, ssvViews: any, cluster1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any, initNetworkFeeBalance: any;
 
@@ -32,7 +32,7 @@ describe('Balance Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1,2,3,4],
+      [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       '1000000000000000',
       {
@@ -118,6 +118,24 @@ describe('Balance Tests', () => {
 
   it('Check cluster balance with not enough balance reverts "InsufficientFunds"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
-    await expect(ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientFunds');
+    await expect(ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvViews, 'InsufficientFunds');
+  });
+
+  it('Check cluster balance in a non liquidated cluster', async () => {
+    await utils.progressBlocks(1);
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
+  });
+
+  it('Check cluster balance in a liquidated cluster reverts "ClusterIsLiquidated"', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 1);
+    const liquidatedCluster = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).liquidate(
+      cluster1.args.owner,
+      cluster1.args.operatorIds,
+      cluster1.args.cluster
+    ));
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
+
+    expect(await ssvViews.isLiquidated(cluster1.args.owner, cluster1.args.operatorIds, updatedCluster.cluster)).to.equal(true);
+    await expect(ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvViews, 'ClusterIsLiquidated');
   });
 });

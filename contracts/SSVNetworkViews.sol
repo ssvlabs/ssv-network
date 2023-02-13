@@ -187,7 +187,11 @@ contract SSVNetworkViews is
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        cluster.validateClusterIsNotLiquidated();
+        cluster.validateHashedCluster(owner, operatorIds, _ssvNetwork);
+
+        if (cluster.disabled) {
+            revert ClusterIsLiquidated();
+        }
 
         uint64 clusterIndex;
         {
@@ -201,8 +205,6 @@ contract SSVNetworkViews is
                     fee;
             }
         }
-
-        cluster.validateHashedCluster(owner, operatorIds, _ssvNetwork);
 
         (
             uint64 networkFee,
@@ -230,7 +232,8 @@ contract SSVNetworkViews is
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
-        (uint32 validatorCount, uint64 balance, uint64 block) = _ssvNetwork.dao();
+        (uint32 validatorCount, uint64 balance, uint64 block) = _ssvNetwork
+            .dao();
 
         DAO memory dao = DAO({
             validatorCount: validatorCount,
