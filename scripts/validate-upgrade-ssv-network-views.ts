@@ -1,7 +1,5 @@
-import { ethers, upgrades } from 'hardhat';
-
 async function validateUpgradeSSVNetworkViews() {
-  const proxyAddress: any = process.env.SSVNETWORKVIEWS_PROXY_ADDRESS;
+  const proxyAddress = process.env.SSVNETWORKVIEWS_PROXY_ADDRESS;
   const SSVNetworkViews = await ethers.getContractFactory("SSVNetworkViews_V2");
 
   await upgrades.validateUpgrade(proxyAddress, SSVNetworkViews, { kind: 'uups' });
