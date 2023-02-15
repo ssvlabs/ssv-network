@@ -241,7 +241,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata sharesEncrypted,
+        bytes calldata shares,
         uint256 amount,
         Cluster memory cluster
     ) external override {
@@ -359,7 +359,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             msg.sender,
             operatorIds,
             publicKey,
-            sharesEncrypted,
+            shares,
             cluster
         );
     }
