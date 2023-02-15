@@ -3,7 +3,7 @@ const prompts = require('prompts');
 
 const git = simpleGit.default();
 
-export async function publishAbi() {
+export async function generateGitTag() {
     const { all } = await git.tags();
     const gitTagChoices = [
         { title: '[create new tag]', description: 'Create new git tag before contract deployment', value: 'create-tag' },

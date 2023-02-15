@@ -1,5 +1,5 @@
 import { ethers, upgrades } from 'hardhat';
-import { publishAbi } from './utils';
+import { generateGitTag } from './utils';
 
 async function deploy() {
   const ssvTokenAddress = process.env.SSVTOKEN_ADDRESS;
@@ -7,7 +7,7 @@ async function deploy() {
   const [deployer] = await ethers.getSigners();
   console.log(`Deploying contracts with the account:${deployer.address}`);
 
-  const version = publishAbi(); // TODO pass version to the initializer function when version PR merge
+  const version = generateGitTag(); // TODO pass version to the initializer function when version PR merge
 
   // deploy SSVNetwork
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
