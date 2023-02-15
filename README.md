@@ -192,7 +192,7 @@ To validate the upgrade before running it:
 ```sh
 npx hardhat run --network <your-network> scripts/validate-upgrade-ssv-network.ts
 ```
-Like on the deployment process, you will be guided to the steps for creating or reusing a git tag for the new upgrade.
+Like the deployment process, you will be guided to the steps for creating or reusing a git tag for the new upgrade.
 
 To fire the upgrade process:
 
@@ -222,7 +222,7 @@ To validate the upgrade before running it:
 ```sh
 npx hardhat run --network <your-network> scripts/validate-upgrade-ssv-network-views.ts
 ```
-Like on the deployment process, you will be guided to the steps for creating or reusing a git tag for the new upgrade.
+Like the deployment process, you will be guided to the steps for creating or reusing a git tag for the new upgrade.
 
 To fire the upgrade process:
 

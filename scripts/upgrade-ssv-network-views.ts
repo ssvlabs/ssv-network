@@ -1,7 +1,8 @@
 import { ethers, upgrades } from 'hardhat';
+import { getEnvVar } from './utils';
 
 async function upgradeSSVNetworkViews() {
-  const proxyAddress: any = process.env.SSVNETWORKVIEWS_PROXY_ADDRESS;
+  const proxyAddress = getEnvVar('SSVNETWORKVIEWS_PROXY_ADDRESS');
   const [deployer] = await ethers.getSigners();
   console.log("Upgading contract with the account:", deployer.address);
 
