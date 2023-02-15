@@ -216,8 +216,7 @@ contract SSVNetworkViews is
 
         return
             cluster
-                .clusterBalance(clusterIndex, currrentNetworkFeeIndex)
-                .expand();
+                .clusterBalance(clusterIndex, currrentNetworkFeeIndex);
     }
 
     /*******************************/
