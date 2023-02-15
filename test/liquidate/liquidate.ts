@@ -81,7 +81,7 @@ describe('Liquidate Tests', () => {
     ), [GasGroup.LIQUIDATE_POD]);
   });
 
-  it('Liquidate and register validator in a disabled cluster', async () => {
+  it('Liquidate and register validator in a disabled cluster reverts "ClusterIsLiquidated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
       firstCluster.owner,
@@ -91,13 +91,13 @@ describe('Liquidate Tests', () => {
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount*2}`);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
       updatedCluster.operatorIds,
       helpers.DataGenerator.shares(4),
       `${minDepositAmount*2}`,
       updatedCluster.cluster
-    ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
+    )).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterIsLiquidated');
   });
   
   it('Liquidate cluster and check isLiquidated true', async () => {

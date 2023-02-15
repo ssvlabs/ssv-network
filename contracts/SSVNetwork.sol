@@ -244,8 +244,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         bytes calldata sharesEncrypted,
         uint256 amount,
         Cluster memory cluster
-    ) external {
-        // TODO override
+    ) external override {
         uint operatorsLength = operatorIds.length;
 
         {
@@ -283,6 +282,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             ) {
                 revert IncorrectClusterState();
             }
+            cluster.validateClusterIsNotLiquidated();
         }
 
         uint64 clusterIndex;
@@ -368,8 +368,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external {
-        // TODO override
+    ) external override {
         uint operatorsLength = operatorIds.length;
 
         bytes32 hashedValidator = keccak256(publicKey);
