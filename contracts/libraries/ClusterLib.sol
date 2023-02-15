@@ -41,9 +41,7 @@ library ClusterLib {
     function validateClusterIsNotLiquidated(
         ISSVNetworkCore.Cluster memory cluster
     ) internal pure {
-        if (cluster.disabled) {
-            revert ISSVNetworkCore.ClusterIsLiquidated();
-        }
+        if (cluster.disabled) revert ISSVNetworkCore.ClusterIsLiquidated();
     }
 
     function validateHashedCluster(

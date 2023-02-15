@@ -283,6 +283,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             ) {
                 revert IncorrectClusterState();
             }
+            cluster.validateClusterIsNotLiquidated();
         }
 
         uint64 clusterIndex;
