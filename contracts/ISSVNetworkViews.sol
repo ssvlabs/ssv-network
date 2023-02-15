@@ -56,7 +56,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
 
     function getOperatorEarnings(
         uint64 id
-    ) external view returns (uint256);
+    ) external view returns (uint256 balance);
 
     function getBalance(
         address owner,

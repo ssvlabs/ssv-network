@@ -39,7 +39,7 @@ interface ISSVNetworkCore {
         uint64 networkFee;
         uint64 networkFeeIndex;
         uint64 index;
-        uint256 balance;
+        uint64 balance;
         bool disabled;
     }
 

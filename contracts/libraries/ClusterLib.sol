@@ -4,16 +4,13 @@ pragma solidity 0.8.16;
 
 import "../ISSVNetworkCore.sol";
 import "../SSVNetwork.sol";
-import "./Types.sol";
 
 library ClusterLib {
-    using Types64 for uint64;
-
     function clusterBalance(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 newIndex,
         uint64 currentNetworkFeeIndex
-    ) internal pure returns (uint256 balance) {
+    ) internal pure returns (uint64 balance) {
         uint64 networkFee = cluster.networkFee +
             uint64(currentNetworkFeeIndex - cluster.networkFeeIndex) *
             cluster.validatorCount;
@@ -21,11 +18,11 @@ library ClusterLib {
             cluster.validatorCount +
             networkFee;
 
-        if (usage.expand() > cluster.balance) {
+        if (usage > cluster.balance) {
             revert ISSVNetworkCore.InsufficientFunds();
         }
 
-        balance = cluster.balance - usage.expand();
+        balance = cluster.balance - usage;
     }
 
     function liquidatable(
@@ -34,10 +31,11 @@ library ClusterLib {
         uint64 networkFee,
         uint64 minimumBlocksBeforeLiquidation
     ) internal pure returns (bool) {
-        uint64 liquidationThreshold = minimumBlocksBeforeLiquidation *
-            (burnRate + networkFee) *
-            cluster.validatorCount;
-        return cluster.balance < liquidationThreshold.expand();
+        return
+            cluster.balance <
+            minimumBlocksBeforeLiquidation *
+                (burnRate + networkFee) *
+                cluster.validatorCount;
     }
 
     function validateClusterIsNotLiquidated(
