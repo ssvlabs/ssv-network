@@ -216,8 +216,7 @@ contract SSVNetworkViews is
 
         return
             cluster
-                .clusterBalance(clusterIndex, currrentNetworkFeeIndex)
-                .expand();
+                .clusterBalance(clusterIndex, currrentNetworkFeeIndex);
     }
 
     /*******************************/
@@ -284,5 +283,15 @@ contract SSVNetworkViews is
         returns (uint64)
     {
         return _ssvNetwork.minimumBlocksBeforeLiquidation();
+    }
+
+    function getVersion() external view returns(string memory version) {
+        bytes memory currentVersion = abi.encodePacked(_ssvNetwork.version());
+
+        uint8 i;
+        while(i < 32 && currentVersion[i] != 0) {
+            version = string(abi.encodePacked(version, currentVersion[i]));
+            i++;
+        }
     }
 }
