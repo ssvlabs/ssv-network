@@ -752,8 +752,8 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     function updateNetworkFee(uint256 fee) external override onlyOwner {
         uint64 newFee = fee.shrink();
         
-        bytes32 fnData = keccak256(abi.encodeWithSelector(this.updateNetworkFee.selector, fee));      
-        if (!_isFunctionLocked(this.updateNetworkFee.selector, fnData)) {
+        bytes32 functionId = keccak256(abi.encodeWithSelector(this.updateNetworkFee.selector, fee));      
+        if (!_isFunctionLocked(this.updateNetworkFee.selector, functionId)) {
             Network memory network_ = network;
 
             DAO memory dao_ = dao;
@@ -768,7 +768,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             network_.networkFee = newFee;
             network = network_;
             
-            delete _timelocks[fnData];
+            delete _timelocks[functionId];
         }
         
     }
@@ -778,10 +778,10 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     ) external override onlyOwner {
         uint64 shrunkAmount = amount.shrink();
         
-        bytes32 fnData = keccak256(
+        bytes32 functionId = keccak256(
             abi.encodeWithSelector(this.updateNetworkFee.selector, amount)
         );      
-        if (!_isFunctionLocked(this.withdrawNetworkEarnings.selector, fnData)) {
+        if (!_isFunctionLocked(this.withdrawNetworkEarnings.selector, functionId)) {
             DAO memory dao_ = dao;
 
             if(shrunkAmount > dao_.networkBalance(network.networkFee)) {
@@ -795,7 +795,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
 
             emit NetworkEarningsWithdrawn(amount, msg.sender);
 
-            delete _timelocks[fnData];
+            delete _timelocks[functionId];
         }
     }
 
@@ -826,12 +826,12 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         if (blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
             revert NewBlockPeriodIsBelowMinimum();
         }
-        bytes32 fnData = keccak256(abi.encodeWithSelector(this.updateLiquidationThresholdPeriod.selector, blocks));      
-        if (!_isFunctionLocked(this.updateLiquidationThresholdPeriod.selector, fnData)) {
+        bytes32 functionId = keccak256(abi.encodeWithSelector(this.updateLiquidationThresholdPeriod.selector, blocks));      
+        if (!_isFunctionLocked(this.updateLiquidationThresholdPeriod.selector, functionId)) {
             minimumBlocksBeforeLiquidation = blocks;
             emit LiquidationThresholdPeriodUpdated(blocks);
             
-            delete _timelocks[fnData];
+            delete _timelocks[functionId];
         }
     }
 
@@ -867,17 +867,17 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         }
     }
 
-    function _isFunctionLocked(bytes4 selector, bytes32 fnData)
+    function _isFunctionLocked(bytes4 selector, bytes32 functionId)
         internal
         returns (bool functionLocked)
     {
-        if (_timelocks[fnData] == 0) {
+        if (_timelocks[functionId] == 0) {
             uint64 releaseTime = uint64(block.timestamp) + TIMELOCK_PERIOD;
-            _timelocks[fnData] = releaseTime;
+            _timelocks[functionId] = releaseTime;
 
             emit FunctionLocked(selector, releaseTime);
             functionLocked = true;
-        } else if (uint64(block.timestamp) <= _timelocks[fnData]) {
+        } else if (uint64(block.timestamp) <= _timelocks[functionId]) {
             revert FunctionIsLocked();
         }
     }
