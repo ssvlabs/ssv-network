@@ -45,7 +45,6 @@ async function deploy() {
 deploy()
   .then(() => process.exit(0))
   .catch(error => {
-    // Optional: delete tag
     console.error(error);
     process.exit(1);
   });
