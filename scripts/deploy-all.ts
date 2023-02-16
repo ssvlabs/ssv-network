@@ -10,6 +10,7 @@ async function deploy() {
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
   console.log(`Deploying SSVNetwork with ssvToken ${ssvTokenAddress}`);
   const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [
+    process.env.INITIAL_VERSION,
     ssvTokenAddress,
     process.env.OPERATOR_MAX_FEE_INCREASE,
     process.env.DECLARE_OPERATOR_FEE_PERIOD,

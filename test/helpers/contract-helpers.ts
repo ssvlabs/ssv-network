@@ -63,6 +63,7 @@ export const DataGenerator = {
 
 export const initializeContract = async () => {
   CONFIG = {
+    initialVersion: "0.0.1",
     operatorMaxFeeIncrease: 1000,
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY
@@ -92,6 +93,7 @@ export const initializeContract = async () => {
   await DB.ssvToken.deployed();
 
   DB.ssvNetwork.contract = await upgrades.deployProxy(ssvNetwork, [
+    CONFIG.initialVersion,
     DB.ssvToken.address,
     CONFIG.operatorMaxFeeIncrease,
     CONFIG.declareOperatorFeePeriod,

@@ -50,6 +50,8 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     mapping(bytes32 => Validator) private _validatorPKs;
     mapping(bytes32 => uint64) private _timelocks;
 
+    bytes32 public version;
+
     uint32 public validatorsPerOperatorLimit;
     uint64 public declareOperatorFeePeriod;
     uint64 public executeOperatorFeePeriod;
@@ -78,6 +80,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /****************/
 
     function initialize(
+        string calldata initialVersion_,
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
@@ -87,6 +90,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
         __SSVNetwork_init_unchained(
+            initialVersion_,
             token_,
             operatorMaxFeeIncrease_,
             declareOperatorFeePeriod_,
@@ -96,18 +100,20 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function __SSVNetwork_init_unchained(
+        string calldata initialVersion_,
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_
     ) internal onlyInitializing {
+        version = bytes32(abi.encodePacked(initialVersion_));
         _token = token_;
         operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
         declareOperatorFeePeriod = declareOperatorFeePeriod_;
         executeOperatorFeePeriod = executeOperatorFeePeriod_;
         minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        validatorsPerOperatorLimit = 2000;
+        validatorsPerOperatorLimit = 2_000;
     }
 
     /*****************/
@@ -319,7 +325,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             network_
         );
 
-        cluster.balance += amount.shrink();
+        cluster.balance += amount;
         cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex, 1);
 
         if (
@@ -353,7 +359,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         );
 
         if (amount > 0) {
-            _deposit(amount.shrink());
+            _deposit(amount);
         }
 
         emit ValidatorAdded(
@@ -514,7 +520,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             )
         );
 
-        _transfer(msg.sender, cluster.balance.expand());
+        _transfer(msg.sender, cluster.balance);
 
         emit ClusterLiquidated(owner, operatorIds, cluster);
     }
@@ -558,7 +564,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             network
         );
 
-        cluster.balance += amount.shrink();
+        cluster.balance += amount;
         cluster.disabled = false;
         cluster.index = clusterIndex;
 
@@ -595,7 +601,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         );
 
         if (amount > 0) {
-            _deposit(amount.shrink());
+            _deposit(amount);
         }
 
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
@@ -613,15 +619,13 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     ) external override {
         cluster.validateClusterIsNotLiquidated();
 
-        uint64 shrunkAmount = amount.shrink();
-
         bytes32 hashedCluster = cluster.validateHashedCluster(
             owner,
             operatorIds,
             this
         );
 
-        cluster.balance += shrunkAmount;
+        cluster.balance += amount;
 
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
@@ -634,7 +638,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             )
         );
 
-        _deposit(shrunkAmount);
+        _deposit(amount);
 
         emit ClusterDeposited(owner, operatorIds, amount, cluster);
     }
@@ -684,8 +688,6 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     ) external override {
         cluster.validateClusterIsNotLiquidated();
 
-        uint64 shrunkAmount = amount.shrink();
-
         uint64 clusterIndex;
         uint64 burnRate;
         {
@@ -715,7 +717,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         );
 
         if (
-            cluster.balance < shrunkAmount ||
+            cluster.balance < amount ||
             cluster.liquidatable(
                 burnRate,
                 network.networkFee,
@@ -725,7 +727,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             revert InsufficientBalance();
         }
 
-        cluster.balance -= shrunkAmount;
+        cluster.balance -= amount;
 
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
@@ -896,8 +898,8 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /* Balance Private Functions */
     /*****************************/
 
-    function _deposit(uint64 amount) private {
-        if (!_token.transferFrom(msg.sender, address(this), amount.expand())) {
+    function _deposit(uint256 amount) private {
+        if (!_token.transferFrom(msg.sender, address(this), amount)) {
             revert TokenTransferFailed();
         }
     }
