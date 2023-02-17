@@ -109,9 +109,9 @@ export const initializeContract = async () => {
   DB.ssvViews.contract = await upgrades.deployProxy(ssvViews, [
     DB.ssvNetwork.contract.address
   ],
-  {
-    kind: 'uups'
-  });
+    {
+      kind: 'uups'
+    });
 
   await DB.ssvViews.contract.deployed();
 
@@ -190,7 +190,7 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
   for (let i = 0; i < numberOfValidators; i++) {
     const shares = DataGenerator.shares(4);
     const publicKey = DataGenerator.publicKey(i);
-    
+
     await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
     const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
       publicKey,
@@ -218,6 +218,12 @@ export const getCluster = (payload: any) => ethers.utils.AbiCoder.prototype.enco
   ['tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool disabled) cluster'],
   [payload]
 );
+
+export const encodeFunctionData = (name: string, signature: string, params: any) => {
+  const selector = DB.ssvNetwork.contract.interface.getSighash(signature);
+  const encodedParams = DB.ssvNetwork.contract.interface.encodeFunctionData(name, params);
+  return { selector, encodedParams };
+}
 
 /*
 export const transferValidator = async (ownerId: number, publicKey: string, operatorIds: number[], amount: string, gasGroups?: GasGroup[]) => {

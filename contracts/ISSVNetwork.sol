@@ -132,7 +132,7 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     event FeeRecipientAddressUpdated(address owner, address recipientAddress);
     
-    event FunctionLocked(bytes4 functionSelector, uint64 releaseTime);
+    event FunctionLocked(bytes4 functionSelector, uint64 releaseTime, bytes functionData);
     
     /****************/
     /* Initializers */
