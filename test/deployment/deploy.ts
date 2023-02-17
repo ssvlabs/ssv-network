@@ -51,7 +51,9 @@ describe('Deployment tests', () => {
         const address = await upgrades.erc1967.getImplementationAddress(ssvNetworkUpgrade.address);
         const instance = await ssvNetworkUpgrade.attach(address);
 
-        await expect(instance.connect(DB.owners[1]).initialize('0x6471F70b932390f527c6403773D082A0Db8e8A9F',
+        await expect(instance.connect(DB.owners[1]).initialize(
+            "0.0.2",
+            '0x6471F70b932390f527c6403773D082A0Db8e8A9F',
             2000000,
             2000000,
             2000000,

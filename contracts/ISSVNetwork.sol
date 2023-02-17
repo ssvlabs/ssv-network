@@ -148,6 +148,7 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
      */
     function initialize(
+        string calldata initialVersion_,
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
