@@ -417,13 +417,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         );
 
         uint64 networkFee = network.networkFee;
-        if (
-            !cluster.liquidatable(
-                burnRate,
-                networkFee,
-                minimumBlocksBeforeLiquidation
-            )
-        ) {
+        if (owner != msg.sender && !cluster.liquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation)) {
             revert ClusterNotLiquidatable();
         }
 
