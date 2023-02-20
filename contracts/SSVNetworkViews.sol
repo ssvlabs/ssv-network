@@ -77,9 +77,10 @@ contract SSVNetworkViews is
             uint32 validatorCount,
             Snapshot memory snapshot
         ) = _ssvNetwork.operators(operatorId);
-        if (snapshot.block == 0) revert OperatorDoesNotExist();
+        bool active;
+        if (snapshot.block != 0) active = true;
 
-        return (operatorOwner, fee.expand(), validatorCount, true);
+        return (operatorOwner, fee.expand(), validatorCount, active);
     }
 
     /***********************************/
