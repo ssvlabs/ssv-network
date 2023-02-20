@@ -8,7 +8,7 @@ SSVNetwork contract supports execution of these functions via time-locked implem
 
 ## How it works
 
-1. The contract owner calls the time-locked fucntion with the required parameters.
+1. The contract owner calls the time-locked function with the required parameters.
 
 2. For that call (function name + parameter), the lock period of 2 days starts. The event `FunctionLocked` is emitted.
 
@@ -37,6 +37,8 @@ When a time-locked function is called to schedule the execution, the event `Func
 Here is an example of how to be aware of the locked functions via event data. We will use `SSVNetork` contract ABI and [ethers](https://docs.ethers.org/v6/) library and simulate the execution of `updateNetworkFee` function.
 
 ```
+const { ethers } = require("ethers");
+
 // Load contract ABI
 const ABI = require("../SSVNetwork.json");
 
