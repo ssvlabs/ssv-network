@@ -7,13 +7,13 @@ import "./ISSVNetwork.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/NetworkLib.sol";
 
-contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
+contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /*************/
     /* Libraries */
     /*************/
@@ -49,6 +49,8 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     mapping(bytes32 => bytes32) public clusters;
     mapping(bytes32 => Validator) private _validatorPKs;
 
+    bytes32 public version;
+
     uint32 public validatorsPerOperatorLimit;
     uint64 public declareOperatorFeePeriod;
     uint64 public executeOperatorFeePeriod;
@@ -77,6 +79,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /****************/
 
     function initialize(
+        string calldata initialVersion_,
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
@@ -86,6 +89,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
         __SSVNetwork_init_unchained(
+            initialVersion_,
             token_,
             operatorMaxFeeIncrease_,
             declareOperatorFeePeriod_,
@@ -95,18 +99,20 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     }
 
     function __SSVNetwork_init_unchained(
+        string calldata initialVersion_,
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_
     ) internal onlyInitializing {
+        version = bytes32(abi.encodePacked(initialVersion_));
         _token = token_;
         operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
         declareOperatorFeePeriod = declareOperatorFeePeriod_;
         executeOperatorFeePeriod = executeOperatorFeePeriod_;
         minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        validatorsPerOperatorLimit = 2000;
+        validatorsPerOperatorLimit = 2_000;
     }
 
     /*****************/
@@ -850,7 +856,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         uint256 amount
     ) private {
         _transfer(msg.sender, amount);
-        emit OperatorWithdrawn(amount, operatorId, msg.sender);
+        emit OperatorWithdrawn(msg.sender, operatorId, amount);
     }
 
     /*****************************/
