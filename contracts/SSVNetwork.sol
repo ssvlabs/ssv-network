@@ -32,6 +32,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
     uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 6_570;
     uint64 constant MINIMAL_OPERATOR_FEE = 100_000_000;
+    uint64 constant TIMELOCK_PERIOD = 172_800; // 2 days
 
     /********************/
     /* Global Variables */
@@ -44,10 +45,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /*************/
 
     mapping(uint64 => Operator) public operators;
-    mapping(uint64 => OperatorFeeChangeRequest)
-        public operatorFeeChangeRequests;
+    mapping(uint64 => OperatorFeeChangeRequest) public operatorFeeChangeRequests;
     mapping(bytes32 => bytes32) public clusters;
     mapping(bytes32 => Validator) private _validatorPKs;
+    mapping(bytes32 => uint64) private _timelocks;
 
     bytes32 public version;
 
@@ -749,38 +750,55 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /**************************/
 
     function updateNetworkFee(uint256 fee) external override onlyOwner {
-        Network memory network_ = network;
+        uint64 newFee = fee.shrink();
+        
+        bytes memory fnData = abi.encodeWithSelector(this.updateNetworkFee.selector, fee);
+        bytes32 fnId = keccak256(fnData);
 
-        DAO memory dao_ = dao;
-        dao_ = dao_.updateDAOEarnings(network.networkFee);
-        dao = dao_;
+        if (!_isFunctionLocked(this.updateNetworkFee.selector, fnId, fnData)) {
+            Network memory network_ = network;
 
-        network_.networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
-        network_.networkFeeIndexBlockNumber = uint64(block.number);
+            DAO memory dao_ = dao;
+            dao_ = dao_.updateDAOEarnings(network_.networkFee);
+            dao = dao_;
 
-        emit NetworkFeeUpdated(network_.networkFee.expand(), fee);
+            network_.networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
+            network_.networkFeeIndexBlockNumber = uint64(block.number);
 
-        network_.networkFee = fee.shrink();
-        network = network_;
+            emit NetworkFeeUpdated(network_.networkFee.expand(), fee);
+
+            network_.networkFee = newFee;
+            network = network_;
+            
+            delete _timelocks[fnId];
+        }
+        
     }
 
     function withdrawNetworkEarnings(
         uint256 amount
     ) external override onlyOwner {
-        DAO memory dao_ = dao;
-
         uint64 shrunkAmount = amount.shrink();
+        
+        bytes memory fnData = abi.encodeWithSelector(this.withdrawNetworkEarnings.selector, amount);
+        bytes32 fnId = keccak256(fnData);
 
-        if (shrunkAmount > dao_.networkBalance(network.networkFee)) {
-            revert InsufficientBalance();
+        if (!_isFunctionLocked(this.withdrawNetworkEarnings.selector, fnId, fnData)) {
+            DAO memory dao_ = dao;
+
+            if(shrunkAmount > dao_.networkBalance(network.networkFee)) {
+                revert InsufficientBalance();
+            }
+
+            dao_.withdrawn += shrunkAmount;
+            dao = dao_;
+
+            _transfer(msg.sender, amount);
+
+            emit NetworkEarningsWithdrawn(amount, msg.sender);
+
+            delete _timelocks[fnId];
         }
-
-        dao_.withdrawn += shrunkAmount;
-        dao = dao_;
-
-        _transfer(msg.sender, amount);
-
-        emit NetworkEarningsWithdrawn(amount, msg.sender);
     }
 
     function updateOperatorFeeIncreaseLimit(
@@ -811,8 +829,15 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             revert NewBlockPeriodIsBelowMinimum();
         }
 
-        minimumBlocksBeforeLiquidation = blocks;
-        emit LiquidationThresholdPeriodUpdated(blocks);
+        bytes memory fnData = abi.encodeWithSelector(this.updateLiquidationThresholdPeriod.selector, blocks);
+        bytes32 fnId = keccak256(fnData);
+        
+        if (!_isFunctionLocked(this.updateLiquidationThresholdPeriod.selector, fnId, fnData)) {
+            minimumBlocksBeforeLiquidation = blocks;
+            emit LiquidationThresholdPeriodUpdated(blocks);
+            
+            delete _timelocks[fnId];
+        }
     }
 
     /********************************/
@@ -830,7 +855,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             revert CallerNotOwner();
         }
     }
-
+    
     function _validatePublicKey(bytes calldata publicKey) private pure {
         if (publicKey.length != 48) {
             revert InvalidPublicKeyLength();
@@ -844,6 +869,21 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             operatorsLength % 3 != 1
         ) {
             revert InvalidOperatorIdsLength();
+        }
+    }
+
+    function _isFunctionLocked(bytes4 selector, bytes32 fnId, bytes memory fnData)
+        private
+        returns (bool functionLocked)
+    {
+        if (_timelocks[fnId] == 0) {
+            uint64 releaseTime = uint64(block.timestamp) + TIMELOCK_PERIOD;
+            _timelocks[fnId] = releaseTime;
+
+            emit FunctionLocked(selector, releaseTime, fnData);
+            functionLocked = true;
+        } else if (uint64(block.timestamp) <= _timelocks[fnId]) {
+            revert FunctionIsLocked();
         }
     }
 

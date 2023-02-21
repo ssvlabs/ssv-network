@@ -1,6 +1,8 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
+import { progressTime } from '../helpers/utils';
 import { expect } from 'chai';
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 // Declare globals
 let ssvNetworkContract: any, ssvViews: any, networkFee: any;
@@ -17,8 +19,26 @@ describe('Network Fee Tests', () => {
   });
 
   it('Change network fee emits "NetworkFeeUpdated"', async () => {
+    const timestamp = await time.latest() + 1;
+    const releaseDate = timestamp + (86400 * 2);
+
+    const { selector, encodedParams } = helpers.encodeFunctionData('updateNetworkFee', 'updateNetworkFee(uint256)', [networkFee]);
+    
+    await expect(ssvNetworkContract.updateNetworkFee(networkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(selector, releaseDate, encodedParams);
+    
+    await expect(ssvNetworkContract.interface.decodeFunctionData('updateNetworkFee', encodedParams).fee).to.be.equals(networkFee);
+    await progressTime(172800); // 2 days
+
     await expect(ssvNetworkContract.updateNetworkFee(networkFee
     )).to.emit(ssvNetworkContract, 'NetworkFeeUpdated').withArgs(0, networkFee);
+
+    expect(await ssvViews.getNetworkFee()).to.equal(networkFee);
+  });
+
+  it('Change network fee before 2 days period reverts "FunctionIsLocked"', async () => {
+    await ssvNetworkContract.updateNetworkFee(networkFee * 2);
+    await progressTime(86400); // 1 day
+    await expect(ssvNetworkContract.updateNetworkFee(networkFee * 2)).to.be.revertedWithCustomError(ssvNetworkContract, 'FunctionIsLocked');
   });
 
   it('Get network fee', async () => {
@@ -33,5 +53,29 @@ describe('Network Fee Tests', () => {
   it('Change network fee from an address thats not the DAO reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).updateNetworkFee(networkFee
     )).to.be.revertedWith('Ownable: caller is not the owner');
+  });
+
+  it('Multiple network fee updates can be locked and updated after 2 days period', async () => {
+    const signature = ssvNetworkContract.interface.getSighash("updateNetworkFee(uint256)");
+    const oneNetworkFee = networkFee * 2;
+    const oneEncodedParams = ssvNetworkContract.interface.encodeFunctionData('updateNetworkFee', [networkFee * 2]);
+
+    const twoNetworkFee = networkFee * 3;
+    const twoEncodedParams = ssvNetworkContract.interface.encodeFunctionData('updateNetworkFee', [networkFee * 3]);
+
+    let releaseDate = await time.latest() + 1 + (86400 * 2);
+    await expect(ssvNetworkContract.updateNetworkFee(oneNetworkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, oneEncodedParams);
+
+    await progressTime(86400); // 1 day
+    releaseDate = await time.latest() + 1 + (86400 * 2);
+    await expect(ssvNetworkContract.updateNetworkFee(twoNetworkFee)).to.emit(ssvNetworkContract, 'FunctionLocked').withArgs(signature, releaseDate, twoEncodedParams);
+
+    await progressTime(86400); // 1 day
+    await ssvNetworkContract.updateNetworkFee(oneNetworkFee);
+    expect(await ssvViews.getNetworkFee()).to.equal(oneNetworkFee);
+
+    await progressTime(86400); // 1 day
+    await ssvNetworkContract.updateNetworkFee(twoNetworkFee);
+    expect(await ssvViews.getNetworkFee()).to.equal(twoNetworkFee);
   });
 });

@@ -81,4 +81,5 @@ interface ISSVNetworkCore {
     error NewBlockPeriodIsBelowMinimum();
     error ExceedValidatorLimit();
     error TokenTransferFailed();
+    error FunctionIsLocked();
 }
