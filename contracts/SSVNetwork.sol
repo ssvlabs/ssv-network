@@ -7,13 +7,13 @@ import "./ISSVNetwork.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/NetworkLib.sol";
 
-contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
+contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /*************/
     /* Libraries */
     /*************/

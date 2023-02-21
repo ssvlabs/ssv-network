@@ -198,7 +198,8 @@ Pay special attention when changing storage layout, for example adding new stora
 
 There is a state variable `uint256[50] __gap;` that you should reduce the size according to the size of the new variables added. More info: [Storage Gaps](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps)
 
-### Modify the limit of validators that an operator can manage
+
+## Modify the limit of validators that an operator can manage
 In `SSVNetwork` contract, the state variable `validatorsPerOperatorLimit` is used to represent the máximum number of validators that can be registered per operator. Its default value is `2000`.
 
 To change it, the upgrade process should be fired. The assignement to a new value must be in a new initializer function. Pay special attention to the `reinitializer` modifier where there should be a number higher than the one consumed in previous initialized contracts. More info [here](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Initializable-reinitializer-uint8-)
@@ -216,6 +217,12 @@ contract SSVNetwork_v2 is SSVNetwork {
     }
 }
 ```
+
+
+## Transfer the ownership of the contract
+The process of transferring the ownership of the SSVNetwork contract is implemented using OpenZeppelin's `Ownable2StepUpgradeable` contract, and consists of the following steps:
+1. Current owner calls `SSVNetwork`'s `transferOwnership` function with the new owner address as parameter.
+2. The new owner calls `SSVNetwork`'s `acceptOwnership` fucntion and the ownership of the contract is transferred.
 
 #### Version tracking
 
