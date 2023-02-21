@@ -7,13 +7,13 @@ import "./ISSVNetwork.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/NetworkLib.sol";
 
-contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
+contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /*************/
     /* Libraries */
     /*************/
@@ -324,7 +324,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             network_
         );
 
-        cluster.balance += amount.shrink();
+        cluster.balance += amount;
         cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex, 1);
 
         if (
@@ -358,7 +358,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         );
 
         if (amount > 0) {
-            _deposit(amount.shrink());
+            _deposit(amount);
         }
 
         emit ValidatorAdded(
@@ -519,7 +519,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             )
         );
 
-        _transfer(msg.sender, cluster.balance.expand());
+        _transfer(msg.sender, cluster.balance);
 
         emit ClusterLiquidated(owner, operatorIds, cluster);
     }
@@ -563,7 +563,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             network
         );
 
-        cluster.balance += amount.shrink();
+        cluster.balance += amount;
         cluster.disabled = false;
         cluster.index = clusterIndex;
 
@@ -600,7 +600,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         );
 
         if (amount > 0) {
-            _deposit(amount.shrink());
+            _deposit(amount);
         }
 
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
@@ -618,15 +618,13 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     ) external override {
         cluster.validateClusterIsNotLiquidated();
 
-        uint64 shrunkAmount = amount.shrink();
-
         bytes32 hashedCluster = cluster.validateHashedCluster(
             owner,
             operatorIds,
             this
         );
 
-        cluster.balance += shrunkAmount;
+        cluster.balance += amount;
 
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
@@ -639,7 +637,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             )
         );
 
-        _deposit(shrunkAmount);
+        _deposit(amount);
 
         emit ClusterDeposited(owner, operatorIds, amount, cluster);
     }
@@ -689,8 +687,6 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     ) external override {
         cluster.validateClusterIsNotLiquidated();
 
-        uint64 shrunkAmount = amount.shrink();
-
         uint64 clusterIndex;
         uint64 burnRate;
         {
@@ -720,7 +716,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
         );
 
         if (
-            cluster.balance < shrunkAmount ||
+            cluster.balance < amount ||
             cluster.liquidatable(
                 burnRate,
                 network.networkFee,
@@ -730,7 +726,7 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
             revert InsufficientBalance();
         }
 
-        cluster.balance -= shrunkAmount;
+        cluster.balance -= amount;
 
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
@@ -867,8 +863,8 @@ contract SSVNetwork is UUPSUpgradeable, OwnableUpgradeable, ISSVNetwork {
     /* Balance Private Functions */
     /*****************************/
 
-    function _deposit(uint64 amount) private {
-        if (!_token.transferFrom(msg.sender, address(this), amount.expand())) {
+    function _deposit(uint256 amount) private {
+        if (!_token.transferFrom(msg.sender, address(this), amount)) {
             revert TokenTransferFailed();
         }
     }
