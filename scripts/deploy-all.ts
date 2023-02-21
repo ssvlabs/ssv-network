@@ -1,7 +1,8 @@
 import { ethers, upgrades } from 'hardhat';
+import { getEnvVar } from './utils';
 
 async function deploy() {
-  const ssvTokenAddress = process.env.SSVTOKEN_ADDRESS;
+  const ssvTokenAddress = getEnvVar('SSVTOKEN_ADDRESS');
 
   const [deployer] = await ethers.getSigners();
   console.log(`Deploying contracts with the account:${deployer.address}`);
@@ -12,10 +13,10 @@ async function deploy() {
   const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [
     process.env.INITIAL_VERSION,
     ssvTokenAddress,
-    process.env.OPERATOR_MAX_FEE_INCREASE,
-    process.env.DECLARE_OPERATOR_FEE_PERIOD,
-    process.env.EXECUTE_OPERATOR_FEE_PERIOD,
-    process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION
+    getEnvVar('OPERATOR_MAX_FEE_INCREASE'),
+    getEnvVar('DECLARE_OPERATOR_FEE_PERIOD'),
+    getEnvVar('EXECUTE_OPERATOR_FEE_PERIOD'),
+    getEnvVar('MINIMUM_BLOCKS_BEFORE_LIQUIDATION')
   ],
     {
       kind: "uups"

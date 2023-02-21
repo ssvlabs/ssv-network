@@ -10,11 +10,11 @@ import "./libraries/OperatorLib.sol";
 import "./libraries/NetworkLib.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 contract SSVNetworkViews is
     UUPSUpgradeable,
-    OwnableUpgradeable,
+    Ownable2StepUpgradeable,
     ISSVNetworkViews
 {
     using Types256 for uint256;
