@@ -487,13 +487,13 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         );
 
         uint64 networkFee = network.networkFee;
-        if (
+
+        if (owner != msg.sender &&
             !cluster.liquidatable(
                 burnRate,
                 networkFee,
-                minimumBlocksBeforeLiquidation
-            )
-        ) {
+                minimumBlocksBeforeLiquidation)) 
+        {
             revert ClusterNotLiquidatable();
         }
 
@@ -870,7 +870,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     }
 
     function _transfer(address to, uint256 amount) private {
-        if(!_token.transfer(to, amount)) {
+        if (!_token.transfer(to, amount)) {
             revert TokenTransferFailed();
         }
     }
