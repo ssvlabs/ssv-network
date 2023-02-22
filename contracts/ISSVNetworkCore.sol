@@ -25,6 +25,7 @@ interface ISSVNetworkCore {
         address owner;
         uint64 fee;
         uint32 validatorCount;
+        address whitelisted;
         Snapshot snapshot;
     }
 
@@ -60,6 +61,7 @@ interface ISSVNetworkCore {
     /**********/
 
     error CallerNotOwner();
+    error CallerNotWhitelisted();
     error FeeTooLow();
     error FeeExceedsIncreaseLimit();
     error NoFeeDelcared();

@@ -19,7 +19,8 @@ interface ISSVNetwork is ISSVNetworkCore {
         uint64 indexed id,
         address indexed owner,
         bytes publicKey,
-        uint256 fee
+        uint256 fee,
+        address whitelisted
     );
 
     /**
@@ -167,7 +168,8 @@ interface ISSVNetwork is ISSVNetworkCore {
      */
     function registerOperator(
         bytes calldata publicKey,
-        uint256 fee
+        uint256 fee,
+        address whitelisted
     ) external returns (uint64);
 
     /**
