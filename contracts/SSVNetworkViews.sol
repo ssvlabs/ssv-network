@@ -44,7 +44,7 @@ contract SSVNetworkViews is
     function getOperatorFee(
         uint64 operatorId
     ) external view override returns (uint256) {
-        (, uint64 fee, , Snapshot memory snapshot) = _ssvNetwork.operators(
+        (, uint64 fee, , , Snapshot memory snapshot) = _ssvNetwork.operators(
             operatorId
         );
         if (snapshot.block == 0) revert OperatorDoesNotExist();
@@ -70,16 +70,18 @@ contract SSVNetworkViews is
 
     function getOperatorById(
         uint64 operatorId
-    ) external view override returns (address, uint256, uint32) {
+    ) external view override returns (address, uint256, uint32, bool) {
         (
             address operatorOwner,
             uint64 fee,
             uint32 validatorCount,
+            address whitelisted,
 
         ) = _ssvNetwork.operators(operatorId);
         if (operatorOwner == address(0)) revert OperatorDoesNotExist();
+        bool isPrivate = whitelisted == address(0) ? false : true;
 
-        return (operatorOwner, fee.expand(), validatorCount);
+        return (operatorOwner, fee.expand(), validatorCount, isPrivate);
     }
 
     /***********************************/
@@ -95,9 +97,8 @@ contract SSVNetworkViews is
         uint64 burnRate;
         uint operatorsLength = operatorIds.length;
         for (uint i; i < operatorsLength; ++i) {
-            (, uint64 fee, , Snapshot memory snapshot) = _ssvNetwork.operators(
-                operatorIds[i]
-            );
+            (, uint64 fee, , , Snapshot memory snapshot) = _ssvNetwork
+                .operators(operatorIds[i]);
             clusterIndex +=
                 snapshot.index +
                 (uint64(block.number) - snapshot.block) *
@@ -143,7 +144,7 @@ contract SSVNetworkViews is
         uint64 burnRate;
         uint operatorsLength = operatorIds.length;
         for (uint i; i < operatorsLength; ++i) {
-            (address operatorOwner, uint64 fee, , ) = _ssvNetwork.operators(
+            (address operatorOwner, uint64 fee, , , ) = _ssvNetwork.operators(
                 operatorIds[i]
             );
             if (operatorOwner != address(0)) {
@@ -164,18 +165,20 @@ contract SSVNetworkViews is
             address operatorOwner,
             uint64 fee,
             uint32 validatorCount,
+            address whitelisted,
             Snapshot memory snapshot
         ) = _ssvNetwork.operators(id);
 
         Operator memory operator = Operator({
             owner: operatorOwner,
             fee: fee,
+            validatorCount: validatorCount,
+            whitelisted: whitelisted,
             snapshot: Snapshot({
                 block: snapshot.block,
                 index: snapshot.index,
                 balance: snapshot.balance
-            }),
-            validatorCount: validatorCount
+            })
         });
 
         operator.getSnapshot();
@@ -193,7 +196,7 @@ contract SSVNetworkViews is
         {
             uint operatorsLength = operatorIds.length;
             for (uint i; i < operatorsLength; ++i) {
-                (, uint64 fee, , Snapshot memory snapshot) = _ssvNetwork
+                (, uint64 fee, , , Snapshot memory snapshot) = _ssvNetwork
                     .operators(operatorIds[i]);
                 clusterIndex +=
                     snapshot.index +
@@ -214,9 +217,7 @@ contract SSVNetworkViews is
             Network(networkFee, networkFeeIndex, networkFeeIndexBlockNumber)
         );
 
-        return
-            cluster
-                .clusterBalance(clusterIndex, currrentNetworkFeeIndex);
+        return cluster.clusterBalance(clusterIndex, currrentNetworkFeeIndex);
     }
 
     /*******************************/
@@ -285,11 +286,11 @@ contract SSVNetworkViews is
         return _ssvNetwork.minimumBlocksBeforeLiquidation();
     }
 
-    function getVersion() external view returns(string memory version) {
+    function getVersion() external view returns (string memory version) {
         bytes memory currentVersion = abi.encodePacked(_ssvNetwork.version());
 
         uint8 i;
-        while(i < 32 && currentVersion[i] != 0) {
+        while (i < 32 && currentVersion[i] != 0) {
             version = string(abi.encodePacked(version, currentVersion[i]));
             i++;
         }
