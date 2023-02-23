@@ -23,6 +23,7 @@ interface ISSVNetworkCore {
 
     struct Operator {
         address owner;
+        /// @dev when fee is set to zero (mostly for private operators), it can not be increased
         uint64 fee;
         uint32 validatorCount;
         Snapshot snapshot;
