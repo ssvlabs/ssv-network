@@ -163,7 +163,7 @@ interface ISSVNetwork is ISSVNetworkCore {
     /**
      * @dev Registers a new operator.
      * @param publicKey Operator's public key. Used to encrypt secret shares of validators keys.
-     * @param fee operator's fee.
+     * @param fee operator's fee. When fee is set to zero (mostly for private operators), it can not be increased.
      */
     function registerOperator(
         bytes calldata publicKey,
