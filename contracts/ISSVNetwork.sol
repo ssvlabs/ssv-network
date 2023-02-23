@@ -16,7 +16,7 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param fee Operator's fee.
      */
     event OperatorAdded(
-        uint64 id,
+        uint64 indexed id,
         address indexed owner,
         bytes publicKey,
         uint256 fee
@@ -26,7 +26,7 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @dev Emitted when operator has been removed.
      * @param id operator's ID.
      */
-    event OperatorRemoved(uint64 id);
+    event OperatorRemoved(uint64 indexed id);
 
     /**
      * @dev Emitted when the validator has been added.
@@ -58,14 +58,14 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     event OperatorFeeDeclared(
         address indexed owner,
-        uint64 operatorId,
+        uint64 indexed operatorId,
         uint256 blockNumber,
         uint256 fee
     );
 
     event OperatorFeeCancelationDeclared(
         address indexed owner,
-        uint64 operatorId
+        uint64 indexed operatorId
     );
 
     /**
@@ -76,29 +76,21 @@ interface ISSVNetwork is ISSVNetworkCore {
      */
     event OperatorFeeExecuted(
         address indexed owner,
-        uint64 operatorId,
+        uint64 indexed operatorId,
         uint256 blockNumber,
         uint256 fee
     );
 
     event ClusterLiquidated(
-        
-        address owner,
-       
+        address indexed owner,
         uint64[] operatorIds,
-       
         Cluster cluster
-    
     );
 
     event ClusterReactivated(
-        
-        address owner,
-       
+        address indexed owner,
         uint64[] operatorIds,
-       
         Cluster cluster
-    
     );
 
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
@@ -124,17 +116,16 @@ interface ISSVNetwork is ISSVNetworkCore {
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
     event ClusterWithdrawn(
-        
-        address owner,
-       
+        address indexed owner,
         uint64[] operatorIds,
-       
         uint256 value,
-       
         Cluster cluster
-    
     );
-    event OperatorWithdrawn(uint256 value, uint64 operatorId, address owner);
+    event OperatorWithdrawn(
+        address indexed owner,
+        uint64 indexed operatorId,
+        uint256 value
+    );
 
     event ClusterDeposited(
         address indexed owner,
@@ -143,7 +134,7 @@ interface ISSVNetwork is ISSVNetworkCore {
         Cluster cluster
     );
 
-    event FeeRecipientAddressUpdated(address owner, address recipientAddress);
+    event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress);
 
     /****************/
     /* Initializers */
@@ -157,6 +148,7 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param executeOperatorFeePeriod_ The length of the period in which an operator can approve their fee.
      */
     function initialize(
+        string calldata initialVersion_,
         IERC20 token_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
