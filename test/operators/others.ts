@@ -1,6 +1,7 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
+import { trackGas } from '../helpers/gas-usage';
 
 // Declare globals
 let ssvNetworkContract: any;
@@ -32,6 +33,56 @@ describe('Others Operator Tests', () => {
     await ssvNetwork.deployed();
 
     expect((await ssvNetwork.validatorsPerOperatorLimit())).to.equal(50);
+  });
+
+  it('Remove operator whitelisted address', async () => {
+    const result = await trackGas(ssvNetworkContract.registerOperator(
+      helpers.DataGenerator.publicKey(1),
+      helpers.CONFIG.minimalOperatorFee,
+      helpers.DB.owners[1].address
+    ));
+    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+
+    await expect(ssvNetworkContract.removeOperatorWhitelist(operatorId))
+      .to.emit(ssvNetworkContract, 'OperatorWhitelistRemoved')
+      .withArgs(operatorId);
+  });
+
+  it('Non-owner remove operator whitelisted address reverts "CallerNotOwner"', async () => {
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(1),
+      helpers.CONFIG.minimalOperatorFee,
+      helpers.DB.owners[1].address
+    ));
+    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+
+    await expect(ssvNetworkContract.removeOperatorWhitelist(operatorId))
+      .to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
+  });
+
+  it('Update operator whitelisted address', async () => {
+    const result = await trackGas(ssvNetworkContract.registerOperator(
+      helpers.DataGenerator.publicKey(1),
+      helpers.CONFIG.minimalOperatorFee,
+      helpers.DB.owners[1].address
+    ));
+    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+
+    await expect(ssvNetworkContract.updateOperatorWhitelist(operatorId, helpers.DB.owners[2].address))
+      .to.emit(ssvNetworkContract, 'OperatorWhitelistUpdated')
+      .withArgs(operatorId, helpers.DB.owners[2].address);
+  });
+
+  it('Non-owner update operator whitelisted address reverts "CallerNotOwner"', async () => {
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(1),
+      helpers.CONFIG.minimalOperatorFee,
+      helpers.DB.owners[1].address
+    ));
+    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+
+    await expect(ssvNetworkContract.updateOperatorWhitelist(operatorId, helpers.DB.owners[2].address))
+      .to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
   });
 
 });

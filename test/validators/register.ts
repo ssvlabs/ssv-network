@@ -590,6 +590,56 @@ describe('Register Validator Tests', () => {
 
   });
 
+  it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(2),
+      helpers.CONFIG.minimalOperatorFee,
+      helpers.DB.owners[3].address
+    ));
+    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, operatorId],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    )).to.emit(ssvNetworkContract, 'ValidatorAdded');
+  });
+
+  it('Register a non whitelisted validator reverts "CallerNotWhitelisted"', async () => {
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(2),
+      helpers.CONFIG.minimalOperatorFee,
+      helpers.DB.owners[3].address
+    ));
+    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, minDepositAmount);
+    await expect(ssvNetworkContract.registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, operatorId],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        disabled: false
+      }
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotWhitelisted');
+  });
+
   it('Get cluster burn rate', async () => {
     expect(await ssvViews.getClusterBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
   });

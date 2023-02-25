@@ -70,17 +70,17 @@ contract SSVNetworkViews is
 
     function getOperatorById(
         uint64 operatorId
-    ) external view override returns (address, uint256, uint32, bool) {
+    ) external view override returns (address, uint256, uint32, bool, bool) {
         (
             address operatorOwner,
             uint64 fee,
             uint32 validatorCount,
-
+            Snapshot memory snapshot
         ) = _ssvNetwork.operators(operatorId);
-        if (operatorOwner == address(0)) revert OperatorDoesNotExist();
         bool isPrivate = _ssvNetwork.operatorsWhitelist(operatorId) == address(0) ? false : true;
+        bool isActive = snapshot.block == 0 ? false : true;
 
-        return (operatorOwner, fee.expand(), validatorCount, isPrivate);
+        return (operatorOwner, fee.expand(), validatorCount, isPrivate, isActive);
     }
 
     /***********************************/

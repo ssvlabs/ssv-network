@@ -28,7 +28,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
 
     function getOperatorById(
         uint64 operatorId
-    ) external view returns (address owner, uint256 fee, uint32 validatorCount, bool isPrivate);
+    ) external view returns (address owner, uint256 fee, uint32 validatorCount, bool isPrivate, bool active);
 
     /*******************************/
     /* Cluster External View Functions */

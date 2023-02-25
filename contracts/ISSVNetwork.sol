@@ -31,6 +31,19 @@ interface ISSVNetwork is ISSVNetworkCore {
     event OperatorRemoved(uint64 indexed id);
 
     /**
+     * @dev Emitted when the whitelist of an operator is removed.
+     * @param id operator's ID.
+     */
+    event OperatorWhitelistRemoved(uint64 indexed id);
+
+    /**
+     * @dev Emitted when the whitelist of an operator is updated.
+     * @param id operator's ID.
+     * @param whitelisted operator's new whitelisted address.
+     */
+    event OperatorWhitelistUpdated(uint64 indexed id, address whitelisted);
+
+    /**
      * @dev Emitted when the validator has been added.
      * @param publicKey The public key of a validator.
      * @param operatorIds The operator ids list.
@@ -136,7 +149,10 @@ interface ISSVNetwork is ISSVNetworkCore {
         Cluster cluster
     );
 
-    event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress);
+    event FeeRecipientAddressUpdated(
+        address indexed owner,
+        address recipientAddress
+    );
 
     /****************/
     /* Initializers */
@@ -165,7 +181,7 @@ interface ISSVNetwork is ISSVNetworkCore {
     /**
      * @dev Registers a new operator.
      * @param publicKey Operator's public key. Used to encrypt secret shares of validators keys.
-     * @param fee operator's fee.
+     * @param fee operator's fee. When fee is set to zero (mostly for private operators), it can not be increased.
      */
     function registerOperator(
         bytes calldata publicKey,
@@ -178,6 +194,10 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param id Operator's id.
      */
     function removeOperator(uint64 id) external;
+
+    function removeOperatorWhitelist(uint64 id) external;
+    
+    function updateOperatorWhitelist(uint64 id, address whitelisted) external;
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external;
 
