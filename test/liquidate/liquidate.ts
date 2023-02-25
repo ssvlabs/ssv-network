@@ -7,7 +7,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, firstCluster: any;
 
 // Declare globals
-describe.only('Liquidate Tests', () => {
+describe('Liquidate Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     const metadata = (await helpers.initializeContract());

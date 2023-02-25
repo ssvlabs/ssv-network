@@ -418,7 +418,7 @@ describe('Register Validator Tests', () => {
     expect(await ssvViews.getClusterBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
   });
 
-  it('Get cluster burn rate when one of the operators does not exsit', async () => {
+  it('Get cluster burn rate when one of the operators does not exist', async () => {
     expect(await ssvViews.getClusterBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
   });
 

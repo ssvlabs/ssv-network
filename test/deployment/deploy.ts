@@ -16,6 +16,7 @@ describe('Deployment tests', () => {
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
             CONFIG.minimalOperatorFee,
+            ethers.constants.AddressZero
         );
 
         expect((await ssvNetworkViews.getOperatorById(1))[0]).to.equal(DB.owners[1].address); // owner
@@ -32,6 +33,7 @@ describe('Deployment tests', () => {
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
             CONFIG.minimalOperatorFee,
+            ethers.constants.AddressZero
         );
 
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
@@ -95,6 +97,7 @@ describe('Deployment tests', () => {
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
             CONFIG.minimalOperatorFee,
+            ethers.constants.AddressZero
         );
 
         const SSVNetworkViewsBasicUpgrade = await ethers.getContractFactory("SSVNetworkViewsBasicUpgrade");

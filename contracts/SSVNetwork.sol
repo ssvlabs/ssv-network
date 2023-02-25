@@ -251,8 +251,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         bytes calldata sharesEncrypted,
         uint256 amount,
         Cluster memory cluster
-    ) external {
-        // TODO override
+    ) external override {
         uint operatorsLength = operatorIds.length;
 
         {
@@ -302,19 +301,26 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                             revert UnsortedOperatorsList();
                         }
                     }
-                    Operator storage operator = operators[operatorIds[i]];
+                    Operator memory operator = operators[operatorIds[i]];
                     if (operator.snapshot.block == 0) {
                         revert OperatorDoesNotExist();
                     }
-                    if (operator.whitelisted != address(0) && operator.whitelisted != msg.sender) {
+                    if (
+                        operator.whitelisted != address(0) &&
+                        operator.whitelisted != msg.sender
+                    ) {
                         revert CallerNotWhitelisted();
                     }
                     operator.getSnapshot();
-                    if (++operator.validatorCount > validatorsPerOperatorLimit) {
+                    if (
+                        ++operator.validatorCount > validatorsPerOperatorLimit
+                    ) {
                         revert ExceedValidatorLimit();
                     }
+                    
                     clusterIndex += operator.snapshot.index;
                     burnRate += operator.fee;
+                    operators[operatorIds[i]] = operator;
                     unchecked {
                         ++i;
                     }
@@ -483,7 +489,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 }
             }
         }
-
+        
         cluster.balance = cluster.clusterBalance(
             clusterIndex,
             NetworkLib.currentNetworkFeeIndex(network)
@@ -695,7 +701,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         {
             uint operatorsLength = operatorIds.length;
             for (uint i; i < operatorsLength; ) {
-                Operator memory operator = operators[operatorIds[i]];
+                Operator storage operator = operators[operatorIds[i]];
                 clusterIndex +=
                     operator.snapshot.index +
                     (uint64(block.number) - operator.snapshot.block) *
@@ -873,7 +879,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     }
 
     function _transfer(address to, uint256 amount) private {
-        if(!_token.transfer(to, amount)) {
+        if (!_token.transfer(to, amount)) {
             revert TokenTransferFailed();
         }
     }
