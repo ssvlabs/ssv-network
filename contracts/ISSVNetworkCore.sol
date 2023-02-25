@@ -25,7 +25,6 @@ interface ISSVNetworkCore {
         address owner;
         uint64 fee;
         uint32 validatorCount;
-        address whitelisted;
         Snapshot snapshot;
     }
 

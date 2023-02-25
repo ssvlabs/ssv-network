@@ -44,6 +44,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /*************/
 
     mapping(uint64 => Operator) public operators;
+    mapping(uint64 => address) public operatorsWhitelist;
     mapping(uint64 => OperatorFeeChangeRequest)
         public operatorFeeChangeRequests;
     mapping(bytes32 => bytes32) public clusters;
@@ -144,10 +145,16 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 balance: 0
             }),
             validatorCount: 0,
-            fee: fee.shrink(),
-            whitelisted: whitelisted
+            fee: fee.shrink()
         });
-        emit OperatorAdded(id, msg.sender, publicKey, fee, whitelisted);
+
+        bool isPrivate;
+        if (whitelisted != address(0)) {
+            isPrivate = true;
+            operatorsWhitelist[id] = whitelisted;
+        }
+
+        emit OperatorAdded(id, msg.sender, publicKey, fee, isPrivate);
     }
 
     function removeOperator(uint64 id) external override {
@@ -161,7 +168,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         operator.snapshot.balance = 0;
         operator.validatorCount = 0;
         operator.fee = 0;
-        operator.whitelisted = address(0);
+
+        delete operatorsWhitelist[id];
 
         if (currentBalance > 0) {
             _transferOperatorBalanceUnsafe(id, currentBalance.expand());
@@ -306,8 +314,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                         revert OperatorDoesNotExist();
                     }
                     if (
-                        operator.whitelisted != address(0) &&
-                        operator.whitelisted != msg.sender
+                        operatorsWhitelist[operatorIds[i]] != address(0) &&
+                        operatorsWhitelist[operatorIds[i]] != msg.sender
                     ) {
                         revert CallerNotWhitelisted();
                     }

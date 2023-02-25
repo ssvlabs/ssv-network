@@ -44,7 +44,7 @@ contract SSVNetworkViews is
     function getOperatorFee(
         uint64 operatorId
     ) external view override returns (uint256) {
-        (, uint64 fee, , , Snapshot memory snapshot) = _ssvNetwork.operators(
+        (, uint64 fee, , Snapshot memory snapshot) = _ssvNetwork.operators(
             operatorId
         );
         if (snapshot.block == 0) revert OperatorDoesNotExist();
@@ -75,11 +75,10 @@ contract SSVNetworkViews is
             address operatorOwner,
             uint64 fee,
             uint32 validatorCount,
-            address whitelisted,
 
         ) = _ssvNetwork.operators(operatorId);
         if (operatorOwner == address(0)) revert OperatorDoesNotExist();
-        bool isPrivate = whitelisted == address(0) ? false : true;
+        bool isPrivate = _ssvNetwork.operatorsWhitelist(operatorId) == address(0) ? false : true;
 
         return (operatorOwner, fee.expand(), validatorCount, isPrivate);
     }
@@ -97,7 +96,7 @@ contract SSVNetworkViews is
         uint64 burnRate;
         uint operatorsLength = operatorIds.length;
         for (uint i; i < operatorsLength; ++i) {
-            (, uint64 fee, , , Snapshot memory snapshot) = _ssvNetwork
+            (, uint64 fee, , Snapshot memory snapshot) = _ssvNetwork
                 .operators(operatorIds[i]);
             clusterIndex +=
                 snapshot.index +
@@ -144,7 +143,7 @@ contract SSVNetworkViews is
         uint64 burnRate;
         uint operatorsLength = operatorIds.length;
         for (uint i; i < operatorsLength; ++i) {
-            (address operatorOwner, uint64 fee, , , ) = _ssvNetwork.operators(
+            (address operatorOwner, uint64 fee, , ) = _ssvNetwork.operators(
                 operatorIds[i]
             );
             if (operatorOwner != address(0)) {
@@ -165,7 +164,6 @@ contract SSVNetworkViews is
             address operatorOwner,
             uint64 fee,
             uint32 validatorCount,
-            address whitelisted,
             Snapshot memory snapshot
         ) = _ssvNetwork.operators(id);
 
@@ -173,7 +171,6 @@ contract SSVNetworkViews is
             owner: operatorOwner,
             fee: fee,
             validatorCount: validatorCount,
-            whitelisted: whitelisted,
             snapshot: Snapshot({
                 block: snapshot.block,
                 index: snapshot.index,
@@ -196,7 +193,7 @@ contract SSVNetworkViews is
         {
             uint operatorsLength = operatorIds.length;
             for (uint i; i < operatorsLength; ++i) {
-                (, uint64 fee, , , Snapshot memory snapshot) = _ssvNetwork
+                (, uint64 fee, , Snapshot memory snapshot) = _ssvNetwork
                     .operators(operatorIds[i]);
                 clusterIndex +=
                     snapshot.index +

@@ -8,7 +8,7 @@ contract SSVNetworkViewsBasicUpgrade is SSVNetworkViews {
     function getOperatorOwnerdById(
         uint64 operatorId
     ) external view returns (address) {
-        (address operatorOwner, , , , ) = _ssvNetwork.operators(operatorId);
+        (address operatorOwner, , , ) = _ssvNetwork.operators(operatorId);
         if (operatorOwner == address(0)) revert ISSVNetworkCore.OperatorDoesNotExist();
 
         return operatorOwner;
