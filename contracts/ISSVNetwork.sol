@@ -82,7 +82,7 @@ interface ISSVNetwork {
      * @param ownerAddress The user's ethereum address that is the owner of the validator.
      * @param publicKey The public key of a validator.
      * @param operatorIds The operators public keys list for this validator.
-     * @param sharesPublicKeys The shared publick keys list for this validator.
+     * @param sharesPublicKeys The shared public keys list for this validator.
      * @param encryptedKeys The encrypted keys list for this validator.
      */
     event ValidatorRegistration(
@@ -288,7 +288,7 @@ interface ISSVNetwork {
     function updateLiquidationThresholdPeriod(uint64 blocks) external;
 
     /**
-     * @dev Updates the maximum fee increase in pecentage.
+     * @dev Updates the maximum fee increase in percentage.
      * @param newOperatorMaxFeeIncrease The new value.
      */
     function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
@@ -391,7 +391,7 @@ interface ISSVNetwork {
     function getLiquidationThresholdPeriod() external view returns (uint256);
 
     /**
-     * @dev Returns the maximum fee increase in pecentage
+     * @dev Returns the maximum fee increase in percentage
      */
      function getOperatorFeeIncreaseLimit() external view returns (uint256);
 
