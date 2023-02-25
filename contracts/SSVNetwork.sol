@@ -167,7 +167,7 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
     function cancelDeclaredOperatorFee(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
         delete _feeChangeRequests[operatorId];
 
-        emit DeclaredOperatorFeeCancelation(msg.sender, operatorId);
+        emit DeclaredOperatorFeeCancellation(msg.sender, operatorId);
     }
 
     function executeOperatorFee(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {

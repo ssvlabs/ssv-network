@@ -48,7 +48,7 @@ interface ISSVNetwork {
         uint256 fee
     );
 
-    event DeclaredOperatorFeeCancelation(address indexed ownerAddress, uint32 operatorId);
+    event DeclaredOperatorFeeCancellation(address indexed ownerAddress, uint32 operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.
