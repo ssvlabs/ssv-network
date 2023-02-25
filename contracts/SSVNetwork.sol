@@ -154,7 +154,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             operatorsWhitelist[id] = whitelisted;
         }
 
-        emit OperatorAdded(id, msg.sender, publicKey, fee, isPrivate);
+        emit OperatorAdded(id, msg.sender, publicKey, fee, whitelisted);
     }
 
     function removeOperatorWhitelist(uint64 operatorId) external override  {

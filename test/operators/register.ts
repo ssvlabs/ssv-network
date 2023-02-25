@@ -19,7 +19,7 @@ describe('Register Operator Tests', () => {
       publicKey,
       helpers.CONFIG.minimalOperatorFee,
       ethers.constants.AddressZero
-    )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey, helpers.CONFIG.minimalOperatorFee, false);
+    )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey, helpers.CONFIG.minimalOperatorFee, ethers.constants.AddressZero);
   });
 
   it('Register private operator emits "OperatorAdded"', async () => {
@@ -28,7 +28,7 @@ describe('Register Operator Tests', () => {
       publicKey,
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address
-    )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey, helpers.CONFIG.minimalOperatorFee, true);
+    )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey, helpers.CONFIG.minimalOperatorFee, helpers.DB.owners[1].address);
   });
 
   it('Register operator gas limits', async () => {

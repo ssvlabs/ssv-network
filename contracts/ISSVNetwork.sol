@@ -14,14 +14,14 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param owner Operator's ethereum address that can collect fees.
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee Operator's fee.
-     * @param isPrivate Operator's whitelist flag.
+     * @param whitelisted Operator's whitelisted address.
      */
     event OperatorAdded(
         uint64 indexed id,
         address indexed owner,
         bytes publicKey,
         uint256 fee,
-        bool isPrivate
+        address whitelisted
     );
 
     /**
