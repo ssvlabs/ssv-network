@@ -10,11 +10,11 @@ import "./libraries/OperatorLib.sol";
 import "./libraries/NetworkLib.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 contract SSVNetworkViews is
     UUPSUpgradeable,
-    OwnableUpgradeable,
+    Ownable2StepUpgradeable,
     ISSVNetworkViews
 {
     using Types256 for uint256;
@@ -70,16 +70,17 @@ contract SSVNetworkViews is
 
     function getOperatorById(
         uint64 operatorId
-    ) external view override returns (address, uint256, uint32) {
+    ) external view override returns (address, uint256, uint32, bool) {
         (
             address operatorOwner,
             uint64 fee,
             uint32 validatorCount,
-
+            Snapshot memory snapshot
         ) = _ssvNetwork.operators(operatorId);
-        if (operatorOwner == address(0)) revert OperatorDoesNotExist();
+        bool active;
+        if (snapshot.block != 0) active = true;
 
-        return (operatorOwner, fee.expand(), validatorCount);
+        return (operatorOwner, fee.expand(), validatorCount, active);
     }
 
     /***********************************/
@@ -216,8 +217,7 @@ contract SSVNetworkViews is
 
         return
             cluster
-                .clusterBalance(clusterIndex, currrentNetworkFeeIndex)
-                .expand();
+                .clusterBalance(clusterIndex, currrentNetworkFeeIndex);
     }
 
     /*******************************/
@@ -276,5 +276,15 @@ contract SSVNetworkViews is
         returns (uint64)
     {
         return _ssvNetwork.minimumBlocksBeforeLiquidation();
+    }
+
+    function getVersion() external view returns(string memory version) {
+        bytes memory currentVersion = abi.encodePacked(_ssvNetwork.version());
+
+        uint8 i;
+        while(i < 32 && currentVersion[i] != 0) {
+            version = string(abi.encodePacked(version, currentVersion[i]));
+            i++;
+        }
     }
 }

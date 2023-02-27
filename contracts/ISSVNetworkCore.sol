@@ -13,7 +13,7 @@ interface ISSVNetworkCore {
         bool active;
     }
     struct Snapshot {
-        /// @dev block is the last block in which last index was set
+        /// @dev block is the last block in which last index was set. For Operator, it's also used to identify an active / inactive one.
         uint64 block;
         /// @dev index is the last index calculated by index += (currentBlock - block) * fee
         uint64 index;
@@ -23,6 +23,7 @@ interface ISSVNetworkCore {
 
     struct Operator {
         address owner;
+        /// @dev when fee is set to zero (mostly for private operators), it can not be increased
         uint64 fee;
         uint32 validatorCount;
         Snapshot snapshot;
@@ -39,7 +40,7 @@ interface ISSVNetworkCore {
         uint64 networkFee;
         uint64 networkFeeIndex;
         uint64 index;
-        uint64 balance;
+        uint256 balance;
         bool disabled;
     }
 
@@ -81,4 +82,6 @@ interface ISSVNetworkCore {
     error NewBlockPeriodIsBelowMinimum();
     error ExceedValidatorLimit();
     error TokenTransferFailed();
+    error SameFeeChangeNotAllowed();
+    error ZeroFeeIncreaseNotAllowed();
 }
