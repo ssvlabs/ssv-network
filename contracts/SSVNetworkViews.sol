@@ -139,18 +139,26 @@ contract SSVNetworkViews is
     }
 
     function getClusterBurnRate(
-        uint64[] calldata operatorIds
+        address owner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
     ) external view returns (uint256) {
-        uint64 burnRate;
+        cluster.validateHashedCluster(owner, operatorIds, _ssvNetwork);
+
+        uint64 aggregateFee;
         uint operatorsLength = operatorIds.length;
         for (uint i; i < operatorsLength; ++i) {
             (address operatorOwner, uint64 fee, , ) = _ssvNetwork.operators(
                 operatorIds[i]
             );
             if (operatorOwner != address(0)) {
-                burnRate += fee;
+                aggregateFee += fee;
             }
         }
+
+        (uint64 networkFee, , ) = _ssvNetwork.network();
+
+        uint64 burnRate = (aggregateFee + networkFee) * cluster.validatorCount;
         return burnRate.expand();
     }
 
@@ -215,9 +223,7 @@ contract SSVNetworkViews is
             Network(networkFee, networkFeeIndex, networkFeeIndexBlockNumber)
         );
 
-        return
-            cluster
-                .clusterBalance(clusterIndex, currrentNetworkFeeIndex);
+        return cluster.clusterBalance(clusterIndex, currrentNetworkFeeIndex);
     }
 
     /*******************************/
@@ -230,24 +236,16 @@ contract SSVNetworkViews is
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
-        (
-            uint32 validatorCount,
-            uint64 withdrawn,
-            Snapshot memory snapshot
-        ) = _ssvNetwork.dao();
+        (uint32 validatorCount, uint64 balance, uint64 block) = _ssvNetwork.dao();
 
         DAO memory dao = DAO({
             validatorCount: validatorCount,
-            withdrawn: withdrawn,
-            earnings: Snapshot({
-                block: snapshot.block,
-                index: snapshot.index,
-                balance: snapshot.balance
-            })
+            balance: balance,
+            block: block
         });
         (uint64 networkFee, , ) = _ssvNetwork.network();
 
-        return dao.networkBalance(networkFee).expand();
+        return dao.networkTotalEarnings(networkFee).expand();
     }
 
     function getOperatorFeeIncreaseLimit()
@@ -286,11 +284,11 @@ contract SSVNetworkViews is
         return _ssvNetwork.minimumBlocksBeforeLiquidation();
     }
 
-    function getVersion() external view returns(string memory version) {
+    function getVersion() external view returns (string memory version) {
         bytes memory currentVersion = abi.encodePacked(_ssvNetwork.version());
 
         uint8 i;
-        while(i < 32 && currentVersion[i] != 0) {
+        while (i < 32 && currentVersion[i] != 0) {
             version = string(abi.encodePacked(version, currentVersion[i]));
             i++;
         }

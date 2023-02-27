@@ -183,11 +183,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata sharesEncrypted,
+        bytes calldata shares,
         uint256 amount,
         Cluster memory cluster
-    ) external {
-        // TODO override
+    ) external override {
         uint operatorsLength = operatorIds.length;
 
         {
@@ -225,6 +224,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             ) {
                 revert IncorrectClusterState();
             }
+            cluster.validateClusterIsNotLiquidated();
         }
 
         uint64 clusterIndex;
@@ -276,7 +276,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         {
             if (!cluster.disabled) {
                 DAO memory dao_ = dao;
-                dao_ = dao_.updateDAOEarnings(network_.networkFee);
+                dao_.updateDAOEarnings(network_.networkFee);
                 ++dao_.validatorCount;
                 dao = dao_;
             }
@@ -301,7 +301,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             msg.sender,
             operatorIds,
             publicKey,
-            sharesEncrypted,
+            shares,
             cluster
         );
     }
@@ -310,8 +310,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external {
-        // TODO override
+    ) external override {
         uint operatorsLength = operatorIds.length;
 
         bytes32 hashedValidator = keccak256(publicKey);
@@ -362,7 +361,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         {
             if (!cluster.disabled) {
                 DAO memory dao_ = dao;
-                dao_ = dao_.updateDAOEarnings(network.networkFee);
+                dao_.updateDAOEarnings(network.networkFee);
                 --dao_.validatorCount;
                 dao = dao_;
             }
@@ -423,7 +422,13 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         );
 
         uint64 networkFee = network.networkFee;
-        if (owner != msg.sender && !cluster.liquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation)) {
+
+        if (owner != msg.sender &&
+            !cluster.liquidatable(
+                burnRate,
+                networkFee,
+                minimumBlocksBeforeLiquidation)) 
+        {
             revert ClusterNotLiquidatable();
         }
 
@@ -433,7 +438,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         {
             DAO memory dao_ = dao;
-            dao_ = dao_.updateDAOEarnings(networkFee);
+            dao_.updateDAOEarnings(networkFee);
             dao_.validatorCount -= cluster.validatorCount;
             dao = dao_;
         }
@@ -503,7 +508,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         {
             DAO memory dao_ = dao;
-            dao_ = dao_.updateDAOEarnings(networkFee);
+            dao_.updateDAOEarnings(networkFee);
             dao_.validatorCount += cluster.validatorCount;
             dao = dao_;
         }
@@ -655,7 +660,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         Network memory network_ = network;
 
         DAO memory dao_ = dao;
-        dao_ = dao_.updateDAOEarnings(network.networkFee);
+        dao_.updateDAOEarnings(network.networkFee);
         dao = dao_;
 
         network_.networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
@@ -674,11 +679,13 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         uint64 shrunkAmount = amount.shrink();
 
-        if (shrunkAmount > dao_.networkBalance(network.networkFee)) {
+        uint64 networkBalance = dao_.networkTotalEarnings(network.networkFee);
+
+        if (shrunkAmount > networkBalance) {
             revert InsufficientBalance();
         }
 
-        dao_.withdrawn += shrunkAmount;
+        dao_.balance = networkBalance - shrunkAmount;
         dao = dao_;
 
         _transfer(msg.sender, amount);
@@ -872,7 +879,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     }
 
     function _transfer(address to, uint256 amount) private {
-        if(!_token.transfer(to, amount)) {
+        if (!_token.transfer(to, amount)) {
             revert TokenTransferFailed();
         }
     }
