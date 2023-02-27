@@ -70,16 +70,17 @@ contract SSVNetworkViews is
 
     function getOperatorById(
         uint64 operatorId
-    ) external view override returns (address, uint256, uint32) {
+    ) external view override returns (address, uint256, uint32, bool) {
         (
             address operatorOwner,
             uint64 fee,
             uint32 validatorCount,
-
+            Snapshot memory snapshot
         ) = _ssvNetwork.operators(operatorId);
-        if (operatorOwner == address(0)) revert OperatorDoesNotExist();
+        bool active;
+        if (snapshot.block != 0) active = true;
 
-        return (operatorOwner, fee.expand(), validatorCount);
+        return (operatorOwner, fee.expand(), validatorCount, active);
     }
 
     /***********************************/
@@ -235,24 +236,16 @@ contract SSVNetworkViews is
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
-        (
-            uint32 validatorCount,
-            uint64 withdrawn,
-            Snapshot memory snapshot
-        ) = _ssvNetwork.dao();
+        (uint32 validatorCount, uint64 balance, uint64 block) = _ssvNetwork.dao();
 
         DAO memory dao = DAO({
             validatorCount: validatorCount,
-            withdrawn: withdrawn,
-            earnings: Snapshot({
-                block: snapshot.block,
-                index: snapshot.index,
-                balance: snapshot.balance
-            })
+            balance: balance,
+            block: block
         });
         (uint64 networkFee, , ) = _ssvNetwork.network();
 
-        return dao.networkBalance(networkFee).expand();
+        return dao.networkTotalEarnings(networkFee).expand();
     }
 
     function getOperatorFeeIncreaseLimit()
