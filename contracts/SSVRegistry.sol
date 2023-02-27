@@ -281,7 +281,7 @@ contract SSVRegistry is Initializable, OwnableUpgradeable, ISSVRegistry, Version
     }
 
     /**
-     * @dev Validates the paramss for a validator.
+     * @dev Validates the params for a validator.
      * @param publicKey Validator public key.
      * @param operatorIds Operator operatorIds.
      * @param sharesPublicKeys Shares public keys.
