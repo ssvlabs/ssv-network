@@ -230,24 +230,16 @@ contract SSVNetworkViews is
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
-        (
-            uint32 validatorCount,
-            uint64 withdrawn,
-            Snapshot memory snapshot
-        ) = _ssvNetwork.dao();
+        (uint32 validatorCount, uint64 balance, uint64 block) = _ssvNetwork.dao();
 
         DAO memory dao = DAO({
             validatorCount: validatorCount,
-            withdrawn: withdrawn,
-            earnings: Snapshot({
-                block: snapshot.block,
-                index: snapshot.index,
-                balance: snapshot.balance
-            })
+            balance: balance,
+            block: block
         });
         (uint64 networkFee, , ) = _ssvNetwork.network();
 
-        return dao.networkBalance(networkFee).expand();
+        return dao.networkTotalEarnings(networkFee).expand();
     }
 
     function getOperatorFeeIncreaseLimit()
