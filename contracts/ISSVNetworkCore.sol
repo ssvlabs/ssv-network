@@ -37,7 +37,6 @@ interface ISSVNetworkCore {
 
     struct Cluster {
         uint32 validatorCount;
-        uint64 networkFee;
         uint64 networkFeeIndex;
         uint64 index;
         uint256 balance;

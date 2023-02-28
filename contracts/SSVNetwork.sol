@@ -211,7 +211,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             bytes32 hashedClusterData = keccak256(
                 abi.encodePacked(
                     cluster.validatorCount,
-                    cluster.networkFee,
                     cluster.networkFeeIndex,
                     cluster.index,
                     cluster.balance,
@@ -261,7 +260,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         );
 
         cluster.balance += amount;
-        cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex, 1);
+        cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex);
+        ++cluster.validatorCount;
 
         if (
             cluster.liquidatable(
@@ -285,7 +285,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
                 cluster.validatorCount,
-                cluster.networkFee,
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
@@ -354,9 +353,9 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         cluster.updateClusterData(
             clusterIndex,
-            NetworkLib.currentNetworkFeeIndex(network),
-            -1
+            NetworkLib.currentNetworkFeeIndex(network)
         );
+        --cluster.validatorCount;
 
         {
             if (!cluster.disabled) {
@@ -371,7 +370,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
                 cluster.validatorCount,
-                cluster.networkFee,
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
@@ -446,7 +444,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
                 cluster.validatorCount,
-                cluster.networkFee,
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
@@ -502,7 +499,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         cluster.disabled = false;
         cluster.index = clusterIndex;
 
-        cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex, 0);
+        cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex);
 
         uint64 networkFee = network.networkFee;
 
@@ -526,7 +523,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
                 cluster.validatorCount,
-                cluster.networkFee,
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
@@ -564,7 +560,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
                 cluster.validatorCount,
-                cluster.networkFee,
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
@@ -618,10 +613,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             this
         );
 
-        cluster.balance = cluster.clusterBalance(
-            clusterIndex,
-            NetworkLib.currentNetworkFeeIndex(network)
-        );
+        cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
 
         if (
             cluster.balance < amount ||
@@ -639,7 +631,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
                 cluster.validatorCount,
-                cluster.networkFee,
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
