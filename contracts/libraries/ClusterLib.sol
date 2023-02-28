@@ -77,14 +77,12 @@ library ClusterLib {
         uint64 clusterIndex,
         uint64 currentNetworkFeeIndex
     ) internal pure {
-        if (cluster.active) {
-            cluster.balance = clusterBalance(
-                cluster,
-                clusterIndex,
-                currentNetworkFeeIndex
-            );
-            cluster.index = clusterIndex;
-            cluster.networkFeeIndex = currentNetworkFeeIndex;
-        }
+        cluster.balance = clusterBalance(
+            cluster,
+            clusterIndex,
+            currentNetworkFeeIndex
+        );
+        cluster.index = clusterIndex;
+        cluster.networkFeeIndex = currentNetworkFeeIndex;
     }
 }
