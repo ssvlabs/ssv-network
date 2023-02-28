@@ -135,7 +135,7 @@ contract SSVNetworkViews is
     ) external view override returns (bool) {
         cluster.validateHashedCluster(owner, operatorIds, _ssvNetwork);
 
-        return cluster.disabled;
+        return !cluster.active;
     }
 
     function getClusterBurnRate(

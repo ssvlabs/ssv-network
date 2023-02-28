@@ -26,7 +26,7 @@ describe('Remove Operator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
   });

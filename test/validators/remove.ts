@@ -31,7 +31,7 @@ describe('Remove Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
 
@@ -48,7 +48,7 @@ describe('Remove Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     firstCluster = register.eventsByName.ValidatorAdded[0].args;
