@@ -2,7 +2,7 @@
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
 import { expect } from 'chai';
-import { GasGroup } from '../helpers/gas-usage';
+import { GasGroup, trackGas } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, ssvViews: any, cluster1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any, initNetworkFeeBalance: any;
 
@@ -169,5 +169,34 @@ describe('Balance Tests', () => {
     // cold cluster + cluster1 * networkFee (4) + (cold cluster + cluster1 * newNetworkFee (6 + 6)) + cluster2 * newNetworkFee (3) + (cold cluster + cluster1 + cluster2 * networkFee (4 + 4 + 4))
     expect(await ssvViews.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 6 + newNetworkFee * 6 + newNetworkFee * 3 + networkFee * 12);
 
+  });
+
+  it('Check cluster balance after withdraw and deposit"', async () => {
+    await utils.progressBlocks(1);
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(helpers.DB.ssvNetwork.contract.address, minDepositAmount * 2);
+    let validator2 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(
+      helpers.DataGenerator.publicKey(3),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount * 2,
+      cluster1.args.cluster
+    ));
+    let cluster2 = validator2.eventsByName.ValidatorAdded[0];
+
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster2.args.operatorIds, cluster2.args.cluster)).to.equal(minDepositAmount * 3 - burnPerBlock * 3);
+
+    validator2 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster2.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster2.args.cluster));
+    cluster2 = validator2.eventsByName.ClusterWithdrawn[0];
+
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster2.args.operatorIds, cluster2.args.cluster)).to.equal(minDepositAmount * 3 - burnPerBlock * 4 - burnPerBlock - helpers.CONFIG.minimalOperatorFee);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(helpers.DB.ssvNetwork.contract.address, minDepositAmount);
+    validator2 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).deposit(helpers.DB.owners[4].address, cluster2.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster2.args.cluster));
+    cluster2 = validator2.eventsByName.ClusterDeposited[0];
+    await utils.progressBlocks(2);
+
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster2.args.operatorIds, cluster2.args.cluster)).to.equal(minDepositAmount * 3 - burnPerBlock * 8 - burnPerBlock * 5 - helpers.CONFIG.minimalOperatorFee + helpers.CONFIG.minimalOperatorFee);
   });
 });
