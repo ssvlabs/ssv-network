@@ -41,7 +41,7 @@ interface ISSVNetworkCore {
         uint64 networkFeeIndex;
         uint64 index;
         uint256 balance;
-        bool disabled;
+        bool active;
     }
 
     struct DAO {

@@ -43,7 +43,7 @@ library ClusterLib {
     function validateClusterIsNotLiquidated(
         ISSVNetworkCore.Cluster memory cluster
     ) internal pure {
-        if (cluster.disabled) revert ISSVNetworkCore.ClusterIsLiquidated();
+        if (!cluster.active) revert ISSVNetworkCore.ClusterIsLiquidated();
     }
 
     function validateHashedCluster(
@@ -60,7 +60,7 @@ library ClusterLib {
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
-                cluster.disabled
+                cluster.active
             )
         );
 
@@ -79,7 +79,7 @@ library ClusterLib {
         uint64 currentNetworkFeeIndex,
         int8 changedTo
     ) internal pure {
-        if (!cluster.disabled) {
+        if (cluster.active) {
             cluster.balance = clusterBalance(
                 cluster,
                 clusterIndex,

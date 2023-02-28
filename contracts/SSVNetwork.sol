@@ -215,7 +215,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                     cluster.networkFeeIndex,
                     cluster.index,
                     cluster.balance,
-                    cluster.disabled
+                    cluster.active
                 )
             );
             if (
@@ -230,7 +230,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64 clusterIndex;
         uint64 burnRate;
         {
-            if (!cluster.disabled) {
+            if (cluster.active) {
                 for (uint i; i < operatorsLength; ) {
                     if (i + 1 < operatorsLength) {
                         if (operatorIds[i] > operatorIds[i + 1]) {
@@ -274,7 +274,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         }
 
         {
-            if (!cluster.disabled) {
+            if (cluster.active) {
                 DAO memory dao_ = dao;
                 dao_.updateDAOEarnings(network_.networkFee);
                 ++dao_.validatorCount;
@@ -289,7 +289,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
-                cluster.disabled
+                cluster.active
             )
         );
 
@@ -329,7 +329,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         uint64 clusterIndex;
         {
-            if (!cluster.disabled) {
+            if (cluster.active) {
                 for (uint i; i < operatorsLength; ) {
                     Operator memory operator = operators[operatorIds[i]];
                     if (operator.snapshot.block != 0) {
@@ -359,7 +359,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         );
 
         {
-            if (!cluster.disabled) {
+            if (cluster.active) {
                 DAO memory dao_ = dao;
                 dao_.updateDAOEarnings(network.networkFee);
                 --dao_.validatorCount;
@@ -375,7 +375,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
-                cluster.disabled
+                cluster.active
             )
         );
 
@@ -432,7 +432,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             revert ClusterNotLiquidatable();
         }
 
-        cluster.disabled = true;
+        cluster.active = false;
         cluster.balance = 0;
         cluster.index = 0;
 
@@ -450,7 +450,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
-                cluster.disabled
+                cluster.active
             )
         );
 
@@ -464,7 +464,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint256 amount,
         Cluster memory cluster
     ) external override {
-        if (!cluster.disabled) {
+        if (cluster.active) {
             revert ClusterAlreadyEnabled();
         }
 
@@ -499,7 +499,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         );
 
         cluster.balance += amount;
-        cluster.disabled = false;
+        cluster.active = true;
         cluster.index = clusterIndex;
 
         cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex, 0);
@@ -530,7 +530,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
-                cluster.disabled
+                cluster.active
             )
         );
 
@@ -568,7 +568,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
-                cluster.disabled
+                cluster.active
             )
         );
 
@@ -643,7 +643,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
-                cluster.disabled
+                cluster.active
             )
         );
 

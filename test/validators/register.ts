@@ -30,7 +30,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ));
   });
@@ -48,7 +48,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.emit(ssvNetworkContract, 'ValidatorAdded');
   });
@@ -66,7 +66,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
@@ -84,7 +84,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
@@ -113,7 +113,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
@@ -140,7 +140,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
@@ -158,7 +158,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
@@ -187,7 +187,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
   });
@@ -205,7 +205,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
@@ -234,7 +234,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
@@ -261,7 +261,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
   });
@@ -279,7 +279,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
@@ -308,7 +308,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
   });
@@ -326,7 +326,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
@@ -355,7 +355,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
@@ -382,7 +382,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
   });
@@ -400,7 +400,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
@@ -451,7 +451,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
 
@@ -466,7 +466,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
   });
@@ -483,7 +483,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorDoesNotExist');
   });
@@ -501,7 +501,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorDoesNotExist');
   });
@@ -534,7 +534,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InvalidPublicKeyLength');
   });
@@ -552,7 +552,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
@@ -570,7 +570,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
   });
@@ -600,7 +600,7 @@ describe('Register Validator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetwork, 'ExceedValidatorLimit');
 

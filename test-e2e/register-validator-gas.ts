@@ -36,7 +36,7 @@ describe('Register Validator Gas Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
 
@@ -61,7 +61,7 @@ describe('Register Validator Gas Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
     const receipt1 = await tx1.wait();
@@ -105,7 +105,7 @@ describe('Register Validator Gas Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
     const receipt1 = await tx1.wait();
@@ -149,7 +149,7 @@ describe('Register Validator Gas Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
     const receipt1 = await tx1.wait();
@@ -193,7 +193,7 @@ describe('Register Validator Gas Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
     const receipt1 = await tx1.wait();
