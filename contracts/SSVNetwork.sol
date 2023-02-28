@@ -263,6 +263,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 dao = dao_;
             }
         }
+
         ++cluster.validatorCount;
 
         if (
