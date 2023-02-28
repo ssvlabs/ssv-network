@@ -14,9 +14,9 @@ library ClusterLib {
         uint64 newIndex,
         uint64 currentNetworkFeeIndex
     ) internal pure returns (uint256 balance) {
-        uint64 networkFee = cluster.networkFee +
-            uint64(currentNetworkFeeIndex - cluster.networkFeeIndex) *
-            cluster.validatorCount;
+        uint64 networkFee = uint64(
+            currentNetworkFeeIndex - cluster.networkFeeIndex
+        ) * cluster.validatorCount;
         uint64 usage = (newIndex - cluster.index) *
             cluster.validatorCount +
             networkFee;
@@ -56,7 +56,6 @@ library ClusterLib {
         bytes32 hashedClusterData = keccak256(
             abi.encodePacked(
                 cluster.validatorCount,
-                cluster.networkFee,
                 cluster.networkFeeIndex,
                 cluster.index,
                 cluster.balance,
@@ -76,8 +75,7 @@ library ClusterLib {
     function updateClusterData(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 clusterIndex,
-        uint64 currentNetworkFeeIndex,
-        int8 changedTo
+        uint64 currentNetworkFeeIndex
     ) internal pure {
         if (cluster.active) {
             cluster.balance = clusterBalance(
@@ -86,18 +84,7 @@ library ClusterLib {
                 currentNetworkFeeIndex
             );
             cluster.index = clusterIndex;
-
-            cluster.networkFee =
-                cluster.networkFee +
-                uint64(currentNetworkFeeIndex - cluster.networkFeeIndex) *
-                cluster.validatorCount;
             cluster.networkFeeIndex = currentNetworkFeeIndex;
-        }
-
-        if (changedTo == 1) {
-            ++cluster.validatorCount;
-        } else if (changedTo == -1) {
-            --cluster.validatorCount;
         }
     }
 }
