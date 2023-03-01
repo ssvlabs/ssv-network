@@ -63,6 +63,7 @@ export const DataGenerator = {
 
 export const initializeContract = async () => {
   CONFIG = {
+    initialVersion: "0.0.1",
     operatorMaxFeeIncrease: 1000,
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY
@@ -92,6 +93,7 @@ export const initializeContract = async () => {
   await DB.ssvToken.deployed();
 
   DB.ssvNetwork.contract = await upgrades.deployProxy(ssvNetwork, [
+    CONFIG.initialVersion,
     DB.ssvToken.address,
     CONFIG.operatorMaxFeeIncrease,
     CONFIG.declareOperatorFeePeriod,
@@ -204,7 +206,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), gasGroups);
     args = result.eventsByName.ValidatorAdded[0].args;
@@ -223,7 +225,7 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
     networkFeeIndex: 0,
     index: 0,
     balance: 0,
-    disabled: false
+    active: true
   };
 
   for (let i = 0; i < numberOfValidators; i++) {
@@ -246,7 +248,7 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
       networkFeeIndex: clusterData.networkFeeIndex,
       index: clusterData.index,
       balance: clusterData.balance,
-      disabled: false
+      active: true
     };
 
   }
@@ -254,7 +256,7 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
 
 
 export const getCluster = (payload: any) => ethers.utils.AbiCoder.prototype.encode(
-  ['tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool disabled) cluster'],
+  ['tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool active) cluster'],
   [payload]
 );
 

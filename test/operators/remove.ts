@@ -17,7 +17,7 @@ describe('Remove Operator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1,2,3,4],
+      [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       '1000000000000000',
       {
@@ -26,7 +26,7 @@ describe('Remove Operator Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
   });
@@ -45,17 +45,23 @@ describe('Remove Operator Tests', () => {
   });
 
   it('Remove operator with a balance emits "OperatorWithdrawn"', async () => {
-    await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1,2,3,4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1, 2, 3, 4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await expect(ssvNetworkContract.removeOperator(1)).to.emit(ssvNetworkContract, 'OperatorWithdrawn');
   });
 
   it('Remove operator with a balance gas limits', async () => {
-    await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1,2,3,4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+    await helpers.registerValidators(4, 1, `${helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4}`, [1, 2, 3, 4], [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
   });
 
   it('Remove operator I do not own reverts "CallerNotOwner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1))
-      .to.be.revertedWithCustomError(ssvNetworkContract,'CallerNotOwner');
+      .to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
+  });
+
+  it('Remove same operator twice reverts "OperatorDoesNotExist"', async () => {
+    await ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(1);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(1))
+      .to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorDoesNotExist');
   });
 });

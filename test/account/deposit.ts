@@ -33,7 +33,7 @@ describe('Deposit Tests', () => {
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
 
@@ -103,7 +103,7 @@ describe('Deposit Tests', () => {
       cluster1.args.cluster)).to.emit(ssvNetworkContract, 'ClusterDeposited');
   });
 
-  it('Deposit to a liquidated cluster emits "ClusterDeposited', async () => {
+  it('Deposit to a liquidated cluster emits "ClusterDeposited"', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
       cluster1.args.owner,
