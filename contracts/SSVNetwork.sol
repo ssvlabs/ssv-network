@@ -16,8 +16,8 @@ contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
         uint256 blockNumber;
         uint64 earnings;
         uint64 index;
-        uint256 indexBlockNumber;
         uint32 activeValidatorCount;
+        uint256 indexBlockNumber;
     }
 
     struct OwnerData {
