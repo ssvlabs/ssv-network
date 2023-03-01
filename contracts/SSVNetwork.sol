@@ -861,7 +861,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         delete operatorFeeChangeRequests[operatorId];
 
-        emit OperatorFeeCancelationDeclared(msg.sender, operatorId);
+        emit OperatorFeeCancellationDeclared(msg.sender, operatorId);
     }
 
     /*****************************/
