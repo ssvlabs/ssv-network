@@ -37,7 +37,6 @@ describe('Balance Tests', () => {
       '1000000000000000',
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -135,9 +134,8 @@ describe('Balance Tests', () => {
     ));
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
-    expect(await ssvViews.isLiquidated(cluster1.args.owner, cluster1.args.operatorIds, updatedCluster.cluster)).to.equal(true);
-    await expect(ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvViews, 'ClusterIsLiquidated');
-    await expect(ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientFunds');
+    expect(await ssvViews.isLiquidated(updatedCluster.owner, updatedCluster.operatorIds, updatedCluster.cluster)).to.equal(true);
+    await expect(ssvViews.getBalance(helpers.DB.owners[4].address, updatedCluster.operatorIds, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvViews, 'ClusterIsLiquidated');
   });
 
   it('Check operator earnings, cluster balances and network earnings"', async () => {

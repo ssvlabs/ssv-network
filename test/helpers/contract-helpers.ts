@@ -202,7 +202,6 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
       amount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -221,7 +220,6 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
 
   let cluster: any = {
     validatorCount: 0,
-    networkFee: 0,
     networkFeeIndex: 0,
     index: 0,
     balance: 0,
@@ -244,7 +242,6 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
     const clusterData = result.eventsByName.ValidatorAdded[0].args.cluster;
     cluster = {
       validatorCount: clusterData.validatorCount,
-      networkFee: clusterData.networkFee,
       networkFeeIndex: clusterData.networkFeeIndex,
       index: clusterData.index,
       balance: clusterData.balance,

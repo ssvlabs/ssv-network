@@ -32,7 +32,6 @@ describe('Register Validator Gas Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -57,7 +56,6 @@ describe('Register Validator Gas Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -101,7 +99,6 @@ describe('Register Validator Gas Tests', () => {
       minDepositAmount * 2,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -145,7 +142,6 @@ describe('Register Validator Gas Tests', () => {
       minDepositAmount * 3,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -189,7 +185,6 @@ describe('Register Validator Gas Tests', () => {
       minDepositAmount * 4,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,

@@ -32,11 +32,10 @@ describe('Liquidate Tests', () => {
       minDepositAmount * 2,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ));
     firstCluster = register.eventsByName.ValidatorAdded[0].args;
@@ -82,7 +81,7 @@ describe('Liquidate Tests', () => {
     clusterEventData = await helpers.removeValidator(1, helpers.DataGenerator.publicKey(1), clusterEventData.operatorIds, clusterEventData.cluster);
 
     clusterEventData = await helpers.deposit(1, clusterEventData.owner, clusterEventData.operatorIds, minDepositAmount, clusterEventData.cluster);
-    await expect(clusterEventData.cluster.balance).to.be.equals(minDepositAmount / 1e7); // shrink
+    await expect(clusterEventData.cluster.balance).to.be.equals(minDepositAmount); // shrink
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).withdraw(
       clusterEventData.operatorIds,
@@ -90,17 +89,16 @@ describe('Liquidate Tests', () => {
       clusterEventData.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterIsLiquidated');
   });
 
-  it.skip('Withdraw -> liquidate -> deposit -> reactivate', async () => {
+  it('Withdraw -> liquidate -> deposit -> reactivate', async () => {
     await utils.progressBlocks(2);
 
-    let balance = await ssvViews.getBalance(helpers.DB.owners[1].address, firstCluster.operatorIds, firstCluster.cluster);
     const withdrawAmount = 2e7;
 
     let clusterEventData = await helpers.withdraw(1,
       firstCluster.operatorIds,
       withdrawAmount.toString(),
       firstCluster.cluster)
-    expect(await ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster)).to.be.equals(balance - withdrawAmount - (burnPerBlock * 4));
+    expect(await ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster)).to.be.equals(minDepositAmount * 2 - withdrawAmount - (burnPerBlock * 3));
 
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 2);
 
@@ -119,7 +117,9 @@ describe('Liquidate Tests', () => {
       clusterEventData.operatorIds,
       minDepositAmount,
       clusterEventData.cluster);
-
     expect(await ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster)).to.be.equals(minDepositAmount * 2);
+
+    await utils.progressBlocks(2);
+    expect(await ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster)).to.be.equals(minDepositAmount * 2 - burnPerBlock * 2);
   });
 });
