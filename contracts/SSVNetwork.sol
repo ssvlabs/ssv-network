@@ -409,8 +409,9 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             clusterIndex,
             NetworkLib.currentNetworkFeeIndex(network)
         );
-
+        
         uint64 networkFee = network.networkFee;
+        uint256 balanceLiquidatable = cluster.balance;
 
         if (
             owner != msg.sender &&
@@ -423,16 +424,14 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             revert ClusterNotLiquidatable();
         }
 
+        DAO memory dao_ = dao;
+        dao_.updateDAOEarnings(networkFee);
+        dao_.validatorCount -= cluster.validatorCount;
+        dao = dao_;
+        
         cluster.active = false;
         cluster.balance = 0;
         cluster.index = 0;
-
-        {
-            DAO memory dao_ = dao;
-            dao_.updateDAOEarnings(networkFee);
-            dao_.validatorCount -= cluster.validatorCount;
-            dao = dao_;
-        }
 
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
@@ -444,7 +443,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             )
         );
 
-        _transfer(msg.sender, cluster.balance);
+        _transfer(msg.sender, balanceLiquidatable);
 
         emit ClusterLiquidated(owner, operatorIds, cluster);
     }
