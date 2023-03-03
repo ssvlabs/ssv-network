@@ -1,5 +1,6 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
+import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
@@ -556,6 +557,39 @@ describe('Register Validator Tests', () => {
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
+
+  it('Register validator in a liquidatable cluster with not enough balance reverts "InsufficientBalance"', async () => {
+    const depositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4;
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      depositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
+    const cluster1 = eventsByName.ValidatorAdded[0].args;
+
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(3),
+      helpers.CONFIG.minimalOperatorFee,
+      cluster1.cluster
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
+  });
+
 
   it('Register an existing validator reverts "ValidatorAlreadyExists"', async () => {
     await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);

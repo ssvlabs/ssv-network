@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: '16.x'
-      - run: npm install
+      - run: npm ci
         env:
           GH_TOKEN: ${{ secrets.github_token }}
       - run: npx hardhat test

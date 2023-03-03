@@ -116,9 +116,9 @@ describe('Balance Tests', () => {
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).not.equals(0);
   });
 
-  it('Check cluster balance with not enough balance reverts "InsufficientFunds"', async () => {
+  it('Check cluster balance with not enough balance', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
-    await expect(ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientFunds');
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.equals(0);
   });
 
   it('Check operator earnings, cluster balances and network earnings"', async () => {

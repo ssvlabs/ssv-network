@@ -29,7 +29,7 @@
     "dotenv": "^16.0.0",
     "eslint": "^8.23.0",
     "gh-pages": "^3.2.3",
-    "hardhat": "^2.12.5",
+    "hardhat": "^2.13.0",
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-storage-layout-changes": "^0.1.2",
     "hardhat-tracer": "^1.2.1",

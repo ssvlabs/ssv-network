@@ -62,6 +62,16 @@ describe('Remove Validator Tests', () => {
     )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
   });
 
+  it('Remove validator after cluster liquidation period emits "ValidatorRemoved"', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(1),
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
+  });
+
   it('Remove validator gas limit', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
