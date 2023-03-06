@@ -3,7 +3,7 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any;
+let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, cluster1: any;
 
 describe('Register Validator Tests', () => {
   beforeEach(async () => {
@@ -19,20 +19,19 @@ describe('Register Validator Tests', () => {
 
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
-    await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+    cluster1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       helpers.DataGenerator.publicKey(90),
       [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       '1000000000000000',
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
-    );
+    ));
   });
 
   it('Register validator with 4 operators emits "ValidatorAdded"', async () => {
@@ -44,11 +43,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.emit(ssvNetworkContract, 'ValidatorAdded');
   });
@@ -62,11 +60,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
@@ -80,11 +77,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
@@ -109,11 +105,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
@@ -136,11 +131,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
@@ -154,11 +148,10 @@ describe('Register Validator Tests', () => {
       `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
 
@@ -183,11 +176,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
   });
@@ -201,11 +193,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
@@ -230,11 +221,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
@@ -257,11 +247,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
   });
@@ -275,11 +264,10 @@ describe('Register Validator Tests', () => {
       `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
 
@@ -304,11 +292,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
   });
@@ -322,11 +309,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
@@ -351,11 +337,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
@@ -378,11 +363,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
   });
@@ -396,11 +380,10 @@ describe('Register Validator Tests', () => {
       `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
 
@@ -415,11 +398,27 @@ describe('Register Validator Tests', () => {
   });
 
   it('Get cluster burn rate', async () => {
-    expect(await ssvViews.getClusterBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
+    const networkFee = helpers.CONFIG.minimalOperatorFee;
+    await ssvNetworkContract.updateNetworkFee(networkFee);
+
+    let clusterData = cluster1.eventsByName.ValidatorAdded[0].args.cluster;
+    expect(await ssvViews.getClusterBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal((helpers.CONFIG.minimalOperatorFee * 4) + networkFee);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
+    const validator2 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      '1000000000000000',
+      clusterData
+    ));
+    clusterData = validator2.eventsByName.ValidatorAdded[0].args.cluster;
+    expect(await ssvViews.getClusterBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal(((helpers.CONFIG.minimalOperatorFee * 4) + networkFee) * 2);
   });
 
-  it('Get cluster burn rate when one of the operators does not exist', async () => {
-    expect(await ssvViews.getClusterBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
+  it('Get cluster burn rate when one of the operators does not exsit', async () => {
+    const clusterData = cluster1.eventsByName.ValidatorAdded[0].args.cluster;
+    await expect(ssvViews.getClusterBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 41], clusterData)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
 
   it('Register validator with incorrect input data reverts "IncorrectClusterState"', async () => {
@@ -431,11 +430,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
 
@@ -446,11 +444,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 2,
-        networkFee: 10,
-        networkFeeIndex: 0,
+        networkFeeIndex: 10,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
   });
@@ -463,11 +460,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorDoesNotExist');
   });
@@ -481,11 +477,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorDoesNotExist');
   });
@@ -514,11 +509,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InvalidPublicKeyLength');
   });
@@ -532,11 +526,10 @@ describe('Register Validator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
@@ -550,11 +543,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
   });
@@ -580,11 +572,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetwork, 'ExceedValidatorLimit');
 
@@ -606,11 +597,10 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.emit(ssvNetworkContract, 'ValidatorAdded');
   });
@@ -631,20 +621,11 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotWhitelisted');
-  });
-
-  it('Get cluster burn rate', async () => {
-    expect(await ssvViews.getClusterBurnRate([1,2,3,4])).to.equal(helpers.CONFIG.minimalOperatorFee * 4);
-  });
-
-  it('Get cluster burn rate by not existed operator in the list', async () => {
-    expect(await ssvViews.getClusterBurnRate([1,2,3,41])).to.equal(helpers.CONFIG.minimalOperatorFee * 3);
   });
 });

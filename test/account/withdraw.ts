@@ -27,11 +27,10 @@ describe('Withdraw Tests', () => {
       '1000000000000000',
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       }
     );
 

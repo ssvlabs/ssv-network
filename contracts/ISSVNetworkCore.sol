@@ -37,17 +37,16 @@ interface ISSVNetworkCore {
 
     struct Cluster {
         uint32 validatorCount;
-        uint64 networkFee;
         uint64 networkFeeIndex;
         uint64 index;
         uint256 balance;
-        bool disabled;
+        bool active;
     }
 
     struct DAO {
         uint32 validatorCount;
-        uint64 withdrawn;
-        Snapshot earnings;
+        uint64 balance;
+        uint64 block;
     }
 
     struct Network {

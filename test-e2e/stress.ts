@@ -35,15 +35,14 @@ describe('Stress Tests', () => {
       // Define empty pod data to send
       let podData = {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        disabled: false
+        active: true
       };
 
       // Loop through all created validators to see if the pod you chose is created or not
-      for (let j = validatorData.length-1; j >= 0; j--) {
+      for (let j = validatorData.length - 1; j >= 0; j--) {
         if (validatorData[j].operatorPoint === randomOperatorPoint && validatorData[j].owner === randomOwner) {
           podData = validatorData[j].pod;
           break;
@@ -53,7 +52,7 @@ describe('Stress Tests', () => {
       // Register a validator
       const tx = await ssvNetworkContract.connect(helpers.DB.owners[randomOwner]).registerValidator(
         validatorPublicKey,
-        [randomOperatorPoint,randomOperatorPoint+1,randomOperatorPoint+2,randomOperatorPoint+3],
+        [randomOperatorPoint, randomOperatorPoint + 1, randomOperatorPoint + 2, randomOperatorPoint + 3],
         helpers.DataGenerator.shares(0),
         minDepositAmount,
         podData
@@ -65,17 +64,16 @@ describe('Stress Tests', () => {
       const args = (receipt.events[3].args[4]);
 
       // Break the pod event to a struct
-      const pod =   {
+      const pod = {
         validatorCount: args.validatorCount,
-        networkFee: args.networkFee,
         networkFeeIndex: args.networkFeeIndex,
         index: args.index,
         balance: args.balance,
-        disabled: args.disabled
+        active: args.active
       };
 
       // Push the validator to an array
-      validatorData.push({publicKey: validatorPublicKey, operatorPoint: randomOperatorPoint, owner: randomOwner, pod: pod});
+      validatorData.push({ publicKey: validatorPublicKey, operatorPoint: randomOperatorPoint, owner: randomOwner, pod: pod });
     }
   });
 
@@ -101,12 +99,12 @@ describe('Stress Tests', () => {
   it('Remove 1000 validators', async () => {
     const newValidatorData: any = [];
 
-    for (let i = 0; i < validatorData.length-1; i++) {
+    for (let i = 0; i < validatorData.length - 1; i++) {
 
       let podData: any;
 
       // Loop and get latest pod
-      for (let j = validatorData.length-1; j >= 0; j--) {
+      for (let j = validatorData.length - 1; j >= 0; j--) {
         if (validatorData[j].operatorPoint === validatorData[i].operatorPoint && validatorData[j].owner === validatorData[i].owner) {
           podData = validatorData[j].pod;
           break;
@@ -114,7 +112,7 @@ describe('Stress Tests', () => {
       }
 
       // Loop through new emits to get even more up to date pod if neeeded
-      for (let j = newValidatorData.length-1; j >= 0; j--) {
+      for (let j = newValidatorData.length - 1; j >= 0; j--) {
         if (newValidatorData[j].operatorPoint === validatorData[i].operatorPoint && newValidatorData[j].owner === validatorData[i].owner) {
           podData = newValidatorData[j].pod;
           break;
@@ -124,7 +122,7 @@ describe('Stress Tests', () => {
       // Remove a validator
       const { eventsByName } = await trackGas(await ssvNetworkContract.connect(helpers.DB.owners[validatorData[i].owner]).removeValidator(
         validatorData[i].publicKey,
-        [validatorData[i].operatorPoint, validatorData[i].operatorPoint+1, validatorData[i].operatorPoint+2, validatorData[i].operatorPoint+3],
+        [validatorData[i].operatorPoint, validatorData[i].operatorPoint + 1, validatorData[i].operatorPoint + 2, validatorData[i].operatorPoint + 3],
         podData
       ), [GasGroup.REMOVE_VALIDATOR]);
 
@@ -132,17 +130,16 @@ describe('Stress Tests', () => {
       const args = (eventsByName.ValidatorRemoved[0].args).pod;
 
       // Form a pod struct
-      const pod =   {
+      const pod = {
         validatorCount: args.validatorCount,
-        networkFee: args.networkFee,
         networkFeeIndex: args.networkFeeIndex,
         index: args.index,
         balance: args.balance,
-        disabled: args.disabled
+        active: args.active
       };
 
       // Save new validator data
-      newValidatorData.push({publicKey: validatorData[i].validatorPublicKey, operatorPoint: validatorData[i].operatorPoint, owner: validatorData[i].owner, pod: pod});
+      newValidatorData.push({ publicKey: validatorData[i].validatorPublicKey, operatorPoint: validatorData[i].operatorPoint, owner: validatorData[i].owner, pod: pod });
     }
   });
 
