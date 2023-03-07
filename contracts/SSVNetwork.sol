@@ -148,9 +148,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             fee: fee.shrink()
         });
 
-        bool isPrivate;
         if (whitelisted != address(0)) {
-            isPrivate = true;
             operatorsWhitelist[id] = whitelisted;
         }
 
