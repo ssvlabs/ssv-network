@@ -582,7 +582,7 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
-    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPrivateOperator(
       helpers.DataGenerator.publicKey(2),
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[3].address
@@ -606,7 +606,7 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register a non whitelisted validator reverts "CallerNotWhitelisted"', async () => {
-    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPrivateOperator(
       helpers.DataGenerator.publicKey(2),
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[3].address

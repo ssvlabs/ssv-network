@@ -36,7 +36,7 @@ describe('Others Operator Tests', () => {
   });
 
   it('Remove operator whitelisted address', async () => {
-    const result = await trackGas(ssvNetworkContract.registerOperator(
+    const result = await trackGas(ssvNetworkContract.registerPrivateOperator(
       helpers.DataGenerator.publicKey(1),
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address
@@ -49,7 +49,7 @@ describe('Others Operator Tests', () => {
   });
 
   it('Non-owner remove operator whitelisted address reverts "CallerNotOwner"', async () => {
-    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPrivateOperator(
       helpers.DataGenerator.publicKey(1),
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address
@@ -61,7 +61,7 @@ describe('Others Operator Tests', () => {
   });
 
   it('Update operator whitelisted address', async () => {
-    const result = await trackGas(ssvNetworkContract.registerOperator(
+    const result = await trackGas(ssvNetworkContract.registerPrivateOperator(
       helpers.DataGenerator.publicKey(1),
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address
@@ -74,7 +74,7 @@ describe('Others Operator Tests', () => {
   });
 
   it('Non-owner update operator whitelisted address reverts "CallerNotOwner"', async () => {
-    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPrivateOperator(
       helpers.DataGenerator.publicKey(1),
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address

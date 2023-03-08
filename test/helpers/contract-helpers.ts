@@ -130,7 +130,7 @@ export const initializeContract = async () => {
 export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR]) => {
   for (let i = 0; i < numberOfOperators; ++i) {
     const { eventsByName } = await trackGas(
-      DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerOperator(DataGenerator.publicKey(i), fee, ethers.constants.AddressZero),
+      DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerOperator(DataGenerator.publicKey(i), fee),
       gasGroups
     );
     const event = eventsByName.OperatorAdded[0];

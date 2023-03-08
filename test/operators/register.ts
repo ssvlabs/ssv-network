@@ -17,22 +17,21 @@ describe('Register Operator Tests', () => {
     const publicKey = helpers.DataGenerator.publicKey(0);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       publicKey,
-      helpers.CONFIG.minimalOperatorFee,
-      ethers.constants.AddressZero
+      helpers.CONFIG.minimalOperatorFee
     )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey, helpers.CONFIG.minimalOperatorFee, ethers.constants.AddressZero);
   });
 
   it('Register private operator emits "OperatorAdded"', async () => {
     const publicKey = helpers.DataGenerator.publicKey(0);
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPrivateOperator(
       publicKey,
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address
     )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(1, helpers.DB.owners[1].address, publicKey, helpers.CONFIG.minimalOperatorFee, helpers.DB.owners[1].address);
   });
 
-  it('Register operator gas limits', async () => {
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+  it('Register private operator gas limits', async () => {
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPrivateOperator(
       helpers.DataGenerator.publicKey(0),
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[2].address
@@ -43,7 +42,6 @@ describe('Register Operator Tests', () => {
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),
       helpers.CONFIG.minimalOperatorFee,
-      ethers.constants.AddressZero
     );
 
     expect((await ssvViews.getOperatorById(1))[0]).to.equal(helpers.DB.owners[1].address); // owner
@@ -54,7 +52,7 @@ describe('Register Operator Tests', () => {
   });
 
   it('Get private operator by id', async () => {
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPrivateOperator(
       helpers.DataGenerator.publicKey(0),
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[2].address
@@ -70,8 +68,7 @@ describe('Register Operator Tests', () => {
   it('Get non-existent operator by id', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),
-      helpers.CONFIG.minimalOperatorFee,
-      ethers.constants.AddressZero
+      helpers.CONFIG.minimalOperatorFee
     ), [GasGroup.REGISTER_OPERATOR]);
 
     expect((await ssvViews.getOperatorById(3))[0]).to.equal(ethers.constants.AddressZero); // owner
@@ -84,8 +81,7 @@ describe('Register Operator Tests', () => {
   it('Get operator removed by id', async () => {
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),
-      helpers.CONFIG.minimalOperatorFee,
-      ethers.constants.AddressZero
+      helpers.CONFIG.minimalOperatorFee
     );
     await ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1);
 
@@ -100,7 +96,14 @@ describe('Register Operator Tests', () => {
     await expect(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.publicKey(0),
       '10',
-      ethers.constants.AddressZero
-    )).to.be.revertedWithCustomError(ssvNetworkContract,'FeeTooLow');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooLow');
+  });
+
+  it('Register a private operator with a fee thats too low reverts "FeeTooLow"', async () => {
+    await expect(ssvNetworkContract.registerPrivateOperator(
+      helpers.DataGenerator.publicKey(0),
+      '10',
+      helpers.DB.owners[2].address
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooLow');
   });
 });

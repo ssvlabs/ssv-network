@@ -126,41 +126,34 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(
+    function registerPrivateOperator(
         bytes calldata publicKey,
         uint256 fee,
         address whitelisted
     ) external override returns (uint64 id) {
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
-            revert FeeTooLow();
-        }
-
-        lastOperatorId.increment();
-        id = uint64(lastOperatorId.current());
-        operators[id] = Operator({
-            owner: msg.sender,
-            snapshot: Snapshot({
-                block: uint64(block.number),
-                index: 0,
-                balance: 0
-            }),
-            validatorCount: 0,
-            fee: fee.shrink()
-        });
-
-        if (whitelisted != address(0)) {
-            operatorsWhitelist[id] = whitelisted;
-        }
-
-        emit OperatorAdded(id, msg.sender, publicKey, fee, whitelisted);
+        return _registerOperator(publicKey, fee, whitelisted);
+    }
+    
+    function registerOperator(
+        bytes calldata publicKey,
+        uint256 fee
+    ) external override returns (uint64 id) {
+        return _registerOperator(publicKey, fee, address(0));
     }
 
-    function removeOperatorWhitelist(uint64 operatorId) external override  {
-        _removeOperatorWhitelist(operatorId, operators[operatorId]);   
+    function removeOperatorWhitelist(uint64 operatorId) external override {
+        _removeOperatorWhitelist(operatorId, operators[operatorId]);
     }
 
-    function updateOperatorWhitelist(uint64 operatorId, address whitelisted) external override  {
-        _updateOperatorWhitelist(operatorId, whitelisted, operators[operatorId]);   
+    function updateOperatorWhitelist(
+        uint64 operatorId,
+        address whitelisted
+    ) external override {
+        _updateOperatorWhitelist(
+            operatorId,
+            whitelisted,
+            operators[operatorId]
+        );
     }
 
     function removeOperator(uint64 operatorId) external override {
@@ -271,7 +264,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                     ) {
                         revert ExceedValidatorLimit();
                     }
-                    
+
                     clusterIndex += operator.snapshot.index;
                     burnRate += operator.fee;
                     operators[operatorIds[i]] = operator;
@@ -428,12 +421,12 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 }
             }
         }
-        
+
         cluster.balance = cluster.clusterBalance(
             clusterIndex,
             NetworkLib.currentNetworkFeeIndex(network)
         );
-        
+
         uint64 networkFee = network.networkFee;
         uint256 balanceLiquidatable = cluster.balance;
 
@@ -452,7 +445,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         dao_.updateDAOEarnings(networkFee);
         dao_.validatorCount -= cluster.validatorCount;
         dao = dao_;
-        
+
         cluster.active = false;
         cluster.balance = 0;
         cluster.index = 0;
@@ -629,7 +622,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             this
         );
 
-        cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+        cluster.updateClusterData(
+            clusterIndex,
+            NetworkLib.currentNetworkFeeIndex(network)
+        );
 
         if (
             cluster.balance < amount ||
@@ -761,6 +757,35 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /* Operator Private Functions */
     /******************************/
 
+    function _registerOperator(
+        bytes calldata publicKey,
+        uint256 fee,
+        address whitelisted
+    ) private returns (uint64 id) {
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
+            revert FeeTooLow();
+        }
+
+        lastOperatorId.increment();
+        id = uint64(lastOperatorId.current());
+        operators[id] = Operator({
+            owner: msg.sender,
+            snapshot: Snapshot({
+                block: uint64(block.number),
+                index: 0,
+                balance: 0
+            }),
+            validatorCount: 0,
+            fee: fee.shrink()
+        });
+
+        if (whitelisted != address(0)) {
+            operatorsWhitelist[id] = whitelisted;
+        }
+
+        emit OperatorAdded(id, msg.sender, publicKey, fee, whitelisted);
+    }
+
     function _transferOperatorBalanceUnsafe(
         uint64 operatorId,
         uint256 amount
@@ -813,17 +838,28 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         emit OperatorRemoved(operatorId);
     }
 
-    function _removeOperatorWhitelist(uint64 operatorId, Operator storage operator) private onlyOperatorOwner(operator) {
+    function _removeOperatorWhitelist(
+        uint64 operatorId,
+        Operator storage operator
+    ) private onlyOperatorOwner(operator) {
         delete operatorsWhitelist[operatorId];
         emit OperatorWhitelistRemoved(operatorId);
     }
 
-    function _updateOperatorWhitelist(uint64 operatorId, address whitelisted, Operator storage operator) private onlyOperatorOwner(operator) {
+    function _updateOperatorWhitelist(
+        uint64 operatorId,
+        address whitelisted,
+        Operator storage operator
+    ) private onlyOperatorOwner(operator) {
         operatorsWhitelist[operatorId] = whitelisted;
         emit OperatorWhitelistUpdated(operatorId, whitelisted);
     }
 
-    function _declareOperatorFee(uint64 operatorId, Operator memory operator, uint256 fee) private onlyOperatorOwner(operator) {
+    function _declareOperatorFee(
+        uint64 operatorId,
+        Operator memory operator,
+        uint256 fee
+    ) private onlyOperatorOwner(operator) {
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
         uint64 operatorFee = operators[operatorId].fee;
         uint64 shrunkFee = fee.shrink();
