@@ -7,7 +7,7 @@ cache
 coverage
 coverage.json
 artifacts
-.openzeppelin/
+.openzeppelin/dev-*.json
 subgraph/build
 .idea
 /incentivized_testnet/operators*
