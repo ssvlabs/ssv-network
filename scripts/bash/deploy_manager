@@ -1,0 +1,137 @@
+#!/bin/bash
+
+ABIDIR=""
+ACTION=""
+NETWORK="localhost"
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+VERSIONTYPE=""
+
+# Function to return help text when requested with -h option.
+help() {
+  # Display help.
+  echo
+  echo "SSV Deployment manager."
+  echo "Run deployment / upgrade of the branch selected."
+  echo "When the target network is testnet (goerli) or mainnet, an annotated semantic version tag for current branch is created"
+  echo "and the ABI is published to this location in gh-pages: "
+  echo "'docs/<network>/abi/<tag>' when using stage or main"
+  echo "'docs/<network>/abi/dev' when using develop"
+  echo
+  echo "Usage:"
+  echo "  sh deploy_manger [-n|--network] [-a|--action] [-t|--version-type]"
+  echo
+  echo "Options:"
+  echo "-n,--network <network>"
+  echo "      Target network to run the deployment / upgrade."
+  echo "      Possible values: [goerli | mainnet | localhost]"
+  echo "      If ommited, defaults to localhost."
+  echo
+  echo "-a,--action <date>"
+  echo "      Action to perform."
+  echo "      Possible values: [deploy | upgrade]"
+  echo
+  echo "-t,--version-type [major|minor|patch]"
+  echo "      Type of semantic version to create. Valid options are 'major', 'minor' or 'patch'"
+  echo "          major: Will bump up to next major release (i.e v1.0.0 -> v2.0.0)"
+  echo "          minor: Will bump up to next minor release (i.e v1.0.1 -> v1.1.0)"
+  echo "          patch: Will bump up to next patch release (i.e v1.0.2 -> v1.0.3)"
+  echo "      Rules:"
+  echo "      Tags created using 'stage' branch are treated as RCs (i.e v0.1.0-rc.0 -> v0.1.0-rc.1 ...)"
+  echo "      Tags created using 'main' branch are treated as releases (i.e v0.1.0-rc.1 becomes v0.1.0)"
+  echo "      In both cases, if a version-type parameter is passed, the rule is override (i.e v0.1.0-rc.2 -> -t minor -> v0.2.0-rc.0)"
+  echo "      Tags created using 'develop' branch are not tagged"
+  echo "      If ommited, will default to current version"
+  echo
+  echo "-h,--help, help"
+  echo "      Prints this help."
+  echo
+}
+
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+  -h | --help | help)
+    help
+    exit
+    ;;
+  -n | --network)
+    NETWORK=$2
+    ;;
+  -t | --version-type)
+    VERSIONTYPE=$2
+    ;;
+  -a | --action)
+    ACTION=$2
+    ;;
+  esac
+  shift
+done
+
+if [ "$ACTION" == "" ]; then
+  echo "-- ERROR: ACTION option is mandatory. Possible values: [deploy | upgrade]"
+  exit 1
+fi
+
+# Get the list of branches from the repository
+BRANCHES=$(git branch --format='%(refname:short)' | grep -E '^(develop|stage|main)$')
+select BRANCH in $BRANCHES; do
+  if [ ! -z "$BRANCH" ]; then
+    break
+  fi
+done
+
+run_command() {
+  if ! "$@"; then
+    echo "$1 command failed"
+    exit 1
+  fi
+}
+
+# Checkout the selected branch and install npm dependencies
+run_command git checkout $BRANCH
+run_command npm ci -q --no-progress
+
+# Compile project
+run_command npx hardhat compile --force
+
+# Only deployments for stage and main branches are tagged
+if [[ $BRANCH == "stage" || $BRANCH == "main" ]]; then
+  run_command source ./tag-version -b "$BRANCH" -n -t "$VERSIONTYPE"
+else
+  TAGVERSION="dev"
+fi
+
+if [ "$ACTION" == "deploy" ]; then
+  # Run script to deploy the contracts
+  run_command npx hardhat --network "$NETWORK" deploy:contracts --tag "$TAGVERSION"
+elif [ "$ACTION" == "upgrade" ]; then
+  # Run script to upgrade the contracts
+  run_command npx hardhat --network "$NETWORK" upgrade:Lock --tag "$TAGVERSION"
+else
+  echo "-- ERROR: Wrong ACTION value. Possible values: [deploy | upgrade]"
+  exit 1
+fi
+
+if [[ $NETWORK == "mainnet" || $NETWORK == "goerli" ]]; then
+
+  # Update .openzeppelin metadata
+  run_command git add .openzeppelin/"$NETWORK".json
+  run_command git commit -m "Update .openzeppelin folder"
+  run_command git push -u origin $branch
+
+  if [[ $BRANCH == "stage" || $BRANCH == "main" ]]; then
+    run_command source ./tag-version -b "$BRANCH" -t "$VERSIONTYPE"
+  fi
+  ABIDIR="docs/$NETWORK/abi/$TAGVERSION"
+
+  run_command git checkout gh-pages
+
+  # Publish the ABI to a specific GitHub Pages location
+  mkdir -p $ABIDIR
+  cp abi/*.json $ABIDIR
+
+  run_command git add $ABIDIR
+  run_command git commit -m "Publish ABI for deployment to $NETWORK"
+  run_command git push -u -f origin gh-pages
+fi
+
+run_command git checkout $CURRENT_BRANCH

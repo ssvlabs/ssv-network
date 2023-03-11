@@ -2,6 +2,9 @@ node_modules
 .env
 .env.prod
 .env.stage
+
+.DS_Store
+
 #Hardhat files
 cache
 coverage
@@ -9,6 +12,7 @@ coverage.json
 artifacts
 .openzeppelin/dev-*.json
 subgraph/build
+typechain-types/
 .idea
 /incentivized_testnet/operators*
 /incentivized_testnet/validators*

@@ -1,12 +1,15 @@
 import 'dotenv/config';
 
-import { HardhatUserConfig, task } from 'hardhat/config';
+import { HardhatUserConfig } from 'hardhat/config';
 import '@nomicfoundation/hardhat-toolbox';
 import '@openzeppelin/hardhat-upgrades';
 import 'hardhat-tracer';
 import '@nomiclabs/hardhat-solhint';
 import 'hardhat-contract-sizer';
 import 'hardhat-storage-layout-changes';
+import './tasks/deploy-all'
+import './tasks/upgrade-ssvnetwork'
+import './tasks/upgrade-ssvnetworkviews'
 
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
