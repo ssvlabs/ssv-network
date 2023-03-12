@@ -112,7 +112,6 @@ describe('Reactivate Tests', () => {
       clusterData.cluster));
     clusterData = depositedCluster.eventsByName.ClusterDeposited[0].args;
 
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(firstCluster.operatorIds, minDepositAmount, clusterData.cluster)).to.emit(ssvNetworkContract, 'ClusterReactivated');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(firstCluster.operatorIds, 0, clusterData.cluster)).to.emit(ssvNetworkContract, 'ClusterReactivated');
   });
 });
