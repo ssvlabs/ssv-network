@@ -20,7 +20,7 @@ describe('Deposit Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1,2,3,4],
+      [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       '1000000000000000',
       {
@@ -37,31 +37,52 @@ describe('Deposit Tests', () => {
     cluster1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('Deposit to a cluster I own emits "ClusterDeposited', async () => {
+  it('Deposit to a cluster I own emits "ClusterDeposited"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(address,uint64[],uint256,(uint32,uint64,uint64,uint256,bool))'](helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.emit(ssvNetworkContract, 'ClusterDeposited');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).deposit(
+      helpers.DB.owners[4].address,
+      cluster1.args.operatorIds,
+      minDepositAmount,
+      cluster1.args.cluster)).to.emit(ssvNetworkContract, 'ClusterDeposited');
   });
 
   it('Deposit to a cluster I own gas limits', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(address,uint64[],uint256,(uint32,uint64,uint64,uint256,bool))'](helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster), [GasGroup.DEPOSIT]);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).deposit(
+      helpers.DB.owners[4].address,
+      cluster1.args.operatorIds,
+      minDepositAmount,
+      cluster1.args.cluster), [GasGroup.DEPOSIT]);
   });
 
   it('Deposit to a cluster I do not own emits "ClusterDeposited"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[0]).approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,uint64[],uint256,(uint32,uint64,uint64,uint256,bool))'](helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.emit(ssvNetworkContract, 'ClusterDeposited');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).deposit(
+      helpers.DB.owners[4].address,
+      cluster1.args.operatorIds,
+      minDepositAmount,
+      cluster1.args.cluster)).to.emit(ssvNetworkContract, 'ClusterDeposited');
   });
 
   it('Deposit to a cluster I do not own gas limits', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[0]).approve(ssvNetworkContract.address, minDepositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['deposit(address,uint64[],uint256,(uint32,uint64,uint64,uint256,bool))'](helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster), [GasGroup.DEPOSIT]);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0]).deposit(helpers.DB.owners[4].address,
+      cluster1.args.operatorIds,
+      minDepositAmount,
+      cluster1.args.cluster), [GasGroup.DEPOSIT]);
   });
 
   it('Deposit to a cluster I do own with a cluster that does not exist reverts "ClusterDoesNotExists"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1])['deposit(address,uint64[],uint256,(uint32,uint64,uint64,uint256,bool))'](helpers.DB.owners[1].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterDoesNotExists');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).deposit(helpers.DB.owners[1].address,
+      cluster1.args.operatorIds,
+      minDepositAmount,
+      cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
 
   it('Deposit to a cluster I do not own with a cluster that does not exist reverts "ClusterDoesNotExists"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4])['deposit(address,uint64[],uint256,(uint32,uint64,uint64,uint256,bool))'](helpers.DB.owners[1].address,[1,2,4,5], minDepositAmount, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'ClusterDoesNotExists');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).deposit(helpers.DB.owners[1].address,
+      [1, 2, 4, 5],
+      minDepositAmount,
+      cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
 });

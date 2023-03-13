@@ -1,9 +1,11 @@
-// File: contracts/ISSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.16;
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+pragma solidity 0.8.18;
+
 import "./ISSVNetworkCore.sol";
 import "./SSVNetwork.sol";
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 
 interface ISSVNetworkViews is ISSVNetworkCore {
     /****************/
@@ -22,9 +24,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
 
     function getOperatorFee(uint64 operatorId) external view returns (uint256);
 
-    function getOperatorDeclaredFee(
-        uint64 operatorId
-    ) external view returns (uint256, uint256, uint256);
+    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
 
     function getOperatorById(
         uint64 operatorId
@@ -56,9 +56,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
     /* Balance External View Functions */
     /***********************************/
 
-    function getOperatorEarnings(
-        uint64 id
-    ) external view returns (uint256);
+    function getOperatorEarnings(uint64 id) external view returns (uint256);
 
     function getBalance(
         address owner,
