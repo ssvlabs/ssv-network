@@ -1,48 +1,36 @@
-// File: contracts/SSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.16;
+pragma solidity 0.8.18;
 
 import "../ISSVNetworkCore.sol";
 import "../SSVNetwork.sol";
 import "./Types.sol";
 
+import "hardhat/console.sol";
+
 library ClusterLib {
     using Types64 for uint64;
 
-    function clusterBalance(
+    function updateBalance(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 newIndex,
         uint64 currentNetworkFeeIndex
-    ) internal pure returns (uint256 balance) {
-        uint64 networkFee = uint64(
-            currentNetworkFeeIndex - cluster.networkFeeIndex
-        ) * cluster.validatorCount;
-        uint64 usage = (newIndex - cluster.index) *
-            cluster.validatorCount +
-            networkFee;
-
-        if (usage.expand() > cluster.balance) {
-            revert ISSVNetworkCore.InsufficientFunds();
-        }
-
-        balance = cluster.balance - usage.expand();
+    ) internal pure {
+        uint64 networkFee = uint64(currentNetworkFeeIndex - cluster.networkFeeIndex) * cluster.validatorCount;
+        uint64 usage = (newIndex - cluster.index) * cluster.validatorCount + networkFee;
+        cluster.balance = usage.expand() > cluster.balance ? 0 : cluster.balance - usage.expand();
     }
 
-    function liquidatable(
+    function isLiquidatable(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 burnRate,
         uint64 networkFee,
         uint64 minimumBlocksBeforeLiquidation
     ) internal pure returns (bool) {
-        uint64 liquidationThreshold = minimumBlocksBeforeLiquidation *
-            (burnRate + networkFee) *
-            cluster.validatorCount;
+        uint64 liquidationThreshold = minimumBlocksBeforeLiquidation * (burnRate + networkFee) * cluster.validatorCount;
         return cluster.balance < liquidationThreshold.expand();
     }
 
-    function validateClusterIsNotLiquidated(
-        ISSVNetworkCore.Cluster memory cluster
-    ) internal pure {
+    function validateClusterIsNotLiquidated(ISSVNetworkCore.Cluster memory cluster) internal pure {
         if (!cluster.active) revert ISSVNetworkCore.ClusterIsLiquidated();
     }
 
@@ -77,11 +65,7 @@ library ClusterLib {
         uint64 clusterIndex,
         uint64 currentNetworkFeeIndex
     ) internal pure {
-        cluster.balance = clusterBalance(
-            cluster,
-            clusterIndex,
-            currentNetworkFeeIndex
-        );
+        updateBalance(cluster, clusterIndex, currentNetworkFeeIndex);
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = currentNetworkFeeIndex;
     }
