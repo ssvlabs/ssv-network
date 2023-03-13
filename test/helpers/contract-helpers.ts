@@ -176,7 +176,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
   return { validators, args };
 };
 
-export const registerValidatorsRaw = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[]) => {
+export const registerValidatorsRaw = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
 
   let cluster: any = {
     validatorCount: 0,
@@ -198,18 +198,9 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
       shares,
       amount,
       cluster
-    ));
+    ), gasGroups);
 
-    const clusterData = result.eventsByName.ValidatorAdded[0].args.cluster;
-    cluster = {
-      validatorCount: clusterData.validatorCount,
-      networkFee: clusterData.networkFee,
-      networkFeeIndex: clusterData.networkFeeIndex,
-      index: clusterData.index,
-      balance: clusterData.balance,
-      active: true
-    };
-
+    cluster = result.eventsByName.ValidatorAdded[0].args.cluster;
   }
 }
 

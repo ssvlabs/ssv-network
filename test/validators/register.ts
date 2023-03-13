@@ -472,6 +472,24 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
   });
 
+  it('Register validator in a new cluster with incorrect input data reverts "IncorrectClusterState"', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(3),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 2,
+        networkFee: 10,
+        networkFeeIndex: 10,
+        index: 10,
+        balance: 10,
+        active: false
+      }
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
+  });
+
   it('Register validator when an operator does not exsit in the cluster reverts "OperatorDoesNotExist"', async () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(2),

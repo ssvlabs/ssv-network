@@ -186,7 +186,15 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
 
         if (clusters[hashedCluster] == bytes32(0)) {
-            cluster = Cluster({validatorCount: 0, networkFeeIndex: 0, index: 0, balance: 0, active: true});
+            if (
+                cluster.validatorCount != 0 ||
+                cluster.networkFeeIndex != 0 ||
+                cluster.index != 0 ||
+                cluster.balance != 0 ||
+                !cluster.active
+            ) {
+                revert IncorrectClusterState();
+            }
         } else if (
             clusters[hashedCluster] !=
             keccak256(
