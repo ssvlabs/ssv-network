@@ -7,11 +7,6 @@ cache
 coverage
 coverage.json
 artifacts
+typechain-types/
 .openzeppelin/dev-*.json
-subgraph/build
-.idea
-/incentivized_testnet/operators*
-/incentivized_testnet/validators*
-/incentivized_testnet/prod
-/incentivized_testnet/stage
-/incentivized_testnet/latest_metrics.json
+.DS_Store

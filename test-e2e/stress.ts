@@ -35,7 +35,6 @@ describe('Stress Tests', () => {
       // Define empty pod data to send
       let podData = {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -67,7 +66,6 @@ describe('Stress Tests', () => {
       // Break the pod event to a struct
       const pod = {
         validatorCount: args.validatorCount,
-        networkFee: args.networkFee,
         networkFeeIndex: args.networkFeeIndex,
         index: args.index,
         balance: args.balance,
@@ -134,7 +132,6 @@ describe('Stress Tests', () => {
       // Form a pod struct
       const pod = {
         validatorCount: args.validatorCount,
-        networkFee: args.networkFee,
         networkFeeIndex: args.networkFeeIndex,
         index: args.index,
         balance: args.balance,

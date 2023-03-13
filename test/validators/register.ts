@@ -27,7 +27,6 @@ describe('Register Validator Tests', () => {
       '1000000000000000',
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -45,7 +44,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -63,7 +61,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -81,7 +78,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -110,7 +106,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -137,7 +132,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -155,7 +149,6 @@ describe('Register Validator Tests', () => {
       `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -184,7 +177,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -202,7 +194,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -231,7 +222,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -258,7 +248,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -276,7 +265,6 @@ describe('Register Validator Tests', () => {
       `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -305,7 +293,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -323,7 +310,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -352,7 +338,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -379,7 +364,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -397,7 +381,6 @@ describe('Register Validator Tests', () => {
       `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -448,7 +431,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -463,8 +445,7 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 2,
-        networkFee: 10,
-        networkFeeIndex: 0,
+        networkFeeIndex: 10,
         index: 0,
         balance: 0,
         active: true
@@ -498,7 +479,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -516,7 +496,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -549,7 +528,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -567,7 +545,6 @@ describe('Register Validator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -610,7 +587,7 @@ describe('Register Validator Tests', () => {
 
 
   it('Register an existing validator reverts "ValidatorAlreadyExists"', async () => {
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       helpers.DataGenerator.publicKey(90),
       [1, 2, 3, 4],
@@ -618,7 +595,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -648,7 +624,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,

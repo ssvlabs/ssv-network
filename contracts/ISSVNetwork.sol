@@ -43,7 +43,7 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     event OperatorFeeDeclared(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 
-    event OperatorFeeCancelationDeclared(address indexed owner, uint64 indexed operatorId);
+    event OperatorFeeCancellationDeclared(address indexed owner, uint64 indexed operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.

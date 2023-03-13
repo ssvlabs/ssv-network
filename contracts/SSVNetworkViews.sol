@@ -76,6 +76,10 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
     ) external view override returns (bool) {
         cluster.validateHashedCluster(owner, operatorIds, _ssvNetwork);
 
+        if (!cluster.active) {
+            return false;
+        }
+
         uint64 clusterIndex;
         uint64 burnRate;
         uint operatorsLength = operatorIds.length;

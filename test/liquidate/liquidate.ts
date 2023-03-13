@@ -28,7 +28,6 @@ describe('Liquidate Tests', () => {
       '1000000000000000',
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -45,7 +44,6 @@ describe('Liquidate Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -96,11 +94,13 @@ describe('Liquidate Tests', () => {
   it('Liquidate validator with removed operator in a cluster', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await ssvNetworkContract.removeOperator(1);
-    await trackGas(ssvNetworkContract.liquidate(
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
     ), [GasGroup.LIQUIDATE_POD]);
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
+    expect(await ssvViews.isLiquidatable(updatedCluster.owner, updatedCluster.operatorIds, updatedCluster.cluster)).to.be.equals(false);
   });
 
   it('Liquidate and register validator in a disabled cluster reverts "ClusterIsLiquidated"', async () => {
@@ -112,7 +112,6 @@ describe('Liquidate Tests', () => {
     ), [GasGroup.LIQUIDATE_POD]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
@@ -190,6 +189,7 @@ describe('Liquidate Tests', () => {
       firstCluster.operatorIds,
       firstCluster.cluster
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterNotLiquidatable');
+    expect(await ssvViews.isLiquidatable(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(false);
   });
 
   it('Liquidate a cluster that is not liquidatable reverts "IncorrectClusterState"', async () => {
@@ -198,7 +198,6 @@ describe('Liquidate Tests', () => {
       firstCluster.operatorIds,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
