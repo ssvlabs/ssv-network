@@ -5,8 +5,6 @@ import "../ISSVNetworkCore.sol";
 import "../SSVNetwork.sol";
 import "./Types.sol";
 
-import "hardhat/console.sol";
-
 library ClusterLib {
     using Types64 for uint64;
 
