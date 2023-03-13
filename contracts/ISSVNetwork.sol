@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.16;
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+pragma solidity 0.8.18;
+
 import "./ISSVNetworkCore.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork is ISSVNetworkCore {
     /**********/
@@ -10,14 +11,14 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     /**
      * @dev Emitted when a new operator has been added.
-     * @param id operator's ID.
+     * @param operatorId operator's ID.
      * @param owner Operator's ethereum address that can collect fees.
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee Operator's fee.
      * @param whitelisted Operator's whitelisted address.
      */
     event OperatorAdded(
-        uint64 indexed id,
+        uint64 indexed operatorId,
         address indexed owner,
         bytes publicKey,
         uint256 fee,
@@ -26,22 +27,22 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     /**
      * @dev Emitted when operator has been removed.
-     * @param id operator's ID.
+     * @param operatorId operator's ID.
      */
-    event OperatorRemoved(uint64 indexed id);
+    event OperatorRemoved(uint64 indexed operatorId);
 
     /**
      * @dev Emitted when the whitelist of an operator is removed.
-     * @param id operator's ID.
+     * @param operatorId operator's ID.
      */
-    event OperatorWhitelistRemoved(uint64 indexed id);
+    event OperatorWhitelistRemoved(uint64 indexed operatorId);
 
     /**
      * @dev Emitted when the whitelist of an operator is updated.
-     * @param id operator's ID.
+     * @param operatorId operator's ID.
      * @param whitelisted operator's new whitelisted address.
      */
-    event OperatorWhitelistUpdated(uint64 indexed id, address whitelisted);
+    event OperatorWhitelistUpdated(uint64 indexed operatorId, address whitelisted);
 
     /**
      * @dev Emitted when the validator has been added.
@@ -50,13 +51,7 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param shares snappy compressed shares(a set of encrypted and public shares).
      * @param cluster All the cluster data.
      */
-    event ValidatorAdded(
-        address indexed owner,
-        uint64[] operatorIds,
-        bytes publicKey,
-        bytes shares,
-        Cluster cluster
-    );
+    event ValidatorAdded(address indexed owner, uint64[] operatorIds, bytes publicKey, bytes shares, Cluster cluster);
 
     /**
      * @dev Emitted when the validator is removed.
@@ -64,24 +59,11 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param operatorIds The operator ids list.
      * @param cluster All the cluster data.
      */
-    event ValidatorRemoved(
-        address indexed owner,
-        uint64[] operatorIds,
-        bytes publicKey,
-        Cluster cluster
-    );
+    event ValidatorRemoved(address indexed owner, uint64[] operatorIds, bytes publicKey, Cluster cluster);
 
-    event OperatorFeeDeclared(
-        address indexed owner,
-        uint64 indexed operatorId,
-        uint256 blockNumber,
-        uint256 fee
-    );
+    event OperatorFeeDeclared(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 
-    event OperatorFeeCancelationDeclared(
-        address indexed owner,
-        uint64 indexed operatorId
-    );
+    event OperatorFeeCancellationDeclared(address indexed owner, uint64 indexed operatorId);
 
     /**
      * @dev Emitted when an operator's fee is updated.
@@ -89,24 +71,11 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param blockNumber from which block number.
      * @param fee updated fee value.
      */
-    event OperatorFeeExecuted(
-        address indexed owner,
-        uint64 indexed operatorId,
-        uint256 blockNumber,
-        uint256 fee
-    );
+    event OperatorFeeExecuted(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 
-    event ClusterLiquidated(
-        address indexed owner,
-        uint64[] operatorIds,
-        Cluster cluster
-    );
+    event ClusterLiquidated(address indexed owner, uint64[] operatorIds, Cluster cluster);
 
-    event ClusterReactivated(
-        address indexed owner,
-        uint64[] operatorIds,
-        Cluster cluster
-    );
+    event ClusterReactivated(address indexed owner, uint64[] operatorIds, Cluster cluster);
 
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
 
@@ -130,24 +99,10 @@ interface ISSVNetwork is ISSVNetworkCore {
      */
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
-    event ClusterWithdrawn(
-        address indexed owner,
-        uint64[] operatorIds,
-        uint256 value,
-        Cluster cluster
-    );
-    event OperatorWithdrawn(
-        address indexed owner,
-        uint64 indexed operatorId,
-        uint256 value
-    );
+    event ClusterWithdrawn(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
+    event OperatorWithdrawn(address indexed owner, uint64 indexed operatorId, uint256 value);
 
-    event ClusterDeposited(
-        address indexed owner,
-        uint64[] operatorIds,
-        uint256 value,
-        Cluster cluster
-    );
+    event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
     event FeeRecipientAddressUpdated(
         address indexed owner,
@@ -195,20 +150,17 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param publicKey Operator's public key. Used to encrypt secret shares of validators keys.
      * @param fee operator's fee. When fee is set to zero (mostly for private operators), it can not be increased.
      */
-    function registerOperator(
-        bytes calldata publicKey,
-        uint256 fee
-    ) external returns (uint64);
+    function registerOperator(bytes calldata publicKey, uint256 fee) external returns (uint64);
 
     /**
      * @dev Removes an operator.
-     * @param id Operator's id.
+     * @param operatorId Operator's id.
      */
-    function removeOperator(uint64 id) external;
+    function removeOperator(uint64 operatorId) external;
 
-    function removeOperatorWhitelist(uint64 id) external;
+    function removeOperatorWhitelist(uint64 operatorId) external;
 
-    function updateOperatorWhitelist(uint64 id, address whitelisted) external;
+    function updateOperatorWhitelist(uint64 operatorId, address whitelisted) external;
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external;
 
@@ -230,51 +182,27 @@ interface ISSVNetwork is ISSVNetworkCore {
         Cluster memory cluster
     ) external;
 
-    function removeValidator(
-        bytes calldata publicKey,
-        uint64[] memory operatorIds,
-        Cluster memory cluster
-    ) external;
+    function removeValidator(bytes calldata publicKey, uint64[] memory operatorIds, Cluster memory cluster) external;
 
     /**************************/
     /* Cluster External Functions */
     /**************************/
 
-    function liquidate(
-        address owner,
-        uint64[] memory operatorIds,
-        Cluster memory cluster
-    ) external;
+    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external;
 
-    function reactivate(
-        uint64[] memory operatorIds,
-        uint256 amount,
-        Cluster memory cluster
-    ) external;
+    function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external;
 
     /******************************/
     /* Balance External Functions */
     /******************************/
 
-    function deposit(
-        address owner,
-        uint64[] memory operatorIds,
-        uint256 amount,
-        Cluster memory cluster
-    ) external;
+    function deposit(address owner, uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external;
 
-    function withdrawOperatorEarnings(
-        uint64 operatorId,
-        uint256 tokenAmount
-    ) external;
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 tokenAmount) external;
 
     function withdrawOperatorEarnings(uint64 operatorId) external;
 
-    function withdraw(
-        uint64[] memory operatorIds,
-        uint256 tokenAmount,
-        Cluster memory cluster
-    ) external;
+    function withdraw(uint64[] memory operatorIds, uint256 tokenAmount, Cluster memory cluster) external;
 
     /**************************/
     /* DAO External Functions */
@@ -284,17 +212,11 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     function withdrawNetworkEarnings(uint256 amount) external;
 
-    function updateOperatorFeeIncreaseLimit(
-        uint64 newOperatorMaxFeeIncrease
-    ) external;
+    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
 
-    function updateDeclareOperatorFeePeriod(
-        uint64 newDeclareOperatorFeePeriod
-    ) external;
+    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external;
 
-    function updateExecuteOperatorFeePeriod(
-        uint64 newExecuteOperatorFeePeriod
-    ) external;
+    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external;
 }

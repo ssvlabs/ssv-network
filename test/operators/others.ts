@@ -41,7 +41,7 @@ describe('Others Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address
     ));
-    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
     await expect(ssvNetworkContract.removeOperatorWhitelist(operatorId))
       .to.emit(ssvNetworkContract, 'OperatorWhitelistRemoved')
@@ -54,7 +54,7 @@ describe('Others Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address
     ));
-    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
     await expect(ssvNetworkContract.removeOperatorWhitelist(operatorId))
       .to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
@@ -66,7 +66,7 @@ describe('Others Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address
     ));
-    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
     await expect(ssvNetworkContract.updateOperatorWhitelist(operatorId, helpers.DB.owners[2].address))
       .to.emit(ssvNetworkContract, 'OperatorWhitelistUpdated')
@@ -79,7 +79,7 @@ describe('Others Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
       helpers.DB.owners[1].address
     ));
-    const operatorId = result.eventsByName.OperatorAdded[0].args.id;
+    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
     await expect(ssvNetworkContract.updateOperatorWhitelist(operatorId, helpers.DB.owners[2].address))
       .to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');

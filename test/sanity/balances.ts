@@ -2,7 +2,7 @@
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
 import { expect } from 'chai';
-import { GasGroup, trackGas } from '../helpers/gas-usage';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 let ssvNetworkContract: any, ssvViews: any, cluster1: any, minDepositAmount: any, burnPerBlock: any, networkFee: any, initNetworkFeeBalance: any;
 
@@ -115,9 +115,27 @@ describe('Balance Tests', () => {
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).not.equals(0);
   });
 
-  it('Check cluster balance with not enough balance reverts "InsufficientFunds"', async () => {
+  it('Check cluster balance with not enough balance', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
-    await expect(ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientFunds');
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.be.equals(0);
+  });
+
+  it('Check cluster balance in a non liquidated cluster', async () => {
+    await utils.progressBlocks(1);
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
+  });
+
+  it('Check cluster balance in a liquidated cluster reverts "ClusterIsLiquidated"', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 1);
+    const liquidatedCluster = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).liquidate(
+      cluster1.args.owner,
+      cluster1.args.operatorIds,
+      cluster1.args.cluster
+    ));
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
+
+    expect(await ssvViews.isLiquidated(updatedCluster.owner, updatedCluster.operatorIds, updatedCluster.cluster)).to.equal(true);
+    await expect(ssvViews.getBalance(helpers.DB.owners[4].address, updatedCluster.operatorIds, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvViews, 'ClusterIsLiquidated');
   });
 
   it('Check operator earnings, cluster balances and network earnings"', async () => {
