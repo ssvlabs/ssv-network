@@ -129,6 +129,8 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     function cancelDeclaredOperatorFee(uint64 operatorId) external;
 
+    function reduceOperatorFee(uint64 operatorId, uint256 fee) external;
+
     function setFeeRecipientAddress(address feeRecipientAddress) external;
 
     /********************************/
