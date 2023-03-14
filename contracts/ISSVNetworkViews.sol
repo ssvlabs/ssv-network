@@ -51,7 +51,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
         ISSVNetwork.Cluster memory cluster
     ) external view returns (bool);
 
-    function getClusterBurnRate(
+    function getBurnRate(
         address owner,
         uint64[] memory operatorIds,
         ISSVNetwork.Cluster memory cluster

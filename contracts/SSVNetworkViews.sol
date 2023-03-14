@@ -117,7 +117,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         return !cluster.active;
     }
 
-    function getClusterBurnRate(
+    function getBurnRate(
         address owner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
