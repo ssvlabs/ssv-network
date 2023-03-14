@@ -27,8 +27,6 @@ describe('Balance Tests', () => {
     // Set network fee
     await ssvNetworkContract.updateNetworkFee(networkFee);
 
-    console.log("1..", await ethers.provider.getBlockNumber());
-
     // Register validators
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
@@ -45,13 +43,9 @@ describe('Balance Tests', () => {
         active: true
       }
     );
-    console.log("2..", await ethers.provider.getBlockNumber());
-
 
     cluster1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     initNetworkFeeBalance = await ssvViews.getNetworkEarnings();
-    console.log("3..", await ethers.provider.getBlockNumber());
-
   });
 
   it('Check cluster balance in three blocks, one after the other', async () => {
@@ -182,7 +176,6 @@ describe('Balance Tests', () => {
     await ssvNetworkContract.updateNetworkFee(networkFee);
     await utils.progressBlocks(4);
 
-    console.log(await ethers.provider.getBlockNumber());
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 6 - burnPerBlock * 4);
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster2.args.operatorIds, cluster2.args.cluster)).to.equal(minDep2 - newBurnPerBlock * 3 - burnPerBlock * 4);
 
