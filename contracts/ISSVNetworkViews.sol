@@ -6,7 +6,6 @@ import "./SSVNetwork.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-
 interface ISSVNetworkViews is ISSVNetworkCore {
     /****************/
     /* Initializers */
@@ -17,6 +16,12 @@ interface ISSVNetworkViews is ISSVNetworkCore {
      * @param ssvNetwork_ The SSVNetwork contract.
      */
     function initialize(SSVNetwork ssvNetwork_) external;
+
+    /*************************************/
+    /* Validator External View Functions */
+    /*************************************/
+
+    function getValidator(bytes calldata publicKey) external view returns (address, bool);
 
     /************************************/
     /* Operator External View Functions */

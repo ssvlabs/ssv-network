@@ -632,4 +632,16 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetwork, 'ExceedValidatorLimit');
 
   });
+
+  it('Retrieve an existing validator', async () => {
+    const validator = await ssvViews.getValidator(helpers.DataGenerator.publicKey(90));
+    expect(validator[0]).to.be.equals(helpers.DB.owners[6].address);
+    expect(validator[1]).to.be.equals(true);
+  });
+
+  it('Retrieve a non-existing validator', async () => {
+    const validator = await ssvViews.getValidator(helpers.DataGenerator.publicKey(1));
+    expect(validator[0]).to.be.equals(ethers.constants.AddressZero);
+    expect(validator[1]).to.be.equals(false);
+  });
 });
