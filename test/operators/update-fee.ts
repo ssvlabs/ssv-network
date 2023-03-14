@@ -144,6 +144,18 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'ApprovalNotWithinTimeframe');
   });
 
+  it('Reduce fee emits "OperatorFeeExecuted"', async () => {
+    expect(await ssvNetworkContract.connect(helpers.DB.owners[2]).reduceOperatorFee(1, initialFee / 2)).to.emit(ssvNetworkContract, 'OperatorFeeExecuted');
+    expect(await ssvViews.getOperatorFee(1)).to.equal(initialFee / 2);
+
+    expect(await ssvNetworkContract.connect(helpers.DB.owners[2]).reduceOperatorFee(1, 0)).to.emit(ssvNetworkContract, 'OperatorFeeExecuted');
+    expect(await ssvViews.getOperatorFee(1)).to.equal(0);
+  });
+
+  it('Reduce fee with an increased value reverts "FeeIncreaseNotAllowed"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).reduceOperatorFee(1, initialFee * 2)).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeIncreaseNotAllowed');;
+  });
+
   //Dao
   it('DAO increase the fee emits "OperatorFeeIncreaseLimitUpdated"', async () => {
     await expect(ssvNetworkContract.updateOperatorFeeIncreaseLimit(1000

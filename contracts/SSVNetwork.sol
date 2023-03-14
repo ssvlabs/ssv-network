@@ -155,6 +155,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         _cancelDeclaredOperatorFee(operatorId, operators[operatorId]);
     }
 
+    function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
+        _reduceOperatorFee(operatorId, operators[operatorId], fee);
+    }
+
     function setFeeRecipientAddress(address recipientAddress) external override {
         emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
     }
@@ -719,7 +723,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         operator.updateSnapshot();
         operator.fee = feeChangeRequest.fee;
-
         operators[operatorId] = operator;
 
         delete operatorFeeChangeRequests[operatorId];
@@ -736,6 +739,21 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         delete operatorFeeChangeRequests[operatorId];
 
         emit OperatorFeeCancellationDeclared(msg.sender, operatorId);
+    }
+
+    function _reduceOperatorFee(
+        uint64 operatorId,
+        Operator memory operator,
+        uint256 fee
+    ) private onlyOperatorOwner(operator) {
+        uint64 shrunkAmount = fee.shrink();
+        if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
+
+        operator.updateSnapshot();
+        operator.fee = shrunkAmount;
+        operators[operatorId] = operator;
+
+        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
     /*****************************/
