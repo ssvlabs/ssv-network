@@ -634,12 +634,13 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
-    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPrivateOperator(
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(2),
-      helpers.CONFIG.minimalOperatorFee,
-      helpers.DB.owners[3].address
+      helpers.CONFIG.minimalOperatorFee
     ));
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
+
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(operatorId, helpers.DB.owners[3].address);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
@@ -658,12 +659,13 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register a non whitelisted validator reverts "CallerNotWhitelisted"', async () => {
-    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerPrivateOperator(
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(2),
-      helpers.CONFIG.minimalOperatorFee,
-      helpers.DB.owners[3].address
+      helpers.CONFIG.minimalOperatorFee
     ));
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
+
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(operatorId, helpers.DB.owners[3].address);
 
     await helpers.DB.ssvToken.approve(ssvNetworkContract.address, minDepositAmount);
     await expect(ssvNetworkContract.registerValidator(

@@ -15,14 +15,12 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param owner Operator's ethereum address that can collect fees.
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee Operator's fee.
-     * @param whitelisted Operator's whitelisted address.
      */
     event OperatorAdded(
         uint64 indexed operatorId,
         address indexed owner,
         bytes publicKey,
-        uint256 fee,
-        address whitelisted
+        uint256 fee
     );
 
     /**
@@ -134,18 +132,6 @@ interface ISSVNetwork is ISSVNetworkCore {
     /*******************************/
 
     /**
-     * @dev Registers a new private operator.
-     * @param publicKey Operator's public key. Used to encrypt secret shares of validators keys.
-     * @param fee operator's fee. When fee is set to zero (mostly for private operators), it can not be increased.
-     * @param whitelisted operator's whitelisted adress. Whitelisted operators are private.
-     */
-    function registerPrivateOperator(
-        bytes calldata publicKey,
-        uint256 fee,
-        address whitelisted
-    ) external returns (uint64);
-
-    /**
      * @dev Registers a new operator.
      * @param publicKey Operator's public key. Used to encrypt secret shares of validators keys.
      * @param fee operator's fee. When fee is set to zero (mostly for private operators), it can not be increased.
@@ -160,7 +146,7 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     function removeOperatorWhitelist(uint64 operatorId) external;
 
-    function updateOperatorWhitelist(uint64 operatorId, address whitelisted) external;
+    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external;
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external;
 

@@ -124,28 +124,32 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /* Operator External Functions */
     /*******************************/
 
-    function registerPrivateOperator(
-        bytes calldata publicKey,
-        uint256 fee,
-        address whitelisted
-    ) external override returns (uint64 id) {
-        return _registerOperator(publicKey, fee, whitelisted);
+    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
+            revert FeeTooLow();
+        }
+
+        lastOperatorId.increment();
+        id = uint64(lastOperatorId.current());
+        operators[id] = Operator({
+            owner: msg.sender,
+            snapshot: Snapshot({block: uint64(block.number), index: 0, balance: 0}),
+            validatorCount: 0,
+            fee: fee.shrink()
+        });
+        emit OperatorAdded(id, msg.sender, publicKey, fee);
     }
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
-        return _registerOperator(publicKey, fee, address(0));
+    function removeOperator(uint64 operatorId) external override {
+        _removeOperator(operatorId, operators[operatorId]);
     }
 
     function removeOperatorWhitelist(uint64 operatorId) external override {
         _removeOperatorWhitelist(operatorId, operators[operatorId]);
     }
 
-    function updateOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
-        _updateOperatorWhitelist(operatorId, whitelisted, operators[operatorId]);
-    }
-
-    function removeOperator(uint64 operatorId) external override {
-        _removeOperator(operatorId, operators[operatorId]);
+    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
+        _setOperatorWhitelist(operatorId, whitelisted, operators[operatorId]);
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
@@ -642,27 +646,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /* Operator Private Functions */
     /******************************/
 
-    function _registerOperator(bytes calldata publicKey, uint256 fee, address whitelisted) private returns (uint64 id) {
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
-            revert FeeTooLow();
-        }
-
-        lastOperatorId.increment();
-        id = uint64(lastOperatorId.current());
-        operators[id] = Operator({
-            owner: msg.sender,
-            snapshot: Snapshot({block: uint64(block.number), index: 0, balance: 0}),
-            validatorCount: 0,
-            fee: fee.shrink()
-        });
-
-        if (whitelisted != address(0)) {
-            operatorsWhitelist[id] = whitelisted;
-        }
-
-        emit OperatorAdded(id, msg.sender, publicKey, fee, whitelisted);
-    }
-
     function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
         _transfer(msg.sender, amount);
         emit OperatorWithdrawn(msg.sender, operatorId, amount);
@@ -703,6 +686,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         operators[operatorId] = operator;
 
+        if (operatorsWhitelist[operatorId] != address(0)) {
+            delete operatorsWhitelist[operatorId];
+        }
+
         if (currentBalance > 0) {
             _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
         }
@@ -717,7 +704,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         emit OperatorWhitelistRemoved(operatorId);
     }
 
-    function _updateOperatorWhitelist(
+    function _setOperatorWhitelist(
         uint64 operatorId,
         address whitelisted,
         Operator storage operator
