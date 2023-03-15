@@ -10,8 +10,4 @@ artifacts
 typechain-types/
 .openzeppelin/dev-*.json
 .DS_Store
-<<<<<<< Updated upstream
 .history
-=======
-.history
->>>>>>> Stashed changes
