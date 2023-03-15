@@ -227,8 +227,8 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         return _ssvNetwork.minimumBlocksBeforeLiquidation();
     }
 
-    function getMinimumLiquidationCollateral() external view override returns (uint64) {
-        return _ssvNetwork.minimumLiquidationCollateral();
+    function getMinimumLiquidationCollateral() external view override returns (uint256) {
+        return _ssvNetwork.minimumLiquidationCollateral().expand();
     }
 
     function getVersion() external view returns (string memory version) {

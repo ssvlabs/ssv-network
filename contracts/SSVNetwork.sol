@@ -85,7 +85,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_,
-        uint64 minimumLiquidationCollateral_
+        uint256 minimumLiquidationCollateral_
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
@@ -107,7 +107,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_,
-        uint64 minimumLiquidationCollateral_
+        uint256 minimumLiquidationCollateral_
     ) internal onlyInitializing {
         version = bytes32(abi.encodePacked(initialVersion_));
         _token = token_;
@@ -115,7 +115,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         declareOperatorFeePeriod = declareOperatorFeePeriod_;
         executeOperatorFeePeriod = executeOperatorFeePeriod_;
         minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        minimumLiquidationCollateral = minimumLiquidationCollateral_;
+        minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
         validatorsPerOperatorLimit = 2_000;
     }
 
@@ -634,8 +634,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         emit LiquidationThresholdPeriodUpdated(blocks);
     }
 
-    function updateMinimumLiquidationCollateral(uint64 amount) external override onlyOwner {
-        minimumLiquidationCollateral = amount;
+    function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
+        minimumLiquidationCollateral = amount.shrink();
         emit MinimumLiquidationCollateralUpdated(amount);
     }
 
