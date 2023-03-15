@@ -56,6 +56,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     uint64 public executeOperatorFeePeriod;
     uint64 public operatorMaxFeeIncrease;
     uint64 public minimumBlocksBeforeLiquidation;
+    uint64 public minimumLiquidationCollateral;
 
     DAO public dao;
     IERC20 private _token;
@@ -84,7 +85,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint256 minimumLiquidationCollateral_
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
@@ -94,7 +96,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             operatorMaxFeeIncrease_,
             declareOperatorFeePeriod_,
             executeOperatorFeePeriod_,
-            minimumBlocksBeforeLiquidation_
+            minimumBlocksBeforeLiquidation_,
+            minimumLiquidationCollateral_
         );
     }
 
@@ -104,7 +107,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint256 minimumLiquidationCollateral_
     ) internal onlyInitializing {
         version = bytes32(abi.encodePacked(initialVersion_));
         _token = token_;
@@ -112,6 +116,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         declareOperatorFeePeriod = declareOperatorFeePeriod_;
         executeOperatorFeePeriod = executeOperatorFeePeriod_;
         minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
         validatorsPerOperatorLimit = 2_000;
     }
 
@@ -263,7 +268,14 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         ++cluster.validatorCount;
 
-        if (cluster.isLiquidatable(burnRate, network_.networkFee, minimumBlocksBeforeLiquidation)) {
+        if (
+            cluster.isLiquidatable(
+                burnRate,
+                network_.networkFee,
+                minimumBlocksBeforeLiquidation,
+                minimumLiquidationCollateral
+            )
+        ) {
             revert InsufficientBalance();
         }
 
@@ -378,7 +390,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64 networkFee = network.networkFee;
         uint256 balanceLiquidatable;
 
-        if (owner != msg.sender && !cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation)) {
+        if (
+            owner != msg.sender &&
+            !cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation, minimumLiquidationCollateral)
+        ) {
             revert ClusterNotLiquidatable();
         }
 
@@ -454,7 +469,9 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             dao = dao_;
         }
 
-        if (cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation)) {
+        if (
+            cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation, minimumLiquidationCollateral)
+        ) {
             revert InsufficientBalance();
         }
 
@@ -537,7 +554,12 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         if (
             cluster.balance < amount ||
-            cluster.isLiquidatable(burnRate, network.networkFee, minimumBlocksBeforeLiquidation)
+            cluster.isLiquidatable(
+                burnRate,
+                network.networkFee,
+                minimumBlocksBeforeLiquidation,
+                minimumLiquidationCollateral
+            )
         ) {
             revert InsufficientBalance();
         }
@@ -620,6 +642,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         minimumBlocksBeforeLiquidation = blocks;
         emit LiquidationThresholdPeriodUpdated(blocks);
+    }
+
+    function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
+        minimumLiquidationCollateral = amount.shrink();
+        emit MinimumLiquidationCollateralUpdated(amount);
     }
 
     /********************************/

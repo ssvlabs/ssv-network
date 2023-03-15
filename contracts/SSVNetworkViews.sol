@@ -109,7 +109,13 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
             clusterIndex,
             NetworkLib.currentNetworkFeeIndex(Network(networkFee, networkFeeIndex, networkFeeIndexBlockNumber))
         );
-        return cluster.isLiquidatable(burnRate, networkFee, _ssvNetwork.minimumBlocksBeforeLiquidation());
+        return
+            cluster.isLiquidatable(
+                burnRate,
+                networkFee,
+                _ssvNetwork.minimumBlocksBeforeLiquidation(),
+                _ssvNetwork.minimumLiquidationCollateral()
+            );
     }
 
     function isLiquidated(
@@ -224,6 +230,10 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
 
     function getLiquidationThresholdPeriod() external view override returns (uint64) {
         return _ssvNetwork.minimumBlocksBeforeLiquidation();
+    }
+
+    function getMinimumLiquidationCollateral() external view override returns (uint256) {
+        return _ssvNetwork.minimumLiquidationCollateral().expand();
     }
 
     function getVersion() external view returns (string memory version) {

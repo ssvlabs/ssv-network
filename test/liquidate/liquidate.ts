@@ -53,7 +53,7 @@ describe('Liquidate Tests', () => {
     firstCluster = register.eventsByName.ValidatorAdded[0].args;
   });
 
-  it('Liquidate a cluster emits "ClusterLiquidated"', async () => {
+  it('Liquidate a cluster via liquidation threshold emits "ClusterLiquidated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
 
     await expect(ssvNetworkContract.liquidate(
@@ -64,7 +64,22 @@ describe('Liquidate Tests', () => {
       .to.emit(helpers.DB.ssvToken, 'Transfer').withArgs(
         ssvNetworkContract.address,
         helpers.DB.owners[0].address,
-        minDepositAmount - (helpers.CONFIG.minimalOperatorFee * 4 * 6571)
+        minDepositAmount - (helpers.CONFIG.minimalOperatorFee * 4 * (helpers.CONFIG.minimalBlocksBeforeLiquidation + 1))
+      );
+  });
+
+  it('Liquidate a cluster via minimum liquidation collateral emits "ClusterLiquidated"', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 2);
+
+    await expect(ssvNetworkContract.liquidate(
+      firstCluster.owner,
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    )).to.emit(ssvNetworkContract, 'ClusterLiquidated')
+      .to.emit(helpers.DB.ssvToken, 'Transfer').withArgs(
+        ssvNetworkContract.address,
+        helpers.DB.owners[0].address,
+        minDepositAmount - (helpers.CONFIG.minimalOperatorFee * 4 * (helpers.CONFIG.minimalBlocksBeforeLiquidation + 1 - 2))
       );
   });
 

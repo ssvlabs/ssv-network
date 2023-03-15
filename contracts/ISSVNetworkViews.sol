@@ -84,4 +84,6 @@ interface ISSVNetworkViews is ISSVNetworkCore {
     function getDeclaredOperatorFeePeriod() external view returns (uint64);
 
     function getLiquidationThresholdPeriod() external view returns (uint64);
+
+    function getMinimumLiquidationCollateral() external view returns (uint256);
 }
