@@ -33,7 +33,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
 
     function getOperatorById(
         uint64 operatorId
-    ) external view returns (address owner, uint256 fee, uint32 validatorCount, bool active);
+    ) external view returns (address owner, uint256 fee, uint32 validatorCount, bool isPrivate, bool active);
 
     /*******************************/
     /* Cluster External View Functions */
@@ -61,7 +61,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
     /* Balance External View Functions */
     /***********************************/
 
-    function getOperatorEarnings(uint64 id) external view returns (uint256);
+    function getOperatorEarnings(uint64 operatorId) external view returns (uint256);
 
     function getBalance(
         address owner,

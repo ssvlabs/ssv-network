@@ -60,6 +60,7 @@ interface ISSVNetworkCore {
     /**********/
 
     error CallerNotOwner();
+    error CallerNotWhitelisted();
     error FeeTooLow();
     error FeeExceedsIncreaseLimit();
     error NoFeeDelcared();

@@ -633,6 +633,56 @@ describe('Register Validator Tests', () => {
 
   });
 
+  it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(2),
+      helpers.CONFIG.minimalOperatorFee
+    ));
+    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
+
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(operatorId, helpers.DB.owners[3].address);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, operatorId],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    )).to.emit(ssvNetworkContract, 'ValidatorAdded');
+  });
+
+  it('Register a non whitelisted validator reverts "CallerNotWhitelisted"', async () => {
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(2),
+      helpers.CONFIG.minimalOperatorFee
+    ));
+    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
+
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(operatorId, helpers.DB.owners[3].address);
+
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, minDepositAmount);
+    await expect(ssvNetworkContract.registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, operatorId],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotWhitelisted');
+  });
+
   it('Retrieve an existing validator', async () => {
     const validator = await ssvViews.getValidator(helpers.DataGenerator.publicKey(90));
     expect(validator[0]).to.be.equals(helpers.DB.owners[6].address);

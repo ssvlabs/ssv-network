@@ -35,12 +35,11 @@ describe('Deposit Tests', () => {
         active: true
       }
     );
-
     // Register validators
     cluster1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('Deposit to a non liquidated cluster I own emits "ClusterDeposited', async () => {
+  it('Deposit to a non liquidated cluster I own emits "ClusterDeposited"', async () => {
     expect(await ssvViews.isLiquidated(cluster1.args.owner, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(false);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).deposit(

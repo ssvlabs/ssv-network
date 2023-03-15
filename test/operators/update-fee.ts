@@ -97,8 +97,7 @@ describe('Operator Fee Tests', () => {
   it('Declare fee after registering an operator with zero fee reverts "ZeroFeeIncreaseNotAllowed"', async () => {
     await ssvNetworkContract.connect(helpers.DB.owners[2]).registerOperator(
       helpers.DataGenerator.publicKey(0),
-      0,
-    );
+      0);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(2, initialFee + initialFee / 10
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'ZeroFeeIncreaseNotAllowed');
   });

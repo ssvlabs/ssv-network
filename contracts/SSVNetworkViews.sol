@@ -64,14 +64,19 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         return (fee.expand(), approvalBeginTime, approvalEndTime);
     }
 
-    function getOperatorById(uint64 operatorId) external view override returns (address, uint256, uint32, bool) {
-        (address operatorOwner, uint64 fee, uint32 validatorCount, Snapshot memory snapshot) = _ssvNetwork.operators(
-            operatorId
-        );
-        bool active;
-        if (snapshot.block != 0) active = true;
+    function getOperatorById(
+        uint64 operatorId
+    ) external view override returns (address, uint256, uint32, bool, bool) {
+        (
+            address operatorOwner,
+            uint64 fee,
+            uint32 validatorCount,
+            Snapshot memory snapshot
+        ) = _ssvNetwork.operators(operatorId);
+        bool isPrivate = _ssvNetwork.operatorsWhitelist(operatorId) == address(0) ? false : true;
+        bool isActive = snapshot.block == 0 ? false : true;
 
-        return (operatorOwner, fee.expand(), validatorCount, active);
+        return (operatorOwner, fee.expand(), validatorCount, isPrivate, isActive);
     }
 
     /***********************************/

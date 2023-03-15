@@ -43,9 +43,9 @@ export const DataGenerator = {
 
       const result = [];
       for (const operator of DB.operators) {
-        if (operator && !usedOperatorIds[operator.id]) {
-          result.push(operator.id);
-          usedOperatorIds[operator.id] = true;
+        if (operator && !usedOperatorIds[operator.operatorId]) {
+          result.push(operator.operatorId);
+          usedOperatorIds[operator.operatorId] = true;
 
           if (result.length == size) {
             break;
@@ -134,8 +134,8 @@ export const registerOperators = async (ownerId: number, numberOfOperators: numb
       gasGroups
     );
     const event = eventsByName.OperatorAdded[0];
-    DB.operators[event.args.id] = {
-      id: event.args.id, ownerId: ownerId, publicKey: DataGenerator.publicKey(i)
+    DB.operators[event.args.operatorId] = {
+      operatorId: event.args.operatorId, ownerId: ownerId, publicKey: DataGenerator.publicKey(i)
     };
   }
 };

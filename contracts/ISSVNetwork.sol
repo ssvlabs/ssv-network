@@ -11,18 +11,30 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     /**
      * @dev Emitted when a new operator has been added.
-     * @param id operator's ID.
+     * @param operatorId operator's ID.
      * @param owner Operator's ethereum address that can collect fees.
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee Operator's fee.
      */
-    event OperatorAdded(uint64 indexed id, address indexed owner, bytes publicKey, uint256 fee);
+    event OperatorAdded(
+        uint64 indexed operatorId,
+        address indexed owner,
+        bytes publicKey,
+        uint256 fee
+    );
 
     /**
      * @dev Emitted when operator has been removed.
-     * @param id operator's ID.
+     * @param operatorId operator's ID.
      */
-    event OperatorRemoved(uint64 indexed id);
+    event OperatorRemoved(uint64 indexed operatorId);
+
+    /**
+     * @dev Emitted when the whitelist of an operator is updated.
+     * @param operatorId operator's ID.
+     * @param whitelisted operator's new whitelisted address.
+     */
+    event OperatorWhitelistUpdated(uint64 indexed operatorId, address whitelisted);
 
     /**
      * @dev Emitted when the validator has been added.
@@ -84,7 +96,10 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
-    event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress);
+    event FeeRecipientAddressUpdated(
+        address indexed owner,
+        address recipientAddress
+    );
 
     /****************/
     /* Initializers */
@@ -119,9 +134,11 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     /**
      * @dev Removes an operator.
-     * @param id Operator's id.
+     * @param operatorId Operator's id.
      */
-    function removeOperator(uint64 id) external;
+    function removeOperator(uint64 operatorId) external;
+
+    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external;
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external;
 
