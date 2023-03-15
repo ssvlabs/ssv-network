@@ -144,10 +144,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         _removeOperator(operatorId, operators[operatorId]);
     }
 
-    function removeOperatorWhitelist(uint64 operatorId) external override {
-        _removeOperatorWhitelist(operatorId, operators[operatorId]);
-    }
-
     function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
         _setOperatorWhitelist(operatorId, whitelisted, operators[operatorId]);
     }
@@ -694,14 +690,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
         }
         emit OperatorRemoved(operatorId);
-    }
-
-    function _removeOperatorWhitelist(
-        uint64 operatorId,
-        Operator storage operator
-    ) private onlyOperatorOwner(operator) {
-        delete operatorsWhitelist[operatorId];
-        emit OperatorWhitelistRemoved(operatorId);
     }
 
     function _setOperatorWhitelist(

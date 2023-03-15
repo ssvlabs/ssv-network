@@ -30,12 +30,6 @@ interface ISSVNetwork is ISSVNetworkCore {
     event OperatorRemoved(uint64 indexed operatorId);
 
     /**
-     * @dev Emitted when the whitelist of an operator is removed.
-     * @param operatorId operator's ID.
-     */
-    event OperatorWhitelistRemoved(uint64 indexed operatorId);
-
-    /**
      * @dev Emitted when the whitelist of an operator is updated.
      * @param operatorId operator's ID.
      * @param whitelisted operator's new whitelisted address.
@@ -143,8 +137,6 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param operatorId Operator's id.
      */
     function removeOperator(uint64 operatorId) external;
-
-    function removeOperatorWhitelist(uint64 operatorId) external;
 
     function setOperatorWhitelist(uint64 operatorId, address whitelisted) external;
 

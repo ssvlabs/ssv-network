@@ -44,9 +44,9 @@ describe('Others Operator Tests', () => {
 
     await ssvNetworkContract.setOperatorWhitelist(operatorId, helpers.DB.owners[2].address);
 
-    await expect(ssvNetworkContract.removeOperatorWhitelist(operatorId))
-      .to.emit(ssvNetworkContract, 'OperatorWhitelistRemoved')
-      .withArgs(operatorId);
+    await expect(ssvNetworkContract.setOperatorWhitelist(operatorId, ethers.constants.AddressZero))
+      .to.emit(ssvNetworkContract, 'OperatorWhitelistUpdated')
+      .withArgs(operatorId, ethers.constants.AddressZero);
   });
 
   it('Non-owner remove operator whitelisted address reverts "CallerNotOwner"', async () => {
@@ -58,7 +58,7 @@ describe('Others Operator Tests', () => {
 
     await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(operatorId, helpers.DB.owners[2].address);
 
-    await expect(ssvNetworkContract.removeOperatorWhitelist(operatorId))
+    await expect(ssvNetworkContract.setOperatorWhitelist(operatorId, ethers.constants.AddressZero))
       .to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
   });
 
