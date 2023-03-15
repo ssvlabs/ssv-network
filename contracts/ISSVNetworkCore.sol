@@ -83,4 +83,5 @@ interface ISSVNetworkCore {
     error SameFeeChangeNotAllowed();
     error ZeroFeeIncreaseNotAllowed();
     error FeeIncreaseNotAllowed();
+    error NewCollateralIsBelowMinimum();
 }

@@ -22,11 +22,15 @@ describe('Liquidation Collateral Tests', () => {
       .withArgs(helpers.CONFIG.minimumLiquidationCollateral * 2);
   });
 
-  it('Get liquidation threshold period', async () => {
+  it('Get minimum collateral', async () => {
     expect(await ssvViews.getMinimumLiquidationCollateral()).to.equal(helpers.CONFIG.minimumLiquidationCollateral);
   });
 
-  it('Change liquidation threshold period reverts "caller is not the owner"', async () => {
+  it('Change minimum collateral reverts "NewCollateralIsBelowMinimum"', async () => {
+    await expect(ssvNetworkContract.updateMinimumLiquidationCollateral(10)).to.be.revertedWithCustomError(ssvNetworkContract, 'NewCollateralIsBelowMinimum');
+  });
+
+  it('Change minimum collateral reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).updateMinimumLiquidationCollateral(helpers.CONFIG.minimumLiquidationCollateral * 2))
     .to.be.revertedWith('Ownable: caller is not the owner');
   });
