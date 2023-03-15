@@ -32,6 +32,15 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         _ssvNetwork = ssvNetwork_;
     }
 
+    /*************************************/
+    /* Validator External View Functions */
+    /*************************************/
+
+    function getValidator(bytes calldata publicKey) external view override returns (address, bool) {
+        (address owner, bool active) = _ssvNetwork._validatorPKs(keccak256(publicKey));
+        return (owner, active);
+    }
+
     /************************************/
     /* Operator External View Functions */
     /************************************/
@@ -113,7 +122,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         return !cluster.active;
     }
 
-    function getClusterBurnRate(
+    function getBurnRate(
         address owner,
         uint64[] calldata operatorIds,
         Cluster memory cluster

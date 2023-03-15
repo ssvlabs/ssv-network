@@ -46,7 +46,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     mapping(uint64 => address) public operatorsWhitelist;
     mapping(uint64 => OperatorFeeChangeRequest) public operatorFeeChangeRequests;
     mapping(bytes32 => bytes32) public clusters;
-    mapping(bytes32 => Validator) private _validatorPKs;
+    //TODO Change the name to be public
+    mapping(bytes32 => Validator) public _validatorPKs;
 
     bytes32 public version;
 
@@ -158,6 +159,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
     function cancelDeclaredOperatorFee(uint64 operatorId) external override {
         _cancelDeclaredOperatorFee(operatorId, operators[operatorId]);
+    }
+
+    function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
+        _reduceOperatorFee(operatorId, operators[operatorId], fee);
     }
 
     function setFeeRecipientAddress(address recipientAddress) external override {
@@ -742,7 +747,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         operator.updateSnapshot();
         operator.fee = feeChangeRequest.fee;
-
         operators[operatorId] = operator;
 
         delete operatorFeeChangeRequests[operatorId];
@@ -759,6 +763,21 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         delete operatorFeeChangeRequests[operatorId];
 
         emit OperatorFeeCancellationDeclared(msg.sender, operatorId);
+    }
+
+    function _reduceOperatorFee(
+        uint64 operatorId,
+        Operator memory operator,
+        uint256 fee
+    ) private onlyOperatorOwner(operator) {
+        uint64 shrunkAmount = fee.shrink();
+        if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
+
+        operator.updateSnapshot();
+        operator.fee = shrunkAmount;
+        operators[operatorId] = operator;
+
+        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
     /*****************************/

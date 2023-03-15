@@ -403,7 +403,7 @@ describe('Register Validator Tests', () => {
     await ssvNetworkContract.updateNetworkFee(networkFee);
 
     let clusterData = cluster1.eventsByName.ValidatorAdded[0].args.cluster;
-    expect(await ssvViews.getClusterBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal((helpers.CONFIG.minimalOperatorFee * 4) + networkFee);
+    expect(await ssvViews.getBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal((helpers.CONFIG.minimalOperatorFee * 4) + networkFee);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     const validator2 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
@@ -414,12 +414,12 @@ describe('Register Validator Tests', () => {
       clusterData
     ));
     clusterData = validator2.eventsByName.ValidatorAdded[0].args.cluster;
-    expect(await ssvViews.getClusterBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal(((helpers.CONFIG.minimalOperatorFee * 4) + networkFee) * 2);
+    expect(await ssvViews.getBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal(((helpers.CONFIG.minimalOperatorFee * 4) + networkFee) * 2);
   });
 
   it('Get cluster burn rate when one of the operators does not exsit', async () => {
     const clusterData = cluster1.eventsByName.ValidatorAdded[0].args.cluster;
-    await expect(ssvViews.getClusterBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 41], clusterData)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
+    await expect(ssvViews.getBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 41], clusterData)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
 
   it('Register validator with incorrect input data reverts "IncorrectClusterState"', async () => {
@@ -681,5 +681,17 @@ describe('Register Validator Tests', () => {
         active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotWhitelisted');
+  });
+
+  it('Retrieve an existing validator', async () => {
+    const validator = await ssvViews.getValidator(helpers.DataGenerator.publicKey(90));
+    expect(validator[0]).to.be.equals(helpers.DB.owners[6].address);
+    expect(validator[1]).to.be.equals(true);
+  });
+
+  it('Retrieve a non-existing validator', async () => {
+    const validator = await ssvViews.getValidator(helpers.DataGenerator.publicKey(1));
+    expect(validator[0]).to.be.equals(ethers.constants.AddressZero);
+    expect(validator[1]).to.be.equals(false);
   });
 });
