@@ -15,7 +15,7 @@ describe('Deployment tests', () => {
     it('Test initial deployment of SSVNetwork and SSVNetworkViews', async () => {
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
-            CONFIG.minimalOperatorFee,
+            CONFIG.minimalOperatorFee
         );
 
         expect((await ssvNetworkViews.getOperatorById(1))[0]).to.equal(DB.owners[1].address); // owner
@@ -31,8 +31,7 @@ describe('Deployment tests', () => {
     it('Upgrade SSVNetwork contract. Check new function execution', async () => {
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
-            CONFIG.minimalOperatorFee,
-        );
+            CONFIG.minimalOperatorFee);
 
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, { kind: 'uups' });
@@ -95,8 +94,7 @@ describe('Deployment tests', () => {
     it('Upgrade SSVNetworkViews contract. Check new function execution', async () => {
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
-            CONFIG.minimalOperatorFee,
-        );
+            CONFIG.minimalOperatorFee);
 
         const SSVNetworkViewsBasicUpgrade = await ethers.getContractFactory("SSVNetworkViewsBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkViews.address, SSVNetworkViewsBasicUpgrade, { kind: 'uups' });

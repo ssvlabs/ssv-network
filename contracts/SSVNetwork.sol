@@ -43,6 +43,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /*************/
 
     mapping(uint64 => Operator) public operators;
+    mapping(uint64 => address) public operatorsWhitelist;
     mapping(uint64 => OperatorFeeChangeRequest) public operatorFeeChangeRequests;
     mapping(bytes32 => bytes32) public clusters;
     //TODO Change the name to be public
@@ -149,6 +150,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         _removeOperator(operatorId, operators[operatorId]);
     }
 
+    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
+        _setOperatorWhitelist(operatorId, whitelisted, operators[operatorId]);
+    }
+
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         _declareOperatorFee(operatorId, operators[operatorId], fee);
     }
@@ -236,6 +241,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 Operator memory operator = operators[operatorIds[i]];
                 if (operator.snapshot.block == 0) {
                     revert OperatorDoesNotExist();
+                }
+                if (
+                    operatorsWhitelist[operatorIds[i]] != address(0) && operatorsWhitelist[operatorIds[i]] != msg.sender
+                ) {
+                    revert CallerNotWhitelisted();
                 }
                 operator.updateSnapshot();
                 if (++operator.validatorCount > validatorsPerOperatorLimit) {
@@ -528,7 +538,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         {
             uint operatorsLength = operatorIds.length;
             for (uint i; i < operatorsLength; ) {
-                Operator memory operator = operators[operatorIds[i]];
+                Operator storage operator = operators[operatorIds[i]];
                 clusterIndex +=
                     operator.snapshot.index +
                     (uint64(block.number) - operator.snapshot.block) *
@@ -704,10 +714,23 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         operators[operatorId] = operator;
 
+        if (operatorsWhitelist[operatorId] != address(0)) {
+            delete operatorsWhitelist[operatorId];
+        }
+
         if (currentBalance > 0) {
             _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
         }
         emit OperatorRemoved(operatorId);
+    }
+
+    function _setOperatorWhitelist(
+        uint64 operatorId,
+        address whitelisted,
+        Operator storage operator
+    ) private onlyOperatorOwner(operator) {
+        operatorsWhitelist[operatorId] = whitelisted;
+        emit OperatorWhitelistUpdated(operatorId, whitelisted);
     }
 
     function _declareOperatorFee(
