@@ -46,7 +46,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     mapping(uint64 => Operator) public operators;
     mapping(uint64 => OperatorFeeChangeRequest) public operatorFeeChangeRequests;
     mapping(bytes32 => bytes32) public clusters;
-    mapping(bytes32 => Validator) private _validatorPKs;
+    //TODO Change the name to be public
+    mapping(bytes32 => Validator) public _validatorPKs;
 
     bytes32 public version;
 
