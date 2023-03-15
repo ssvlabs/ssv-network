@@ -57,6 +57,7 @@ describe('Deployment tests', () => {
             2000000,
             2000000,
             2000000,
+            2000000,
             2000000)).to.be.revertedWith('Function must be called through delegatecall');
     });
 

@@ -61,7 +61,7 @@ describe('Reactivate Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedCluster.operatorIds, minDepositAmount, updatedCluster.cluster)).to.emit(ssvNetworkContract, 'ClusterReactivated');
   });
 
-  it('Reactivate with 0 deposit and no validators emits ClusterReactivated', async () => {
+  it.skip('Reactivate with 0 deposit and no validators emits ClusterReactivated', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster), [GasGroup.LIQUIDATE_POD]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;

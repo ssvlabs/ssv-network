@@ -22,8 +22,11 @@ library ClusterLib {
         ISSVNetworkCore.Cluster memory cluster,
         uint64 burnRate,
         uint64 networkFee,
-        uint64 minimumBlocksBeforeLiquidation
+        uint64 minimumBlocksBeforeLiquidation,
+        uint64 minimumLiquidationCollateral
     ) internal pure returns (bool) {
+        if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
+
         uint64 liquidationThreshold = minimumBlocksBeforeLiquidation * (burnRate + networkFee) * cluster.validatorCount;
         return cluster.balance < liquidationThreshold.expand();
     }

@@ -65,6 +65,8 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     event LiquidationThresholdPeriodUpdated(uint64 value);
 
+    event MinimumLiquidationCollateralUpdated(uint64 value);
+
     /**
      * @dev Emitted when the network fee is updated.
      * @param oldFee The old fee
@@ -103,7 +105,8 @@ interface ISSVNetwork is ISSVNetworkCore {
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 minimumBlocksBeforeLiquidation_
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint64 minimumLiquidationCollateral_
     ) external;
 
     /*******************************/
@@ -182,4 +185,6 @@ interface ISSVNetwork is ISSVNetworkCore {
     function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external;
+
+    function updateMinimumLiquidationCollateral(uint64 amount) external;
 }
