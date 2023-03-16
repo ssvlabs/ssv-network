@@ -46,8 +46,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     mapping(uint64 => address) public operatorsWhitelist;
     mapping(uint64 => OperatorFeeChangeRequest) public operatorFeeChangeRequests;
     mapping(bytes32 => bytes32) public clusters;
-    //TODO Change the name to be public
-    mapping(bytes32 => Validator) public _validatorPKs;
+    mapping(bytes32 => Validator) public validatorPKs;
 
     bytes32 public version;
 
@@ -189,10 +188,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         _validateOperatorIds(operatorsLength);
         _validatePublicKey(publicKey);
 
-        if (_validatorPKs[keccak256(publicKey)].owner != address(0)) {
+        if (validatorPKs[keccak256(publicKey)].owner != address(0)) {
             revert ValidatorAlreadyExists();
         }
-        _validatorPKs[keccak256(publicKey)] = Validator({owner: msg.sender, active: true});
+        validatorPKs[keccak256(publicKey)] = Validator({owner: msg.sender, active: true});
 
         bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
 
@@ -302,7 +301,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         Cluster memory cluster
     ) external override {
         bytes32 hashedValidator = keccak256(publicKey);
-        address validatorOwner = _validatorPKs[hashedValidator].owner;
+        address validatorOwner = validatorPKs[hashedValidator].owner;
         if (validatorOwner == address(0)) {
             revert ValidatorDoesNotExist();
         }
@@ -345,7 +344,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         --cluster.validatorCount;
 
-        delete _validatorPKs[hashedValidator];
+        delete validatorPKs[hashedValidator];
 
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(

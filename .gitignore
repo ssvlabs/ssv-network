@@ -10,3 +10,4 @@ artifacts
 typechain-types/
 .openzeppelin/dev-*.json
 .DS_Store
+.history
