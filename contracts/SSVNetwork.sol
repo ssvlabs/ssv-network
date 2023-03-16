@@ -29,7 +29,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /* Constants */
     /*************/
 
-    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 6_570;
+    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
     uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
 
     /********************/
@@ -744,7 +744,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         if (operatorFee == shrunkFee) {
             revert SameFeeChangeNotAllowed();
         } else if (shrunkFee != 0 && operatorFee == 0) {
-            revert ZeroFeeIncreaseNotAllowed();
+            revert FeeIncreaseNotAllowed();
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
