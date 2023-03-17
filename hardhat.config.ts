@@ -7,7 +7,8 @@ import 'hardhat-tracer';
 import '@nomiclabs/hardhat-solhint';
 import 'hardhat-contract-sizer';
 import 'hardhat-storage-layout-changes';
-import './tasks/deploy-all'
+import './tasks/deploy'
+import './tasks/validate'
 import './tasks/upgrade-ssvnetwork'
 import './tasks/upgrade-ssvnetworkviews'
 

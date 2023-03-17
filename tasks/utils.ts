@@ -8,12 +8,7 @@ export const generateABI = async (hre: any, contractNames: string[], contractAdd
         for (let i = 0; i < contractNames.length; i++) {
             const { abi, contractName } = await hre.artifacts.readArtifact(contractNames[i]);
 
-            const metadata = {
-                address: contractAddresses[i],
-                abi
-            };
-
-            await fs.writeFile(`abi/${contractName}.json`, `${JSON.stringify(metadata, null, 2)}\n`, { flag: 'w' });
+            await fs.writeFile(`abi/${contractName}.json`, `${JSON.stringify(abi, null, 2)}\n`, { flag: 'w' });
         }
     }
 }

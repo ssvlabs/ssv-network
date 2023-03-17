@@ -3,9 +3,9 @@ import { generateABI } from "./utils";
 
 task("deploy:all", "Deploy SSVNetwork and SSVNetworkViews contracts")
     .addParam("tag", "Version of the contract")
-    .setAction(async ({ tag: version }, hre) => {
+    .setAction(async ({ tag }, hre) => {
         try {
-            const ssvTokenAddress = process.env.SSVTOKEN_ADDRESS;
+            const ssvTokenAddress = process.env.SSV_TOKEN_ADDRESS;
 
             const [deployer] = await ethers.getSigners();
             console.log(`Deploying contracts with the account:${deployer.address}`);
@@ -14,12 +14,13 @@ task("deploy:all", "Deploy SSVNetwork and SSVNetworkViews contracts")
             const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
             console.log(`Deploying SSVNetwork with ssvToken ${ssvTokenAddress}`);
             const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [
-                version,
+                tag,
                 ssvTokenAddress,
                 process.env.OPERATOR_MAX_FEE_INCREASE,
                 process.env.DECLARE_OPERATOR_FEE_PERIOD,
                 process.env.EXECUTE_OPERATOR_FEE_PERIOD,
-                process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION
+                process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+                process.env.MINIMUM_LIQUIDATION_COLLATERAL
             ],
                 {
                     kind: "uups"

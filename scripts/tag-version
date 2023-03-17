@@ -127,21 +127,15 @@ cd "${REPO_DIR}"
 if [ "$BRANCH" == "" ]; then
     conditional_echo "-- ERROR: BRANCH option is mandatory."
     exit 1
-elif [[ "$BRANCH" != "stage" && "$BRANCH" != "main" ]]; then
-    conditional_echo "-- ERROR: Wrong branch. Possible values: [stage | main] "
+elif [[ "$BRANCH" != "stage" && "$BRANCH" != "testnet" && "$BRANCH" != "main" ]]; then
+    conditional_echo "-- ERROR: Wrong branch. Possible values: [stage | testnet | main] "
     exit 1
 fi
 
 # Get current active branch
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-# Switch to production branch
-if [ $CURRENT_BRANCH != "$BRANCH" ]; then
-    conditional_echo "- Switching from $CURRENT_BRANCH to $BRANCH branch. (stashing any local change)"
-    # stash any current work
-    git stash "${GITPARAMS[@]}"
-    # go to the production branch
-    git checkout $BRANCH "${GITPARAMS[@]}"
-fi
+
+git checkout $BRANCH "${GITPARAMS[@]}"
 
 conditional_echo "- Updating local $BRANCH branch."
 # pull latest version of production branch
@@ -203,12 +197,16 @@ if [ -z "$NEEDSTAG" ]; then
             RC_SUFFIX=$(echo $PREVIOUS_TAG | sed -n 's/.*-rc\.\([[:digit:]]\{1,\}\)$/\1/p')
             NEW_RC_SUFFIX=$((RC_SUFFIX + 1))
             NEWTAG="v${VNUM1}.${VNUM2}.${VNUM3}-rc.${NEW_RC_SUFFIX}"
+        elif [[ $PREVIOUS_RELEASE == "v${VNUM1}.${VNUM2}.${VNUM3}" ]]; then
+            NEWTAG="v${VNUM1}.${VNUM2}.$((VNUM3 + 1))-rc.0"
         else
             NEWTAG="v${VNUM1}.${VNUM2}.${VNUM3}-rc.0"
         fi
-    elif [ "$BRANCH" == "main" ]; then
+    elif [[ "$BRANCH" == "main" || "$BRANCH" == "testnet" ]]; then
         if [[ $PREVIOUS_RELEASE == "v${VNUM1}.${VNUM2}.${VNUM3}-rc"* ]]; then
             NEWTAG="v${VNUM1}.${VNUM2}.${VNUM3}"
+        elif [[ $PREVIOUS_RELEASE == "v${VNUM1}.${VNUM2}.${VNUM3}" ]]; then
+            NEWTAG="v${VNUM1}.${VNUM2}.$((VNUM3 + 1))"
         else
             NEWTAG="v${VNUM1}.${VNUM2}.${VNUM3}"
         fi
@@ -245,12 +243,6 @@ else
     exit 1
 fi
 
-# Switch to back to original branch
-if [ $CURRENT_BRANCH != "$BRANCH" ]; then
-    conditional_echo "- Switching back to $CURRENT_BRANCH branch. (restoring local changes)"
-    git checkout "$CURRENT_BRANCH" "${GITPARAMS[@]}"
-    # remove the stash
-    git stash pop "${GITPARAMS[@]}"
-fi
+git checkout "$CURRENT_BRANCH" "${GITPARAMS[@]}"
 
 export TAGVERSION=$NEWTAG
