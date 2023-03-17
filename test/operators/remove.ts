@@ -22,7 +22,6 @@ describe('Remove Operator Tests', () => {
       '1000000000000000',
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -34,6 +33,21 @@ describe('Remove Operator Tests', () => {
   it('Remove operator emits "OperatorRemoved"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(1))
       .to.emit(ssvNetworkContract, 'OperatorRemoved').withArgs(1);
+  });
+
+  it('Remove private operator emits "OperatorRemoved"', async () => {
+    const result = await trackGas(ssvNetworkContract.registerOperator(
+      helpers.DataGenerator.publicKey(0),
+      helpers.CONFIG.minimalOperatorFee
+    ));
+    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
+
+    await ssvNetworkContract.setOperatorWhitelist(operatorId, helpers.DB.owners[2].address);
+
+    await expect(ssvNetworkContract.removeOperator(operatorId))
+      .to.emit(ssvNetworkContract, 'OperatorRemoved').withArgs(operatorId);
+
+    expect(await ssvNetworkContract.operatorsWhitelist(operatorId)).to.be.equals(ethers.constants.AddressZero);
   });
 
   it('Remove operator gas limits', async () => {

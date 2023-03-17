@@ -1,6 +1,6 @@
-// File: contracts/ISSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.16;
+pragma solidity 0.8.18;
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetworkCore {
@@ -60,6 +60,7 @@ interface ISSVNetworkCore {
     /**********/
 
     error CallerNotOwner();
+    error CallerNotWhitelisted();
     error FeeTooLow();
     error FeeExceedsIncreaseLimit();
     error NoFeeDelcared();
@@ -72,7 +73,6 @@ interface ISSVNetworkCore {
     error InvalidPublicKeyLength();
     error InvalidOperatorIdsLength();
     error ValidatorOwnedByOtherAddress();
-    error InsufficientFunds();
     error ClusterAlreadyEnabled();
     error ClusterIsLiquidated();
     error ClusterDoesNotExists();
@@ -82,5 +82,5 @@ interface ISSVNetworkCore {
     error ExceedValidatorLimit();
     error TokenTransferFailed();
     error SameFeeChangeNotAllowed();
-    error ZeroFeeIncreaseNotAllowed();
+    error FeeIncreaseNotAllowed();
 }

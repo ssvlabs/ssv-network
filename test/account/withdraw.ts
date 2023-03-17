@@ -27,7 +27,6 @@ describe('Withdraw Tests', () => {
       '1000000000000000',
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -73,6 +72,11 @@ describe('Withdraw Tests', () => {
 
   it('Withdraw from a liquidatable cluster reverts "InsufficientBalance"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
+  });
+
+  it('Withdraw from a liquidatable cluster after liquidatrion period reverts "InsufficientBalance"', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 

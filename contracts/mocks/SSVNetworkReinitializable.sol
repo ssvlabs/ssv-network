@@ -1,13 +1,13 @@
 // File: contracts/SSVRegistry.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.16;
+pragma solidity 0.8.18;
 
 import "../SSVNetwork.sol";
 
 contract SSVNetworkReinitializable is SSVNetwork {
     uint256 public count;
 
-    function initializeV2() reinitializer(2) public {
+    function initializeV2() public reinitializer(2) {
         count = 100;
     }
 }

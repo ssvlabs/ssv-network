@@ -1,5 +1,6 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
+import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
@@ -26,7 +27,6 @@ describe('Register Validator Tests', () => {
       '1000000000000000',
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -44,7 +44,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -62,7 +61,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -80,7 +78,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -109,7 +106,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -136,7 +132,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -154,7 +149,6 @@ describe('Register Validator Tests', () => {
       `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -183,7 +177,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -201,7 +194,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -230,7 +222,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -257,7 +248,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -275,7 +265,6 @@ describe('Register Validator Tests', () => {
       `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -304,7 +293,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -322,7 +310,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -351,7 +338,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -378,7 +364,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -396,7 +381,6 @@ describe('Register Validator Tests', () => {
       `${minDepositAmount * 2}`,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -419,7 +403,7 @@ describe('Register Validator Tests', () => {
     await ssvNetworkContract.updateNetworkFee(networkFee);
 
     let clusterData = cluster1.eventsByName.ValidatorAdded[0].args.cluster;
-    expect(await ssvViews.getClusterBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal((helpers.CONFIG.minimalOperatorFee * 4) + networkFee);
+    expect(await ssvViews.getBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal((helpers.CONFIG.minimalOperatorFee * 4) + networkFee);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     const validator2 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
@@ -430,12 +414,12 @@ describe('Register Validator Tests', () => {
       clusterData
     ));
     clusterData = validator2.eventsByName.ValidatorAdded[0].args.cluster;
-    expect(await ssvViews.getClusterBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal(((helpers.CONFIG.minimalOperatorFee * 4) + networkFee) * 2);
+    expect(await ssvViews.getBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal(((helpers.CONFIG.minimalOperatorFee * 4) + networkFee) * 2);
   });
 
   it('Get cluster burn rate when one of the operators does not exsit', async () => {
     const clusterData = cluster1.eventsByName.ValidatorAdded[0].args.cluster;
-    await expect(ssvViews.getClusterBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 41], clusterData)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
+    await expect(ssvViews.getBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 41], clusterData)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
 
   it('Register validator with incorrect input data reverts "IncorrectClusterState"', async () => {
@@ -447,7 +431,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -462,11 +445,28 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 2,
-        networkFee: 10,
-        networkFeeIndex: 0,
+        networkFeeIndex: 10,
         index: 0,
         balance: 0,
         active: true
+      }
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
+  });
+
+  it('Register validator in a new cluster with incorrect input data reverts "IncorrectClusterState"', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(3),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 2,
+        networkFee: 10,
+        networkFeeIndex: 10,
+        index: 10,
+        balance: 10,
+        active: false
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
   });
@@ -479,7 +479,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -497,7 +496,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -530,7 +528,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -548,7 +545,6 @@ describe('Register Validator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -557,8 +553,41 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
 
+  it('Register validator in a liquidatable cluster with not enough balance reverts "InsufficientBalance"', async () => {
+    const depositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * helpers.CONFIG.minimalOperatorFee * 4;
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      depositAmount,
+      {
+        validatorCount: 0,
+        networkFee: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
+    const cluster1 = eventsByName.ValidatorAdded[0].args;
+
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(3),
+      helpers.CONFIG.minimalOperatorFee,
+      cluster1.cluster
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
+  });
+
+
   it('Register an existing validator reverts "ValidatorAlreadyExists"', async () => {
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       helpers.DataGenerator.publicKey(90),
       [1, 2, 3, 4],
@@ -566,7 +595,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -596,7 +624,6 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       {
         validatorCount: 0,
-        networkFee: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
@@ -604,5 +631,67 @@ describe('Register Validator Tests', () => {
       }
     )).to.be.revertedWithCustomError(ssvNetwork, 'ExceedValidatorLimit');
 
+  });
+
+  it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(2),
+      helpers.CONFIG.minimalOperatorFee
+    ));
+    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
+
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(operatorId, helpers.DB.owners[3].address);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, operatorId],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    )).to.emit(ssvNetworkContract, 'ValidatorAdded');
+  });
+
+  it('Register a non whitelisted validator reverts "CallerNotWhitelisted"', async () => {
+    const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(2),
+      helpers.CONFIG.minimalOperatorFee
+    ));
+    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
+
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(operatorId, helpers.DB.owners[3].address);
+
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, minDepositAmount);
+    await expect(ssvNetworkContract.registerValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, operatorId],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotWhitelisted');
+  });
+
+  it('Retrieve an existing validator', async () => {
+    const validator = await ssvViews.getValidator(helpers.DataGenerator.publicKey(90));
+    expect(validator[0]).to.be.equals(helpers.DB.owners[6].address);
+    expect(validator[1]).to.be.equals(true);
+  });
+
+  it('Retrieve a non-existing validator', async () => {
+    const validator = await ssvViews.getValidator(helpers.DataGenerator.publicKey(1));
+    expect(validator[0]).to.be.equals(ethers.constants.AddressZero);
+    expect(validator[1]).to.be.equals(false);
   });
 });

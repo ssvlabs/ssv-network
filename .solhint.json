@@ -13,6 +13,10 @@
     ],
     "ordering": "warn",
     "mark-callable-contracts": "off",
+    "max-line-length": [
+      "error",
+      120
+    ],
     "compiler-version": "off",
     "not-rely-on-time": "off"
   }

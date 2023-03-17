@@ -1,9 +1,10 @@
-// File: contracts/ISSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.16;
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+pragma solidity 0.8.18;
+
 import "./ISSVNetworkCore.sol";
 import "./SSVNetwork.sol";
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetworkViews is ISSVNetworkCore {
     /****************/
@@ -16,19 +17,23 @@ interface ISSVNetworkViews is ISSVNetworkCore {
      */
     function initialize(SSVNetwork ssvNetwork_) external;
 
+    /*************************************/
+    /* Validator External View Functions */
+    /*************************************/
+
+    function getValidator(bytes calldata publicKey) external view returns (address, bool);
+
     /************************************/
     /* Operator External View Functions */
     /************************************/
 
     function getOperatorFee(uint64 operatorId) external view returns (uint256);
 
-    function getOperatorDeclaredFee(
-        uint64 operatorId
-    ) external view returns (uint256, uint256, uint256);
+    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256, uint256, uint256);
 
     function getOperatorById(
         uint64 operatorId
-    ) external view returns (address owner, uint256 fee, uint32 validatorCount, bool active);
+    ) external view returns (address owner, uint256 fee, uint32 validatorCount, bool isPrivate, bool active);
 
     /*******************************/
     /* Cluster External View Functions */
@@ -46,7 +51,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
         ISSVNetwork.Cluster memory cluster
     ) external view returns (bool);
 
-    function getClusterBurnRate(
+    function getBurnRate(
         address owner,
         uint64[] memory operatorIds,
         ISSVNetwork.Cluster memory cluster
@@ -56,9 +61,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
     /* Balance External View Functions */
     /***********************************/
 
-    function getOperatorEarnings(
-        uint64 id
-    ) external view returns (uint256);
+    function getOperatorEarnings(uint64 operatorId) external view returns (uint256);
 
     function getBalance(
         address owner,
@@ -81,4 +84,6 @@ interface ISSVNetworkViews is ISSVNetworkCore {
     function getDeclaredOperatorFeePeriod() external view returns (uint64);
 
     function getLiquidationThresholdPeriod() external view returns (uint64);
+
+    function getMinimumLiquidationCollateral() external view returns (uint256);
 }

@@ -35,10 +35,10 @@ describe('Operator Fee Tests', () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10), [GasGroup.REGISTER_OPERATOR]);
   });
 
-  it('Cancel declared fee emits "OperatorFeeCancelationDeclared"', async () => {
+  it('Cancel declared fee emits "OperatorFeeCancellationDeclared"', async () => {
     await ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).cancelDeclaredOperatorFee(1
-    )).to.emit(ssvNetworkContract, 'OperatorFeeCancelationDeclared');
+    )).to.emit(ssvNetworkContract, 'OperatorFeeCancellationDeclared');
   });
 
   it('Cancel declared fee gas limits', async () => {
@@ -78,12 +78,12 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorDoesNotExist');
   });
 
-  it('Declare fee when previously set to zero reverts "ZeroFeeIncreaseNotAllowed"', async () => {
+  it('Declare fee when previously set to zero reverts "FeeIncreaseNotAllowed"', async () => {
     await ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, 0);
     await progressTime(helpers.CONFIG.declareOperatorFeePeriod);
     await ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10
-    )).to.be.revertedWithCustomError(ssvNetworkContract, 'ZeroFeeIncreaseNotAllowed');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeIncreaseNotAllowed');
   });
 
   it('Declare same fee value as actual reverts "SameFeeChangeNotAllowed"', async () => {
@@ -94,13 +94,12 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'SameFeeChangeNotAllowed');
   });
 
-  it('Declare fee after registering an operator with zero fee reverts "ZeroFeeIncreaseNotAllowed"', async () => {
+  it('Declare fee after registering an operator with zero fee reverts "FeeIncreaseNotAllowed"', async () => {
     await ssvNetworkContract.connect(helpers.DB.owners[2]).registerOperator(
       helpers.DataGenerator.publicKey(0),
-      0,
-    );
+      0);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(2, initialFee + initialFee / 10
-    )).to.be.revertedWithCustomError(ssvNetworkContract, 'ZeroFeeIncreaseNotAllowed');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeIncreaseNotAllowed');
   });
 
   it('Declare fee above the operators max fee increase limit reverts "FeeExceedsIncreaseLimit"', async () => {
@@ -142,6 +141,18 @@ describe('Operator Fee Tests', () => {
     await progressTime(helpers.CONFIG.declareOperatorFeePeriod + helpers.CONFIG.executeOperatorFeePeriod + 1);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'ApprovalNotWithinTimeframe');
+  });
+
+  it('Reduce fee emits "OperatorFeeExecuted"', async () => {
+    expect(await ssvNetworkContract.connect(helpers.DB.owners[2]).reduceOperatorFee(1, initialFee / 2)).to.emit(ssvNetworkContract, 'OperatorFeeExecuted');
+    expect(await ssvViews.getOperatorFee(1)).to.equal(initialFee / 2);
+
+    expect(await ssvNetworkContract.connect(helpers.DB.owners[2]).reduceOperatorFee(1, 0)).to.emit(ssvNetworkContract, 'OperatorFeeExecuted');
+    expect(await ssvViews.getOperatorFee(1)).to.equal(0);
+  });
+
+  it('Reduce fee with an increased value reverts "FeeIncreaseNotAllowed"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).reduceOperatorFee(1, initialFee * 2)).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeIncreaseNotAllowed');;
   });
 
   //Dao
