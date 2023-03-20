@@ -1,5 +1,10 @@
 {
-  "name": "ssv-network",
+  "name": "@bloxapp/ssv-network",
+  "version": "0.2.0",
+  "files": [
+    "/contracts/**/*.sol",
+    "!/contracts/mocks/**/*"
+  ],
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.5",
     "@nomiclabs/hardhat-etherscan": "^3.0.3",
@@ -30,5 +35,12 @@
     "ts-node": "^10.7.0",
     "typechain": "^3.0.0",
     "typescript": "^4.6.3"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bloxapp/ssv-network.git"
   }
 }
