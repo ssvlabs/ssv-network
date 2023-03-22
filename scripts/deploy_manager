@@ -14,13 +14,13 @@ help() {
   echo
   echo "SSV Deployment manager."
   echo "Run deployment / upgrade of the branch selected."
-  echo "When the target network is testnet (goerli) or mainnet, an annotated semantic version tag for current branch is created"
+  echo "When the target environment is testnet (goerli) or mainnet, an annotated semantic version tag for current branch is created"
   echo "and the ABI is published to this location in gh-pages: "
-  echo "'docs/<network>/abi/<tag>' when using stage or main"
-  echo "'docs/<network>/abi/dev' when using develop"
+  echo "'docs/<environment>/abi/<tag>' when using stage or main"
+  echo "'docs/<environment>/abi/dev' when using develop"
   echo
   echo "Usage:"
-  echo "  sh deploy_manger [-n|--network] [-a|--action] [-t|--version-type]"
+  echo "  sh deploy_manager [-e|--environment] [-a|--action] [-t|--version-type]"
   echo
   echo "Options:"
   echo "-e,--environment <environment>"
@@ -152,6 +152,8 @@ if [[ "$ENVIRONMENT" == "stage" || "$ENVIRONMENT" == "testnet" || "$ENVIRONMENT"
   run_command git add $ABIDIR
   run_command git commit -m "Publish ABI for deployment to $NETWORK"
   run_command git push -u -f origin contract-abi
+
+  rm -fr $ABIDIR
 fi
 
 run_command git checkout $CURRENT_BRANCH
