@@ -1,0 +1,159 @@
+#!/bin/bash
+
+ABIDIR=""
+ACTION=""
+NETWORK=""
+CONTRACT=""
+ENVIRONMENT="develop"
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+VERSIONTYPE=""
+
+# Function to return help text when requested with -h option.
+help() {
+  # Display help.
+  echo
+  echo "SSV Deployment manager."
+  echo "Run deployment / upgrade of the branch selected."
+  echo "When the target environment is testnet (goerli) or mainnet, an annotated semantic version tag for current branch is created"
+  echo "and the ABI is published to this location in gh-pages: "
+  echo "'docs/<environment>/abi/<tag>' when using stage or main"
+  echo "'docs/<environment>/abi/dev' when using develop"
+  echo
+  echo "Usage:"
+  echo "  sh deploy_manager [-e|--environment] [-a|--action] [-t|--version-type]"
+  echo
+  echo "Options:"
+  echo "-e,--environment <environment>"
+  echo "      Target environment to run the deployment / upgrade."
+  echo "      Possible values: [develop | stage | testnet | main]"
+  echo "      If ommited, defaults to develop."
+  echo
+  echo "-a,--action <action>"
+  echo "      Action to perform."
+  echo "      Possible values: [deploy | upgrade]"
+  echo
+  echo "-c,--contract <contract>"
+  echo "      Contract to be used with the upgrade action."
+  echo "      Possible values: [ssvnetwork | ssvnetworkviews]"
+  echo
+  echo "-t,--version-type [major|minor|patch]"
+  echo "      Type of semantic version to create. Valid options are 'major', 'minor' or 'patch'"
+  echo "          major: Will bump up to next major release (i.e v1.0.0 -> v2.0.0)"
+  echo "          minor: Will bump up to next minor release (i.e v1.0.1 -> v1.1.0)"
+  echo "          patch: Will bump up to next patch release (i.e v1.0.2 -> v1.0.3)"
+  echo "      Rules:"
+  echo "      Tags created using 'stage' branch are treated as RCs (i.e v0.1.0-rc.0 -> v0.1.0-rc.1 ...)"
+  echo "      Tags created using 'testnet' or 'main' branches are treated as releases (i.e v0.1.0-rc.1 becomes v0.1.0)"
+  echo "      In both cases, if a version-type parameter is passed, the rule is override (i.e v0.1.0-rc.2 -> -t minor -> v0.2.0-rc.0)"
+  echo "      Tags created using 'develop' branch are not tagged"
+  echo "      If ommited, will default to current version"
+  echo
+  echo "-h,--help, help"
+  echo "      Prints this help."
+  echo
+}
+
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+  -h | --help | help)
+    help
+    exit
+    ;;
+  -e | --environment)
+    ENVIRONMENT=$2
+    ;;
+  -t | --version-type)
+    VERSIONTYPE=$2
+    ;;
+  -a | --action)
+    ACTION=$2
+    ;;
+  -c | --contract)
+    CONTRACT=$2
+    ;;
+  esac
+  shift
+done
+
+if [ "$ACTION" == "" ]; then
+  echo "-- ERROR: ACTION option is mandatory. Possible values: [deploy | upgrade]"
+  exit 1
+fi
+
+if [ "$ENVIRONMENT" == "stage" ]; then
+  BRANCH="stage"
+  NETWORK="goerli"
+elif [ "$ENVIRONMENT" == "testnet" ]; then
+  BRANCH="testnet"
+  NETWORK="goerli"
+elif [ "$ENVIRONMENT" == "main" ]; then
+  BRANCH="main"
+  NETWORK="mainnet"
+else
+  BRANCH="develop"
+  NETWORK="goerli"
+fi
+
+echo "Using branch $BRANCH for environment $ENVIRONMENT"
+
+run_command() {
+  if ! "$@"; then
+    echo "$1 command failed"
+    exit 1
+  fi
+}
+
+# Checkout the selected branch and install npm dependencies
+run_command git checkout $BRANCH
+run_command npm ci -q --no-progress
+
+# Compile project
+run_command npx hardhat compile --force
+
+# Only deployments for stage, testnet and main branches are tagged
+if [[ $BRANCH == "stage" ||  $BRANCH == "testnet" || $BRANCH == "main" ]]; then
+  run_command source ./tag-version -b "$BRANCH" -n -t "$VERSIONTYPE"
+else
+  TAGVERSION="dev"
+fi
+
+if [ "$ACTION" == "deploy" ]; then
+  # Run script to deploy the contracts
+  run_command npx hardhat --network "$NETWORK" deploy:all --tag "$TAGVERSION"
+elif [ "$ACTION" == "upgrade" ]; then
+  if [[ "$CONTRACT" == "ssvnetwork" || "$CONTRACT" == "ssvnetworkviews" ]]; then
+    # Run script to upgrade the contracts
+    run_command npx hardhat --network "$NETWORK" upgrade:"$CONTRACT" --tag "$TAGVERSION"
+  else
+    echo "-- ERROR: Wrong CONTRACT value for upgrade action"
+    exit 1
+  fi
+else
+  echo "-- ERROR: Wrong ACTION value. Possible values: [deploy | upgrade]"
+  exit 1
+fi
+
+if [[ "$ENVIRONMENT" == "stage" || "$ENVIRONMENT" == "testnet" || "$ENVIRONMENT" == "main" ]]; then
+
+  # Update .openzeppelin metadata
+  run_command git add .openzeppelin/"$NETWORK".json
+  run_command git commit -m "Update .openzeppelin folder"
+  run_command git push -u origin $branch
+
+  run_command source ./tag-version -b "$BRANCH" -t "$VERSIONTYPE"
+  ABIDIR="docs/$ENVIRONMENT/abi/$TAGVERSION"
+
+  run_command git checkout contract-abi
+
+  # Publish the ABI to a specific GitHub Pages location
+  mkdir -p $ABIDIR
+  cp abi/*.json $ABIDIR
+
+  run_command git add $ABIDIR
+  run_command git commit -m "Publish ABI for deployment to $NETWORK"
+  run_command git push -u -f origin contract-abi
+
+  rm -fr $ABIDIR
+fi
+
+run_command git checkout $CURRENT_BRANCH

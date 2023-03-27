@@ -2,6 +2,9 @@ node_modules
 .env
 .env.prod
 .env.stage
+
+.DS_Store
+
 #Hardhat files
 cache
 coverage
