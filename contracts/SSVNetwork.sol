@@ -184,10 +184,15 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint256 amount,
         Cluster memory cluster
     ) external override {
+        if (publicKey.length != 48) {
+            revert InvalidPublicKeyLength();
+        }
+
         uint operatorsLength = operatorIds.length;
 
-        _validateOperatorIds(operatorsLength);
-        _validatePublicKey(publicKey);
+        if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
+            revert InvalidOperatorIdsLength();
+        }
 
         if (_validatorPKs[keccak256(publicKey)].owner != address(0)) {
             revert ValidatorAlreadyExists();
@@ -236,6 +241,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 if (i + 1 < operatorsLength) {
                     if (operatorIds[i] > operatorIds[i + 1]) {
                         revert UnsortedOperatorsList();
+                    } else if (operatorIds[i] == operatorIds[i + 1]) {
+                        revert OperatorsListNotUnique();
                     }
                 }
                 Operator memory operator = operators[operatorIds[i]];
@@ -312,11 +319,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
         uint operatorsLength = operatorIds.length;
-
-        {
-            _validateOperatorIds(operatorsLength);
-            _validatePublicKey(publicKey);
-        }
 
         uint64 clusterIndex;
         {
@@ -656,18 +658,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     function _onlyOperatorOwner(Operator memory operator) private view {
         if (operator.snapshot.block == 0) revert OperatorDoesNotExist();
         if (operator.owner != msg.sender) revert CallerNotOwner();
-    }
-
-    function _validatePublicKey(bytes calldata publicKey) private pure {
-        if (publicKey.length != 48) {
-            revert InvalidPublicKeyLength();
-        }
-    }
-
-    function _validateOperatorIds(uint operatorsLength) private pure {
-        if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
-            revert InvalidOperatorIdsLength();
-        }
     }
 
     /******************************/

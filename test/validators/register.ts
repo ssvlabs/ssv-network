@@ -505,8 +505,12 @@ describe('Register Validator Tests', () => {
   });
 
 
-  it('Register cluster with unsorted operators reverts "The operators list should be in ascending order"', async () => {
+  it('Register cluster with unsorted operators reverts "UnsortedOperatorsList"', async () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWithCustomError(ssvNetworkContract, 'UnsortedOperatorsList');
+  });
+
+  it('Register cluster with duplicated operators reverts "OperatorsListNotUnique"', async () => {
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 6, 9, 12, 12, 17, 20])).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorsListNotUnique');
   });
 
   it('Register validator into a cluster with an invalid amount of operators reverts "InvalidOperatorIdsLength"', async () => {
