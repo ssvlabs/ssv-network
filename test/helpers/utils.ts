@@ -3,20 +3,20 @@ declare let ethers: any;
 
 export const strToHex = (str: any) => `0x${Buffer.from(str, 'utf8').toString('hex')}`;
 
-export const asciiToHex = (str: any) =>  {
+export const asciiToHex = (str: any) => {
   const arr1 = [];
-  for (let n = 0, l = str.length; n < l; n ++)  {
+  for (let n = 0, l = str.length; n < l; n++) {
     const hex = Number(str.charCodeAt(n)).toString(16);
     arr1.push(hex);
   }
   return arr1.join('');
 };
 
-export const blockNumber = async function() {
+export const blockNumber = async function () {
   return await ethers.provider.getBlockNumber();
 };
 
-export const progress = async function(time: any, blocks: any, func: any = null) {
+export const progress = async function (time: any, blocks: any, func: any = null) {
   let snapshot;
 
   if (func) {
@@ -25,14 +25,8 @@ export const progress = async function(time: any, blocks: any, func: any = null)
 
   if (time) {
     await network.provider.send('evm_increaseTime', [time]);
-    if (!blocks) {
-      await network.provider.send('evm_mine', []);
-    }
   }
-
-  for (let index = 0; index < blocks; ++index) {
-    await network.provider.send('evm_mine', []);
-  }
+  await network.provider.send('hardhat_mine', ['0x' + blocks.toString(16)]);
 
   if (func) {
     await func();
@@ -40,15 +34,15 @@ export const progress = async function(time: any, blocks: any, func: any = null)
   }
 };
 
-export const progressTime = async function(time: any, func: any = null) {
+export const progressTime = async function (time: any, func: any = null) {
   return progress(time, 1, func);
 };
 
-export const progressBlocks = async function(blocks: any, func = null) {
+export const progressBlocks = async function (blocks: any, func = null) {
   return progress(0, blocks, func);
 };
 
-export const snapshot = async function(func: any) {
+export const snapshot = async function (func: any) {
   return progress(0, 0, func);
 };
 

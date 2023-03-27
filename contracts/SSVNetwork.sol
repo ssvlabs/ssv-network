@@ -551,8 +551,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
 
+        if (cluster.balance < amount) revert InsufficientBalance();
+
+        cluster.balance -= amount;
+
         if (
-            cluster.balance < amount ||
             cluster.isLiquidatable(
                 burnRate,
                 network.networkFee,
@@ -562,8 +565,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         ) {
             revert InsufficientBalance();
         }
-
-        cluster.balance -= amount;
 
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
