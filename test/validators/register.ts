@@ -524,7 +524,7 @@ describe('Register Validator Tests', () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWithCustomError(ssvNetworkContract, 'InvalidOperatorIdsLength');
   });
 
-  it('Register validator with an invalild public key reverts "InvalidPublicKeyLength"', async () => {
+  it('Register validator with an invalild public key length reverts "InvalidPublicKeyLength"', async () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.shares(0),
       [1, 2, 3, 4],
@@ -538,6 +538,22 @@ describe('Register Validator Tests', () => {
         active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InvalidPublicKeyLength');
+  });
+
+  it('Register validator with an invalild public key reverts "InvalidPublicKey"', async () => {
+    await expect(ssvNetworkContract.registerValidator(
+      "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'InvalidPublicKey');
   });
 
   it('Register validator with not enough balance reverts "InsufficientBalance"', async () => {
@@ -608,7 +624,7 @@ describe('Register Validator Tests', () => {
   });
 
   it('Surpassing max number of validators per operator reverts "ExceedValidatorLimit"', async () => {
-    helpers.registerValidatorsRaw(2, 50, minDepositAmount, [8, 9, 10, 11]);
+    await helpers.registerValidatorsRaw(2, 50, minDepositAmount, [8, 9, 10, 11]);
 
     const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperator");
     const ssvNetwork = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkValidatorsPerOperator, {

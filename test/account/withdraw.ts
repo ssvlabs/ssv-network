@@ -66,6 +66,10 @@ describe('Withdraw Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.args.cluster)).to.emit(ssvNetworkContract, 'ClusterWithdrawn');
   });
 
+  it('Withdraw zero amount reverts "ZeroAmountNotAllowed"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, 0, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'ZeroAmountNotAllowed');
+  });
+
   it('Withdraw more than the cluster balance reverts "InsufficientBalance"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
