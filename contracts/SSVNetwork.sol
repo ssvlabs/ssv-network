@@ -701,21 +701,22 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     ) private onlyOperatorOwner(operator) {
         operator.updateSnapshot();
 
-        uint64 shrunkAmount;
+        uint64 shrunkWithdrawn;
+        uint64 shrunkAmount = amount.shrink();
 
         if (amount == 0 && operator.snapshot.balance > 0) {
-            shrunkAmount = operator.snapshot.balance;
-        } else if (amount > 0 && operator.snapshot.balance >= amount.shrink()) {
-            shrunkAmount = amount.shrink();
+            shrunkWithdrawn = operator.snapshot.balance;
+        } else if (amount > 0 && operator.snapshot.balance >= shrunkAmount) {
+            shrunkWithdrawn = shrunkAmount;
         } else {
             revert InsufficientBalance();
         }
 
-        operator.snapshot.balance -= shrunkAmount;
+        operator.snapshot.balance -= shrunkWithdrawn;
 
         operators[operatorId] = operator;
 
-        _transferOperatorBalanceUnsafe(operatorId, shrunkAmount.expand());
+        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
     }
 
     function _removeOperator(uint64 operatorId, Operator memory operator) private onlyOperatorOwner(operator) {

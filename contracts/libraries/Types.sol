@@ -11,6 +11,7 @@ library Types64 {
 
 library Types256 {
     function shrink(uint256 value) internal pure returns (uint64) {
+        require(value <= (2 ** 64 * DEDUCTED_DIGITS), "Max value exceeded");
         return uint64(shrinkable(value) / DEDUCTED_DIGITS);
     }
 
