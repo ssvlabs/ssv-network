@@ -1,25 +1,26 @@
 import 'dotenv/config';
 
 import { HardhatUserConfig, task } from 'hardhat/config';
-import '@nomiclabs/hardhat-waffle';
-import '@nomiclabs/hardhat-ethers';
-import '@nomiclabs/hardhat-etherscan';
+import '@nomicfoundation/hardhat-toolbox';
 import '@openzeppelin/hardhat-upgrades';
-import 'hardhat-gas-reporter';
 import 'hardhat-tracer';
-import 'solidity-coverage';
 import '@nomiclabs/hardhat-solhint';
+import 'hardhat-contract-sizer';
+import 'hardhat-storage-layout-changes';
 
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
+  mocha: {
+    timeout: 40000000000000000
+  },
   solidity: {
     compilers: [
       {
-        version: '0.8.13',
+        version: '0.8.18',
         settings: {
           optimizer: {
             enabled: true,
-            runs: 10000
+            runs: 2000
           }
         }
       }
@@ -34,6 +35,11 @@ const config: HardhatUserConfig = {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
     apiKey: process.env.ETHERSCAN_KEY
+  },
+  gasReporter: {
+    enabled: true,
+    currency: 'USD',
+    gasPrice: 0.3
   }
 };
 

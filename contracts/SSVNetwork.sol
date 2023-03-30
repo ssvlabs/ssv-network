@@ -1,811 +1,825 @@
-// File: contracts/SSVNetwork.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.2;
+pragma solidity 0.8.18;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "./utils/VersionedContract.sol";
-import "./utils/Types.sol";
 import "./ISSVNetwork.sol";
+import "./libraries/Types.sol";
+import "./libraries/ClusterLib.sol";
+import "./libraries/OperatorLib.sol";
+import "./libraries/NetworkLib.sol";
 
-contract SSVNetwork is OwnableUpgradeable, ISSVNetwork, VersionedContract {
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+
+contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
+    /*************/
+    /* Libraries */
+    /*************/
+
     using Types256 for uint256;
     using Types64 for uint64;
+    using ClusterLib for Cluster;
+    using OperatorLib for Operator;
+    using NetworkLib for DAO;
 
-    struct OperatorData {
-        uint256 blockNumber;
-        uint64 earnings;
-        uint64 index;
-        uint256 indexBlockNumber;
-        uint32 activeValidatorCount;
-    }
+    using Counters for Counters.Counter;
 
-    struct OwnerData {
-        uint64 deposited;
-        uint64 withdrawn;
-        uint64 used;
-        uint64 networkFee;
-        uint64 networkFeeIndex;
-        uint32 activeValidatorCount;
-        bool validatorsDisabled;
-    }
+    /*************/
+    /* Constants */
+    /*************/
 
-    struct OperatorInUse {
-        uint64 index;
-        uint64 used;
-        uint32 validatorCount;
-        uint32 indexInArray;
-        bool exists;
-    }
+    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
+    uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
 
-    struct FeeChangeRequest {
-        uint64 fee;
-        uint256 approvalBeginTime;
-        uint256 approvalEndTime;
-    }
+    /********************/
+    /* Global Variables */
+    /********************/
 
-    ISSVRegistry private _ssvRegistryContract;
+    Counters.Counter private lastOperatorId;
+
+    /*************/
+    /* Variables */
+    /*************/
+
+    mapping(uint64 => Operator) public operators;
+    mapping(uint64 => address) public operatorsWhitelist;
+    mapping(uint64 => OperatorFeeChangeRequest) public operatorFeeChangeRequests;
+    mapping(bytes32 => bytes32) public clusters;
+    mapping(bytes32 => Validator) public validatorPKs;
+
+    bytes32 public version;
+
+    uint32 public validatorsPerOperatorLimit;
+    uint64 public declareOperatorFeePeriod;
+    uint64 public executeOperatorFeePeriod;
+    uint64 public operatorMaxFeeIncrease;
+    uint64 public minimumBlocksBeforeLiquidation;
+    uint64 public minimumLiquidationCollateral;
+
+    DAO public dao;
     IERC20 private _token;
-    uint64 private _minimumBlocksBeforeLiquidation;
-    uint64 private _operatorMaxFeeIncrease;
+    Network public network;
 
-    uint64 private _networkFee;
-    uint64 private _networkFeeIndex;
-    uint256 private _networkFeeIndexBlockNumber;
-    uint64 private _networkEarnings;
-    uint256 private _networkEarningsBlockNumber;
-    uint64 private _withdrawnFromTreasury;
+    // @dev reserve storage space for future new state variables in base contract
+    // slither-disable-next-line shadowing-state
+    uint256[50] __gap;
 
-    mapping(uint32 => OperatorData) private _operatorDatas;
-    mapping(address => OwnerData) private _owners;
-    mapping(address => mapping(uint32 => OperatorInUse)) private _operatorsInUseByAddress;
-    mapping(address => uint32[]) private _operatorsInUseList;
+    /*************/
+    /* Modifiers */
+    /*************/
 
-    uint64 private _declareOperatorFeePeriod;
-    uint64 private _executeOperatorFeePeriod;
-    mapping(uint32 => FeeChangeRequest) private _feeChangeRequests;
+    modifier onlyOperatorOwner(Operator memory operator) {
+        _onlyOperatorOwner(operator);
+        _;
+    }
 
-    uint16 constant private MINIMAL_OPERATOR_FEE = 1000;
-    uint16 constant private MANAGING_OPERATORS_PER_ACCOUNT_LIMIT = 50;
-    uint16 constant private MINIMAL_LIQUIDATION_THRESHOLD = 6570;
+    /****************/
+    /* Initializers */
+    /****************/
 
     function initialize(
-        ISSVRegistry registryAddress_,
+        string calldata initialVersion_,
         IERC20 token_,
-        uint64 minimumBlocksBeforeLiquidation_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_
-    ) external initializer override {
-        __SSVNetwork_init(registryAddress_, token_, minimumBlocksBeforeLiquidation_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
-    }
-
-    function __SSVNetwork_init(
-        ISSVRegistry registryAddress_,
-        IERC20 token_,
+        uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_,
-        uint64 operatorMaxFeeIncrease_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_
-    ) internal initializer {
+        uint256 minimumLiquidationCollateral_
+    ) external override initializer onlyProxy {
+        __UUPSUpgradeable_init();
         __Ownable_init_unchained();
-        __SSVNetwork_init_unchained(registryAddress_, token_, minimumBlocksBeforeLiquidation_, operatorMaxFeeIncrease_, declareOperatorFeePeriod_, executeOperatorFeePeriod_);
+        __SSVNetwork_init_unchained(
+            initialVersion_,
+            token_,
+            operatorMaxFeeIncrease_,
+            declareOperatorFeePeriod_,
+            executeOperatorFeePeriod_,
+            minimumBlocksBeforeLiquidation_,
+            minimumLiquidationCollateral_
+        );
     }
 
     function __SSVNetwork_init_unchained(
-        ISSVRegistry registryAddress_,
+        string calldata initialVersion_,
         IERC20 token_,
-        uint64 minimumBlocksBeforeLiquidation_,
         uint64 operatorMaxFeeIncrease_,
         uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_
+        uint64 executeOperatorFeePeriod_,
+        uint64 minimumBlocksBeforeLiquidation_,
+        uint256 minimumLiquidationCollateral_
     ) internal onlyInitializing {
-        _ssvRegistryContract = registryAddress_;
+        version = bytes32(abi.encodePacked(initialVersion_));
         _token = token_;
-        _updateLiquidationThresholdPeriod(minimumBlocksBeforeLiquidation_);
-        _updateOperatorFeeIncreaseLimit(operatorMaxFeeIncrease_);
-        _updateDeclareOperatorFeePeriod(declareOperatorFeePeriod_);
-        _updateExecuteOperatorFeePeriod(executeOperatorFeePeriod_);
-        _ssvRegistryContract.initialize();
+        operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
+        declareOperatorFeePeriod = declareOperatorFeePeriod_;
+        executeOperatorFeePeriod = executeOperatorFeePeriod_;
+        minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
+        validatorsPerOperatorLimit = 2_000;
     }
 
-    modifier onlyValidatorOwnerOrContractOwner(bytes calldata publicKey) {
-        _onlyValidatorOwnerOrContractOwner(publicKey);
-        _;
+    /*****************/
+    /* UUPS required */
+    /*****************/
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    /*******************************/
+    /* Operator External Functions */
+    /*******************************/
+
+    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
+            revert FeeTooLow();
+        }
+
+        lastOperatorId.increment();
+        id = uint64(lastOperatorId.current());
+        operators[id] = Operator({
+            owner: msg.sender,
+            snapshot: Snapshot({block: uint64(block.number), index: 0, balance: 0}),
+            validatorCount: 0,
+            fee: fee.shrink()
+        });
+        emit OperatorAdded(id, msg.sender, publicKey, fee);
     }
 
-    modifier onlyOperatorOwnerOrContractOwner(uint32 operatorId) {
-        _onlyOperatorOwnerOrContractOwner(operatorId);
-        _;
+    function removeOperator(uint64 operatorId) external override {
+        _removeOperator(operatorId, operators[operatorId]);
     }
 
-    modifier ensureMinimalOperatorFee(uint256 fee) {
-        _ensureMinimalOperatorFee(fee.shrink());
-        _;
+    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
+        _setOperatorWhitelist(operatorId, whitelisted, operators[operatorId]);
     }
 
-    /**
-     * @dev See {ISSVNetwork-registerOperator}.
-     */
-    function registerOperator(
-        string calldata name,
+    function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
+        _declareOperatorFee(operatorId, operators[operatorId], fee);
+    }
+
+    function executeOperatorFee(uint64 operatorId) external override {
+        _executeOperatorFee(operatorId, operators[operatorId]);
+    }
+
+    function cancelDeclaredOperatorFee(uint64 operatorId) external override {
+        _cancelDeclaredOperatorFee(operatorId, operators[operatorId]);
+    }
+
+    function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
+        _reduceOperatorFee(operatorId, operators[operatorId], fee);
+    }
+
+    function setFeeRecipientAddress(address recipientAddress) external override {
+        emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
+    }
+
+    /********************************/
+    /* Validator External Functions */
+    /********************************/
+    function registerValidator(
         bytes calldata publicKey,
-        uint256 fee
-    ) ensureMinimalOperatorFee(fee) external override returns (uint32 operatorId) {
-        operatorId = _ssvRegistryContract.registerOperator(
-            name,
-            msg.sender,
-            publicKey,
-            fee.shrink()
+        uint64[] memory operatorIds,
+        bytes calldata shares,
+        uint256 amount,
+        Cluster memory cluster
+    ) external override {
+        uint operatorsLength = operatorIds.length;
+
+        _validateOperatorIds(operatorsLength);
+        _validatePublicKey(publicKey);
+
+        if (validatorPKs[keccak256(publicKey)].owner != address(0)) {
+            revert ValidatorAlreadyExists();
+        }
+        validatorPKs[keccak256(publicKey)] = Validator({owner: msg.sender, active: true});
+
+        bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
+
+        if (clusters[hashedCluster] == bytes32(0)) {
+            if (
+                cluster.validatorCount != 0 ||
+                cluster.networkFeeIndex != 0 ||
+                cluster.index != 0 ||
+                cluster.balance != 0 ||
+                !cluster.active
+            ) {
+                revert IncorrectClusterState();
+            }
+        } else if (
+            clusters[hashedCluster] !=
+            keccak256(
+                abi.encodePacked(
+                    cluster.validatorCount,
+                    cluster.networkFeeIndex,
+                    cluster.index,
+                    cluster.balance,
+                    cluster.active
+                )
+            )
+        ) {
+            revert IncorrectClusterState();
+        } else {
+            cluster.validateClusterIsNotLiquidated();
+        }
+
+        uint64 clusterIndex;
+        uint64 burnRate;
+
+        Network memory network_ = network;
+        uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
+
+        cluster.balance += amount;
+
+        if (cluster.active) {
+            for (uint i; i < operatorsLength; ) {
+                if (i + 1 < operatorsLength) {
+                    if (operatorIds[i] > operatorIds[i + 1]) {
+                        revert UnsortedOperatorsList();
+                    }
+                }
+                Operator memory operator = operators[operatorIds[i]];
+                if (operator.snapshot.block == 0) {
+                    revert OperatorDoesNotExist();
+                }
+                if (
+                    operatorsWhitelist[operatorIds[i]] != address(0) && operatorsWhitelist[operatorIds[i]] != msg.sender
+                ) {
+                    revert CallerNotWhitelisted();
+                }
+                operator.updateSnapshot();
+                if (++operator.validatorCount > validatorsPerOperatorLimit) {
+                    revert ExceedValidatorLimit();
+                }
+                clusterIndex += operator.snapshot.index;
+                burnRate += operator.fee;
+                operators[operatorIds[i]] = operator;
+                unchecked {
+                    ++i;
+                }
+            }
+            cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex);
+
+            DAO memory dao_ = dao;
+            dao_.updateDAOEarnings(network_.networkFee);
+            ++dao_.validatorCount;
+            dao = dao_;
+        }
+
+        ++cluster.validatorCount;
+
+        if (
+            cluster.isLiquidatable(
+                burnRate,
+                network_.networkFee,
+                minimumBlocksBeforeLiquidation,
+                minimumLiquidationCollateral
+            )
+        ) {
+            revert InsufficientBalance();
+        }
+
+        clusters[hashedCluster] = keccak256(
+            abi.encodePacked(
+                cluster.validatorCount,
+                cluster.networkFeeIndex,
+                cluster.index,
+                cluster.balance,
+                cluster.active
+            )
         );
 
-        _operatorDatas[operatorId] = OperatorData({ blockNumber: block.number, earnings: 0, index: 0, indexBlockNumber: block.number, activeValidatorCount: 0 });
-        emit OperatorRegistration(operatorId, name, msg.sender, publicKey, fee.shrink().expand());
-    }
-
-    /**
-     * @dev See {ISSVNetwork-removeOperator}.
-     */
-    function removeOperator(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
-        address owner = _ssvRegistryContract.getOperatorOwner(operatorId);
-
-        _updateOperatorFeeUnsafe(operatorId, 0);
-        _ssvRegistryContract.removeOperator(operatorId);
-
-        emit OperatorRemoval(operatorId, owner);
-    }
-
-    function declareOperatorFee(uint32 operatorId, uint256 operatorFee) onlyOperatorOwnerOrContractOwner(operatorId) ensureMinimalOperatorFee(operatorFee) external override {
-        if (operatorFee.shrink() > _ssvRegistryContract.getOperatorFee(operatorId) * (10000 + _operatorMaxFeeIncrease) / 10000) {
-            revert FeeExceedsIncreaseLimit();
+        if (amount > 0) {
+            _deposit(amount);
         }
-        _feeChangeRequests[operatorId] = FeeChangeRequest(operatorFee.shrink(), block.timestamp + _declareOperatorFeePeriod, block.timestamp + _declareOperatorFeePeriod + _executeOperatorFeePeriod);
 
-        emit OperatorFeeDeclaration(msg.sender, operatorId, block.number, operatorFee);
+        emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares, cluster);
     }
 
-    function cancelDeclaredOperatorFee(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
-        delete _feeChangeRequests[operatorId];
-
-        emit DeclaredOperatorFeeCancelation(msg.sender, operatorId);
-    }
-
-    function executeOperatorFee(uint32 operatorId) onlyOperatorOwnerOrContractOwner(operatorId) external override {
-        FeeChangeRequest storage feeChangeRequest = _feeChangeRequests[operatorId];
-
-        if(feeChangeRequest.fee == 0) {
-            revert NoPendingFeeChangeRequest();
+    function removeValidator(
+        bytes calldata publicKey,
+        uint64[] memory operatorIds,
+        Cluster memory cluster
+    ) external override {
+        bytes32 hashedValidator = keccak256(publicKey);
+        address validatorOwner = validatorPKs[hashedValidator].owner;
+        if (validatorOwner == address(0)) {
+            revert ValidatorDoesNotExist();
         }
-        if(block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime) {
+        if (validatorOwner != msg.sender) {
+            revert ValidatorOwnedByOtherAddress();
+        }
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
+        uint operatorsLength = operatorIds.length;
+
+        {
+            _validateOperatorIds(operatorsLength);
+            _validatePublicKey(publicKey);
+        }
+
+        uint64 clusterIndex;
+        {
+            if (cluster.active) {
+                for (uint i; i < operatorsLength; ) {
+                    Operator memory operator = operators[operatorIds[i]];
+                    if (operator.snapshot.block != 0) {
+                        operator.updateSnapshot();
+                        --operator.validatorCount;
+                        operators[operatorIds[i]] = operator;
+                    }
+
+                    clusterIndex += operator.snapshot.index;
+                    unchecked {
+                        ++i;
+                    }
+                }
+                cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+
+                DAO memory dao_ = dao;
+                dao_.updateDAOEarnings(network.networkFee);
+                --dao_.validatorCount;
+                dao = dao_;
+            }
+        }
+
+        --cluster.validatorCount;
+
+        delete validatorPKs[hashedValidator];
+
+        clusters[hashedCluster] = keccak256(
+            abi.encodePacked(
+                cluster.validatorCount,
+                cluster.networkFeeIndex,
+                cluster.index,
+                cluster.balance,
+                cluster.active
+            )
+        );
+
+        emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
+    }
+
+    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external override {
+        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, this);
+        cluster.validateClusterIsNotLiquidated();
+
+        uint64 clusterIndex;
+        uint64 burnRate;
+        {
+            uint operatorsLength = operatorIds.length;
+            for (uint i; i < operatorsLength; ) {
+                Operator memory operator = operators[operatorIds[i]];
+
+                if (operator.snapshot.block != 0) {
+                    operator.updateSnapshot();
+                    operator.validatorCount -= cluster.validatorCount;
+                    burnRate += operator.fee;
+                    operators[operatorIds[i]] = operator;
+                }
+
+                clusterIndex += operator.snapshot.index;
+                unchecked {
+                    ++i;
+                }
+            }
+        }
+
+        cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+
+        uint64 networkFee = network.networkFee;
+        uint256 balanceLiquidatable;
+
+        if (
+            owner != msg.sender &&
+            !cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation, minimumLiquidationCollateral)
+        ) {
+            revert ClusterNotLiquidatable();
+        }
+
+        DAO memory dao_ = dao;
+        dao_.updateDAOEarnings(networkFee);
+        dao_.validatorCount -= cluster.validatorCount;
+        dao = dao_;
+
+        if (cluster.balance != 0) {
+            balanceLiquidatable = cluster.balance;
+            cluster.balance = 0;
+        }
+        cluster.index = 0;
+        cluster.networkFeeIndex = 0;
+        cluster.active = false;
+
+        clusters[hashedCluster] = keccak256(
+            abi.encodePacked(
+                cluster.validatorCount,
+                cluster.networkFeeIndex,
+                cluster.index,
+                cluster.balance,
+                cluster.active
+            )
+        );
+
+        if (balanceLiquidatable != 0) {
+            _transfer(msg.sender, balanceLiquidatable);
+        }
+
+        emit ClusterLiquidated(owner, operatorIds, cluster);
+    }
+
+    function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
+        if (cluster.active) revert ClusterAlreadyEnabled();
+
+        uint64 clusterIndex;
+        uint64 burnRate;
+        {
+            uint operatorsLength = operatorIds.length;
+            for (uint i; i < operatorsLength; ) {
+                Operator memory operator = operators[operatorIds[i]];
+                if (operator.snapshot.block != 0) {
+                    operator.updateSnapshot();
+                    operator.validatorCount += cluster.validatorCount;
+                    burnRate += operator.fee;
+                    operators[operatorIds[i]] = operator;
+                }
+
+                clusterIndex += operator.snapshot.index;
+                unchecked {
+                    ++i;
+                }
+            }
+        }
+
+        uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(network);
+
+        cluster.balance += amount;
+        cluster.active = true;
+        cluster.index = clusterIndex;
+        cluster.networkFeeIndex = currentNetworkFeeIndex;
+
+        cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex);
+
+        uint64 networkFee = network.networkFee;
+
+        {
+            DAO memory dao_ = dao;
+            dao_.updateDAOEarnings(networkFee);
+            dao_.validatorCount += cluster.validatorCount;
+            dao = dao_;
+        }
+
+        if (
+            cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation, minimumLiquidationCollateral)
+        ) {
+            revert InsufficientBalance();
+        }
+
+        clusters[hashedCluster] = keccak256(
+            abi.encodePacked(
+                cluster.validatorCount,
+                cluster.networkFeeIndex,
+                cluster.index,
+                cluster.balance,
+                cluster.active
+            )
+        );
+
+        if (amount > 0) {
+            _deposit(amount);
+        }
+
+        emit ClusterReactivated(msg.sender, operatorIds, cluster);
+    }
+
+    /******************************/
+    /* Balance External Functions */
+    /******************************/
+
+    function deposit(
+        address owner,
+        uint64[] calldata operatorIds,
+        uint256 amount,
+        Cluster memory cluster
+    ) external override {
+        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, this);
+
+        cluster.balance += amount;
+
+        clusters[hashedCluster] = keccak256(
+            abi.encodePacked(
+                cluster.validatorCount,
+                cluster.networkFeeIndex,
+                cluster.index,
+                cluster.balance,
+                cluster.active
+            )
+        );
+
+        _deposit(amount);
+
+        emit ClusterDeposited(owner, operatorIds, amount, cluster);
+    }
+
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
+        _withdrawOperatorEarnings(operatorId, operators[operatorId], amount);
+    }
+
+    function withdrawOperatorEarnings(uint64 operatorId) external override {
+        _withdrawOperatorEarnings(operatorId, operators[operatorId], 0);
+    }
+
+    function withdraw(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
+        cluster.validateClusterIsNotLiquidated();
+
+        uint64 clusterIndex;
+        uint64 burnRate;
+        {
+            uint operatorsLength = operatorIds.length;
+            for (uint i; i < operatorsLength; ) {
+                Operator storage operator = operators[operatorIds[i]];
+                clusterIndex +=
+                    operator.snapshot.index +
+                    (uint64(block.number) - operator.snapshot.block) *
+                    operator.fee;
+                burnRate += operator.fee;
+                unchecked {
+                    ++i;
+                }
+            }
+        }
+
+        cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+
+        if (cluster.balance < amount) revert InsufficientBalance();
+
+        cluster.balance -= amount;
+
+        if (
+            cluster.isLiquidatable(
+                burnRate,
+                network.networkFee,
+                minimumBlocksBeforeLiquidation,
+                minimumLiquidationCollateral
+            )
+        ) {
+            revert InsufficientBalance();
+        }
+
+        clusters[hashedCluster] = keccak256(
+            abi.encodePacked(
+                cluster.validatorCount,
+                cluster.networkFeeIndex,
+                cluster.index,
+                cluster.balance,
+                cluster.active
+            )
+        );
+
+        _transfer(msg.sender, amount);
+
+        emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
+    }
+
+    /**************************/
+    /* DAO External Functions */
+    /**************************/
+
+    function updateNetworkFee(uint256 fee) external override onlyOwner {
+        Network memory network_ = network;
+
+        DAO memory dao_ = dao;
+        dao_.updateDAOEarnings(network.networkFee);
+        dao = dao_;
+
+        network_.networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
+        network_.networkFeeIndexBlockNumber = uint64(block.number);
+
+        emit NetworkFeeUpdated(network_.networkFee.expand(), fee);
+
+        network_.networkFee = fee.shrink();
+        network = network_;
+    }
+
+    function withdrawNetworkEarnings(uint256 amount) external override onlyOwner {
+        DAO memory dao_ = dao;
+
+        uint64 shrunkAmount = amount.shrink();
+
+        uint64 networkBalance = dao_.networkTotalEarnings(network.networkFee);
+
+        if (shrunkAmount > networkBalance) {
+            revert InsufficientBalance();
+        }
+
+        dao_.balance = networkBalance - shrunkAmount;
+        dao = dao_;
+
+        _transfer(msg.sender, amount);
+
+        emit NetworkEarningsWithdrawn(amount, msg.sender);
+    }
+
+    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external override onlyOwner {
+        operatorMaxFeeIncrease = newOperatorMaxFeeIncrease;
+        emit OperatorFeeIncreaseLimitUpdated(operatorMaxFeeIncrease);
+    }
+
+    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external override onlyOwner {
+        declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
+        emit DeclareOperatorFeePeriodUpdated(newDeclareOperatorFeePeriod);
+    }
+
+    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external override onlyOwner {
+        executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
+        emit ExecuteOperatorFeePeriodUpdated(newExecuteOperatorFeePeriod);
+    }
+
+    function updateLiquidationThresholdPeriod(uint64 blocks) external override onlyOwner {
+        if (blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
+            revert NewBlockPeriodIsBelowMinimum();
+        }
+
+        minimumBlocksBeforeLiquidation = blocks;
+        emit LiquidationThresholdPeriodUpdated(blocks);
+    }
+
+    function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
+        minimumLiquidationCollateral = amount.shrink();
+        emit MinimumLiquidationCollateralUpdated(amount);
+    }
+
+    /********************************/
+    /* Validation Private Functions */
+    /********************************/
+
+    function _onlyOperatorOwner(Operator memory operator) private view {
+        if (operator.snapshot.block == 0) revert OperatorDoesNotExist();
+        if (operator.owner != msg.sender) revert CallerNotOwner();
+    }
+
+    function _validatePublicKey(bytes calldata publicKey) private pure {
+        if (publicKey.length != 48) {
+            revert InvalidPublicKeyLength();
+        }
+    }
+
+    function _validateOperatorIds(uint operatorsLength) private pure {
+        if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
+            revert InvalidOperatorIdsLength();
+        }
+    }
+
+    /******************************/
+    /* Operator Private Functions */
+    /******************************/
+
+    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
+        _transfer(msg.sender, amount);
+        emit OperatorWithdrawn(msg.sender, operatorId, amount);
+    }
+
+    function _withdrawOperatorEarnings(
+        uint64 operatorId,
+        Operator memory operator,
+        uint256 amount
+    ) private onlyOperatorOwner(operator) {
+        operator.updateSnapshot();
+
+        uint64 shrunkAmount;
+
+        if (amount == 0 && operator.snapshot.balance > 0) {
+            shrunkAmount = operator.snapshot.balance;
+        } else if (amount > 0 && operator.snapshot.balance >= amount.shrink()) {
+            shrunkAmount = amount.shrink();
+        } else {
+            revert InsufficientBalance();
+        }
+
+        operator.snapshot.balance -= shrunkAmount;
+
+        operators[operatorId] = operator;
+
+        _transferOperatorBalanceUnsafe(operatorId, shrunkAmount.expand());
+    }
+
+    function _removeOperator(uint64 operatorId, Operator memory operator) private onlyOperatorOwner(operator) {
+        operator.updateSnapshot();
+        uint64 currentBalance = operator.snapshot.balance;
+
+        operator.snapshot.block = 0;
+        operator.snapshot.balance = 0;
+        operator.validatorCount = 0;
+        operator.fee = 0;
+
+        operators[operatorId] = operator;
+
+        if (operatorsWhitelist[operatorId] != address(0)) {
+            delete operatorsWhitelist[operatorId];
+        }
+
+        if (currentBalance > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
+        }
+        emit OperatorRemoved(operatorId);
+    }
+
+    function _setOperatorWhitelist(
+        uint64 operatorId,
+        address whitelisted,
+        Operator storage operator
+    ) private onlyOperatorOwner(operator) {
+        operatorsWhitelist[operatorId] = whitelisted;
+        emit OperatorWhitelistUpdated(operatorId, whitelisted);
+    }
+
+    function _declareOperatorFee(
+        uint64 operatorId,
+        Operator memory operator,
+        uint256 fee
+    ) private onlyOperatorOwner(operator) {
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+        uint64 operatorFee = operators[operatorId].fee;
+        uint64 shrunkFee = fee.shrink();
+
+        if (operatorFee == shrunkFee) {
+            revert SameFeeChangeNotAllowed();
+        } else if (shrunkFee != 0 && operatorFee == 0) {
+            revert FeeIncreaseNotAllowed();
+        }
+
+        // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
+        uint64 maxAllowedFee = (operatorFee * (10000 + operatorMaxFeeIncrease)) / 10000;
+
+        if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
+
+        operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
+            shrunkFee,
+            uint64(block.timestamp) + declareOperatorFeePeriod,
+            uint64(block.timestamp) + declareOperatorFeePeriod + executeOperatorFeePeriod
+        );
+        emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
+    }
+
+    function _executeOperatorFee(uint64 operatorId, Operator memory operator) private onlyOperatorOwner(operator) {
+        OperatorFeeChangeRequest memory feeChangeRequest = operatorFeeChangeRequests[operatorId];
+
+        if (feeChangeRequest.approvalBeginTime == 0) revert NoFeeDelcared();
+
+        if (
+            block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime
+        ) {
             revert ApprovalNotWithinTimeframe();
         }
 
-        _updateOperatorFeeUnsafe(operatorId, feeChangeRequest.fee);
+        operator.updateSnapshot();
+        operator.fee = feeChangeRequest.fee;
+        operators[operatorId] = operator;
 
-        emit OperatorFeeExecution(msg.sender, operatorId, block.number, feeChangeRequest.fee.expand());
+        delete operatorFeeChangeRequests[operatorId];
 
-        delete _feeChangeRequests[operatorId];
+        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, feeChangeRequest.fee.expand());
     }
 
-    function updateOperatorScore(uint32 operatorId, uint32 score) onlyOwner external override {
-        _ssvRegistryContract.updateOperatorScore(operatorId, score);
+    function _cancelDeclaredOperatorFee(
+        uint64 operatorId,
+        Operator memory operator
+    ) private onlyOperatorOwner(operator) {
+        if (operatorFeeChangeRequests[operatorId].approvalBeginTime == 0) revert NoFeeDelcared();
 
-        emit OperatorScoreUpdate(operatorId, msg.sender, block.number, score);
+        delete operatorFeeChangeRequests[operatorId];
+
+        emit OperatorFeeCancellationDeclared(msg.sender, operatorId);
     }
 
-    /**
-     * @dev See {ISSVNetwork-registerValidator}.
-     */
-    function registerValidator(
-        bytes calldata publicKey,
-        uint32[] calldata operatorIds,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata sharesEncrypted,
-        uint256 amount
-    ) external override {
-        _updateNetworkEarnings();
-        _updateAddressNetworkFee(msg.sender);
-        _registerValidatorUnsafe(msg.sender, publicKey, operatorIds, sharesPublicKeys, sharesEncrypted, amount);
+    function _reduceOperatorFee(
+        uint64 operatorId,
+        Operator memory operator,
+        uint256 fee
+    ) private onlyOperatorOwner(operator) {
+        uint64 shrunkAmount = fee.shrink();
+        if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
+
+        operator.updateSnapshot();
+        operator.fee = shrunkAmount;
+        operators[operatorId] = operator;
+
+        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
-    /**
-     * @dev See {ISSVNetwork-updateValidator}.
-     */
-    function updateValidator(
-        bytes calldata publicKey,
-        uint32[] calldata operatorIds,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata sharesEncrypted,
-        uint256 amount
-    ) onlyValidatorOwnerOrContractOwner(publicKey) external override {
-        _removeValidatorUnsafe(msg.sender, publicKey);
-        _registerValidatorUnsafe(msg.sender, publicKey, operatorIds, sharesPublicKeys, sharesEncrypted, amount);
-    }
+    /*****************************/
+    /* Balance Private Functions */
+    /*****************************/
 
-    /**
-     * @dev See {ISSVNetwork-removeValidator}.
-     */
-    function removeValidator(bytes calldata publicKey) onlyValidatorOwnerOrContractOwner(publicKey) external override {
-        _updateNetworkEarnings();
-        _updateAddressNetworkFee(msg.sender);
-        _removeValidatorUnsafe(msg.sender, publicKey);
-        _totalBalanceOf(msg.sender); // For assertion
-    }
-
-    function deposit(address ownerAddress, uint256 amount) external override {
-        _deposit(ownerAddress, amount);
-    }
-
-    function withdraw(uint256 amount) external override {
-        if(_totalBalanceOf(msg.sender) < amount.shrink()) {
-            revert NotEnoughBalance();
-        }
-
-        _withdrawUnsafe(amount.shrink());
-
-        if(_liquidatable(msg.sender)) {
-            revert NotEnoughBalance();
+    function _deposit(uint256 amount) private {
+        if (!_token.transferFrom(msg.sender, address(this), amount)) {
+            revert TokenTransferFailed();
         }
     }
 
-    function withdrawAll() external override {
-        if(_burnRate(msg.sender) > 0) {
-            revert BurnRatePositive();
-        }
-
-        _withdrawUnsafe(_totalBalanceOf(msg.sender));
-    }
-
-    function liquidate(address[] calldata ownerAddresses) external override {
-        uint64 balanceToTransfer = 0;
-
-        for (uint32 index = 0; index < ownerAddresses.length; ++index) {
-            if (_canLiquidate(ownerAddresses[index])) {
-                balanceToTransfer += _liquidateUnsafe(ownerAddresses[index]);
-            }
-        }
-
-        _token.transfer(msg.sender, balanceToTransfer.expand());
-    }
-
-    function reactivateAccount(uint256 amount) external override {
-        if (!_owners[msg.sender].validatorsDisabled) {
-            revert AccountAlreadyEnabled();
-        }
-
-        _deposit(msg.sender, amount);
-
-        _enableOwnerValidatorsUnsafe(msg.sender);
-
-        if(_liquidatable(msg.sender)) {
-            revert NotEnoughBalance();
-        }
-
-        emit AccountEnable(msg.sender);
-    }
-
-    function updateLiquidationThresholdPeriod(uint64 blocks) external onlyOwner override {
-        if(blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
-            revert BelowMinimumBlockPeriod();
-        }
-
-        _updateLiquidationThresholdPeriod(blocks);
-    }
-
-    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external onlyOwner override {
-        _updateOperatorFeeIncreaseLimit(newOperatorMaxFeeIncrease);
-    }
-
-    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external onlyOwner override {
-        _updateDeclareOperatorFeePeriod(newDeclareOperatorFeePeriod);
-    }
-
-    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external onlyOwner override {
-        _updateExecuteOperatorFeePeriod(newExecuteOperatorFeePeriod);
-    }
-
-    /**
-     * @dev See {ISSVNetwork-updateNetworkFee}.
-     */
-    function updateNetworkFee(uint256 fee) external onlyOwner override {
-        emit NetworkFeeUpdate(_networkFee.expand(), fee);
-        _updateNetworkEarnings();
-        _updateNetworkFeeIndex();
-        _networkFee = fee.shrink();
-    }
-
-    function withdrawNetworkEarnings(uint256 amount) external onlyOwner override {
-        if(amount.shrink() > _getNetworkEarnings()) {
-            revert NotEnoughBalance();
-        }
-
-        _withdrawnFromTreasury += amount.shrink();
-        _token.transfer(msg.sender, amount);
-
-        emit NetworkFeesWithdrawal(amount, msg.sender);
-    }
-
-    function getAddressBalance(address ownerAddress) external override view returns (uint256) {
-        return _totalBalanceOf(ownerAddress).expand();
-    }
-
-    function isLiquidated(address ownerAddress) external view override returns (bool) {
-        return _owners[ownerAddress].validatorsDisabled;
-    }
-
-    /**
-     * @dev See {ISSVNetwork-getOperatorById}.
-     */
-    function getOperatorById(uint32 operatorId) external view override returns (string memory, address, bytes memory, uint256, uint256, uint256, bool) {
-        return _ssvRegistryContract.getOperatorById(operatorId);
-    }
-
-    function getOperatorDeclaredFee(uint32 operatorId) external view override returns (uint256, uint256, uint256) {
-        FeeChangeRequest storage feeChangeRequest = _feeChangeRequests[operatorId];
-
-        return (feeChangeRequest.fee.expand(), feeChangeRequest.approvalBeginTime, feeChangeRequest.approvalEndTime);
-    }
-
-    /**
-     * @dev See {ISSVNetwork-getOperatorFee}.
-     */
-    function getOperatorFee(uint32 operatorId) external view override returns (uint256) {
-        return _ssvRegistryContract.getOperatorFee(operatorId).expand();
-    }
-
-    /**
-     * @dev See {ISSVNetwork-getOperatorsByValidator}.
-     */
-    function getOperatorsByValidator(bytes memory publicKey) external view override returns (uint32[] memory) {
-        return _ssvRegistryContract.getOperatorsByValidator(publicKey);
-    }
-
-    /**
-     * @dev See {ISSVNetwork-getValidatorsByAddress}.
-     */
-    function getValidatorsByOwnerAddress(address ownerAddress) external view override returns (bytes[] memory) {
-        return _ssvRegistryContract.getValidatorsByAddress(ownerAddress);
-    }
-
-    /**
-     * @dev See {ISSVNetwork-addressNetworkFee}.
-     */
-    function addressNetworkFee(address ownerAddress) external view override returns (uint256) {
-        return _addressNetworkFee(ownerAddress);
-    }
-
-    function getAddressBurnRate(address ownerAddress) external view override returns (uint256) {
-        return _burnRate(ownerAddress).expand();
-    }
-
-    function isLiquidatable(address ownerAddress) external view override returns (bool) {
-        return _liquidatable(ownerAddress);
-    }
-
-    function getNetworkFee() external view override returns (uint256) {
-        return _networkFee.expand();
-    }
-
-    function getNetworkEarnings() external view override returns (uint256) {
-        return _getNetworkEarnings().expand();
-    }
-
-    function getLiquidationThresholdPeriod() external view override returns (uint256) {
-        return _minimumBlocksBeforeLiquidation;
-    }
-
-    function getOperatorFeeIncreaseLimit() external view override returns (uint256) {
-        return _operatorMaxFeeIncrease;
-    }
-
-    function getExecuteOperatorFeePeriod() external view override returns (uint256) {
-        return _executeOperatorFeePeriod;
-    }
-
-    function getDeclaredOperatorFeePeriod() external view override returns (uint256) {
-        return _declareOperatorFeePeriod;
-    }
-
-    function validatorsPerOperatorCount(uint32 operatorId) external view returns (uint32) {
-        return _ssvRegistryContract.validatorsPerOperatorCount(operatorId);
-    }
-
-    function _deposit(address ownerAddress, uint256 amount) private {
-        _token.transferFrom(msg.sender, address(this), amount);
-        _owners[ownerAddress].deposited += amount.shrink();
-
-        emit FundsDeposit(amount, ownerAddress, msg.sender);
-    }
-
-    function _withdrawUnsafe(uint64 amount) private {
-        _owners[msg.sender].withdrawn += amount;
-        _token.transfer(msg.sender, amount.expand());
-
-        emit FundsWithdrawal(amount.expand(), msg.sender);
-    }
-
-    /**
-     * @dev Update network fee for the address.
-     * @param ownerAddress Owner address.
-     */
-    function _updateAddressNetworkFee(address ownerAddress) private {
-        _owners[ownerAddress].networkFee = _addressNetworkFee(ownerAddress);
-        _owners[ownerAddress].networkFeeIndex = _currentNetworkFeeIndex();
-    }
-
-    function _updateOperatorIndex(uint32 operatorId) private {
-        _operatorDatas[operatorId].index = _operatorIndexOf(operatorId);
-    }
-
-    /**
-     * @dev Updates operators's balance.
-     */
-    function _updateOperatorBalance(uint32 operatorId) private {
-        OperatorData storage operatorData = _operatorDatas[operatorId];
-        operatorData.earnings = _operatorEarningsOf(operatorId);
-        operatorData.blockNumber = block.number;
-    }
-
-    function _liquidateUnsafe(address ownerAddress) private returns (uint64) {
-        _disableOwnerValidatorsUnsafe(ownerAddress);
-
-        uint64 balanceToTransfer = _totalBalanceOf(ownerAddress);
-
-        _owners[ownerAddress].used += balanceToTransfer;
-
-        emit AccountLiquidation(ownerAddress);
-
-        return balanceToTransfer;
-    }
-
-    function _updateNetworkEarnings() private {
-        _networkEarnings = _getTotalNetworkEarnings();
-        _networkEarningsBlockNumber = block.number;
-    }
-
-    function _updateNetworkFeeIndex() private {
-        _networkFeeIndex = _currentNetworkFeeIndex();
-        _networkFeeIndexBlockNumber = block.number;
-    }
-
-    function _registerValidatorUnsafe(
-        address ownerAddress,
-        bytes calldata publicKey,
-        uint32[] calldata operatorIds,
-        bytes[] calldata sharesPublicKeys,
-        bytes[] calldata encryptedKeys,
-        uint256 tokenAmount) private {
-
-        _ssvRegistryContract.registerValidator(
-            ownerAddress,
-            publicKey,
-            operatorIds,
-            sharesPublicKeys,
-            encryptedKeys
-        );
-
-        OwnerData storage owner = _owners[ownerAddress];
-
-        if (!owner.validatorsDisabled) {
-            ++owner.activeValidatorCount;
-        }
-
-        for (uint32 index = 0; index < operatorIds.length; ++index) {
-            uint32 operatorId = operatorIds[index];
-            _updateOperatorBalance(operatorId);
-
-            if (!owner.validatorsDisabled) {
-                ++_operatorDatas[operatorId].activeValidatorCount;
-            }
-
-            _useOperatorByOwner(ownerAddress, operatorId);
-        }
-        if (tokenAmount > 0) {
-            _deposit(msg.sender, tokenAmount);
-        }
-
-        if(_liquidatable(ownerAddress)) {
-            revert NotEnoughBalance();
-        }
-
-        emit ValidatorRegistration(ownerAddress, publicKey, operatorIds, sharesPublicKeys, encryptedKeys);
-    }
-
-    function _removeValidatorUnsafe(address ownerAddress, bytes memory publicKey) private {
-        _unregisterValidator(ownerAddress, publicKey);
-        _ssvRegistryContract.removeValidator(publicKey);
-
-        if (!_owners[ownerAddress].validatorsDisabled) {
-            --_owners[ownerAddress].activeValidatorCount;
-        }
-
-        emit ValidatorRemoval(ownerAddress, publicKey);
-    }
-
-    function _unregisterValidator(address ownerAddress, bytes memory publicKey) private {
-        // calculate balances for current operators in use and update their balances
-        uint32[] memory currentOperatorIds = _ssvRegistryContract.getOperatorsByValidator(publicKey);
-        for (uint32 index = 0; index < currentOperatorIds.length; ++index) {
-            uint32 operatorId = currentOperatorIds[index];
-            _updateOperatorBalance(operatorId);
-
-            if (!_owners[ownerAddress].validatorsDisabled) {
-                --_operatorDatas[operatorId].activeValidatorCount;
-            }
-
-            _stopUsingOperatorByOwner(ownerAddress, operatorId);
+    function _transfer(address to, uint256 amount) private {
+        if (!_token.transfer(to, amount)) {
+            revert TokenTransferFailed();
         }
     }
-
-    function _useOperatorByOwner(address ownerAddress, uint32 operatorId) private {
-        _updateUsingOperatorByOwner(ownerAddress, operatorId, true);
-    }
-
-    function _stopUsingOperatorByOwner(address ownerAddress, uint32 operatorId) private {
-        _updateUsingOperatorByOwner(ownerAddress, operatorId, false);
-    }
-
-    function _updateOperatorFeeUnsafe(uint32 operatorId, uint64 fee) private {
-        OperatorData storage operatorData = _operatorDatas[operatorId];
-        _updateOperatorIndex(operatorId);
-        operatorData.indexBlockNumber = block.number;
-        _updateOperatorBalance(operatorId);
-        _ssvRegistryContract.updateOperatorFee(operatorId, fee);
-    }
-
-    /**
-     * @dev Updates the relation between operator and owner
-     * @param ownerAddress Owner address.
-     * @param increase Change value for validators amount.
-     */
-    function _updateUsingOperatorByOwner(address ownerAddress, uint32 operatorId, bool increase) private {
-        OperatorInUse storage operatorInUseData = _operatorsInUseByAddress[ownerAddress][operatorId];
-
-        if (operatorInUseData.exists) {
-            _updateOperatorUsageByOwner(operatorInUseData, ownerAddress, operatorId);
-
-            if (increase) {
-                ++operatorInUseData.validatorCount;
-            } else {
-                if (--operatorInUseData.validatorCount == 0) {
-                    _owners[ownerAddress].used += operatorInUseData.used;
-
-                    // remove from mapping and list;
-
-                    _operatorsInUseList[ownerAddress][operatorInUseData.indexInArray] = _operatorsInUseList[ownerAddress][_operatorsInUseList[ownerAddress].length - 1];
-                    _operatorsInUseByAddress[ownerAddress][_operatorsInUseList[ownerAddress][operatorInUseData.indexInArray]].indexInArray = operatorInUseData.indexInArray;
-                    _operatorsInUseList[ownerAddress].pop();
-
-                    delete _operatorsInUseByAddress[ownerAddress][operatorId];
-                }
-            }
-        } else {
-            if (_operatorsInUseList[ownerAddress].length > MANAGING_OPERATORS_PER_ACCOUNT_LIMIT) {
-                revert ExceedManagingOperatorsPerAccountLimit();
-            }
-
-            _operatorsInUseByAddress[ownerAddress][operatorId] = OperatorInUse({ index: _operatorIndexOf(operatorId), validatorCount: 1, used: 0, exists: true, indexInArray: uint32(_operatorsInUseList[ownerAddress].length) });
-            _operatorsInUseList[ownerAddress].push(operatorId);
-        }
-    }
-
-    function _disableOwnerValidatorsUnsafe(address ownerAddress) private {
-        _updateNetworkEarnings();
-        _updateAddressNetworkFee(ownerAddress);
-
-        for (uint32 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
-            uint32 operatorId = _operatorsInUseList[ownerAddress][index];
-            _updateOperatorBalance(operatorId);
-            OperatorInUse storage operatorInUseData = _operatorsInUseByAddress[ownerAddress][operatorId];
-            _updateOperatorUsageByOwner(operatorInUseData, ownerAddress, operatorId);
-            _operatorDatas[operatorId].activeValidatorCount -= operatorInUseData.validatorCount;
-        }
-
-        _ssvRegistryContract.disableOwnerValidators(ownerAddress);
-
-        _owners[ownerAddress].validatorsDisabled = true;
-    }
-
-    function _enableOwnerValidatorsUnsafe(address ownerAddress) private {
-        _updateNetworkEarnings();
-        _updateAddressNetworkFee(ownerAddress);
-
-        for (uint32 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
-            uint32 operatorId = _operatorsInUseList[ownerAddress][index];
-            _updateOperatorBalance(operatorId);
-            OperatorInUse storage operatorInUseData = _operatorsInUseByAddress[ownerAddress][operatorId];
-            _updateOperatorUsageByOwner(operatorInUseData, ownerAddress, operatorId);
-            _operatorDatas[operatorId].activeValidatorCount += operatorInUseData.validatorCount;
-        }
-
-        _ssvRegistryContract.enableOwnerValidators(ownerAddress);
-
-        _owners[ownerAddress].validatorsDisabled = false;
-    }
-
-    function _updateOperatorUsageByOwner(OperatorInUse storage operatorInUseData, address ownerAddress, uint32 operatorId) private {
-        operatorInUseData.used = _operatorInUseUsageOf(operatorInUseData, ownerAddress, operatorId);
-        operatorInUseData.index = _operatorIndexOf(operatorId);
-    }
-
-    function _updateLiquidationThresholdPeriod(uint64 newMinimumBlocksBeforeLiquidation) private {
-        _minimumBlocksBeforeLiquidation = newMinimumBlocksBeforeLiquidation;
-
-        emit LiquidationThresholdPeriodUpdate(_minimumBlocksBeforeLiquidation);
-    }
-
-    function _updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) private {
-        _operatorMaxFeeIncrease = newOperatorMaxFeeIncrease;
-
-        emit OperatorFeeIncreaseLimitUpdate(_operatorMaxFeeIncrease);
-
-    }
-
-    function _updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) private {
-        _declareOperatorFeePeriod = newDeclareOperatorFeePeriod;
-
-        emit DeclareOperatorFeePeriodUpdate(newDeclareOperatorFeePeriod);
-    }
-
-    function _updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) private {
-        _executeOperatorFeePeriod = newExecuteOperatorFeePeriod;
-
-        emit ExecuteOperatorFeePeriodUpdate(newExecuteOperatorFeePeriod);
-    }
-
-    function _expensesOf(address ownerAddress) private view returns(uint64) {
-        uint64 usage =  _owners[ownerAddress].used + _addressNetworkFee(ownerAddress);
-        for (uint32 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
-            OperatorInUse storage operatorInUseData = _operatorsInUseByAddress[ownerAddress][_operatorsInUseList[ownerAddress][index]];
-            usage += _operatorInUseUsageOf(operatorInUseData, ownerAddress, _operatorsInUseList[ownerAddress][index]);
-        }
-
-        return usage;
-    }
-
-    function _totalEarningsOf(address ownerAddress) private view returns (uint64) {
-        uint64 earnings = 0;
-        uint32[] memory operatorsByOwner = _ssvRegistryContract.getOperatorsByOwnerAddress(ownerAddress);
-        for (uint32 index = 0; index < operatorsByOwner.length; ++index) {
-            earnings += _operatorEarningsOf(operatorsByOwner[index]);
-        }
-
-        return earnings;
-    }
-
-    function _totalBalanceOf(address ownerAddress) private view returns (uint64) {
-        uint64 balance = _owners[ownerAddress].deposited + _totalEarningsOf(ownerAddress);
-
-        uint64 usage = _owners[ownerAddress].withdrawn + _expensesOf(ownerAddress);
-
-        if(balance < usage) {
-            revert NegativeBalance();
-        }
-
-        return balance - usage;
-    }
-
-    function _operatorEarnRate(uint32 operatorId) private view returns (uint64) {
-        return _ssvRegistryContract.getOperatorFee(operatorId) * _operatorDatas[operatorId].activeValidatorCount;
-    }
-
-    /**
-     * @dev See {ISSVNetwork-operatorEarningsOf}.
-     */
-    function _operatorEarningsOf(uint32 operatorId) private view returns (uint64) {
-        return _operatorDatas[operatorId].earnings +
-               uint64(block.number - _operatorDatas[operatorId].blockNumber) *
-               _operatorEarnRate(operatorId);
-    }
-
-    function _addressNetworkFee(address ownerAddress) private view returns (uint64) {
-        return _owners[ownerAddress].networkFee +
-              uint64(_currentNetworkFeeIndex() - _owners[ownerAddress].networkFeeIndex) *
-              _owners[ownerAddress].activeValidatorCount;
-    }
-
-    function _burnRate(address ownerAddress) private view returns (uint64 ownerBurnRate) {
-        if (_owners[ownerAddress].validatorsDisabled) {
-            return 0;
-        }
-
-        for (uint32 index = 0; index < _operatorsInUseList[ownerAddress].length; ++index) {
-            ownerBurnRate += _operatorInUseBurnRateWithNetworkFeeUnsafe(ownerAddress, _operatorsInUseList[ownerAddress][index]);
-        }
-
-        ownerBurnRate += _owners[ownerAddress].activeValidatorCount * _networkFee;
-
-        uint32[] memory operatorsByOwner = _ssvRegistryContract.getOperatorsByOwnerAddress(ownerAddress);
-
-        for (uint32 index = 0; index < operatorsByOwner.length; ++index) {
-            if (ownerBurnRate <= _operatorEarnRate(operatorsByOwner[index])) {
-                return 0;
-            } else {
-                ownerBurnRate -= _operatorEarnRate(operatorsByOwner[index]);
-            }
-        }
-    }
-
-    function _overdue(address ownerAddress) private view returns (bool) {
-        return _totalBalanceOf(ownerAddress) < _minimumBlocksBeforeLiquidation * _burnRate(ownerAddress);
-    }
-
-    function _liquidatable(address ownerAddress) private view returns (bool) {
-        return !_owners[ownerAddress].validatorsDisabled && _overdue(ownerAddress);
-    }
-
-    function _canLiquidate(address ownerAddress) private view returns (bool) {
-        return !_owners[ownerAddress].validatorsDisabled && (msg.sender == ownerAddress || _overdue(ownerAddress));
-    }
-
-    function _getTotalNetworkEarnings() private view returns (uint64) {
-        uint256 result = _networkEarnings + (block.number - _networkEarningsBlockNumber) * _networkFee * _ssvRegistryContract.activeValidatorCount();
-        return uint64(result);
-    }
-
-    function _getNetworkEarnings() private view returns (uint64) {
-        return _getTotalNetworkEarnings() - _withdrawnFromTreasury;
-    }
-
-    /**
-     * @dev Get operator index by address.
-     */
-    function _operatorIndexOf(uint32 operatorId) private view returns (uint64) {
-        return _operatorDatas[operatorId].index +
-               _ssvRegistryContract.getOperatorFee(operatorId) *
-               uint64(block.number - _operatorDatas[operatorId].indexBlockNumber);
-    }
-
-    function _operatorInUseUsageOf(OperatorInUse storage operatorInUseData, address ownerAddress, uint32 operatorId) private view returns (uint64) {
-        return operatorInUseData.used + (
-                _owners[ownerAddress].validatorsDisabled ? 0 :
-                uint64(_operatorIndexOf(operatorId) - operatorInUseData.index) * operatorInUseData.validatorCount
-               );
-    }
-
-    function _operatorInUseBurnRateWithNetworkFeeUnsafe(address ownerAddress, uint32 operatorId) private view returns (uint64) {
-        OperatorInUse storage operatorInUseData = _operatorsInUseByAddress[ownerAddress][operatorId];
-        return _ssvRegistryContract.getOperatorFee(operatorId) * operatorInUseData.validatorCount;
-    }
-
-    /**
-     * @dev Returns the current network fee index
-     */
-    function _currentNetworkFeeIndex() private view returns(uint64) {
-        return _networkFeeIndex + uint64(block.number - _networkFeeIndexBlockNumber) * _networkFee;
-    }
-
-    function _onlyValidatorOwnerOrContractOwner(bytes calldata publicKey) private view {
-        address validatorOwner = _ssvRegistryContract.getValidatorOwner(publicKey);
-        if (validatorOwner == address(0)) {
-            revert ValidatorWithPublicKeyNotExist();
-        }
-        if (msg.sender != validatorOwner && msg.sender != owner()) {
-            revert CallerNotValidatorOwner();
-        }
-    }
-
-    function _onlyOperatorOwnerOrContractOwner(uint32 operatorId) private view {
-        address operatorOwner = _ssvRegistryContract.getOperatorOwner(operatorId);
-
-        if(operatorOwner == address(0)) {
-            revert OperatorWithPublicKeyNotExist();
-        }
-
-        if(msg.sender != operatorOwner && msg.sender != owner()) {
-            revert CallerNotOperatorOwner();
-        }
-    }
-
-    function _ensureMinimalOperatorFee(uint64 fee) private pure {
-        if (fee < MINIMAL_OPERATOR_FEE) {
-            revert FeeTooLow();
-        }
-    }
-
-    function version() external pure override returns (uint32) {
-        return 20000;
-    }
-
-    uint256[50] ______gap;
 }
