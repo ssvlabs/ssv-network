@@ -1,11 +1,12 @@
 # SSV Network Project
 
-This repository contains a SSVRegistry and SSVNetwork smart contacts project.
+
+This repository contains a SSVNetwork smart contacts project.
 
 ## Quick start
 
-The first things you need to do are cloning this repository and installing its
-dependencies:
+The first things you need to do are cloning this repository and installing its dependencies:
+
 
 ```sh
 git clone git@github.com:bloxapp/ssv-network.git
@@ -13,130 +14,231 @@ cd ssv-network
 npm install
 ```
 
-### Run locally HardHat TestNetwork node 
+### Run locally HardHat TestNetwork node
+
 Once installed, to run Hardhat's testing network:
+
 
 ```sh
 npx hardhat node
 ```
 
 For more details about it and how to use MainNet forking you can find [here](https://hardhat.org/hardhat-network/).
+  
 
 ### Compile contracts
-Take a look at `contracts/` folder, you should be able to find `SSVNetwork.sol`, `SSVNetworkV2.sol` as simple contract example.
-To compile it, simply run:
+
+Take a look at `contracts/` folder, you should be able to find:
+- `SSVNetwork.sol`: Base contract for SSV Network operations.
+- `SSVNetworkViews.sol`: Contract with view functions only to retrive information from SSVNetwork contract.
+- `libraries`: Folder which contains library contracts that implement operators, clusters and network functionalities.
+
+To compile them, simply run:
 
 ```sh
 npx hardhat compile
 ```
-
-## CI/CD Workflow
+  
+## CI/CD Workflow  
 
 ### Step 1: Test contracts
-Take a look at `test/` folder, you should be able to find tests related to specific actions.
-It comes with tests that use [Waffle](https://getwaffle.io/) and [Ethers.js](https://github.com/ethers-io/ethers.js/).
-To run tests, run:
 
+Take a look at `test/` folder, you should be able to find tests related to specific actions.
+
+It comes with tests that use [Ethers.js](https://github.com/ethers-io/ethers.js/).
+
+To run tests, run:
+ 
 ```sh
 npx hardhat test
 ```
 
+
 ### Step 2: Deploy new contracts
-We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an ability to upgrade them later.
-To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `ssv-registry-deploy.ts` and `ssv-network-deploy.ts` files.
-As general rule, you can target any network configured in the `hardhat.config.ts`
 
-#### Deploy SSV Registry
+We use [UUPS Proxy Upgrade pattern](https://docs.openzeppelin.com/contracts/4.x/api/proxy) for smart contracts to have an ability to upgrade them later.
 
-```sh
-npx hardhat run --network <your-network> scripts/ssv-registry-deploy.ts
-```
-Output of this action will be smart SSV Registry contract proxy address.
+To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find:
+- `deploy-all.ts`: Deploys both `SSVNetwork.sol` and `SSVNetworkViews.sol`.
+- `validate-upgrade-ssv-network`: Validates if `SSVNetwork` is upgrade safe.
+- `validate-upgrade-ssv-network-views`: Validates if `SSVNetworkViews` is upgrade safe.
+- `upgrade-ssv-network`: Upgrades `SSVNetwork` contract.
+- `upgrade-ssv-network-views`: Upgrades `SSVNetworkViews` contract.
 
+As general rule, you can target any network configured in the `hardhat.config.ts`, specifying the right [network]_ETH_NODE_URL and [network]_OWNER_PRIVATE_KEY in `.env` file.
+  
 #### Deploy SSV Network
+
 Before run the cli command, in `.env` need to add the following seetings:
 
+
 ```sh
-SSVREGISTRY_ADDRESS=#SSV Registry contract address
+[NETWORK]_ETH_NODE_URL=# RPC URL of the node
+[NETWORK]_OWNER_PRIVATE_KEY=# Private key of the deployer account, without 0x prefix
+GAS_PRICE=# example 30000000000
+GAS=# example 8000000
+ETHERSCAN_KEY=# etherescan API key
 SSVTOKEN_ADDRESS=#SSV Token contract address
+MINIMUM_BLOCKS_BEFORE_LIQUIDATION=# custom param
+OPERATOR_MAX_FEE_INCREASE=# custom param
+DECLARE_OPERATOR_FEE_PERIOD=# custom param
+EXECUTE_OPERATOR_FEE_PERIOD=# custom param
+VALIDATORS_PER_OPERATOR_LIMIT=# custom param
+REGISTERED_OPERATORS_PER_ACCOUNT_LIMIT=# custom param
+SSVNETWORK_PROXY_ADDRESS=# SSVNetwork proxy address, set it when runnning upgrade-ssv-network.ts script
+SSVNETWORKVIEWS_PROXY_ADDRESS=# SSVNetworkViews proxy address, set it when runnning upgrade-ssv-network-views.ts script
+INITIAL_VERSION=# SSVNetwork initial version, example: "1.0.0"
 ```
 
-After that:
+  Then run:
+```sh
+npx hardhat run --network <your-network> scripts/deploy-all.ts
+```
+
+Output of this action will be:
 
 ```sh
-npx hardhat run --network <your-network> scripts/ssv-network-deploy.ts
+Deploying contracts with the account:0xf39Fd6...
+Deploying SSVNetwork with ssvToken 0x6471F7...
+SSVNetwork proxy deployed to: 0x8A7916...
+SSVNetwork implementation deployed to: 0x2279B7...
+Deploying SSVNetworkViews with SSVNetwork 0x8A7916...
+SSVNetworkViews proxy deployed to: 0xB7f8BC...
+SSVNetworkViews implementation deployed to: 0x610178...
 ```
-Output of this action will be smart SSV Network contract proxy address.
+
+You can now go to Etherscan and see:
+- `SSVNetwork` proxy contract is deployed to the address shown previously in `SSVNetwork proxy deployed to`
+- `SSVNetwork` implementation contract is deployed to the address shown previously in `SSVNetwork implementation deployed to`
+- `SSVNetworkViews` proxy contract is deployed to the address shown previously in `SSVNetworkViews proxy deployed to`
+- `SSVNetworkViews` implementation contract is deployed to the address shown previously in `SSVNetworkViews implementation deployed to`
+
+Example: [https://goerli.etherscan.io/address/0xe2e28fdea8ba1bb59a0056f6a5eabd443d47ec78](https://goerli.etherscan.io/address/0xe2e28fdea8ba1bb59a0056f6a5eabd443d47ec78)
 
 ### Step 3: Verify implementation contract on etherscan (each time after upgrade)
+
 Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is implementation smart contract address.
-We use [Proxy Upgrade pattern](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies) for smart contracts to have an ability to upgrade them later.
-To deploy the contract we will use a Hardhat script. Inside `scripts/` you will find `deploy.ts` file.
-Run this:
-```sh
-npx hardhat  verify --network <network> <implementation-address>
-```
+You will find 2 `[impls.<hash>]` entries, one for `SSVNetwork` and another for `SSVNetworkViews`.
+Run this verification process for both.
 
-### Step 4: Link proxy contract with implementation on etherscan (each time after upgrade)
-Go to `https://<network>.etherscan.io/address/<proxy-address>` and click on `Contract` tab.
-On a right side click `More Options` dropbox and select `Is this a proxy?`. On a verification page enter proxy address inside field and click `Verify` button. As result you will see the message:
-```sh
-The proxy contract verification completed with the message:
-The proxy\'s (<proxy-address) implementation contract is found at: <implementation-address>
-```
-To be sure that values are correct and click `Save` button. As result on etherscan proxy address page in `Contract` tab you will find two new buttons:
-`Write as Proxy` and `Read as Proxy` which will represent implementation smart contract functions interface and the actual state.
+You can take it from the output of the `deploy-all.ts` script.
+ 
 
-### Step 5: Upgrade contract
-Once we have tested our new implementation, for example `contracts/SSVNetwork.sol` we can prepare the upgrade.
-This will validate and deploy our new implementation contract.
-#### Upgrade SSV Registry contract:
-```sh
-PROXY_ADDRESS=0x... npx hardhat run --network <network> scripts/ssv-registry-upgrade.ts
-```
-
-#### Upgrade SSV Network contract:
-```sh
-PROXY_ADDRESS=0x... npx hardhat run --network <network> scripts/ssv-network-upgrade.ts
-```
-### dApp UI to interact with smart contract
+To verify an implementation contract, run this:
 
 ```sh
-https://eth95.dev/?network=1&address=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+npx hardhat verify --network <network> <implementation-address>
 ```
 
-UI dApp [direct link](https://eth95.dev/?network=1&address=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0)
+Output of this action will be:
+```sh
+Nothing to compile
+No need to generate any newer typings.
+Successfully submitted source code for contract
+contracts/SSVNetwork.sol:SSVNetwork at 0x2279B7...
+for verification on the block explorer. Waiting for verification result...
 
-## User Guide
+Successfully verified contract SSVNetwork on Etherscan.
+https://goerli.etherscan.io/address/0x2279b7dea8ba1bb59a0056f6a5eabd443d47ec78#code
+```
 
-You can find detailed instructions on using this repository and many tips in [its documentation](https://hardhat.org/tutorial).
-For a complete introduction to Hardhat, refer to [this guide](https://hardhat.org/getting-started/#overview).
+After this action, you can go to the proxy contract in Etherscan and start interacting with it.
+  
+## Upgrade process
+### Upgrade SSVNetwork contract
 
-## What’s Included?
+Once we have tested our new implementation, for example `contracts/SSVNetwork_V2.sol` we can prepare the upgrade.
 
-Your environment will have everything you need to build a Dapp powered by Hardhat and React.
+  
+In `.env` file, remember to set `SSVNETWORK_PROXY_ADDRESS` with the address of the `SSVNetwork` proxy contract.
 
-- [Hardhat](https://hardhat.org/): An Ethereum development task runner and testing network.
-- [Mocha](https://mochajs.org/): A JavaScript test runner.
-- [Chai](https://www.chaijs.com/): A JavaScript assertion library.
-- [ethers.js](https://docs.ethers.io/ethers.js/html/): A JavaScript library for interacting with Ethereum.
-- [Waffle](https://github.com/EthWorks/Waffle/): To have Ethereum-specific Chai assertions/mathers.
+To validate the upgrade before running it:
 
-## ABI
-The SSV Network ABI can be obtained by going to a direct URL.
-You must know the version of the ABI you want.
+```sh
+npx hardhat run --network <your-network> scripts/validate-upgrade-ssv-network.ts
+```
 
-URL Format - Fill in for {ABI_VERSION}: https://bloxapp.github.io/ssv-network/abi/{ABI_VERSION}/SSVNetwork.json: 
+To fire the upgrade process:
 
-Example of the 20001 version of the ABI: https://bloxapp.github.io/ssv-network/abi/20001/SSVNetwork.json
+```sh
+npx hardhat run --network <your-network> scripts/upgrade-ssv-network.ts
+```
 
-## Security Audit [OLD Version]
+If you get the error:
 
-Full audit report [CoinFabrik Report](./docs/SSV_Token_Dex&Vesting_audit.pdf)
+`
+Error: invalid hex string ...
+reason: 'invalid hex string',
+code: 'INVALID_ARGUMENT',
+`
 
-## Troubleshooting
+Set or change the parameters `GAS_PRICE` and `GAS` in `.env` file.
 
-- `Invalid nonce` errors: if you are seeing this error on the `npx hardhat node`
-  console, try resetting your Metamask account. This will reset the account's
-  transaction history and also the nonce. Open Metamask, click on your account
-  followed by `Settings > Advanced > Reset Account`.
+### Upgrade SSVNetworkViews contract
+
+Once we have tested our new implementation, for example `contracts/SSVNetworkViews_V2.sol` we can prepare the upgrade.
+
+In `.env` file, remember to set `SSVNETWORKVIEWS_PROXY_ADDRESS` with the address of the `SSVNetworkViews` proxy .
+
+To validate the upgrade before running it:
+
+```sh
+npx hardhat run --network <your-network> scripts/validate-upgrade-ssv-network-views.ts
+```
+
+To fire the upgrade process:
+
+```sh
+npx hardhat run --network <your-network> scripts/upgrade-ssv-network-views.ts
+```
+
+**Important note on upgrades**
+
+Pay special attention when changing storage layout, for example adding new storage variables in `SSVNetwork` and `SSVNetworkViews` (base) contracts.
+
+There is a state variable `uint256[50] __gap;` that you should reduce the size according to the size of the new variables added. More info: [Storage Gaps](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps)
+
+
+## Modify the limit of validators that an operator can manage
+In `SSVNetwork` contract, the state variable `validatorsPerOperatorLimit` is used to represent the máximum number of validators that can be registered per operator. Its default value is `2000`.
+
+To change it, the upgrade process should be fired. The assignement to a new value must be in a new initializer function. Pay special attention to the `reinitializer` modifier where there should be a number higher than the one consumed in previous initialized contracts. More info [here](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Initializable-reinitializer-uint8-)
+Example upgrade contract:
+```
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity 0.8.16;
+
+import "../SSVNetwork.sol";
+
+contract SSVNetwork_v2 is SSVNetwork {
+    
+    function initializev2(uint32 validatorsPerOperatorLimit_) reinitializer(2) external {
+        validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+    }
+}
+```
+
+
+## Transfer the ownership of the contract
+The process of transferring the ownership of the SSVNetwork contract is implemented using OpenZeppelin's `Ownable2StepUpgradeable` contract, and consists of the following steps:
+1. Current owner calls `SSVNetwork`'s `transferOwnership` function with the new owner address as parameter.
+2. The new owner calls `SSVNetwork`'s `acceptOwnership` fucntion and the ownership of the contract is transferred.
+
+#### Version tracking
+
+`SSVNetwork` contract keeps its version number using the state variable `version`, which can be queried at any time but is only updated via the upgrade process. The assignement of the new version number takes place in the initializer function of the new contract. We follow [SemVer](https://semver.org/) spec. 
+
+Example upgrade contract:
+```
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity 0.8.16;
+
+import "./SSVNetwork.sol";
+
+contract SSVNetworkVersionUpgrade is SSVNetwork {
+    function initializev2(string calldata _version) external reinitializer(_getInitializedVersion() + 1) {
+         version = bytes32(abi.encodePacked((_version)));
+    }
+}
+```
+Here a new `_version` is passed to the `initializev2` function that is executed in the upgrade process. The `Initializable._getInitializedVersion()` call picks the latest version of previously initialized contracts and is increased by 1.
