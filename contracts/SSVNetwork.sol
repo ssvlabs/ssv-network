@@ -42,24 +42,24 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /* Variables */
     /*************/
 
-    mapping(uint64 => Operator) public operators;
-    mapping(uint64 => address) public operatorsWhitelist;
-    mapping(uint64 => OperatorFeeChangeRequest) public operatorFeeChangeRequests;
-    mapping(bytes32 => bytes32) public clusters;
-    mapping(bytes32 => Validator) public validatorPKs;
+    mapping(uint64 => Operator) public override operators;
+    mapping(uint64 => address) public override operatorsWhitelist;
+    mapping(uint64 => OperatorFeeChangeRequest) public override operatorFeeChangeRequests;
+    mapping(bytes32 => bytes32) public override clusters;
+    mapping(bytes32 => Validator) public override validatorPKs;
 
-    bytes32 public version;
+    bytes32 public override version;
 
     uint32 public validatorsPerOperatorLimit;
-    uint64 public declareOperatorFeePeriod;
-    uint64 public executeOperatorFeePeriod;
-    uint64 public operatorMaxFeeIncrease;
-    uint64 public minimumBlocksBeforeLiquidation;
-    uint64 public minimumLiquidationCollateral;
+    uint64 public override declareOperatorFeePeriod;
+    uint64 public override executeOperatorFeePeriod;
+    uint64 public override operatorMaxFeeIncrease;
+    uint64 public override minimumBlocksBeforeLiquidation;
+    uint64 public override minimumLiquidationCollateral;
 
-    DAO public dao;
+    DAO public override dao;
     IERC20 private _token;
-    Network public network;
+    Network public override network;
 
     // @dev reserve storage space for future new state variables in base contract
     // slither-disable-next-line shadowing-state
