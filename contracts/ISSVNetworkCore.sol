@@ -55,6 +55,12 @@ interface ISSVNetworkCore {
         uint64 networkFeeIndexBlockNumber;
     }
 
+    struct Liquidation {
+        address owner;
+        uint64[] operatorIds;
+        Cluster cluster;
+    }
+
     /**********/
     /* Errors */
     /**********/

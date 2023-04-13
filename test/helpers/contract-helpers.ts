@@ -153,12 +153,12 @@ export const deposit = async (ownerId: number, ownerAddress: string, operatorIds
 };
 
 export const liquidate = async (ownerAddress: string, operatorIds: number[], cluster: any) => {
-  const liquidatedCluster = await trackGas(DB.ssvNetwork.contract.liquidate(
-    ownerAddress,
+  const liquidatedCluster = await trackGas(DB.ssvNetwork.contract.liquidate([{
+    owner: ownerAddress,
     operatorIds,
     cluster
-  ));
-  return liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
+  }]));
+  return liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
 };
 
 export const removeValidator = async (ownerId: number, pk: string, operatorIds: number[], cluster: any) => {
@@ -230,7 +230,7 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
 
   for (let i = 0; i < numberOfValidators; i++) {
     const shares = DataGenerator.shares(4);
-    const publicKey = DataGenerator.publicKey(i);
+    const publicKey = DataGenerator.publicKey(DB.validators.length + 1);
 
     await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
     const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
@@ -242,7 +242,10 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
     ), gasGroups);
 
     cluster = result.eventsByName.ValidatorAdded[0].args.cluster;
+    DB.validators.push({ publicKey, operatorIds, shares });
   }
+
+  return { owner: DB.owners[ownerId].address, operatorIds, cluster };
 }
 
 

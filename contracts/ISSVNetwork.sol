@@ -60,7 +60,7 @@ interface ISSVNetwork is ISSVNetworkCore {
      */
     event OperatorFeeExecuted(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 
-    event ClusterLiquidated(address indexed owner, uint64[] operatorIds, Cluster cluster);
+    event ClustersLiquidated(Liquidation[] liquidations);
 
     event ClusterReactivated(address indexed owner, uint64[] operatorIds, Cluster cluster);
 
@@ -163,7 +163,7 @@ interface ISSVNetwork is ISSVNetworkCore {
     /* Cluster External Functions */
     /**************************/
 
-    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external;
+    function liquidate(Liquidation[] calldata liquidations) external;
 
     function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external;
 

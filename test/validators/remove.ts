@@ -22,7 +22,7 @@ describe('Remove Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1,2,3,4],
+      [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       '1000000000000000',
       {
@@ -38,7 +38,7 @@ describe('Remove Validator Tests', () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4],
+      [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       minDepositAmount,
       {
@@ -116,12 +116,12 @@ describe('Remove Validator Tests', () => {
 
   it('Remove validator from a liquidated cluster', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
-      firstCluster.owner,
-      firstCluster.operatorIds,
-      firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD]);
-    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate([{
+      owner: firstCluster.owner,
+      operatorIds: firstCluster.operatorIds,
+      cluster: firstCluster.cluster
+    }]), [GasGroup.LIQUIDATE_POD]);
+    const updatedCluster = liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
 
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
@@ -135,7 +135,7 @@ describe('Remove Validator Tests', () => {
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
       firstCluster.cluster
-    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorOwnedByOtherAddress');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorOwnedByOtherAddress');
   });
 
   it('Remove the same validator twice reverts "ValidatorDoesNotExist"', async () => {
@@ -151,6 +151,6 @@ describe('Remove Validator Tests', () => {
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
       firstCluster.cluster
-    )).to.be.revertedWithCustomError(ssvNetworkContract,'ValidatorDoesNotExist');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
   });
 });

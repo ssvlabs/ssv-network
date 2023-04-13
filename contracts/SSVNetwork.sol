@@ -359,71 +359,95 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
-    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, this);
-        cluster.validateClusterIsNotLiquidated();
-
-        uint64 clusterIndex;
-        uint64 burnRate;
-        {
-            uint operatorsLength = operatorIds.length;
-            for (uint i; i < operatorsLength; ) {
-                Operator memory operator = operators[operatorIds[i]];
-
-                if (operator.snapshot.block != 0) {
-                    operator.updateSnapshot();
-                    operator.validatorCount -= cluster.validatorCount;
-                    burnRate += operator.fee;
-                    operators[operatorIds[i]] = operator;
-                }
-
-                clusterIndex += operator.snapshot.index;
-                unchecked {
-                    ++i;
-                }
-            }
-        }
-
-        cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
-
-        uint64 networkFee = network.networkFee;
+    function liquidate(Liquidation[] calldata liquidations) external override {
+        uint32 aggregateValidatorCount;
         uint256 balanceLiquidatable;
 
-        if (
-            owner != msg.sender &&
-            !cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation, minimumLiquidationCollateral)
-        ) {
-            revert ClusterNotLiquidatable();
+        Operator[] memory processedOperators = new Operator[](0);
+        uint64[] memory processedIndexes = new uint64[](0);
+        Liquidation[] memory processedLiquidations = new Liquidation[](liquidations.length);
+
+        uint64 networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network);
+
+        for (uint i; i < liquidations.length; ++i) {
+            uint64 burnRate;
+            uint64 clusterIndex;
+
+            Liquidation memory liquidation = liquidations[i];
+
+            Cluster memory cluster = liquidation.cluster;
+
+            bytes32 hashedCluster = cluster.validateHashedCluster(liquidation.owner, liquidation.operatorIds, this);
+            cluster.validateClusterIsNotLiquidated();
+
+            aggregateValidatorCount += cluster.validatorCount;
+
+            (
+                uint64 aggregateFees,
+                uint64 aggregateIndex,
+                Operator[] memory _processedOperators,
+                uint64[] memory _processedIndexes
+            ) = _processOperatorsInLiquidation(processedOperators, processedIndexes, liquidation);
+
+            processedOperators = _processedOperators;
+            processedIndexes = _processedIndexes;
+
+            burnRate += aggregateFees;
+            clusterIndex += aggregateIndex;
+
+            cluster.updateBalance(clusterIndex, networkFeeIndex);
+
+            if (
+                liquidation.owner != msg.sender &&
+                !cluster.isLiquidatable(
+                    burnRate,
+                    network.networkFee,
+                    minimumBlocksBeforeLiquidation,
+                    minimumLiquidationCollateral
+                )
+            ) {
+                revert ClusterNotLiquidatable();
+            }
+
+            if (cluster.balance != 0) {
+                balanceLiquidatable += cluster.balance;
+                cluster.balance = 0;
+            }
+            cluster.index = 0;
+            cluster.networkFeeIndex = 0;
+            cluster.active = false;
+
+            clusters[hashedCluster] = keccak256(
+                abi.encodePacked(
+                    cluster.validatorCount,
+                    cluster.networkFeeIndex,
+                    cluster.index,
+                    cluster.balance,
+                    cluster.active
+                )
+            );
+
+            processedLiquidations[i] = Liquidation({
+                owner: liquidation.owner,
+                operatorIds: liquidation.operatorIds,
+                cluster: cluster
+            });
+        }
+
+        for (uint i; i < processedOperators.length; ++i) {
+            operators[processedIndexes[i]] = processedOperators[i];
         }
 
         DAO memory dao_ = dao;
-        dao_.updateDAOEarnings(networkFee);
-        dao_.validatorCount -= cluster.validatorCount;
+        dao_.updateDAOEarnings(network.networkFee);
+        dao_.validatorCount -= aggregateValidatorCount;
         dao = dao_;
-
-        if (cluster.balance != 0) {
-            balanceLiquidatable = cluster.balance;
-            cluster.balance = 0;
-        }
-        cluster.index = 0;
-        cluster.networkFeeIndex = 0;
-        cluster.active = false;
-
-        clusters[hashedCluster] = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
-            )
-        );
 
         if (balanceLiquidatable != 0) {
             _transfer(msg.sender, balanceLiquidatable);
         }
 
-        emit ClusterLiquidated(owner, operatorIds, cluster);
+        emit ClustersLiquidated(processedLiquidations);
     }
 
     function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
@@ -805,6 +829,90 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         operators[operatorId] = operator;
 
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
+    }
+
+    function _processOperatorsInLiquidation(
+        Operator[] memory processedOperators,
+        uint64[] memory processedIndexes,
+        Liquidation memory liquidation
+    ) private view returns (uint64 aggregateFees, uint64 aggregateIndex, Operator[] memory uniqueOperators, uint64[] memory uniqueIndexes) {
+        uint32 validatorCount = liquidation.cluster.validatorCount;
+        uint64[] memory operatorIds = liquidation.operatorIds;
+
+        uniqueIndexes = new uint64[](processedIndexes.length + operatorIds.length);
+        uniqueOperators = new Operator[](processedOperators.length + operatorIds.length);
+        uint256 uniqueIndex;
+        uint256 i;
+        uint256 j;
+
+        while (i < processedIndexes.length && j < operatorIds.length) {
+            if (processedIndexes[i] < operatorIds[j]) {
+                uniqueIndexes[uniqueIndex] = processedIndexes[i];
+                uniqueOperators[uniqueIndex] = processedOperators[i];
+
+                uniqueIndex++;
+                i++;
+            } else if (operatorIds[j] < processedIndexes[i]) {
+                uniqueIndexes[uniqueIndex] = operatorIds[j];
+
+                Operator memory operator = operators[operatorIds[j]];
+                if (operator.snapshot.block != 0) {
+                    operator.updateSnapshot();
+                    operator.validatorCount -= validatorCount;
+                    aggregateFees += operator.fee;
+                }
+                aggregateIndex += operator.snapshot.index;
+                uniqueOperators[uniqueIndex] = operator;
+
+                uniqueIndex++;
+                j++;
+            } else {
+                // Both arrays have the same value
+                uniqueIndexes[uniqueIndex] = processedIndexes[i];
+
+                Operator memory operator = processedOperators[i];
+                if (operator.snapshot.block != 0) {
+                    operator.validatorCount -= validatorCount;
+                    aggregateFees += operator.fee;
+                }
+                aggregateIndex += operator.snapshot.index;
+                uniqueOperators[uniqueIndex] = operator;
+
+                uniqueIndex++;
+                i++;
+                j++;
+            }
+        }
+
+        // Add remaining elements from processedIndexes (if any)
+        while (i < processedIndexes.length) {
+            uniqueIndexes[uniqueIndex] = processedIndexes[i];
+            uniqueOperators[uniqueIndex] = operators[processedIndexes[i]];
+
+            uniqueIndex++;
+            i++;
+        }
+
+        // Add remaining elements from operatorIds (if any)
+        while (j < operatorIds.length) {
+            uniqueIndexes[uniqueIndex] = operatorIds[j];
+            Operator memory operator = operators[operatorIds[j]];
+            if (operator.snapshot.block != 0) {
+                operator.updateSnapshot();
+                operator.validatorCount -= validatorCount;
+                aggregateFees += operator.fee;
+            }
+            aggregateIndex += operator.snapshot.index;
+
+            uniqueOperators[uniqueIndex] = operator;
+            uniqueIndex++;
+            j++;
+        }
+        // Resize unique arrays to remove unused elements
+        assembly {
+            mstore(uniqueIndexes, uniqueIndex)
+            mstore(uniqueOperators, uniqueIndex)
+        }
     }
 
     /*****************************/
