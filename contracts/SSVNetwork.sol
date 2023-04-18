@@ -657,7 +657,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     }
 
     function _registerPublicKeys(bytes[] calldata publicKeys) private {
-        for (uint i; i < publicKeys.length; ) {
+        for (uint i; i < publicKeys.length; ++i) {
             if (publicKeys[i].length != 48) {
                 revert InvalidPublicKeyLength();
             }
@@ -667,9 +667,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 revert ValidatorAlreadyExists();
             }
             validatorPKs[validatorPk] = Validator({owner: msg.sender, active: true});
-            unchecked {
-                ++i;
-            }
         }
     }
 
