@@ -33,12 +33,18 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     /**
      * @dev Emitted when the validator has been added.
-     * @param publicKey The public key of a validator.
+     * @param publicKeys The public key of a validator.
      * @param operatorIds The operator ids list.
      * @param shares snappy compressed shares(a set of encrypted and public shares).
      * @param cluster All the cluster data.
      */
-    event ValidatorAdded(address indexed owner, uint64[] operatorIds, bytes publicKey, bytes shares, Cluster cluster);
+    event ValidatorAdded(
+        address indexed owner,
+        uint64[] operatorIds,
+        bytes[] publicKeys,
+        bytes[] shares,
+        Cluster cluster
+    );
 
     /**
      * @dev Emitted when the validator is removed.
@@ -150,9 +156,9 @@ interface ISSVNetwork is ISSVNetworkCore {
     /********************************/
 
     function registerValidator(
-        bytes calldata publicKey,
+        bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
-        bytes calldata sharesEncrypted,
+        bytes[] calldata sharesEncrypted,
         uint256 amount,
         Cluster memory cluster
     ) external;

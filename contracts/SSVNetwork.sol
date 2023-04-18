@@ -177,24 +177,23 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /* Validator External Functions */
     /********************************/
     function registerValidator(
-        bytes calldata publicKey,
+        bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
-        bytes calldata shares,
+        bytes[] calldata shares,
         uint256 amount,
         Cluster memory cluster
     ) external override {
+        if (publicKeys.length != shares.length) revert PublicKeysSharesLengthMismatch();
+
         uint operatorsLength = operatorIds.length;
-
-        _validateOperatorIds(operatorsLength);
-        _validatePublicKey(publicKey);
-
-        if (validatorPKs[keccak256(publicKey)].owner != address(0)) {
-            revert ValidatorAlreadyExists();
+        uint32 validatorsLength = uint32(publicKeys.length);
+        if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
+            revert InvalidOperatorIdsLength();
         }
-        validatorPKs[keccak256(publicKey)] = Validator({owner: msg.sender, active: true});
+
+        _registerPublicKeys(publicKeys);
 
         bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
-
         if (clusters[hashedCluster] == bytes32(0)) {
             if (
                 cluster.validatorCount != 0 ||
@@ -222,37 +221,41 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             cluster.validateClusterIsNotLiquidated();
         }
 
-        uint64 clusterIndex;
         uint64 burnRate;
-
         Network memory network_ = network;
-        uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
 
         cluster.balance += amount;
 
         if (cluster.active) {
+            uint64 clusterIndex;
+            uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
+
             for (uint i; i < operatorsLength; ) {
-                if (i + 1 < operatorsLength) {
-                    if (operatorIds[i] > operatorIds[i + 1]) {
-                        revert UnsortedOperatorsList();
+                uint64 operatorId = operatorIds[i];
+                {
+                    if (i + 1 < operatorsLength) {
+                        if (operatorId > operatorIds[i + 1]) {
+                            revert UnsortedOperatorsList();
+                        }
+                    }
+                    address whitelisted = operatorsWhitelist[operatorId];
+                    if (whitelisted != address(0) && whitelisted != msg.sender) {
+                        revert CallerNotWhitelisted();
                     }
                 }
-                Operator memory operator = operators[operatorIds[i]];
+
+                Operator memory operator = operators[operatorId];
                 if (operator.snapshot.block == 0) {
                     revert OperatorDoesNotExist();
                 }
-                if (
-                    operatorsWhitelist[operatorIds[i]] != address(0) && operatorsWhitelist[operatorIds[i]] != msg.sender
-                ) {
-                    revert CallerNotWhitelisted();
-                }
                 operator.updateSnapshot();
-                if (++operator.validatorCount > validatorsPerOperatorLimit) {
+                operator.validatorCount += validatorsLength;
+                if (operator.validatorCount > validatorsPerOperatorLimit) {
                     revert ExceedValidatorLimit();
                 }
                 clusterIndex += operator.snapshot.index;
                 burnRate += operator.fee;
-                operators[operatorIds[i]] = operator;
+                operators[operatorId] = operator;
                 unchecked {
                     ++i;
                 }
@@ -261,11 +264,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
             DAO memory dao_ = dao;
             dao_.updateDAOEarnings(network_.networkFee);
-            ++dao_.validatorCount;
+            dao_.validatorCount += validatorsLength;
             dao = dao_;
         }
 
-        ++cluster.validatorCount;
+        cluster.validatorCount += validatorsLength;
 
         if (
             cluster.isLiquidatable(
@@ -292,7 +295,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             _deposit(amount);
         }
 
-        emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares, cluster);
+        emit ValidatorAdded(msg.sender, operatorIds, publicKeys, shares, cluster);
     }
 
     function removeValidator(
@@ -311,11 +314,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
         uint operatorsLength = operatorIds.length;
-
-        {
-            _validateOperatorIds(operatorsLength);
-            _validatePublicKey(publicKey);
-        }
 
         uint64 clusterIndex;
         {
@@ -658,9 +656,20 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         if (operator.owner != msg.sender) revert CallerNotOwner();
     }
 
-    function _validatePublicKey(bytes calldata publicKey) private pure {
-        if (publicKey.length != 48) {
-            revert InvalidPublicKeyLength();
+    function _registerPublicKeys(bytes[] calldata publicKeys) private {
+        for (uint i; i < publicKeys.length; ) {
+            if (publicKeys[i].length != 48) {
+                revert InvalidPublicKeyLength();
+            }
+
+            bytes32 validatorPk = keccak256(publicKeys[i]);
+            if (validatorPKs[validatorPk].owner != address(0)) {
+                revert ValidatorAlreadyExists();
+            }
+            validatorPKs[validatorPk] = Validator({owner: msg.sender, active: true});
+            unchecked {
+                ++i;
+            }
         }
     }
 

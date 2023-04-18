@@ -23,9 +23,9 @@ describe('Deposit Tests', () => {
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
-      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      ['0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119'],
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
+      [helpers.DataGenerator.shares(4)],
       '1000000000000000',
       {
         validatorCount: 0,

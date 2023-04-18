@@ -26,9 +26,9 @@ describe('Liquidate Tests', () => {
     // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 2);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
-      helpers.DataGenerator.publicKey(1),
+      [helpers.DataGenerator.publicKey(1)],
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
+      [helpers.DataGenerator.shares(4)],
       minDepositAmount * 2,
       {
         validatorCount: 0,
@@ -65,9 +65,9 @@ describe('Liquidate Tests', () => {
   it('RegisterValidator -> liquidate -> removeValidator -> deposit -> withdraw', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
-      helpers.DataGenerator.publicKey(2),
+      [helpers.DataGenerator.publicKey(2)],
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
+      [helpers.DataGenerator.shares(4)],
       minDepositAmount,
       firstCluster.cluster
     ));

@@ -22,9 +22,9 @@ describe('Liquidate Tests', () => {
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
-      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      ['0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119'],
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
+      [helpers.DataGenerator.shares(4)],
       '1000000000000000',
       {
         validatorCount: 0,
@@ -38,9 +38,9 @@ describe('Liquidate Tests', () => {
     // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
-      helpers.DataGenerator.publicKey(1),
+      [helpers.DataGenerator.publicKey(1)],
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
+      [helpers.DataGenerator.shares(4)],
       minDepositAmount,
       {
         validatorCount: 0,
@@ -129,9 +129,9 @@ describe('Liquidate Tests', () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
-      helpers.DataGenerator.publicKey(2),
+      [helpers.DataGenerator.publicKey(2)],
       updatedCluster.operatorIds,
-      helpers.DataGenerator.shares(4),
+      [helpers.DataGenerator.shares(4)],
       `${minDepositAmount * 2}`,
       updatedCluster.cluster
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterIsLiquidated');

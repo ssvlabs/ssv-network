@@ -21,9 +21,9 @@ describe('Reactivate Tests', () => {
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
-      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
+      ['0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119'],
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
+      [helpers.DataGenerator.shares(4)],
       '1000000000000000',
       {
         validatorCount: 0,
@@ -37,9 +37,9 @@ describe('Reactivate Tests', () => {
     // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
-      helpers.DataGenerator.publicKey(1),
+      [helpers.DataGenerator.publicKey(1)],
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
+      [helpers.DataGenerator.shares(4)],
       minDepositAmount,
       {
         validatorCount: 0,

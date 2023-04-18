@@ -189,62 +189,37 @@ export const reactivate = async (ownerId: number, operatorIds: number[], amount:
 };
 
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
-  const validators: any = [];
   let args: any;
-  // Register validators to contract
-  for (let i = 0; i < numberOfValidators; i++) {
-    const publicKey = DataGenerator.publicKey(DB.validators.length);
-    const shares = DataGenerator.shares(DB.validators.length);
+  const publicKeys: string[] = [];
+  const shares: string[] = [];
 
-    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
-    const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
-      publicKey,
-      operatorIds,
-      shares,
-      amount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true
-      }
-    ), gasGroups);
-    args = result.eventsByName.ValidatorAdded[0].args;
-    DB.validators.push({ publicKey, operatorIds, shares });
-    validators.push({ publicKey, shares });
+  for (let i = 1; i < numberOfValidators + 1; i++) {
+    publicKeys.push(DataGenerator.publicKey(DB.validators.length + i));
+    shares.push(DataGenerator.shares(DB.validators.length + i));
   }
 
-  return { validators, args };
+  await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
+  const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
+    publicKeys,
+    operatorIds,
+    publicKeys,
+    amount,
+    {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0,
+      active: true
+    }
+  ), gasGroups);
+
+  args = result.eventsByName.ValidatorAdded[0].args;
+
+  for (let i = 0; i < numberOfValidators; i++) {
+    DB.validators.push({ publicKey: publicKeys[i], operatorIds, shares: shares[i] });
+  }
+  return { args };
 };
-
-export const registerValidatorsRaw = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
-
-  let cluster: any = {
-    validatorCount: 0,
-    networkFeeIndex: 0,
-    index: 0,
-    balance: 0,
-    active: true
-  };
-
-  for (let i = 0; i < numberOfValidators; i++) {
-    const shares = DataGenerator.shares(4);
-    const publicKey = DataGenerator.publicKey(i);
-
-    await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
-    const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
-      publicKey,
-      operatorIds,
-      shares,
-      amount,
-      cluster
-    ), gasGroups);
-
-    cluster = result.eventsByName.ValidatorAdded[0].args.cluster;
-  }
-}
-
 
 export const getCluster = (payload: any) => ethers.utils.AbiCoder.prototype.encode(
   ['tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool active) cluster'],
