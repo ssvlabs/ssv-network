@@ -92,7 +92,6 @@ describe('Register Operator Tests', () => {
 
   it('Register same operator twice reverts "OperatorAlreadyExists"', async () => {
     const publicKey = helpers.DataGenerator.publicKey(1);
-    console.log(publicKey);
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       publicKey,
       helpers.CONFIG.minimalOperatorFee

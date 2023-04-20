@@ -32,7 +32,7 @@ export enum GasGroup {
 
 const MAX_GAS_PER_GROUP: any = {
   /* REAL GAS LIMITS */
-  [GasGroup.REGISTER_OPERATOR]: 120900,
+  [GasGroup.REGISTER_OPERATOR]: 120500,
   [GasGroup.REMOVE_OPERATOR]: 62600,
   [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]: 62000,
 

@@ -61,7 +61,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     IERC20 private _token;
     Network public network;
 
-    mapping(bytes32 => bytes1) public operatorsPKs;
+    mapping(bytes32 => uint64) public operatorsPKs;
 
     // @dev reserve storage space for future new state variables in base contract
     // slither-disable-next-line shadowing-state
@@ -137,7 +137,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         }
 
         bytes32 hashedPk = keccak256(publicKey);
-        if (operatorsPKs[hashedPk] == 0x01) revert OperatorAlreadyExists();
+        if (operatorsPKs[hashedPk] != 0) revert OperatorAlreadyExists();
 
         lastOperatorId.increment();
         id = uint64(lastOperatorId.current());
@@ -147,7 +147,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             validatorCount: 0,
             fee: fee.shrink()
         });
-        operatorsPKs[hashedPk] = 0x01;
+        operatorsPKs[hashedPk] = id;
 
         emit OperatorAdded(id, msg.sender, publicKey, fee);
     }
