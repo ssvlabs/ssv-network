@@ -84,7 +84,5 @@ interface ISSVNetworkCore {
     error SameFeeChangeNotAllowed();
     error FeeIncreaseNotAllowed();
     error OperatorsListNotUnique();
-    error ZeroAddressNotAllowed();
-    error ZeroAmountNotAllowed();
-    error InvalidPublicKey();
+    error OperatorAlreadyExists();
 }

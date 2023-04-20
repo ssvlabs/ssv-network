@@ -92,14 +92,6 @@ describe('Deposit Tests', () => {
       cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
 
-  it('Deposit zero amount to a cluster reverts "ZeroAmountNotAllowed"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).deposit(
-      helpers.DB.owners[1].address,
-      [1, 2, 4, 5],
-      0,
-      cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'ZeroAmountNotAllowed');
-  });
-
   it('Deposit to a liquidated cluster emits "ClusterDeposited"', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(

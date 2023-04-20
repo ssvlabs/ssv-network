@@ -61,9 +61,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     IERC20 private _token;
     Network public network;
 
+    mapping(bytes32 => bytes1) public operatorsPKs;
+
     // @dev reserve storage space for future new state variables in base contract
     // slither-disable-next-line shadowing-state
-    uint256[50] __gap;
+    uint256[49] __gap;
 
     /*************/
     /* Modifiers */
@@ -134,6 +136,9 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             revert FeeTooLow();
         }
 
+        bytes32 hashedPk = keccak256(publicKey);
+        if (operatorsPKs[hashedPk] == 0x01) revert OperatorAlreadyExists();
+
         lastOperatorId.increment();
         id = uint64(lastOperatorId.current());
         operators[id] = Operator({
@@ -142,6 +147,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             validatorCount: 0,
             fee: fee.shrink()
         });
+        operatorsPKs[hashedPk] = 0x01;
+
         emit OperatorAdded(id, msg.sender, publicKey, fee);
     }
 
@@ -170,7 +177,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     }
 
     function setFeeRecipientAddress(address recipientAddress) external override {
-        if (recipientAddress == address(0)) revert ZeroAddressNotAllowed();
         emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
     }
 
@@ -185,15 +191,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         Cluster memory cluster
     ) external override {
         uint operatorsLength = operatorIds.length;
-
         if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
             revert InvalidOperatorIdsLength();
         }
 
-        {
-            bytes32 validatorPk = _validateValidatorPublicKey(publicKey);
-            validatorPKs[validatorPk] = Validator({owner: msg.sender, active: true});
-        }
+        _registerValidatorPublicKey(publicKey);
 
         bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
 
@@ -234,7 +236,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         uint64 burnRate;
         uint64 clusterIndex;
-        
+
         if (cluster.active) {
             for (uint i; i < operatorsLength; ) {
                 {
@@ -504,8 +506,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint256 amount,
         Cluster memory cluster
     ) external override {
-        if (amount == 0) revert ZeroAmountNotAllowed();
-
         bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, this);
 
         cluster.balance += amount;
@@ -534,8 +534,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     }
 
     function withdraw(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
-        if (amount == 0) revert ZeroAmountNotAllowed();
-
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
         cluster.validateClusterIsNotLiquidated();
 
@@ -608,7 +606,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     }
 
     function withdrawNetworkEarnings(uint256 amount) external override onlyOwner {
-        if (amount == 0) revert ZeroAmountNotAllowed();
         DAO memory dao_ = dao;
 
         uint64 shrunkAmount = amount.shrink();
@@ -665,24 +662,16 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         if (operator.owner != msg.sender) revert CallerNotOwner();
     }
 
-    function _validateValidatorPublicKey(bytes calldata publicKey) private view returns (bytes32 validatorPk) {
+    function _registerValidatorPublicKey(bytes calldata publicKey) private {
         if (publicKey.length != 48) {
             revert InvalidPublicKeyLength();
         }
 
-        validatorPk = keccak256(publicKey);
-        if (
-            validatorPk ==
-            keccak256(
-                hex"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-            )
-        ) {
-            revert InvalidPublicKey();
-        }
-
-        if (validatorPKs[validatorPk].owner != address(0)) {
+        bytes32 hashedPk = keccak256(publicKey);
+        if (validatorPKs[hashedPk].owner != address(0)) {
             revert ValidatorAlreadyExists();
         }
+        validatorPKs[hashedPk] = Validator({owner: msg.sender, active: true});
     }
 
     /******************************/

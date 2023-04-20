@@ -524,7 +524,7 @@ describe('Register Validator Tests', () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWithCustomError(ssvNetworkContract, 'InvalidOperatorIdsLength');
   });
 
-  it('Register validator with an invalild public key length reverts "InvalidPublicKeyLength"', async () => {
+  it('Register validator with an invalid public key length reverts "InvalidPublicKeyLength"', async () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.shares(0),
       [1, 2, 3, 4],
@@ -538,22 +538,6 @@ describe('Register Validator Tests', () => {
         active: true
       }
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InvalidPublicKeyLength');
-  });
-
-  it('Register validator with an invalild public key reverts "InvalidPublicKey"', async () => {
-    await expect(ssvNetworkContract.registerValidator(
-      "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
-      minDepositAmount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true
-      }
-    )).to.be.revertedWithCustomError(ssvNetworkContract, 'InvalidPublicKey');
   });
 
   it('Register validator with not enough balance reverts "InsufficientBalance"', async () => {
@@ -655,7 +639,7 @@ describe('Register Validator Tests', () => {
 
   it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
     const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
-      helpers.DataGenerator.publicKey(2),
+      helpers.DataGenerator.publicKey(20),
       helpers.CONFIG.minimalOperatorFee
     ));
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
@@ -680,7 +664,7 @@ describe('Register Validator Tests', () => {
 
   it('Register a non whitelisted validator reverts "CallerNotWhitelisted"', async () => {
     const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
-      helpers.DataGenerator.publicKey(2),
+      helpers.DataGenerator.publicKey(22),
       helpers.CONFIG.minimalOperatorFee
     ));
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
