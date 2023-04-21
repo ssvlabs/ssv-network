@@ -153,12 +153,12 @@ export const deposit = async (ownerId: number, ownerAddress: string, operatorIds
 };
 
 export const liquidate = async (ownerAddress: string, operatorIds: number[], cluster: any) => {
-  const liquidatedCluster = await trackGas(DB.ssvNetwork.contract.liquidate([{
-    owner: ownerAddress,
+  const liquidatedCluster = await trackGas(DB.ssvNetwork.contract.liquidate(
+    ownerAddress,
     operatorIds,
     cluster
-  }]));
-  return liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
+  ));
+  return liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 };
 
 export const removeValidator = async (ownerId: number, pk: string, operatorIds: number[], cluster: any) => {

@@ -96,12 +96,12 @@ describe('Deposit Tests', () => {
 
   it('Deposit to a liquidated cluster emits "ClusterDeposited"', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate([{
-      owner: cluster1.args.owner,
-      operatorIds: cluster1.args.operatorIds,
-      cluster: cluster1.args.cluster
-    }]));
-    const updatedCluster = liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
+      cluster1.args.owner,
+      cluster1.args.operatorIds,
+      cluster1.args.cluster
+    ));
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     expect(await ssvViews.isLiquidated(cluster1.args.owner, cluster1.args.operatorIds, updatedCluster.cluster)).to.equal(true);
 

@@ -359,7 +359,86 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
-    function liquidate(Liquidation[] calldata liquidations) external override {
+    function _updateCluster(
+        Cluster memory cluster,
+        address owner,
+        uint64 burnRate,
+        uint64 clusterIndex,
+        bytes32 hashedCluster
+    ) private returns (uint256 balanceLiquidatable) {
+        uint64 networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network);
+
+        cluster.updateBalance(clusterIndex, networkFeeIndex);
+
+        if (
+            owner != msg.sender &&
+            !cluster.isLiquidatable(
+                burnRate,
+                network.networkFee,
+                minimumBlocksBeforeLiquidation,
+                minimumLiquidationCollateral
+            )
+        ) {
+            revert ClusterNotLiquidatable();
+        }
+
+        if (cluster.balance != 0) {
+            balanceLiquidatable = cluster.balance;
+            cluster.balance = 0;
+        }
+        cluster.index = 0;
+        cluster.networkFeeIndex = 0;
+        cluster.active = false;
+
+        clusters[hashedCluster] = keccak256(
+            abi.encodePacked(
+                cluster.validatorCount,
+                cluster.networkFeeIndex,
+                cluster.index,
+                cluster.balance,
+                cluster.active
+            )
+        );
+    }
+
+    function liquidate(address owner, uint64[] calldata operatorIds, Cluster memory cluster) external {
+        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, this);
+        cluster.validateClusterIsNotLiquidated();
+
+        uint64 burnRate;
+        uint64 clusterIndex;
+
+        for (uint i; i < operatorIds.length; ) {
+            Operator memory operator = operators[operatorIds[i]];
+
+            if (operator.snapshot.block != 0) {
+                operator.updateSnapshot();
+                operator.validatorCount -= cluster.validatorCount;
+                burnRate += operator.fee;
+                operators[operatorIds[i]] = operator;
+            }
+
+            clusterIndex += operator.snapshot.index;
+            unchecked {
+                ++i;
+            }
+        }
+
+        uint256 balanceLiquidatable = _updateCluster(cluster, owner, burnRate, clusterIndex, hashedCluster);
+
+        DAO memory dao_ = dao;
+        dao_.updateDAOEarnings(network.networkFee);
+        dao_.validatorCount -= cluster.validatorCount;
+        dao = dao_;
+
+        if (balanceLiquidatable != 0) {
+            _transfer(msg.sender, balanceLiquidatable);
+        }
+
+        emit ClusterLiquidated(owner, operatorIds, cluster);
+    }
+
+    function bulkLiquidate(Liquidation[] calldata liquidations) external override {
         uint32 aggregateValidatorCount;
         uint256 balanceLiquidatable;
 
@@ -367,71 +446,33 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64[] memory processedIndexes = new uint64[](0);
         Liquidation[] memory processedLiquidations = new Liquidation[](liquidations.length);
 
-        uint64 networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network);
-
         for (uint i; i < liquidations.length; ++i) {
-            uint64 burnRate;
-            uint64 clusterIndex;
-
             Liquidation memory liquidation = liquidations[i];
-
             Cluster memory cluster = liquidation.cluster;
 
             bytes32 hashedCluster = cluster.validateHashedCluster(liquidation.owner, liquidation.operatorIds, this);
             cluster.validateClusterIsNotLiquidated();
-
-            aggregateValidatorCount += cluster.validatorCount;
-
             (
                 uint64 aggregateFees,
                 uint64 aggregateIndex,
                 Operator[] memory _processedOperators,
                 uint64[] memory _processedIndexes
-            ) = _processOperatorsInLiquidation(processedOperators, processedIndexes, liquidation);
+            ) = _processOperatorsInBulkLiquidation(processedOperators, processedIndexes, liquidation);
+
+            balanceLiquidatable += _updateCluster(
+                cluster,
+                liquidation.owner,
+                aggregateFees,
+                aggregateIndex,
+                hashedCluster
+            );
+            liquidation.cluster = cluster;
 
             processedOperators = _processedOperators;
             processedIndexes = _processedIndexes;
 
-            burnRate += aggregateFees;
-            clusterIndex += aggregateIndex;
-
-            cluster.updateBalance(clusterIndex, networkFeeIndex);
-
-            if (
-                liquidation.owner != msg.sender &&
-                !cluster.isLiquidatable(
-                    burnRate,
-                    network.networkFee,
-                    minimumBlocksBeforeLiquidation,
-                    minimumLiquidationCollateral
-                )
-            ) {
-                revert ClusterNotLiquidatable();
-            }
-
-            if (cluster.balance != 0) {
-                balanceLiquidatable += cluster.balance;
-                cluster.balance = 0;
-            }
-            cluster.index = 0;
-            cluster.networkFeeIndex = 0;
-            cluster.active = false;
-
-            clusters[hashedCluster] = keccak256(
-                abi.encodePacked(
-                    cluster.validatorCount,
-                    cluster.networkFeeIndex,
-                    cluster.index,
-                    cluster.balance,
-                    cluster.active
-                )
-            );
-
-            processedLiquidations[i] = Liquidation({
-                owner: liquidation.owner,
-                operatorIds: liquidation.operatorIds,
-                cluster: cluster
-            });
+            aggregateValidatorCount += liquidations[i].cluster.validatorCount;
+            processedLiquidations[i] = liquidation;
         }
 
         for (uint i; i < processedOperators.length; ++i) {
@@ -831,11 +872,20 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
-    function _processOperatorsInLiquidation(
+    function _processOperatorsInBulkLiquidation(
         Operator[] memory processedOperators,
         uint64[] memory processedIndexes,
         Liquidation memory liquidation
-    ) private view returns (uint64 aggregateFees, uint64 aggregateIndex, Operator[] memory uniqueOperators, uint64[] memory uniqueIndexes) {
+    )
+        private
+        view
+        returns (
+            uint64 aggregateFees,
+            uint64 aggregateIndex,
+            Operator[] memory uniqueOperators,
+            uint64[] memory uniqueIndexes
+        )
+    {
         uint32 validatorCount = liquidation.cluster.validatorCount;
         uint64[] memory operatorIds = liquidation.operatorIds;
 

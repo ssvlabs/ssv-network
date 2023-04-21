@@ -127,12 +127,12 @@ describe('Balance Tests', () => {
 
   it('Check cluster balance in a liquidated cluster reverts "ClusterIsLiquidated"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 1);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).liquidate([{
-      owner: cluster1.args.owner,
-      operatorIds: cluster1.args.operatorIds,
-      cluster: cluster1.args.cluster
-    }]));
-    const updatedCluster = liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
+    const liquidatedCluster = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).liquidate(
+      cluster1.args.owner,
+      cluster1.args.operatorIds,
+      cluster1.args.cluster
+    ));
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     expect(await ssvViews.isLiquidated(updatedCluster.owner, updatedCluster.operatorIds, updatedCluster.cluster)).to.equal(true);
     await expect(ssvViews.getBalance(helpers.DB.owners[4].address, updatedCluster.operatorIds, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvViews, 'ClusterIsLiquidated');

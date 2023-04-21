@@ -54,12 +54,12 @@ describe('Reactivate Tests', () => {
 
   it('Reactivate a disabled cluster emits "ClusterReactivated"', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate([{
-      owner: firstCluster.owner,
-      operatorIds: firstCluster.operatorIds,
-      cluster: firstCluster.cluster
-    }]), [GasGroup.LIQUIDATE_POD]);
-    const updatedCluster = liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
+      firstCluster.owner,
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedCluster.operatorIds, minDepositAmount, updatedCluster.cluster)).to.emit(ssvNetworkContract, 'ClusterReactivated');
@@ -67,12 +67,12 @@ describe('Reactivate Tests', () => {
 
   it('Reactivate a cluster with a removed operator in the cluster', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate([{
-      owner: firstCluster.owner,
-      operatorIds: firstCluster.operatorIds,
-      cluster: firstCluster.cluster
-    }]), [GasGroup.LIQUIDATE_POD]);
-    const updatedCluster = liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
+      firstCluster.owner,
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     await ssvNetworkContract.removeOperator(1);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
@@ -85,24 +85,24 @@ describe('Reactivate Tests', () => {
 
   it('Reactivate a cluster when the amount is not enough reverts "InsufficientBalance"', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate([{
-      owner: firstCluster.owner,
-      operatorIds: firstCluster.operatorIds,
-      cluster: firstCluster.cluster
-    }]), [GasGroup.LIQUIDATE_POD]);
-    const updatedCluster = liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
+      firstCluster.owner,
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedCluster.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
 
   it('Reactivate a liquidated cluster after making a deposit', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate([{
-      owner: firstCluster.owner,
-      operatorIds: firstCluster.operatorIds,
-      cluster: firstCluster.cluster
-    }]));
-    let clusterData = liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
+      firstCluster.owner,
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ));
+    let clusterData = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const depositedCluster = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).deposit(
@@ -117,12 +117,12 @@ describe('Reactivate Tests', () => {
 
   it('Reactivate a cluster after liquidation period when the amount is not enough reverts "InsufficientBalance"', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate([{
-      owner: firstCluster.owner,
-      operatorIds: firstCluster.operatorIds,
-      cluster: firstCluster.cluster
-    }]), [GasGroup.LIQUIDATE_POD]);
-    const updatedCluster = liquidatedCluster.eventsByName.ClustersLiquidated[0].args.liquidations[0];
+    const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
+      firstCluster.owner,
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ), [GasGroup.LIQUIDATE_POD]);
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(updatedCluster.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
