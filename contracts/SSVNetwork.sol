@@ -359,48 +359,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
-    function _updateCluster(
-        Cluster memory cluster,
-        address owner,
-        uint64 burnRate,
-        uint64 clusterIndex,
-        bytes32 hashedCluster
-    ) private returns (uint256 balanceLiquidatable) {
-        uint64 networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network);
-
-        cluster.updateBalance(clusterIndex, networkFeeIndex);
-
-        if (
-            owner != msg.sender &&
-            !cluster.isLiquidatable(
-                burnRate,
-                network.networkFee,
-                minimumBlocksBeforeLiquidation,
-                minimumLiquidationCollateral
-            )
-        ) {
-            revert ClusterNotLiquidatable();
-        }
-
-        if (cluster.balance != 0) {
-            balanceLiquidatable = cluster.balance;
-            cluster.balance = 0;
-        }
-        cluster.index = 0;
-        cluster.networkFeeIndex = 0;
-        cluster.active = false;
-
-        clusters[hashedCluster] = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
-            )
-        );
-    }
-
     function liquidate(address owner, uint64[] calldata operatorIds, Cluster memory cluster) external {
         bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, this);
         cluster.validateClusterIsNotLiquidated();
@@ -424,7 +382,25 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             }
         }
 
-        uint256 balanceLiquidatable = _updateCluster(cluster, owner, burnRate, clusterIndex, hashedCluster);
+        uint256 balanceLiquidatable = cluster.liquidate(
+            owner,
+            burnRate,
+            clusterIndex,
+            network.networkFee,
+            NetworkLib.currentNetworkFeeIndex(network),
+            minimumBlocksBeforeLiquidation,
+            minimumLiquidationCollateral
+        );
+
+        clusters[hashedCluster] = keccak256(
+            abi.encodePacked(
+                cluster.validatorCount,
+                cluster.networkFeeIndex,
+                cluster.index,
+                cluster.balance,
+                cluster.active
+            )
+        );
 
         DAO memory dao_ = dao;
         dao_.updateDAOEarnings(network.networkFee);
@@ -438,20 +414,22 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         emit ClusterLiquidated(owner, operatorIds, cluster);
     }
 
-    function bulkLiquidate(Liquidation[] calldata liquidations) external override {
+    function bulkLiquidate(Liquidation[] memory liquidations) external override {
         uint32 aggregateValidatorCount;
         uint256 balanceLiquidatable;
 
         Operator[] memory processedOperators = new Operator[](0);
         uint64[] memory processedIndexes = new uint64[](0);
-        Liquidation[] memory processedLiquidations = new Liquidation[](liquidations.length);
+
+        bytes32[] memory hashedClusters = ClusterLib.bulkValidateHashedCluster(liquidations, this);
+
+        uint64 networkFeeIndex_ = NetworkLib.currentNetworkFeeIndex(network);
+        uint64 networkFee_ = network.networkFee;
 
         for (uint i; i < liquidations.length; ++i) {
             Liquidation memory liquidation = liquidations[i];
             Cluster memory cluster = liquidation.cluster;
 
-            bytes32 hashedCluster = cluster.validateHashedCluster(liquidation.owner, liquidation.operatorIds, this);
-            cluster.validateClusterIsNotLiquidated();
             (
                 uint64 aggregateFees,
                 uint64 aggregateIndex,
@@ -459,24 +437,39 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 uint64[] memory _processedIndexes
             ) = _processOperatorsInBulkLiquidation(processedOperators, processedIndexes, liquidation);
 
-            balanceLiquidatable += _updateCluster(
-                cluster,
+            balanceLiquidatable += cluster.liquidate(
                 liquidation.owner,
                 aggregateFees,
                 aggregateIndex,
-                hashedCluster
+                networkFee_,
+                networkFeeIndex_,
+                minimumBlocksBeforeLiquidation,
+                minimumLiquidationCollateral
             );
-            liquidation.cluster = cluster;
+
+            liquidations[i].cluster = cluster;
 
             processedOperators = _processedOperators;
             processedIndexes = _processedIndexes;
 
-            aggregateValidatorCount += liquidations[i].cluster.validatorCount;
-            processedLiquidations[i] = liquidation;
+            aggregateValidatorCount += cluster.validatorCount;
+
+            clusters[hashedClusters[i]] = keccak256(
+                abi.encodePacked(
+                    cluster.validatorCount,
+                    cluster.networkFeeIndex,
+                    cluster.index,
+                    cluster.balance,
+                    cluster.active
+                )
+            );
         }
 
-        for (uint i; i < processedOperators.length; ++i) {
+        for (uint i; i < processedOperators.length;) {
             operators[processedIndexes[i]] = processedOperators[i];
+            unchecked {
+                ++i;
+            }
         }
 
         DAO memory dao_ = dao;
@@ -488,7 +481,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             _transfer(msg.sender, balanceLiquidatable);
         }
 
-        emit ClustersLiquidated(processedLiquidations);
+        emit ClustersLiquidated(liquidations);
     }
 
     function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
@@ -891,7 +884,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         uniqueIndexes = new uint64[](processedIndexes.length + operatorIds.length);
         uniqueOperators = new Operator[](processedOperators.length + operatorIds.length);
-        uint256 uniqueIndex;
+        uint64 uniqueIndex;
         uint256 i;
         uint256 j;
 
@@ -900,8 +893,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 uniqueIndexes[uniqueIndex] = processedIndexes[i];
                 uniqueOperators[uniqueIndex] = processedOperators[i];
 
-                uniqueIndex++;
-                i++;
+                ++uniqueIndex;
+                ++i;
             } else if (operatorIds[j] < processedIndexes[i]) {
                 uniqueIndexes[uniqueIndex] = operatorIds[j];
 
@@ -914,8 +907,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 aggregateIndex += operator.snapshot.index;
                 uniqueOperators[uniqueIndex] = operator;
 
-                uniqueIndex++;
-                j++;
+                ++uniqueIndex;
+                ++j;
             } else {
                 // Both arrays have the same value
                 uniqueIndexes[uniqueIndex] = processedIndexes[i];
@@ -928,9 +921,9 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 aggregateIndex += operator.snapshot.index;
                 uniqueOperators[uniqueIndex] = operator;
 
-                uniqueIndex++;
-                i++;
-                j++;
+                ++uniqueIndex;
+                ++i;
+                ++j;
             }
         }
 
@@ -939,13 +932,14 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             uniqueIndexes[uniqueIndex] = processedIndexes[i];
             uniqueOperators[uniqueIndex] = operators[processedIndexes[i]];
 
-            uniqueIndex++;
-            i++;
+            ++uniqueIndex;
+            ++i;
         }
 
         // Add remaining elements from operatorIds (if any)
         while (j < operatorIds.length) {
             uniqueIndexes[uniqueIndex] = operatorIds[j];
+
             Operator memory operator = operators[operatorIds[j]];
             if (operator.snapshot.block != 0) {
                 operator.updateSnapshot();
@@ -953,10 +947,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 aggregateFees += operator.fee;
             }
             aggregateIndex += operator.snapshot.index;
-
             uniqueOperators[uniqueIndex] = operator;
-            uniqueIndex++;
-            j++;
+
+            ++uniqueIndex;
+            ++j;
         }
         // Resize unique arrays to remove unused elements
         assembly {
