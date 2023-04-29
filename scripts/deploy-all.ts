@@ -23,6 +23,15 @@ async function deploy() {
     });
   await ssvNetwork.deployed();
   console.log(`SSVNetwork proxy deployed to: ${ssvNetwork.address}`);
+  console.log('inputs: ',[
+    process.env.INITIAL_VERSION,
+    ssvTokenAddress,
+    process.env.OPERATOR_MAX_FEE_INCREASE,
+    process.env.DECLARE_OPERATOR_FEE_PERIOD,
+    process.env.EXECUTE_OPERATOR_FEE_PERIOD,
+    process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+    process.env.MINIMUM_LIQUIDATION_COLLATERAL
+  ]);
 
   let implAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
   console.log(`SSVNetwork implementation deployed to: ${implAddress}`);

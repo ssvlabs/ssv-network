@@ -9,9 +9,10 @@ contract SSVNetworkEchidna is SSVNetwork {
     // We will send ETHER_IN_RECEIVER to the flash loan receiver.
     uint256 constant ETHER_IN_RECEIVER = 10e18;
 
-    IERC20 token;
+    SSVTokenMock token;
 
     string initialVersion;
+    uint256 amount = 10000 * 10 ** 18;
 
     // IERC20 token;
     // operatorMaxFeeIncrease = 3;
@@ -20,29 +21,32 @@ contract SSVNetworkEchidna is SSVNetwork {
     // uint64 minimumBlocksBeforeLiquidation = 100800;
     // uint256 minimumLiquidationCollateral = 345600;
 
+    // SSVTokenMock private token;
+
     // FlashLoanReceiver receiver;
 
     // Setup echidna test by deploying the flash loan pool and receiver and sending them some ether.
-    constructor() // operatorMaxFeeIncrease,
+    constructor() payable // operatorMaxFeeIncrease,
     // declareOperatorFeePeriod,
     // executeOperatorFeePeriod,
     // minimumBlocksBeforeLiquidation,
     // minimumLiquidationCollateral
     {
         token = new SSVTokenMock();
-
-        // this.initialize("", token, 3, 259200, 345600, 100800, 345600);
+        initialize("0.3.0", payable(address(token)), 3, 259200, 345600, 100800, 345600);
+        token.transfer(address(this), amount);
+        // token.transfer(address(this), amount);
         // deposit();
-
+        // liquidate();
         // receiver = new FlashLoanReceiver((address(pool)));
         // (address(pool)).sendValue(ETHER_IN_POOL);
         // (address(receiver)).sendValue(ETHER_IN_RECEIVER);
     }
 
     // Sample  test
-    function echidna_test_token_balance() public view returns (bool) {
-        // return true;
-        return token.balanceOf(msg.sender) == 0 ether;
+    function echidna_test_NEW_token_balance() public view returns (bool) {
+        // return false;
+        return token.balanceOf(address(this)) == amount;
     }
 
     // test all / most of cutoff variables
