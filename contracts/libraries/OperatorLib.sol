@@ -11,4 +11,9 @@ library OperatorLib {
         operator.snapshot.balance += blockDiffFee * operator.validatorCount;
         operator.snapshot.block = uint64(block.number);
     }
+
+    function checkOwner(ISSVNetworkCore.Operator memory operator, address owner) internal pure {
+        if (operator.snapshot.block == 0) revert ISSVNetworkCore.OperatorDoesNotExist();
+        if (operator.owner != owner) revert ISSVNetworkCore.CallerNotOwner();
+    }
 }

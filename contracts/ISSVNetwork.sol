@@ -159,9 +159,9 @@ interface ISSVNetwork is ISSVNetworkCore {
     /* Cluster External Functions */
     /**************************/
 
-    //function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external;
+    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external;
 
-    //function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external;
+    function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external;
 
     /******************************/
     /* Balance External Functions */
@@ -169,11 +169,11 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     //function deposit(address owner, uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external;
 
-    //function withdrawOperatorEarnings(uint64 operatorId, uint256 tokenAmount) external;
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 tokenAmount) external;
 
-    //function withdrawOperatorEarnings(uint64 operatorId) external;
+    function withdrawOperatorEarnings(uint64 operatorId) external;
 
-    //function withdraw(uint64[] memory operatorIds, uint256 tokenAmount, Cluster memory cluster) external;
+    function withdraw(uint64[] memory operatorIds, uint256 tokenAmount, Cluster memory cluster) external;
 
     /**************************/
     /* DAO External Functions */

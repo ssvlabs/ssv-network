@@ -61,6 +61,23 @@ library ClusterLib {
         return hashedCluster;
     }
 
+    function hashCluster(
+        ISSVNetworkCore.Cluster memory cluster,
+        address owner,
+        uint64[] memory operatorIds
+    ) internal pure returns (bytes32 hashedCluster, bytes32 hashedClusterData) {
+        hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
+        hashedClusterData = keccak256(
+            abi.encodePacked(
+                cluster.validatorCount,
+                cluster.networkFeeIndex,
+                cluster.index,
+                cluster.balance,
+                cluster.active
+            )
+        );
+    }
+
     function updateClusterData(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 clusterIndex,

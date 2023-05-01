@@ -1,4 +1,4 @@
-// Decalre imports
+// Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
 import { expect } from 'chai';
@@ -7,7 +7,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, firstCluster: any;
 
 // Declare globals
-describe('Liquidate Tests', () => {
+describe.only('Liquidate Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     const metadata = (await helpers.initializeContract());
@@ -137,7 +137,7 @@ describe('Liquidate Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterIsLiquidated');
   });
 
-  it('Liquidate cluster and check isLiquidated true', async () => {
+  it.only('Liquidate cluster and check isLiquidated true', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(
       firstCluster.owner,

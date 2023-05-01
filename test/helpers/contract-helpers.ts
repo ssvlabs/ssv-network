@@ -79,6 +79,7 @@ export const initializeContract = async () => {
     clusters: [],
     ssvNetwork: {},
     ssvViews: {},
+    ssvLogic: {},
     ssvToken: {},
   };
 
@@ -88,6 +89,7 @@ export const initializeContract = async () => {
   // Initialize contract
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
   const ssvViews = await ethers.getContractFactory('SSVNetworkViews');
+  const ssvLogic = await ethers.getContractFactory('SSVNetworkLogic');
   const ssvToken = await ethers.getContractFactory('SSVTokenMock');
 
   DB.ssvToken = await ssvToken.deploy();
@@ -116,6 +118,17 @@ export const initializeContract = async () => {
     });
 
   await DB.ssvViews.contract.deployed();
+
+  DB.ssvLogic.contract = await upgrades.deployProxy(ssvLogic, [
+    DB.ssvNetwork.contract.address
+  ],
+    {
+      kind: 'uups'
+    });
+
+  await DB.ssvLogic.contract.deployed();
+
+  await DB.ssvNetwork.contract.setSSVLogic(DB.ssvLogic.contract.address);
 
   DB.ssvNetwork.owner = DB.owners[0];
 
