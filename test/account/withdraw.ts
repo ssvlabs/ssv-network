@@ -11,7 +11,7 @@ describe('Withdraw Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     ssvNetworkContract = (await helpers.initializeContract()).contract;
-
+    
     // Register operators
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
 
@@ -70,12 +70,17 @@ describe('Withdraw Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 
-  it('Withdraw from a liquidatable cluster reverts "InsufficientBalance"', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
+  it('Withdraw from a liquidatable cluster reverts "InsufficientBalance" (liquidation threshold)', async () => {
+    await utils.progressBlocks(20);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, 4000000000, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });
 
-  it('Withdraw from a liquidatable cluster after liquidatrion period reverts "InsufficientBalance"', async () => {
+  it('Withdraw from a liquidatable cluster reverts "InsufficientBalance" (liquidation collateral)', async () => {
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 10);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, 7500000000, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
+  });
+
+  it('Withdraw from a liquidatable cluster after liquidation period reverts "InsufficientBalance"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract,'InsufficientBalance');
   });

@@ -16,12 +16,7 @@ interface ISSVNetwork is ISSVNetworkCore {
      * @param publicKey Operator's public key. Will be used to encrypt secret shares of validators keys.
      * @param fee Operator's fee.
      */
-    event OperatorAdded(
-        uint64 indexed operatorId,
-        address indexed owner,
-        bytes publicKey,
-        uint256 fee
-    );
+    event OperatorAdded(uint64 indexed operatorId, address indexed owner, bytes publicKey, uint256 fee);
 
     /**
      * @dev Emitted when operator has been removed.
@@ -98,10 +93,7 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
-    event FeeRecipientAddressUpdated(
-        address indexed owner,
-        address recipientAddress
-    );
+    event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress);
 
     /****************/
     /* Initializers */

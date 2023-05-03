@@ -29,7 +29,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /* Constants */
     /*************/
 
-    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 6_570;
+    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
     uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
 
@@ -329,24 +329,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         }
 
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
-        uint operatorsLength = operatorIds.length;
 
-        uint64 clusterIndex;
         {
             if (cluster.active) {
-                for (uint i; i < operatorsLength; ) {
-                    Operator memory operator = operators[operatorIds[i]];
-                    if (operator.snapshot.block != 0) {
-                        operator.updateSnapshot();
-                        --operator.validatorCount;
-                        operators[operatorIds[i]] = operator;
-                    }
+                (uint64 clusterIndex, ) = _updateOperators(operatorIds, false, 1);
 
-                    clusterIndex += operator.snapshot.index;
-                    unchecked {
-                        ++i;
-                    }
-                }
                 cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
 
                 DAO memory dao_ = dao;
@@ -377,26 +364,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, this);
         cluster.validateClusterIsNotLiquidated();
 
-        uint64 clusterIndex;
-        uint64 burnRate;
-        {
-            uint operatorsLength = operatorIds.length;
-            for (uint i; i < operatorsLength; ) {
-                Operator memory operator = operators[operatorIds[i]];
-
-                if (operator.snapshot.block != 0) {
-                    operator.updateSnapshot();
-                    operator.validatorCount -= cluster.validatorCount;
-                    burnRate += operator.fee;
-                    operators[operatorIds[i]] = operator;
-                }
-
-                clusterIndex += operator.snapshot.index;
-                unchecked {
-                    ++i;
-                }
-            }
-        }
+        (uint64 clusterIndex, uint64 burnRate) = _updateOperators(operatorIds, false, cluster.validatorCount);
 
         cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
 
@@ -444,25 +412,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
         if (cluster.active) revert ClusterAlreadyEnabled();
 
-        uint64 clusterIndex;
-        uint64 burnRate;
-        {
-            uint operatorsLength = operatorIds.length;
-            for (uint i; i < operatorsLength; ) {
-                Operator memory operator = operators[operatorIds[i]];
-                if (operator.snapshot.block != 0) {
-                    operator.updateSnapshot();
-                    operator.validatorCount += cluster.validatorCount;
-                    burnRate += operator.fee;
-                    operators[operatorIds[i]] = operator;
-                }
-
-                clusterIndex += operator.snapshot.index;
-                unchecked {
-                    ++i;
-                }
-            }
-        }
+        (uint64 clusterIndex, uint64 burnRate) = _updateOperators(operatorIds, true, cluster.validatorCount);
 
         uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(network);
 
@@ -473,12 +423,10 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         uint64 networkFee = network.networkFee;
 
-        {
-            DAO memory dao_ = dao;
-            dao_.updateDAOEarnings(networkFee);
-            dao_.validatorCount += cluster.validatorCount;
-            dao = dao_;
-        }
+        DAO memory dao_ = dao;
+        dao_.updateDAOEarnings(networkFee);
+        dao_.validatorCount += cluster.validatorCount;
+        dao = dao_;
 
         if (
             cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation, minimumLiquidationCollateral)
@@ -563,8 +511,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
 
+        if (cluster.balance < amount) revert InsufficientBalance();
+
+        cluster.balance -= amount;
+
         if (
-            cluster.balance < amount ||
             cluster.isLiquidatable(
                 burnRate,
                 network.networkFee,
@@ -574,8 +525,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         ) {
             revert InsufficientBalance();
         }
-
-        cluster.balance -= amount;
 
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
@@ -817,6 +766,33 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         operators[operatorId] = operator;
 
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
+    }
+
+    function _updateOperators(
+        uint64[] memory operatorIds,
+        bool increaseValidatorCount,
+        uint32 deltaValidatorCount
+    ) internal returns (uint64 clusterIndex, uint64 burnRate) {
+        uint operatorsLength = operatorIds.length;
+
+        for (uint i; i < operatorsLength; ) {
+            Operator memory operator = operators[operatorIds[i]];
+            if (operator.snapshot.block != 0) {
+                operator.updateSnapshot();
+                if (increaseValidatorCount) {
+                    operator.validatorCount += deltaValidatorCount;
+                } else {
+                    operator.validatorCount -= deltaValidatorCount;
+                }
+                burnRate += operator.fee;
+                operators[operatorIds[i]] = operator;
+            }
+
+            clusterIndex += operator.snapshot.index;
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /*****************************/

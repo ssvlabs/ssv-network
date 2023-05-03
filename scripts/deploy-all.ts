@@ -1,7 +1,7 @@
 import { ethers, upgrades } from 'hardhat';
 
 async function deploy() {
-  const ssvTokenAddress = process.env.SSVTOKEN_ADDRESS;
+  const ssvTokenAddress = process.env.SSV_TOKEN_ADDRESS;
 
   const [deployer] = await ethers.getSigners();
   console.log(`Deploying contracts with the account:${deployer.address}`);
@@ -16,7 +16,8 @@ async function deploy() {
     process.env.DECLARE_OPERATOR_FEE_PERIOD,
     process.env.EXECUTE_OPERATOR_FEE_PERIOD,
     process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
-    process.env.VALIDATORS_PER_OPERATOR_LIMIT
+    process.env.VALIDATORS_PER_OPERATOR_LIMIT,
+    process.env.MINIMUM_LIQUIDATION_COLLATERAL
   ],
     {
       kind: "uups"
