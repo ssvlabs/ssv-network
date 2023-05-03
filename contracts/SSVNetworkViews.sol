@@ -37,7 +37,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
     /*************************************/
 
     function getValidator(bytes calldata publicKey) external view override returns (address, bool) {
-        (address owner, bool active) = _ssvNetwork._validatorPKs(keccak256(publicKey));
+        (address owner, bool active) = _ssvNetwork.validatorPKs(keccak256(publicKey));
         return (owner, active);
     }
 

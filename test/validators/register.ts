@@ -505,8 +505,12 @@ describe('Register Validator Tests', () => {
   });
 
 
-  it('Register cluster with unsorted operators reverts "The operators list should be in ascending order"', async () => {
+  it('Register cluster with unsorted operators reverts "UnsortedOperatorsList"', async () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 2, 1, 4])).to.be.revertedWithCustomError(ssvNetworkContract, 'UnsortedOperatorsList');
+  });
+
+  it('Register cluster with duplicated operators reverts "OperatorsListNotUnique"', async () => {
+    await expect(helpers.registerValidators(2, 1, minDepositAmount, [3, 6, 9, 12, 12, 17, 20])).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorsListNotUnique');
   });
 
   it('Register validator into a cluster with an invalid amount of operators reverts "InvalidOperatorIdsLength"', async () => {
@@ -520,7 +524,7 @@ describe('Register Validator Tests', () => {
     await expect(helpers.registerValidators(2, 1, minDepositAmount, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])).to.be.revertedWithCustomError(ssvNetworkContract, 'InvalidOperatorIdsLength');
   });
 
-  it('Register validator with an invalild public key reverts "InvalidPublicKeyLength"', async () => {
+  it('Register validator with an invalid public key length reverts "InvalidPublicKeyLength"', async () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.shares(0),
       [1, 2, 3, 4],
@@ -604,7 +608,7 @@ describe('Register Validator Tests', () => {
   });
 
   it('Surpassing max number of validators per operator reverts "ExceedValidatorLimit"', async () => {
-    helpers.registerValidatorsRaw(2, 50, minDepositAmount, [8, 9, 10, 11]);
+    await helpers.registerValidatorsRaw(2, 50, minDepositAmount, [8, 9, 10, 11]);
 
     const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperator");
     const ssvNetwork = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkValidatorsPerOperator, {
@@ -635,7 +639,7 @@ describe('Register Validator Tests', () => {
 
   it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
     const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
-      helpers.DataGenerator.publicKey(2),
+      helpers.DataGenerator.publicKey(20),
       helpers.CONFIG.minimalOperatorFee
     ));
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
@@ -660,7 +664,7 @@ describe('Register Validator Tests', () => {
 
   it('Register a non whitelisted validator reverts "CallerNotWhitelisted"', async () => {
     const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
-      helpers.DataGenerator.publicKey(2),
+      helpers.DataGenerator.publicKey(22),
       helpers.CONFIG.minimalOperatorFee
     ));
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;

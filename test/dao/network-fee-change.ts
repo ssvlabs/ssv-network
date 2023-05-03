@@ -30,6 +30,11 @@ describe('Network Fee Tests', () => {
     )).to.be.revertedWith('Max precision exceeded');
   });
 
+  it('Change the network fee to a number that exceeds allowed type limit reverts "Max value exceeded"', async () => {
+    await expect(ssvNetworkContract.updateNetworkFee(BigInt(2 ** 64) * BigInt(10000000) + BigInt(1),
+    )).to.be.revertedWith('Max value exceeded');
+  });
+
   it('Change network fee from an address thats not the DAO reverts "caller is not the owner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).updateNetworkFee(networkFee
     )).to.be.revertedWith('Ownable: caller is not the owner');
