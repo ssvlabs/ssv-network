@@ -69,7 +69,8 @@ export const initializeContract = async () => {
     executeOperatorFeePeriod: 86400, // DAY
     minimalOperatorFee: 100000000,
     minimalBlocksBeforeLiquidation: 6570,
-    minimumLiquidationCollateral: 60000000
+    minimumLiquidationCollateral: 60000000,
+    validatorsPerOperatorLimit: 2000
   };
 
   DB = {
@@ -100,7 +101,8 @@ export const initializeContract = async () => {
     CONFIG.declareOperatorFeePeriod,
     CONFIG.executeOperatorFeePeriod,
     CONFIG.minimalBlocksBeforeLiquidation,
-    CONFIG.minimumLiquidationCollateral
+    CONFIG.minimumLiquidationCollateral,
+    CONFIG.validatorsPerOperatorLimit
   ],
     {
       kind: 'uups'

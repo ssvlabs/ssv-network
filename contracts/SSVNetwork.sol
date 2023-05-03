@@ -31,6 +31,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 6_570;
     uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
+    uint64 private constant PRECISION_FACTOR = 10_000;
 
     /********************/
     /* Global Variables */
@@ -65,7 +66,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
     // @dev reserve storage space for future new state variables in base contract
     // slither-disable-next-line shadowing-state
-    uint256[49] __gap;
+    uint256[49] private __gap;
 
     /*************/
     /* Modifiers */
@@ -74,6 +75,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     modifier onlyOperatorOwner(Operator memory operator) {
         _onlyOperatorOwner(operator);
         _;
+    }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /****************/
@@ -87,7 +93,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_,
-        uint256 minimumLiquidationCollateral_
+        uint256 minimumLiquidationCollateral_,
+        uint32 validatorsPerOperatorLimit_
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
@@ -98,7 +105,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             declareOperatorFeePeriod_,
             executeOperatorFeePeriod_,
             minimumBlocksBeforeLiquidation_,
-            minimumLiquidationCollateral_
+            minimumLiquidationCollateral_,
+            validatorsPerOperatorLimit_
         );
     }
 
@@ -109,7 +117,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_,
-        uint256 minimumLiquidationCollateral_
+        uint256 minimumLiquidationCollateral_,
+        uint32 validatorsPerOperatorLimit_
     ) internal onlyInitializing {
         version = bytes32(abi.encodePacked(initialVersion_));
         _token = token_;
@@ -118,7 +127,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         executeOperatorFeePeriod = executeOperatorFeePeriod_;
         minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
         minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        validatorsPerOperatorLimit = 2_000;
+        validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
     }
 
     /*****************/
@@ -462,8 +471,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = currentNetworkFeeIndex;
 
-        cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex);
-
         uint64 networkFee = network.networkFee;
 
         {
@@ -754,7 +761,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (10000 + operatorMaxFeeIncrease)) / 10000;
+        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + operatorMaxFeeIncrease)) / PRECISION_FACTOR;
 
         if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 
@@ -769,7 +776,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     function _executeOperatorFee(uint64 operatorId, Operator memory operator) private onlyOperatorOwner(operator) {
         OperatorFeeChangeRequest memory feeChangeRequest = operatorFeeChangeRequests[operatorId];
 
-        if (feeChangeRequest.approvalBeginTime == 0) revert NoFeeDelcared();
+        if (feeChangeRequest.approvalBeginTime == 0) revert NoFeeDeclared();
 
         if (
             block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime
@@ -790,7 +797,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64 operatorId,
         Operator memory operator
     ) private onlyOperatorOwner(operator) {
-        if (operatorFeeChangeRequests[operatorId].approvalBeginTime == 0) revert NoFeeDelcared();
+        if (operatorFeeChangeRequests[operatorId].approvalBeginTime == 0) revert NoFeeDeclared();
 
         delete operatorFeeChangeRequests[operatorId];
 

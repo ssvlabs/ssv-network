@@ -15,7 +15,8 @@ async function deploy() {
     process.env.OPERATOR_MAX_FEE_INCREASE,
     process.env.DECLARE_OPERATOR_FEE_PERIOD,
     process.env.EXECUTE_OPERATOR_FEE_PERIOD,
-    process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION
+    process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+    process.env.VALIDATORS_PER_OPERATOR_LIMIT
   ],
     {
       kind: "uups"

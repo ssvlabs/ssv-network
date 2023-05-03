@@ -107,9 +107,9 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeExceedsIncreaseLimit');
   });
 
-  it('Cancel declared fee without a pending request reverts "NoFeeDelcared"', async () => {
+  it('Cancel declared fee without a pending request reverts "NoFeeDeclared"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).cancelDeclaredOperatorFee(1
-    )).to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDelcared');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');
   });
 
   it('Cancel declared fee of an operator I do not own reverts "CallerNotOwner"', async () => {
@@ -124,9 +124,9 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
   });
 
-  it('Execute declared fee without a pending request reverts "NoFeeDelcared"', async () => {
+  it('Execute declared fee without a pending request reverts "NoFeeDeclared"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1
-    )).to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDelcared');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');
   });
 
   it('Execute declared fee too early reverts "ApprovalNotWithinTimeframe"', async () => {
@@ -205,9 +205,9 @@ describe('Operator Fee Tests', () => {
       .to.be.revertedWith('Ownable: caller is not the owner');
   });
 
-  it('DAO declared fee without a pending request reverts "NoFeeDelcared"', async () => {
+  it('DAO declared fee without a pending request reverts "NoFeeDeclared"', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10), [GasGroup.REGISTER_OPERATOR]);
     await expect(ssvViews.getOperatorDeclaredFee(2
-    )).to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDelcared');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');
   });
 });

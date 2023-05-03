@@ -39,8 +39,8 @@ interface ISSVNetworkCore {
         uint32 validatorCount;
         uint64 networkFeeIndex;
         uint64 index;
-        uint256 balance;
         bool active;
+        uint256 balance;
     }
 
     struct DAO {
@@ -63,7 +63,7 @@ interface ISSVNetworkCore {
     error CallerNotWhitelisted();
     error FeeTooLow();
     error FeeExceedsIncreaseLimit();
-    error NoFeeDelcared();
+    error NoFeeDeclared();
     error ApprovalNotWithinTimeframe();
     error OperatorDoesNotExist();
     error InsufficientBalance();
