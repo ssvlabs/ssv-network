@@ -82,6 +82,7 @@ interface ISSVNetworkCore {
     error ExceedValidatorLimit();
     error TokenTransferFailed();
     error SameFeeChangeNotAllowed();
-    error ZeroFeeIncreaseNotAllowed();
     error FeeIncreaseNotAllowed();
+    error OperatorsListNotUnique();
+    error OperatorAlreadyExists();
 }

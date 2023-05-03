@@ -195,9 +195,8 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
   let args: any;
   // Register validators to contract
   for (let i = 0; i < numberOfValidators; i++) {
-    const publicKey = DataGenerator.publicKey(DB.validators.length);
+    const publicKey = DataGenerator.publicKey(DB.validators.length ? DB.validators.length + 1 : 1);
     const shares = DataGenerator.shares(DB.validators.length);
-
     await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
     const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
       publicKey,
@@ -230,7 +229,8 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
     active: true
   };
 
-  for (let i = 0; i < numberOfValidators; i++) {
+  for (let i = 1; i <= numberOfValidators; i++) {
+
     const shares = DataGenerator.shares(4);
     const publicKey = DataGenerator.publicKey(i);
 
@@ -242,7 +242,6 @@ export const registerValidatorsRaw = async (ownerId: number, numberOfValidators:
       amount,
       cluster
     ), gasGroups);
-
     cluster = result.eventsByName.ValidatorAdded[0].args.cluster;
   }
 }
