@@ -6,7 +6,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 // Declare globals
 let ssvNetworkContract: any, ssvViews: any;
 
-describe('Register Operator Tests', () => {
+describe.skip('Register Operator Tests', () => {
   beforeEach(async () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;

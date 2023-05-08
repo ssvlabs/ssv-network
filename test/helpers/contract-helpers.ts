@@ -1,6 +1,5 @@
 // Imports
 declare const ethers: any;
-declare const upgrades: any;
 
 import { trackGas, GasGroup } from './gas-usage';
 
@@ -80,6 +79,7 @@ export const initializeContract = async () => {
     ssvNetwork: {},
     ssvViews: {},
     ssvToken: {},
+    registerAuth: {}
   };
 
   // Define accounts
@@ -89,6 +89,7 @@ export const initializeContract = async () => {
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
   const ssvViews = await ethers.getContractFactory('SSVNetworkViews');
   const ssvToken = await ethers.getContractFactory('SSVTokenMock');
+  const registerAuth = await ethers.getContractFactory('RegisterAuth');
 
   DB.ssvToken = await ssvToken.deploy();
   await DB.ssvToken.deployed();
@@ -103,7 +104,7 @@ export const initializeContract = async () => {
     CONFIG.minimumLiquidationCollateral
   ],
     {
-      kind: 'uups'
+      kind: 'uups',
     });
 
   await DB.ssvNetwork.contract.deployed();
@@ -117,6 +118,15 @@ export const initializeContract = async () => {
 
   await DB.ssvViews.contract.deployed();
 
+  DB.registerAuth.contract = await upgrades.deployProxy(registerAuth, [
+    DB.ssvNetwork.contract.address
+  ],
+    {
+      kind: 'uups'
+    });
+
+  await DB.registerAuth.contract.deployed();
+
   DB.ssvNetwork.owner = DB.owners[0];
 
   await DB.ssvToken.mint(DB.owners[1].address, '10000000000000000000');
@@ -125,8 +135,8 @@ export const initializeContract = async () => {
   await DB.ssvToken.mint(DB.owners[4].address, '10000000000000000000');
   await DB.ssvToken.mint(DB.owners[5].address, '10000000000000000000');
   await DB.ssvToken.mint(DB.owners[6].address, '10000000000000000000');
-
-  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract };
+  
+  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract, registerAuth: DB.registerAuth.contract };
 };
 
 export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR]) => {

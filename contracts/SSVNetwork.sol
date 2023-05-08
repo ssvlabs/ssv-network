@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
+import "./RegisterAuth.sol";
 import "./ISSVNetwork.sol";
 import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
@@ -130,6 +131,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /*******************************/
 
     function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+        IRegisterAuth.Authorization memory authData = IRegisterAuth(0x0165878A594ca255338adfa4d48449f69242Eb8F).getAuth(
+            msg.sender
+        );
+        if (!authData.registerOperator) revert("Not authorized");
+
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert FeeTooLow();
         }
@@ -183,6 +189,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint256 amount,
         Cluster memory cluster
     ) external override {
+        {
+            IRegisterAuth.Authorization memory authData = IRegisterAuth(0x0165878A594ca255338adfa4d48449f69242Eb8F)
+                .getAuth(msg.sender);
+            if (!authData.registerValidator) revert("Not authorized");
+        }
         uint operatorsLength = operatorIds.length;
 
         _validateOperatorIds(operatorsLength);
@@ -320,7 +331,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         {
             if (cluster.active) {
                 (uint64 clusterIndex, ) = _updateOperators(operatorIds, false, 1);
-                
+
                 cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
 
                 DAO memory dao_ = dao;
