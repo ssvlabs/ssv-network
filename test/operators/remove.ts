@@ -4,30 +4,20 @@ import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any;
+let ssvNetworkContract: any, registerAuth: any;
 
 describe('Remove Operator Tests', () => {
   beforeEach(async () => {
-    ssvNetworkContract = (await helpers.initializeContract()).contract;
+    const metadata = (await helpers.initializeContract());
+    ssvNetworkContract = metadata.contract;
+    registerAuth = metadata.registerAuth;
+
     // Register operators
     await helpers.registerOperators(0, 5, helpers.CONFIG.minimalOperatorFee);
 
     // Register a validator
     // cold register
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
-    await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
-      '0x221111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111119',
-      [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
-      '1000000000000000',
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true
-      }
-    );
+    await helpers.coldRegisterValidator();
   });
 
   it('Remove operator emits "OperatorRemoved"', async () => {
@@ -36,6 +26,7 @@ describe('Remove Operator Tests', () => {
   });
 
   it('Remove private operator emits "OperatorRemoved"', async () => {
+    await registerAuth.setAuth(helpers.DB.owners[0].address, [true, false]);
     const result = await trackGas(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.publicKey(0),
       helpers.CONFIG.minimalOperatorFee

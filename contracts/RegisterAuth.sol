@@ -10,8 +10,12 @@ interface IRegisterAuth {
         bool registerOperator;
         bool registerValidator;
     }
+
     function setAuth(address targetUser, Authorization calldata auth) external;
+
     function getAuth(address caller) external view returns (Authorization memory);
+
+    error CallNotAuthorized();
 }
 
 contract RegisterAuth is IRegisterAuth, UUPSUpgradeable, OwnableUpgradeable {
@@ -21,22 +25,25 @@ contract RegisterAuth is IRegisterAuth, UUPSUpgradeable, OwnableUpgradeable {
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    function initialize(ISSVNetwork _ssvNetwork) external initializer onlyProxy {
+    function initialize() external initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
+    }
+
+    function setTrusted(ISSVNetwork _ssvNetwork) external onlyOwner {
         ssvNetwork = _ssvNetwork;
     }
 
-    function setAuth(address targetUser, Authorization calldata auth) external override onlyOwner {
-        authorization[targetUser] = auth;
+    function setAuth(address userAddress, Authorization calldata auth) external override onlyOwner {
+        authorization[userAddress] = auth;
     }
 
-    function getAuth(address caller) external override view onlyTrusted returns (Authorization memory) {
-        return authorization[caller];
+    function getAuth(address userAddress) external view override onlyTrusted returns (Authorization memory) {
+        return authorization[userAddress];
     }
 
     modifier onlyTrusted() {
-        if (_msgSender() != address(ssvNetwork) && _msgSender() != owner()) revert("Call not authorized");
+        if (_msgSender() != address(ssvNetwork) && _msgSender() != owner()) revert CallNotAuthorized();
         _;
     }
 }

@@ -7,6 +7,8 @@ import "../SSVNetwork.sol";
 contract SSVNetworkReinitializable is SSVNetwork {
     uint256 public count;
 
+    constructor(address ssvNetwork) SSVNetwork(ssvNetwork) {}
+
     function initializeV2() public reinitializer(2) {
         count = 100;
     }

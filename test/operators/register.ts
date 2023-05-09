@@ -4,13 +4,17 @@ import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any, ssvViews: any;
+let ssvNetworkContract: any, ssvViews: any, registerAuth: any;
 
-describe.skip('Register Operator Tests', () => {
+describe('Register Operator Tests', () => {
   beforeEach(async () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
+    ssvViews = metadata.ssvViews;
+    registerAuth = metadata.registerAuth;
+
+    await registerAuth.setAuth(helpers.DB.owners[1].address, [true, false]);
   });
 
   it('Register operator emits "OperatorAdded"', async () => {

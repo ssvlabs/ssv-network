@@ -9,7 +9,7 @@ type gasStruct = {
   Second_Val_With_Deposit: number,
   Third_Val_No_Deposit: number,
 }
-const gasTable: gasStruct [] = [];
+const gasTable: gasStruct[] = [];
 let firstPodEverGas = 0;
 
 describe('Register Validator Gas Tests', () => {
@@ -24,10 +24,10 @@ describe('Register Validator Gas Tests', () => {
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 13;
 
     // Register first validator ever
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, minDepositAmount);
-    const tx = await ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+    await helpers.DB.ssvToken.approve(helpers.DB.ssvNetwork.contract.address, minDepositAmount);
+    const tx = await ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(5),
-      [1,2,3,4],
+      [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       minDepositAmount,
       {
@@ -51,7 +51,7 @@ describe('Register Validator Gas Tests', () => {
     // New Pod
     const tx1 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4],
+      [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       minDepositAmount,
       {
@@ -68,7 +68,7 @@ describe('Register Validator Gas Tests', () => {
     // Second Validator with a deposit
     const tx2 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4],
+      [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       minDepositAmount,
       pod1
@@ -79,7 +79,7 @@ describe('Register Validator Gas Tests', () => {
     // Third Validator without a deposit
     const tx3 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(3),
-      [1,2,3,4],
+      [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       0,
       pod2
@@ -87,14 +87,14 @@ describe('Register Validator Gas Tests', () => {
     const receipt3 = await tx3.wait();
 
     // Save the gas costs
-    gasTable.push({ Operators: 4, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
+    gasTable.push({ Operators: 4, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed });
   });
 
   it('7 Operators Gas Usage', async () => {
     // New Pod
     const tx1 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7],
+      [1, 2, 3, 4, 5, 6, 7],
       helpers.DataGenerator.shares(7),
       minDepositAmount * 2,
       {
@@ -111,7 +111,7 @@ describe('Register Validator Gas Tests', () => {
     // Second Validator with a deposit
     const tx2 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4,5,6,7],
+      [1, 2, 3, 4, 5, 6, 7],
       helpers.DataGenerator.shares(7),
       minDepositAmount * 2,
       pod1
@@ -122,7 +122,7 @@ describe('Register Validator Gas Tests', () => {
     // Third Validator without a deposit
     const tx3 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(3),
-      [1,2,3,4,5,6,7],
+      [1, 2, 3, 4, 5, 6, 7],
       helpers.DataGenerator.shares(7),
       0,
       pod2
@@ -130,14 +130,14 @@ describe('Register Validator Gas Tests', () => {
     const receipt3 = await tx3.wait();
 
     // Save the gas costs
-    gasTable.push({ Operators: 7, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
+    gasTable.push({ Operators: 7, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed });
   });
 
   it('10 Operators Gas Usage', async () => {
     // New Pod
     const tx1 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7,8,9,10],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       helpers.DataGenerator.shares(10),
       minDepositAmount * 3,
       {
@@ -154,7 +154,7 @@ describe('Register Validator Gas Tests', () => {
     // Second Validator with a deposit
     const tx2 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4,5,6,7,8,9,10],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       helpers.DataGenerator.shares(10),
       minDepositAmount * 3,
       pod1
@@ -165,7 +165,7 @@ describe('Register Validator Gas Tests', () => {
     // Third Validator without a deposit
     const tx3 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(3),
-      [1,2,3,4,5,6,7,8,9,10],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       helpers.DataGenerator.shares(10),
       0,
       pod2
@@ -173,14 +173,14 @@ describe('Register Validator Gas Tests', () => {
     const receipt3 = await tx3.wait();
 
     // Save the gas costs
-    gasTable.push({ Operators: 10, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
+    gasTable.push({ Operators: 10, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed });
   });
 
   it('13 Operators Gas Usage', async () => {
     // New Pod
     const tx1 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
-      [1,2,3,4,5,6,7,8,9,10,11,12,13],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       helpers.DataGenerator.shares(13),
       minDepositAmount * 4,
       {
@@ -197,7 +197,7 @@ describe('Register Validator Gas Tests', () => {
     // Second Validator with a deposit
     const tx2 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(2),
-      [1,2,3,4,5,6,7,8,9,10,11,12,13],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       helpers.DataGenerator.shares(13),
       minDepositAmount * 4,
       pod1
@@ -208,7 +208,7 @@ describe('Register Validator Gas Tests', () => {
     // Third Validator without a deposit
     const tx3 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(3),
-      [1,2,3,4,5,6,7,8,9,10,11,12,13],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       helpers.DataGenerator.shares(13),
       0,
       pod2
@@ -216,7 +216,7 @@ describe('Register Validator Gas Tests', () => {
     const receipt3 = await tx3.wait();
 
     // Save the gas costs
-    gasTable.push({ Operators: 13, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed});
+    gasTable.push({ Operators: 13, New_Pod: +receipt1.gasUsed, Second_Val_With_Deposit: +receipt2.gasUsed, Third_Val_No_Deposit: +receipt3.gasUsed });
 
     // Log the table
     console.log(`First validator ever: ${firstPodEverGas}`);

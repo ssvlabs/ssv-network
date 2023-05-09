@@ -4,7 +4,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, cluster1: any;
+let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, registerAuth: any, cluster1: any;
 
 describe('Register Validator Tests', () => {
   beforeEach(async () => {
@@ -12,6 +12,7 @@ describe('Register Validator Tests', () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
+    registerAuth = metadata.registerAuth;
 
     // Register operators
     await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
@@ -19,6 +20,7 @@ describe('Register Validator Tests', () => {
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 13;
 
     // cold register
+    await registerAuth.setAuth(helpers.DB.owners[6].address, [false, true]);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     cluster1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       helpers.DataGenerator.publicKey(90),
@@ -33,11 +35,13 @@ describe('Register Validator Tests', () => {
         active: true
       }
     ));
+    await registerAuth.setAuth(helpers.DB.owners[1].address, [true, true]);
+    await registerAuth.setAuth(helpers.DB.owners[0].address, [true, true]);
   });
 
   it('Register validator with 4 operators emits "ValidatorAdded"', async () => {
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(ssvNetworkContract.registerValidator(
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
       [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
@@ -123,6 +127,8 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD]);
+
+    await registerAuth.setAuth(helpers.DB.owners[2].address, [false, true]);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
@@ -240,6 +246,8 @@ describe('Register Validator Tests', () => {
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_7]);
 
+    await registerAuth.setAuth(helpers.DB.owners[2].address, [false, true]);
+
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
       helpers.DataGenerator.publicKey(4),
@@ -355,6 +363,8 @@ describe('Register Validator Tests', () => {
       minDepositAmount,
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_POD_13]);
+
+    await registerAuth.setAuth(helpers.DB.owners[2].address, [false, true]);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
@@ -605,14 +615,15 @@ describe('Register Validator Tests', () => {
 
   it('Surpassing max number of validators per operator reverts "ExceedValidatorLimit"', async () => {
     helpers.registerValidatorsRaw(2, 50, minDepositAmount, [8, 9, 10, 11]);
-
     const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperator");
     const ssvNetwork = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkValidatorsPerOperator, {
       kind: 'uups',
       call: {
         fn: 'initializev2',
         args: [25]
-      }
+      },
+      unsafeAllow: ['constructor'],
+      constructorArgs: [registerAuth.address],
     });
     await ssvNetwork.deployed();
 
@@ -641,6 +652,8 @@ describe('Register Validator Tests', () => {
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
     await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(operatorId, helpers.DB.owners[3].address);
+
+    await registerAuth.setAuth(helpers.DB.owners[3].address, [false, true]);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(

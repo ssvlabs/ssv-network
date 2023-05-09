@@ -83,4 +83,5 @@ interface ISSVNetworkCore {
     error TokenTransferFailed();
     error SameFeeChangeNotAllowed();
     error FeeIncreaseNotAllowed();
+    error NotAuthorized();
 }

@@ -62,6 +62,9 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     IERC20 private _token;
     Network public network;
 
+    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+    IRegisterAuth private immutable registerAuth;
+
     // @dev reserve storage space for future new state variables in base contract
     // slither-disable-next-line shadowing-state
     uint256[50] __gap;
@@ -73,6 +76,11 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     modifier onlyOperatorOwner(Operator memory operator) {
         _onlyOperatorOwner(operator);
         _;
+    }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor(address _registerAuth) {
+        registerAuth = IRegisterAuth(_registerAuth);
     }
 
     /****************/
@@ -131,10 +139,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /*******************************/
 
     function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
-        IRegisterAuth.Authorization memory authData = IRegisterAuth(0x0165878A594ca255338adfa4d48449f69242Eb8F).getAuth(
-            msg.sender
-        );
-        if (!authData.registerOperator) revert("Not authorized");
+        IRegisterAuth.Authorization memory authData = registerAuth.getAuth(msg.sender);
+        if (!authData.registerOperator) revert NotAuthorized();
 
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert FeeTooLow();
@@ -190,9 +196,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         Cluster memory cluster
     ) external override {
         {
-            IRegisterAuth.Authorization memory authData = IRegisterAuth(0x0165878A594ca255338adfa4d48449f69242Eb8F)
-                .getAuth(msg.sender);
-            if (!authData.registerValidator) revert("Not authorized");
+            IRegisterAuth.Authorization memory authData = registerAuth.getAuth(msg.sender);
+            if (!authData.registerValidator) revert NotAuthorized();
         }
         uint operatorsLength = operatorIds.length;
 
