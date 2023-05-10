@@ -18,13 +18,18 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
     using OperatorLib for Operator;
     using NetworkLib for DAO;
 
-    SSVNetwork _ssvNetwork;
+    SSVNetwork public _ssvNetwork;
 
     // @dev reserve storage space for future new state variables in base contract
     // slither-disable-next-line shadowing-state
-    uint256[50] __gap;
+    uint256[50] private__gap;
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize(SSVNetwork ssvNetwork_) external initializer onlyProxy {
         __UUPSUpgradeable_init();
@@ -58,7 +63,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         );
 
         if (fee == 0) {
-            revert NoFeeDelcared();
+            revert NoFeeDeclared();
         }
 
         return (fee.expand(), approvalBeginTime, approvalEndTime);
@@ -184,11 +189,11 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
 
         (uint64 networkFee, uint64 networkFeeIndex, uint64 networkFeeIndexBlockNumber) = _ssvNetwork.network();
 
-        uint64 currrentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(
+        uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(
             Network(networkFee, networkFeeIndex, networkFeeIndexBlockNumber)
         );
 
-        cluster.updateBalance(clusterIndex, currrentNetworkFeeIndex);
+        cluster.updateBalance(clusterIndex, currentNetworkFeeIndex);
 
         return cluster.balance;
     }
