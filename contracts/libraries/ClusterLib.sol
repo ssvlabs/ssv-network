@@ -2,7 +2,7 @@
 pragma solidity 0.8.18;
 
 import "../ISSVNetworkCore.sol";
-import "../SSVNetwork.sol";
+import "../ISSVNetwork.sol";
 import "./Types.sol";
 
 library ClusterLib {
@@ -39,7 +39,7 @@ library ClusterLib {
         ISSVNetworkCore.Cluster memory cluster,
         address owner,
         uint64[] memory operatorIds,
-        SSVNetwork ssvNetwork
+        ISSVNetwork ssvNetwork
     ) internal view returns (bytes32) {
         bytes32 hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
         bytes32 hashedClusterData = keccak256(
