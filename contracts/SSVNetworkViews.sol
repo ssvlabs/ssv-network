@@ -2,7 +2,7 @@
 pragma solidity 0.8.18;
 
 import "./ISSVNetworkViews.sol";
-import "./SSVNetwork.sol";
+import "./ISSVNetwork.sol";
 import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
@@ -18,7 +18,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
     using OperatorLib for Operator;
     using NetworkLib for DAO;
 
-    SSVNetwork public _ssvNetwork;
+    ISSVNetwork public _ssvNetwork;
 
     // @dev reserve storage space for future new state variables in base contract
     // slither-disable-next-line shadowing-state
@@ -31,7 +31,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         _disableInitializers();
     }
 
-    function initialize(SSVNetwork ssvNetwork_) external initializer onlyProxy {
+    function initialize(ISSVNetwork ssvNetwork_) external initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
         _ssvNetwork = ssvNetwork_;
