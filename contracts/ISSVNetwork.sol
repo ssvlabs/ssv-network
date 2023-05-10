@@ -113,7 +113,8 @@ interface ISSVNetwork is ISSVNetworkCore {
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_,
-        uint256 minimumLiquidationCollateral_
+        uint256 minimumLiquidationCollateral_,
+        uint32 validatorsPerOperatorLimit_
     ) external;
 
     /*******************************/
@@ -152,7 +153,7 @@ interface ISSVNetwork is ISSVNetworkCore {
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata sharesEncrypted,
+        bytes calldata shares,
         uint256 amount,
         Cluster memory cluster
     ) external;

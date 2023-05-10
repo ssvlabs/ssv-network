@@ -26,6 +26,7 @@ async function deploy() {
     process.env.DECLARE_OPERATOR_FEE_PERIOD,
     process.env.EXECUTE_OPERATOR_FEE_PERIOD,
     process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+    process.env.VALIDATORS_PER_OPERATOR_LIMIT,
     process.env.MINIMUM_LIQUIDATION_COLLATERAL
   ],
     {

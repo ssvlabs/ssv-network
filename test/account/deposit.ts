@@ -81,8 +81,6 @@ describe('Deposit Tests', () => {
       cluster1.args.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
 
-
-
   it('Deposit to a liquidated cluster emits "ClusterDeposited"', async () => {
     await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(ssvNetworkContract.liquidate(

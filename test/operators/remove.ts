@@ -28,7 +28,7 @@ describe('Remove Operator Tests', () => {
   it('Remove private operator emits "OperatorRemoved"', async () => {
     await registerAuth.setAuth(helpers.DB.owners[0].address, [true, false]);
     const result = await trackGas(ssvNetworkContract.registerOperator(
-      helpers.DataGenerator.publicKey(0),
+      helpers.DataGenerator.publicKey(12),
       helpers.CONFIG.minimalOperatorFee
     ));
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
