@@ -52,9 +52,10 @@ library ClusterLib {
             )
         );
 
-        if (ssvNetwork.clusters(hashedCluster) == bytes32(0)) {
+        bytes32 clusterData = ssvNetwork.clusters(hashedCluster);
+        if (clusterData == bytes32(0)) {
             revert ISSVNetworkCore.ClusterDoesNotExists();
-        } else if (ssvNetwork.clusters(hashedCluster) != hashedClusterData) {
+        } else if (clusterData != hashedClusterData) {
             revert ISSVNetworkCore.IncorrectClusterState();
         }
 
