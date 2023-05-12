@@ -11,9 +11,9 @@ interface IRegisterAuth {
         bool registerValidator;
     }
 
-    function setAuth(address targetUser, Authorization calldata auth) external;
+    function setAuth(address userAddress, Authorization calldata auth) external;
 
-    function getAuth(address caller) external view returns (Authorization memory);
+    function getAuth(address userAddress) external view returns (Authorization memory);
 
     error CallNotAuthorized();
 }
@@ -30,20 +30,11 @@ contract RegisterAuth is IRegisterAuth, UUPSUpgradeable, OwnableUpgradeable {
         __Ownable_init_unchained();
     }
 
-    function setTrusted(ISSVNetwork _ssvNetwork) external onlyOwner {
-        ssvNetwork = _ssvNetwork;
-    }
-
     function setAuth(address userAddress, Authorization calldata auth) external override onlyOwner {
         authorization[userAddress] = auth;
     }
 
-    function getAuth(address userAddress) external view override onlyTrusted returns (Authorization memory) {
+    function getAuth(address userAddress) external view override returns (Authorization memory) {
         return authorization[userAddress];
-    }
-
-    modifier onlyTrusted() {
-        if (_msgSender() != address(ssvNetwork) && _msgSender() != owner()) revert CallNotAuthorized();
-        _;
     }
 }

@@ -69,7 +69,7 @@ export const initializeContract = async () => {
     minimalOperatorFee: 100000000,
     minimalBlocksBeforeLiquidation: 100800,
     minimumLiquidationCollateral: 200000000,
-    validatorsPerOperatorLimit: 2000
+    validatorsPerOperatorLimit: 500
   };
 
   DB = {
@@ -120,7 +120,6 @@ export const initializeContract = async () => {
 
   await DB.ssvNetwork.contract.deployed();
 
-  await DB.registerAuth.contract.setTrusted(DB.ssvNetwork.contract.address);
   await DB.registerAuth.contract.setAuth(DB.owners[0].address, [true, true]);
 
   DB.ssvViews.contract = await upgrades.deployProxy(ssvViews, [

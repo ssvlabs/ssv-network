@@ -23,7 +23,7 @@ describe('Others Operator Tests', () => {
   });
 
   it('Update max number of validators per operator', async () => {
-    expect((await ssvNetworkContract.validatorsPerOperatorLimit())).to.equal(2000);
+    expect((await ssvNetworkContract.validatorsPerOperatorLimit())).to.equal(500);
 
     const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperator");
     const ssvNetwork = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkValidatorsPerOperator, {

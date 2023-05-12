@@ -64,15 +64,4 @@ describe('Register Auth Operator Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'NotAuthorized');
   });
 
-  it('Get authorization from a non trusted address reverts "CallNotAuthorized"', async () => {
-    await expect(registerAuth.connect(helpers.DB.owners[2]).getAuth(helpers.DB.owners[2].address)).to.be.revertedWithCustomError(registerAuth, 'CallNotAuthorized');
-  });
-
-  it('Get authorization from contract owner returns address auth', async () => {
-    await registerAuth.setAuth(helpers.DB.owners[1].address, { registerOperator: true, registerValidator: true });
-
-    expect(await registerAuth.getAuth(helpers.DB.owners[1].address)).to.deep.equal([true, true]);
-  });
-
-
 });

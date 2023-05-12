@@ -146,8 +146,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     /*******************************/
 
     function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
-        IRegisterAuth.Authorization memory authData = registerAuth.getAuth(msg.sender);
-        if (!authData.registerOperator) revert NotAuthorized();
+        if (!registerAuth.getAuth(msg.sender).registerOperator) revert NotAuthorized();
 
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert FeeTooLow();
@@ -207,10 +206,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint256 amount,
         Cluster memory cluster
     ) external override {
-        {
-            IRegisterAuth.Authorization memory authData = registerAuth.getAuth(msg.sender);
-            if (!authData.registerValidator) revert NotAuthorized();
-        }
+        if (!registerAuth.getAuth(msg.sender).registerValidator) revert NotAuthorized();
+
         uint operatorsLength = operatorIds.length;
         if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
             revert InvalidOperatorIdsLength();
