@@ -6,7 +6,7 @@ import "../SSVNetwork.sol";
 contract SSVNetworkBasicUpgrade is SSVNetwork {
     uint256 public operatorsUpdated;
 
-    constructor(address ssvNetwork) SSVNetwork(ssvNetwork) {}
+    constructor(address registerAuth) SSVNetwork(registerAuth) {}
 
     function resetOperatorFee(uint64 operatorId) external {
         if (operators[operatorId].snapshot.block != 0) {
