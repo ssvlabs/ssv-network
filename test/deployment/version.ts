@@ -2,12 +2,13 @@
 import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 // Declare globals
-let ssvNetworkContract: any, ssvNetworkViews: any;
+let ssvNetworkContract: any, ssvNetworkViews: any, registerAuth: any;
 describe('Version upgrade tests', () => {
     beforeEach(async () => {
         const metadata = await helpers.initializeContract();
         ssvNetworkContract = metadata.contract;
         ssvNetworkViews = metadata.ssvViews;
+        registerAuth = metadata.registerAuth;
     });
 
     it('Upgrade contract version number', async () => {
@@ -19,7 +20,9 @@ describe('Version upgrade tests', () => {
             call: {
                 fn: 'initializev2',
                 args: ["0.0.2"]
-            }
+            },
+            unsafeAllow: ['constructor'],
+            constructorArgs: [registerAuth.address],
         });
         await ssvNetwork.deployed();
 

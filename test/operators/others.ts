@@ -4,14 +4,17 @@ import { expect } from 'chai';
 import { trackGas } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any;
+let ssvNetworkContract: any, registerAuth: any;
 
 describe('Others Operator Tests', () => {
   beforeEach(async () => {
-    ssvNetworkContract = (await helpers.initializeContract()).contract;
+    const metadata = (await helpers.initializeContract());
+    ssvNetworkContract = metadata.contract;
+    registerAuth = metadata.registerAuth;
   });
 
   it('Add fee recipient address emits "FeeRecipientAddressUpdated"', async () => {
+    await registerAuth.setAuth(helpers.DB.owners[1].address, [true, false]);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).setFeeRecipientAddress(
       helpers.DB.owners[2].address
     ))
@@ -20,11 +23,13 @@ describe('Others Operator Tests', () => {
   });
 
   it('Update max number of validators per operator', async () => {
-    expect((await ssvNetworkContract.validatorsPerOperatorLimit())).to.equal(2000);
+    expect((await ssvNetworkContract.validatorsPerOperatorLimit())).to.equal(500);
 
     const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperator");
     const ssvNetwork = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkValidatorsPerOperator, {
       kind: 'uups',
+      unsafeAllow: ['constructor'],
+      constructorArgs: [registerAuth.address],
       call: {
         fn: 'initializev2',
         args: [50]
@@ -50,6 +55,7 @@ describe('Others Operator Tests', () => {
   });
 
   it('Non-owner remove operator whitelisted address reverts "CallerNotOwner"', async () => {
+    await registerAuth.setAuth(helpers.DB.owners[1].address, [true, false]);
     const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(1),
       helpers.CONFIG.minimalOperatorFee
@@ -75,6 +81,7 @@ describe('Others Operator Tests', () => {
   });
 
   it('Non-owner update operator whitelisted address reverts "CallerNotOwner"', async () => {
+    await registerAuth.setAuth(helpers.DB.owners[1].address, [true, false]);
     const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(1),
       helpers.CONFIG.minimalOperatorFee

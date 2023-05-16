@@ -6,6 +6,16 @@ async function deploy() {
   const [deployer] = await ethers.getSigners();
   console.log(`Deploying contracts with the account:${deployer.address}`);
 
+
+  const registerAuthFactory = await ethers.getContractFactory('RegisterAuth');
+  const registerAuth = await upgrades.deployProxy(registerAuthFactory, [],
+    {
+      kind: 'uups'
+    });
+
+  await registerAuth.deployed();
+  console.log(`RegisterAuth proxy deployed to: ${registerAuth.address}`);
+
   // deploy SSVNetwork
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
   console.log(`Deploying SSVNetwork with ssvToken ${ssvTokenAddress}`);
@@ -16,10 +26,13 @@ async function deploy() {
     process.env.DECLARE_OPERATOR_FEE_PERIOD,
     process.env.EXECUTE_OPERATOR_FEE_PERIOD,
     process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+    process.env.VALIDATORS_PER_OPERATOR_LIMIT,
     process.env.MINIMUM_LIQUIDATION_COLLATERAL
   ],
     {
-      kind: "uups"
+      kind: "uups",
+      unsafeAllow: ['state-variable-immutable', 'constructor'],
+      constructorArgs: [registerAuth.address]
     });
   await ssvNetwork.deployed();
   console.log(`SSVNetwork proxy deployed to: ${ssvNetwork.address}`);

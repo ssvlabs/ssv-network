@@ -113,7 +113,8 @@ interface ISSVNetwork is ISSVNetworkCore {
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
         uint64 minimumBlocksBeforeLiquidation_,
-        uint256 minimumLiquidationCollateral_
+        uint256 minimumLiquidationCollateral_,
+        uint32 validatorsPerOperatorLimit_
     ) external;
 
     /*******************************/
@@ -152,7 +153,7 @@ interface ISSVNetwork is ISSVNetworkCore {
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata sharesEncrypted,
+        bytes calldata shares,
         uint256 amount,
         Cluster memory cluster
     ) external;
@@ -196,4 +197,39 @@ interface ISSVNetwork is ISSVNetworkCore {
     function updateLiquidationThresholdPeriod(uint64 blocks) external;
 
     function updateMinimumLiquidationCollateral(uint256 amount) external;
+
+    /**************************/
+    /* Public State Variables */
+    /**************************/
+
+    function validatorPKs(bytes32 validatorId) external view returns (address owner, bool active);
+    
+    function clusters(bytes32 clusterId) external view returns (bytes32 clusterData);
+
+    function operators(
+        uint64 operatorId
+    ) external view returns (address operatorOwner, uint64 fee, uint32 validatorCount, Snapshot memory snapshot);
+
+    function operatorFeeChangeRequests(
+        uint64 operatorId
+    ) external view returns (uint64 fee, uint64 approvalBeginTime, uint64 approvalEndTime);
+
+    function operatorsWhitelist(uint64 operatorId) external view returns (address whitelisted);
+
+    function network() external view returns (uint64 networkFee, uint64 networkFeeIndex, uint64 networkFeeIndexBlockNumber);
+
+    function dao() external view returns (uint32 validatorCount, uint64 balance, uint64 block);
+
+    function minimumBlocksBeforeLiquidation() external view returns (uint64);
+    
+    function minimumLiquidationCollateral() external view returns (uint64);
+
+    function operatorMaxFeeIncrease() external view returns (uint64);
+
+    function executeOperatorFeePeriod() external view returns (uint64);
+
+    function declareOperatorFeePeriod() external view returns (uint64);
+
+    function version() external view returns (bytes32);
+
 }
