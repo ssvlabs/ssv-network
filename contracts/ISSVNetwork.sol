@@ -188,11 +188,11 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     function withdrawNetworkEarnings(uint256 amount) external;
 
-    function updateOperatorFeeIncreaseLimit(uint64 newOperatorMaxFeeIncrease) external;
+    function updateOperatorFeeIncreaseLimit(uint64 percentage) external;
 
-    function updateDeclareOperatorFeePeriod(uint64 newDeclareOperatorFeePeriod) external;
+    function updateDeclareOperatorFeePeriod(uint64 timeInSeconds) external;
 
-    function updateExecuteOperatorFeePeriod(uint64 newExecuteOperatorFeePeriod) external;
+    function updateExecuteOperatorFeePeriod(uint64 timeInSeconds) external;
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external;
 
@@ -203,7 +203,7 @@ interface ISSVNetwork is ISSVNetworkCore {
     /**************************/
 
     function validatorPKs(bytes32 validatorId) external view returns (bytes32 hashedOperatorIds, bool active);
-    
+
     function clusters(bytes32 clusterId) external view returns (bytes32 clusterData);
 
     function operators(
@@ -216,20 +216,21 @@ interface ISSVNetwork is ISSVNetworkCore {
 
     function operatorsWhitelist(uint64 operatorId) external view returns (address whitelisted);
 
-    function network() external view returns (uint64 networkFee, uint64 networkFeeIndex, uint64 networkFeeIndexBlockNumber);
+    function operatorFeeConfig()
+        external
+        view
+        returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod, uint64 operatorMaxFeeIncrease);
+
+    function network()
+        external
+        view
+        returns (uint64 networkFee, uint64 networkFeeIndex, uint64 networkFeeIndexBlockNumber);
 
     function dao() external view returns (uint32 validatorCount, uint64 balance, uint64 block);
 
     function minimumBlocksBeforeLiquidation() external view returns (uint64);
-    
+
     function minimumLiquidationCollateral() external view returns (uint64);
 
-    function operatorMaxFeeIncrease() external view returns (uint64);
-
-    function executeOperatorFeePeriod() external view returns (uint64);
-
-    function declareOperatorFeePeriod() external view returns (uint64);
-
     function version() external view returns (bytes32);
-
 }

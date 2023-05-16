@@ -33,6 +33,12 @@ interface ISSVNetworkCore {
         uint64 approvalEndTime;
     }
 
+    struct OperatorFeeConfig {
+        uint64 declareOperatorFeePeriod;
+        uint64 executeOperatorFeePeriod;
+        uint64 operatorMaxFeeIncrease;
+    }
+
     struct Cluster {
         uint32 validatorCount;
         uint64 networkFeeIndex;
@@ -70,7 +76,6 @@ interface ISSVNetworkCore {
     error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
     error InvalidOperatorIdsLength();
-    error ValidatorOwnedByOtherAddress();
     error ClusterAlreadyEnabled();
     error ClusterIsLiquidated();
     error ClusterDoesNotExists();
