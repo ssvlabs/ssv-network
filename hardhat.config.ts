@@ -27,6 +27,10 @@ const config: HardhatUserConfig = {
     ],
   },
   networks: {
+    ganache: {
+      chainId: 1337,
+      url: "http://127.0.0.1:8585"
+    },
     hardhat: {
       allowUnlimitedContractSize: true
     }

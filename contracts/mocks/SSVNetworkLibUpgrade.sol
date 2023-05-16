@@ -6,6 +6,7 @@ import "./libraries/NetworkLibUpgrade.sol";
 
 contract SSVNetworkLibUpgrade is SSVNetwork {
     using NetworkLibUpgrade for DAO;
+    constructor(address registerAuth) SSVNetwork(registerAuth) {}
 
     function getFixedNetworkRawBalance() external view returns (uint64) {
         DAO memory dao = ISSVNetworkCore.DAO({validatorCount: 0, balance: 100, block: uint64(block.number)});

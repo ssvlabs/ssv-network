@@ -4,13 +4,17 @@ import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any, ssvViews: any;
+let ssvNetworkContract: any, ssvViews: any, registerAuth: any;
 
 describe('Register Operator Tests', () => {
   beforeEach(async () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
+    ssvViews = metadata.ssvViews;
+    registerAuth = metadata.registerAuth;
+
+    await registerAuth.setAuth(helpers.DB.owners[1].address, [true, false]);
   });
 
   it('Register operator emits "OperatorAdded"', async () => {
@@ -88,5 +92,18 @@ describe('Register Operator Tests', () => {
       helpers.DataGenerator.publicKey(0),
       '10',
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooLow');
+  });
+
+  it('Register same operator twice reverts "OperatorAlreadyExists"', async () => {
+    const publicKey = helpers.DataGenerator.publicKey(1);
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      publicKey,
+      helpers.CONFIG.minimalOperatorFee
+    );
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      publicKey,
+      helpers.CONFIG.minimalOperatorFee
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorAlreadyExists');
   });
 });
