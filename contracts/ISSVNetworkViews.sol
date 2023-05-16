@@ -19,7 +19,7 @@ interface ISSVNetworkViews is ISSVNetworkCore {
     /* Validator External View Functions */
     /*************************************/
 
-    function getValidator(bytes calldata publicKey) external returns (address, bool);
+    function getValidator(address owner, bytes calldata publicKey) external returns (bool);
 
     /************************************/
     /* Operator External View Functions */

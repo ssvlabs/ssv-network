@@ -121,9 +121,9 @@ describe('Remove Validator Tests', () => {
   });
 
   it('Remove validator with an invalid owner reverts "ValidatorOwnedByOtherAddress"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
-      firstCluster.operatorIds,
+      [1, 2, 3, 5],
       firstCluster.cluster
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorOwnedByOtherAddress');
   });

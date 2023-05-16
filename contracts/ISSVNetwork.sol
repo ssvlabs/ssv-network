@@ -153,7 +153,7 @@ interface ISSVNetwork is ISSVNetworkCore {
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata shares,
+        bytes calldata signatureShares,
         uint256 amount,
         Cluster memory cluster
     ) external;
@@ -202,7 +202,7 @@ interface ISSVNetwork is ISSVNetworkCore {
     /* Public State Variables */
     /**************************/
 
-    function validatorPKs(bytes32 validatorId) external view returns (address owner, bool active);
+    function validatorPKs(bytes32 validatorId) external view returns (bytes32 hashedOperatorIds, bool active);
     
     function clusters(bytes32 clusterId) external view returns (bytes32 clusterData);
 

@@ -202,19 +202,20 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata shares,
+        bytes calldata signatureShares,
         uint256 amount,
         Cluster memory cluster
     ) external override {
         if (!registerAuth.getAuth(msg.sender).registerValidator) revert NotAuthorized();
 
         uint operatorsLength = operatorIds.length;
-        if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
-            revert InvalidOperatorIdsLength();
+        {
+            if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
+                revert InvalidOperatorIdsLength();
+            }
+
+            _registerValidatorPublicKey(publicKey, keccak256(abi.encodePacked(operatorIds)));
         }
-
-        _registerValidatorPublicKey(publicKey);
-
         bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
 
         {
@@ -320,20 +321,23 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             _deposit(amount);
         }
 
-        emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares, cluster);
+        emit ValidatorAdded(msg.sender, operatorIds, publicKey, signatureShares, cluster);
     }
 
     function removeValidator(
         bytes calldata publicKey,
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external override {
-        bytes32 hashedValidator = keccak256(publicKey);
-        address validatorOwner = validatorPKs[hashedValidator].owner;
-        if (validatorOwner == address(0)) {
+        bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
+        Validator memory validator = validatorPKs[hashedValidator];
+
+        if (!validator.active) {
             revert ValidatorDoesNotExist();
         }
-        if (validatorOwner != msg.sender) {
+
+        bytes32 hashedOpIds = keccak256(abi.encodePacked(operatorIds));
+        if (validatorPKs[hashedValidator].hashedOperatorIds != hashedOpIds) {
             revert ValidatorOwnedByOtherAddress();
         }
 
@@ -354,7 +358,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         --cluster.validatorCount;
 
-        delete validatorPKs[hashedValidator];
+        validatorPKs[hashedValidator].active = false;
 
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
@@ -627,16 +631,17 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         if (operator.owner != msg.sender) revert CallerNotOwner();
     }
 
-    function _registerValidatorPublicKey(bytes calldata publicKey) private {
+    function _registerValidatorPublicKey(bytes calldata publicKey, bytes32 hashedOpIds) private {
         if (publicKey.length != 48) {
             revert InvalidPublicKeyLength();
         }
 
-        bytes32 hashedPk = keccak256(publicKey);
-        if (validatorPKs[hashedPk].owner != address(0)) {
+        bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
+
+        if (validatorPKs[hashedPk].active && validatorPKs[hashedPk].hashedOperatorIds == hashedOpIds) {
             revert ValidatorAlreadyExists();
         }
-        validatorPKs[hashedPk] = Validator({owner: msg.sender, active: true});
+        validatorPKs[hashedPk] = Validator({hashedOperatorIds: hashedOpIds, active: true});
     }
 
     /******************************/

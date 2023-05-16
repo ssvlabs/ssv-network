@@ -7,7 +7,7 @@ interface ISSVNetworkCore {
     /***********/
 
     struct Validator {
-        address owner;
+        bytes32 hashedOperatorIds;
         bool active;
     }
     struct Snapshot {
