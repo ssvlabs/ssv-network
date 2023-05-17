@@ -717,17 +717,14 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         OperatorFeeConfig memory opFeeConfig = operatorFeeConfig;
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + operatorFeeConfig.operatorMaxFeeIncrease)) /
-            PRECISION_FACTOR;
+        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + opFeeConfig.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
 
         if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 
         operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
             shrunkFee,
-            uint64(block.timestamp) + operatorFeeConfig.declareOperatorFeePeriod,
-            uint64(block.timestamp) +
-                operatorFeeConfig.declareOperatorFeePeriod +
-                operatorFeeConfig.executeOperatorFeePeriod
+            uint64(block.timestamp) + opFeeConfig.declareOperatorFeePeriod,
+            uint64(block.timestamp) + opFeeConfig.declareOperatorFeePeriod + opFeeConfig.executeOperatorFeePeriod
         );
         emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
