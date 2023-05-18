@@ -365,7 +365,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 cluster.active
             )
         );
-
+        //test
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
