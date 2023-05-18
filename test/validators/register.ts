@@ -545,7 +545,7 @@ describe('Register Validator Tests', () => {
     expect(await ssvViews.getBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 4], clusterData)).to.equal(((helpers.CONFIG.minimalOperatorFee * 4) + networkFee) * 2);
   });
 
-  it('Get cluster burn rate when one of the operators does not exsit', async () => {
+  it('Get cluster burn rate when one of the operators does not exist', async () => {
     const clusterData = cluster1.eventsByName.ValidatorAdded[0].args.cluster;
     await expect(ssvViews.getBurnRate(helpers.DB.owners[6].address, [1, 2, 3, 41], clusterData)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
@@ -599,7 +599,7 @@ describe('Register Validator Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
   });
 
-  it('Register validator when an operator does not exsit in the cluster reverts "OperatorDoesNotExist"', async () => {
+  it('Register validator when an operator does not exist in the cluster reverts "OperatorDoesNotExist"', async () => {
     await expect(ssvNetworkContract.registerValidator(
       helpers.DataGenerator.publicKey(2),
       [1, 2, 3, 25],
@@ -718,11 +718,28 @@ describe('Register Validator Tests', () => {
   });
 
 
-  it('Register an existing validator reverts "ValidatorAlreadyExists"', async () => {
+  it('Register an existing validator with same operators setup reverts "ValidatorAlreadyExists"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       helpers.DataGenerator.publicKey(90),
       [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
+  });
+
+  it('Register an existing validator with different operators setup reverts "ValidatorAlreadyExists"', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+      helpers.DataGenerator.publicKey(90),
+      [1, 2, 5, 6],
       helpers.DataGenerator.shares(4),
       minDepositAmount,
       {
@@ -820,14 +837,10 @@ describe('Register Validator Tests', () => {
   });
 
   it('Retrieve an existing validator', async () => {
-    const validator = await ssvViews.getValidator(helpers.DataGenerator.publicKey(90));
-    expect(validator[0]).to.be.equals(helpers.DB.owners[6].address);
-    expect(validator[1]).to.be.equals(true);
+    expect(await ssvViews.getValidator(helpers.DB.owners[6].address, helpers.DataGenerator.publicKey(90))).to.be.equals(true);
   });
 
   it('Retrieve a non-existing validator', async () => {
-    const validator = await ssvViews.getValidator(helpers.DataGenerator.publicKey(1));
-    expect(validator[0]).to.be.equals(ethers.constants.AddressZero);
-    expect(validator[1]).to.be.equals(false);
+    expect(await ssvViews.getValidator(helpers.DB.owners[2].address, helpers.DataGenerator.publicKey(90))).to.be.equals(false);
   });
 });

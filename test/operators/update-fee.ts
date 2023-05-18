@@ -182,12 +182,8 @@ describe('Operator Fee Tests', () => {
     expect(feeDeclaredInContract).to.equal(newFee);
   });
 
-  it('DAO get declared fee period', async () => {
-    expect(await ssvViews.getDeclaredOperatorFeePeriod()).to.equal(helpers.CONFIG.declareOperatorFeePeriod);
-  });
-
-  it('DAO get execute fee period', async () => {
-    expect(await ssvViews.getExecuteOperatorFeePeriod()).to.equal(helpers.CONFIG.executeOperatorFeePeriod);
+  it('DAO get declared and execute fee periods', async () => {
+    expect(await ssvViews.getOperatorFeePeriods()).to.deep.equal([helpers.CONFIG.declareOperatorFeePeriod, helpers.CONFIG.executeOperatorFeePeriod]);
   });
 
   it('Increase fee from an address thats not the DAO reverts "caller is not the owner"', async () => {
