@@ -27,7 +27,9 @@ interface ISSVNetworkViews is ISSVNetworkCore {
 
     function getOperatorFee(uint64 operatorId) external returns (uint256);
 
-    function getOperatorDeclaredFee(uint64 operatorId) external returns (uint256, uint256, uint256);
+    function getOperatorDeclaredFee(
+        uint64 operatorId
+    ) external returns (uint256 fee, uint64 approvalBeginTime, uint64 approvalEndTime);
 
     function getOperatorById(
         uint64 operatorId
@@ -41,19 +43,19 @@ interface ISSVNetworkViews is ISSVNetworkCore {
         address owner,
         uint64[] memory operatorIds,
         ISSVNetwork.Cluster memory cluster
-    ) external returns (bool);
+    ) external returns (bool isLiquidatable);
 
     function isLiquidated(
         address owner,
         uint64[] memory operatorIds,
         ISSVNetwork.Cluster memory cluster
-    ) external returns (bool);
+    ) external returns (bool isLiquidated);
 
     function getBurnRate(
         address owner,
         uint64[] memory operatorIds,
         ISSVNetwork.Cluster memory cluster
-    ) external returns (uint256);
+    ) external returns (uint256 burnRate);
 
     /***********************************/
     /* Balance External View Functions */
@@ -65,23 +67,23 @@ interface ISSVNetworkViews is ISSVNetworkCore {
         address owner,
         uint64[] memory operatorIds,
         ISSVNetwork.Cluster memory cluster
-    ) external returns (uint256);
+    ) external returns (uint256 balance);
 
     /*******************************/
     /* DAO External View Functions */
     /*******************************/
 
-    function getNetworkFee() external returns (uint256);
+    function getNetworkFee() external returns (uint256 networkFee);
 
-    function getNetworkEarnings() external returns (uint256);
+    function getNetworkEarnings() external returns (uint256 networkEarnings);
 
-    function getOperatorFeeIncreaseLimit() external returns (uint64);
+    function getOperatorFeeIncreaseLimit() external returns (uint64 operatorMaxFeeIncrease);
 
-    function getExecuteOperatorFeePeriod() external returns (uint64);
+    function getOperatorFeePeriods()
+        external
+        returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod);
 
-    function getDeclaredOperatorFeePeriod() external returns (uint64);
+    function getLiquidationThresholdPeriod() external returns (uint64 blocks);
 
-    function getLiquidationThresholdPeriod() external returns (uint64);
-
-    function getMinimumLiquidationCollateral() external returns (uint256);
+    function getMinimumLiquidationCollateral() external returns (uint256 amount);
 }

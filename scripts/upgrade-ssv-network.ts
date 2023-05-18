@@ -3,9 +3,14 @@ async function upgradeSSVNetwork() {
   const [deployer] = await ethers.getSigners();
   console.log("Upgading contract with the account:", deployer.address);
 
-  const SSVNetwork = await ethers.getContractFactory("SSVNetwork_V2");
+  const SSVNetwork = await ethers.getContractFactory("SSVNetwork");
 
-  await upgrades.upgradeProxy(proxyAddress, SSVNetwork, { kind: 'uups' });
+  await upgrades.upgradeProxy(proxyAddress, SSVNetwork,
+    {
+      kind: 'uups',
+      unsafeAllow: ['state-variable-immutable', 'constructor'],
+      constructorArgs: [process.env.REGISTER_AUTH_PROXY_ADDRESS]
+    });
   console.log("SSVNetwork upgraded successfully");
 }
 

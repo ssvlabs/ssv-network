@@ -214,7 +214,17 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                 revert InvalidOperatorIdsLength();
             }
 
-            _registerValidatorPublicKey(publicKey, keccak256(abi.encodePacked(operatorIds)));
+            if (publicKey.length != 48) revert InvalidPublicKeyLength();
+
+            bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
+
+            if (validatorPKs[hashedPk].hashedOperatorIds != bytes32(0)) {
+                revert ValidatorAlreadyExists();
+            }
+            validatorPKs[hashedPk] = Validator({
+                hashedOperatorIds: keccak256(abi.encodePacked(operatorIds)),
+                active: true
+            });
         }
         bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
 
@@ -627,17 +637,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     function _onlyOperatorOwner(Operator memory operator) private view {
         if (operator.snapshot.block == 0) revert OperatorDoesNotExist();
         if (operator.owner != msg.sender) revert CallerNotOwner();
-    }
-
-    function _registerValidatorPublicKey(bytes calldata publicKey, bytes32 hashedOpIds) private {
-        if (publicKey.length != 48) revert InvalidPublicKeyLength();
-
-        bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
-
-        if (validatorPKs[hashedPk].hashedOperatorIds != bytes32(0)) {
-            revert ValidatorAlreadyExists();
-        }
-        validatorPKs[hashedPk] = Validator({hashedOperatorIds: hashedOpIds, active: true});
     }
 
     /******************************/

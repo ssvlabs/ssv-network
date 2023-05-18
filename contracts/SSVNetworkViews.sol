@@ -56,7 +56,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         return fee.expand();
     }
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint256, uint256) {
+    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint64, uint64) {
         (uint64 fee, uint64 approvalBeginTime, uint64 approvalEndTime) = _ssvNetwork.operatorFeeChangeRequests(
             operatorId
         );
@@ -215,19 +215,17 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         return dao.networkTotalEarnings(networkFee).expand();
     }
 
-    function getOperatorFeeIncreaseLimit() external view override returns (uint64) {
-        (,,uint64 operatorMaxFeeIncrease) = _ssvNetwork.operatorFeeConfig();
-        return operatorMaxFeeIncrease;
+    function getOperatorFeeIncreaseLimit() external view override returns (uint64 operatorMaxFeeIncrease) {
+        (, , operatorMaxFeeIncrease) = _ssvNetwork.operatorFeeConfig();
     }
 
-    function getExecuteOperatorFeePeriod() external view override returns (uint64) {
-        (,uint64 executeOperatorFeePeriod,) = _ssvNetwork.operatorFeeConfig();
-        return executeOperatorFeePeriod;
-    }
-
-    function getDeclaredOperatorFeePeriod() external view override returns (uint64) {
-     (uint64 declareOperatorFeePeriod,,) = _ssvNetwork.operatorFeeConfig();
-        return declareOperatorFeePeriod;
+    function getOperatorFeePeriods()
+        external
+        view
+        override
+        returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod)
+    {
+        (declareOperatorFeePeriod, executeOperatorFeePeriod, ) = _ssvNetwork.operatorFeeConfig();
     }
 
     function getLiquidationThresholdPeriod() external view override returns (uint64) {
