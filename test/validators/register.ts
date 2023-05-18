@@ -718,11 +718,28 @@ describe('Register Validator Tests', () => {
   });
 
 
-  it('Register an existing validator reverts "ValidatorAlreadyExists"', async () => {
+  it('Register an existing validator with same operators setup reverts "ValidatorAlreadyExists"', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       helpers.DataGenerator.publicKey(90),
       [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
+  });
+
+  it('Register an existing validator with different operators setup reverts "ValidatorAlreadyExists"', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
+      helpers.DataGenerator.publicKey(90),
+      [1, 2, 5, 6],
       helpers.DataGenerator.shares(4),
       minDepositAmount,
       {
