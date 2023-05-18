@@ -524,17 +524,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         cluster.balance -= amount;
 
-        if (
-            cluster.isLiquidatable(
-                burnRate,
-                network.networkFee,
-                minimumBlocksBeforeLiquidation,
-                minimumLiquidationCollateral
-            )
-        ) {
-            revert InsufficientBalance();
-        }
-
         clusters[hashedCluster] = keccak256(
             abi.encodePacked(
                 cluster.validatorCount,
