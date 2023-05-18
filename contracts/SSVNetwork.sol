@@ -634,8 +634,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
 
-        if (validatorPKs[hashedPk].hashedOperatorIds == hashedOpIds) {
-            revert ValidatorAlreadyExists();
+        if (validatorPKs[hashedPk].hashedOperatorIds ==  != bytes32(0)) {
+        revert ValidatorAlreadyExists();
         }
         validatorPKs[hashedPk] = Validator({hashedOperatorIds: hashedOpIds, active: true});
     }
