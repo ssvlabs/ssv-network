@@ -202,7 +202,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata shares,
+        bytes calldata sharesData,
         uint256 amount,
         Cluster memory cluster
     ) external override {
@@ -321,7 +321,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             _deposit(amount);
         }
 
-        emit ValidatorAdded(msg.sender, operatorIds, publicKey, shares, cluster);
+        emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
     }
 
     function removeValidator(
@@ -331,8 +331,12 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
     ) external override {
         bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
 
-        if (validatorPKs[hashedValidator].hashedOperatorIds == bytes32(0)) {
+        bytes32 validatorHashedOpsIds = validatorPKs[hashedValidator].hashedOperatorIds;
+
+        if (validatorHashedOpsIds == bytes32(0)) {
             revert ValidatorDoesNotExist();
+        } else if (validatorHashedOpsIds != keccak256(abi.encodePacked(operatorIds))) {
+            revert IncorrectValidatorState();
         }
 
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
@@ -717,7 +721,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
         OperatorFeeConfig memory opFeeConfig = operatorFeeConfig;
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + opFeeConfig.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
+        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + opFeeConfig.operatorMaxFeeIncrease)) /
+            PRECISION_FACTOR;
 
         if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 

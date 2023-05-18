@@ -73,6 +73,7 @@ interface ISSVNetworkCore {
     error InsufficientBalance();
     error ValidatorAlreadyExists();
     error ValidatorDoesNotExist();
+    error IncorrectValidatorState();
     error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
     error InvalidOperatorIdsLength();

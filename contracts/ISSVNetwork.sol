@@ -153,7 +153,7 @@ interface ISSVNetwork is ISSVNetworkCore {
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata signatureShares,
+        bytes calldata sharesData,
         uint256 amount,
         Cluster memory cluster
     ) external;
