@@ -511,7 +511,6 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
     function withdraw(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
-        cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
         uint64 burnRate;
@@ -537,6 +536,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         cluster.balance -= amount;
 
         if (
+            cluster.validatorCount != 0 &&
             cluster.isLiquidatable(
                 burnRate,
                 network.networkFee,
