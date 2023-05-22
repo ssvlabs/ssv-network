@@ -85,10 +85,9 @@ describe('Liquidate Tests', () => {
     clusterEventData = await helpers.deposit(1, clusterEventData.owner, clusterEventData.operatorIds, minDepositAmount, clusterEventData.cluster);
     await expect(clusterEventData.cluster.balance).to.be.equals(minDepositAmount); // shrink
 
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).withdraw(
-      clusterEventData.operatorIds,
-      minDepositAmount,
-      clusterEventData.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterIsLiquidated');
+    clusterEventData = await helpers.withdraw(1, clusterEventData.operatorIds, minDepositAmount, clusterEventData.cluster);
+
+    await expect(clusterEventData.cluster.balance).to.be.equals(0);
   });
 
   it('Withdraw -> liquidate -> deposit -> reactivate', async () => {

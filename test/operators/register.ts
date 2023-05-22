@@ -11,7 +11,6 @@ describe('Register Operator Tests', () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
-    ssvViews = metadata.ssvViews;
     registerAuth = metadata.registerAuth;
 
     await registerAuth.setAuth(helpers.DB.owners[1].address, [true, false]);
