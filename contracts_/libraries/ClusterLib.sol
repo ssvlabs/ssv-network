@@ -34,7 +34,7 @@ library ClusterLib {
     function validateClusterIsNotLiquidated(ISSVNetworkCore.Cluster memory cluster) internal pure {
         if (!cluster.active) revert ISSVNetworkCore.ClusterIsLiquidated();
     }
-/*
+
     function validateHashedCluster(
         ISSVNetworkCore.Cluster memory cluster,
         address owner,
@@ -61,7 +61,7 @@ library ClusterLib {
 
         return hashedCluster;
     }
-*/
+
     function updateClusterData(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 clusterIndex,
