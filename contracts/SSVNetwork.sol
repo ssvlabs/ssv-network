@@ -511,32 +511,35 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
     function withdraw(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
-        cluster.validateClusterIsNotLiquidated();
 
-        uint64 clusterIndex;
         uint64 burnRate;
-        {
-            uint operatorsLength = operatorIds.length;
-            for (uint i; i < operatorsLength; ) {
-                Operator storage operator = operators[operatorIds[i]];
-                clusterIndex +=
-                    operator.snapshot.index +
-                    (uint64(block.number) - operator.snapshot.block) *
-                    operator.fee;
-                burnRate += operator.fee;
-                unchecked {
-                    ++i;
+        if (cluster.active) {
+            uint64 clusterIndex;
+            {
+                uint operatorsLength = operatorIds.length;
+                for (uint i; i < operatorsLength; ) {
+                    Operator storage operator = operators[operatorIds[i]];
+                    clusterIndex +=
+                        operator.snapshot.index +
+                        (uint64(block.number) - operator.snapshot.block) *
+                        operator.fee;
+                    burnRate += operator.fee;
+                    unchecked {
+                        ++i;
+                    }
                 }
             }
-        }
 
-        cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+            cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+        }
 
         if (cluster.balance < amount) revert InsufficientBalance();
 
         cluster.balance -= amount;
 
         if (
+            cluster.active &&
+            cluster.validatorCount != 0 &&
             cluster.isLiquidatable(
                 burnRate,
                 network.networkFee,
