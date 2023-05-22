@@ -7,7 +7,7 @@ interface ISSVNetworkCore {
     /***********/
 
     struct Validator {
-        address owner;
+        bytes32 hashedOperatorIds;
         bool active;
     }
     struct Snapshot {
@@ -31,6 +31,12 @@ interface ISSVNetworkCore {
         uint64 fee;
         uint64 approvalBeginTime;
         uint64 approvalEndTime;
+    }
+
+    struct OperatorFeeConfig {
+        uint64 declareOperatorFeePeriod;
+        uint64 executeOperatorFeePeriod;
+        uint64 operatorMaxFeeIncrease;
     }
 
     struct Cluster {
@@ -67,10 +73,10 @@ interface ISSVNetworkCore {
     error InsufficientBalance();
     error ValidatorAlreadyExists();
     error ValidatorDoesNotExist();
+    error IncorrectValidatorState();
     error ClusterNotLiquidatable();
     error InvalidPublicKeyLength();
     error InvalidOperatorIdsLength();
-    error ValidatorOwnedByOtherAddress();
     error ClusterAlreadyEnabled();
     error ClusterIsLiquidated();
     error ClusterDoesNotExists();

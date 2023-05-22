@@ -41,9 +41,8 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
     /* Validator External View Functions */
     /*************************************/
 
-    function getValidator(bytes calldata publicKey) external view override returns (address, bool) {
-        (address owner, bool active) = _ssvNetwork.validatorPKs(keccak256(publicKey));
-        return (owner, active);
+    function getValidator(address owner, bytes calldata publicKey) external view override returns (bool active) {
+        (, active) = _ssvNetwork.validatorPKs(keccak256(abi.encodePacked(publicKey, owner)));
     }
 
     /************************************/
@@ -57,7 +56,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         return fee.expand();
     }
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint256, uint256) {
+    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint64, uint64) {
         (uint64 fee, uint64 approvalBeginTime, uint64 approvalEndTime) = _ssvNetwork.operatorFeeChangeRequests(
             operatorId
         );
@@ -216,16 +215,17 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwor
         return dao.networkTotalEarnings(networkFee).expand();
     }
 
-    function getOperatorFeeIncreaseLimit() external view override returns (uint64) {
-        return _ssvNetwork.operatorMaxFeeIncrease();
+    function getOperatorFeeIncreaseLimit() external view override returns (uint64 operatorMaxFeeIncrease) {
+        (, , operatorMaxFeeIncrease) = _ssvNetwork.operatorFeeConfig();
     }
 
-    function getExecuteOperatorFeePeriod() external view override returns (uint64) {
-        return _ssvNetwork.executeOperatorFeePeriod();
-    }
-
-    function getDeclaredOperatorFeePeriod() external view override returns (uint64) {
-        return _ssvNetwork.declareOperatorFeePeriod();
+    function getOperatorFeePeriods()
+        external
+        view
+        override
+        returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod)
+    {
+        (declareOperatorFeePeriod, executeOperatorFeePeriod, ) = _ssvNetwork.operatorFeeConfig();
     }
 
     function getLiquidationThresholdPeriod() external view override returns (uint64) {

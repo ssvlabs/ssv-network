@@ -120,12 +120,20 @@ describe('Remove Validator Tests', () => {
     ), [GasGroup.REMOVE_VALIDATOR]);
   });
 
-  it('Remove validator with an invalid owner reverts "ValidatorOwnedByOtherAddress"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).removeValidator(
+  it('Remove validator with an invalid owner reverts "ValidatorDoesNotExist"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).removeValidator(
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
       firstCluster.cluster
-    )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorOwnedByOtherAddress');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+  });
+
+  it('Remove validator with an invalid operator setup reverts "IncorrectValidatorState"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(1),
+      [1, 2, 3, 5],
+      firstCluster.cluster
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorState');
   });
 
   it('Remove the same validator twice reverts "ValidatorDoesNotExist"', async () => {

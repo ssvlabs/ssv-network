@@ -15,6 +15,8 @@ async function deploy() {
 
   await registerAuth.deployed();
   console.log(`RegisterAuth proxy deployed to: ${registerAuth.address}`);
+  let implAddress = await upgrades.erc1967.getImplementationAddress(registerAuth.address);
+  console.log(`RegisterAuth implementation deployed to: ${implAddress}`);
 
   // deploy SSVNetwork
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
@@ -26,8 +28,8 @@ async function deploy() {
     process.env.DECLARE_OPERATOR_FEE_PERIOD,
     process.env.EXECUTE_OPERATOR_FEE_PERIOD,
     process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
-    process.env.VALIDATORS_PER_OPERATOR_LIMIT,
-    process.env.MINIMUM_LIQUIDATION_COLLATERAL
+    process.env.MINIMUM_LIQUIDATION_COLLATERAL,
+    process.env.VALIDATORS_PER_OPERATOR_LIMIT
   ],
     {
       kind: "uups",
@@ -37,7 +39,7 @@ async function deploy() {
   await ssvNetwork.deployed();
   console.log(`SSVNetwork proxy deployed to: ${ssvNetwork.address}`);
 
-  let implAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
+  implAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
   console.log(`SSVNetwork implementation deployed to: ${implAddress}`);
 
   // deploy SSVNetworkViews
