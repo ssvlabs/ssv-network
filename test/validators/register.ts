@@ -4,13 +4,14 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, registerAuth: any, cluster1: any;
+let ssvNetworkContract: any, ssvViews: any, ssvToken: any, minDepositAmount: any, registerAuth: any, cluster1: any;
 
 describe('Register Validator Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
+    ssvToken = metadata.ssvToken;
     //ssvViews = metadata.ssvViews;
     //registerAuth = metadata.registerAuth;
 
@@ -58,6 +59,8 @@ describe('Register Validator Tests', () => {
 
   it.only('Register validator with 4 operators gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    const balance = await ssvToken.balanceOf(ssvNetworkContract.address);
+
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
       helpers.DataGenerator.cluster.new(),
@@ -71,9 +74,11 @@ describe('Register Validator Tests', () => {
         active: true
       }
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+
+    expect(await ssvToken.balanceOf(ssvNetworkContract.address)).to.be.equal(balance.add(ethers.BigNumber.from(minDepositAmount)));
   });
 
-  it('Register 2 validators into the same cluster gas limit', async () => {
+  it.only('Register 2 validators into the same cluster gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),
@@ -427,7 +432,7 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
   });
 
-  it('Register 2 validators with 13 operators into the same cluster gas limit', async () => {
+  it.only('Register 2 validators with 13 operators into the same cluster gas limit', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
       helpers.DataGenerator.publicKey(1),

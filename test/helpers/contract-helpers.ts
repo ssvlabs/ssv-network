@@ -120,7 +120,6 @@ export const initializeContract = async () => {
     });
 
   await DB.ssvNetwork.contract.deployed();
-  console.log('ssvNetwork...', DB.ssvNetwork.contract.address);
 
   DB.ssvNetwork.owner = DB.owners[0];
 

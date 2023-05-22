@@ -88,12 +88,14 @@ contract SSVClusters is ISSVClusters {
                             revert OperatorsListNotUnique();
                         }
                     }
-                    address whitelisted = SSVStorage.getStorage().operatorsWhitelist[operatorIds[i]];
-                    if (whitelisted != address(0) && whitelisted != msg.sender) {
+                    if (
+                        SSVStorage.getStorage().operatorsWhitelist[operatorIds[i]] != address(0) &&
+                        SSVStorage.getStorage().operatorsWhitelist[operatorIds[i]] != msg.sender
+                    ) {
                         revert CallerNotWhitelisted();
                     }
                 }
-                Operator memory operator = SSVStorage.getStorage().operators[operatorIds[i]];
+                Operator storage operator = SSVStorage.getStorage().operators[operatorIds[i]];
                 if (operator.snapshot.block == 0) {
                     revert OperatorDoesNotExist();
                 }
@@ -147,13 +149,7 @@ contract SSVClusters is ISSVClusters {
     }
 
     function _deposit(uint256 amount) private {
-        if (
-            !SSVStorage.getStorage().token.transferFrom(
-                msg.sender,
-                address(this),
-                amount
-            )
-        ) {
+        if (!SSVStorage.getStorage().token.transferFrom(msg.sender, address(this), amount)) {
             revert TokenTransferFailed();
         }
     }

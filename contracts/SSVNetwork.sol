@@ -147,7 +147,7 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
                     cluster
                 )
             );
-            console.logBytes(result);
+            //console.logBytes(result);
         require(success, "The call to clusters contract failed");
     }
     
