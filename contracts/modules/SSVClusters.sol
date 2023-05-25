@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "hardhat/console.sol";
-
-import "../interfaces/functions/ISSVClusters.sol";
-import {ISSVClusters as ClusterEvents} from "../interfaces/events/ISSVClusters.sol";
+import "../interfaces/functions/IFnSSVClusters.sol";
+import "../interfaces/events/IEvSSVClusters.sol";
 import "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/NetworkLib.sol";
+import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
 
-contract SSVClusters is ISSVClusters, ClusterEvents {
+contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
+    using NetworkLib for Network;
     using NetworkLib for DAO;
 
     function registerValidator(
@@ -73,7 +73,7 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
             }
         }
 
-        Network memory network_ = SSVStorage.load().network;
+        Network storage network_ = SSVStorage.load().network;
         uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
 
         cluster.balance += amount;
@@ -98,7 +98,7 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
                         revert CallerNotWhitelisted();
                     }
                 }
-                Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
+                Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
                 if (operator.snapshot.block == 0) {
                     revert OperatorDoesNotExist();
                 }
@@ -156,9 +156,11 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external override {
+        SSVStorage.StorageData storage ssvStorage = SSVStorage.load();
+
         bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
 
-        bytes32 validatorHashedOpsIds = SSVStorage.load().validatorPKs[hashedValidator].hashedOperatorIds;
+        bytes32 validatorHashedOpsIds = ssvStorage.validatorPKs[hashedValidator].hashedOperatorIds;
 
         if (validatorHashedOpsIds == bytes32(0)) {
             revert ValidatorDoesNotExist();
@@ -172,20 +174,20 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
             if (cluster.active) {
                 (uint64 clusterIndex, ) = _updateOperators(operatorIds, false, 1);
 
-                cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(SSVStorage.load().network));
+                cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(ssvStorage.network));
 
-                DAO memory dao_ = SSVStorage.load().dao;
-                dao_.updateDAOEarnings(SSVStorage.load().network.networkFee);
+                DAO memory dao_ = ssvStorage.dao;
+                dao_.updateDAOEarnings(ssvStorage.network.networkFee);
                 --dao_.validatorCount;
-                SSVStorage.load().dao = dao_;
+                ssvStorage.dao = dao_;
             }
         }
 
         --cluster.validatorCount;
 
-        delete SSVStorage.load().validatorPKs[hashedValidator];
+        delete ssvStorage.validatorPKs[hashedValidator];
 
-        SSVStorage.load().clusters[hashedCluster] = keccak256(
+        ssvStorage.clusters[hashedCluster] = keccak256(
             abi.encodePacked(
                 cluster.validatorCount,
                 cluster.networkFeeIndex,
@@ -198,7 +200,7 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
-    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external override {
+    function liquidate(address owner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
         bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds);
         cluster.validateClusterIsNotLiquidated();
 
@@ -245,13 +247,13 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
         );
 
         if (balanceLiquidatable != 0) {
-            OperatorLib.transfer(msg.sender, balanceLiquidatable); // TODO
+            CoreLib.transfer(msg.sender, balanceLiquidatable);
         }
 
         emit ClusterLiquidated(owner, operatorIds, cluster);
     }
 
-    function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
+    function reactivate(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds);
         if (cluster.active) revert ClusterAlreadyEnabled();
 
@@ -324,7 +326,7 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
         emit ClusterDeposited(owner, operatorIds, amount, cluster);
     }
 
-    function withdraw(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
+    function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds);
         cluster.validateClusterIsNotLiquidated();
 
@@ -345,12 +347,11 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
             }
         }
 
-        cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(SSVStorage.load().network));
+        cluster.updateClusterData(clusterIndex, SSVStorage.load().network.currentNetworkFeeIndex());
 
         if (cluster.balance < amount) revert InsufficientBalance();
 
         cluster.balance -= amount;
-        console.log("-------here-----");
 
         if (
             cluster.isLiquidatable(
@@ -373,7 +374,7 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
             )
         );
 
-        OperatorLib.transfer(msg.sender, amount);
+        CoreLib.transfer(msg.sender, amount);
 
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
     }
@@ -386,10 +387,10 @@ contract SSVClusters is ISSVClusters, ClusterEvents {
     }
 
     function _updateOperators(
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         bool increaseValidatorCount,
         uint32 deltaValidatorCount
-    ) internal returns (uint64 clusterIndex, uint64 burnRate) {
+    ) private returns (uint64 clusterIndex, uint64 burnRate) {
         uint operatorsLength = operatorIds.length;
 
         for (uint i; i < operatorsLength; ) {

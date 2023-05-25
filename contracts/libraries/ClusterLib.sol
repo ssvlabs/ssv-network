@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "hardhat/console.sol";
-
 import "../interfaces/ISSVNetworkCore.sol";
 import "./NetworkLib.sol";
 import "./SSVStorage.sol";
@@ -27,18 +25,9 @@ library ClusterLib {
         uint64 networkFee,
         uint64 minimumBlocksBeforeLiquidation,
         uint64 minimumLiquidationCollateral
-    ) internal view returns (bool) {
-        console.log("burnRate", burnRate);
-        console.log("networkFee", networkFee);
-        console.log("minimumBlocksBeforeLiquidation", minimumBlocksBeforeLiquidation);
-        console.log("minimumLiquidationCollateral", minimumLiquidationCollateral.expand());
-
-        console.log("cluster.balance", cluster.balance);
-
+    ) internal pure returns (bool) {
         if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
-
         uint64 liquidationThreshold = minimumBlocksBeforeLiquidation * (burnRate + networkFee) * cluster.validatorCount;
-        console.log("liquidationThreshold", liquidationThreshold.expand());
 
         return cluster.balance < liquidationThreshold.expand();
     }
@@ -104,7 +93,7 @@ library ClusterLib {
             burnRate += operator.fee;
         }
 
-        ISSVNetworkCore.Network memory network = SSVStorage.load().network;
+        ISSVNetworkCore.Network storage network = SSVStorage.load().network;
 
         updateBalance(cluster, clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
         return

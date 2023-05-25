@@ -6,44 +6,62 @@ async function deploy() {
   const [deployer] = await ethers.getSigners();
   console.log(`Deploying contracts with the account:${deployer.address}`);
 
+  // Initialize contract
+  const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+  const ssvViewsFactory = await ethers.getContractFactory('SSVNetworkViews');
 
-  const registerAuthFactory = await ethers.getContractFactory('RegisterAuth');
-  const registerAuth = await upgrades.deployProxy(registerAuthFactory, [],
-    {
-      kind: 'uups'
-    });
+  const ssvViewsModFactory = await ethers.getContractFactory('contracts/modules/SSVViews.sol:SSVViews');
+  const ssvOperatorsModFactory = await ethers.getContractFactory('SSVOperators');
+  const ssvClustersModFactory = await ethers.getContractFactory('SSVClusters');
+  const ssvDAOModFactory = await ethers.getContractFactory('SSVDAO');
 
-  await registerAuth.deployed();
-  console.log(`RegisterAuth proxy deployed to: ${registerAuth.address}`);
-  let implAddress = await upgrades.erc1967.getImplementationAddress(registerAuth.address);
-  console.log(`RegisterAuth implementation deployed to: ${implAddress}`);
+
+  // Deploy ssvOperatorsMod
+  const ssvOperatorsMod = await ssvOperatorsModFactory.deploy();
+  await ssvOperatorsMod.deployed();
+  console.log(`SSVOperators module deployed to: ${ssvOperatorsMod.address}`);
+
+
+  // Deploy ssvClustersMod
+  const ssvClustersMod = await ssvClustersModFactory.deploy();
+  await ssvClustersMod.deployed();
+  console.log(`SSVClsuters module deployed to: ${ssvClustersMod.address}`);
+
+  // Deploy ssvDAOMod
+  const ssvDAOMod = await ssvDAOModFactory.deploy();
+  await ssvDAOMod.deployed();
+  console.log(`SSVDAO module deployed to: ${ssvDAOMod.address}`);
+
+  // Deploy ssvViewsMod
+  const ssvViewsMod = await ssvViewsModFactory.deploy();
+  await ssvViewsMod.deployed();
+  console.log(`SSVViews module deployed to: ${ssvViewsMod.address}`);
 
   // deploy SSVNetwork
-  const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
   console.log(`Deploying SSVNetwork with ssvToken ${ssvTokenAddress}`);
   const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [
-    process.env.INITIAL_VERSION,
     ssvTokenAddress,
-    process.env.OPERATOR_MAX_FEE_INCREASE,
-    process.env.DECLARE_OPERATOR_FEE_PERIOD,
-    process.env.EXECUTE_OPERATOR_FEE_PERIOD,
+    ssvOperatorsMod.address,
+    ssvClustersMod.address,
+    ssvDAOMod.address,
+    ssvViewsMod.address,
     process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
     process.env.MINIMUM_LIQUIDATION_COLLATERAL,
-    process.env.VALIDATORS_PER_OPERATOR_LIMIT
+    process.env.VALIDATORS_PER_OPERATOR_LIMIT,
+    process.env.DECLARE_OPERATOR_FEE_PERIOD,
+    process.env.EXECUTE_OPERATOR_FEE_PERIOD,
+    process.env.OPERATOR_MAX_FEE_INCREASE
   ],
     {
-      kind: "uups",
-      unsafeAllow: ['state-variable-immutable', 'constructor'],
-      constructorArgs: [registerAuth.address]
+      kind: "uups"
     });
   await ssvNetwork.deployed();
   console.log(`SSVNetwork proxy deployed to: ${ssvNetwork.address}`);
 
-  implAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
+  let implAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
   console.log(`SSVNetwork implementation deployed to: ${implAddress}`);
 
   // deploy SSVNetworkViews
-  const ssvViewsFactory = await ethers.getContractFactory('SSVNetworkViews');
   console.log(`Deploying SSVNetworkViews with SSVNetwork ${ssvNetwork.address}...`);
   const viewsContract = await upgrades.deployProxy(ssvViewsFactory, [
     ssvNetwork.address

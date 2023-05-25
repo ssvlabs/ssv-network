@@ -22,12 +22,6 @@ library OperatorLib {
         if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwner();
     }
 
-    function transfer(address to, uint256 amount) internal {
-        if (!SSVStorage.load().token.transfer(to, amount)) {
-            revert ISSVNetworkCore.TokenTransferFailed();
-        }
-    }
-
     // Views
     function getOperatorById(uint64 operatorId) internal view returns (address, uint256, uint32, bool, bool) {
         ISSVNetworkCore.Operator memory operator = SSVStorage.load().operators[operatorId];

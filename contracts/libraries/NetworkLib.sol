@@ -5,6 +5,11 @@ import "../interfaces/ISSVNetworkCore.sol";
 import "../SSVNetwork.sol";
 
 library NetworkLib {
+    function updateDAOEarningsSt(ISSVNetworkCore.DAO storage dao, uint64 networkFee) internal {
+        dao.balance = networkTotalEarnings(dao, networkFee);
+        dao.block = uint64(block.number);
+    } // TODO
+
     function updateDAOEarnings(ISSVNetworkCore.DAO memory dao, uint64 networkFee) internal view {
         dao.balance = networkTotalEarnings(dao, networkFee);
         dao.block = uint64(block.number);

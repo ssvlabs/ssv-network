@@ -4,7 +4,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, ssvViews: any, registerAuth: any, minDepositAmount: any, firstCluster: any, burnPerBlock: any, networkFee: any;
+let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, firstCluster: any, burnPerBlock: any, networkFee: any;
 
 // Declare globals
 describe('Liquidate Tests', () => {
@@ -13,7 +13,6 @@ describe('Liquidate Tests', () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
-    registerAuth = metadata.registerAuth;
 
     // Register operators
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
@@ -24,7 +23,7 @@ describe('Liquidate Tests', () => {
 
     await ssvNetworkContract.updateNetworkFee(networkFee);
 
-    await registerAuth.setAuth(helpers.DB.owners[1].address, [false, true]);
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, [false, true]);
     // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 2);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(

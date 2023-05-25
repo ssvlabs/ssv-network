@@ -63,7 +63,7 @@ describe('Register Validator Gas Tests', () => {
       }
     );
     const receipt1 = await tx1.wait();
-    const pod1 = (receipt1.events[2].args[4]);
+    const cluster1 = (receipt1.events[2].args[4]);
 
     // Second Validator with a deposit
     const tx2 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -71,10 +71,10 @@ describe('Register Validator Gas Tests', () => {
       [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       minDepositAmount,
-      pod1
+      cluster1
     );
     const receipt2 = await tx2.wait();
-    const pod2 = (receipt2.events[2].args[4]);
+    const cluster2 = (receipt2.events[2].args[4]);
 
     // Third Validator without a deposit
     const tx3 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -82,7 +82,7 @@ describe('Register Validator Gas Tests', () => {
       [1, 2, 3, 4],
       helpers.DataGenerator.shares(4),
       0,
-      pod2
+      cluster2
     );
     const receipt3 = await tx3.wait();
 
@@ -106,7 +106,7 @@ describe('Register Validator Gas Tests', () => {
       }
     );
     const receipt1 = await tx1.wait();
-    const pod1 = (receipt1.events[2].args[4]);
+    const cluster1 = (receipt1.events[2].args[4]);
 
     // Second Validator with a deposit
     const tx2 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -114,10 +114,10 @@ describe('Register Validator Gas Tests', () => {
       [1, 2, 3, 4, 5, 6, 7],
       helpers.DataGenerator.shares(7),
       minDepositAmount * 2,
-      pod1
+      cluster1
     );
     const receipt2 = await tx2.wait();
-    const pod2 = (receipt2.events[2].args[4]);
+    const cluster2 = (receipt2.events[2].args[4]);
 
     // Third Validator without a deposit
     const tx3 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -125,7 +125,7 @@ describe('Register Validator Gas Tests', () => {
       [1, 2, 3, 4, 5, 6, 7],
       helpers.DataGenerator.shares(7),
       0,
-      pod2
+      cluster2
     );
     const receipt3 = await tx3.wait();
 
@@ -149,7 +149,7 @@ describe('Register Validator Gas Tests', () => {
       }
     );
     const receipt1 = await tx1.wait();
-    const pod1 = (receipt1.events[2].args[4]);
+    const cluster1 = (receipt1.events[2].args[4]);
 
     // Second Validator with a deposit
     const tx2 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -157,10 +157,10 @@ describe('Register Validator Gas Tests', () => {
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       helpers.DataGenerator.shares(10),
       minDepositAmount * 3,
-      pod1
+      cluster1
     );
     const receipt2 = await tx2.wait();
-    const pod2 = (receipt2.events[2].args[4]);
+    const cluster2 = (receipt2.events[2].args[4]);
 
     // Third Validator without a deposit
     const tx3 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -168,7 +168,7 @@ describe('Register Validator Gas Tests', () => {
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       helpers.DataGenerator.shares(10),
       0,
-      pod2
+      cluster2
     );
     const receipt3 = await tx3.wait();
 
@@ -192,7 +192,7 @@ describe('Register Validator Gas Tests', () => {
       }
     );
     const receipt1 = await tx1.wait();
-    const pod1 = (receipt1.events[2].args[4]);
+    const cluster1 = (receipt1.events[2].args[4]);
 
     // Second Validator with a deposit
     const tx2 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -200,10 +200,10 @@ describe('Register Validator Gas Tests', () => {
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       helpers.DataGenerator.shares(13),
       minDepositAmount * 4,
-      pod1
+      cluster1
     );
     const receipt2 = await tx2.wait();
-    const pod2 = (receipt2.events[2].args[4]);
+    const cluster2 = (receipt2.events[2].args[4]);
 
     // Third Validator without a deposit
     const tx3 = await ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -211,7 +211,7 @@ describe('Register Validator Gas Tests', () => {
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       helpers.DataGenerator.shares(13),
       0,
-      pod2
+      cluster2
     );
     const receipt3 = await tx3.wait();
 

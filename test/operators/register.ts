@@ -4,16 +4,15 @@ import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any, ssvViews: any, registerAuth: any;
+let ssvNetworkContract: any, ssvViews: any;
 
 describe('Register Operator Tests', () => {
   beforeEach(async () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
-    //registerAuth = metadata.registerAuth;
 
-    //await registerAuth.setAuth(helpers.DB.owners[1].address, [true, false]);
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, [true, false]);
   });
 
   it('Register operator emits "OperatorAdded"', async () => {
@@ -41,6 +40,7 @@ describe('Register Operator Tests', () => {
       [helpers.DB.owners[1].address, // owner
       helpers.CONFIG.minimalOperatorFee, // fee
         0, // validatorCount
+        ethers.constants.AddressZero, // whitelisted
         false, // isPrivate
         true // active
       ]);
@@ -58,6 +58,7 @@ describe('Register Operator Tests', () => {
       [helpers.DB.owners[1].address, // owner
       helpers.CONFIG.minimalOperatorFee, // fee
         0, // validatorCount
+        helpers.DB.owners[2].address, // whitelisted
         true, // isPrivate
         true // active
       ]);
@@ -73,6 +74,7 @@ describe('Register Operator Tests', () => {
       [ethers.constants.AddressZero, // owner
         0, // fee
         0, // validatorCount
+        ethers.constants.AddressZero, // whitelisted
         false, // isPrivate
         false // active
       ]);
@@ -89,6 +91,7 @@ describe('Register Operator Tests', () => {
       [helpers.DB.owners[1].address, // owner
         0, // fee
         0, // validatorCount
+        ethers.constants.AddressZero, // whitelisted
         false, // isPrivate
         false // active
       ]);

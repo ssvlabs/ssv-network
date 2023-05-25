@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/ISSVNetworkCore.sol";
-import "./Types.sol";
+import "../../interfaces/ISSVNetworkCore.sol";
+import "../../libraries/Types.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -17,7 +17,7 @@ library SSVStorage {
     using Counters for Counters.Counter;
     using Types64 for uint64;
 
-    uint256 constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
+    uint256 constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage")) - 1;
 
     event ModuleUpgraded(SSVModules moduleId, address moduleAddress);
 
@@ -38,6 +38,7 @@ library SSVStorage {
         mapping(bytes32 => ISSVNetworkCore.Validator) validatorPKs;
         mapping(bytes32 => bytes32) clusters;
         mapping(uint64 => ISSVNetworkCore.OperatorFeeChangeRequest) operatorFeeChangeRequests;
+        uint64 minOperatorsPerCluster;
     }
 
     function load() internal pure returns (StorageData storage sd) {
@@ -47,9 +48,11 @@ library SSVStorage {
         }
     }
 
-    function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
-        if (moduleAddress == address(0)) revert ISSVNetworkCore.TargetModuleDoesNotExist();
+    function getMinimumBlocksBeforeLiquidation() internal view returns (uint64) {
+        return load().minimumBlocksBeforeLiquidation;
+    }
 
+    function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
         load().ssvContracts[moduleId] = moduleAddress;
         emit ModuleUpgraded(moduleId, moduleAddress);
     }

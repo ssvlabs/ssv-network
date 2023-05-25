@@ -3,13 +3,12 @@ import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
 
 // Declare globals
-let ssvNetworkContract: any, registerAuth: any;
+let ssvNetworkContract: any;
 
 describe('Register Auth Operator Tests', () => {
   before(async () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
-    registerAuth = metadata.registerAuth;
   });
 
   it('Register operator with unauthorized address reverts "NotAuthorized"', async () => {
@@ -21,7 +20,7 @@ describe('Register Auth Operator Tests', () => {
   });
 
   it('Register operator with unauthorized address reverts "NotAuthorized" (2)', async () => {
-    await registerAuth.setAuth(helpers.DB.owners[1].address, { registerOperator: false, registerValidator: true });
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, { registerOperator: false, registerValidator: true });
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(12),
@@ -47,7 +46,7 @@ describe('Register Auth Operator Tests', () => {
   });
 
   it('Register validator with unauthorized address reverts "NotAuthorized" (2)', async () => {
-    await registerAuth.setAuth(helpers.DB.owners[3].address, { registerOperator: true, registerValidator: false });
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[3].address, { registerOperator: true, registerValidator: false });
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
       helpers.DataGenerator.publicKey(12),

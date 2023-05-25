@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "./ISSVNetworkCore.sol";
-import "./functions/IFnSSVOperators.sol";
-import "./functions/IFnSSVClusters.sol";
-import "./functions/IFnSSVDAO.sol";
-import "./functions/IFnSSVViews.sol";
-
-import {SSVModules} from "../libraries/SSVStorage.sol";
-
+import "../../interfaces/ISSVNetworkCore.sol";
+import "../../interfaces/functions/IFnSSVOperators.sol";
+import "../../interfaces/functions/IFnSSVClusters.sol";
+import "../../interfaces/functions/IFnSSVDAO.sol";
+import "../../interfaces/functions/IFnSSVViews.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "../libraries/RegisterAuth.sol";
+import "../../libraries/RegisterAuth.sol";
 
 interface ISSVNetwork is ISSVNetworkCore, IFnSSVOperators, IFnSSVClusters, IFnSSVDAO {
     function initialize(
@@ -27,10 +24,4 @@ interface ISSVNetwork is ISSVNetworkCore, IFnSSVOperators, IFnSSVClusters, IFnSS
         uint64 executeOperatorFeePeriod_,
         uint64 operatorMaxFeeIncrease_
     ) external;
-
-    function upgradeModule(SSVModules moduleId, address moduleAddress) external;
-
-    function setRegisterAuth(address userAddress, Authorization calldata auth) external;
-
-    function getRegisterAuth(address userAddress) external view returns (Authorization memory);
 }

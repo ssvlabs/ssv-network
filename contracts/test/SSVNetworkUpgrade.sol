@@ -3,28 +3,27 @@ pragma solidity 0.8.18;
 
 import "./interfaces/ISSVNetwork.sol";
 
-import "./interfaces/events/IEvSSVOperators.sol";
-import "./interfaces/events/IEvSSVClusters.sol";
-import "./interfaces/events/IEvSSVDAO.sol";
+import "../interfaces/events/IEvSSVOperators.sol";
+import "../interfaces/events/IEvSSVClusters.sol";
+import "../interfaces/events/IEvSSVDAO.sol";
 
-import "./interfaces/functions/IFnSSVViews.sol";
-import "./interfaces/functions/IFnSSVOperators.sol";
-import "./interfaces/functions/IFnSSVClusters.sol";
-import "./interfaces/functions/IFnSSVDAO.sol";
+import "../interfaces/functions/IFnSSVViews.sol";
+import "../interfaces/functions/IFnSSVOperators.sol";
+import "../interfaces/functions/IFnSSVClusters.sol";
+import "../interfaces/functions/IFnSSVDAO.sol";
 
-import "./libraries/Types.sol";
-import "./libraries/SSVStorage.sol";
-import "./libraries/OperatorLib.sol";
-import "./libraries/ClusterLib.sol";
-import "./libraries/RegisterAuth.sol";
+import "../libraries/Types.sol";
+import "../libraries/SSVStorage.sol";
+import "../libraries/OperatorLib.sol";
+import "../libraries/ClusterLib.sol";
 
-import {SSVModules} from "./libraries/SSVStorage.sol";
+import {SSVModules} from "../libraries/SSVStorage.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract SSVNetwork is
+contract SSVNetworkUpgrade is
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
     ISSVNetwork,
@@ -121,8 +120,6 @@ contract SSVNetwork is
     /*******************************/
 
     function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
-        if (!RegisterAuth.load().authorization[msg.sender].registerOperator) revert NotAuthorized();
-
         bytes memory result = _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
             abi.encodeWithSignature("registerOperator(bytes,uint256)", publicKey, fee)
@@ -200,8 +197,6 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
-        if (!RegisterAuth.load().authorization[msg.sender].registerValidator) revert NotAuthorized();
-
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
@@ -343,9 +338,6 @@ contract SSVNetwork is
     }
 
     function _delegateCall(address ssvModule, bytes memory callMessage) internal returns (bytes memory) {
-        // Check when calls are not made using proxy contract
-        if(ssvModule == address(0)) revert TargetModuleDoesNotExist();
-
         /// @custom:oz-upgrades-unsafe-allow delegatecall
         (bool success, bytes memory result) = ssvModule.delegatecall(callMessage);
         if (!success && result.length > 0) {
@@ -361,14 +353,5 @@ contract SSVNetwork is
     // Upgrade functions
     function upgradeModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
         SSVStorage.setModuleContract(moduleId, moduleAddress);
-    }
-
-    // Authorization
-    function setRegisterAuth(address userAddress, Authorization calldata auth) external override onlyOwner {
-        RegisterAuth.load().authorization[userAddress] = auth;
-    }
-
-    function getRegisterAuth(address userAddress) external view override returns (Authorization memory) {
-        return RegisterAuth.load().authorization[userAddress];
     }
 }

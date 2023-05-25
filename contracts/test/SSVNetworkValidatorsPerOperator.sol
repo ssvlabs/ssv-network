@@ -5,9 +5,8 @@ import "../SSVNetwork.sol";
 
 
 contract SSVNetworkValidatorsPerOperator is SSVNetwork {
-    // constructor(address registerAuth) SSVNetwork(registerAuth) {}
 
-    function initializev2(uint32 validatorsPerOperatorLimit_) external reinitializer(2) {
+    function initializev2(uint32 validatorsPerOperatorLimit_) external reinitializer(_getInitializedVersion() + 1) {
         SSVStorage.load().validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
     }
 }

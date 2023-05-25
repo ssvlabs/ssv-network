@@ -3,7 +3,7 @@ pragma solidity 0.8.18;
 
 import "../ISSVNetworkCore.sol";
 
-interface ISSVClusters is ISSVNetworkCore {
+interface IEvSSVClusters is ISSVNetworkCore {
     /**
      * @dev Emitted when the validator has been added.
      * @param publicKey The public key of a validator.

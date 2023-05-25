@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "hardhat/console.sol";
-import "../interfaces/functions/ISSVOperators.sol";
-import {ISSVOperators as OperatorEvents} from "../interfaces/events/ISSVOperators.sol";
+import "../interfaces/functions/IFnSSVOperators.sol";
+import "../interfaces/events/IEvSSVOperators.sol";
 import "../libraries/Types.sol";
 import "../libraries/SSVStorage.sol";
 import "../libraries/OperatorLib.sol";
+import "../libraries/CoreLib.sol";
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SSVOperators is ISSVOperators, OperatorEvents {
+contract SSVOperators is IFnSSVOperators, IEvSSVOperators {
     uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
 
@@ -146,6 +146,7 @@ contract SSVOperators is ISSVOperators, OperatorEvents {
         operator.fee = shrunkAmount;
         SSVStorage.load().operators[operatorId] = operator;
 
+        if (SSVStorage.load().operatorFeeChangeRequests[operatorId].approvalBeginTime != 0) delete SSVStorage.load().operatorFeeChangeRequests[operatorId];
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
@@ -186,7 +187,7 @@ contract SSVOperators is ISSVOperators, OperatorEvents {
     }
 
     function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        OperatorLib.transfer(msg.sender, amount);
+        CoreLib.transfer(msg.sender, amount);
         emit OperatorWithdrawn(msg.sender, operatorId, amount);
     }
 }

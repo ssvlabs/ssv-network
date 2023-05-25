@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 import "./../ISSVNetworkCore.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface ISSVOperators is ISSVNetworkCore {
+interface IEvSSVOperators is ISSVNetworkCore {
     /**
      * @dev Emitted when a new operator has been added.
      * @param operatorId operator's ID.

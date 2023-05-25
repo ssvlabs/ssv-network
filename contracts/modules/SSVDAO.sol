@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/functions/ISSVDAO.sol";
-import {ISSVDAO as DAOEvents} from "../interfaces/events/ISSVDAO.sol";
+import "../interfaces/functions/IFnSSVDAO.sol";
+import "../interfaces/events/IEvSSVDAO.sol";
 import "../libraries/Types.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/NetworkLib.sol";
+import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
 
-contract SSVDAO is ISSVDAO, DAOEvents {
+contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
     using Types64 for uint64;
     using Types256 for uint256;
 
@@ -19,7 +20,7 @@ contract SSVDAO is ISSVDAO, DAOEvents {
     function updateNetworkFee(uint256 fee) external override {
         Network memory network_ = SSVStorage.load().network;
 
-        SSVStorage.load().dao.updateDAOEarnings(network_.networkFee);
+        SSVStorage.load().dao.updateDAOEarningsSt(network_.networkFee);
 
         network_.networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
         network_.networkFeeIndexBlockNumber = uint64(block.number);
@@ -44,7 +45,7 @@ contract SSVDAO is ISSVDAO, DAOEvents {
         dao_.balance = networkBalance - shrunkAmount;
         SSVStorage.load().dao = dao_;
 
-        OperatorLib.transfer(msg.sender, amount); // TODO
+        CoreLib.transfer(msg.sender, amount);
 
         emit NetworkEarningsWithdrawn(amount, msg.sender);
     }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-interface ISSVDAO {
+interface IEvSSVDAO {
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
 
     event DeclareOperatorFeePeriodUpdated(uint64 value);
