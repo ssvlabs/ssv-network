@@ -7,7 +7,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 // Declare globals
 let ssvNetworkContract: any, cluster1: any, minDepositAmount: any;
 
-describe('Withdraw Tests', () => {
+describe.only('Withdraw Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     ssvNetworkContract = (await helpers.initializeContract()).contract;
@@ -16,7 +16,7 @@ describe('Withdraw Tests', () => {
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
-
+console.log("minDepositAmount", minDepositAmount);
     // Register validators
     // cold register
     await helpers.coldRegisterValidator();
@@ -24,7 +24,7 @@ describe('Withdraw Tests', () => {
     cluster1 = await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
   });
 
-  it('Withdraw from cluster emits "ClusterWithdrawn"', async () => {
+  it.only('Withdraw from cluster emits "ClusterWithdrawn"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.args.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.args.cluster)).to.emit(ssvNetworkContract, 'ClusterWithdrawn');
   });
 

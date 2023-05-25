@@ -2,19 +2,31 @@
 pragma solidity 0.8.18;
 
 import "hardhat/console.sol";
-import "./ISSVNetworkCore.sol";
-import "./ISSVNetwork.sol";
-import "./ISSVOperators.sol";
-import "./ISSVClusters.sol";
+import "./interfaces/ISSVNetwork.sol";
+
+import {ISSVOperators as OperatorEvents} from "./interfaces/events/ISSVOperators.sol";
+import {ISSVClusters as ClusterEvents} from "./interfaces/events/ISSVClusters.sol";
+import {ISSVDAO as DAOEvents} from "./interfaces/events/ISSVDAO.sol";
+
+import "./interfaces/functions/ISSVViews.sol";
+import "./interfaces/functions/ISSVOperators.sol";
+import "./interfaces/functions/ISSVClusters.sol";
+import "./interfaces/functions/ISSVDAO.sol";
+
 import "./libraries/Types.sol";
 import "./libraries/SSVStorage.sol";
+import "./libraries/OperatorLib.sol";
+import "./libraries/ClusterLib.sol";
+
+import {SSVModules} from "./libraries/SSVStorage.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
+contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork, OperatorEvents, ClusterEvents, DAOEvents {
     using Types256 for uint256;
+    using ClusterLib for Cluster;
 
     /****************/
     /* Initializers */
@@ -24,6 +36,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         IERC20 token_,
         ISSVOperators ssvOperators_,
         ISSVClusters ssvClusters_,
+        ISSVDAO ssvDAO_,
+        ISSVViews ssvViews_,
         uint64 minimumBlocksBeforeLiquidation_,
         uint256 minimumLiquidationCollateral_,
         uint32 validatorsPerOperatorLimit_
@@ -34,6 +48,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
             token_,
             ssvOperators_,
             ssvClusters_,
+            ssvDAO_,
+            ssvViews_,
             minimumBlocksBeforeLiquidation_,
             minimumLiquidationCollateral_,
             validatorsPerOperatorLimit_
@@ -44,16 +60,20 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         IERC20 token_,
         ISSVOperators ssvOperators_,
         ISSVClusters ssvClusters_,
+        ISSVDAO ssvDAO_,
+        ISSVViews ssvViews_,
         uint64 minimumBlocksBeforeLiquidation_,
         uint256 minimumLiquidationCollateral_,
         uint32 validatorsPerOperatorLimit_
     ) internal onlyInitializing {
-        SSVStorage.getStorage().token = token_;
-        SSVStorage.getStorage().ssvContracts[SSVStorage.SSV_OPERATORS_CONTRACT] = address(ssvOperators_);
-        SSVStorage.getStorage().ssvContracts[SSVStorage.SSV_CLUSTERS_CONTRACT] = address(ssvClusters_);
-        SSVStorage.getStorage().minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        SSVStorage.getStorage().minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        SSVStorage.getStorage().validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        SSVStorage.load().token = token_;
+        SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
+        SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
+        SSVStorage.load().ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
+        SSVStorage.load().ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
+        SSVStorage.load().minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        SSVStorage.load().minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
+        SSVStorage.load().validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
     }
 
     /*****************/
@@ -62,46 +82,92 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
+    fallback() external {
+        address ssvViews = SSVStorage.load().ssvContracts[SSVModules.SSV_VIEWS];
+        assembly {
+            calldatacopy(0, 0, calldatasize())
+            let result := delegatecall(gas(), ssvViews, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            if eq(result, 0) {
+                revert(0, returndatasize())
+            }
+            return(0, returndatasize())
+        }
+    }
+
     /*******************************/
     /* Operator External Functions */
     /*******************************/
 
     function registerOperator(bytes calldata publicKey, uint256 fee) external returns (uint64 id) {
-        (bool success, bytes memory result) = SSVStorage
-            .getStorage()
-            .ssvContracts[SSVStorage.SSV_OPERATORS_CONTRACT]
-            .delegatecall(abi.encodeWithSignature("registerOperator(bytes,uint256)", publicKey, fee));
-
-        require(success, "The call to operators contract failed");
+        bytes memory result = _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("registerOperator(bytes,uint256)", publicKey, fee)
+        );
         return abi.decode(result, (uint64));
     }
 
     function removeOperator(uint64 operatorId) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("removeOperator(uint64)", operatorId)
+        );
     }
 
     function setOperatorWhitelist(uint64 operatorId, address whitelisted) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("setOperatorWhitelist(uint64,address)", operatorId, whitelisted)
+        );
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("declareOperatorFee(uint64,uint256)", operatorId, fee)
+        );
     }
 
     function executeOperatorFee(uint64 operatorId) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("executeOperatorFee(uint64)", operatorId)
+        );
     }
 
     function cancelDeclaredOperatorFee(uint64 operatorId) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("cancelDeclaredOperatorFee(uint64)", operatorId)
+        );
     }
 
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("reduceOperatorFee(uint64,uint256)", operatorId, fee)
+        );
     }
 
     function setFeeRecipientAddress(address recipientAddress) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("etFeeRecipientAddress(address)", recipientAddress)
+        );
+    }
+
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("withdrawOperatorEarnings(uint64,uint256)", operatorId, amount)
+        );
+    }
+
+    function withdrawOperatorEarnings(uint64 operatorId) external {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("withdrawOperatorEarnings(uint64)", operatorId)
+        );
     }
 
     function registerValidator(
@@ -111,21 +177,17 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external {
-        (bool success, bytes memory result) = SSVStorage
-            .getStorage()
-            .ssvContracts[SSVStorage.SSV_CLUSTERS_CONTRACT]
-            .delegatecall(
-                abi.encodeWithSignature(
-                    "registerValidator(bytes,uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
-                    publicKey,
-                    operatorIds,
-                    sharesData,
-                    amount,
-                    cluster
-                )
-            );
-        //console.logBytes(result);
-        require(success, "The call to clusters contract failed");
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "registerValidator(bytes,uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
+                publicKey,
+                operatorIds,
+                sharesData,
+                amount,
+                cluster
+            )
+        );
     }
 
     function removeValidator(
@@ -133,15 +195,39 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
     ) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "removeValidator(bytes,uint64[],(uint32,uint64,uint64,bool,uint256))",
+                publicKey,
+                operatorIds,
+                cluster
+            )
+        );
     }
 
     function liquidate(address owner, uint64[] memory operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "liquidate(address,uint64[],(uint32,uint64,uint64,bool,uint256))",
+                owner,
+                operatorIds,
+                cluster
+            )
+        );
     }
 
     function reactivate(uint64[] memory operatorIds, uint256 amount, ISSVNetworkCore.Cluster memory cluster) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "liquidate(uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+                operatorIds,
+                amount,
+                cluster
+            )
+        );
     }
 
     function deposit(
@@ -150,154 +236,90 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function withdrawOperatorEarnings(uint64 operatorId) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "deposit(address,uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+                owner,
+                operatorIds,
+                amount,
+                cluster
+            )
+        );
     }
 
     function withdraw(uint64[] memory operatorIds, uint256 amount, ISSVNetworkCore.Cluster memory cluster) external {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "withdraw(uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+                operatorIds,
+                amount,
+                cluster
+            )
+        );
     }
 
     function updateNetworkFee(uint256 fee) external onlyOwner {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateNetworkFee(uint256)", fee)
+        );
     }
 
     function withdrawNetworkEarnings(uint256 amount) external onlyOwner {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("withdrawNetworkEarnings(uint256)", amount)
+        );
     }
 
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external onlyOwner {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateOperatorFeeIncreaseLimit(uint64)", percentage)
+        );
     }
 
     function updateDeclareOperatorFeePeriod(uint64 timeInSeconds) external onlyOwner {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateDeclareOperatorFeePeriod(uint64)", timeInSeconds)
+        );
     }
 
     function updateExecuteOperatorFeePeriod(uint64 timeInSeconds) external onlyOwner {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateExecuteOperatorFeePeriod(uint64)", timeInSeconds)
+        );
     }
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external onlyOwner {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateLiquidationThresholdPeriod(uint64)", blocks)
+        );
     }
 
     function updateMinimumLiquidationCollateral(uint256 amount) external onlyOwner {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateMinimumLiquidationCollateral(uint256)", amount)
+        );
     }
 
-    /*************************************/
-    /* Validator External View Functions */
-    /*************************************/
+    function _delegateCall(address ssvModule, bytes memory callMessage) private returns (bytes memory) {
+        /// @custom:oz-upgrades-unsafe-allow delegatecall
+        (bool success, bytes memory result) = ssvModule.delegatecall(callMessage);
+        if (!success && result.length > 0) {
+            // solhint-disable-next-line no-inline-assembly
+            assembly {
+                let returndata_size := mload(result)
+                revert(add(32, result), returndata_size)
+            }
+        }
 
-    function getValidator(address owner, bytes calldata publicKey) external returns (bool active) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    /************************************/
-    /* Operator External View Functions */
-    /************************************/
-
-    function getOperatorFee(uint64 operatorId) external returns (uint256) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function getOperatorDeclaredFee(uint64 operatorId) external returns (uint256, uint64, uint64) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function getOperatorById(uint64 operatorId) external returns (address, uint256, uint32, bool, bool) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    /***********************************/
-    /* Cluster External View Functions */
-    /***********************************/
-
-    function isLiquidatable(
-        address owner,
-        uint64[] calldata operatorIds,
-        Cluster memory cluster
-    ) external returns (bool) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function isLiquidated(
-        address owner,
-        uint64[] calldata operatorIds,
-        Cluster memory cluster
-    ) external returns (bool) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function getBurnRate(
-        address owner,
-        uint64[] calldata operatorIds,
-        Cluster memory cluster
-    ) external returns (uint256) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    /***********************************/
-    /* Balance External View Functions */
-    /***********************************/
-
-    function getOperatorEarnings(uint64 id) external returns (uint256) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function getBalance(
-        address owner,
-        uint64[] calldata operatorIds,
-        Cluster memory cluster
-    ) external returns (uint256) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    /*******************************/
-    /* DAO External View Functions */
-    /*******************************/
-
-    function getNetworkFee() external returns (uint256) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function getNetworkEarnings() external returns (uint256) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-    
-    function getOperatorFeeIncreaseLimit() external returns (uint64 operatorMaxFeeIncrease) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function getOperatorFeePeriods()
-        external
-        returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod)
-    {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function getLiquidationThresholdPeriod() external returns (uint64) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function getMinimumLiquidationCollateral() external returns (uint256) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function getVersion() external returns (string memory version) {
-        _delegateCall(abi.encodeWithSignature("registerOperator(bytes,uint256)", 1, 1));
-    }
-
-    function _delegateCall(bytes memory callMessage) private {
-        (bool success, bytes memory result) = address(this).delegatecall(callMessage);
-        require(success, "The call to operators contract failed");
+        return result;
     }
 }

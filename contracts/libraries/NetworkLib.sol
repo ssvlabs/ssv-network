@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../ISSVNetworkCore.sol";
+import "../interfaces/ISSVNetworkCore.sol";
 import "../SSVNetwork.sol";
 
 library NetworkLib {

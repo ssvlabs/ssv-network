@@ -62,7 +62,7 @@ interface ISSVNetworkCore {
     /**********/
     /* Errors */
     /**********/
-
+    
     error CallerNotOwner();
     error CallerNotWhitelisted();
     error FeeTooLow();
@@ -90,4 +90,5 @@ interface ISSVNetworkCore {
     error NotAuthorized();
     error OperatorsListNotUnique();
     error OperatorAlreadyExists();
+
 }

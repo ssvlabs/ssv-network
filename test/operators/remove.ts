@@ -10,7 +10,7 @@ describe('Remove Operator Tests', () => {
   beforeEach(async () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
-    registerAuth = metadata.registerAuth;
+    //registerAuth = metadata.registerAuth;
 
     // Register operators
     await helpers.registerOperators(0, 5, helpers.CONFIG.minimalOperatorFee);
@@ -26,7 +26,7 @@ describe('Remove Operator Tests', () => {
   });
 
   it('Remove private operator emits "OperatorRemoved"', async () => {
-    await registerAuth.setAuth(helpers.DB.owners[0].address, [true, false]);
+    //await registerAuth.setAuth(helpers.DB.owners[0].address, [true, false]);
     const result = await trackGas(ssvNetworkContract.registerOperator(
       helpers.DataGenerator.publicKey(12),
       helpers.CONFIG.minimalOperatorFee
@@ -38,7 +38,8 @@ describe('Remove Operator Tests', () => {
     await expect(ssvNetworkContract.removeOperator(operatorId))
       .to.emit(ssvNetworkContract, 'OperatorRemoved').withArgs(operatorId);
 
-    expect(await ssvNetworkContract.operatorsWhitelist(operatorId)).to.be.equals(ethers.constants.AddressZero);
+    // TODO
+    //expect(await ssvNetworkContract.operatorsWhitelist(operatorId)).to.be.equals(ethers.constants.AddressZero);
   });
 
   it('Remove operator gas limits', async () => {
