@@ -45,6 +45,21 @@
       "address": "0x0d7F42f447Db3819b7Cd227F7b5a208C8672F29C",
       "txHash": "0x77d062dbf0ab1c3f0ba58d34fe6030920e566affff2d0648677be1a413f1a44b",
       "kind": "uups"
+    },
+    {
+      "address": "0x15C59e2a9be515bD002be918738d43d2CC915601",
+      "txHash": "0x0a89a6ab4fffb4a19672ddc97915f2465672ea9993a475b5681ab7dd3f24c4e2",
+      "kind": "uups"
+    },
+    {
+      "address": "0x55660cbfDcD33649062B6182E2ee0E4930CdCFa7",
+      "txHash": "0xacc63b265d8741b3636caf4dd4369688ef362b1bf5a2de398047a1fdea935240",
+      "kind": "uups"
+    },
+    {
+      "address": "0xB7D5Aa053315c9902825CE9E30F3A9cfA148dc2a",
+      "txHash": "0x1842096c7db0a02b25d2efcdb18f0488bde07ca65e524c8e9dbadb0e85fa228a",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -3998,6 +4013,1636 @@
             "numberOfBytes": "32"
           },
           "t_struct(Validator)2689_storage": {
+            "label": "struct ISSVNetworkCore.Validator",
+            "members": [
+              {
+                "label": "hashedOperatorIds",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "active",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "1ee8c0149a057c048f20b833a01728a0e20412639ef24f718b562ddfb6a55a16": {
+      "address": "0x74d8aC7C183b38DF8f34C6b2c9048aaDcA4F1B8f",
+      "txHash": "0x75bb9b28c921f2774b5a503a25702f18ca98d4d3572e8345c6cb8e9fe6b3a942",
+      "layout": {
+        "solcVersion": "0.8.18",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:62",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC1967UpgradeUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:197"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "UUPSUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:107"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "_pendingOwner",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_address",
+            "contract": "Ownable2StepUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol:27"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "202",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "Ownable2StepUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol:70"
+          },
+          {
+            "label": "lastOperatorId",
+            "offset": 0,
+            "slot": "251",
+            "type": "t_struct(Counter)2155_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:41"
+          },
+          {
+            "label": "operatorsPKs",
+            "offset": 0,
+            "slot": "252",
+            "type": "t_mapping(t_bytes32,t_uint64)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:47"
+          },
+          {
+            "label": "operators",
+            "offset": 0,
+            "slot": "253",
+            "type": "t_mapping(t_uint64,t_struct(Operator)2710_storage)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:48"
+          },
+          {
+            "label": "operatorsWhitelist",
+            "offset": 0,
+            "slot": "254",
+            "type": "t_mapping(t_uint64,t_address)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:49"
+          },
+          {
+            "label": "operatorFeeChangeRequests",
+            "offset": 0,
+            "slot": "255",
+            "type": "t_mapping(t_uint64,t_struct(OperatorFeeChangeRequest)2717_storage)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:50"
+          },
+          {
+            "label": "clusters",
+            "offset": 0,
+            "slot": "256",
+            "type": "t_mapping(t_bytes32,t_bytes32)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:51"
+          },
+          {
+            "label": "validatorPKs",
+            "offset": 0,
+            "slot": "257",
+            "type": "t_mapping(t_bytes32,t_struct(Validator)2689_storage)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:52"
+          },
+          {
+            "label": "version",
+            "offset": 0,
+            "slot": "258",
+            "type": "t_bytes32",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:54"
+          },
+          {
+            "label": "validatorsPerOperatorLimit",
+            "offset": 0,
+            "slot": "259",
+            "type": "t_uint32",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:56"
+          },
+          {
+            "label": "minimumBlocksBeforeLiquidation",
+            "offset": 4,
+            "slot": "259",
+            "type": "t_uint64",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:58"
+          },
+          {
+            "label": "minimumLiquidationCollateral",
+            "offset": 12,
+            "slot": "259",
+            "type": "t_uint64",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:59"
+          },
+          {
+            "label": "operatorFeeConfig",
+            "offset": 0,
+            "slot": "260",
+            "type": "t_struct(OperatorFeeConfig)2724_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:61"
+          },
+          {
+            "label": "dao",
+            "offset": 0,
+            "slot": "261",
+            "type": "t_struct(DAO)2742_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:62"
+          },
+          {
+            "label": "token",
+            "offset": 0,
+            "slot": "262",
+            "type": "t_contract(IERC20)2102",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:63"
+          },
+          {
+            "label": "network",
+            "offset": 0,
+            "slot": "263",
+            "type": "t_struct(Network)2749_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:64"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "264",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:71"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IERC20)2102": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_bytes32,t_bytes32)": {
+            "label": "mapping(bytes32 => bytes32)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Validator)2689_storage)": {
+            "label": "mapping(bytes32 => struct ISSVNetworkCore.Validator)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_uint64)": {
+            "label": "mapping(bytes32 => uint64)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint64,t_address)": {
+            "label": "mapping(uint64 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint64,t_struct(Operator)2710_storage)": {
+            "label": "mapping(uint64 => struct ISSVNetworkCore.Operator)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint64,t_struct(OperatorFeeChangeRequest)2717_storage)": {
+            "label": "mapping(uint64 => struct ISSVNetworkCore.OperatorFeeChangeRequest)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Counter)2155_storage": {
+            "label": "struct Counters.Counter",
+            "members": [
+              {
+                "label": "_value",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(DAO)2742_storage": {
+            "label": "struct ISSVNetworkCore.DAO",
+            "members": [
+              {
+                "label": "validatorCount",
+                "type": "t_uint32",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "balance",
+                "type": "t_uint64",
+                "offset": 4,
+                "slot": "0"
+              },
+              {
+                "label": "block",
+                "type": "t_uint64",
+                "offset": 12,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Network)2749_storage": {
+            "label": "struct ISSVNetworkCore.Network",
+            "members": [
+              {
+                "label": "networkFee",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "networkFeeIndex",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "networkFeeIndexBlockNumber",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Operator)2710_storage": {
+            "label": "struct ISSVNetworkCore.Operator",
+            "members": [
+              {
+                "label": "owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fee",
+                "type": "t_uint64",
+                "offset": 20,
+                "slot": "0"
+              },
+              {
+                "label": "validatorCount",
+                "type": "t_uint32",
+                "offset": 28,
+                "slot": "0"
+              },
+              {
+                "label": "snapshot",
+                "type": "t_struct(Snapshot)2699_storage",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(OperatorFeeChangeRequest)2717_storage": {
+            "label": "struct ISSVNetworkCore.OperatorFeeChangeRequest",
+            "members": [
+              {
+                "label": "fee",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "approvalBeginTime",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "approvalEndTime",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OperatorFeeConfig)2724_storage": {
+            "label": "struct ISSVNetworkCore.OperatorFeeConfig",
+            "members": [
+              {
+                "label": "declareOperatorFeePeriod",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "executeOperatorFeePeriod",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "operatorMaxFeeIncrease",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Snapshot)2699_storage": {
+            "label": "struct ISSVNetworkCore.Snapshot",
+            "members": [
+              {
+                "label": "block",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "index",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "balance",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Validator)2689_storage": {
+            "label": "struct ISSVNetworkCore.Validator",
+            "members": [
+              {
+                "label": "hashedOperatorIds",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "active",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "f7b3d32617efa532ec2ed3b21818c645afaa65acc745236500f0974b4b3d1d5e": {
+      "address": "0x703FcfeFF4cC45be17eA2Cfe90E7FD1b0d16BF23",
+      "txHash": "0x7b347767d3df89f0dc287be2650f1add0aaf8e49a8eacbae73628937cf50bdac",
+      "layout": {
+        "solcVersion": "0.8.18",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:62",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC1967UpgradeUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:197"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "UUPSUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:107"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "ssvNetwork",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_contract(ISSVNetwork)2682",
+            "contract": "RegisterAuth",
+            "src": "contracts/RegisterAuth.sol:22"
+          },
+          {
+            "label": "authorization",
+            "offset": 0,
+            "slot": "202",
+            "type": "t_mapping(t_address,t_struct(Authorization)2961_storage)",
+            "contract": "RegisterAuth",
+            "src": "contracts/RegisterAuth.sol:24"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(ISSVNetwork)2682": {
+            "label": "contract ISSVNetwork",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_struct(Authorization)2961_storage)": {
+            "label": "mapping(address => struct IRegisterAuth.Authorization)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Authorization)2961_storage": {
+            "label": "struct IRegisterAuth.Authorization",
+            "members": [
+              {
+                "label": "registerOperator",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "registerValidator",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "65580310b4febb04a9c3e4042265ca50fcd8f9a33e23a1f904fcb65f9f1369cd": {
+      "address": "0x0a59b28a3D4d6F715eb42FB80D02c2474cBebCc7",
+      "txHash": "0x6d2b29a6e7b1cf3bd30c84eabf21e1dc937c650bab042d830dcaadf981693e93",
+      "layout": {
+        "solcVersion": "0.8.18",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:62",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC1967UpgradeUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:197"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "UUPSUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:107"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "_pendingOwner",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_address",
+            "contract": "Ownable2StepUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol:27"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "202",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "Ownable2StepUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol:70"
+          },
+          {
+            "label": "lastOperatorId",
+            "offset": 0,
+            "slot": "251",
+            "type": "t_struct(Counter)2155_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:41"
+          },
+          {
+            "label": "operatorsPKs",
+            "offset": 0,
+            "slot": "252",
+            "type": "t_mapping(t_bytes32,t_uint64)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:47"
+          },
+          {
+            "label": "operators",
+            "offset": 0,
+            "slot": "253",
+            "type": "t_mapping(t_uint64,t_struct(Operator)2710_storage)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:48"
+          },
+          {
+            "label": "operatorsWhitelist",
+            "offset": 0,
+            "slot": "254",
+            "type": "t_mapping(t_uint64,t_address)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:49"
+          },
+          {
+            "label": "operatorFeeChangeRequests",
+            "offset": 0,
+            "slot": "255",
+            "type": "t_mapping(t_uint64,t_struct(OperatorFeeChangeRequest)2717_storage)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:50"
+          },
+          {
+            "label": "clusters",
+            "offset": 0,
+            "slot": "256",
+            "type": "t_mapping(t_bytes32,t_bytes32)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:51"
+          },
+          {
+            "label": "validatorPKs",
+            "offset": 0,
+            "slot": "257",
+            "type": "t_mapping(t_bytes32,t_struct(Validator)2689_storage)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:52"
+          },
+          {
+            "label": "version",
+            "offset": 0,
+            "slot": "258",
+            "type": "t_bytes32",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:54"
+          },
+          {
+            "label": "validatorsPerOperatorLimit",
+            "offset": 0,
+            "slot": "259",
+            "type": "t_uint32",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:56"
+          },
+          {
+            "label": "minimumBlocksBeforeLiquidation",
+            "offset": 4,
+            "slot": "259",
+            "type": "t_uint64",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:58"
+          },
+          {
+            "label": "minimumLiquidationCollateral",
+            "offset": 12,
+            "slot": "259",
+            "type": "t_uint64",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:59"
+          },
+          {
+            "label": "operatorFeeConfig",
+            "offset": 0,
+            "slot": "260",
+            "type": "t_struct(OperatorFeeConfig)2724_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:61"
+          },
+          {
+            "label": "dao",
+            "offset": 0,
+            "slot": "261",
+            "type": "t_struct(DAO)2742_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:62"
+          },
+          {
+            "label": "token",
+            "offset": 0,
+            "slot": "262",
+            "type": "t_contract(IERC20)2102",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:63"
+          },
+          {
+            "label": "network",
+            "offset": 0,
+            "slot": "263",
+            "type": "t_struct(Network)2749_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:64"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "264",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:71"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IERC20)2102": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_bytes32,t_bytes32)": {
+            "label": "mapping(bytes32 => bytes32)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Validator)2689_storage)": {
+            "label": "mapping(bytes32 => struct ISSVNetworkCore.Validator)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_uint64)": {
+            "label": "mapping(bytes32 => uint64)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint64,t_address)": {
+            "label": "mapping(uint64 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint64,t_struct(Operator)2710_storage)": {
+            "label": "mapping(uint64 => struct ISSVNetworkCore.Operator)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint64,t_struct(OperatorFeeChangeRequest)2717_storage)": {
+            "label": "mapping(uint64 => struct ISSVNetworkCore.OperatorFeeChangeRequest)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Counter)2155_storage": {
+            "label": "struct Counters.Counter",
+            "members": [
+              {
+                "label": "_value",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(DAO)2742_storage": {
+            "label": "struct ISSVNetworkCore.DAO",
+            "members": [
+              {
+                "label": "validatorCount",
+                "type": "t_uint32",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "balance",
+                "type": "t_uint64",
+                "offset": 4,
+                "slot": "0"
+              },
+              {
+                "label": "block",
+                "type": "t_uint64",
+                "offset": 12,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Network)2749_storage": {
+            "label": "struct ISSVNetworkCore.Network",
+            "members": [
+              {
+                "label": "networkFee",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "networkFeeIndex",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "networkFeeIndexBlockNumber",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Operator)2710_storage": {
+            "label": "struct ISSVNetworkCore.Operator",
+            "members": [
+              {
+                "label": "owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fee",
+                "type": "t_uint64",
+                "offset": 20,
+                "slot": "0"
+              },
+              {
+                "label": "validatorCount",
+                "type": "t_uint32",
+                "offset": 28,
+                "slot": "0"
+              },
+              {
+                "label": "snapshot",
+                "type": "t_struct(Snapshot)2699_storage",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(OperatorFeeChangeRequest)2717_storage": {
+            "label": "struct ISSVNetworkCore.OperatorFeeChangeRequest",
+            "members": [
+              {
+                "label": "fee",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "approvalBeginTime",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "approvalEndTime",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OperatorFeeConfig)2724_storage": {
+            "label": "struct ISSVNetworkCore.OperatorFeeConfig",
+            "members": [
+              {
+                "label": "declareOperatorFeePeriod",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "executeOperatorFeePeriod",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "operatorMaxFeeIncrease",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Snapshot)2699_storage": {
+            "label": "struct ISSVNetworkCore.Snapshot",
+            "members": [
+              {
+                "label": "block",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "index",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "balance",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Validator)2689_storage": {
+            "label": "struct ISSVNetworkCore.Validator",
+            "members": [
+              {
+                "label": "hashedOperatorIds",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "active",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "e98130a58d8e48a4d04e9bc712106b357518d6734da0f381d35a64479a761798": {
+      "address": "0xf05E0930eFD59CA23EFCbcA66b82Ed42cA3ADf73",
+      "txHash": "0x7465bda45bfddaddef837ae6cfe383506e8b9a80f24433f5a7ca2c6588975a5c",
+      "layout": {
+        "solcVersion": "0.8.18",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:62",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC1967UpgradeUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:197"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "UUPSUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:107"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "_pendingOwner",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_address",
+            "contract": "Ownable2StepUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol:27"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "202",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "Ownable2StepUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol:70"
+          },
+          {
+            "label": "_ssvNetwork",
+            "offset": 0,
+            "slot": "251",
+            "type": "t_contract(ISSVNetwork)2682",
+            "contract": "SSVNetworkViews",
+            "src": "contracts/SSVNetworkViews.sol:21"
+          },
+          {
+            "label": "private__gap",
+            "offset": 0,
+            "slot": "252",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "SSVNetworkViews",
+            "src": "contracts/SSVNetworkViews.sol:25"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(ISSVNetwork)2682": {
+            "label": "contract ISSVNetwork",
+            "numberOfBytes": "20"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "1efc026838fe83210dbd8c56ac7e1f6759bc502143b5879da8be1d153a23d7dd": {
+      "address": "0x9b25f247C6d055C21c9a85a224CF32078523011a",
+      "txHash": "0xd9711d06798086fbd7da5017e3fff20632c421c8aa62d124649393d749bd314c",
+      "layout": {
+        "solcVersion": "0.8.18",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:62",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC1967UpgradeUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:197"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "UUPSUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:107"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "_pendingOwner",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_address",
+            "contract": "Ownable2StepUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol:27"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "202",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "Ownable2StepUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol:70"
+          },
+          {
+            "label": "lastOperatorId",
+            "offset": 0,
+            "slot": "251",
+            "type": "t_struct(Counter)1408_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:41"
+          },
+          {
+            "label": "operatorsPKs",
+            "offset": 0,
+            "slot": "252",
+            "type": "t_mapping(t_bytes32,t_uint64)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:47"
+          },
+          {
+            "label": "operators",
+            "offset": 0,
+            "slot": "253",
+            "type": "t_mapping(t_uint64,t_struct(Operator)1963_storage)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:48"
+          },
+          {
+            "label": "operatorsWhitelist",
+            "offset": 0,
+            "slot": "254",
+            "type": "t_mapping(t_uint64,t_address)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:49"
+          },
+          {
+            "label": "operatorFeeChangeRequests",
+            "offset": 0,
+            "slot": "255",
+            "type": "t_mapping(t_uint64,t_struct(OperatorFeeChangeRequest)1970_storage)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:50"
+          },
+          {
+            "label": "clusters",
+            "offset": 0,
+            "slot": "256",
+            "type": "t_mapping(t_bytes32,t_bytes32)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:51"
+          },
+          {
+            "label": "validatorPKs",
+            "offset": 0,
+            "slot": "257",
+            "type": "t_mapping(t_bytes32,t_struct(Validator)1942_storage)",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:52"
+          },
+          {
+            "label": "version",
+            "offset": 0,
+            "slot": "258",
+            "type": "t_bytes32",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:54"
+          },
+          {
+            "label": "validatorsPerOperatorLimit",
+            "offset": 0,
+            "slot": "259",
+            "type": "t_uint32",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:56"
+          },
+          {
+            "label": "minimumBlocksBeforeLiquidation",
+            "offset": 4,
+            "slot": "259",
+            "type": "t_uint64",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:58"
+          },
+          {
+            "label": "minimumLiquidationCollateral",
+            "offset": 12,
+            "slot": "259",
+            "type": "t_uint64",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:59"
+          },
+          {
+            "label": "operatorFeeConfig",
+            "offset": 0,
+            "slot": "260",
+            "type": "t_struct(OperatorFeeConfig)1977_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:61"
+          },
+          {
+            "label": "dao",
+            "offset": 0,
+            "slot": "261",
+            "type": "t_struct(DAO)1995_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:62"
+          },
+          {
+            "label": "token",
+            "offset": 0,
+            "slot": "262",
+            "type": "t_contract(IERC20)1402",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:63"
+          },
+          {
+            "label": "network",
+            "offset": 0,
+            "slot": "263",
+            "type": "t_struct(Network)2002_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:64"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "264",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "SSVNetwork",
+            "src": "contracts/SSVNetwork.sol:71"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IERC20)1402": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_bytes32,t_bytes32)": {
+            "label": "mapping(bytes32 => bytes32)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Validator)1942_storage)": {
+            "label": "mapping(bytes32 => struct ISSVNetworkCore.Validator)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_uint64)": {
+            "label": "mapping(bytes32 => uint64)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint64,t_address)": {
+            "label": "mapping(uint64 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint64,t_struct(Operator)1963_storage)": {
+            "label": "mapping(uint64 => struct ISSVNetworkCore.Operator)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint64,t_struct(OperatorFeeChangeRequest)1970_storage)": {
+            "label": "mapping(uint64 => struct ISSVNetworkCore.OperatorFeeChangeRequest)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Counter)1408_storage": {
+            "label": "struct Counters.Counter",
+            "members": [
+              {
+                "label": "_value",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(DAO)1995_storage": {
+            "label": "struct ISSVNetworkCore.DAO",
+            "members": [
+              {
+                "label": "validatorCount",
+                "type": "t_uint32",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "balance",
+                "type": "t_uint64",
+                "offset": 4,
+                "slot": "0"
+              },
+              {
+                "label": "block",
+                "type": "t_uint64",
+                "offset": 12,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Network)2002_storage": {
+            "label": "struct ISSVNetworkCore.Network",
+            "members": [
+              {
+                "label": "networkFee",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "networkFeeIndex",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "networkFeeIndexBlockNumber",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Operator)1963_storage": {
+            "label": "struct ISSVNetworkCore.Operator",
+            "members": [
+              {
+                "label": "owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "fee",
+                "type": "t_uint64",
+                "offset": 20,
+                "slot": "0"
+              },
+              {
+                "label": "validatorCount",
+                "type": "t_uint32",
+                "offset": 28,
+                "slot": "0"
+              },
+              {
+                "label": "snapshot",
+                "type": "t_struct(Snapshot)1952_storage",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(OperatorFeeChangeRequest)1970_storage": {
+            "label": "struct ISSVNetworkCore.OperatorFeeChangeRequest",
+            "members": [
+              {
+                "label": "fee",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "approvalBeginTime",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "approvalEndTime",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OperatorFeeConfig)1977_storage": {
+            "label": "struct ISSVNetworkCore.OperatorFeeConfig",
+            "members": [
+              {
+                "label": "declareOperatorFeePeriod",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "executeOperatorFeePeriod",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "operatorMaxFeeIncrease",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Snapshot)1952_storage": {
+            "label": "struct ISSVNetworkCore.Snapshot",
+            "members": [
+              {
+                "label": "block",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "index",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              },
+              {
+                "label": "balance",
+                "type": "t_uint64",
+                "offset": 16,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(Validator)1942_storage": {
             "label": "struct ISSVNetworkCore.Validator",
             "members": [
               {
