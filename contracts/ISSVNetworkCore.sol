@@ -43,8 +43,8 @@ interface ISSVNetworkCore {
         uint32 validatorCount;
         uint64 networkFeeIndex;
         uint64 index;
-        uint256 balance;
         bool active;
+        uint256 balance;
     }
 
     struct DAO {
