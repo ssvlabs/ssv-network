@@ -779,6 +779,8 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
         operator.fee = shrunkAmount;
         operators[operatorId] = operator;
 
+        if (operatorFeeChangeRequests[operatorId].approvalBeginTime != 0) delete operatorFeeChangeRequests[operatorId];
+        
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
