@@ -4,6 +4,8 @@ pragma solidity 0.8.18;
 import "./SSVStorage.sol";
 
 library CoreLib {
+    event ModuleUpgraded(SSVModules moduleId, address moduleAddress);
+
     function getVersion() internal pure returns (string memory) {
         return "v0.0.4";
     }
@@ -67,5 +69,12 @@ library CoreLib {
             }
         }
         return returnData;
+    }
+
+    function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
+        if (!isContract(moduleAddress)) revert ISSVNetworkCore.TargetModuleDoesNotExist();
+
+        SSVStorage.load().ssvContracts[moduleId] = moduleAddress;
+        emit ModuleUpgraded(moduleId, moduleAddress);
     }
 }

@@ -37,8 +37,6 @@ library SSVStorage {
 
     uint256 constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
 
-    event ModuleUpgraded(SSVModules moduleId, address moduleAddress);
-
     function load() internal pure returns (StorageData storage sd) {
         uint256 position = SSV_STORAGE_POSITION;
         assembly {
@@ -46,10 +44,5 @@ library SSVStorage {
         }
     }
 
-    function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
-        if (moduleAddress == address(0)) revert ISSVNetworkCore.TargetModuleDoesNotExist();
-
-        load().ssvContracts[moduleId] = moduleAddress;
-        emit ModuleUpgraded(moduleId, moduleAddress);
-    }
+    
 }

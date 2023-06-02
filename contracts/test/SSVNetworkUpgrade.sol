@@ -13,6 +13,7 @@ import "../interfaces/functions/IFnSSVClusters.sol";
 import "../interfaces/functions/IFnSSVDAO.sol";
 
 import "../libraries/Types.sol";
+import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ClusterLib.sol";
@@ -352,6 +353,6 @@ contract SSVNetworkUpgrade is
 
     // Upgrade functions
     function upgradeModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
-        SSVStorage.setModuleContract(moduleId, moduleAddress);
+        CoreLib.setModuleContract(moduleId, moduleAddress);
     }
 }

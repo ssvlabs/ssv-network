@@ -345,7 +345,7 @@ contract SSVNetwork is
 
     // Upgrade functions
     function upgradeModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
-        SSVStorage.setModuleContract(moduleId, moduleAddress);
+        CoreLib.setModuleContract(moduleId, moduleAddress);
     }
 
     // Authorization

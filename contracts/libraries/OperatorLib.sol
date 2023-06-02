@@ -32,10 +32,12 @@ library OperatorLib {
             if (s.operators[operatorId].snapshot.block != 0) {
                 ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
                 updateSnapshot(operator);
-                if (increaseValidatorCount) {
-                    operator.validatorCount += deltaValidatorCount;
-                } else {
+                if (!increaseValidatorCount) {
                     operator.validatorCount -= deltaValidatorCount;
+                } else if (
+                    (operator.validatorCount += deltaValidatorCount) > SSVStorage.load().validatorsPerOperatorLimit
+                ) {
+                    revert ISSVNetworkCore.ExceedValidatorLimit();
                 }
                 burnRate += operator.fee;
                 s.operators[operatorId] = operator;
