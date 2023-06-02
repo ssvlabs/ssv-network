@@ -5,7 +5,7 @@ import "../SSVNetwork.sol";
 
 contract SSVNetworkBasicUpgrade is SSVNetwork {
     function resetNetworkFee() external onlyOwner {
-        _delegateCall(
+        CoreLib.delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
             abi.encodeWithSignature("updateNetworkFee(uint256)", 10_000_000)
         );

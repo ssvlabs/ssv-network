@@ -42,15 +42,7 @@ library ClusterLib {
         uint64[] memory operatorIds
     ) internal view returns (bytes32) {
         bytes32 hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
-        bytes32 hashedClusterData = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
-            )
-        );
+        bytes32 hashedClusterData = hashClusterData(cluster);
 
         bytes32 clusterData = SSVStorage.load().clusters[hashedCluster];
         if (clusterData == bytes32(0)) {
@@ -60,6 +52,21 @@ library ClusterLib {
         }
 
         return hashedCluster;
+    }
+
+    function validateHashedClusterS(
+        ISSVNetworkCore.Cluster memory cluster,
+        address owner,
+        uint64[] memory operatorIds
+    ) internal view returns (bytes32 hashedCluster) {
+        hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
+
+        bytes32 clusterData = SSVStorage.load().clusters[hashedCluster];
+        if (clusterData == bytes32(0)) {
+            revert ISSVNetworkCore.ClusterDoesNotExists();
+        } else if (clusterData != hashClusterData(cluster)) {
+            revert ISSVNetworkCore.IncorrectClusterState();
+        }
     }
 
     function updateClusterData(
@@ -72,37 +79,16 @@ library ClusterLib {
         cluster.networkFeeIndex = currentNetworkFeeIndex;
     }
 
-    // Views
-    function isLiquidatable(
-        address owner,
-        uint64[] calldata operatorIds,
-        ISSVNetworkCore.Cluster memory cluster
-    ) internal view returns (bool) {
-        validateHashedCluster(cluster, owner, operatorIds);
-
-        if (!cluster.active) {
-            return false;
-        }
-
-        uint64 clusterIndex;
-        uint64 burnRate;
-        uint operatorsLength = operatorIds.length;
-        for (uint i; i < operatorsLength; ++i) {
-            ISSVNetworkCore.Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
-            clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
-            burnRate += operator.fee;
-        }
-
-        ISSVNetworkCore.Network storage network = SSVStorage.load().network;
-
-        updateBalance(cluster, clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+    function hashClusterData(ISSVNetworkCore.Cluster memory cluster) internal pure returns (bytes32) {
         return
-            isLiquidatable(
-                cluster,
-                burnRate,
-                network.networkFee,
-                SSVStorage.load().minimumBlocksBeforeLiquidation,
-                SSVStorage.load().minimumLiquidationCollateral
+            keccak256(
+                abi.encodePacked(
+                    cluster.validatorCount,
+                    cluster.networkFeeIndex,
+                    cluster.index,
+                    cluster.balance,
+                    cluster.active
+                )
             );
     }
 }

@@ -4,7 +4,6 @@ pragma solidity 0.8.18;
 import "../interfaces/ISSVNetworkCore.sol";
 import "./Types.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 struct Authorization {
     bool registerOperator;

@@ -5,16 +5,15 @@ import "../interfaces/ISSVNetworkCore.sol";
 import "./SSVStorage.sol";
 import "./Types.sol";
 
-
 library OperatorLib {
     using Types64 for uint64;
 
     function updateSnapshot(ISSVNetworkCore.Operator memory operator) internal view {
-        uint64 blockDiffFee = (uint64(block.number) - operator.snapshot.block) * operator.fee;
+        uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
 
         operator.snapshot.index += blockDiffFee;
         operator.snapshot.balance += blockDiffFee * operator.validatorCount;
-        operator.snapshot.block = uint64(block.number);
+        operator.snapshot.block = uint32(block.number);
     }
 
     function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
@@ -22,12 +21,30 @@ library OperatorLib {
         if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwner();
     }
 
-    // Views
-    function getOperatorById(uint64 operatorId) internal view returns (address, uint256, uint32, bool, bool) {
-        ISSVNetworkCore.Operator memory operator = SSVStorage.load().operators[operatorId];
-        bool isPrivate = SSVStorage.load().operatorsWhitelist[operatorId] == address(0) ? false : true;
-        bool isActive = operator.snapshot.block == 0 ? false : true;
+    function updateOperators(
+        uint64[] memory operatorIds,
+        bool increaseValidatorCount,
+        uint32 deltaValidatorCount
+    ) internal returns (uint64 clusterIndex, uint64 burnRate) {
+        StorageData storage s = SSVStorage.load();
+        for (uint i; i < operatorIds.length; ) {
+            uint64 operatorId = operatorIds[i];
+            if (s.operators[operatorId].snapshot.block != 0) {
+                ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
+                updateSnapshot(operator);
+                if (increaseValidatorCount) {
+                    operator.validatorCount += deltaValidatorCount;
+                } else {
+                    operator.validatorCount -= deltaValidatorCount;
+                }
+                burnRate += operator.fee;
+                s.operators[operatorId] = operator;
+            }
 
-        return (operator.owner, operator.fee.expand(), operator.validatorCount, isPrivate, isActive);
+            clusterIndex += s.operators[operatorId].snapshot.index;
+            unchecked {
+                ++i;
+            }
+        }
     }
 }

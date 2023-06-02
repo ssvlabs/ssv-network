@@ -2,7 +2,6 @@
 pragma solidity 0.8.18;
 
 import "./../ISSVNetworkCore.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IFnSSVViews is ISSVNetworkCore {
     /// @notice Gets the validator status

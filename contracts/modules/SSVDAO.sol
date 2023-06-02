@@ -14,21 +14,16 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
     using Types256 for uint256;
 
     using NetworkLib for DAO;
+    using NetworkLib for Network;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
 
     function updateNetworkFee(uint256 fee) external override {
-        Network memory network_ = SSVStorage.load().network;
+        uint64 previousFee = SSVStorage.load().network.networkFee;
 
-        SSVStorage.load().dao.updateDAOEarningsSt(network_.networkFee);
+        SSVStorage.load().network.updateNetworkFee(fee);
 
-        network_.networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
-        network_.networkFeeIndexBlockNumber = uint64(block.number);
-
-        emit NetworkFeeUpdated(network_.networkFee.expand(), fee);
-
-        network_.networkFee = fee.shrink();
-        SSVStorage.load().network = network_;
+        emit NetworkFeeUpdated(previousFee, fee);
     }
 
     function withdrawNetworkEarnings(uint256 amount) external override {
@@ -45,7 +40,7 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
         dao_.balance = networkBalance - shrunkAmount;
         SSVStorage.load().dao = dao_;
 
-        CoreLib.transfer(msg.sender, amount);
+        CoreLib.transferBalance(msg.sender, amount);
 
         emit NetworkEarningsWithdrawn(amount, msg.sender);
     }

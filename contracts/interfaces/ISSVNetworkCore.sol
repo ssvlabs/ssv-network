@@ -17,7 +17,7 @@ interface ISSVNetworkCore {
     /// @notice Represents a snapshot of an operator's or a DAO's state at a certain block
     struct Snapshot {
         /// @dev The block number when the snapshot was taken
-        uint64 block;
+        uint32 block;
         /// @dev The last index calculated by the formula index += (currentBlock - block) * fee
         uint64 index;
         /// @dev Total accumulated earnings calculated by the formula accumulated + lastIndex * validatorCount
@@ -32,6 +32,8 @@ interface ISSVNetworkCore {
         uint64 fee;
         /// @dev The number of validators associated with this operator
         uint32 validatorCount;
+        /// @dev Whitelisted flag for this operator 
+        bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
     }
@@ -77,7 +79,7 @@ interface ISSVNetworkCore {
         /// @dev The balance of the DAO
         uint64 balance;
         /// @dev The block number when the last update was made
-        uint64 block;
+        uint32 block;
     }
 
     /// @notice Represents the network status of the SSV network
@@ -87,7 +89,7 @@ interface ISSVNetworkCore {
         /// @dev The index of the network fee
         uint64 networkFeeIndex;
         /// @dev The block number when the last network fee index was set
-        uint64 networkFeeIndexBlockNumber;
+        uint32 networkFeeIndexBlockNumber; // TODO uint32
     }
 
     /**********/
