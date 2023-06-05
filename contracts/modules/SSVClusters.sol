@@ -44,14 +44,11 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
             bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
 
-            if (s.validatorPKs[hashedPk].hashedOperatorIds != bytes32(0)) {
+            if (s.validatorPKs[hashedPk] != bytes32(0)) {
                 revert ValidatorAlreadyExists();
             }
 
-            s.validatorPKs[hashedPk] = Validator({
-                hashedOperatorIds: keccak256(abi.encodePacked(operatorIds)),
-                active: true
-            });
+            s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
         }
         bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
 
@@ -153,11 +150,15 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
         bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
 
-        bytes32 validatorHashedOpsIds = s.validatorPKs[hashedValidator].hashedOperatorIds;
-
-        if (validatorHashedOpsIds == bytes32(0)) {
+        bytes32 mask = ~bytes32(uint256(1)); // All bits set to 1 except LSB
+        bytes32 validatorData = s.validatorPKs[hashedValidator];
+        
+        if (validatorData == bytes32(0)) {
             revert ValidatorDoesNotExist();
-        } else if (validatorHashedOpsIds != keccak256(abi.encodePacked(operatorIds))) {
+        }
+
+        bytes32 hashedOperatorIds = keccak256(abi.encodePacked(operatorIds)) & mask; // Clear LSB of provided operator ids
+        if ((validatorData & mask) != hashedOperatorIds) { // Clear LSB of stored validator data and compare
             revert IncorrectValidatorState();
         }
 
@@ -169,7 +170,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
                 cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(s.network));
 
-                s.dao.updateDAO(false,1);
+                s.dao.updateDAO(false, 1);
             }
         }
 

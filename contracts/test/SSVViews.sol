@@ -21,7 +21,12 @@ contract SSVViews is IFnSSVViews {
     /*************************************/
 
     function getValidator(address owner, bytes calldata publicKey) external view override returns (bool active) {
-        return SSVStorageUpgrade.load().validatorPKs[keccak256(abi.encodePacked(publicKey, owner))].active;
+        bytes32 validatorData = SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKey, owner))];
+
+        if (validatorData == bytes32(0)) revert ValidatorDoesNotExist();
+        bytes32 activeFlag = validatorData & bytes32(uint256(1)); // Retrieve LSB of stored value
+
+        return activeFlag == bytes32(uint256(1));
     }
 
     /************************************/
