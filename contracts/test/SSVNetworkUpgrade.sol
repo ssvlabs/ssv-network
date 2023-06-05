@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "./interfaces/ISSVNetwork.sol";
+import "./interfaces/ISSVNetworkT.sol";
 
 import "../interfaces/events/IEvSSVOperators.sol";
 import "../interfaces/events/IEvSSVClusters.sol";
@@ -27,7 +27,7 @@ import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 contract SSVNetworkUpgrade is
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
-    ISSVNetwork,
+    ISSVNetworkT,
     IEvSSVOperators,
     IEvSSVClusters,
     IEvSSVDAO

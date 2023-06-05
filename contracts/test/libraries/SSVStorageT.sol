@@ -13,7 +13,7 @@ enum SSVModules {
     SSV_VIEWS
 }
 
-library SSVStorage {
+library SSVStorageT {
     using Counters for Counters.Counter;
     using Types64 for uint64;
 

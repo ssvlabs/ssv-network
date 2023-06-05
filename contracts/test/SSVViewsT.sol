@@ -6,10 +6,10 @@ import "../libraries/Types.sol";
 import "../libraries/NetworkLib.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
-import "./libraries/CoreLib.sol";
-import {SSVStorage as SSVStorageUpgrade} from "./libraries/SSVStorage.sol";
+import "./libraries/CoreLibT.sol";
+import {SSVStorageT as SSVStorageUpgrade} from "./libraries/SSVStorageT.sol";
 
-contract SSVViews is IFnSSVViews {
+contract SSVViewsT is IFnSSVViews {
     using Types64 for uint64;
 
     using NetworkLib for DAO;
@@ -194,7 +194,7 @@ contract SSVViews is IFnSSVViews {
     }
 
     function getVersion() external pure returns (string memory version) {
-        return CoreLib.getVersion();
+        return CoreLibT.getVersion();
     }
 
     function getMinOperatorsPerCluster() external view returns (uint64) {
