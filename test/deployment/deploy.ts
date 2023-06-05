@@ -20,7 +20,8 @@ describe('Deployment tests', () => {
 
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
-            kind: 'uups'
+            kind: 'uups',
+            unsafeAllow:['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
@@ -31,7 +32,8 @@ describe('Deployment tests', () => {
     it('Upgrade SSVNetwork contract. Check base contract is not re-initialized', async () => {
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
-            kind: 'uups'
+            kind: 'uups',
+            unsafeAllow:['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
@@ -55,7 +57,8 @@ describe('Deployment tests', () => {
     it('Upgrade SSVNetwork contract. Check functions only can be called from proxy contract', async () => {
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
-            kind: 'uups'
+            kind: 'uups',
+            unsafeAllow:['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
@@ -75,7 +78,8 @@ describe('Deployment tests', () => {
 
         const SSVNetworkUpgrade = await ethers.getContractFactory("SSVNetworkUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkUpgrade, {
-            kind: 'uups'
+            kind: 'uups',
+            unsafeAllow:['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
