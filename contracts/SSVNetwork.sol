@@ -173,13 +173,6 @@ contract SSVNetwork is
         );
     }
 
-    function setFeeRecipientAddress(address recipientAddress) external override {
-        CoreLib.delegateCall(
-            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
-            abi.encodeWithSignature("setFeeRecipientAddress(address)", recipientAddress)
-        );
-    }
-
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
         CoreLib.delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
@@ -193,6 +186,18 @@ contract SSVNetwork is
             abi.encodeWithSignature("withdrawOperatorEarnings(uint64)", operatorId)
         );
     }
+
+    /*******************************/
+    /* Address External Functions */
+    /*******************************/
+
+    function setFeeRecipientAddress(address recipientAddress) external override {
+        emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
+    }
+
+    /*******************************/
+    /* Validator External Functions */
+    /*******************************/
 
     function registerValidator(
         bytes calldata publicKey,
