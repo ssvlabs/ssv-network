@@ -54,21 +54,6 @@ library ClusterLib {
         return hashedCluster;
     }
 
-    function validateHashedClusterS(
-        ISSVNetworkCore.Cluster memory cluster,
-        address owner,
-        uint64[] memory operatorIds
-    ) internal view returns (bytes32 hashedCluster) {
-        hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
-
-        bytes32 clusterData = SSVStorage.load().clusters[hashedCluster];
-        if (clusterData == bytes32(0)) {
-            revert ISSVNetworkCore.ClusterDoesNotExists();
-        } else if (clusterData != hashClusterData(cluster)) {
-            revert ISSVNetworkCore.IncorrectClusterState();
-        }
-    }
-
     function updateClusterData(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 clusterIndex,
