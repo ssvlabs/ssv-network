@@ -109,7 +109,7 @@ describe('Remove Validator Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_CLUSTER]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_4]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(

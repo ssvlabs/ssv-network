@@ -169,7 +169,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
                 cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(s.network));
 
-                s.dao.updateDAO(false,1);
+                s.dao.updateDAO(false, 1);
             }
         }
 
@@ -289,30 +289,33 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
         StorageData storage s = SSVStorage.load();
 
-        uint64 clusterIndex;
         uint64 burnRate;
-        {
-            uint operatorsLength = operatorIds.length;
-            for (uint i; i < operatorsLength; ) {
-                Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
-                clusterIndex +=
-                    operator.snapshot.index +
-                    (uint64(block.number) - operator.snapshot.block) *
-                    operator.fee;
-                burnRate += operator.fee;
-                unchecked {
-                    ++i;
+        if (cluster.active) {
+            uint64 clusterIndex;
+            {
+                uint operatorsLength = operatorIds.length;
+                for (uint i; i < operatorsLength; ) {
+                    Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
+                    clusterIndex +=
+                        operator.snapshot.index +
+                        (uint64(block.number) - operator.snapshot.block) *
+                        operator.fee;
+                    burnRate += operator.fee;
+                    unchecked {
+                        ++i;
+                    }
                 }
             }
+
+            cluster.updateClusterData(clusterIndex, s.network.currentNetworkFeeIndex());
         }
-
-        cluster.updateClusterData(clusterIndex, s.network.currentNetworkFeeIndex());
-
         if (cluster.balance < amount) revert InsufficientBalance();
 
         cluster.balance -= amount;
 
         if (
+            cluster.active &&
+            cluster.validatorCount != 0 &&
             cluster.isLiquidatable(
                 burnRate,
                 s.network.networkFee,
