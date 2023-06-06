@@ -166,7 +166,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
         {
             if (cluster.active) {
-                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1);
+                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s);
 
                 cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(s.network));
 
@@ -192,7 +192,8 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
             operatorIds,
             false,
-            cluster.validatorCount
+            cluster.validatorCount,
+            s
         );
 
         cluster.updateBalance(clusterIndex, s.network.currentNetworkFeeIndex());
@@ -236,7 +237,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
         StorageData storage s = SSVStorage.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(operatorIds, true, cluster.validatorCount);
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(operatorIds, true, cluster.validatorCount, s);
 
         cluster.balance += amount;
         cluster.active = true;
