@@ -2,7 +2,7 @@
 pragma solidity 0.8.18;
 
 import "../SSVNetwork.sol";
-import {SSVStorage as SSVStorageUpgrade} from "./libraries/SSVStorage.sol";
+import {SSVStorageT as SSVStorageUpgrade} from "./libraries/SSVStorageT.sol";
 
 contract SSVNetworkReinitializable is SSVNetwork {
     function initializeV2(uint64 newMinOperatorsPerCluster) public reinitializer(2) {

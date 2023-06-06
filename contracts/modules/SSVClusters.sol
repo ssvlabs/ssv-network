@@ -6,6 +6,7 @@ import "../interfaces/events/IEvSSVClusters.sol";
 import "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
+import "../libraries/DAOLib.sol";
 import "../libraries/NetworkLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
@@ -14,7 +15,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using NetworkLib for Network;
-    using NetworkLib for DAO;
+    using DAOLib for DAO;
 
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;
@@ -166,9 +167,9 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
         {
             if (cluster.active) {
-                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1);
+                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s);
 
-                cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(s.network));
+                cluster.updateClusterData(clusterIndex, s.network.currentNetworkFeeIndex());
 
                 s.dao.updateDAO(false, 1);
             }
@@ -192,7 +193,8 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
             operatorIds,
             false,
-            cluster.validatorCount
+            cluster.validatorCount,
+            s
         );
 
         cluster.updateBalance(clusterIndex, s.network.currentNetworkFeeIndex());
@@ -236,7 +238,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
         StorageData storage s = SSVStorage.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(operatorIds, true, cluster.validatorCount);
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(operatorIds, true, cluster.validatorCount, s);
 
         cluster.balance += amount;
         cluster.active = true;
@@ -290,30 +292,33 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
 
         StorageData storage s = SSVStorage.load();
 
-        uint64 clusterIndex;
         uint64 burnRate;
-        {
-            uint operatorsLength = operatorIds.length;
-            for (uint i; i < operatorsLength; ) {
-                Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
-                clusterIndex +=
-                    operator.snapshot.index +
-                    (uint64(block.number) - operator.snapshot.block) *
-                    operator.fee;
-                burnRate += operator.fee;
-                unchecked {
-                    ++i;
+        if (cluster.active) {
+            uint64 clusterIndex;
+            {
+                uint operatorsLength = operatorIds.length;
+                for (uint i; i < operatorsLength; ) {
+                    Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
+                    clusterIndex +=
+                        operator.snapshot.index +
+                        (uint64(block.number) - operator.snapshot.block) *
+                        operator.fee;
+                    burnRate += operator.fee;
+                    unchecked {
+                        ++i;
+                    }
                 }
             }
+
+            cluster.updateClusterData(clusterIndex, s.network.currentNetworkFeeIndex());
         }
-
-        cluster.updateClusterData(clusterIndex, s.network.currentNetworkFeeIndex());
-
         if (cluster.balance < amount) revert InsufficientBalance();
 
         cluster.balance -= amount;
 
         if (
+            cluster.active &&
+            cluster.validatorCount != 0 &&
             cluster.isLiquidatable(
                 burnRate,
                 s.network.networkFee,

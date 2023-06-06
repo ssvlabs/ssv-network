@@ -3,7 +3,7 @@ pragma solidity 0.8.18;
 
 import "../../libraries/SSVStorage.sol";
 
-library CoreLib {
+library CoreLibT {
 
     function getVersion() internal pure returns (string memory) {
         return "v0.3.2-rc0";

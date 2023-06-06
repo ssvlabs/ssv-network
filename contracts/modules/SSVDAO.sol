@@ -6,6 +6,7 @@ import "../interfaces/events/IEvSSVDAO.sol";
 import "../libraries/Types.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/NetworkLib.sol";
+import "../libraries/DAOLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
 
@@ -13,8 +14,8 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
     using Types64 for uint64;
     using Types256 for uint256;
 
-    using NetworkLib for DAO;
     using NetworkLib for Network;
+    using DAOLib for DAO;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
 

@@ -13,7 +13,7 @@ describe('Version upgrade tests', () => {
 
     it('Upgrade contract version number', async () => {
         expect(await ssvNetworkViews.getVersion()).to.equal(helpers.CONFIG.initialVersion);
-        const ssvViews = await ethers.getContractFactory('contracts/test/SSVViews.sol:SSVViews');
+        const ssvViews = await ethers.getContractFactory('SSVViewsT');
         const viewsContract = await ssvViews.deploy();
         await viewsContract.deployed();
 

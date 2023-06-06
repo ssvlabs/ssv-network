@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../../libraries/RegisterAuth.sol";
 
-interface ISSVNetwork is ISSVNetworkCore, IFnSSVOperators, IFnSSVClusters, IFnSSVDAO {
+interface ISSVNetworkT is ISSVNetworkCore, IFnSSVOperators, IFnSSVClusters, IFnSSVDAO {
     function initialize(
         IERC20 token_,
         IFnSSVOperators ssvOperators_,

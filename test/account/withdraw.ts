@@ -104,4 +104,11 @@ describe('Withdraw Tests', () => {
   it('Withdraw more than the operator total balance reverts "InsufficientBalance"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorEarnings(uint64)'](12)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
+
+  it('Withdraw from a cluster without validators', async () => {
+    cluster1 = await helpers.removeValidator(4, helpers.DataGenerator.publicKey(1), cluster1.operatorIds, cluster1.cluster);
+    const currentClusterBalance = minDepositAmount - (helpers.CONFIG.minimalOperatorFee * 4);
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.operatorIds, currentClusterBalance, cluster1.cluster)).to.emit(ssvNetworkContract, 'ClusterWithdrawn');
+  });
 });
