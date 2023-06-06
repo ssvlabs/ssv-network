@@ -24,7 +24,6 @@ library SSVStorageT {
     struct StorageData {
         bytes32 version;
         IERC20 token;
-        ISSVNetworkCore.OperatorFeeConfig operatorFeeConfig;
         Counters.Counter lastOperatorId;
         mapping(SSVModules => address) ssvContracts;
         mapping(bytes32 => uint64) operatorsPKs;

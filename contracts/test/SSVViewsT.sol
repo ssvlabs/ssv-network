@@ -173,7 +173,7 @@ contract SSVViewsT is IFnSSVViews {
     }
 
     function getOperatorFeeIncreaseLimit() external view override returns (uint64 operatorMaxFeeIncrease) {
-        return SSVStorageUpgrade.load().operatorFeeConfig.operatorMaxFeeIncrease;
+        return SSVStorageNetwork.load().operatorMaxFeeIncrease;
     }
 
     function getOperatorFeePeriods()
@@ -182,8 +182,7 @@ contract SSVViewsT is IFnSSVViews {
         override
         returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod)
     {
-        OperatorFeeConfig memory opFeeConfig = SSVStorageUpgrade.load().operatorFeeConfig;
-        return (opFeeConfig.declareOperatorFeePeriod, opFeeConfig.executeOperatorFeePeriod);
+        return (SSVStorageNetwork.load().declareOperatorFeePeriod, SSVStorageNetwork.load().executeOperatorFeePeriod);
     }
 
     function getLiquidationThresholdPeriod() external view override returns (uint64) {

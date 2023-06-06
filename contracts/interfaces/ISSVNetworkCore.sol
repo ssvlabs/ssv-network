@@ -48,16 +48,6 @@ interface ISSVNetworkCore {
         uint64 approvalEndTime;
     }
 
-    /// @notice Contains the configuration related to operator fees
-    struct OperatorFeeConfig {
-        /// @dev The period in which an operator can declare their fee
-        uint64 declareOperatorFeePeriod;
-        /// @dev The period in which an operator can execute their fee change
-        uint64 executeOperatorFeePeriod;
-        /// @dev The maximum fee increase an operator can propose
-        uint64 operatorMaxFeeIncrease;
-    }
-
     /// @notice Represents a cluster of validators
     struct Cluster {
         /// @dev The number of validators in the cluster

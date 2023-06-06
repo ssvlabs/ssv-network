@@ -14,7 +14,6 @@ enum SSVModules {
 }
 
 struct StorageData {
-    ISSVNetworkCore.OperatorFeeConfig operatorFeeConfig;
     mapping(SSVModules => address) ssvContracts;
     mapping(bytes32 => uint64) operatorsPKs;
     mapping(uint64 => ISSVNetworkCore.Operator) operators;

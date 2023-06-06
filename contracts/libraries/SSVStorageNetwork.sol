@@ -13,6 +13,9 @@ struct StorageNetwork {
     uint64 daoBalance;
     uint64 minimumBlocksBeforeLiquidation;
     uint64 minimumLiquidationCollateral;
+    uint64 declareOperatorFeePeriod;
+    uint64 executeOperatorFeePeriod;
+    uint64 operatorMaxFeeIncrease;
 }
 
 library SSVStorageNetwork {

@@ -44,17 +44,17 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
     }
 
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external override {
-        SSVStorage.load().operatorFeeConfig.operatorMaxFeeIncrease = percentage;
+        SSVStorageNetwork.load().operatorMaxFeeIncrease = percentage;
         emit OperatorFeeIncreaseLimitUpdated(percentage);
     }
 
     function updateDeclareOperatorFeePeriod(uint64 timeInSeconds) external override {
-        SSVStorage.load().operatorFeeConfig.declareOperatorFeePeriod = timeInSeconds;
+        SSVStorageNetwork.load().declareOperatorFeePeriod = timeInSeconds;
         emit DeclareOperatorFeePeriodUpdated(timeInSeconds);
     }
 
     function updateExecuteOperatorFeePeriod(uint64 timeInSeconds) external override {
-        SSVStorage.load().operatorFeeConfig.executeOperatorFeePeriod = timeInSeconds;
+        SSVStorageNetwork.load().executeOperatorFeePeriod = timeInSeconds;
         emit ExecuteOperatorFeePeriodUpdated(timeInSeconds);
     }
 

@@ -93,11 +93,9 @@ contract SSVNetworkUpgrade is
         sn.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
         sn.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
         sn.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
-        s.operatorFeeConfig = OperatorFeeConfig({
-            declareOperatorFeePeriod: declareOperatorFeePeriod_,
-            executeOperatorFeePeriod: executeOperatorFeePeriod_,
-            operatorMaxFeeIncrease: operatorMaxFeeIncrease_
-        });
+        sn.declareOperatorFeePeriod = declareOperatorFeePeriod_;
+        sn.executeOperatorFeePeriod = executeOperatorFeePeriod_;
+        sn.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
     }
 
     /*****************/
