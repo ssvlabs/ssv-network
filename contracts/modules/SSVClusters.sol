@@ -168,7 +168,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             if (cluster.active) {
                 (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s);
 
-                cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(s.network));
+                cluster.updateClusterData(clusterIndex, s.network.currentNetworkFeeIndex());
 
                 s.dao.updateDAO(false, 1);
             }
