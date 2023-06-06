@@ -3,6 +3,7 @@ pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
 import "./SSVStorage.sol";
+import "./SSVStorageNetwork.sol";
 import "./Types.sol";
 
 library ClusterLib {
@@ -31,6 +32,17 @@ library ClusterLib {
         return cluster.balance < liquidationThreshold.expand();
     }
 
+    function isLiquidatableS(
+        ISSVNetworkCore.Cluster memory cluster,
+        uint64 burnRate,
+        StorageNetwork storage sn
+    ) internal view returns (bool) {
+        if (cluster.balance < sn.data.minimumLiquidationCollateral.expand()) return true;
+        uint64 liquidationThreshold = sn.data.minimumBlocksBeforeLiquidation * (burnRate + sn.data.networkFee) * cluster.validatorCount;
+
+        return cluster.balance < liquidationThreshold.expand();
+    }
+
     function validateClusterIsNotLiquidated(ISSVNetworkCore.Cluster memory cluster) internal pure {
         if (!cluster.active) revert ISSVNetworkCore.ClusterIsLiquidated();
     }
@@ -44,6 +56,25 @@ library ClusterLib {
         bytes32 hashedClusterData = hashClusterData(cluster);
 
         bytes32 clusterData = SSVStorage.load().clusters[hashedCluster];
+        if (clusterData == bytes32(0)) {
+            revert ISSVNetworkCore.ClusterDoesNotExists();
+        } else if (clusterData != hashedClusterData) {
+            revert ISSVNetworkCore.IncorrectClusterState();
+        }
+
+        return hashedCluster;
+    }
+
+    function validateHashedClusterS(
+        ISSVNetworkCore.Cluster memory cluster,
+        address owner,
+        uint64[] memory operatorIds,
+        StorageData storage s
+    ) internal view returns (bytes32) {
+        bytes32 hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
+        bytes32 hashedClusterData = hashClusterData(cluster);
+
+        bytes32 clusterData = s.clusters[hashedCluster];
         if (clusterData == bytes32(0)) {
             revert ISSVNetworkCore.ClusterDoesNotExists();
         } else if (clusterData != hashedClusterData) {

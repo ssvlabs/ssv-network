@@ -42,13 +42,4 @@ library SSVStorageT {
             sd.slot := position
         }
     }
-
-    function getMinimumBlocksBeforeLiquidation() internal view returns (uint64) {
-        return load().minimumBlocksBeforeLiquidation;
-    }
-
-    function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
-        load().ssvContracts[moduleId] = moduleAddress;
-        emit ModuleUpgraded(moduleId, moduleAddress);
-    }
 }

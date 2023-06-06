@@ -8,11 +8,11 @@ import "./SSVStorageNetwork.sol";
 library SystemLib {
     using Types256 for uint256;
 
-    function currentNetworkFeeIndex(StorageNetwork storage sn) internal view returns (uint64) {
+    function currentNetworkFeeIndex(Data storage sn) internal view returns (uint64) {
         return sn.networkFeeIndex + uint64(block.number - sn.networkFeeIndexBlockNumber) * sn.networkFee;
     }
 
-    function updateNetworkFee(StorageNetwork storage sn, uint256 fee) internal {
+    function updateNetworkFee(Data storage sn, uint256 fee) internal {
         updateDAOEarnings(sn);
 
         sn.networkFeeIndex = currentNetworkFeeIndex(sn);
@@ -21,17 +21,16 @@ library SystemLib {
     }
 
     // DAO
-
-    function updateDAOEarnings(StorageNetwork storage sn) internal {
+    function updateDAOEarnings(Data storage sn) internal {
         sn.daoBalance = networkTotalEarnings(sn);
         sn.daoIndexBlockNumber = uint32(block.number);
     }
 
-    function networkTotalEarnings(StorageNetwork storage sn) internal view returns (uint64) {
+    function networkTotalEarnings(Data storage sn) internal view returns (uint64) {
         return sn.daoBalance + (uint64(block.number) - sn.daoIndexBlockNumber) * sn.networkFee * sn.daoValidatorCount;
     }
 
-    function updateDAO(StorageNetwork storage sn, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
+    function updateDAO(Data storage sn, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
         updateDAOEarnings(sn);
         if (!increaseValidatorCount) {
             sn.daoValidatorCount -= deltaValidatorCount;

@@ -15,6 +15,7 @@ import "../interfaces/functions/IFnSSVDAO.sol";
 import "../libraries/Types.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
+import "../libraries/SSVStorageNetwork.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ClusterLib.sol";
 
@@ -82,15 +83,17 @@ contract SSVNetworkUpgrade is
         uint64 executeOperatorFeePeriod_,
         uint64 operatorMaxFeeIncrease_
     ) internal onlyInitializing {
-        SSVStorage.load().token = token_;
-        SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
-        SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
-        SSVStorage.load().ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
-        SSVStorage.load().ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
-        SSVStorage.load().minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        SSVStorage.load().minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        SSVStorage.load().validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
-        SSVStorage.load().operatorFeeConfig = OperatorFeeConfig({
+        StorageData storage s = SSVStorage.load();
+        StorageNetwork storage sn = SSVStorageNetwork.load();
+        s.token = token_;
+        s.ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
+        s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
+        s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
+        s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
+        sn.data.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        sn.data.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
+        sn.data.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        s.operatorFeeConfig = OperatorFeeConfig({
             declareOperatorFeePeriod: declareOperatorFeePeriod_,
             executeOperatorFeePeriod: executeOperatorFeePeriod_,
             operatorMaxFeeIncrease: operatorMaxFeeIncrease_

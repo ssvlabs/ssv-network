@@ -3,7 +3,7 @@ pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
 
-struct StorageNetwork {
+struct Data {
     uint32 networkFeeIndexBlockNumber;
     uint32 daoValidatorCount;
     uint32 daoIndexBlockNumber;
@@ -13,6 +13,10 @@ struct StorageNetwork {
     uint64 daoBalance;
     uint64 minimumBlocksBeforeLiquidation;
     uint64 minimumLiquidationCollateral;
+}
+
+struct StorageNetwork {
+    Data data;
 }
 
 library SSVStorageNetwork {

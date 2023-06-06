@@ -91,9 +91,9 @@ contract SSVNetwork is
         s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
         s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
         s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
-        sn.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        sn.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        sn.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        sn.data.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        sn.data.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
+        sn.data.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
         s.operatorFeeConfig = OperatorFeeConfig({
             declareOperatorFeePeriod: declareOperatorFeePeriod_,
             executeOperatorFeePeriod: executeOperatorFeePeriod_,
