@@ -14,7 +14,7 @@ contract SSVViewsT is IFnSSVViews {
 
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
-    using SystemLib for Data;
+    using SystemLib for StorageNetwork;
     /*************************************/
     /* Validator External View Functions */
     /*************************************/
@@ -85,13 +85,13 @@ contract SSVViewsT is IFnSSVViews {
 
         StorageNetwork storage sn = SSVStorageNetwork.load();
 
-        cluster.updateBalance(clusterIndex, sn.data.currentNetworkFeeIndex());
+        cluster.updateBalance(clusterIndex, sn.currentNetworkFeeIndex());
         return
             cluster.isLiquidatable(
                 burnRate,
-                sn.data.networkFee,
-                sn.data.minimumBlocksBeforeLiquidation,
-                sn.data.minimumLiquidationCollateral
+                sn.networkFee,
+                sn.minimumBlocksBeforeLiquidation,
+                sn.minimumLiquidationCollateral
             );
     }
 
@@ -120,7 +120,7 @@ contract SSVViewsT is IFnSSVViews {
             }
         }
 
-        uint64 burnRate = (aggregateFee + SSVStorageNetwork.load().data.networkFee) * cluster.validatorCount;
+        uint64 burnRate = (aggregateFee + SSVStorageNetwork.load().networkFee) * cluster.validatorCount;
         return burnRate.expand();
     }
 
@@ -155,7 +155,7 @@ contract SSVViewsT is IFnSSVViews {
             }
         }
 
-        cluster.updateBalance(clusterIndex, SSVStorageNetwork.load().data.currentNetworkFeeIndex());
+        cluster.updateBalance(clusterIndex, SSVStorageNetwork.load().currentNetworkFeeIndex());
 
         return cluster.balance;
     }
@@ -165,11 +165,11 @@ contract SSVViewsT is IFnSSVViews {
     /*******************************/
 
     function getNetworkFee() external view override returns (uint256) {
-        return SSVStorageNetwork.load().data.networkFee.expand();
+        return SSVStorageNetwork.load().networkFee.expand();
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
-        return SSVStorageNetwork.load().data.networkTotalEarnings().expand();
+        return SSVStorageNetwork.load().networkTotalEarnings().expand();
     }
 
     function getOperatorFeeIncreaseLimit() external view override returns (uint64 operatorMaxFeeIncrease) {
@@ -187,11 +187,11 @@ contract SSVViewsT is IFnSSVViews {
     }
 
     function getLiquidationThresholdPeriod() external view override returns (uint64) {
-        return SSVStorageNetwork.load().data.minimumBlocksBeforeLiquidation;
+        return SSVStorageNetwork.load().minimumBlocksBeforeLiquidation;
     }
 
     function getMinimumLiquidationCollateral() external view override returns (uint256) {
-        return SSVStorageNetwork.load().data.minimumLiquidationCollateral.expand();
+        return SSVStorageNetwork.load().minimumLiquidationCollateral.expand();
     }
 
     function getVersion() external pure returns (string memory version) {

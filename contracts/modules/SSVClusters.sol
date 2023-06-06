@@ -14,7 +14,7 @@ import "../libraries/SSVStorageNetwork.sol";
 contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
-    using SystemLib for Data;
+    using SystemLib for StorageNetwork;
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;
     uint64 private constant MODULO_OPERATORS_LENGTH = 3;
@@ -28,7 +28,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         Cluster memory cluster
     ) external override {
         StorageData storage s = SSVStorage.load();
-        Data storage sn = SSVStorageNetwork.load().data;
+        StorageNetwork storage sn = SSVStorageNetwork.load();
 
         uint operatorsLength = operatorIds.length;
         {
@@ -168,9 +168,9 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
                 (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s);
                 StorageNetwork storage sn = SSVStorageNetwork.load();
 
-                cluster.updateClusterData(clusterIndex, sn.data.currentNetworkFeeIndex());
+                cluster.updateClusterData(clusterIndex, sn.currentNetworkFeeIndex());
 
-                sn.data.updateDAO(false, 1);
+                sn.updateDAO(false, 1);
             }
         }
 
@@ -198,7 +198,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             s
         );
 
-        cluster.updateBalance(clusterIndex, sn.data.currentNetworkFeeIndex());
+        cluster.updateBalance(clusterIndex, sn.currentNetworkFeeIndex());
 
         uint256 balanceLiquidatable;
 
@@ -206,15 +206,15 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             owner != msg.sender &&
             !cluster.isLiquidatable(
                 burnRate,
-                sn.data.networkFee,
-                sn.data.minimumBlocksBeforeLiquidation,
-                sn.data.minimumLiquidationCollateral
+                sn.networkFee,
+                sn.minimumBlocksBeforeLiquidation,
+                sn.minimumLiquidationCollateral
             )
         ) {
             revert ClusterNotLiquidatable();
         }
 
-        sn.data.updateDAO(false, cluster.validatorCount);
+        sn.updateDAO(false, cluster.validatorCount);
 
         if (cluster.balance != 0) {
             balanceLiquidatable = cluster.balance;
@@ -245,16 +245,16 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         cluster.balance += amount;
         cluster.active = true;
         cluster.index = clusterIndex;
-        cluster.networkFeeIndex = sn.data.currentNetworkFeeIndex();
+        cluster.networkFeeIndex = sn.currentNetworkFeeIndex();
 
-        sn.data.updateDAO(true, cluster.validatorCount);
+        sn.updateDAO(true, cluster.validatorCount);
 
         if (
             cluster.isLiquidatable(
                 burnRate,
-                sn.data.networkFee,
-                sn.data.minimumBlocksBeforeLiquidation,
-                sn.data.minimumLiquidationCollateral
+                sn.networkFee,
+                sn.minimumBlocksBeforeLiquidation,
+                sn.minimumLiquidationCollateral
             )
         ) {
             revert InsufficientBalance();
@@ -311,7 +311,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
                 }
             }
 
-            cluster.updateClusterData(clusterIndex, sn.data.currentNetworkFeeIndex());
+            cluster.updateClusterData(clusterIndex, sn.currentNetworkFeeIndex());
         }
         if (cluster.balance < amount) revert InsufficientBalance();
 
@@ -322,9 +322,9 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             cluster.validatorCount != 0 &&
             cluster.isLiquidatable(
                 burnRate,
-                sn.data.networkFee,
-                sn.data.minimumBlocksBeforeLiquidation,
-                sn.data.minimumLiquidationCollateral
+                sn.networkFee,
+                sn.minimumBlocksBeforeLiquidation,
+                sn.minimumLiquidationCollateral
             )
         ) {
             revert InsufficientBalance();

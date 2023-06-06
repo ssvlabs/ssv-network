@@ -37,8 +37,8 @@ library ClusterLib {
         uint64 burnRate,
         StorageNetwork storage sn
     ) internal view returns (bool) {
-        if (cluster.balance < sn.data.minimumLiquidationCollateral.expand()) return true;
-        uint64 liquidationThreshold = sn.data.minimumBlocksBeforeLiquidation * (burnRate + sn.data.networkFee) * cluster.validatorCount;
+        if (cluster.balance < sn.minimumLiquidationCollateral.expand()) return true;
+        uint64 liquidationThreshold = sn.minimumBlocksBeforeLiquidation * (burnRate + sn.networkFee) * cluster.validatorCount;
 
         return cluster.balance < liquidationThreshold.expand();
     }

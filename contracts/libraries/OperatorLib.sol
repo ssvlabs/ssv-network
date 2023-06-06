@@ -44,7 +44,7 @@ library OperatorLib {
                 if (!increaseValidatorCount) {
                     operator.validatorCount -= deltaValidatorCount;
                 } else if (
-                    (operator.validatorCount += deltaValidatorCount) > SSVStorageNetwork.load().data.validatorsPerOperatorLimit
+                    (operator.validatorCount += deltaValidatorCount) > SSVStorageNetwork.load().validatorsPerOperatorLimit
                 ) {
                     revert ISSVNetworkCore.ExceedValidatorLimit();
                 }
