@@ -6,6 +6,7 @@ import "../interfaces/events/IEvSSVClusters.sol";
 import "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
+import "../libraries/DAOLib.sol";
 import "../libraries/NetworkLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
@@ -14,7 +15,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using NetworkLib for Network;
-    using NetworkLib for DAO;
+    using DAOLib for DAO;
 
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;

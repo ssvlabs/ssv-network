@@ -89,7 +89,7 @@ interface ISSVNetworkCore {
         /// @dev The index of the network fee
         uint64 networkFeeIndex;
         /// @dev The block number when the last network fee index was set
-        uint32 networkFeeIndexBlockNumber; // TODO uint32
+        uint32 networkFeeIndexBlockNumber;
     }
 
     /**********/
@@ -124,4 +124,5 @@ interface ISSVNetworkCore {
     error OperatorsListNotUnique();
     error OperatorAlreadyExists();
     error TargetModuleDoesNotExist();
+    error MaxValueExceeded();
 }

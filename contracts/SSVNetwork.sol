@@ -83,15 +83,16 @@ contract SSVNetwork is
         uint64 executeOperatorFeePeriod_,
         uint64 operatorMaxFeeIncrease_
     ) internal onlyInitializing {
-        SSVStorage.load().token = token_;
-        SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
-        SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
-        SSVStorage.load().ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
-        SSVStorage.load().ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
-        SSVStorage.load().minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        SSVStorage.load().minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        SSVStorage.load().validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
-        SSVStorage.load().operatorFeeConfig = OperatorFeeConfig({
+        StorageData storage s = SSVStorage.load();
+        s.token = token_;
+        s.ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
+        s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
+        s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
+        s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
+        s.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        s.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
+        s.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        s.operatorFeeConfig = OperatorFeeConfig({
             declareOperatorFeePeriod: declareOperatorFeePeriod_,
             executeOperatorFeePeriod: executeOperatorFeePeriod_,
             operatorMaxFeeIncrease: operatorMaxFeeIncrease_
@@ -105,14 +106,28 @@ contract SSVNetwork is
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     fallback() external {
+        // Load the address of the SSV Views module from storage
         address ssvViews = SSVStorage.load().ssvContracts[SSVModules.SSV_VIEWS];
+
         assembly {
+            // Copy the calldata (input data of the function call) to memory
             calldatacopy(0, 0, calldatasize())
+
+            // Perform a delegatecall to the SSV Views contract
+            // The delegatecall forwards the entire gas stipend to the called contract
+            // This allows the called contract to consume the gas provided to the fallback function
             let result := delegatecall(gas(), ssvViews, 0, calldatasize(), 0, 0)
+
+            // Copy the returndata (output data of the delegatecall) to memory
             returndatacopy(0, 0, returndatasize())
+
+            // If the delegatecall was unsuccessful (result is zero), revert with the returndata
+            // Reverting with the returndata provides information about the error that occurred in the delegatecall
             if eq(result, 0) {
                 revert(0, returndatasize())
             }
+
+            // Return the returndata to the original caller of the fallback function
             return(0, returndatasize())
         }
     }
@@ -348,12 +363,16 @@ contract SSVNetwork is
         );
     }
 
-    // Upgrade functions
+    /*******************************/
+    /* Upgrade Modules Function    */
+    /*******************************/
     function upgradeModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
         CoreLib.setModuleContract(moduleId, moduleAddress);
     }
 
-    // Authorization
+    /*******************************/
+    /* Register Authorization      */
+    /*******************************/
     function setRegisterAuth(address userAddress, Authorization calldata auth) external override onlyOwner {
         RegisterAuth.load().authorization[userAddress] = auth;
     }

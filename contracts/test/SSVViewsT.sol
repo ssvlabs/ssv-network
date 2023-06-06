@@ -3,6 +3,7 @@ pragma solidity 0.8.18;
 
 import "../interfaces/functions/IFnSSVViews.sol";
 import "../libraries/Types.sol";
+import "../libraries/DAOLib.sol";
 import "../libraries/NetworkLib.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
@@ -12,7 +13,7 @@ import {SSVStorageT as SSVStorageUpgrade} from "./libraries/SSVStorageT.sol";
 contract SSVViewsT is IFnSSVViews {
     using Types64 for uint64;
 
-    using NetworkLib for DAO;
+    using DAOLib for DAO;
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
 
