@@ -6,16 +6,15 @@ import "../interfaces/events/IEvSSVClusters.sol";
 import "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
-import "../libraries/DAOLib.sol";
-import "../libraries/NetworkLib.sol";
+import "../libraries/SystemLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
+import "../libraries/SSVStorageNetwork.sol";
 
 contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
-    using NetworkLib for Network;
-    using DAOLib for DAO;
+    using SystemLib for StorageNetwork;
 
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;
@@ -168,7 +167,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             if (cluster.active) {
                 (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1);
 
-                cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(s.network));
+                cluster.updateClusterData(clusterIndex, SSVStorageNetwork.load().currentNetworkFeeIndex());
 
                 s.dao.updateDAO(false, 1);
             }

@@ -23,14 +23,9 @@ library SSVStorageT {
 
     struct StorageData {
         bytes32 version;
-        ISSVNetworkCore.Network network;
-        ISSVNetworkCore.DAO dao;
         IERC20 token;
         ISSVNetworkCore.OperatorFeeConfig operatorFeeConfig;
         Counters.Counter lastOperatorId;
-        uint32 validatorsPerOperatorLimit;
-        uint64 minimumBlocksBeforeLiquidation;
-        uint64 minimumLiquidationCollateral;
         mapping(SSVModules => address) ssvContracts;
         mapping(bytes32 => uint64) operatorsPKs;
         mapping(uint64 => ISSVNetworkCore.Operator) operators;

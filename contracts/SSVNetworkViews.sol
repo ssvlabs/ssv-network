@@ -5,7 +5,7 @@ import "./interfaces/functions/IFnSSVViews.sol";
 import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
-import "./libraries/DAOLib.sol";
+import "./libraries/SystemLib.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
@@ -15,7 +15,6 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, IFnSSVView
     using Types64 for uint64;
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
-    using DAOLib for DAO;
 
     IFnSSVViews public ssvNetwork;
 

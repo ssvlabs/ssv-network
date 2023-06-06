@@ -14,8 +14,6 @@ enum SSVModules {
 }
 
 struct StorageData {
-    ISSVNetworkCore.Network network;
-    ISSVNetworkCore.DAO dao;
     ISSVNetworkCore.OperatorFeeConfig operatorFeeConfig;
     mapping(SSVModules => address) ssvContracts;
     mapping(bytes32 => uint64) operatorsPKs;
@@ -26,15 +24,9 @@ struct StorageData {
     mapping(uint64 => ISSVNetworkCore.OperatorFeeChangeRequest) operatorFeeChangeRequests;
     IERC20 token;
     Counters.Counter lastOperatorId;
-    uint64 minimumBlocksBeforeLiquidation;
-    uint64 minimumLiquidationCollateral;
-    uint32 validatorsPerOperatorLimit;
 }
 
 library SSVStorage {
-    using Counters for Counters.Counter;
-    using Types64 for uint64;
-
     uint256 constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
 
     function load() internal pure returns (StorageData storage sd) {

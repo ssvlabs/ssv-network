@@ -3,19 +3,20 @@ pragma solidity 0.8.18;
 
 import "../interfaces/functions/IFnSSVViews.sol";
 import "../libraries/Types.sol";
-import "../libraries/DAOLib.sol";
-import "../libraries/NetworkLib.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
+import "../libraries/SystemLib.sol";
 import "../libraries/SSVStorage.sol";
+import "../libraries/SSVStorageNetwork.sol";
 
 contract SSVViews is IFnSSVViews {
     using Types64 for uint64;
 
-    using DAOLib for DAO;
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
+    using SystemLib for StorageNetwork;
+
 
     /*************************************/
     /* Validator External View Functions */
@@ -83,15 +84,15 @@ contract SSVViews is IFnSSVViews {
             burnRate += operator.fee;
         }
 
-        Network storage network = SSVStorage.load().network;
+        StorageNetwork storage sn = StorageNetwork.load();
 
-        cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+        cluster.updateBalance(clusterIndex, sn.currentNetworkFeeIndex());
         return
             cluster.isLiquidatable(
                 burnRate,
-                network.networkFee,
-                SSVStorage.load().minimumBlocksBeforeLiquidation,
-                SSVStorage.load().minimumLiquidationCollateral
+                sn.networkFee,
+                sn.minimumBlocksBeforeLiquidation,
+                sn.minimumLiquidationCollateral
             );
     }
 
@@ -155,7 +156,7 @@ contract SSVViews is IFnSSVViews {
             }
         }
 
-        cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(SSVStorage.load().network));
+        cluster.updateBalance(clusterIndex, SSVStorageNetwork.load().currentNetworkFeeIndex());
 
         return cluster.balance;
     }

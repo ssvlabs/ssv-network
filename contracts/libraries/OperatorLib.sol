@@ -3,6 +3,7 @@ pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
 import "./SSVStorage.sol";
+import "./SSVStorageNetwork.sol";
 import "./Types.sol";
 
 library OperatorLib {
@@ -35,7 +36,7 @@ library OperatorLib {
                 if (!increaseValidatorCount) {
                     operator.validatorCount -= deltaValidatorCount;
                 } else if (
-                    (operator.validatorCount += deltaValidatorCount) > SSVStorage.load().validatorsPerOperatorLimit
+                    (operator.validatorCount += deltaValidatorCount) > SSVStorageNetwork.load().validatorsPerOperatorLimit
                 ) {
                     revert ISSVNetworkCore.ExceedValidatorLimit();
                 }

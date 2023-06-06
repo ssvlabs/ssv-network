@@ -5,8 +5,7 @@ import "../interfaces/functions/IFnSSVDAO.sol";
 import "../interfaces/events/IEvSSVDAO.sol";
 import "../libraries/Types.sol";
 import "../libraries/OperatorLib.sol";
-import "../libraries/NetworkLib.sol";
-import "../libraries/DAOLib.sol";
+import "../libraries/SystemLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
 
@@ -14,32 +13,31 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
     using Types64 for uint64;
     using Types256 for uint256;
 
-    using NetworkLib for Network;
-    using DAOLib for DAO;
+    using SystemLib for StorageNetwork;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
 
     function updateNetworkFee(uint256 fee) external override {
-        uint64 previousFee = SSVStorage.load().network.networkFee;
+        uint64 previousFee = SSVStorageNetwork.load().networkFee;
 
-        SSVStorage.load().network.updateNetworkFee(fee);
+        SSVStorageNetwork.load().updateNetworkFee(fee);
 
         emit NetworkFeeUpdated(previousFee, fee);
     }
 
     function withdrawNetworkEarnings(uint256 amount) external override {
-        DAO memory dao_ = SSVStorage.load().dao;
+        StorageNetwork memory sn = SSVStorageNetwork.load();
 
         uint64 shrunkAmount = amount.shrink();
 
-        uint64 networkBalance = dao_.networkTotalEarnings(SSVStorage.load().network.networkFee);
+        uint64 networkBalance = sn.networkTotalEarnings();
 
         if (shrunkAmount > networkBalance) {
             revert InsufficientBalance();
         }
 
-        dao_.balance = networkBalance - shrunkAmount;
-        SSVStorage.load().dao = dao_;
+        sn.daoBbalance = networkBalance - shrunkAmount;
+        SSVStorageNetwork.load() = sn;
 
         CoreLib.transferBalance(msg.sender, amount);
 
@@ -66,12 +64,12 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
             revert NewBlockPeriodIsBelowMinimum();
         }
 
-        SSVStorage.load().minimumBlocksBeforeLiquidation = blocks;
+        SSVStorageNetwork.load().minimumBlocksBeforeLiquidation = blocks;
         emit LiquidationThresholdPeriodUpdated(blocks);
     }
 
     function updateMinimumLiquidationCollateral(uint256 amount) external override {
-        SSVStorage.load().minimumLiquidationCollateral = amount.shrink();
+        SSVStorageNetwork.load().minimumLiquidationCollateral = amount.shrink();
         emit MinimumLiquidationCollateralUpdated(amount);
     }
 }

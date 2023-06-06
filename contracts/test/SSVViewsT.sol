@@ -3,19 +3,18 @@ pragma solidity 0.8.18;
 
 import "../interfaces/functions/IFnSSVViews.sol";
 import "../libraries/Types.sol";
-import "../libraries/DAOLib.sol";
-import "../libraries/NetworkLib.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
+import "../libraries/SystemLib.sol";
 import "./libraries/CoreLibT.sol";
 import {SSVStorageT as SSVStorageUpgrade} from "./libraries/SSVStorageT.sol";
 
 contract SSVViewsT is IFnSSVViews {
     using Types64 for uint64;
 
-    using DAOLib for DAO;
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
+    using SystemLib for StorageNetwork;
 
     /*************************************/
     /* Validator External View Functions */
@@ -37,7 +36,9 @@ contract SSVViewsT is IFnSSVViews {
     }
 
     function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint64, uint64) {
-        OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorageUpgrade.load().operatorFeeChangeRequests[operatorId];
+        OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorageUpgrade.load().operatorFeeChangeRequests[
+            operatorId
+        ];
 
         if (opFeeChangeRequest.fee == 0) {
             revert NoFeeDeclared();
@@ -78,20 +79,20 @@ contract SSVViewsT is IFnSSVViews {
         uint64 burnRate;
         uint operatorsLength = operatorIds.length;
         for (uint i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorageUpgrade.load().operators[operatorIds[i]];
+            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
             burnRate += operator.fee;
         }
 
-        Network storage network = SSVStorageUpgrade.load().network;
+        StorageNetwork storage sn = StorageNetwork.load();
 
-        cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+        cluster.updateBalance(clusterIndex, sn.currentNetworkFeeIndex());
         return
             cluster.isLiquidatable(
                 burnRate,
-                network.networkFee,
-                SSVStorageUpgrade.load().minimumBlocksBeforeLiquidation,
-                SSVStorageUpgrade.load().minimumLiquidationCollateral
+                sn.networkFee,
+                sn.minimumBlocksBeforeLiquidation,
+                sn.minimumLiquidationCollateral
             );
     }
 
@@ -147,7 +148,7 @@ contract SSVViewsT is IFnSSVViews {
         {
             uint operatorsLength = operatorIds.length;
             for (uint i; i < operatorsLength; ++i) {
-                Operator memory operator = SSVStorageUpgrade.load().operators[operatorIds[i]];
+                Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
                 clusterIndex +=
                     operator.snapshot.index +
                     (uint64(block.number) - operator.snapshot.block) *
@@ -155,7 +156,7 @@ contract SSVViewsT is IFnSSVViews {
             }
         }
 
-        cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(SSVStorageUpgrade.load().network));
+        cluster.updateBalance(clusterIndex, SSVStorageNetwork.load().currentNetworkFeeIndex());
 
         return cluster.balance;
     }

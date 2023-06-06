@@ -32,7 +32,7 @@ interface ISSVNetworkCore {
         uint64 fee;
         /// @dev The number of validators associated with this operator
         uint32 validatorCount;
-        /// @dev Whitelisted flag for this operator 
+        /// @dev Whitelisted flag for this operator
         bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
@@ -70,26 +70,6 @@ interface ISSVNetworkCore {
         bool active;
         /// @dev The balance of the cluster
         uint256 balance;
-    }
-
-    /// @notice Represents the DAO of the SSV network
-    struct DAO {
-        /// @dev The number of validators in the network
-        uint32 validatorCount;
-        /// @dev The balance of the DAO
-        uint64 balance;
-        /// @dev The block number when the last update was made
-        uint32 block;
-    }
-
-    /// @notice Represents the network status of the SSV network
-    struct Network {
-        /// @dev The network fee
-        uint64 networkFee;
-        /// @dev The index of the network fee
-        uint64 networkFeeIndex;
-        /// @dev The block number when the last network fee index was set
-        uint32 networkFeeIndexBlockNumber;
     }
 
     /**********/
