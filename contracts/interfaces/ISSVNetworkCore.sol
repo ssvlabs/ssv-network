@@ -26,13 +26,13 @@ interface ISSVNetworkCore {
 
     /// @notice Represents an SSV operator
     struct Operator {
-        /// @dev The address of the operator's owner
-        address owner;
-        /// @dev The fee charged by the operator, set to zero for private operators and cannot be increased once set
-        uint64 fee;
         /// @dev The number of validators associated with this operator
         uint32 validatorCount;
-        /// @dev Whitelisted flag for this operator 
+        /// @dev The fee charged by the operator, set to zero for private operators and cannot be increased once set
+        uint64 fee;
+        /// @dev The address of the operator's owner
+        address owner;
+        /// @dev Whitelisted flag for this operator
         bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
