@@ -6,14 +6,6 @@ interface ISSVNetworkCore {
     /* Structs */
     /***********/
 
-    /// @notice Represents an SSV validator
-    struct Validator {
-        /// @dev Hashed IDs of operators related to this validator
-        bytes32 hashedOperatorIds;
-        /// @dev Flag indicating whether the validator is active
-        bool active;
-    }
-
     /// @notice Represents a snapshot of an operator's or a DAO's state at a certain block
     struct Snapshot {
         /// @dev The block number when the snapshot was taken
