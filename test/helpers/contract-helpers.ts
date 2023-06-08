@@ -65,7 +65,7 @@ export const DataGenerator = {
 
 export const initializeContract = async () => {
   CONFIG = {
-    initialVersion: "v0.3.2-rc0",
+    initialVersion: "v1.0.0",
     operatorMaxFeeIncrease: 1000,
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY

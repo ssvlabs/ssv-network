@@ -29,7 +29,7 @@ library SSVStorageT {
         mapping(bytes32 => uint64) operatorsPKs;
         mapping(uint64 => ISSVNetworkCore.Operator) operators;
         mapping(uint64 => address) operatorsWhitelist;
-        mapping(bytes32 => ISSVNetworkCore.Validator) validatorPKs;
+        mapping(bytes32 => bytes32) validatorPKs;
         mapping(bytes32 => bytes32) clusters;
         mapping(uint64 => ISSVNetworkCore.OperatorFeeChangeRequest) operatorFeeChangeRequests;
         uint64 minOperatorsPerCluster;

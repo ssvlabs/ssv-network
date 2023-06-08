@@ -49,7 +49,6 @@ library OperatorLib {
                     revert ISSVNetworkCore.ExceedValidatorLimit();
                 }
                 burnRate += operator.fee;
-                //s.operators[operatorId] = operator;
             }
 
             clusterIndex += operator.snapshot.index;

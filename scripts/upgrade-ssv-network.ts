@@ -9,7 +9,7 @@ async function upgradeSSVNetwork() {
     {
       kind: 'uups',
       unsafeAllow: ['state-variable-immutable', 'constructor'],
-      constructorArgs: [process.env.REGISTER_AUTH_PROXY_ADDRESS]
+      constructorArgs: []
     });
   console.log("SSVNetwork upgraded successfully");
 }
