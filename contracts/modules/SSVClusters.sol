@@ -9,12 +9,12 @@ import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
-import "../libraries/SSVStorageNetwork.sol";
+import "../libraries/SSVStorageProtocol.sol";
 
 contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
-    using ProtocolLib for StorageNetwork;
+    using ProtocolLib for StorageProtocol;
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;
     uint64 private constant MODULO_OPERATORS_LENGTH = 3;
@@ -28,7 +28,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         Cluster memory cluster
     ) external override {
         StorageData storage s = SSVStorage.load();
-        StorageNetwork storage sn = SSVStorageNetwork.load();
+        StorageProtocol storage sn = SSVStorageProtocol.load();
 
         uint operatorsLength = operatorIds.length;
         {
@@ -167,7 +167,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         {
             if (cluster.active) {
                 (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s);
-                StorageNetwork storage sn = SSVStorageNetwork.load();
+                StorageProtocol storage sn = SSVStorageProtocol.load();
 
                 cluster.updateClusterData(clusterIndex, sn.currentNetworkFeeIndex());
 
@@ -190,7 +190,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         bytes32 hashedCluster = cluster.validateHashedClusterS(owner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
-        StorageNetwork storage sn = SSVStorageNetwork.load();
+        StorageProtocol storage sn = SSVStorageProtocol.load();
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
             operatorIds,
@@ -239,7 +239,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         if (cluster.active) revert ClusterAlreadyEnabled();
 
         StorageData storage s = SSVStorage.load();
-        StorageNetwork storage sn = SSVStorageNetwork.load();
+        StorageProtocol storage sn = SSVStorageProtocol.load();
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(operatorIds, true, cluster.validatorCount, s);
 
@@ -292,7 +292,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         cluster.validateClusterIsNotLiquidated();
 
         StorageData storage s = SSVStorage.load();
-        StorageNetwork storage sn = SSVStorageNetwork.load();
+        StorageProtocol storage sn = SSVStorageProtocol.load();
 
         uint64 burnRate;
         if (cluster.active) {

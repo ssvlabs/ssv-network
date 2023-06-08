@@ -13,20 +13,20 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
     using Types64 for uint64;
     using Types256 for uint256;
 
-    using ProtocolLib for StorageNetwork;
+    using ProtocolLib for StorageProtocol;
     
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
 
     function updateNetworkFee(uint256 fee) external override {
-        uint64 previousFee = SSVStorageNetwork.load().networkFee;
+        uint64 previousFee = SSVStorageProtocol.load().networkFee;
 
-        SSVStorageNetwork.load().updateNetworkFee(fee);
+        SSVStorageProtocol.load().updateNetworkFee(fee);
 
         emit NetworkFeeUpdated(previousFee, fee);
     }
 
     function withdrawNetworkEarnings(uint256 amount) external override {
-        StorageNetwork storage sn = SSVStorageNetwork.load();
+        StorageProtocol storage sn = SSVStorageProtocol.load();
 
         uint64 shrunkAmount = amount.shrink();
 
@@ -44,17 +44,17 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
     }
 
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external override {
-        SSVStorageNetwork.load().operatorMaxFeeIncrease = percentage;
+        SSVStorageProtocol.load().operatorMaxFeeIncrease = percentage;
         emit OperatorFeeIncreaseLimitUpdated(percentage);
     }
 
     function updateDeclareOperatorFeePeriod(uint64 timeInSeconds) external override {
-        SSVStorageNetwork.load().declareOperatorFeePeriod = timeInSeconds;
+        SSVStorageProtocol.load().declareOperatorFeePeriod = timeInSeconds;
         emit DeclareOperatorFeePeriodUpdated(timeInSeconds);
     }
 
     function updateExecuteOperatorFeePeriod(uint64 timeInSeconds) external override {
-        SSVStorageNetwork.load().executeOperatorFeePeriod = timeInSeconds;
+        SSVStorageProtocol.load().executeOperatorFeePeriod = timeInSeconds;
         emit ExecuteOperatorFeePeriodUpdated(timeInSeconds);
     }
 
@@ -63,12 +63,12 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
             revert NewBlockPeriodIsBelowMinimum();
         }
 
-        SSVStorageNetwork.load().minimumBlocksBeforeLiquidation = blocks;
+        SSVStorageProtocol.load().minimumBlocksBeforeLiquidation = blocks;
         emit LiquidationThresholdPeriodUpdated(blocks);
     }
 
     function updateMinimumLiquidationCollateral(uint256 amount) external override {
-        SSVStorageNetwork.load().minimumLiquidationCollateral = amount.shrink();
+        SSVStorageProtocol.load().minimumLiquidationCollateral = amount.shrink();
         emit MinimumLiquidationCollateralUpdated(amount);
     }
 }

@@ -15,7 +15,7 @@ import "../interfaces/functions/IFnSSVDAO.sol";
 import "../libraries/Types.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
-import "../libraries/SSVStorageNetwork.sol";
+import "../libraries/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ClusterLib.sol";
 
@@ -84,7 +84,7 @@ contract SSVNetworkUpgrade is
         uint64 operatorMaxFeeIncrease_
     ) internal onlyInitializing {
         StorageData storage s = SSVStorage.load();
-        StorageNetwork storage sn = SSVStorageNetwork.load();
+        StorageProtocol storage sn = SSVStorageProtocol.load();
         s.token = token_;
         s.ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
         s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);

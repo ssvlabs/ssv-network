@@ -3,16 +3,16 @@ pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
 import "../SSVNetwork.sol";
-import "./SSVStorageNetwork.sol";
+import "./SSVStorageProtocol.sol";
 
 library ProtocolLib {
     using Types256 for uint256;
 
-    function currentNetworkFeeIndex(StorageNetwork storage sn) internal view returns (uint64) {
+    function currentNetworkFeeIndex(StorageProtocol storage sn) internal view returns (uint64) {
         return sn.networkFeeIndex + uint64(block.number - sn.networkFeeIndexBlockNumber) * sn.networkFee;
     }
 
-    function updateNetworkFee(StorageNetwork storage sn, uint256 fee) internal {
+    function updateNetworkFee(StorageProtocol storage sn, uint256 fee) internal {
         updateDAOEarnings(sn);
 
         sn.networkFeeIndex = currentNetworkFeeIndex(sn);
@@ -21,16 +21,16 @@ library ProtocolLib {
     }
 
     // DAO
-    function updateDAOEarnings(StorageNetwork storage sn) internal {
+    function updateDAOEarnings(StorageProtocol storage sn) internal {
         sn.daoBalance = networkTotalEarnings(sn);
         sn.daoIndexBlockNumber = uint32(block.number);
     }
 
-    function networkTotalEarnings(StorageNetwork storage sn) internal view returns (uint64) {
+    function networkTotalEarnings(StorageProtocol storage sn) internal view returns (uint64) {
         return sn.daoBalance + (uint64(block.number) - sn.daoIndexBlockNumber) * sn.networkFee * sn.daoValidatorCount;
     }
 
-    function updateDAO(StorageNetwork storage sn, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
+    function updateDAO(StorageProtocol storage sn, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
         updateDAOEarnings(sn);
         if (!increaseValidatorCount) {
             sn.daoValidatorCount -= deltaValidatorCount;

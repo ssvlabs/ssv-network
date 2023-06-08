@@ -5,7 +5,7 @@ import "../interfaces/functions/IFnSSVOperators.sol";
 import "../interfaces/events/IEvSSVOperators.sol";
 import "../libraries/Types.sol";
 import "../libraries/SSVStorage.sol";
-import "../libraries/SSVStorageNetwork.sol";
+import "../libraries/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 
@@ -91,7 +91,7 @@ contract SSVOperators is IFnSSVOperators, IEvSSVOperators {
         SSVStorage.load().operators[operatorId].checkOwner();
 
         StorageData storage s = SSVStorage.load();
-        StorageNetwork storage sn = SSVStorageNetwork.load();
+        StorageProtocol storage sn = SSVStorageProtocol.load();
 
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
         uint64 operatorFee = s.operators[operatorId].fee;
