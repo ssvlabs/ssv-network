@@ -25,17 +25,17 @@ contract SSVDAO is ISSVDAO {
     }
 
     function withdrawNetworkEarnings(uint256 amount) external override {
-        StorageProtocol storage sn = SSVStorageProtocol.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint64 shrunkAmount = amount.shrink();
 
-        uint64 networkBalance = sn.networkTotalEarnings();
+        uint64 networkBalance = sp.networkTotalEarnings();
 
         if (shrunkAmount > networkBalance) {
             revert InsufficientBalance();
         }
 
-        sn.daoBalance = networkBalance - shrunkAmount;
+        sp.daoBalance = networkBalance - shrunkAmount;
 
         CoreLib.transferBalance(msg.sender, amount);
 

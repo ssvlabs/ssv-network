@@ -80,18 +80,18 @@ contract SSVNetworkUpgrade is
         uint64 operatorMaxFeeIncrease_
     ) internal onlyInitializing {
         StorageData storage s = SSVStorage.load();
-        StorageProtocol storage sn = SSVStorageProtocol.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
         s.token = token_;
         s.ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
         s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
         s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
         s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
-        sn.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        sn.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        sn.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
-        sn.declareOperatorFeePeriod = declareOperatorFeePeriod_;
-        sn.executeOperatorFeePeriod = executeOperatorFeePeriod_;
-        sn.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
+        sp.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        sp.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
+        sp.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        sp.declareOperatorFeePeriod = declareOperatorFeePeriod_;
+        sp.executeOperatorFeePeriod = executeOperatorFeePeriod_;
+        sp.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
     }
 
     /*****************/

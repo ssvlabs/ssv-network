@@ -89,15 +89,15 @@ contract SSVViews is ISSVViews {
             burnRate += operator.fee;
         }
 
-        StorageProtocol storage sn = SSVStorageProtocol.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        cluster.updateBalance(clusterIndex, sn.currentNetworkFeeIndex());
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
         return
             cluster.isLiquidatable(
                 burnRate,
-                sn.networkFee,
-                sn.minimumBlocksBeforeLiquidation,
-                sn.minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             );
     }
 

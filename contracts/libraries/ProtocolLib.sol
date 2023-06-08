@@ -11,35 +11,35 @@ library ProtocolLib {
     /******************************/
     /* Network internal functions */
     /******************************/
-    function currentNetworkFeeIndex(StorageProtocol storage sn) internal view returns (uint64) {
-        return sn.networkFeeIndex + uint64(block.number - sn.networkFeeIndexBlockNumber) * sn.networkFee;
+    function currentNetworkFeeIndex(StorageProtocol storage sp) internal view returns (uint64) {
+        return sp.networkFeeIndex + uint64(block.number - sp.networkFeeIndexBlockNumber) * sp.networkFee;
     }
 
-    function updateNetworkFee(StorageProtocol storage sn, uint256 fee) internal {
-        updateDAOEarnings(sn);
+    function updateNetworkFee(StorageProtocol storage sp, uint256 fee) internal {
+        updateDAOEarnings(sp);
 
-        sn.networkFeeIndex = currentNetworkFeeIndex(sn);
-        sn.networkFeeIndexBlockNumber = uint32(block.number);
-        sn.networkFee = fee.shrink();
+        sp.networkFeeIndex = currentNetworkFeeIndex(sp);
+        sp.networkFeeIndexBlockNumber = uint32(block.number);
+        sp.networkFee = fee.shrink();
     }
 
     /**************************/
     /* DAO internal functions */
     /**************************/
-    function updateDAOEarnings(StorageProtocol storage sn) internal {
-        sn.daoBalance = networkTotalEarnings(sn);
-        sn.daoIndexBlockNumber = uint32(block.number);
+    function updateDAOEarnings(StorageProtocol storage sp) internal {
+        sp.daoBalance = networkTotalEarnings(sp);
+        sp.daoIndexBlockNumber = uint32(block.number);
     }
 
-    function networkTotalEarnings(StorageProtocol storage sn) internal view returns (uint64) {
-        return sn.daoBalance + (uint64(block.number) - sn.daoIndexBlockNumber) * sn.networkFee * sn.daoValidatorCount;
+    function networkTotalEarnings(StorageProtocol storage sp) internal view returns (uint64) {
+        return sp.daoBalance + (uint64(block.number) - sp.daoIndexBlockNumber) * sp.networkFee * sp.daoValidatorCount;
     }
 
-    function updateDAO(StorageProtocol storage sn, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
-        updateDAOEarnings(sn);
+    function updateDAO(StorageProtocol storage sp, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
+        updateDAOEarnings(sp);
         if (!increaseValidatorCount) {
-            sn.daoValidatorCount -= deltaValidatorCount;
-        } else if ((sn.daoValidatorCount += deltaValidatorCount) > type(uint32).max) {
+            sp.daoValidatorCount -= deltaValidatorCount;
+        } else if ((sp.daoValidatorCount += deltaValidatorCount) > type(uint32).max) {
             revert ISSVNetworkCore.MaxValueExceeded();
         }
     }

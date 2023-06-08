@@ -27,7 +27,7 @@ contract SSVClusters is ISSVClusters {
         Cluster memory cluster
     ) external override {
         StorageData storage s = SSVStorage.load();
-        StorageProtocol storage sn = SSVStorageProtocol.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint operatorsLength = operatorIds.length;
         {
@@ -101,7 +101,7 @@ contract SSVClusters is ISSVClusters {
                     revert CallerNotWhitelisted();
                 }
                 operator.updateSnapshot();
-                if (++operator.validatorCount > sn.validatorsPerOperatorLimit) {
+                if (++operator.validatorCount > sp.validatorsPerOperatorLimit) {
                     revert ExceedValidatorLimit();
                 }
                 clusterIndex += operator.snapshot.index;
@@ -113,9 +113,9 @@ contract SSVClusters is ISSVClusters {
                     ++i;
                 }
             }
-            cluster.updateClusterData(clusterIndex, sn.currentNetworkFeeIndex());
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
-            sn.updateDAO(true, 1);
+            sp.updateDAO(true, 1);
         }
 
         ++cluster.validatorCount;
@@ -123,9 +123,9 @@ contract SSVClusters is ISSVClusters {
         if (
             cluster.isLiquidatable(
                 burnRate,
-                sn.networkFee,
-                sn.minimumBlocksBeforeLiquidation,
-                sn.minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             )
         ) {
             revert InsufficientBalance();
@@ -166,11 +166,11 @@ contract SSVClusters is ISSVClusters {
         {
             if (cluster.active) {
                 (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s);
-                StorageProtocol storage sn = SSVStorageProtocol.load();
+                StorageProtocol storage sp = SSVStorageProtocol.load();
 
-                cluster.updateClusterData(clusterIndex, sn.currentNetworkFeeIndex());
+                cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
-                sn.updateDAO(false, 1);
+                sp.updateDAO(false, 1);
             }
         }
 
@@ -189,7 +189,7 @@ contract SSVClusters is ISSVClusters {
         bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
-        StorageProtocol storage sn = SSVStorageProtocol.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
             operatorIds,
@@ -198,7 +198,7 @@ contract SSVClusters is ISSVClusters {
             s
         );
 
-        cluster.updateBalance(clusterIndex, sn.currentNetworkFeeIndex());
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
 
         uint256 balanceLiquidatable;
 
@@ -206,15 +206,15 @@ contract SSVClusters is ISSVClusters {
             owner != msg.sender &&
             !cluster.isLiquidatable(
                 burnRate,
-                sn.networkFee,
-                sn.minimumBlocksBeforeLiquidation,
-                sn.minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             )
         ) {
             revert ClusterNotLiquidatable();
         }
 
-        sn.updateDAO(false, cluster.validatorCount);
+        sp.updateDAO(false, cluster.validatorCount);
 
         if (cluster.balance != 0) {
             balanceLiquidatable = cluster.balance;
@@ -239,23 +239,23 @@ contract SSVClusters is ISSVClusters {
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         if (cluster.active) revert ClusterAlreadyEnabled();
 
-        StorageProtocol storage sn = SSVStorageProtocol.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(operatorIds, true, cluster.validatorCount, s);
 
         cluster.balance += amount;
         cluster.active = true;
         cluster.index = clusterIndex;
-        cluster.networkFeeIndex = sn.currentNetworkFeeIndex();
+        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
 
-        sn.updateDAO(true, cluster.validatorCount);
+        sp.updateDAO(true, cluster.validatorCount);
 
         if (
             cluster.isLiquidatable(
                 burnRate,
-                sn.networkFee,
-                sn.minimumBlocksBeforeLiquidation,
-                sn.minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             )
         ) {
             revert InsufficientBalance();
@@ -295,7 +295,7 @@ contract SSVClusters is ISSVClusters {
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
-        StorageProtocol storage sn = SSVStorageProtocol.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint64 burnRate;
         if (cluster.active) {
@@ -315,7 +315,7 @@ contract SSVClusters is ISSVClusters {
                 }
             }
 
-            cluster.updateClusterData(clusterIndex, sn.currentNetworkFeeIndex());
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
         }
         if (cluster.balance < amount) revert InsufficientBalance();
 
@@ -326,9 +326,9 @@ contract SSVClusters is ISSVClusters {
             cluster.validatorCount != 0 &&
             cluster.isLiquidatable(
                 burnRate,
-                sn.networkFee,
-                sn.minimumBlocksBeforeLiquidation,
-                sn.minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             )
         ) {
             revert InsufficientBalance();

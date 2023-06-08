@@ -90,7 +90,7 @@ contract SSVOperators is ISSVOperators {
         SSVStorage.load().operators[operatorId].checkOwner();
 
         StorageData storage s = SSVStorage.load();
-        StorageProtocol storage sn = SSVStorageProtocol.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
         uint64 operatorFee = s.operators[operatorId].fee;
@@ -103,15 +103,15 @@ contract SSVOperators is ISSVOperators {
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sn.operatorMaxFeeIncrease)) /
+        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) /
             PRECISION_FACTOR;
 
         if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 
         s.operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
             shrunkFee,
-            uint64(block.timestamp) + sn.declareOperatorFeePeriod,
-            uint64(block.timestamp) + sn.declareOperatorFeePeriod + sn.executeOperatorFeePeriod
+            uint64(block.timestamp) + sp.declareOperatorFeePeriod,
+            uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod
         );
         emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
