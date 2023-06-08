@@ -8,6 +8,9 @@ import "./SSVStorageProtocol.sol";
 library ProtocolLib {
     using Types256 for uint256;
 
+    /******************************/
+    /* Network internal functions */
+    /******************************/
     function currentNetworkFeeIndex(StorageProtocol storage sn) internal view returns (uint64) {
         return sn.networkFeeIndex + uint64(block.number - sn.networkFeeIndexBlockNumber) * sn.networkFee;
     }
@@ -20,7 +23,9 @@ library ProtocolLib {
         sn.networkFee = fee.shrink();
     }
 
-    // DAO
+    /**************************/
+    /* DAO internal functions */
+    /**************************/
     function updateDAOEarnings(StorageProtocol storage sn) internal {
         sn.daoBalance = networkTotalEarnings(sn);
         sn.daoIndexBlockNumber = uint32(block.number);

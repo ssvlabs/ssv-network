@@ -3,14 +3,10 @@ pragma solidity 0.8.18;
 
 import "./interfaces/ISSVNetworkT.sol";
 
-import "../interfaces/events/IEvSSVOperators.sol";
-import "../interfaces/events/IEvSSVClusters.sol";
-import "../interfaces/events/IEvSSVDAO.sol";
-
-import "../interfaces/functions/IFnSSVViews.sol";
-import "../interfaces/functions/IFnSSVOperators.sol";
-import "../interfaces/functions/IFnSSVClusters.sol";
-import "../interfaces/functions/IFnSSVDAO.sol";
+import "../interfaces/ISSVClusters.sol";
+import "../interfaces/ISSVOperators.sol";
+import "../interfaces/ISSVDAO.sol";
+import "../interfaces/ISSVViews.sol";
 
 import "../libraries/Types.sol";
 import "../libraries/CoreLib.sol";
@@ -29,9 +25,9 @@ contract SSVNetworkUpgrade is
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
     ISSVNetworkT,
-    IEvSSVOperators,
-    IEvSSVClusters,
-    IEvSSVDAO
+    ISSVOperators,
+    ISSVClusters,
+    ISSVDAO
 {
     using Types256 for uint256;
     using ClusterLib for Cluster;
@@ -42,10 +38,10 @@ contract SSVNetworkUpgrade is
 
     function initialize(
         IERC20 token_,
-        IFnSSVOperators ssvOperators_,
-        IFnSSVClusters ssvClusters_,
-        IFnSSVDAO ssvDAO_,
-        IFnSSVViews ssvViews_,
+        ISSVOperators ssvOperators_,
+        ISSVClusters ssvClusters_,
+        ISSVDAO ssvDAO_,
+        ISSVViews ssvViews_,
         uint64 minimumBlocksBeforeLiquidation_,
         uint256 minimumLiquidationCollateral_,
         uint32 validatorsPerOperatorLimit_,
@@ -72,10 +68,10 @@ contract SSVNetworkUpgrade is
 
     function __SSVNetwork_init_unchained(
         IERC20 token_,
-        IFnSSVOperators ssvOperators_,
-        IFnSSVClusters ssvClusters_,
-        IFnSSVDAO ssvDAO_,
-        IFnSSVViews ssvViews_,
+        ISSVOperators ssvOperators_,
+        ISSVClusters ssvClusters_,
+        ISSVDAO ssvDAO_,
+        ISSVViews ssvViews_,
         uint64 minimumBlocksBeforeLiquidation_,
         uint256 minimumLiquidationCollateral_,
         uint32 validatorsPerOperatorLimit_,

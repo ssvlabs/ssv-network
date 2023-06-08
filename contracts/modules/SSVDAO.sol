@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/functions/IFnSSVDAO.sol";
-import "../interfaces/events/IEvSSVDAO.sol";
+import "../interfaces/ISSVDAO.sol";
 import "../libraries/Types.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
 
-contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
+contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
     using Types256 for uint256;
 

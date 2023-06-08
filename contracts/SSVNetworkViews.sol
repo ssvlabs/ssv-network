@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "./interfaces/functions/IFnSSVViews.sol";
+import "./interfaces/ISSVViews.sol";
 import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
@@ -10,13 +10,13 @@ import "./libraries/ProtocolLib.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, IFnSSVViews {
+contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews {
     using Types256 for uint256;
     using Types64 for uint64;
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
 
-    IFnSSVViews public ssvNetwork;
+    ISSVViews public ssvNetwork;
 
     // @dev reserve storage space for future new state variables in base contract
     // slither-disable-next-line shadowing-state
@@ -29,7 +29,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, IFnSSVView
         _disableInitializers();
     }
 
-    function initialize(IFnSSVViews ssvNetwork_) external initializer onlyProxy {
+    function initialize(ISSVViews ssvNetwork_) external initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
         ssvNetwork = ssvNetwork_;

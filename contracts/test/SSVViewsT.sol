@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/functions/IFnSSVViews.sol";
+import "../interfaces/ISSVViews.sol";
 import "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
@@ -9,7 +9,7 @@ import "../libraries/ProtocolLib.sol";
 import "./libraries/CoreLibT.sol";
 import {SSVStorageT as SSVStorageUpgrade} from "./libraries/SSVStorageT.sol";
 
-contract SSVViewsT is IFnSSVViews {
+contract SSVViewsT is ISSVViews {
     using Types64 for uint64;
 
     using ClusterLib for Cluster;

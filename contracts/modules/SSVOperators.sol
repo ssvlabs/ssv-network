@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/functions/IFnSSVOperators.sol";
-import "../interfaces/events/IEvSSVOperators.sol";
+import "../interfaces/ISSVOperators.sol";
 import "../libraries/Types.sol";
 import "../libraries/SSVStorage.sol";
 import "../libraries/SSVStorageProtocol.sol";
@@ -11,7 +10,7 @@ import "../libraries/CoreLib.sol";
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SSVOperators is IFnSSVOperators, IEvSSVOperators {
+contract SSVOperators is ISSVOperators {
     uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
 
