@@ -5,7 +5,7 @@ import "./interfaces/functions/IFnSSVViews.sol";
 import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
-import "./libraries/SystemLib.sol";
+import "./libraries/ProtocolLib.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";

@@ -5,7 +5,7 @@ import "../interfaces/ISSVNetworkCore.sol";
 import "../SSVNetwork.sol";
 import "./SSVStorageNetwork.sol";
 
-library SystemLib {
+library ProtocolLib {
     using Types256 for uint256;
 
     function currentNetworkFeeIndex(StorageNetwork storage sn) internal view returns (uint64) {

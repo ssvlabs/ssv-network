@@ -5,7 +5,7 @@ import "../interfaces/functions/IFnSSVViews.sol";
 import "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
-import "../libraries/SystemLib.sol";
+import "../libraries/ProtocolLib.sol";
 import "./libraries/CoreLibT.sol";
 import {SSVStorageT as SSVStorageUpgrade} from "./libraries/SSVStorageT.sol";
 
@@ -14,7 +14,7 @@ contract SSVViewsT is IFnSSVViews {
 
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
-    using SystemLib for StorageNetwork;
+    using ProtocolLib for StorageNetwork;
     /*************************************/
     /* Validator External View Functions */
     /*************************************/

@@ -6,7 +6,7 @@ import "../interfaces/events/IEvSSVClusters.sol";
 import "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
-import "../libraries/SystemLib.sol";
+import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
 import "../libraries/SSVStorageNetwork.sol";
@@ -14,7 +14,7 @@ import "../libraries/SSVStorageNetwork.sol";
 contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
-    using SystemLib for StorageNetwork;
+    using ProtocolLib for StorageNetwork;
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;
     uint64 private constant MODULO_OPERATORS_LENGTH = 3;
