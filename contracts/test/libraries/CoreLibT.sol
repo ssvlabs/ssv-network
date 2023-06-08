@@ -6,7 +6,7 @@ import "../../libraries/SSVStorage.sol";
 library CoreLibT {
 
     function getVersion() internal pure returns (string memory) {
-        return "v0.3.2-rc0";
+        return "v1.0.0";
     }
 
     function transfer(address to, uint256 amount) internal {
