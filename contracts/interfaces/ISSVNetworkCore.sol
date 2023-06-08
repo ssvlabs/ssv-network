@@ -58,33 +58,33 @@ interface ISSVNetworkCore {
     /* Errors */
     /**********/
 
-    error CallerNotOwner();
-    error CallerNotWhitelisted();
-    error FeeTooLow();
-    error FeeExceedsIncreaseLimit();
-    error NoFeeDeclared();
-    error ApprovalNotWithinTimeframe();
-    error OperatorDoesNotExist();
-    error InsufficientBalance();
-    error ValidatorAlreadyExists();
-    error ValidatorDoesNotExist();
-    error IncorrectValidatorState();
-    error ClusterNotLiquidatable();
-    error InvalidPublicKeyLength();
-    error InvalidOperatorIdsLength();
-    error ClusterAlreadyEnabled();
-    error ClusterIsLiquidated();
-    error ClusterDoesNotExists();
-    error IncorrectClusterState();
-    error UnsortedOperatorsList();
-    error NewBlockPeriodIsBelowMinimum();
-    error ExceedValidatorLimit();
-    error TokenTransferFailed();
-    error SameFeeChangeNotAllowed();
-    error FeeIncreaseNotAllowed();
-    error NotAuthorized();
-    error OperatorsListNotUnique();
-    error OperatorAlreadyExists();
-    error TargetModuleDoesNotExist();
-    error MaxValueExceeded();
+    error CallerNotOwner(); // 0x5cd83192
+    error CallerNotWhitelisted(); // 0x8c6e5d71
+    error FeeTooLow(); // 0x732f9413
+    error FeeExceedsIncreaseLimit(); // 0x958065d9
+    error NoFeeDeclared(); // 0x1d226c30
+    error ApprovalNotWithinTimeframe(); // 0x97e4b518
+    error OperatorDoesNotExist(); // 0x961e3e8c
+    error InsufficientBalance(); // 0xf4d678b8
+    error ValidatorAlreadyExists(); // 0x8d09a73e
+    error ValidatorDoesNotExist(); // 0xe51315d2
+    error IncorrectValidatorState(); // 0x2feda3c1
+    error ClusterNotLiquidatable(); // 0x60300a8d
+    error InvalidPublicKeyLength(); // 0x637297a4
+    error InvalidOperatorIdsLength(); // 0x38186224
+    error ClusterAlreadyEnabled(); // 0x3babafd2
+    error ClusterIsLiquidated(); // 0x95a0cf33
+    error ClusterDoesNotExists(); // 0x185e2b16
+    error IncorrectClusterState(); // 0x12e04c87
+    error UnsortedOperatorsList(); // 0xdd020e25
+    error NewBlockPeriodIsBelowMinimum(); // 0x6e6c9cac
+    error ExceedValidatorLimit(); // 0x6df5ab76
+    error TokenTransferFailed(); // 0x045c4b02
+    error SameFeeChangeNotAllowed(); // 0xc81272f8
+    error FeeIncreaseNotAllowed(); // 0x410a2b6c
+    error NotAuthorized(); // 0xea8e4eb5
+    error OperatorsListNotUnique(); // 0xa5a1ff5d
+    error OperatorAlreadyExists(); // 0x289c9494
+    error TargetModuleDoesNotExist(); // 0x8f9195fb
+    error MaxValueExceeded(); // 0x91aa3017
 }
