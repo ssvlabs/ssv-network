@@ -162,7 +162,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             revert IncorrectValidatorState();
         }
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds);
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
 
         {
             if (cluster.active) {
@@ -187,7 +187,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedClusterS(owner, operatorIds, s);
+        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sn = SSVStorageProtocol.load();
@@ -235,10 +235,11 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     }
 
     function reactivate(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds);
+        StorageData storage s = SSVStorage.load();
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         if (cluster.active) revert ClusterAlreadyEnabled();
 
-        StorageData storage s = SSVStorage.load();
         StorageProtocol storage sn = SSVStorageProtocol.load();
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(operatorIds, true, cluster.validatorCount, s);
@@ -276,11 +277,13 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         uint256 amount,
         Cluster memory cluster
     ) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds);
+        StorageData storage s = SSVStorage.load();
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, s);
 
         cluster.balance += amount;
 
-        SSVStorage.load().clusters[hashedCluster] = cluster.hashClusterData();
+        s.clusters[hashedCluster] = cluster.hashClusterData();
 
         CoreLib.deposit(amount);
 
@@ -288,10 +291,11 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     }
 
     function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds);
+        StorageData storage s = SSVStorage.load();
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
-        StorageData storage s = SSVStorage.load();
         StorageProtocol storage sn = SSVStorageProtocol.load();
 
         uint64 burnRate;

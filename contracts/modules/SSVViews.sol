@@ -74,7 +74,7 @@ contract SSVViews is IFnSSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        cluster.validateHashedCluster(owner, operatorIds);
+        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
 
         if (!cluster.active) {
             return false;
@@ -106,7 +106,7 @@ contract SSVViews is IFnSSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        cluster.validateHashedCluster(owner, operatorIds);
+        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
         return !cluster.active;
     }
 
@@ -115,7 +115,7 @@ contract SSVViews is IFnSSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view returns (uint256) {
-        cluster.validateHashedCluster(owner, operatorIds);
+        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
 
         uint64 aggregateFee;
         uint operatorsLength = operatorIds.length;
@@ -146,7 +146,7 @@ contract SSVViews is IFnSSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        cluster.validateHashedCluster(owner, operatorIds);
+        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;

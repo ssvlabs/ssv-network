@@ -32,40 +32,11 @@ library ClusterLib {
         return cluster.balance < liquidationThreshold.expand();
     }
 
-    function isLiquidatableS(
-        ISSVNetworkCore.Cluster memory cluster,
-        uint64 burnRate,
-        StorageProtocol storage sn
-    ) internal view returns (bool) {
-        if (cluster.balance < sn.minimumLiquidationCollateral.expand()) return true;
-        uint64 liquidationThreshold = sn.minimumBlocksBeforeLiquidation * (burnRate + sn.networkFee) * cluster.validatorCount;
-
-        return cluster.balance < liquidationThreshold.expand();
-    }
-
     function validateClusterIsNotLiquidated(ISSVNetworkCore.Cluster memory cluster) internal pure {
         if (!cluster.active) revert ISSVNetworkCore.ClusterIsLiquidated();
     }
 
     function validateHashedCluster(
-        ISSVNetworkCore.Cluster memory cluster,
-        address owner,
-        uint64[] memory operatorIds
-    ) internal view returns (bytes32) {
-        bytes32 hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
-        bytes32 hashedClusterData = hashClusterData(cluster);
-
-        bytes32 clusterData = SSVStorage.load().clusters[hashedCluster];
-        if (clusterData == bytes32(0)) {
-            revert ISSVNetworkCore.ClusterDoesNotExists();
-        } else if (clusterData != hashedClusterData) {
-            revert ISSVNetworkCore.IncorrectClusterState();
-        }
-
-        return hashedCluster;
-    }
-
-    function validateHashedClusterS(
         ISSVNetworkCore.Cluster memory cluster,
         address owner,
         uint64[] memory operatorIds,
