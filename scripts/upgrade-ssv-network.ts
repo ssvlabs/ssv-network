@@ -7,9 +7,7 @@ async function upgradeSSVNetwork() {
 
   await upgrades.upgradeProxy(proxyAddress, SSVNetwork,
     {
-      kind: 'uups',
-      unsafeAllow: ['state-variable-immutable', 'constructor'],
-      constructorArgs: []
+      kind: 'uups'
     });
   console.log("SSVNetwork upgraded successfully");
 }
