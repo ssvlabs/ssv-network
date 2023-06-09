@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/functions/IFnSSVClusters.sol";
-import "../interfaces/events/IEvSSVClusters.sol";
+import "../interfaces/ISSVClusters.sol";
 import "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
-import "../libraries/DAOLib.sol";
-import "../libraries/NetworkLib.sol";
+import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
+import "../libraries/SSVStorageProtocol.sol";
 
-contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
+contract SSVClusters is ISSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
-    using NetworkLib for Network;
-    using DAOLib for DAO;
-
+    using ProtocolLib for StorageProtocol;
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;
     uint64 private constant MODULO_OPERATORS_LENGTH = 3;
@@ -30,6 +27,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         Cluster memory cluster
     ) external override {
         StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint operatorsLength = operatorIds.length;
         {
@@ -103,7 +101,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
                     revert CallerNotWhitelisted();
                 }
                 operator.updateSnapshot();
-                if (++operator.validatorCount > s.validatorsPerOperatorLimit) {
+                if (++operator.validatorCount > sp.validatorsPerOperatorLimit) {
                     revert ExceedValidatorLimit();
                 }
                 clusterIndex += operator.snapshot.index;
@@ -115,9 +113,9 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
                     ++i;
                 }
             }
-            cluster.updateClusterData(clusterIndex, s.network.currentNetworkFeeIndex());
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
-            s.dao.updateDAO(true, 1);
+            sp.updateDAO(true, 1);
         }
 
         ++cluster.validatorCount;
@@ -125,9 +123,9 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         if (
             cluster.isLiquidatable(
                 burnRate,
-                s.network.networkFee,
-                s.minimumBlocksBeforeLiquidation,
-                s.minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             )
         ) {
             revert InsufficientBalance();
@@ -163,15 +161,16 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             revert IncorrectValidatorState();
         }
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds);
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
 
         {
             if (cluster.active) {
                 (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s);
+                StorageProtocol storage sp = SSVStorageProtocol.load();
 
-                cluster.updateClusterData(clusterIndex, s.network.currentNetworkFeeIndex());
+                cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
-                s.dao.updateDAO(false, 1);
+                sp.updateDAO(false, 1);
             }
         }
 
@@ -185,10 +184,12 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     }
 
     function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds);
+        StorageData storage s = SSVStorage.load();
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
-        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
             operatorIds,
@@ -197,7 +198,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             s
         );
 
-        cluster.updateBalance(clusterIndex, s.network.currentNetworkFeeIndex());
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
 
         uint256 balanceLiquidatable;
 
@@ -205,15 +206,15 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             owner != msg.sender &&
             !cluster.isLiquidatable(
                 burnRate,
-                s.network.networkFee,
-                s.minimumBlocksBeforeLiquidation,
-                s.minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             )
         ) {
             revert ClusterNotLiquidatable();
         }
 
-        s.dao.updateDAO(false, cluster.validatorCount);
+        sp.updateDAO(false, cluster.validatorCount);
 
         if (cluster.balance != 0) {
             balanceLiquidatable = cluster.balance;
@@ -233,28 +234,28 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     }
 
     function reactivate(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds);
+        StorageData storage s = SSVStorage.load();
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         if (cluster.active) revert ClusterAlreadyEnabled();
 
-        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(operatorIds, true, cluster.validatorCount, s);
 
         cluster.balance += amount;
         cluster.active = true;
         cluster.index = clusterIndex;
-        cluster.networkFeeIndex = s.network.currentNetworkFeeIndex();
+        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
 
-        uint64 networkFee = s.network.networkFee;
-
-        s.dao.updateDAO(true, cluster.validatorCount);
+        sp.updateDAO(true, cluster.validatorCount);
 
         if (
             cluster.isLiquidatable(
                 burnRate,
-                networkFee,
-                s.minimumBlocksBeforeLiquidation,
-                s.minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             )
         ) {
             revert InsufficientBalance();
@@ -275,11 +276,13 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
         uint256 amount,
         Cluster memory cluster
     ) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds);
+        StorageData storage s = SSVStorage.load();
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, s);
 
         cluster.balance += amount;
 
-        SSVStorage.load().clusters[hashedCluster] = cluster.hashClusterData();
+        s.clusters[hashedCluster] = cluster.hashClusterData();
 
         CoreLib.deposit(amount);
 
@@ -287,10 +290,12 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
     }
 
     function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds);
+        StorageData storage s = SSVStorage.load();
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
-        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint64 burnRate;
         if (cluster.active) {
@@ -310,7 +315,7 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
                 }
             }
 
-            cluster.updateClusterData(clusterIndex, s.network.currentNetworkFeeIndex());
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
         }
         if (cluster.balance < amount) revert InsufficientBalance();
 
@@ -321,9 +326,9 @@ contract SSVClusters is IFnSSVClusters, IEvSSVClusters {
             cluster.validatorCount != 0 &&
             cluster.isLiquidatable(
                 burnRate,
-                s.network.networkFee,
-                s.minimumBlocksBeforeLiquidation,
-                s.minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             )
         ) {
             revert InsufficientBalance();

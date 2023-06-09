@@ -1,45 +1,41 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/functions/IFnSSVDAO.sol";
-import "../interfaces/events/IEvSSVDAO.sol";
+import "../interfaces/ISSVDAO.sol";
 import "../libraries/Types.sol";
 import "../libraries/OperatorLib.sol";
-import "../libraries/NetworkLib.sol";
-import "../libraries/DAOLib.sol";
+import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/SSVStorage.sol";
 
-contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
+contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
     using Types256 for uint256;
 
-    using NetworkLib for Network;
-    using DAOLib for DAO;
-
+    using ProtocolLib for StorageProtocol;
+    
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
 
     function updateNetworkFee(uint256 fee) external override {
-        uint64 previousFee = SSVStorage.load().network.networkFee;
+        uint64 previousFee = SSVStorageProtocol.load().networkFee;
 
-        SSVStorage.load().network.updateNetworkFee(fee);
+        SSVStorageProtocol.load().updateNetworkFee(fee);
 
         emit NetworkFeeUpdated(previousFee, fee);
     }
 
     function withdrawNetworkEarnings(uint256 amount) external override {
-        DAO memory dao_ = SSVStorage.load().dao;
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint64 shrunkAmount = amount.shrink();
 
-        uint64 networkBalance = dao_.networkTotalEarnings(SSVStorage.load().network.networkFee);
+        uint64 networkBalance = sp.networkTotalEarnings();
 
         if (shrunkAmount > networkBalance) {
             revert InsufficientBalance();
         }
 
-        dao_.balance = networkBalance - shrunkAmount;
-        SSVStorage.load().dao = dao_;
+        sp.daoBalance = networkBalance - shrunkAmount;
 
         CoreLib.transferBalance(msg.sender, amount);
 
@@ -47,17 +43,17 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
     }
 
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external override {
-        SSVStorage.load().operatorFeeConfig.operatorMaxFeeIncrease = percentage;
+        SSVStorageProtocol.load().operatorMaxFeeIncrease = percentage;
         emit OperatorFeeIncreaseLimitUpdated(percentage);
     }
 
     function updateDeclareOperatorFeePeriod(uint64 timeInSeconds) external override {
-        SSVStorage.load().operatorFeeConfig.declareOperatorFeePeriod = timeInSeconds;
+        SSVStorageProtocol.load().declareOperatorFeePeriod = timeInSeconds;
         emit DeclareOperatorFeePeriodUpdated(timeInSeconds);
     }
 
     function updateExecuteOperatorFeePeriod(uint64 timeInSeconds) external override {
-        SSVStorage.load().operatorFeeConfig.executeOperatorFeePeriod = timeInSeconds;
+        SSVStorageProtocol.load().executeOperatorFeePeriod = timeInSeconds;
         emit ExecuteOperatorFeePeriodUpdated(timeInSeconds);
     }
 
@@ -66,12 +62,12 @@ contract SSVDAO is IFnSSVDAO, IEvSSVDAO {
             revert NewBlockPeriodIsBelowMinimum();
         }
 
-        SSVStorage.load().minimumBlocksBeforeLiquidation = blocks;
+        SSVStorageProtocol.load().minimumBlocksBeforeLiquidation = blocks;
         emit LiquidationThresholdPeriodUpdated(blocks);
     }
 
     function updateMinimumLiquidationCollateral(uint256 amount) external override {
-        SSVStorage.load().minimumLiquidationCollateral = amount.shrink();
+        SSVStorageProtocol.load().minimumLiquidationCollateral = amount.shrink();
         emit MinimumLiquidationCollateralUpdated(amount);
     }
 }

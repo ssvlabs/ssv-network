@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/functions/IFnSSVViews.sol";
+import "../interfaces/ISSVViews.sol";
 import "../libraries/Types.sol";
-import "../libraries/DAOLib.sol";
-import "../libraries/NetworkLib.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
+import "../libraries/ProtocolLib.sol";
 import "./libraries/CoreLibT.sol";
 import {SSVStorageT as SSVStorageUpgrade} from "./libraries/SSVStorageT.sol";
 
-contract SSVViewsT is IFnSSVViews {
+contract SSVViewsT is ISSVViews {
     using Types64 for uint64;
 
-    using DAOLib for DAO;
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
-
+    using ProtocolLib for StorageProtocol;
     /*************************************/
     /* Validator External View Functions */
     /*************************************/
@@ -42,7 +40,9 @@ contract SSVViewsT is IFnSSVViews {
     }
 
     function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint64, uint64) {
-        OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorageUpgrade.load().operatorFeeChangeRequests[operatorId];
+        OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorageUpgrade.load().operatorFeeChangeRequests[
+            operatorId
+        ];
 
         if (opFeeChangeRequest.fee == 0) {
             revert NoFeeDeclared();
@@ -73,7 +73,7 @@ contract SSVViewsT is IFnSSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        cluster.validateHashedCluster(owner, operatorIds);
+        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
 
         if (!cluster.active) {
             return false;
@@ -83,20 +83,20 @@ contract SSVViewsT is IFnSSVViews {
         uint64 burnRate;
         uint operatorsLength = operatorIds.length;
         for (uint i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorageUpgrade.load().operators[operatorIds[i]];
+            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
             burnRate += operator.fee;
         }
 
-        Network storage network = SSVStorageUpgrade.load().network;
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
         return
             cluster.isLiquidatable(
                 burnRate,
-                network.networkFee,
-                SSVStorageUpgrade.load().minimumBlocksBeforeLiquidation,
-                SSVStorageUpgrade.load().minimumLiquidationCollateral
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
             );
     }
 
@@ -105,7 +105,7 @@ contract SSVViewsT is IFnSSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        cluster.validateHashedCluster(owner, operatorIds);
+        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
         return !cluster.active;
     }
 
@@ -114,7 +114,7 @@ contract SSVViewsT is IFnSSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view returns (uint256) {
-        cluster.validateHashedCluster(owner, operatorIds);
+        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
 
         uint64 aggregateFee;
         uint operatorsLength = operatorIds.length;
@@ -125,7 +125,7 @@ contract SSVViewsT is IFnSSVViews {
             }
         }
 
-        uint64 burnRate = (aggregateFee + SSVStorageUpgrade.load().network.networkFee) * cluster.validatorCount;
+        uint64 burnRate = (aggregateFee + SSVStorageProtocol.load().networkFee) * cluster.validatorCount;
         return burnRate.expand();
     }
 
@@ -145,14 +145,14 @@ contract SSVViewsT is IFnSSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        cluster.validateHashedCluster(owner, operatorIds);
+        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
         {
             uint operatorsLength = operatorIds.length;
             for (uint i; i < operatorsLength; ++i) {
-                Operator memory operator = SSVStorageUpgrade.load().operators[operatorIds[i]];
+                Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
                 clusterIndex +=
                     operator.snapshot.index +
                     (uint64(block.number) - operator.snapshot.block) *
@@ -160,7 +160,7 @@ contract SSVViewsT is IFnSSVViews {
             }
         }
 
-        cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(SSVStorageUpgrade.load().network));
+        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndex());
 
         return cluster.balance;
     }
@@ -170,15 +170,15 @@ contract SSVViewsT is IFnSSVViews {
     /*******************************/
 
     function getNetworkFee() external view override returns (uint256) {
-        return SSVStorageUpgrade.load().network.networkFee.expand();
+        return SSVStorageProtocol.load().networkFee.expand();
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
-        return SSVStorageUpgrade.load().dao.networkTotalEarnings(SSVStorageUpgrade.load().network.networkFee).expand();
+        return SSVStorageProtocol.load().networkTotalEarnings().expand();
     }
 
     function getOperatorFeeIncreaseLimit() external view override returns (uint64 operatorMaxFeeIncrease) {
-        return SSVStorageUpgrade.load().operatorFeeConfig.operatorMaxFeeIncrease;
+        return SSVStorageProtocol.load().operatorMaxFeeIncrease;
     }
 
     function getOperatorFeePeriods()
@@ -187,16 +187,15 @@ contract SSVViewsT is IFnSSVViews {
         override
         returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod)
     {
-        OperatorFeeConfig memory opFeeConfig = SSVStorageUpgrade.load().operatorFeeConfig;
-        return (opFeeConfig.declareOperatorFeePeriod, opFeeConfig.executeOperatorFeePeriod);
+        return (SSVStorageProtocol.load().declareOperatorFeePeriod, SSVStorageProtocol.load().executeOperatorFeePeriod);
     }
 
     function getLiquidationThresholdPeriod() external view override returns (uint64) {
-        return SSVStorageUpgrade.load().minimumBlocksBeforeLiquidation;
+        return SSVStorageProtocol.load().minimumBlocksBeforeLiquidation;
     }
 
     function getMinimumLiquidationCollateral() external view override returns (uint256) {
-        return SSVStorageUpgrade.load().minimumLiquidationCollateral.expand();
+        return SSVStorageProtocol.load().minimumLiquidationCollateral.expand();
     }
 
     function getVersion() external pure returns (string memory version) {

@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/functions/IFnSSVOperators.sol";
-import "../interfaces/events/IEvSSVOperators.sol";
+import "../interfaces/ISSVOperators.sol";
 import "../libraries/Types.sol";
 import "../libraries/SSVStorage.sol";
+import "../libraries/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SSVOperators is IFnSSVOperators, IEvSSVOperators {
+contract SSVOperators is ISSVOperators {
     uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
 
@@ -90,6 +90,7 @@ contract SSVOperators is IFnSSVOperators, IEvSSVOperators {
         SSVStorage.load().operators[operatorId].checkOwner();
 
         StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
         uint64 operatorFee = s.operators[operatorId].fee;
@@ -101,17 +102,16 @@ contract SSVOperators is IFnSSVOperators, IEvSSVOperators {
             revert FeeIncreaseNotAllowed();
         }
 
-        OperatorFeeConfig memory opFeeConfig = s.operatorFeeConfig;
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + opFeeConfig.operatorMaxFeeIncrease)) /
+        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) /
             PRECISION_FACTOR;
 
         if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 
         s.operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
             shrunkFee,
-            uint64(block.timestamp) + opFeeConfig.declareOperatorFeePeriod,
-            uint64(block.timestamp) + opFeeConfig.declareOperatorFeePeriod + opFeeConfig.executeOperatorFeePeriod
+            uint64(block.timestamp) + sp.declareOperatorFeePeriod,
+            uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod
         );
         emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }

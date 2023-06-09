@@ -2,21 +2,21 @@
 pragma solidity 0.8.18;
 
 import "../../interfaces/ISSVNetworkCore.sol";
-import "../../interfaces/functions/IFnSSVOperators.sol";
-import "../../interfaces/functions/IFnSSVClusters.sol";
-import "../../interfaces/functions/IFnSSVDAO.sol";
-import "../../interfaces/functions/IFnSSVViews.sol";
+import "../../interfaces/ISSVOperators.sol";
+import "../../interfaces/ISSVClusters.sol";
+import "../../interfaces/ISSVDAO.sol";
+import "../../interfaces/ISSVViews.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../../libraries/RegisterAuth.sol";
 
-interface ISSVNetworkT is ISSVNetworkCore, IFnSSVOperators, IFnSSVClusters, IFnSSVDAO {
+interface ISSVNetworkT {
     function initialize(
         IERC20 token_,
-        IFnSSVOperators ssvOperators_,
-        IFnSSVClusters ssvClusters_,
-        IFnSSVDAO ssvDAO_,
-        IFnSSVViews ssvViews_,
+        ISSVOperators ssvOperators_,
+        ISSVClusters ssvClusters_,
+        ISSVDAO ssvDAO_,
+        ISSVViews ssvViews_,
         uint64 minimumBlocksBeforeLiquidation_,
         uint256 minimumLiquidationCollateral_,
         uint32 validatorsPerOperatorLimit_,

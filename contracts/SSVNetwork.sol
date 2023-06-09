@@ -3,18 +3,15 @@ pragma solidity 0.8.18;
 
 import "./interfaces/ISSVNetwork.sol";
 
-import "./interfaces/events/IEvSSVOperators.sol";
-import "./interfaces/events/IEvSSVClusters.sol";
-import "./interfaces/events/IEvSSVDAO.sol";
-
-import "./interfaces/functions/IFnSSVViews.sol";
-import "./interfaces/functions/IFnSSVOperators.sol";
-import "./interfaces/functions/IFnSSVClusters.sol";
-import "./interfaces/functions/IFnSSVDAO.sol";
+import "./interfaces/ISSVClusters.sol";
+import "./interfaces/ISSVOperators.sol";
+import "./interfaces/ISSVDAO.sol";
+import "./interfaces/ISSVViews.sol";
 
 import "./libraries/Types.sol";
 import "./libraries/CoreLib.sol";
 import "./libraries/SSVStorage.sol";
+import "./libraries/SSVStorageProtocol.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/RegisterAuth.sol";
@@ -29,9 +26,9 @@ contract SSVNetwork is
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
     ISSVNetwork,
-    IEvSSVOperators,
-    IEvSSVClusters,
-    IEvSSVDAO
+    ISSVOperators,
+    ISSVClusters,
+    ISSVDAO
 {
     using Types256 for uint256;
     using ClusterLib for Cluster;
@@ -42,10 +39,10 @@ contract SSVNetwork is
 
     function initialize(
         IERC20 token_,
-        IFnSSVOperators ssvOperators_,
-        IFnSSVClusters ssvClusters_,
-        IFnSSVDAO ssvDAO_,
-        IFnSSVViews ssvViews_,
+        ISSVOperators ssvOperators_,
+        ISSVClusters ssvClusters_,
+        ISSVDAO ssvDAO_,
+        ISSVViews ssvViews_,
         uint64 minimumBlocksBeforeLiquidation_,
         uint256 minimumLiquidationCollateral_,
         uint32 validatorsPerOperatorLimit_,
@@ -72,10 +69,10 @@ contract SSVNetwork is
 
     function __SSVNetwork_init_unchained(
         IERC20 token_,
-        IFnSSVOperators ssvOperators_,
-        IFnSSVClusters ssvClusters_,
-        IFnSSVDAO ssvDAO_,
-        IFnSSVViews ssvViews_,
+        ISSVOperators ssvOperators_,
+        ISSVClusters ssvClusters_,
+        ISSVDAO ssvDAO_,
+        ISSVViews ssvViews_,
         uint64 minimumBlocksBeforeLiquidation_,
         uint256 minimumLiquidationCollateral_,
         uint32 validatorsPerOperatorLimit_,
@@ -84,19 +81,18 @@ contract SSVNetwork is
         uint64 operatorMaxFeeIncrease_
     ) internal onlyInitializing {
         StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
         s.token = token_;
         s.ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
         s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
         s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
         s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
-        s.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        s.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        s.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
-        s.operatorFeeConfig = OperatorFeeConfig({
-            declareOperatorFeePeriod: declareOperatorFeePeriod_,
-            executeOperatorFeePeriod: executeOperatorFeePeriod_,
-            operatorMaxFeeIncrease: operatorMaxFeeIncrease_
-        });
+        sp.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        sp.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
+        sp.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        sp.declareOperatorFeePeriod = declareOperatorFeePeriod_;
+        sp.executeOperatorFeePeriod = executeOperatorFeePeriod_;
+        sp.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
     }
 
     /*****************/

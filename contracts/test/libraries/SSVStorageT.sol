@@ -23,14 +23,8 @@ library SSVStorageT {
 
     struct StorageData {
         bytes32 version;
-        ISSVNetworkCore.Network network;
-        ISSVNetworkCore.DAO dao;
         IERC20 token;
-        ISSVNetworkCore.OperatorFeeConfig operatorFeeConfig;
         Counters.Counter lastOperatorId;
-        uint32 validatorsPerOperatorLimit;
-        uint64 minimumBlocksBeforeLiquidation;
-        uint64 minimumLiquidationCollateral;
         mapping(SSVModules => address) ssvContracts;
         mapping(bytes32 => uint64) operatorsPKs;
         mapping(uint64 => ISSVNetworkCore.Operator) operators;
@@ -46,14 +40,5 @@ library SSVStorageT {
         assembly {
             sd.slot := position
         }
-    }
-
-    function getMinimumBlocksBeforeLiquidation() internal view returns (uint64) {
-        return load().minimumBlocksBeforeLiquidation;
-    }
-
-    function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
-        load().ssvContracts[moduleId] = moduleAddress;
-        emit ModuleUpgraded(moduleId, moduleAddress);
     }
 }

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "./../ISSVNetworkCore.sol";
+import "./ISSVNetworkCore.sol";
 
-interface IFnSSVViews is ISSVNetworkCore {
+interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets the validator status
     /// @param owner The address of the validator's owner
     /// @param publicKey The public key of the validator
