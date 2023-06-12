@@ -1,6 +1,6 @@
 # SSV Network
 
-### [Intro](../README.md) | [Setup](setup.md) | Architecture 
+### [Intro](../README.md) | Architecture | [Setup](setup.md) | [Tasks](tasks.md) |  [Local development](local-dev.md)
 
 ## Contract Architecture
 

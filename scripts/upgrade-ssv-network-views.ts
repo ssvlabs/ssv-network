@@ -7,8 +7,11 @@ async function upgradeSSVNetworkViews() {
 
   const SSVNetworkViews = await ethers.getContractFactory("SSVNetworkViews_V2");
 
-  await upgrades.upgradeProxy(proxyAddress, SSVNetworkViews, { kind: 'uups' });
+  const ssvNetworkViews = await upgrades.upgradeProxy(proxyAddress, SSVNetworkViews, { kind: 'uups' });
   console.log("SSVNetworkViews upgraded successfully");
+
+  const implAddress = await upgrades.erc1967.getImplementationAddress(ssvNetworkViews.address);
+  console.log(`SSVNetwork implementation deployed to: ${implAddress}`);
 }
 
 upgradeSSVNetworkViews()

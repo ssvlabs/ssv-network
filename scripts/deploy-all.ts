@@ -25,7 +25,7 @@ async function deploy() {
   // Deploy ssvClustersMod
   const ssvClustersMod = await ssvClustersModFactory.deploy();
   await ssvClustersMod.deployed();
-  console.log(`SSVClsuters module deployed to: ${ssvClustersMod.address}`);
+  console.log(`SSVClusters module deployed to: ${ssvClustersMod.address}`);
 
   // Deploy ssvDAOMod
   const ssvDAOMod = await ssvDAOModFactory.deploy();

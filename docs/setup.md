@@ -1,6 +1,7 @@
 # SSV Network
 
-### [Intro](../README.md) | Setup | [Architecture](architecture.md) 
+### [Intro](../README.md) | [Architecture](architecture.md) | Setup | [Tasks](tasks.md) |  [Local development](local-dev.md)
+ 
 
 ## Developer Setup
 The stack is a simple one:
