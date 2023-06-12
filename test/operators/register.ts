@@ -64,6 +64,17 @@ describe('Register Operator Tests', () => {
       ]);
   });
 
+  it('Set operator whitelist gas limits', async () => {
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(0),
+      helpers.CONFIG.minimalOperatorFee
+    );
+
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(1, helpers.DB.owners[2].address), 
+    [GasGroup.SET_OPERATOR_WHITELIST]);
+   
+  });
+
   it('Get non-existent operator by id', async () => {
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(0),

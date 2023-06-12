@@ -1,6 +1,7 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
 let ssvNetworkContract: any, ssvViews: any, networkFee: any;
@@ -18,6 +19,11 @@ describe('Liquidation Threshold Tests', () => {
 
   it('Change liquidation threshold period emits "LiquidationThresholdPeriodUpdated"', async () => {
     await expect(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10)).to.emit(ssvNetworkContract, 'LiquidationThresholdPeriodUpdated').withArgs(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
+  });
+
+  it('Change liquidation threshold period gas limits', async () => {
+    await trackGas(ssvNetworkContract.updateLiquidationThresholdPeriod(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10), 
+    [GasGroup.CHANGE_LIQUIDATION_THRESHOLD_PERIOD]);
   });
 
   it('Get liquidation threshold period', async () => {
