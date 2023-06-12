@@ -1,7 +1,7 @@
 # SSV Network Project
 
 
-This repository contains a SSVNetwork smart contacts project.
+This repository contains a SSVNetwork smart contracts project.
 
 ## Quick start
 
@@ -24,7 +24,7 @@ npx hardhat node
 ```
 
 For more details about it and how to use MainNet forking you can find [here](https://hardhat.org/hardhat-network/).
-  
+
 
 ### Compile contracts
 
@@ -38,7 +38,7 @@ To compile them, simply run:
 ```sh
 npx hardhat compile
 ```
-  
+
 ## CI/CD Workflow  
 
 ### Step 1: Test contracts
@@ -48,7 +48,7 @@ Take a look at `test/` folder, you should be able to find tests related to speci
 It comes with tests that use [Ethers.js](https://github.com/ethers-io/ethers.js/).
 
 To run tests, run:
- 
+
 ```sh
 npx hardhat test
 ```
@@ -66,7 +66,7 @@ To deploy the contract we will use a Hardhat script. Inside `scripts/` you will 
 - `upgrade-ssv-network-views`: Upgrades `SSVNetworkViews` contract.
 
 As general rule, you can target any network configured in the `hardhat.config.ts`, specifying the right [network]_ETH_NODE_URL and [network]_OWNER_PRIVATE_KEY in `.env` file.
-  
+
 #### Deploy SSV Network
 
 Before run the cli command, in `.env` need to add the following seetings:
@@ -122,7 +122,7 @@ You will find 2 `[impls.<hash>]` entries, one for `SSVNetwork` and another for `
 Run this verification process for both.
 
 You can take it from the output of the `deploy-all.ts` script.
- 
+
 
 To verify an implementation contract, run this:
 
@@ -143,13 +143,13 @@ https://goerli.etherscan.io/address/0x2279b7dea8ba1bb59a0056f6a5eabd443d47ec78#c
 ```
 
 After this action, you can go to the proxy contract in Etherscan and start interacting with it.
-  
+
 ## Upgrade process
 ### Upgrade SSVNetwork contract
 
 Once we have tested our new implementation, for example `contracts/SSVNetwork_V2.sol` we can prepare the upgrade.
 
-  
+
 In `.env` file, remember to set `SSVNETWORK_PROXY_ADDRESS` with the address of the `SSVNetwork` proxy contract.
 
 To validate the upgrade before running it:
