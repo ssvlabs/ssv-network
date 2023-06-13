@@ -74,7 +74,7 @@ describe('Others Operator Tests', () => {
       .to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
   });
 
-  it.only('Get the maximum number of validators per operator', async () => {
+  it('Get the maximum number of validators per operator', async () => {
     expect(await ssvViews.getValidatorsPerOperatorLimit()).to.equal(helpers.CONFIG.validatorsPerOperatorLimit);
   });
 
