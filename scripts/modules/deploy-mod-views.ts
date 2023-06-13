@@ -12,7 +12,7 @@ async function deploy() {
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
   const ssvViewsModFactory = await ethers.getContractFactory('SSVViews');
 
-  // Deploy ssvOperatorsMod
+  // Deploy ssvViewsMod
   const ssvViewsMod = await ssvViewsModFactory.deploy();
   await ssvViewsMod.deployed();
   console.log(`SSVViewsMod module deployed to: ${ssvViewsMod.address}`);
