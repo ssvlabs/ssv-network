@@ -86,6 +86,10 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return amount The minimum amount of collateral for liquidation (SSV)
     function getMinimumLiquidationCollateral() external view returns (uint256 amount);
 
+    /// @notice Gets the maximum limit of validators per operator
+    /// @return validators The maximum number of validators per operator
+    function getValidatorsPerOperatorLimit() external view returns (uint32 validators);
+
     /// @notice Gets the version of the contract
     /// @return version The version of the contract
     function getVersion() external view returns (string memory version);
