@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../ISSVNetworkCore.sol";
-import "../ISSVNetwork.sol";
+import "../interfaces/ISSVNetworkCore.sol";
+import "./SSVStorage.sol";
+import "./SSVStorageProtocol.sol";
 import "./Types.sol";
 
 library ClusterLib {
@@ -26,8 +27,8 @@ library ClusterLib {
         uint64 minimumLiquidationCollateral
     ) internal pure returns (bool) {
         if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
-
         uint64 liquidationThreshold = minimumBlocksBeforeLiquidation * (burnRate + networkFee) * cluster.validatorCount;
+
         return cluster.balance < liquidationThreshold.expand();
     }
 
@@ -39,20 +40,12 @@ library ClusterLib {
         ISSVNetworkCore.Cluster memory cluster,
         address owner,
         uint64[] memory operatorIds,
-        ISSVNetwork ssvNetwork
+        StorageData storage s
     ) internal view returns (bytes32) {
         bytes32 hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
-        bytes32 hashedClusterData = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
-            )
-        );
+        bytes32 hashedClusterData = hashClusterData(cluster);
 
-        bytes32 clusterData = ssvNetwork.clusters(hashedCluster);
+        bytes32 clusterData = s.clusters[hashedCluster];
         if (clusterData == bytes32(0)) {
             revert ISSVNetworkCore.ClusterDoesNotExists();
         } else if (clusterData != hashedClusterData) {
@@ -70,5 +63,18 @@ library ClusterLib {
         updateBalance(cluster, clusterIndex, currentNetworkFeeIndex);
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = currentNetworkFeeIndex;
+    }
+
+    function hashClusterData(ISSVNetworkCore.Cluster memory cluster) internal pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    cluster.validatorCount,
+                    cluster.networkFeeIndex,
+                    cluster.index,
+                    cluster.balance,
+                    cluster.active
+                )
+            );
     }
 }

@@ -22,6 +22,11 @@ describe('Operator Fee Tests', () => {
     )).to.emit(ssvNetworkContract, 'OperatorFeeDeclared');
   });
 
+  it('Declare fee gas limits"', async () => {
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10
+    ),[GasGroup.DECLARE_OPERATOR_FEE]);
+  });
+
   it('Declare fee with zero value emits "OperatorFeeDeclared"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, 0
     )).to.emit(ssvNetworkContract, 'OperatorFeeDeclared');
@@ -43,7 +48,7 @@ describe('Operator Fee Tests', () => {
 
   it('Cancel declared fee gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10), [GasGroup.REGISTER_OPERATOR]);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).cancelDeclaredOperatorFee(1), [GasGroup.REGISTER_OPERATOR]);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).cancelDeclaredOperatorFee(1), [GasGroup.CANCEL_OPERATOR_FEE]);
   });
 
   it('Execute declared fee emits "OperatorFeeExecuted"', async () => {
@@ -56,7 +61,7 @@ describe('Operator Fee Tests', () => {
   it('Execute declared fee gas limits', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10), [GasGroup.REGISTER_OPERATOR]);
     await progressTime(helpers.CONFIG.declareOperatorFeePeriod);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1), [GasGroup.REGISTER_OPERATOR]);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1), [GasGroup.EXECUTE_OPERATOR_FEE]);
   });
 
   it('Get operator fee', async () => {
@@ -151,8 +156,22 @@ describe('Operator Fee Tests', () => {
     expect(await ssvViews.getOperatorFee(1)).to.equal(0);
   });
 
+  it('Reduce fee emits "OperatorFeeExecuted"', async () => {
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).reduceOperatorFee(1, initialFee / 2), [GasGroup.REDUCE_OPERATOR_FEE]);
+
+  });
+
   it('Reduce fee with an increased value reverts "FeeIncreaseNotAllowed"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).reduceOperatorFee(1, initialFee * 2)).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeIncreaseNotAllowed');;
+  });
+
+  it('Reduce fee after declaring a fee change', async () => {
+    await ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10);
+
+    expect(await ssvNetworkContract.connect(helpers.DB.owners[2]).reduceOperatorFee(1, initialFee / 2)).to.emit(ssvNetworkContract, 'OperatorFeeExecuted');
+    expect(await ssvViews.getOperatorFee(1)).to.equal(initialFee / 2);
+    await expect(ssvViews.getOperatorDeclaredFee(1
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');
   });
 
   //Dao
@@ -161,14 +180,29 @@ describe('Operator Fee Tests', () => {
     )).to.emit(ssvNetworkContract, 'OperatorFeeIncreaseLimitUpdated');
   });
 
+  it('DAO increase the fee gas limits"', async () => {
+    await trackGas(ssvNetworkContract.updateOperatorFeeIncreaseLimit(1000
+    ), [GasGroup.OPERATOR_FEE_INCREASE_LIMIT]);
+  });
+
   it('DAO update the declare fee period emits "DeclareOperatorFeePeriodUpdated"', async () => {
     await expect(ssvNetworkContract.updateDeclareOperatorFeePeriod(1200
     )).to.emit(ssvNetworkContract, 'DeclareOperatorFeePeriodUpdated');
   });
 
+  it('DAO update the declare fee period gas limits"', async () => {
+    await trackGas(ssvNetworkContract.updateDeclareOperatorFeePeriod(1200
+      ), [GasGroup.OPERATOR_DECLARE_FEE_LIMIT]);
+  });
+
   it('DAO update the execute fee period emits "ExecuteOperatorFeePeriodUpdated"', async () => {
     await expect(ssvNetworkContract.updateExecuteOperatorFeePeriod(1200
     )).to.emit(ssvNetworkContract, 'ExecuteOperatorFeePeriodUpdated');
+  });
+
+  it('DAO update the execute fee period gas limits', async () => {
+    await trackGas(ssvNetworkContract.updateExecuteOperatorFeePeriod(1200
+      ), [GasGroup.OPERATOR_EXECUTE_FEE_LIMIT]);
   });
 
   it('DAO get fee increase limit', async () => {

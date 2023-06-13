@@ -1,138 +1,98 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "./RegisterAuth.sol";
-import "./ISSVNetwork.sol";
-import "./libraries/Types.sol";
-import "./libraries/ClusterLib.sol";
-import "./libraries/OperatorLib.sol";
-import "./libraries/NetworkLib.sol";
+import "./interfaces/ISSVNetwork.sol";
 
-import "@openzeppelin/contracts/utils/Counters.sol";
+import "./interfaces/ISSVClusters.sol";
+import "./interfaces/ISSVOperators.sol";
+import "./interfaces/ISSVDAO.sol";
+import "./interfaces/ISSVViews.sol";
+
+import "./libraries/Types.sol";
+import "./libraries/CoreLib.sol";
+import "./libraries/SSVStorage.sol";
+import "./libraries/SSVStorageProtocol.sol";
+import "./libraries/OperatorLib.sol";
+import "./libraries/ClusterLib.sol";
+import "./libraries/RegisterAuth.sol";
+
+import {SSVModules} from "./libraries/SSVStorage.sol";
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
-    /*************/
-    /* Libraries */
-    /*************/
-
+contract SSVNetwork is
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    ISSVNetwork,
+    ISSVOperators,
+    ISSVClusters,
+    ISSVDAO
+{
     using Types256 for uint256;
-    using Types64 for uint64;
     using ClusterLib for Cluster;
-    using OperatorLib for Operator;
-    using NetworkLib for DAO;
-
-    using Counters for Counters.Counter;
-
-    /*************/
-    /* Constants */
-    /*************/
-
-    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
-    uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
-    uint64 private constant PRECISION_FACTOR = 10_000;
-
-    /********************/
-    /* Global Variables */
-    /********************/
-
-    Counters.Counter private lastOperatorId;
-
-    /*************/
-    /* Variables */
-    /*************/
-
-    mapping(bytes32 => uint64) public operatorsPKs;
-    mapping(uint64 => Operator) public override operators;
-    mapping(uint64 => address) public override operatorsWhitelist;
-    mapping(uint64 => OperatorFeeChangeRequest) public override operatorFeeChangeRequests;
-    mapping(bytes32 => bytes32) public override clusters;
-    mapping(bytes32 => Validator) public validatorPKs;
-
-    bytes32 public override version;
-
-    uint32 public validatorsPerOperatorLimit;
-
-    uint64 public override minimumBlocksBeforeLiquidation;
-    uint64 public override minimumLiquidationCollateral;
-
-    OperatorFeeConfig public override operatorFeeConfig;
-    DAO public override dao;
-    IERC20 private token;
-    Network public override network;
-
-    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-    IRegisterAuth private immutable registerAuth;
-
-    // @dev reserve storage space for future new state variables in base contract
-    // slither-disable-next-line shadowing-state
-    uint256[50] private __gap;
-
-    /*************/
-    /* Modifiers */
-    /*************/
-
-    modifier onlyOperatorOwner(Operator memory operator) {
-        _onlyOperatorOwner(operator);
-        _;
-    }
-
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor(address _registerAuth) {
-        registerAuth = IRegisterAuth(_registerAuth);
-        _disableInitializers();
-    }
 
     /****************/
     /* Initializers */
     /****************/
 
     function initialize(
-        string calldata initialVersion_,
         IERC20 token_,
-        uint64 operatorMaxFeeIncrease_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
+        ISSVOperators ssvOperators_,
+        ISSVClusters ssvClusters_,
+        ISSVDAO ssvDAO_,
+        ISSVViews ssvViews_,
         uint64 minimumBlocksBeforeLiquidation_,
         uint256 minimumLiquidationCollateral_,
-        uint32 validatorsPerOperatorLimit_
+        uint32 validatorsPerOperatorLimit_,
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_,
+        uint64 operatorMaxFeeIncrease_
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
         __SSVNetwork_init_unchained(
-            initialVersion_,
             token_,
-            operatorMaxFeeIncrease_,
-            declareOperatorFeePeriod_,
-            executeOperatorFeePeriod_,
+            ssvOperators_,
+            ssvClusters_,
+            ssvDAO_,
+            ssvViews_,
             minimumBlocksBeforeLiquidation_,
             minimumLiquidationCollateral_,
-            validatorsPerOperatorLimit_
+            validatorsPerOperatorLimit_,
+            declareOperatorFeePeriod_,
+            executeOperatorFeePeriod_,
+            operatorMaxFeeIncrease_
         );
     }
 
     function __SSVNetwork_init_unchained(
-        string calldata initialVersion_,
         IERC20 token_,
-        uint64 operatorMaxFeeIncrease_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
+        ISSVOperators ssvOperators_,
+        ISSVClusters ssvClusters_,
+        ISSVDAO ssvDAO_,
+        ISSVViews ssvViews_,
         uint64 minimumBlocksBeforeLiquidation_,
         uint256 minimumLiquidationCollateral_,
-        uint32 validatorsPerOperatorLimit_
+        uint32 validatorsPerOperatorLimit_,
+        uint64 declareOperatorFeePeriod_,
+        uint64 executeOperatorFeePeriod_,
+        uint64 operatorMaxFeeIncrease_
     ) internal onlyInitializing {
-        version = bytes32(abi.encodePacked(initialVersion_));
-        token = token_;
-        operatorFeeConfig = OperatorFeeConfig({
-            declareOperatorFeePeriod: declareOperatorFeePeriod_,
-            executeOperatorFeePeriod: executeOperatorFeePeriod_,
-            operatorMaxFeeIncrease: operatorMaxFeeIncrease_
-        });
-        minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        s.token = token_;
+        s.ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
+        s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
+        s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
+        s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
+        sp.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
+        sp.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
+        sp.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
+        sp.declareOperatorFeePeriod = declareOperatorFeePeriod_;
+        sp.executeOperatorFeePeriod = executeOperatorFeePeriod_;
+        sp.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
     }
 
     /*****************/
@@ -141,687 +101,279 @@ contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork {
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
+    fallback() external {
+        // Load the address of the SSV Views module from storage
+        address ssvViews = SSVStorage.load().ssvContracts[SSVModules.SSV_VIEWS];
+
+        assembly {
+            // Copy the calldata (input data of the function call) to memory
+            calldatacopy(0, 0, calldatasize())
+
+            // Perform a delegatecall to the SSV Views contract
+            // The delegatecall forwards the entire gas stipend to the called contract
+            // This allows the called contract to consume the gas provided to the fallback function
+            let result := delegatecall(gas(), ssvViews, 0, calldatasize(), 0, 0)
+
+            // Copy the returndata (output data of the delegatecall) to memory
+            returndatacopy(0, 0, returndatasize())
+
+            // If the delegatecall was unsuccessful (result is zero), revert with the returndata
+            // Reverting with the returndata provides information about the error that occurred in the delegatecall
+            if eq(result, 0) {
+                revert(0, returndatasize())
+            }
+
+            // Return the returndata to the original caller of the fallback function
+            return(0, returndatasize())
+        }
+    }
+
     /*******************************/
     /* Operator External Functions */
     /*******************************/
 
     function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
-        if (!registerAuth.getAuth(msg.sender).registerOperator) revert NotAuthorized();
+        if (!RegisterAuth.load().authorization[msg.sender].registerOperator) revert NotAuthorized();
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
-            revert FeeTooLow();
-        }
-
-        bytes32 hashedPk = keccak256(publicKey);
-        if (operatorsPKs[hashedPk] != 0) revert OperatorAlreadyExists();
-
-        lastOperatorId.increment();
-        id = uint64(lastOperatorId.current());
-        operators[id] = Operator({
-            owner: msg.sender,
-            snapshot: Snapshot({block: uint64(block.number), index: 0, balance: 0}),
-            validatorCount: 0,
-            fee: fee.shrink()
-        });
-        operatorsPKs[hashedPk] = id;
-
-        emit OperatorAdded(id, msg.sender, publicKey, fee);
+        bytes memory result = CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("registerOperator(bytes,uint256)", publicKey, fee)
+        );
+        return abi.decode(result, (uint64));
     }
 
     function removeOperator(uint64 operatorId) external override {
-        _removeOperator(operatorId, operators[operatorId]);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("removeOperator(uint64)", operatorId)
+        );
     }
 
     function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
-        _setOperatorWhitelist(operatorId, whitelisted, operators[operatorId]);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("setOperatorWhitelist(uint64,address)", operatorId, whitelisted)
+        );
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
-        _declareOperatorFee(operatorId, operators[operatorId], fee);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("declareOperatorFee(uint64,uint256)", operatorId, fee)
+        );
     }
 
     function executeOperatorFee(uint64 operatorId) external override {
-        _executeOperatorFee(operatorId, operators[operatorId]);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("executeOperatorFee(uint64)", operatorId)
+        );
     }
 
     function cancelDeclaredOperatorFee(uint64 operatorId) external override {
-        _cancelDeclaredOperatorFee(operatorId, operators[operatorId]);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("cancelDeclaredOperatorFee(uint64)", operatorId)
+        );
     }
 
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
-        _reduceOperatorFee(operatorId, operators[operatorId], fee);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("reduceOperatorFee(uint64,uint256)", operatorId, fee)
+        );
     }
+
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("withdrawOperatorEarnings(uint64,uint256)", operatorId, amount)
+        );
+    }
+
+    function withdrawOperatorEarnings(uint64 operatorId) external override {
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("withdrawOperatorEarnings(uint64)", operatorId)
+        );
+    }
+
+    /*******************************/
+    /* Address External Functions */
+    /*******************************/
 
     function setFeeRecipientAddress(address recipientAddress) external override {
         emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
     }
 
-    /********************************/
+    /*******************************/
     /* Validator External Functions */
-    /********************************/
+    /*******************************/
+
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
         uint256 amount,
-        Cluster memory cluster
+        ISSVNetworkCore.Cluster memory cluster
     ) external override {
-        if (!registerAuth.getAuth(msg.sender).registerValidator) revert NotAuthorized();
+        if (!RegisterAuth.load().authorization[msg.sender].registerValidator) revert NotAuthorized();
 
-        uint operatorsLength = operatorIds.length;
-        {
-            if (operatorsLength < 4 || operatorsLength > 13 || operatorsLength % 3 != 1) {
-                revert InvalidOperatorIdsLength();
-            }
-
-            if (publicKey.length != 48) revert InvalidPublicKeyLength();
-
-            bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
-
-            if (validatorPKs[hashedPk].hashedOperatorIds != bytes32(0)) {
-                revert ValidatorAlreadyExists();
-            }
-            validatorPKs[hashedPk] = Validator({
-                hashedOperatorIds: keccak256(abi.encodePacked(operatorIds)),
-                active: true
-            });
-        }
-        bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
-
-        {
-            bytes32 clusterData = clusters[hashedCluster];
-            if (clusterData == bytes32(0)) {
-                if (
-                    cluster.validatorCount != 0 ||
-                    cluster.networkFeeIndex != 0 ||
-                    cluster.index != 0 ||
-                    cluster.balance != 0 ||
-                    !cluster.active
-                ) {
-                    revert IncorrectClusterState();
-                }
-            } else if (
-                clusterData !=
-                keccak256(
-                    abi.encodePacked(
-                        cluster.validatorCount,
-                        cluster.networkFeeIndex,
-                        cluster.index,
-                        cluster.balance,
-                        cluster.active
-                    )
-                )
-            ) {
-                revert IncorrectClusterState();
-            } else {
-                cluster.validateClusterIsNotLiquidated();
-            }
-        }
-
-        Network memory network_ = network;
-        uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
-
-        cluster.balance += amount;
-
-        uint64 burnRate;
-        uint64 clusterIndex;
-
-        if (cluster.active) {
-            for (uint i; i < operatorsLength; ) {
-                {
-                    if (i + 1 < operatorsLength) {
-                        if (operatorIds[i] > operatorIds[i + 1]) {
-                            revert UnsortedOperatorsList();
-                        } else if (operatorIds[i] == operatorIds[i + 1]) {
-                            revert OperatorsListNotUnique();
-                        }
-                    }
-                    address whitelisted = operatorsWhitelist[operatorIds[i]];
-                    if (whitelisted != address(0) && whitelisted != msg.sender) {
-                        revert CallerNotWhitelisted();
-                    }
-                }
-                Operator memory operator = operators[operatorIds[i]];
-                if (operator.snapshot.block == 0) {
-                    revert OperatorDoesNotExist();
-                }
-                operator.updateSnapshot();
-                if (++operator.validatorCount > validatorsPerOperatorLimit) {
-                    revert ExceedValidatorLimit();
-                }
-                clusterIndex += operator.snapshot.index;
-                burnRate += operator.fee;
-                operators[operatorIds[i]] = operator;
-                unchecked {
-                    ++i;
-                }
-            }
-            cluster.updateClusterData(clusterIndex, currentNetworkFeeIndex);
-
-            DAO memory dao_ = dao;
-            dao_.updateDAOEarnings(network_.networkFee);
-            ++dao_.validatorCount;
-            dao = dao_;
-        }
-
-        ++cluster.validatorCount;
-
-        if (
-            cluster.isLiquidatable(
-                burnRate,
-                network_.networkFee,
-                minimumBlocksBeforeLiquidation,
-                minimumLiquidationCollateral
-            )
-        ) {
-            revert InsufficientBalance();
-        }
-
-        clusters[hashedCluster] = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "registerValidator(bytes,uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
+                publicKey,
+                operatorIds,
+                sharesData,
+                amount,
+                cluster
             )
         );
-
-        if (amount > 0) {
-            _deposit(amount);
-        }
-
-        emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
     }
 
     function removeValidator(
         bytes calldata publicKey,
         uint64[] calldata operatorIds,
-        Cluster memory cluster
+        ISSVNetworkCore.Cluster memory cluster
     ) external override {
-        bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
-
-        bytes32 validatorHashedOpsIds = validatorPKs[hashedValidator].hashedOperatorIds;
-
-        if (validatorHashedOpsIds == bytes32(0)) {
-            revert ValidatorDoesNotExist();
-        } else if (validatorHashedOpsIds != keccak256(abi.encodePacked(operatorIds))) {
-            revert IncorrectValidatorState();
-        }
-
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
-
-        {
-            if (cluster.active) {
-                (uint64 clusterIndex, ) = _updateOperators(operatorIds, false, 1);
-
-                cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
-
-                DAO memory dao_ = dao;
-                dao_.updateDAOEarnings(network.networkFee);
-                --dao_.validatorCount;
-                dao = dao_;
-            }
-        }
-
-        --cluster.validatorCount;
-
-        delete validatorPKs[hashedValidator];
-
-        clusters[hashedCluster] = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "removeValidator(bytes,uint64[],(uint32,uint64,uint64,bool,uint256))",
+                publicKey,
+                operatorIds,
+                cluster
             )
         );
-
-        emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
-    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, this);
-        cluster.validateClusterIsNotLiquidated();
-
-        (uint64 clusterIndex, uint64 burnRate) = _updateOperators(operatorIds, false, cluster.validatorCount);
-
-        cluster.updateBalance(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
-
-        uint64 networkFee = network.networkFee;
-        uint256 balanceLiquidatable;
-
-        if (
-            owner != msg.sender &&
-            !cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation, minimumLiquidationCollateral)
-        ) {
-            revert ClusterNotLiquidatable();
-        }
-
-        DAO memory dao_ = dao;
-        dao_.updateDAOEarnings(networkFee);
-        dao_.validatorCount -= cluster.validatorCount;
-        dao = dao_;
-
-        if (cluster.balance != 0) {
-            balanceLiquidatable = cluster.balance;
-            cluster.balance = 0;
-        }
-        cluster.index = 0;
-        cluster.networkFeeIndex = 0;
-        cluster.active = false;
-
-        clusters[hashedCluster] = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
+    function liquidate(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "liquidate(address,uint64[],(uint32,uint64,uint64,bool,uint256))",
+                owner,
+                operatorIds,
+                cluster
             )
         );
-
-        if (balanceLiquidatable != 0) {
-            _transfer(msg.sender, balanceLiquidatable);
-        }
-
-        emit ClusterLiquidated(owner, operatorIds, cluster);
     }
 
-    function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
-        if (cluster.active) revert ClusterAlreadyEnabled();
-
-        (uint64 clusterIndex, uint64 burnRate) = _updateOperators(operatorIds, true, cluster.validatorCount);
-
-        uint64 currentNetworkFeeIndex = NetworkLib.currentNetworkFeeIndex(network);
-
-        cluster.balance += amount;
-        cluster.active = true;
-        cluster.index = clusterIndex;
-        cluster.networkFeeIndex = currentNetworkFeeIndex;
-
-        uint64 networkFee = network.networkFee;
-
-        DAO memory dao_ = dao;
-        dao_.updateDAOEarnings(networkFee);
-        dao_.validatorCount += cluster.validatorCount;
-        dao = dao_;
-
-        if (
-            cluster.isLiquidatable(burnRate, networkFee, minimumBlocksBeforeLiquidation, minimumLiquidationCollateral)
-        ) {
-            revert InsufficientBalance();
-        }
-
-        clusters[hashedCluster] = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
+    function reactivate(
+        uint64[] calldata operatorIds,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "reactivate(uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+                operatorIds,
+                amount,
+                cluster
             )
         );
-
-        if (amount > 0) {
-            _deposit(amount);
-        }
-
-        emit ClusterReactivated(msg.sender, operatorIds, cluster);
     }
-
-    /******************************/
-    /* Balance External Functions */
-    /******************************/
 
     function deposit(
         address owner,
         uint64[] calldata operatorIds,
         uint256 amount,
-        Cluster memory cluster
+        ISSVNetworkCore.Cluster memory cluster
     ) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, this);
-
-        cluster.balance += amount;
-
-        clusters[hashedCluster] = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "deposit(address,uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+                owner,
+                operatorIds,
+                amount,
+                cluster
             )
         );
-
-        _deposit(amount);
-
-        emit ClusterDeposited(owner, operatorIds, amount, cluster);
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
-        _withdrawOperatorEarnings(operatorId, operators[operatorId], amount);
-    }
-
-    function withdrawOperatorEarnings(uint64 operatorId) external override {
-        _withdrawOperatorEarnings(operatorId, operators[operatorId], 0);
-    }
-
-    function withdraw(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external override {
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, this);
-
-        uint64 burnRate;
-        if (cluster.active) {
-            uint64 clusterIndex;
-            {
-                uint operatorsLength = operatorIds.length;
-                for (uint i; i < operatorsLength; ) {
-                    Operator storage operator = operators[operatorIds[i]];
-                    clusterIndex +=
-                        operator.snapshot.index +
-                        (uint64(block.number) - operator.snapshot.block) *
-                        operator.fee;
-                    burnRate += operator.fee;
-                    unchecked {
-                        ++i;
-                    }
-                }
-            }
-
-            cluster.updateClusterData(clusterIndex, NetworkLib.currentNetworkFeeIndex(network));
-        }
-
-        if (cluster.balance < amount) revert InsufficientBalance();
-
-        cluster.balance -= amount;
-
-        if (
-            cluster.active &&
-            cluster.validatorCount != 0 &&
-            cluster.isLiquidatable(
-                burnRate,
-                network.networkFee,
-                minimumBlocksBeforeLiquidation,
-                minimumLiquidationCollateral
-            )
-        ) {
-            revert InsufficientBalance();
-        }
-
-        clusters[hashedCluster] = keccak256(
-            abi.encodePacked(
-                cluster.validatorCount,
-                cluster.networkFeeIndex,
-                cluster.index,
-                cluster.balance,
-                cluster.active
+    function withdraw(
+        uint64[] calldata operatorIds,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "withdraw(uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+                operatorIds,
+                amount,
+                cluster
             )
         );
-
-        _transfer(msg.sender, amount);
-
-        emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
     }
-
-    /**************************/
-    /* DAO External Functions */
-    /**************************/
 
     function updateNetworkFee(uint256 fee) external override onlyOwner {
-        Network memory network_ = network;
-
-        DAO memory dao_ = dao;
-        dao_.updateDAOEarnings(network.networkFee);
-        dao = dao_;
-
-        network_.networkFeeIndex = NetworkLib.currentNetworkFeeIndex(network_);
-        network_.networkFeeIndexBlockNumber = uint64(block.number);
-
-        emit NetworkFeeUpdated(network_.networkFee.expand(), fee);
-
-        network_.networkFee = fee.shrink();
-        network = network_;
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateNetworkFee(uint256)", fee)
+        );
     }
 
     function withdrawNetworkEarnings(uint256 amount) external override onlyOwner {
-        DAO memory dao_ = dao;
-
-        uint64 shrunkAmount = amount.shrink();
-
-        uint64 networkBalance = dao_.networkTotalEarnings(network.networkFee);
-
-        if (shrunkAmount > networkBalance) {
-            revert InsufficientBalance();
-        }
-
-        dao_.balance = networkBalance - shrunkAmount;
-        dao = dao_;
-
-        _transfer(msg.sender, amount);
-
-        emit NetworkEarningsWithdrawn(amount, msg.sender);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("withdrawNetworkEarnings(uint256)", amount)
+        );
     }
 
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external override onlyOwner {
-        operatorFeeConfig.operatorMaxFeeIncrease = percentage;
-        emit OperatorFeeIncreaseLimitUpdated(percentage);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateOperatorFeeIncreaseLimit(uint64)", percentage)
+        );
     }
 
     function updateDeclareOperatorFeePeriod(uint64 timeInSeconds) external override onlyOwner {
-        operatorFeeConfig.declareOperatorFeePeriod = timeInSeconds;
-        emit DeclareOperatorFeePeriodUpdated(timeInSeconds);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateDeclareOperatorFeePeriod(uint64)", timeInSeconds)
+        );
     }
 
     function updateExecuteOperatorFeePeriod(uint64 timeInSeconds) external override onlyOwner {
-        operatorFeeConfig.executeOperatorFeePeriod = timeInSeconds;
-        emit ExecuteOperatorFeePeriodUpdated(timeInSeconds);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateExecuteOperatorFeePeriod(uint64)", timeInSeconds)
+        );
     }
 
     function updateLiquidationThresholdPeriod(uint64 blocks) external override onlyOwner {
-        if (blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
-            revert NewBlockPeriodIsBelowMinimum();
-        }
-
-        minimumBlocksBeforeLiquidation = blocks;
-        emit LiquidationThresholdPeriodUpdated(blocks);
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateLiquidationThresholdPeriod(uint64)", blocks)
+        );
     }
 
     function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
-        minimumLiquidationCollateral = amount.shrink();
-        emit MinimumLiquidationCollateralUpdated(amount);
-    }
-
-    /********************************/
-    /* Validation Private Functions */
-    /********************************/
-
-    function _onlyOperatorOwner(Operator memory operator) private view {
-        if (operator.snapshot.block == 0) revert OperatorDoesNotExist();
-        if (operator.owner != msg.sender) revert CallerNotOwner();
-    }
-
-    /******************************/
-    /* Operator Private Functions */
-    /******************************/
-
-    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        _transfer(msg.sender, amount);
-        emit OperatorWithdrawn(msg.sender, operatorId, amount);
-    }
-
-    function _withdrawOperatorEarnings(
-        uint64 operatorId,
-        Operator memory operator,
-        uint256 amount
-    ) private onlyOperatorOwner(operator) {
-        operator.updateSnapshot();
-
-        uint64 shrunkWithdrawn;
-        uint64 shrunkAmount = amount.shrink();
-
-        if (amount == 0 && operator.snapshot.balance > 0) {
-            shrunkWithdrawn = operator.snapshot.balance;
-        } else if (amount > 0 && operator.snapshot.balance >= shrunkAmount) {
-            shrunkWithdrawn = shrunkAmount;
-        } else {
-            revert InsufficientBalance();
-        }
-
-        operator.snapshot.balance -= shrunkWithdrawn;
-
-        operators[operatorId] = operator;
-
-        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
-    }
-
-    function _removeOperator(uint64 operatorId, Operator memory operator) private onlyOperatorOwner(operator) {
-        operator.updateSnapshot();
-        uint64 currentBalance = operator.snapshot.balance;
-
-        operator.snapshot.block = 0;
-        operator.snapshot.balance = 0;
-        operator.validatorCount = 0;
-        operator.fee = 0;
-
-        operators[operatorId] = operator;
-
-        if (operatorsWhitelist[operatorId] != address(0)) {
-            delete operatorsWhitelist[operatorId];
-        }
-
-        if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
-        }
-        emit OperatorRemoved(operatorId);
-    }
-
-    function _setOperatorWhitelist(
-        uint64 operatorId,
-        address whitelisted,
-        Operator storage operator
-    ) private onlyOperatorOwner(operator) {
-        operatorsWhitelist[operatorId] = whitelisted;
-        emit OperatorWhitelistUpdated(operatorId, whitelisted);
-    }
-
-    function _declareOperatorFee(
-        uint64 operatorId,
-        Operator memory operator,
-        uint256 fee
-    ) private onlyOperatorOwner(operator) {
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
-        uint64 operatorFee = operators[operatorId].fee;
-        uint64 shrunkFee = fee.shrink();
-
-        if (operatorFee == shrunkFee) {
-            revert SameFeeChangeNotAllowed();
-        } else if (shrunkFee != 0 && operatorFee == 0) {
-            revert FeeIncreaseNotAllowed();
-        }
-
-        OperatorFeeConfig memory opFeeConfig = operatorFeeConfig;
-        // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + opFeeConfig.operatorMaxFeeIncrease)) /
-            PRECISION_FACTOR;
-
-        if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
-
-        operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
-            shrunkFee,
-            uint64(block.timestamp) + opFeeConfig.declareOperatorFeePeriod,
-            uint64(block.timestamp) + opFeeConfig.declareOperatorFeePeriod + opFeeConfig.executeOperatorFeePeriod
+        CoreLib.delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateMinimumLiquidationCollateral(uint256)", amount)
         );
-        emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
 
-    function _executeOperatorFee(uint64 operatorId, Operator memory operator) private onlyOperatorOwner(operator) {
-        OperatorFeeChangeRequest memory feeChangeRequest = operatorFeeChangeRequests[operatorId];
-
-        if (feeChangeRequest.approvalBeginTime == 0) revert NoFeeDeclared();
-
-        if (
-            block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime
-        ) {
-            revert ApprovalNotWithinTimeframe();
-        }
-
-        operator.updateSnapshot();
-        operator.fee = feeChangeRequest.fee;
-        operators[operatorId] = operator;
-
-        delete operatorFeeChangeRequests[operatorId];
-
-        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, feeChangeRequest.fee.expand());
+    /*******************************/
+    /* Upgrade Modules Function    */
+    /*******************************/
+    function upgradeModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
+        CoreLib.setModuleContract(moduleId, moduleAddress);
     }
 
-    function _cancelDeclaredOperatorFee(
-        uint64 operatorId,
-        Operator memory operator
-    ) private onlyOperatorOwner(operator) {
-        if (operatorFeeChangeRequests[operatorId].approvalBeginTime == 0) revert NoFeeDeclared();
-
-        delete operatorFeeChangeRequests[operatorId];
-
-        emit OperatorFeeCancellationDeclared(msg.sender, operatorId);
+    /*******************************/
+    /* Register Authorization      */
+    /*******************************/
+    function setRegisterAuth(address userAddress, Authorization calldata auth) external override onlyOwner {
+        RegisterAuth.load().authorization[userAddress] = auth;
     }
 
-    function _reduceOperatorFee(
-        uint64 operatorId,
-        Operator memory operator,
-        uint256 fee
-    ) private onlyOperatorOwner(operator) {
-        uint64 shrunkAmount = fee.shrink();
-        if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
-
-        operator.updateSnapshot();
-        operator.fee = shrunkAmount;
-        operators[operatorId] = operator;
-
-        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
-    }
-
-    function _updateOperators(
-        uint64[] memory operatorIds,
-        bool increaseValidatorCount,
-        uint32 deltaValidatorCount
-    ) internal returns (uint64 clusterIndex, uint64 burnRate) {
-        uint operatorsLength = operatorIds.length;
-
-        for (uint i; i < operatorsLength; ) {
-            Operator memory operator = operators[operatorIds[i]];
-            if (operator.snapshot.block != 0) {
-                operator.updateSnapshot();
-                if (increaseValidatorCount) {
-                    operator.validatorCount += deltaValidatorCount;
-                } else {
-                    operator.validatorCount -= deltaValidatorCount;
-                }
-                burnRate += operator.fee;
-                operators[operatorIds[i]] = operator;
-            }
-
-            clusterIndex += operator.snapshot.index;
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    /*****************************/
-    /* Balance Private Functions */
-    /*****************************/
-
-    function _deposit(uint256 amount) private {
-        if (!token.transferFrom(msg.sender, address(this), amount)) {
-            revert TokenTransferFailed();
-        }
-    }
-
-    function _transfer(address to, uint256 amount) private {
-        if (!token.transfer(to, amount)) {
-            revert TokenTransferFailed();
-        }
+    function getRegisterAuth(address userAddress) external view override returns (Authorization memory) {
+        return RegisterAuth.load().authorization[userAddress];
     }
 }

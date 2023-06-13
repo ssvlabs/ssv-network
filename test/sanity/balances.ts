@@ -21,9 +21,6 @@ describe('Balance Tests', () => {
     burnPerBlock = helpers.CONFIG.minimalOperatorFee * 4 + networkFee;
     minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * burnPerBlock;
 
-    // Deposit into accounts
-    // await helpers.deposit([4], [minDepositAmount]);
-
     // Set network fee
     await ssvNetworkContract.updateNetworkFee(networkFee);
 

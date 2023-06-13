@@ -5,6 +5,7 @@ import { trackGas, GasGroup } from './gas-usage';
 
 export let DB: any;
 export let CONFIG: any;
+export let SSV_MODULES: any;
 
 const SIGNATURE = "869ff0ade8cb76048fb3aa8d4c26b0d71f96eb3bfb69144c080e7fe8db6e1e2f926f365886a59a25601b290f5f4695dd5b7e8cce1c462bdef5bebee34d94711541baeadbc7546a8c3ca301d86aaab4767c809a"
 
@@ -64,7 +65,7 @@ export const DataGenerator = {
 
 export const initializeContract = async () => {
   CONFIG = {
-    initialVersion: "0.0.1",
+    initialVersion: "v1.0.0",
     operatorMaxFeeIncrease: 1000,
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY
@@ -82,7 +83,17 @@ export const initializeContract = async () => {
     ssvNetwork: {},
     ssvViews: {},
     ssvToken: {},
-    registerAuth: {}
+    ssvOperatorsMod: {},
+    ssvClustersMod: {},
+    ssvDAOMod: {},
+    ssvViewsMod: {}
+  };
+
+  SSV_MODULES = {
+    SSV_OPERATORS: 0,
+    SSV_CLUSTERS: 1,
+    SSV_DAO: 2,
+    SSV_VIEWS: 3,
   };
 
   // Define accounts
@@ -91,46 +102,56 @@ export const initializeContract = async () => {
   // Initialize contract
   const ssvNetwork = await ethers.getContractFactory('SSVNetwork');
   const ssvViews = await ethers.getContractFactory('SSVNetworkViews');
+
+  const ssvViewsMod = await ethers.getContractFactory('contracts/modules/SSVViews.sol:SSVViews');
   const ssvToken = await ethers.getContractFactory('SSVTokenMock');
-  const registerAuth = await ethers.getContractFactory('RegisterAuth');
+  const ssvOperatorsMod = await ethers.getContractFactory('SSVOperators');
+  const ssvClustersMod = await ethers.getContractFactory('SSVClusters');
+  const ssvDAOMod = await ethers.getContractFactory('SSVDAO');
 
   DB.ssvToken = await ssvToken.deploy();
   await DB.ssvToken.deployed();
 
-  DB.registerAuth.contract = await upgrades.deployProxy(registerAuth, [],
-    {
-      kind: 'uups'
-    });
+  DB.ssvViewsMod.contract = await ssvViewsMod.deploy();
+  await DB.ssvViewsMod.contract.deployed();
 
-  await DB.registerAuth.contract.deployed();
+  DB.ssvOperatorsMod.contract = await ssvOperatorsMod.deploy();
+  await DB.ssvOperatorsMod.contract.deployed();
+
+  DB.ssvClustersMod.contract = await ssvClustersMod.deploy();
+  await DB.ssvClustersMod.contract.deployed();
+
+  DB.ssvDAOMod.contract = await ssvDAOMod.deploy();
+  await DB.ssvDAOMod.contract.deployed();
 
   DB.ssvNetwork.contract = await upgrades.deployProxy(ssvNetwork, [
-    CONFIG.initialVersion,
     DB.ssvToken.address,
-    CONFIG.operatorMaxFeeIncrease,
-    CONFIG.declareOperatorFeePeriod,
-    CONFIG.executeOperatorFeePeriod,
+    DB.ssvOperatorsMod.contract.address,
+    DB.ssvClustersMod.contract.address,
+    DB.ssvDAOMod.contract.address,
+    DB.ssvViewsMod.contract.address,
     CONFIG.minimalBlocksBeforeLiquidation,
     CONFIG.minimumLiquidationCollateral,
-    CONFIG.validatorsPerOperatorLimit
+    CONFIG.validatorsPerOperatorLimit,
+    CONFIG.declareOperatorFeePeriod,
+    CONFIG.executeOperatorFeePeriod,
+    CONFIG.operatorMaxFeeIncrease
   ],
     {
       kind: 'uups',
-      unsafeAllow: ['state-variable-immutable', 'constructor'],
-      constructorArgs: [DB.registerAuth.contract.address]
+      unsafeAllow: ['delegatecall']
     });
 
   await DB.ssvNetwork.contract.deployed();
 
-  await DB.registerAuth.contract.setAuth(DB.owners[0].address, [true, true]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[0].address, [true, true]);
 
   DB.ssvViews.contract = await upgrades.deployProxy(ssvViews, [
     DB.ssvNetwork.contract.address
   ],
     {
-      kind: 'uups'
+      kind: "uups"
     });
-
   await DB.ssvViews.contract.deployed();
 
   DB.ssvNetwork.owner = DB.owners[0];
@@ -142,11 +163,13 @@ export const initializeContract = async () => {
   await DB.ssvToken.mint(DB.owners[5].address, '10000000000000000000');
   await DB.ssvToken.mint(DB.owners[6].address, '10000000000000000000');
 
-  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract, registerAuth: DB.registerAuth.contract };
+  // DB.ssvViews.contract = DB.ssvViews.contract.attach(DB.ssvNetwork.contract.address);
+
+  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract };
 };
 
 export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR]) => {
-  await DB.registerAuth.contract.setAuth(DB.owners[ownerId].address, [true, false]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, [true, false]);
   for (let i = 0; i < numberOfOperators; ++i) {
     const { eventsByName } = await trackGas(
       DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerOperator(DataGenerator.publicKey(i), fee),
@@ -206,7 +229,7 @@ export const reactivate = async (ownerId: number, operatorIds: number[], amount:
 };
 
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
-  await DB.registerAuth.contract.setAuth(DB.owners[ownerId].address, [false, true]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, [false, true]);
   const validators: any = [];
   let args: any;
   // Register validators to contract
@@ -236,7 +259,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
 };
 
 export const registerValidatorsRaw = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
-  await DB.registerAuth.contract.setAuth(DB.owners[ownerId].address, [false, true]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, [false, true]);
 
   let cluster: any = {
     validatorCount: 0,
@@ -270,7 +293,7 @@ export const getCluster = (payload: any) => ethers.utils.AbiCoder.prototype.enco
 );
 
 export const coldRegisterValidator = async () => {
-  await DB.registerAuth.contract.setAuth(DB.owners[0].address, [false, true]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[0].address, [false, true]);
 
   await DB.ssvToken.approve(DB.ssvNetwork.contract.address, '1000000000000000');
   await DB.ssvNetwork.contract.registerValidator(
@@ -287,58 +310,3 @@ export const coldRegisterValidator = async () => {
     }
   );
 };
-
-/*
-export const transferValidator = async (ownerId: number, publicKey: string, operatorIds: number[], amount: string, gasGroups?: GasGroup[]) => {
-  // let clusterId: any;
-  const shares = DataGenerator.shares(DB.validators.length);
-
-  // Transfer validator
-  await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).transferValidator(
-    publicKey,
-    (await registerClusterAndDeposit(ownerId, operatorIds, amount)).clusterId,
-    shares,
-  ), gasGroups);
-
-  // FOR ADAM TO UPDATE
-  // clusterId = eventsByName.ValidatorTransferred[0].args.clusterId;
-  // DB.clusters[clusterId] = ({ id: clusterId, operatorIds });
-  // DB.validators[publicKey].clusterId = clusterId;
-  // DB.validators[publicKey].shares = shares;
-
-  // return { clusterId };
-};
-
-
-export const bulkTransferValidator = async (ownerId: number, publicKey: string[], fromCluster: string, toCluster: string, amount: string, gasGroups?: GasGroup[]) => {
-  const shares = Array(publicKey.length).fill(DataGenerator.shares(0));
-
-  await registerClusterAndDeposit(ownerId, DataGenerator.cluster.byId(toCluster), amount);
-
-  // Bulk transfer validators
-  await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).bulkTransferValidators(
-    publicKey,
-    fromCluster,
-    toCluster,
-    shares,
-  ), gasGroups);
-
-  // FOR ADAM TO UPDATE
-  // clusterId = eventsByName.ValidatorTransferred[0].args.clusterId;
-  // DB.clusters[clusterId] = ({ id: clusterId, operatorIds });
-  // DB.validators[publicKey].clusterId = clusterId;
-  // DB.validators[publicKey].shares = shares;
-
-  // return { clusterId };
-};
-
-export const liquidate = async (executorOwnerId: number, liquidatedOwnerId: number, operatorIds: number[], gasGroups?: GasGroup[]) => {
-  const { eventsByName } = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[executorOwnerId]).liquidate(
-    DB.owners[liquidatedOwnerId].address,
-    await DB.ssvNetwork.contract.getCluster(operatorIds),
-  ), gasGroups);
-
-  const clusterId = eventsByName.AccountLiquidated[0].args.clusterId;
-  return { clusterId };
-};
-*/

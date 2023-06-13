@@ -5,13 +5,11 @@ async function upgradeSSVNetwork() {
 
   const SSVNetwork = await ethers.getContractFactory("SSVNetwork");
 
-  await upgrades.upgradeProxy(proxyAddress, SSVNetwork,
-    {
-      kind: 'uups',
-      unsafeAllow: ['state-variable-immutable', 'constructor'],
-      constructorArgs: [process.env.REGISTER_AUTH_PROXY_ADDRESS]
-    });
+  const ssvNetwork = await upgrades.upgradeProxy(proxyAddress, SSVNetwork, { kind: 'uups' });
   console.log("SSVNetwork upgraded successfully");
+
+  const implAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
+  console.log(`SSVNetwork implementation deployed to: ${implAddress}`);
 }
 
 upgradeSSVNetwork()

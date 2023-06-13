@@ -5,7 +5,7 @@ import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any, ssvViews: any, registerAuth: any, cluster1: any, minDepositAmount: any;
+let ssvNetworkContract: any, ssvViews: any, cluster1: any, minDepositAmount: any;
 
 describe('Deposit Tests', () => {
   beforeEach(async () => {
@@ -13,7 +13,6 @@ describe('Deposit Tests', () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
-    registerAuth = metadata.registerAuth;
 
     // Register operators
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);

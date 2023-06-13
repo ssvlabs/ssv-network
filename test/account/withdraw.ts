@@ -5,27 +5,25 @@ import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any, registerAuth: any, ssvToken: any, cluster1: any, minDepositAmount: any;
+let ssvNetworkContract: any, ssvToken: any, cluster1: any, minDepositAmount: any;
 
 describe('Withdraw Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
-    registerAuth = metadata.registerAuth;
     ssvToken = metadata.ssvToken;
 
     // Register operators
     await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
-
     // Register validators
     // cold register
     await helpers.coldRegisterValidator();
-    await registerAuth.setAuth(helpers.DB.owners[4].address, [false, true]);
-    await ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
 
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[4].address, [false,true]);
+    await ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(
       helpers.DataGenerator.publicKey(1),
       [1, 2, 3, 4],
@@ -47,7 +45,7 @@ describe('Withdraw Tests', () => {
   });
 
   it('Withdraw from cluster gas limits', async () => {
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.cluster), [GasGroup.WITHDRAW_POD_BALANCE]);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.cluster), [GasGroup.WITHDRAW_CLUSTER_BALANCE]);
   });
 
   it('Withdraw from operator balance emits "OperatorWithdrawn"', async () => {
@@ -69,13 +67,6 @@ describe('Withdraw Tests', () => {
   it('Withdraw from a cluster that has a removed operator emits "ClusterWithdrawn"', async () => {
     await ssvNetworkContract.removeOperator(1);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.operatorIds, helpers.CONFIG.minimalOperatorFee, cluster1.cluster)).to.emit(ssvNetworkContract, 'ClusterWithdrawn');
-  });
-
-  it('Withdraw from a cluster without validators', async () => {
-    cluster1 = await helpers.removeValidator(4, helpers.DataGenerator.publicKey(1), cluster1.operatorIds, cluster1.cluster);
-    const currentClusterBalance = minDepositAmount - (helpers.CONFIG.minimalOperatorFee * 4);
-
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.operatorIds, currentClusterBalance, cluster1.cluster)).to.emit(ssvNetworkContract, 'ClusterWithdrawn');
   });
 
   it('Withdraw more than the cluster balance reverts "InsufficientBalance"', async () => {
@@ -112,5 +103,12 @@ describe('Withdraw Tests', () => {
 
   it('Withdraw more than the operator total balance reverts "InsufficientBalance"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorEarnings(uint64)'](12)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
+  });
+
+  it('Withdraw from a cluster without validators', async () => {
+    cluster1 = await helpers.removeValidator(4, helpers.DataGenerator.publicKey(1), cluster1.operatorIds, cluster1.cluster);
+    const currentClusterBalance = minDepositAmount - (helpers.CONFIG.minimalOperatorFee * 4);
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.operatorIds, currentClusterBalance, cluster1.cluster)).to.emit(ssvNetworkContract, 'ClusterWithdrawn');
   });
 });

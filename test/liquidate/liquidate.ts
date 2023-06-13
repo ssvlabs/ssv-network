@@ -4,7 +4,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, ssvViews: any, registerAuth: any, minDepositAmount: any, firstCluster: any;
+let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, firstCluster: any;
 
 // Declare globals
 describe('Liquidate Tests', () => {
@@ -13,7 +13,6 @@ describe('Liquidate Tests', () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
-    registerAuth = metadata.registerAuth;
 
     // Register operators
     await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
@@ -23,7 +22,7 @@ describe('Liquidate Tests', () => {
     // cold register
     await helpers.coldRegisterValidator();
 
-    await registerAuth.setAuth(helpers.DB.owners[1].address, [false, true]);
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, [false, true]);
     // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
@@ -102,7 +101,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_4]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_4]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     expect(await ssvViews.isLiquidatable(updatedCluster.owner, updatedCluster.operatorIds, updatedCluster.cluster)).to.be.equals(false);
   });
@@ -113,7 +112,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_4]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_4]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, `${minDepositAmount * 2}`);
@@ -132,7 +131,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_4]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_4]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     expect(await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, updatedCluster.cluster)).to.equal(true);
@@ -162,7 +161,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_7]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_7]);
     firstCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     expect(await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(true);
@@ -192,7 +191,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_10]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_10]);
     firstCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     expect(await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(true);
@@ -222,7 +221,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_13]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_13]);
     firstCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     expect(await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster)).to.equal(true);
@@ -233,7 +232,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_4]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_4]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     expect(await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, updatedCluster.cluster)).to.equal(true);
@@ -245,7 +244,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_4]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_4]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     expect(await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, updatedCluster.cluster)).to.equal(true);
@@ -257,7 +256,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_4]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_4]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     expect(await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, updatedCluster.cluster)).to.equal(true);
@@ -306,7 +305,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_4]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_4]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     await expect(ssvNetworkContract.liquidate(
@@ -322,7 +321,7 @@ describe('Liquidate Tests', () => {
       firstCluster.owner,
       firstCluster.operatorIds,
       firstCluster.cluster
-    ), [GasGroup.LIQUIDATE_POD_4]);
+    ), [GasGroup.LIQUIDATE_CLUSTER_4]);
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     await expect(ssvViews.isLiquidated(helpers.DB.owners[4].address, firstCluster.operatorIds, updatedCluster.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');

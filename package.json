@@ -1,16 +1,27 @@
 {
   "name": "ssv-network",
   "scripts": {
+    "build": "npx hardhat compile",
+    "test": "npx hardhat test",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
     "solidity-coverage": "NO_GAS_ENFORCE=1 npx hardhat coverage",
-    "test": "npx hardhat test",
+    "deploy-localhost": "npx hardhat run --network hardhat scripts/deploy-all.ts",
     "deploy-testnet": "npx hardhat run --network goerli scripts/deploy-all.ts",
-    "validate-upgrade-ssv-network-testnet": "npx hardhat run --network goerli scripts/validate-upgrade-ssv-network.ts",
-    "validate-upgrade-ssv-network-views-testnet": "npx hardhat run --network goerli scripts/validate-upgrade-ssv-network-views.ts",
+    "upgrade-ssv-network-localhost": "npx hardhat run --network hardhat scripts/upgrade-ssv-network.ts",
     "upgrade-ssv-network-testnet": "npx hardhat run --network goerli scripts/upgrade-ssv-network.ts",
+    "upgrade-ssv-network-views-localhost": "npx hardhat run --network goerli scripts/upgrade-ssv-network-views.ts",
     "upgrade-ssv-network-views-testnet": "npx hardhat run --network goerli scripts/upgrade-ssv-network-views.ts",
-    "slither": "slither contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin"
+    "update-clusters-mod-localhost": "npx hardhat run --network hardhat scripts/modules/deploy-mod-clusters.ts",
+    "update-clusters-mod-testnet": "npx hardhat run --network goerli scripts/modules/deploy-mod-clusters.ts",
+    "update-operators-mod-localhost": "npx hardhat run --network hardhat scripts/modules/deploy-mod-operators.ts",
+    "update-operators-mod-testnet": "npx hardhat run --network goerli scripts/modules/deploy-mod-operators.ts",
+    "update-dao-mod-localhost": "npx hardhat run --network hardhat scripts/modules/deploy-mod-dao.ts",
+    "update-dao-mod-testnet": "npx hardhat run --network goerli scripts/modules/deploy-mod-dao.ts",
+    "update-views-mod-localhost": "npx hardhat run --network hardhat scripts/modules/deploy-mod-views.ts",
+    "update-views-mod-testnet": "npx hardhat run --network goerli scripts/modules/deploy-mod-views.ts",
+    "slither": "slither contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin",
+    "size-contracts": "npx hardhat size-contracts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",

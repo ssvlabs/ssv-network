@@ -4,16 +4,15 @@ import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any, ssvViews: any, registerAuth: any;
+let ssvNetworkContract: any, ssvViews: any;
 
 describe('Register Operator Tests', () => {
   beforeEach(async () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
-    registerAuth = metadata.registerAuth;
 
-    await registerAuth.setAuth(helpers.DB.owners[1].address, [true, false]);
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, [true, false]);
   });
 
   it('Register operator emits "OperatorAdded"', async () => {
@@ -37,11 +36,14 @@ describe('Register Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee,
     );
 
-    expect((await ssvViews.getOperatorById(1))[0]).to.equal(helpers.DB.owners[1].address); // owner
-    expect((await ssvViews.getOperatorById(1))[1]).to.equal(helpers.CONFIG.minimalOperatorFee); // fee
-    expect((await ssvViews.getOperatorById(1))[2]).to.equal(0); // validatorCount
-    expect((await ssvViews.getOperatorById(1))[3]).to.equal(false); // isPrivate
-    expect((await ssvViews.getOperatorById(1))[4]).to.equal(true); // active
+    expect(await ssvViews.getOperatorById(1)).to.deep.equal(
+      [helpers.DB.owners[1].address, // owner
+      helpers.CONFIG.minimalOperatorFee, // fee
+        0, // validatorCount
+        ethers.constants.AddressZero, // whitelisted
+        false, // isPrivate
+        true // active
+      ]);
   });
 
   it('Get private operator by id', async () => {
@@ -52,11 +54,25 @@ describe('Register Operator Tests', () => {
 
     await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(1, helpers.DB.owners[2].address);
 
-    expect((await ssvViews.getOperatorById(1))[0]).to.equal(helpers.DB.owners[1].address); // owner
-    expect((await ssvViews.getOperatorById(1))[1]).to.equal(helpers.CONFIG.minimalOperatorFee); // fee
-    expect((await ssvViews.getOperatorById(1))[2]).to.equal(0); // validatorCount
-    expect((await ssvViews.getOperatorById(1))[3]).to.equal(true); // isPrivate
-    expect((await ssvViews.getOperatorById(1))[4]).to.equal(true); // active
+    expect(await ssvViews.getOperatorById(1)).to.deep.equal(
+      [helpers.DB.owners[1].address, // owner
+      helpers.CONFIG.minimalOperatorFee, // fee
+        0, // validatorCount
+        helpers.DB.owners[2].address, // whitelisted
+        true, // isPrivate
+        true // active
+      ]);
+  });
+
+  it('Set operator whitelist gas limits', async () => {
+    await ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
+      helpers.DataGenerator.publicKey(0),
+      helpers.CONFIG.minimalOperatorFee
+    );
+
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(1, helpers.DB.owners[2].address), 
+    [GasGroup.SET_OPERATOR_WHITELIST]);
+   
   });
 
   it('Get non-existent operator by id', async () => {
@@ -65,11 +81,14 @@ describe('Register Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee
     );
 
-    expect((await ssvViews.getOperatorById(3))[0]).to.equal(ethers.constants.AddressZero); // owner
-    expect((await ssvViews.getOperatorById(3))[1]).to.equal(0); // fee
-    expect((await ssvViews.getOperatorById(3))[2]).to.equal(0); // validatorCount
-    expect((await ssvViews.getOperatorById(1))[3]).to.equal(false); // isPrivate
-    expect((await ssvViews.getOperatorById(3))[4]).to.equal(false); // active
+    expect(await ssvViews.getOperatorById(5)).to.deep.equal(
+      [ethers.constants.AddressZero, // owner
+        0, // fee
+        0, // validatorCount
+        ethers.constants.AddressZero, // whitelisted
+        false, // isPrivate
+        false // active
+      ]);
   });
 
   it('Get operator removed by id', async () => {
@@ -79,11 +98,14 @@ describe('Register Operator Tests', () => {
     );
     await ssvNetworkContract.connect(helpers.DB.owners[1]).removeOperator(1);
 
-    expect((await ssvViews.getOperatorById(1))[0]).to.equal(helpers.DB.owners[1].address); // owner
-    expect((await ssvViews.getOperatorById(1))[1]).to.equal(0); // fee
-    expect((await ssvViews.getOperatorById(1))[2]).to.equal(0); // validatorCount
-    expect((await ssvViews.getOperatorById(1))[3]).to.equal(false); // isPrivate
-    expect((await ssvViews.getOperatorById(1))[4]).to.equal(false); // active
+    expect(await ssvViews.getOperatorById(1)).to.deep.equal(
+      [helpers.DB.owners[1].address, // owner
+        0, // fee
+        0, // validatorCount
+        ethers.constants.AddressZero, // whitelisted
+        false, // isPrivate
+        false // active
+      ]);
   });
 
   it('Register an operator with a fee thats too low reverts "FeeTooLow"', async () => {
@@ -105,4 +127,5 @@ describe('Register Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorAlreadyExists');
   });
+
 });
