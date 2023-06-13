@@ -1,6 +1,7 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
 let ssvNetworkContract: any, ssvViews: any, networkFee: any;
@@ -20,6 +21,11 @@ describe('Liquidation Collateral Tests', () => {
     await expect(ssvNetworkContract.updateMinimumLiquidationCollateral(helpers.CONFIG.minimumLiquidationCollateral * 2))
       .to.emit(ssvNetworkContract, 'MinimumLiquidationCollateralUpdated')
       .withArgs(helpers.CONFIG.minimumLiquidationCollateral * 2);
+  });
+
+  it('Change minimum collateral gas limits', async () => {
+    await trackGas(ssvNetworkContract.updateMinimumLiquidationCollateral(helpers.CONFIG.minimumLiquidationCollateral * 2),
+    [GasGroup.CHANGE_MINIMUM_COLLATERAL]);
   });
 
   it('Get minimum collateral', async () => {
