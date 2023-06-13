@@ -25,7 +25,7 @@ async function upgradeSSVNetworkViews() {
   console.log(`SSVViews module attached to SSVNetwork succesfully`);
 
   await upgrades.upgradeProxy(ssvViewsProxy, SSVNetworkViews, { kind: 'uups' });
-  console.log("SSVNetworkViews upgraded successfully");;
+  console.log("SSVNetworkViews upgraded successfully");
 }
 
 upgradeSSVNetworkViews()
