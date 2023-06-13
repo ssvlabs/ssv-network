@@ -199,6 +199,10 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().minimumLiquidationCollateral.expand();
     }
 
+    function getValidatorsPerOperatorLimit() external view override returns (uint32) {
+        return SSVStorageProtocol.load().validatorsPerOperatorLimit;
+    }
+
     function getVersion() external pure override returns (string memory version) {
         return CoreLib.getVersion();
     }

@@ -1,6 +1,7 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
 let ssvNetworkContract: any, ssvViews: any, networkFee: any;
@@ -19,6 +20,10 @@ describe('Network Fee Tests', () => {
   it('Change network fee emits "NetworkFeeUpdated"', async () => {
     await expect(ssvNetworkContract.updateNetworkFee(networkFee
     )).to.emit(ssvNetworkContract, 'NetworkFeeUpdated').withArgs(0, networkFee);
+  });
+
+  it('Change network fee gas limit', async () => {
+    await trackGas(ssvNetworkContract.updateNetworkFee(networkFee), [GasGroup.NETWORK_FEE_CHANGE]);
   });
 
   it('Get network fee', async () => {

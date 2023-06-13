@@ -2,7 +2,7 @@
 import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
 import { expect } from 'chai';
-import { GasGroup } from '../helpers/gas-usage';
+import { trackGas, GasGroup } from '../helpers/gas-usage';
 
 // Declare globals
 let ssvNetworkContract: any, ssvViews: any, minDepositAmount: any, burnPerBlock: any, networkFee: any;
@@ -43,6 +43,11 @@ describe('DAO Network Fee Withdraw Tests', () => {
     const amount = await ssvViews.getNetworkEarnings();
     await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
     )).to.emit(ssvNetworkContract, 'NetworkEarningsWithdrawn').withArgs(amount, helpers.DB.owners[0].address);
+  });
+
+  it('Withdraw network earnings gas limits', async () => {
+    const amount = await ssvViews.getNetworkEarnings();
+    await trackGas(ssvNetworkContract.withdrawNetworkEarnings(amount), [GasGroup.WITHDRAW_NETWORK_EARNINGS]);
   });
 
   it('Get withdrawable network earnings', async () => {
