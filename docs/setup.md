@@ -9,7 +9,6 @@ The stack is a simple one:
 * JavaScript
 * Node/NPM
 * HardHat
-* Waffle
 * Ethers
 
 ### Install Node (also installs NPM)
