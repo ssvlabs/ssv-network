@@ -137,6 +137,10 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, IFnSSVView
         return ssvNetwork.getMinimumLiquidationCollateral();
     }
 
+    function getValidatorsPerOperatorLimit() external view override returns (uint32) {
+        return ssvNetwork.getValidatorsPerOperatorLimit();
+    }
+
     function getVersion() external view override returns (string memory version) {
         return ssvNetwork.getVersion();
     }

@@ -36,7 +36,9 @@ contract SSVViews is IFnSSVViews {
     }
 
     function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint64, uint64) {
-        OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorageUpgrade.load().operatorFeeChangeRequests[operatorId];
+        OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorageUpgrade.load().operatorFeeChangeRequests[
+            operatorId
+        ];
 
         if (opFeeChangeRequest.fee == 0) {
             revert NoFeeDeclared();
@@ -195,6 +197,10 @@ contract SSVViews is IFnSSVViews {
 
     function getVersion() external pure returns (string memory version) {
         return CoreLib.getVersion();
+    }
+
+    function getValidatorsPerOperatorLimit() external view override returns (uint32) {
+        return SSVStorageUpgrade.load().validatorsPerOperatorLimit;
     }
 
     function getMinOperatorsPerCluster() external view returns (uint64) {

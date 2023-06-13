@@ -4,12 +4,13 @@ import { expect } from 'chai';
 import { trackGas } from '../helpers/gas-usage';
 
 // Declare globals
-let ssvNetworkContract: any;
+let ssvNetworkContract: any, ssvViews: any;
 
 describe('Others Operator Tests', () => {
   beforeEach(async () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
+    ssvViews = metadata.ssvViews;
   });
 
   it('Add fee recipient address emits "FeeRecipientAddressUpdated"', async () => {
@@ -71,6 +72,10 @@ describe('Others Operator Tests', () => {
 
     await expect(ssvNetworkContract.setOperatorWhitelist(operatorId, helpers.DB.owners[2].address))
       .to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
+  });
+
+  it('Get the maximum number of validators per operator', async () => {
+    expect(await ssvViews.getValidatorsPerOperatorLimit()).to.equal(helpers.CONFIG.validatorsPerOperatorLimit);
   });
 
 });
