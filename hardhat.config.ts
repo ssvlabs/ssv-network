@@ -7,6 +7,9 @@ import 'hardhat-tracer';
 import '@nomiclabs/hardhat-solhint';
 import 'hardhat-contract-sizer';
 import 'hardhat-storage-layout-changes';
+import './tasks/deploy';
+import './tasks/update-module';
+import './tasks/upgrade';
 
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
