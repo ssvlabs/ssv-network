@@ -1,5 +1,5 @@
 // Imports
-import { CONFIG, DB, SSV_MODULES, initializeContract, DataGenerator } from '../helpers/contract-helpers';
+import { CONFIG, DB, initializeContract, DataGenerator } from '../helpers/contract-helpers';
 import { expect } from 'chai';
 
 describe('Deployment tests', () => {
@@ -21,7 +21,7 @@ describe('Deployment tests', () => {
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
             kind: 'uups',
-            unsafeAllow:['delegatecall']
+            unsafeAllow: ['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
@@ -29,11 +29,31 @@ describe('Deployment tests', () => {
         expect((await ssvNetworkViews.getNetworkFee())).to.equal(10000000);
     });
 
+    it('Upgrade SSVNetwork contract. Deploy implemetation manually', async () => {
+        const SSVNetwork = await ethers.getContractFactory("SSVNetwork");
+        const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
+
+        // Get current SSVNetwork proxy
+        const ssvNetwork = SSVNetwork.attach(ssvNetworkContract.address);
+
+        // Deploy a new implementation with another account
+        const contractImpl = await BasicUpgrade.connect(DB.owners[1]).deploy();
+        await contractImpl.deployed();
+
+        const calldata = contractImpl.interface.getSighash('resetNetworkFee');
+
+        // The owner of SSVNetwork contract peforms the upgrade
+        await ssvNetwork.upgradeToAndCall(contractImpl.address, calldata);
+
+        expect((await ssvNetworkViews.getNetworkFee())).to.equal(10000000);
+
+    });
+
     it('Upgrade SSVNetwork contract. Check base contract is not re-initialized', async () => {
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
             kind: 'uups',
-            unsafeAllow:['delegatecall']
+            unsafeAllow: ['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
@@ -58,7 +78,7 @@ describe('Deployment tests', () => {
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
             kind: 'uups',
-            unsafeAllow:['delegatecall']
+            unsafeAllow: ['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
@@ -79,7 +99,7 @@ describe('Deployment tests', () => {
         const SSVNetworkUpgrade = await ethers.getContractFactory("SSVNetworkUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkUpgrade, {
             kind: 'uups',
-            unsafeAllow:['delegatecall']
+            unsafeAllow: ['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
@@ -87,7 +107,7 @@ describe('Deployment tests', () => {
             [DB.owners[1].address, // owner
             CONFIG.minimalOperatorFee, // fee
                 0, // validatorCount
-                ethers.constants.AddressZero, // whitelisted
+            ethers.constants.AddressZero, // whitelisted
                 false, // isPrivate
                 true // active
             ]);
@@ -101,7 +121,21 @@ describe('Deployment tests', () => {
             DataGenerator.publicKey(2),
             CONFIG.minimalOperatorFee
         )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(2, DB.owners[1].address, DataGenerator.publicKey(2), CONFIG.minimalOperatorFee);
-
     });
 
+    it('Update a module (SSVOperators)', async () => {
+
+        const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+        const ssvNetwork = await ssvNetworkFactory.attach(ssvNetworkContract.address);
+
+        const ssvOperatorsFactory = await ethers.getContractFactory('SSVOperatorsUpdate');
+
+        const operatorsImpl = await ssvOperatorsFactory.connect(DB.owners[1]).deploy();
+        await operatorsImpl.deployed();
+
+        await ssvNetwork.upgradeModule(0, operatorsImpl.address);
+
+        await expect(ssvNetworkContract.declareOperatorFee(0, 0))
+            .to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');
+    });
 });
