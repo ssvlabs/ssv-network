@@ -39,9 +39,41 @@ task("upgrade:proxy", "Upgrade SSVNetwork / SSVNetworkViews proxy via hardhat up
                     } :
                     ''
             });
+        await ssvUpgrade.deployed();
         console.log(`${proxyAddress} upgraded successfully`);
 
         const implAddress = await upgrades.erc1967.getImplementationAddress(ssvUpgrade.address);
         console.log(`Implementation deployed to: ${implAddress}`);
     });
 
+/**
+@title Hardhat task to prepare the upgrade of the SSVNetwork or SSVNetworkViews proxy contract.
+This task is responsible for preparing an upgrade to a SSVNetwork or SSVNetworkViews proxy contract using the Hardhat Upgrades Plugin.
+The task deploys the new implementation contract for the upgrade and outputs the address of the new implementation.
+The function takes as input the proxy address to be upgraded and the contract to use for the upgrade. 
+The proxy address and contract name must be provided as parameters.
+@param {string} proxyAddress - The proxy address of the SSVNetwork or SSVNetworkViews contract to be upgraded.
+@param {string} contract - The name of the new implementation contract to deploy for the upgrade.
+@example
+// Prepare an upgrade for the SSVNetworkViews proxy contract with a new implementation contract named 'SSVNetworkViewsV2'
+npx hardhat --network goerli upgrade:prepare --proxyAddress 0x1234... --contract SSVNetworkViewsV2
+@remarks
+The deployer account used will be the first one returned by ethers.getSigners().
+Therefore, it should be appropriately configured in your Hardhat network configuration.
+The new implementation contract specified should be already compiled and exist in the 'artifacts' directory.
+*/
+task("upgrade:prepare", "Prepares the upgrade of SSVNetwork / SSVNetworkViews proxy")
+    .addParam("proxyAddress", "Proxy address of SSVNetwork / SSVNetworkViews", null, types.string)
+    .addParam("contract", "New contract upgrade", null, types.string)
+    .setAction(async ({ proxyAddress, contract }) => {
+        const [deployer] = await ethers.getSigners();
+        console.log(`Preparing the upgrade of ${proxyAddress} with the account: ${deployer.address}`);
+
+        const SSVUpgradeFactory = await ethers.getContractFactory(contract);
+
+        const implAddress = await upgrades.prepareUpgrade(proxyAddress, SSVUpgradeFactory,
+            {
+                kind: 'uups',
+            });
+        console.log(`Implementation deployed to: ${implAddress}`);
+    });

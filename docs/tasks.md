@@ -78,17 +78,21 @@ npx hardhat --network goerli upgrade:proxy --proxyAddress 0x1234... --contract S
 ### Update a module
 Sometimes you only need to perform changes in the logic of a function of a module, add a private function or do something that doesn't affect other components in the architecture. Then you can use the task to update a module. 
 
-This task first deploys a new version of a specified SSV module contract, and then updates the SSVNetwork contract to use this new module version.
+This task first deploys a new version of a specified SSV module contract, and then updates the SSVNetwork contract to use this new module version only if `--attach-module` flag is set to `true`.
 
 ```
-Usage: hardhat [GLOBAL OPTIONS] update:module [--module <STRING>]
+Usage: hardhat [GLOBAL OPTIONS] update:module [--attach-module <BOOLEAN>] [--module <STRING>] [--proxy-address <STRING>]
 
 OPTIONS:
-  --module      SSV Module (default: null)
+
+  --attach-module       Attach module to SSVNetwork contract (default: false)
+  --module              SSV Module
+  --proxy-address       Proxy address of SSVNetwork / SSVNetworkViews (default: null)
+
 
 Example:
 Update 'SSVOperators' module contract in the SSVNetwork
-npx hardhat --network goerli update:module --module SSVOperators
+npx hardhat --network goerli update:module --module SSVOperators --attach-module true --proxyAddress 0x1234...
 ```
 
 ### Upgrade a library
@@ -101,5 +105,21 @@ Run the task to upgrade SSVNetwork proxy contract as described in [Upgrade SSVNe
 
 Run the right script to update the module affected by the library change, as described in [Update a module](#update-a-module) section.
 
+### Manual upgrade of SSVNetwork / SSVNetworkViews
+Validates and deploys a new implementation contract. Use this task to prepare an upgrade to be run from an owner address you do not control directly or cannot use from Hardhat.
+
+```
+Usage: hardhat [GLOBAL OPTIONS] upgrade:prepare [--contract <STRING>] [--proxy-address <STRING>]
+
+OPTIONS:
+
+  --contract            New contract upgrade (default: null)
+  --proxy-address       Proxy address of SSVNetwork / SSVNetworkViews (default: null)
+
+Example:
+npx hardhat --network goerli upgrade:prepare --proxyAddress 0x1234... --contract SSVNetworkViewsV2
+```
+
+The task will return the new implementation address. After that, you can run `upgradeTo` or `upgradeToAndCall` in SSVNetwork / SSVNetworkViews proxy address, providing it as a parameter.
 
 
