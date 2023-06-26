@@ -11,6 +11,27 @@ describe('Register Auth Operator Tests', () => {
     ssvNetworkContract = metadata.contract;
   });
 
+  it('Register auth and get auth data', async () => {
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[10].address, true, false);
+    expect(await ssvNetworkContract.getRegisterAuth(helpers.DB.owners[10].address)).to.deep.equal(
+      [true, false]
+    );
+
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[11].address, false, true);
+    expect(await ssvNetworkContract.getRegisterAuth(helpers.DB.owners[11].address)).to.deep.equal(
+      [false, true]
+    )
+
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[12].address, true, true);
+    expect(await ssvNetworkContract.getRegisterAuth(helpers.DB.owners[12].address)).to.deep.equal(
+      [true, true]
+    )
+
+    expect(await ssvNetworkContract.getRegisterAuth(helpers.DB.owners[5].address)).to.deep.equal(
+      [false, false]
+    )
+  });
+
   it('Register operator with unauthorized address reverts "NotAuthorized"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(12),
@@ -20,7 +41,7 @@ describe('Register Auth Operator Tests', () => {
   });
 
   it('Register operator with unauthorized address reverts "NotAuthorized" (2)', async () => {
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, { registerOperator: false, registerValidator: true });
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, false, true);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(12),
@@ -46,7 +67,7 @@ describe('Register Auth Operator Tests', () => {
   });
 
   it('Register validator with unauthorized address reverts "NotAuthorized" (2)', async () => {
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[3].address, { registerOperator: true, registerValidator: false });
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[3].address, true, false);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
       helpers.DataGenerator.publicKey(12),

@@ -22,14 +22,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-contract SSVNetwork is
-    UUPSUpgradeable,
-    Ownable2StepUpgradeable,
-    ISSVNetwork,
-    ISSVOperators,
-    ISSVClusters,
-    ISSVDAO
-{
+contract SSVNetwork is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVNetwork, ISSVOperators, ISSVClusters, ISSVDAO {
     using Types256 for uint256;
     using ClusterLib for Cluster;
 
@@ -369,11 +362,14 @@ contract SSVNetwork is
     /*******************************/
     /* Register Authorization      */
     /*******************************/
-    function setRegisterAuth(address userAddress, Authorization calldata auth) external override onlyOwner {
-        RegisterAuth.load().authorization[userAddress] = auth;
+    function setRegisterAuth(address userAddress, bool authOperator, bool authValidator) external override onlyOwner {
+        RegisterAuth.load().authorization[userAddress] = Authorization(authOperator, authValidator);
     }
 
-    function getRegisterAuth(address userAddress) external view override returns (Authorization memory) {
-        return RegisterAuth.load().authorization[userAddress];
+    function getRegisterAuth(
+        address userAddress
+    ) external view override returns (bool authOperators, bool authValidators) {
+        Authorization memory auth = RegisterAuth.load().authorization[userAddress];
+        return (auth.registerOperator, auth.registerValidator);
     }
 }
