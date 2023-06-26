@@ -1,5 +1,7 @@
 // Imports
-import { CONFIG, DB, SSV_MODULES, initializeContract, DataGenerator } from '../helpers/contract-helpers';
+import { CONFIG, DB, initializeContract, DataGenerator } from '../helpers/contract-helpers';
+import { trackGas } from '../helpers/gas-usage';
+
 import { expect } from 'chai';
 
 describe('Deployment tests', () => {
@@ -21,11 +23,11 @@ describe('Deployment tests', () => {
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
             kind: 'uups',
-            unsafeAllow:['delegatecall']
+            unsafeAllow: ['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
-        await ssvNetworkUpgrade.resetNetworkFee();
+        await ssvNetworkUpgrade.resetNetworkFee(10000000);
         expect((await ssvNetworkViews.getNetworkFee())).to.equal(10000000);
     });
 
@@ -33,7 +35,7 @@ describe('Deployment tests', () => {
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
             kind: 'uups',
-            unsafeAllow:['delegatecall']
+            unsafeAllow: ['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
@@ -54,18 +56,22 @@ describe('Deployment tests', () => {
             2000)).to.be.revertedWith('Function must be called through delegatecall');
     });
 
-    it('Upgrade SSVNetwork contract. Check functions only can be called from proxy contract', async () => {
+    it('Upgrade SSVNetwork contract. Check state is only changed from proxy contract', async () => {
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
             kind: 'uups',
-            unsafeAllow:['delegatecall']
+            unsafeAllow: ['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
         const address = await upgrades.erc1967.getImplementationAddress(ssvNetworkUpgrade.address);
         const instance = await ssvNetworkUpgrade.attach(address);
 
-        await expect(instance.connect(DB.owners[1]).removeOperator(1)).to.be.revertedWithCustomError(ssvNetworkContract, 'TargetModuleDoesNotExist');
+        await trackGas(
+            instance.connect(DB.owners[1]).resetNetworkFee(100000000000)
+        );
+
+        expect(await ssvNetworkViews.getNetworkFee()).to.be.equals(0);
     });
 
     it('Remove registerAuth from SSVNetwork contract', async () => {
@@ -79,7 +85,7 @@ describe('Deployment tests', () => {
         const SSVNetworkUpgrade = await ethers.getContractFactory("SSVNetworkUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkUpgrade, {
             kind: 'uups',
-            unsafeAllow:['delegatecall']
+            unsafeAllow: ['delegatecall']
         });
         await ssvNetworkUpgrade.deployed();
 
@@ -87,7 +93,7 @@ describe('Deployment tests', () => {
             [DB.owners[1].address, // owner
             CONFIG.minimalOperatorFee, // fee
                 0, // validatorCount
-                ethers.constants.AddressZero, // whitelisted
+            ethers.constants.AddressZero, // whitelisted
                 false, // isPrivate
                 true // active
             ]);
