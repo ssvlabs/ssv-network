@@ -6,6 +6,7 @@ async function upgradeSSVNetwork() {
   const SSVNetwork = await ethers.getContractFactory("SSVNetwork");
 
   const ssvNetwork = await upgrades.upgradeProxy(proxyAddress, SSVNetwork, { kind: 'uups' });
+  await ssvNetwork.deployed();
   console.log("SSVNetwork upgraded successfully");
 
   const implAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
