@@ -888,7 +888,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "operatorId",
+        "name": "",
         "type": "uint64"
       }
     ],
@@ -901,12 +901,12 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "operatorId",
+        "name": "",
         "type": "uint64"
       },
       {
         "internalType": "uint256",
-        "name": "fee",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -919,17 +919,17 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "owner",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "uint64[]",
-        "name": "operatorIds",
+        "name": "",
         "type": "uint64[]"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       },
       {
@@ -961,7 +961,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
+        "name": "",
         "type": "tuple"
       }
     ],
@@ -974,7 +974,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "operatorId",
+        "name": "",
         "type": "uint64"
       }
     ],
@@ -994,21 +994,14 @@
     "name": "getRegisterAuth",
     "outputs": [
       {
-        "components": [
-          {
-            "internalType": "bool",
-            "name": "registerOperator",
-            "type": "bool"
-          },
-          {
-            "internalType": "bool",
-            "name": "registerValidator",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct Authorization",
-        "name": "",
-        "type": "tuple"
+        "internalType": "bool",
+        "name": "authOperators",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "authValidators",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -1081,12 +1074,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "owner",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "uint64[]",
-        "name": "operatorIds",
+        "name": "",
         "type": "uint64[]"
       },
       {
@@ -1118,7 +1111,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
+        "name": "",
         "type": "tuple"
       }
     ],
@@ -1170,12 +1163,12 @@
     "inputs": [
       {
         "internalType": "uint64[]",
-        "name": "operatorIds",
+        "name": "",
         "type": "uint64[]"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       },
       {
@@ -1207,7 +1200,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
+        "name": "",
         "type": "tuple"
       }
     ],
@@ -1220,12 +1213,12 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "operatorId",
+        "name": "",
         "type": "uint64"
       },
       {
         "internalType": "uint256",
-        "name": "fee",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1238,12 +1231,12 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "publicKey",
+        "name": "",
         "type": "bytes"
       },
       {
         "internalType": "uint256",
-        "name": "fee",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1251,7 +1244,7 @@
     "outputs": [
       {
         "internalType": "uint64",
-        "name": "id",
+        "name": "",
         "type": "uint64"
       }
     ],
@@ -1262,22 +1255,22 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "publicKey",
+        "name": "",
         "type": "bytes"
       },
       {
         "internalType": "uint64[]",
-        "name": "operatorIds",
+        "name": "",
         "type": "uint64[]"
       },
       {
         "internalType": "bytes",
-        "name": "sharesData",
+        "name": "",
         "type": "bytes"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       },
       {
@@ -1309,7 +1302,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
+        "name": "",
         "type": "tuple"
       }
     ],
@@ -1322,7 +1315,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "operatorId",
+        "name": "",
         "type": "uint64"
       }
     ],
@@ -1335,12 +1328,12 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "publicKey",
+        "name": "",
         "type": "bytes"
       },
       {
         "internalType": "uint64[]",
-        "name": "operatorIds",
+        "name": "",
         "type": "uint64[]"
       },
       {
@@ -1372,7 +1365,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
+        "name": "",
         "type": "tuple"
       }
     ],
@@ -1405,12 +1398,12 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "operatorId",
+        "name": "",
         "type": "uint64"
       },
       {
         "internalType": "address",
-        "name": "whitelisted",
+        "name": "",
         "type": "address"
       }
     ],
@@ -1427,21 +1420,14 @@
         "type": "address"
       },
       {
-        "components": [
-          {
-            "internalType": "bool",
-            "name": "registerOperator",
-            "type": "bool"
-          },
-          {
-            "internalType": "bool",
-            "name": "registerValidator",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct Authorization",
-        "name": "auth",
-        "type": "tuple"
+        "internalType": "bool",
+        "name": "authOperator",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "authValidator",
+        "type": "bool"
       }
     ],
     "name": "setRegisterAuth",
@@ -1466,7 +1452,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "timeInSeconds",
+        "name": "",
         "type": "uint64"
       }
     ],
@@ -1479,7 +1465,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "timeInSeconds",
+        "name": "",
         "type": "uint64"
       }
     ],
@@ -1492,7 +1478,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "blocks",
+        "name": "",
         "type": "uint64"
       }
     ],
@@ -1505,7 +1491,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1518,7 +1504,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "fee",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1531,7 +1517,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "percentage",
+        "name": "",
         "type": "uint64"
       }
     ],
@@ -1593,12 +1579,12 @@
     "inputs": [
       {
         "internalType": "uint64[]",
-        "name": "operatorIds",
+        "name": "",
         "type": "uint64[]"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       },
       {
@@ -1630,7 +1616,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
+        "name": "",
         "type": "tuple"
       }
     ],
@@ -1643,7 +1629,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1656,12 +1642,12 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "operatorId",
+        "name": "",
         "type": "uint64"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1674,7 +1660,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "operatorId",
+        "name": "",
         "type": "uint64"
       }
     ],
