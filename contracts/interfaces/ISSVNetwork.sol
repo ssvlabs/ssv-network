@@ -11,8 +11,6 @@ import {SSVModules} from "../libraries/SSVStorage.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "../libraries/RegisterAuth.sol";
-
 interface ISSVNetwork {
     function initialize(
         IERC20 token_,
@@ -30,7 +28,7 @@ interface ISSVNetwork {
 
     function upgradeModule(SSVModules moduleId, address moduleAddress) external;
 
-    function setRegisterAuth(address userAddress, Authorization calldata auth) external;
+    function setRegisterAuth(address userAddress, bool authOperators, bool authValidators) external;
 
-    function getRegisterAuth(address userAddress) external view returns (Authorization memory);
+    function getRegisterAuth(address userAddress) external view returns (bool authOperators, bool authValidators);
 }

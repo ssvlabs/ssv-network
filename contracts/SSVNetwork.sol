@@ -260,11 +260,14 @@ contract SSVNetwork is
     /*******************************/
     /* Register Authorization      */
     /*******************************/
-    function setRegisterAuth(address userAddress, Authorization calldata auth) external override onlyOwner {
-        RegisterAuth.load().authorization[userAddress] = auth;
+    function setRegisterAuth(address userAddress, bool authOperator, bool authValidator) external override onlyOwner {
+        RegisterAuth.load().authorization[userAddress] = Authorization(authOperator, authValidator);
     }
 
-    function getRegisterAuth(address userAddress) external view override returns (Authorization memory) {
-        return RegisterAuth.load().authorization[userAddress];
+    function getRegisterAuth(
+        address userAddress
+    ) external view override returns (bool authOperators, bool authValidators) {
+        Authorization memory auth = RegisterAuth.load().authorization[userAddress];
+        return (auth.registerOperator, auth.registerValidator);
     }
 }

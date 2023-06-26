@@ -14,7 +14,7 @@ describe('Deployment tests', () => {
     });
 
     it('Upgrade SSVNetwork contract. Check new function execution', async () => {
-        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, [true, false]);
+        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, true, false);
 
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
@@ -76,7 +76,7 @@ describe('Deployment tests', () => {
 
     it('Remove registerAuth from SSVNetwork contract', async () => {
         const publicKey = DataGenerator.publicKey(4);
-        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, [true, false]);
+        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, true, false);
 
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             publicKey,
