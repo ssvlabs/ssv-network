@@ -888,7 +888,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "operatorId",
         "type": "uint64"
       }
     ],
@@ -901,12 +901,12 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "operatorId",
         "type": "uint64"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "fee",
         "type": "uint256"
       }
     ],
@@ -919,17 +919,17 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "owner",
         "type": "address"
       },
       {
         "internalType": "uint64[]",
-        "name": "",
+        "name": "operatorIds",
         "type": "uint64[]"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "amount",
         "type": "uint256"
       },
       {
@@ -961,7 +961,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "",
+        "name": "cluster",
         "type": "tuple"
       }
     ],
@@ -974,7 +974,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "operatorId",
         "type": "uint64"
       }
     ],
@@ -1074,12 +1074,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "owner",
         "type": "address"
       },
       {
         "internalType": "uint64[]",
-        "name": "",
+        "name": "operatorIds",
         "type": "uint64[]"
       },
       {
@@ -1111,7 +1111,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "",
+        "name": "cluster",
         "type": "tuple"
       }
     ],
@@ -1163,12 +1163,12 @@
     "inputs": [
       {
         "internalType": "uint64[]",
-        "name": "",
+        "name": "operatorIds",
         "type": "uint64[]"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "amount",
         "type": "uint256"
       },
       {
@@ -1200,7 +1200,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "",
+        "name": "cluster",
         "type": "tuple"
       }
     ],
@@ -1213,12 +1213,12 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "operatorId",
         "type": "uint64"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "fee",
         "type": "uint256"
       }
     ],
@@ -1231,12 +1231,12 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "",
+        "name": "publicKey",
         "type": "bytes"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "fee",
         "type": "uint256"
       }
     ],
@@ -1244,7 +1244,7 @@
     "outputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "id",
         "type": "uint64"
       }
     ],
@@ -1255,22 +1255,22 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "",
+        "name": "publicKey",
         "type": "bytes"
       },
       {
         "internalType": "uint64[]",
-        "name": "",
+        "name": "operatorIds",
         "type": "uint64[]"
       },
       {
         "internalType": "bytes",
-        "name": "",
+        "name": "sharesData",
         "type": "bytes"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "amount",
         "type": "uint256"
       },
       {
@@ -1302,7 +1302,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "",
+        "name": "cluster",
         "type": "tuple"
       }
     ],
@@ -1315,7 +1315,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "operatorId",
         "type": "uint64"
       }
     ],
@@ -1328,12 +1328,12 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "",
+        "name": "publicKey",
         "type": "bytes"
       },
       {
         "internalType": "uint64[]",
-        "name": "",
+        "name": "operatorIds",
         "type": "uint64[]"
       },
       {
@@ -1365,7 +1365,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "",
+        "name": "cluster",
         "type": "tuple"
       }
     ],
@@ -1398,12 +1398,12 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "operatorId",
         "type": "uint64"
       },
       {
         "internalType": "address",
-        "name": "",
+        "name": "whitelisted",
         "type": "address"
       }
     ],
@@ -1452,7 +1452,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "timeInSeconds",
         "type": "uint64"
       }
     ],
@@ -1465,7 +1465,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "timeInSeconds",
         "type": "uint64"
       }
     ],
@@ -1478,7 +1478,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "blocks",
         "type": "uint64"
       }
     ],
@@ -1491,37 +1491,11 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "amount",
         "type": "uint256"
       }
     ],
     "name": "updateMinimumLiquidationCollateral",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateNetworkFee",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "name": "updateOperatorFeeIncreaseLimit",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1539,7 +1513,33 @@
         "type": "address"
       }
     ],
-    "name": "upgradeModule",
+    "name": "updateModule",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "fee",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateNetworkFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "percentage",
+        "type": "uint64"
+      }
+    ],
+    "name": "updateOperatorFeeIncreaseLimit",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1579,12 +1579,12 @@
     "inputs": [
       {
         "internalType": "uint64[]",
-        "name": "",
+        "name": "operatorIds",
         "type": "uint64[]"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "amount",
         "type": "uint256"
       },
       {
@@ -1616,7 +1616,7 @@
           }
         ],
         "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "",
+        "name": "cluster",
         "type": "tuple"
       }
     ],
@@ -1629,7 +1629,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "amount",
         "type": "uint256"
       }
     ],
@@ -1642,12 +1642,12 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "operatorId",
         "type": "uint64"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "amount",
         "type": "uint256"
       }
     ],
@@ -1660,7 +1660,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "",
+        "name": "operatorId",
         "type": "uint64"
       }
     ],
