@@ -140,7 +140,7 @@ describe('Deployment tests', () => {
         const operatorsImpl = await ssvOperatorsFactory.connect(DB.owners[1]).deploy();
         await operatorsImpl.deployed();
 
-        await ssvNetwork.upgradeModule(0, operatorsImpl.address);
+        await ssvNetwork.updateModule(0, operatorsImpl.address);
 
         await expect(ssvNetworkContract.declareOperatorFee(0, 0))
             .to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');

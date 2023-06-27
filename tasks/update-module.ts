@@ -34,7 +34,7 @@ task("update:module", "Deploys a new module contract and links it to SSVNetwork"
             const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
             const ssvNetwork = await ssvNetworkFactory.attach(proxyAddress);
 
-            await ssvNetwork.upgradeModule(SSVModules[module], moduleAddress);
+            await ssvNetwork.updateModule(SSVModules[module], moduleAddress);
             console.log(`${module} module attached to SSVNetwork succesfully`);
         }
     });
