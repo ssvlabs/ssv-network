@@ -146,7 +146,7 @@ describe('Deployment tests', () => {
             .to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');
     });
 
-    it('ETH can not be transferred to SSVNetwork', async () => {
+    it('ETH can not be transferred to SSVNetwork / SSVNetwork views', async () => {
         const amount = ethers.utils.parseUnits("10000000", "wei");
 
         const sender = ethers.provider.getSigner(0);
@@ -156,6 +156,12 @@ describe('Deployment tests', () => {
             value: amount
         })).to.be.reverted;
 
+        await expect(sender.sendTransaction({
+            to: ssvNetworkViews.address,
+            value: amount
+        })).to.be.reverted;
+
         expect(await ethers.provider.getBalance(ssvNetworkContract.address)).to.be.equal(0);
+        expect(await ethers.provider.getBalance(ssvNetworkViews.address)).to.be.equal(0);
     });
 });
