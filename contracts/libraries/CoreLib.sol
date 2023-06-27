@@ -55,21 +55,6 @@ library CoreLib {
         return size > 0;
     }
 
-    function delegateCall(address ssvModule, bytes memory callMessage) internal returns (bytes memory) {
-        // Check when calls are not made using proxy contract
-        if (!isContract(ssvModule)) revert ISSVNetworkCore.TargetModuleDoesNotExist();
-
-        /// @custom:oz-upgrades-unsafe-allow delegatecall
-        (bool success, bytes memory returnData) = ssvModule.delegatecall(callMessage);
-        if (!success && returnData.length > 0) {
-            // solhint-disable-next-line no-inline-assembly
-            assembly {
-                let returnData_size := mload(returnData)
-                revert(add(32, returnData), returnData_size)
-            }
-        }
-        return returnData;
-    }
 
     function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
         if (!isContract(moduleAddress)) revert ISSVNetworkCore.TargetModuleDoesNotExist();

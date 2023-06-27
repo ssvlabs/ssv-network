@@ -1,5 +1,7 @@
 // Imports
 import { CONFIG, DB, initializeContract, DataGenerator } from '../helpers/contract-helpers';
+import { trackGas } from '../helpers/gas-usage';
+import { ethers, upgrades } from 'hardhat';
 import { expect } from 'chai';
 
 describe('Deployment tests', () => {
@@ -12,7 +14,7 @@ describe('Deployment tests', () => {
     });
 
     it('Upgrade SSVNetwork contract. Check new function execution', async () => {
-        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, [true, false]);
+        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, true, false);
 
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
@@ -25,7 +27,7 @@ describe('Deployment tests', () => {
         });
         await ssvNetworkUpgrade.deployed();
 
-        await ssvNetworkUpgrade.resetNetworkFee();
+        await ssvNetworkUpgrade.resetNetworkFee(10000000);
         expect((await ssvNetworkViews.getNetworkFee())).to.equal(10000000);
     });
 
@@ -40,7 +42,8 @@ describe('Deployment tests', () => {
         const contractImpl = await BasicUpgrade.connect(DB.owners[1]).deploy();
         await contractImpl.deployed();
 
-        const calldata = contractImpl.interface.getSighash('resetNetworkFee');
+        const newNetworkFee = ethers.utils.parseUnits("10000000", "wei");
+        const calldata = contractImpl.interface.encodeFunctionData('resetNetworkFee', [newNetworkFee]);
 
         // The owner of SSVNetwork contract peforms the upgrade
         await ssvNetwork.upgradeToAndCall(contractImpl.address, calldata);
@@ -74,7 +77,7 @@ describe('Deployment tests', () => {
             2000)).to.be.revertedWith('Function must be called through delegatecall');
     });
 
-    it('Upgrade SSVNetwork contract. Check functions only can be called from proxy contract', async () => {
+    it('Upgrade SSVNetwork contract. Check state is only changed from proxy contract', async () => {
         const BasicUpgrade = await ethers.getContractFactory("SSVNetworkBasicUpgrade");
         const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, BasicUpgrade, {
             kind: 'uups',
@@ -85,12 +88,16 @@ describe('Deployment tests', () => {
         const address = await upgrades.erc1967.getImplementationAddress(ssvNetworkUpgrade.address);
         const instance = await ssvNetworkUpgrade.attach(address);
 
-        await expect(instance.connect(DB.owners[1]).removeOperator(1)).to.be.revertedWithCustomError(ssvNetworkContract, 'TargetModuleDoesNotExist');
+        await trackGas(
+            instance.connect(DB.owners[1]).resetNetworkFee(100000000000)
+        );
+
+        expect(await ssvNetworkViews.getNetworkFee()).to.be.equals(0);
     });
 
     it('Remove registerAuth from SSVNetwork contract', async () => {
         const publicKey = DataGenerator.publicKey(4);
-        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, [true, false]);
+        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, true, false);
 
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             publicKey,

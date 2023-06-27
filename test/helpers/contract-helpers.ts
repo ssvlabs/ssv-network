@@ -144,7 +144,7 @@ export const initializeContract = async () => {
 
   await DB.ssvNetwork.contract.deployed();
 
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[0].address, [true, true]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[0].address, true, true);
 
   DB.ssvViews.contract = await upgrades.deployProxy(ssvViews, [
     DB.ssvNetwork.contract.address
@@ -169,7 +169,7 @@ export const initializeContract = async () => {
 };
 
 export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR]) => {
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, [true, false]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, true, false);
   for (let i = 0; i < numberOfOperators; ++i) {
     const { eventsByName } = await trackGas(
       DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerOperator(DataGenerator.publicKey(i), fee),
@@ -229,7 +229,7 @@ export const reactivate = async (ownerId: number, operatorIds: number[], amount:
 };
 
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, [false, true]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, false, true);
   const validators: any = [];
   let args: any;
   // Register validators to contract
@@ -259,7 +259,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
 };
 
 export const registerValidatorsRaw = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, [false, true]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, false, true);
 
   let cluster: any = {
     validatorCount: 0,
@@ -293,7 +293,7 @@ export const getCluster = (payload: any) => ethers.utils.AbiCoder.prototype.enco
 );
 
 export const coldRegisterValidator = async () => {
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[0].address, [false, true]);
+  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[0].address, false, true);
 
   await DB.ssvToken.approve(DB.ssvNetwork.contract.address, '1000000000000000');
   await DB.ssvNetwork.contract.registerValidator(
