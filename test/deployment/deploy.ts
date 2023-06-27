@@ -5,12 +5,13 @@ import { ethers, upgrades } from 'hardhat';
 import { expect } from 'chai';
 
 describe('Deployment tests', () => {
-    let ssvNetworkContract: any, ssvNetworkViews: any;
+    let ssvNetworkContract: any, ssvNetworkViews: any, ssvToken: any;
 
     beforeEach(async () => {
         const metadata = await initializeContract();
         ssvNetworkContract = metadata.contract;
         ssvNetworkViews = metadata.ssvViews;
+        ssvToken = metadata.ssvToken;
     });
 
     it('Upgrade SSVNetwork contract. Check new function execution', async () => {
@@ -131,7 +132,6 @@ describe('Deployment tests', () => {
     });
 
     it('Update a module (SSVOperators)', async () => {
-
         const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
         const ssvNetwork = await ssvNetworkFactory.attach(ssvNetworkContract.address);
 
@@ -144,5 +144,18 @@ describe('Deployment tests', () => {
 
         await expect(ssvNetworkContract.declareOperatorFee(0, 0))
             .to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');
+    });
+
+    it('ETH can not be transferred to SSVNetwork', async () => {
+        const amount = ethers.utils.parseUnits("10000000", "wei");
+
+        const sender = ethers.provider.getSigner(0);
+
+        await expect(sender.sendTransaction({
+            to: ssvNetworkContract.address,
+            value: amount
+        })).to.be.reverted;
+
+        expect(await ethers.provider.getBalance(ssvNetworkContract.address)).to.be.equal(0);
     });
 });
