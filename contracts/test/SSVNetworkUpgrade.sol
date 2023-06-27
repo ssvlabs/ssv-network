@@ -349,7 +349,7 @@ contract SSVNetworkUpgrade is
     }
 
     // Upgrade functions
-    function upgradeModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
+    function updateModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
         CoreLib.setModuleContract(moduleId, moduleAddress);
     }
 }

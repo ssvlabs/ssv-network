@@ -116,44 +116,41 @@ contract SSVNetwork is
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(
-        bytes calldata /* publicKey */,
-        uint256 /* fee */
-    ) external override returns (uint64 /* id */) {
+    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
         if (!RegisterAuth.load().authorization[msg.sender].registerOperator) revert NotAuthorized();
 
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function removeOperator(uint64 /* operatorId */) external override {
+    function removeOperator(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function setOperatorWhitelist(uint64 /* operatorId */, address /* whitelisted */) external override {
+    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function declareOperatorFee(uint64 /* operatorId */, uint256 /* fee */) external override {
+    function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function executeOperatorFee(uint64 /* operatorId */) external override {
+    function executeOperatorFee(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function cancelDeclaredOperatorFee(uint64 /* operatorId */) external override {
+    function cancelDeclaredOperatorFee(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function reduceOperatorFee(uint64 /* operatorId */, uint256 /* fee */) external override {
+    function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function withdrawOperatorEarnings(uint64 /* operatorId */, uint256 /* amount */) external override {
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function withdrawOperatorEarnings(uint64 /* operatorId */) external override {
+    function withdrawOperatorEarnings(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
@@ -170,11 +167,11 @@ contract SSVNetwork is
     /*******************************/
 
     function registerValidator(
-        bytes calldata /* publicKey */,
-        uint64[] memory /* operatorIds */,
-        bytes calldata /* sharesData */,
-        uint256 /* amount */,
-        ISSVNetworkCore.Cluster memory /* cluster */
+        bytes calldata publicKey,
+        uint64[] memory operatorIds,
+        bytes calldata sharesData,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
     ) external override {
         if (!RegisterAuth.load().authorization[msg.sender].registerValidator) revert NotAuthorized();
 
@@ -182,78 +179,74 @@ contract SSVNetwork is
     }
 
     function removeValidator(
-        bytes calldata /* publicKey */,
-        uint64[] calldata /* operatorIds */,
-        ISSVNetworkCore.Cluster memory /* cluster */
+        bytes calldata publicKey,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
-    function liquidate(
-        address /* owner */,
-        uint64[] calldata /* operatorIds */,
-        ISSVNetworkCore.Cluster memory /* cluster */
-    ) external {
+    function liquidate(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
     function reactivate(
-        uint64[] calldata /* operatorIds */,
-        uint256 /* amount */,
-        ISSVNetworkCore.Cluster memory /* cluster */
+        uint64[] calldata operatorIds,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
     function deposit(
-        address /* owner */,
-        uint64[] calldata /* operatorIds */,
-        uint256 /* amount */,
-        ISSVNetworkCore.Cluster memory /* cluster */
+        address owner,
+        uint64[] calldata operatorIds,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
     function withdraw(
-        uint64[] calldata /* operatorIds */,
-        uint256 /* amount */,
-        ISSVNetworkCore.Cluster memory /* cluster */
+        uint64[] calldata operatorIds,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
-    function updateNetworkFee(uint256 /* fee */) external override onlyOwner {
+    function updateNetworkFee(uint256 fee) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function withdrawNetworkEarnings(uint256 /* amount */) external override onlyOwner {
+    function withdrawNetworkEarnings(uint256 amount) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function updateOperatorFeeIncreaseLimit(uint64 /* percentage */) external override onlyOwner {
+    function updateOperatorFeeIncreaseLimit(uint64 percentage) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function updateDeclareOperatorFeePeriod(uint64 /* timeInSeconds */) external override onlyOwner {
+    function updateDeclareOperatorFeePeriod(uint64 timeInSeconds) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function updateExecuteOperatorFeePeriod(uint64 /* timeInSeconds */) external override onlyOwner {
+    function updateExecuteOperatorFeePeriod(uint64 timeInSeconds) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function updateLiquidationThresholdPeriod(uint64 /* blocks */) external override onlyOwner {
+    function updateLiquidationThresholdPeriod(uint64 blocks) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function updateMinimumLiquidationCollateral(uint256 /* amount */) external override onlyOwner {
+    function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
     /*******************************/
     /* Upgrade Modules Function    */
     /*******************************/
-    function upgradeModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
+    function updateModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
         CoreLib.setModuleContract(moduleId, moduleAddress);
     }
 

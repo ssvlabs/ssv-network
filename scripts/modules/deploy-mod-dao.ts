@@ -19,7 +19,7 @@ async function deploy() {
 
   const ssvNetwork = await ssvNetworkFactory.attach(proxyAddress);
 
-  await ssvNetwork.upgradeModule(ssvModules.SSV_DAO, ssvDAOMod.address);
+  await ssvNetwork.updateModule(ssvModules.SSV_DAO, ssvDAOMod.address);
   console.log(`SSVDAO module attached to SSVNetwork succesfully`);
 
 }

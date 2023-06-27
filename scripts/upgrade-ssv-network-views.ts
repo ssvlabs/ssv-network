@@ -21,7 +21,7 @@ async function upgradeSSVNetworkViews() {
 
   const ssvNetwork = await ssvNetworkFactory.attach(ssvNetworkProxy);
 
-  await ssvNetwork.upgradeModule(3, ssvViewsMod.address);
+  await ssvNetwork.updateModule(3, ssvViewsMod.address);
   console.log(`SSVViews module attached to SSVNetwork succesfully`);
 
   await upgrades.upgradeProxy(ssvViewsProxy, SSVNetworkViews, { kind: 'uups' });

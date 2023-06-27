@@ -17,7 +17,7 @@ describe('Version upgrade tests', () => {
         const viewsContract = await ssvViews.deploy();
         await viewsContract.deployed();
 
-        await ssvNetworkContract.upgradeModule(helpers.SSV_MODULES.SSV_VIEWS, viewsContract.address)
+        await ssvNetworkContract.updateModule(helpers.SSV_MODULES.SSV_VIEWS, viewsContract.address)
 
         expect(await ssvNetworkViews.getVersion()).to.equal("v1.0.0");
     });

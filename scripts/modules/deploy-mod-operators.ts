@@ -19,7 +19,7 @@ async function deploy() {
 
   const ssvNetwork = await ssvNetworkFactory.attach(proxyAddress);
 
-  await ssvNetwork.upgradeModule(ssvModules.SSV_OPERATORS, ssvOperatorsMod.address);
+  await ssvNetwork.updateModule(ssvModules.SSV_OPERATORS, ssvOperatorsMod.address);
   console.log(`SSVOperators module attached to SSVNetwork succesfully`);
 
 }
