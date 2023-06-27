@@ -6,9 +6,9 @@ This repository contains the Solidity smart contracts for the SSV Network. The S
 
 The documentation is divided into different sections:
 
-- **Architecture** Provides an overview of the system an all its components.
-- **Setup** Basic setup of the repository to be able to compile the contracts, run tests, etc.
-- **Tasks** Detailed instructions to run useful tools, deploy and updagrade the contracts.
+- **Architecture** Provides an overview of the system and all its components.
+- **Setup** The basic setup of the repository to be able to compile the contracts, run tests, etc.
+- **Tasks** Detailed instructions to run useful tools, deploy, and upgrade the contracts.
 - **Local development** Guide to setup the local environment to work with the contracts.
 
 ## SSV Documentation
@@ -23,7 +23,7 @@ Start getting familiar with DVT staking, go to [SSV Discord](https://discord.gg/
 
 ### Fix errors
 
-We love to receive feedback and input from the community, so if you found a potential bug of have an enhancement you want to share, please **open a PR!**.
+We love to receive feedback and input from the community, so if you found a potential bug or have an enhancement you want to share, please **Open a PR!**.
 
 ### Suggest improvements
 

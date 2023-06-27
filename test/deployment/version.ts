@@ -1,6 +1,7 @@
 // Declare imports
 import * as helpers from '../helpers/contract-helpers';
 import { expect } from 'chai';
+import { ethers } from 'hardhat';
 // Declare globals
 let ssvNetworkContract: any, ssvNetworkViews: any;
 

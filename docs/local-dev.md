@@ -3,26 +3,26 @@
 ### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) |  Local development
 
 ## Running against a local node / testnet
-You can deploy and run this contracts in a local node like Hardhat's, Ganache, etc. or public testnets. This guide will cover the process.
+You can deploy and run these contracts in a local node like Hardhat's, Ganache, or public testnets. This guide will cover the process.
 
 ### Run [Setup](setup.md)
-Execute the steps to setup all tools needed.
+Execute the steps to set up all tools needed.
 
 ### Configure Environment
 Copy [.env.example](../.env.example) to `.env` and edit to suit.
 - `[NETWORK]_ETH_NODE_URL` RPC URL of the node
 - `[NETWORK]_OWNER_PRIVATE_KEY` Private key of the deployer account, without 0x prefix
-`GAS_PRICE` example 30000000000
-`GAS` example 8000000
-`ETHERSCAN_KEY` etherescan API key to verify deployed contracts
-`SSVTOKEN_ADDRESS` SSV Token contract address
-`MINIMUM_BLOCKS_BEFORE_LIQUIDATION` number of blocks before the cluster enters into liquidatable state. Example: 214800 = 30 days
-`OPERATOR_MAX_FEE_INCREASE` the fee increase limit in percentage with this format: 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-`DECLARE_OPERATOR_FEE_PERIOD` the period in which an operator can declare a fee change (seconds)
-`EXECUTE_OPERATOR_FEE_PERIOD` the period in which an operator fee change can be executed (seconds)
-`VALIDATORS_PER_OPERATOR_LIMIT` the number of validators an operator can manage
-`SSVNETWORK_PROXY_ADDRESS` SSVNetwork proxy address, set it when runnning upgrade-ssv-network.ts script
-`SSVNETWORKVIEWS_PROXY_ADDRESS` SSVNetworkViews proxy address, set it when runnning upgrade-ssv-network-views.ts script
+- `GAS_PRICE` example 30000000000
+- `GAS` example 8000000
+- `ETHERSCAN_KEY` etherescan API key to verify deployed contracts
+- `SSVTOKEN_ADDRESS` SSV Token contract address
+- `MINIMUM_BLOCKS_BEFORE_LIQUIDATION` a number of blocks before the cluster enters into a liquidatable state. Example: 214800 = 30 days
+- `OPERATOR_MAX_FEE_INCREASE` the fee increase limit in percentage with this format: 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
+- `DECLARE_OPERATOR_FEE_PERIOD` the period in which an operator can declare a fee change (seconds)
+- `EXECUTE_OPERATOR_FEE_PERIOD` the period in which an operator fee change can be executed (seconds)
+- `VALIDATORS_PER_OPERATOR_LIMIT` the number of validators an operator can manage
+- `SSVNETWORK_PROXY_ADDRESS` SSVNetwork proxy address
+- `SSVNETWORKVIEWS_PROXY_ADDRESS` SSVNetworkViews proxy address
 
 #### Network configuration
 In [hardhat.config.ts](../hardhat.config.ts) you can find specific configs for different networks, that are taken into account only when the `[NETWORK]_ETH_NODE_URL` parameter in `.env` file is set.
@@ -46,7 +46,7 @@ The inital deployment process involves the deployment of all main modules (SSVCl
 
 To run the deployment, execute:
 ```sh
-npx hardhat run --network <your-network> scripts/deploy-all.ts
+npx hardhat --network <network> deploy:all
 ```
 Output of this action will be:
 
@@ -72,7 +72,7 @@ You can now go to Etherscan and see:
 - `SSVNetworkViews` proxy contract is deployed to the address shown previously in `SSVNetworkViews proxy deployed to`
 - `SSVNetworkViews` implementation contract is deployed to the address shown previously in `SSVNetworkViews implementation deployed to`
 
-Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is implementation smart contract address.
+Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value which is the implementation smart contract address.
 You will find 2 `[impls.<hash>]` entries, one for `SSVNetwork` and another for `SSVNetworkViews`.
 Run this verification process for both.
 
@@ -97,9 +97,3 @@ https://goerli.etherscan.io/address/0x227...#code
 ```
 
 After this action, you can go to the proxy contract in Etherscan and start interacting with it.
-
-
-
-
-
-
