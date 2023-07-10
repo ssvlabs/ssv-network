@@ -59,11 +59,11 @@ contract SSVOperators is ISSVOperators {
         operator.validatorCount = 0;
         operator.fee = 0;
 
-        s.operators[operatorId] = operator;
-
-        if (s.operatorsWhitelist[operatorId] != address(0)) {
+        if (operator.whitelisted) {
+            operator.whitelisted = false;
             delete s.operatorsWhitelist[operatorId];
         }
+        s.operators[operatorId] = operator;
 
         if (currentBalance > 0) {
             _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
@@ -103,8 +103,7 @@ contract SSVOperators is ISSVOperators {
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) /
-            PRECISION_FACTOR;
+        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
 
         if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 

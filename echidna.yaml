@@ -1,0 +1,8 @@
+testMode: assertion
+# testLimit: 50000
+# multi-abi: true
+# corpusDir: "corpus"
+cryticArgs: ["--solc-remaps", "@openzeppelin=node_modules/@openzeppelin"]
+# filterBlacklist: false
+# filterFunctions: ["Operators.registerOperator(bytes,uint256)", "setOperatorWhitelist(uint64,address)"]
+

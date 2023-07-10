@@ -1,0 +1,4 @@
+{
+  "filter_paths": "(task/|test/|@openzeppelin/)",
+  "solc_remaps": "@=node_modules/@"
+}
