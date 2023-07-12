@@ -2,7 +2,6 @@
 pragma solidity 0.8.18;
 
 import "../interfaces/ISSVClusters.sol";
-import "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
@@ -29,7 +28,7 @@ contract SSVClusters is ISSVClusters {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        uint operatorsLength = operatorIds.length;
+        uint256 operatorsLength = operatorIds.length;
         {
             if (
                 operatorsLength < MIN_OPERATORS_LENGTH ||
@@ -77,7 +76,7 @@ contract SSVClusters is ISSVClusters {
         if (cluster.active) {
             uint64 clusterIndex;
 
-            for (uint i; i < operatorsLength; ) {
+            for (uint256 i; i < operatorsLength; ) {
                 uint64 operatorId = operatorIds[i];
                 {
                     if (i + 1 < operatorsLength) {
@@ -93,12 +92,11 @@ contract SSVClusters is ISSVClusters {
                 if (operator.snapshot.block == 0) {
                     revert OperatorDoesNotExist();
                 }
-                if (
-                    operator.whitelisted &&
-                    s.operatorsWhitelist[operatorId] != address(0) &&
-                    s.operatorsWhitelist[operatorId] != msg.sender
-                ) {
-                    revert CallerNotWhitelisted();
+                if (operator.whitelisted) {
+                    address whitelisted = s.operatorsWhitelist[operatorId];
+                    if (whitelisted != address(0) && whitelisted != msg.sender) {
+                        revert CallerNotWhitelisted();
+                    }
                 }
                 operator.updateSnapshot();
                 if (++operator.validatorCount > sp.validatorsPerOperatorLimit) {
@@ -151,13 +149,14 @@ contract SSVClusters is ISSVClusters {
 
         bytes32 mask = ~bytes32(uint256(1)); // All bits set to 1 except LSB
         bytes32 validatorData = s.validatorPKs[hashedValidator];
-        
+
         if (validatorData == bytes32(0)) {
             revert ValidatorDoesNotExist();
         }
 
         bytes32 hashedOperatorIds = keccak256(abi.encodePacked(operatorIds)) & mask; // Clear LSB of provided operator ids
-        if ((validatorData & mask) != hashedOperatorIds) { // Clear LSB of stored validator data and compare
+        if ((validatorData & mask) != hashedOperatorIds) {
+            // Clear LSB of stored validator data and compare
             revert IncorrectValidatorState();
         }
 
@@ -183,10 +182,10 @@ contract SSVClusters is ISSVClusters {
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
-    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external override {
+    function liquidate(address clusterOwner, uint64[] memory operatorIds, Cluster memory cluster) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, s);
+        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -203,7 +202,7 @@ contract SSVClusters is ISSVClusters {
         uint256 balanceLiquidatable;
 
         if (
-            owner != msg.sender &&
+            clusterOwner != msg.sender &&
             !cluster.isLiquidatable(
                 burnRate,
                 sp.networkFee,
@@ -230,7 +229,7 @@ contract SSVClusters is ISSVClusters {
             CoreLib.transferBalance(msg.sender, balanceLiquidatable);
         }
 
-        emit ClusterLiquidated(owner, operatorIds, cluster);
+        emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
     }
 
     function reactivate(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
@@ -241,7 +240,12 @@ contract SSVClusters is ISSVClusters {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(operatorIds, true, cluster.validatorCount, s);
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
+            operatorIds,
+            true,
+            cluster.validatorCount,
+            s
+        );
 
         cluster.balance += amount;
         cluster.active = true;
@@ -271,14 +275,14 @@ contract SSVClusters is ISSVClusters {
     }
 
     function deposit(
-        address owner,
+        address clusterOwner,
         uint64[] calldata operatorIds,
         uint256 amount,
         Cluster memory cluster
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(owner, operatorIds, s);
+        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
 
         cluster.balance += amount;
 
@@ -286,7 +290,7 @@ contract SSVClusters is ISSVClusters {
 
         CoreLib.deposit(amount);
 
-        emit ClusterDeposited(owner, operatorIds, amount, cluster);
+        emit ClusterDeposited(clusterOwner, operatorIds, amount, cluster);
     }
 
     function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
@@ -301,8 +305,8 @@ contract SSVClusters is ISSVClusters {
         if (cluster.active) {
             uint64 clusterIndex;
             {
-                uint operatorsLength = operatorIds.length;
-                for (uint i; i < operatorsLength; ) {
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ) {
                     Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
                     clusterIndex +=
                         operator.snapshot.index +

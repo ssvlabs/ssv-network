@@ -186,7 +186,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
-    function liquidate(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
+    function liquidate(address clusterOwner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -199,7 +199,7 @@ contract SSVNetwork is
     }
 
     function deposit(
-        address owner,
+        address clusterOwner,
         uint64[] calldata operatorIds,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
