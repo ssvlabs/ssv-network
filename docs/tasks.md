@@ -47,6 +47,15 @@ Runs the deployment of the main SSVNetwork and SSVNetworkViews contracts, along 
 npx hardhat --network goerli deploy:all
 ```
 
+When deploying to live networks like Goerli or Mainnet, please double check the environment variables:
+- SSV_TOKEN_ADDRESS
+- MINIMUM_BLOCKS_BEFORE_LIQUIDATION
+- MINIMUM_LIQUIDATION_COLLATERAL
+- VALIDATORS_PER_OPERATOR_LIMIT
+- DECLARE_OPERATOR_FEE_PERIOD
+- EXECUTE_OPERATOR_FEE_PERIOD
+- OPERATOR_MAX_FEE_INCREASE
+
 ## Upgrade process
 We use [UUPS Proxy Upgrade pattern](https://docs.openzeppelin.com/contracts/4.x/api/proxy) for `SSVNetwork` and `SSVNetworkViews` contracts to have an ability to upgrade them later.
 

@@ -1,5 +1,5 @@
 import { task, subtask, types } from "hardhat/config";
-import { SSVModules } from "./ssvModules";
+import { SSVModules, LIVE_NETWORKS } from "./config";
 
 /**
 @title Hardhat task to deploy all required contracts for SSVNetwork.
@@ -20,6 +20,7 @@ task("deploy:all", "Deploy SSVNetwork, SSVNetworkViews and module contracts")
         const [deployer] = await ethers.getSigners();
         console.log(`Deploying contracts with the account:${deployer.address}`);
 
+        const ssvTokenAddress = await hre.run("deploy:token");
         const operatorsModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVOperators] });
         const clustersModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVClusters] });
         const daoModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVDAO] });
@@ -30,7 +31,8 @@ task("deploy:all", "Deploy SSVNetwork, SSVNetworkViews and module contracts")
                 operatorsModAddress,
                 clustersModAddress,
                 daoModAddress,
-                viewsModAddress
+                viewsModAddress,
+                ssvTokenAddress
             });
 
         await hre.run("deploy:ssv-network-views",
@@ -87,6 +89,32 @@ subtask("deploy:module", "Deploys a new module contract")
     });
 
 /**
+* @title Hardhat subtask to deploy or fetch an SSV Token contract.
+* If the network is one of the live networks, the address for the SSVToken is fetched from the environment variables.
+* If the network used is one of the local networks, a new SSVTokenMock contract will be deployed.
+* If the network used doesn't exists, Hardhat will warn about it and stop the execution.
+* @returns {string} The address of the deployed or fetched SSV Token contract.
+* @remarks
+* The deployer account used will be the first one returned by ethers.getSigners().
+* Therefore, it should be appropriately configured in your Hardhat network configuration.
+* The live network's token address should be set as an environment variable (SSV_TOKEN_ADDRESS).
+*/
+subtask("deploy:token", "Deploys / fetch SSV Token")
+    .setAction(async ({ }, hre) => {
+        // Live networks, fecth token address from env
+        if (LIVE_NETWORKS.includes(hre.network.name)) {
+            return process.env.SSV_TOKEN_ADDRESS;
+        }
+        // Local networks, deploy mock token
+        const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
+        const ssvToken = await ssvTokenFactory.deploy();
+        await ssvToken.deployed();
+
+        return ssvToken.address;
+
+    });
+
+/**
 @title Hardhat subtask to deploy a new implementation contract.
 This subtask deploys a new implementation contract. 
 The contract parameter specifies the name of the contract to be deployed.
@@ -133,12 +161,14 @@ subtask("deploy:ssv-network", "Deploys SSVNetwork contract")
     .addPositionalParam("clustersModAddress", "Clusters module address", null, types.string)
     .addPositionalParam("daoModAddress", "DAO module address", null, types.string)
     .addPositionalParam("viewsModAddress", "Views module address", null, types.string)
+    .addPositionalParam("ssvTokenAddress", "SSV Token address", null, types.string)
     .setAction(async ({
         operatorsModAddress,
         clustersModAddress,
         daoModAddress,
-        viewsModAddress }) => {
-        const ssvTokenAddress = process.env.SSV_TOKEN_ADDRESS;
+        viewsModAddress,
+        ssvTokenAddress }) => {
+
 
         const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
 

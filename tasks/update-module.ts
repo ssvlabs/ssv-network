@@ -1,5 +1,5 @@
 import { task, types } from "hardhat/config";
-import { SSVModules } from "./ssvModules";
+import { SSVModules } from "./config";
 
 /**
 @title Hardhat task to update a module contract in the SSVNetwork.
