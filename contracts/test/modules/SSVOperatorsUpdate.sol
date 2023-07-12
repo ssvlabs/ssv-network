@@ -121,7 +121,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
 
         delete SSVStorage.load().operatorFeeChangeRequests[operatorId];
 
-        emit OperatorFeeCancellationDeclared(msg.sender, operatorId);
+        emit OperatorFeeDeclarationCancelled(msg.sender, operatorId);
     }
 
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
@@ -149,7 +149,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
         _withdrawOperatorEarnings(operatorId, amount);
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _withdrawOperatorEarnings(operatorId, 0);
     }
 
