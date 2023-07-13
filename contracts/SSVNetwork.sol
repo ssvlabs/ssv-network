@@ -159,7 +159,7 @@ contract SSVNetwork is
     /*******************************/
 
     function setFeeRecipientAddress(address recipientAddress) external override {
-        emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
     /*******************************/
@@ -241,6 +241,10 @@ contract SSVNetwork is
 
     function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function getVersion() external pure override returns (string memory version) {
+        return CoreLib.getVersion();
     }
 
     /*******************************/
