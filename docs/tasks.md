@@ -117,7 +117,7 @@ OPTIONS:
   --proxy-address       Proxy address of SSVNetwork / SSVNetworkViews (default: null)
 
 Example:
-npx hardhat --network goerli upgrade:prepare --proxyAddress 0x1234... --contract SSVNetworkViewsV2
+npx hardhat --network goerli upgrade:prepare --proxy-address 0x1234... --contract SSVNetworkViewsV2
 ```
 
 The task will return the new implementation address. After that, you can run `upgradeTo` or `upgradeToAndCall` in SSVNetwork / SSVNetworkViews proxy address, providing it as a parameter.
