@@ -74,7 +74,7 @@ describe('Deployment tests', () => {
             2000000,
             2000000,
             2000000,
-            2000)).to.be.revertedWith('Function must be called through delegatecall');
+            2000)).to.be.revertedWith('Initializable: contract is already initialized');
     });
 
     it('Upgrade SSVNetwork contract. Check state is only changed from proxy contract', async () => {

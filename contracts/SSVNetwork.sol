@@ -98,6 +98,11 @@ contract SSVNetwork is
         sp.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /*****************/
     /* UUPS required */
     /*****************/
