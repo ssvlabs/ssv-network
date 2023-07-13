@@ -3,24 +3,21 @@ pragma solidity 0.8.18;
 
 import "../interfaces/ISSVDAO.sol";
 import "../libraries/Types.sol";
-import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
-import "../libraries/CoreLib.sol";
-import "../libraries/SSVStorage.sol";
 
 contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
     using Types256 for uint256;
 
     using ProtocolLib for StorageProtocol;
-    
+
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
 
     function updateNetworkFee(uint256 fee) external override {
-        uint64 previousFee = SSVStorageProtocol.load().networkFee;
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64 previousFee = sp.networkFee;
 
-        SSVStorageProtocol.load().updateNetworkFee(fee);
-
+        sp.updateNetworkFee(fee);
         emit NetworkFeeUpdated(previousFee, fee);
     }
 
