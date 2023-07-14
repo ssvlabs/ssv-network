@@ -145,4 +145,33 @@ describe('Deployment tests', () => {
         await expect(ssvNetworkContract.declareOperatorFee(0, 0))
             .to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');
     });
+
+    it('Update a module with a non-contract address reverts "TargetModuleDoesNotExist"', async () => {
+
+        const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+        const ssvNetwork = await ssvNetworkFactory.attach(ssvNetworkContract.address);
+
+        await expect(ssvNetwork.updateModule(0, DB.owners[1].address))
+            .to.be.revertedWithCustomError(ssvNetworkContract, 'TargetModuleDoesNotExist');
+    });
+
+    it('Update a module with a zero address target reverts "TargetModuleDoesNotExist"', async () => {
+
+        const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+        const ssvNetwork = await ssvNetworkFactory.attach(ssvNetworkContract.address);
+
+        await expect(ssvNetwork.updateModule(0, ethers.constants.AddressZero))
+            .to.be.revertedWithCustomError(ssvNetworkContract, 'TargetModuleDoesNotExist');
+    });
+
+    it('Upgrade SSVNetworkViews contract. Check new function execution', async () => {
+        const BasicUpgrade = await ethers.getContractFactory("SSVNetworkViewsBasicUpgrade");
+        const ssvNetworkViewsUpgrade = await upgrades.upgradeProxy(ssvNetworkViews.address, BasicUpgrade, {
+            kind: 'uups',
+            unsafeAllow: ['delegatecall']
+        });
+        await ssvNetworkViewsUpgrade.deployed();
+
+        expect((await ssvNetworkViewsUpgrade.getConstantVersion())).to.equal(1010);
+    });
 });

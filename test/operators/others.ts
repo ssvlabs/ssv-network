@@ -78,4 +78,17 @@ describe('Others Operator Tests', () => {
     expect(await ssvViews.getValidatorsPerOperatorLimit()).to.equal(helpers.CONFIG.validatorsPerOperatorLimit);
   });
 
+  it('Should revert on updateOperators when validatorsPerOperatorLimit is surpassed with "ExceedValidatorLimit"', async function () {
+
+    const OperatorLibHelper = await ethers.getContractFactory("OperatorLibHelper");
+    const operatorLibHelper = await OperatorLibHelper.deploy();
+
+    await expect(operatorLibHelper.testValidatorsPerOperatorLimit(
+      10, // operatorValidatorCount
+      10, // deltaValidatorCount
+      15 // validatorsPerOperatorLimit
+    ))
+      .to.be.revertedWithCustomError(ssvNetworkContract, 'ExceedValidatorLimit');
+
+  });
 });

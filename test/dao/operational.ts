@@ -24,4 +24,13 @@ describe('DAO operational Tests', () => {
         expect(await ssvNetworkContract.owner()).equals(helpers.DB.owners[4].address);
     });
 
+    it("Should revert on updateDAO overflow", async function () {
+
+        const ProtocolHelper = await ethers.getContractFactory("ProtocolLibHelper");
+        const protocolHelper = await ProtocolHelper.deploy();
+
+        await expect(protocolHelper.testUpdateDAOoveflow(4294967295)) // uint32 Max value
+            .to.be.revertedWithCustomError(ssvNetworkContract, 'MaxValueExceeded');
+
+    });
 });

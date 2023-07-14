@@ -37,10 +37,13 @@ library ProtocolLib {
 
     function updateDAO(StorageProtocol storage sp, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
         updateDAOEarnings(sp);
+        uint64 validatorCount = sp.daoValidatorCount;
+
         if (!increaseValidatorCount) {
-            sp.daoValidatorCount -= deltaValidatorCount;
-        } else if ((sp.daoValidatorCount += deltaValidatorCount) > type(uint32).max) {
+            validatorCount -= deltaValidatorCount;
+        } else if ((validatorCount += deltaValidatorCount) > type(uint32).max) {
             revert ISSVNetworkCore.MaxValueExceeded();
         }
+        sp.daoValidatorCount = uint32(validatorCount);
     }
 }
