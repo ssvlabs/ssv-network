@@ -24,4 +24,6 @@ interface ISSVNetworkT {
         uint64 executeOperatorFeePeriod_,
         uint64 operatorMaxFeeIncrease_
     ) external;
+
+    function setFeeRecipientAddress(address feeRecipientAddress) external;
 }

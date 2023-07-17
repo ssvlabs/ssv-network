@@ -141,10 +141,6 @@ contract SSVOperatorsUpdate is ISSVOperators {
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
-    function setFeeRecipientAddress(address recipientAddress) external override {
-        emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
-    }
-
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
         _withdrawOperatorEarnings(operatorId, amount);
     }

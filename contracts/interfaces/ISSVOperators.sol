@@ -36,10 +36,6 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @param fee The new Operator's fee (SSV)
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external;
 
-    /// @notice Sets the fee recipient address
-    /// @param feeRecipientAddress The address to receive Operator's fee
-    function setFeeRecipientAddress(address feeRecipientAddress) external;
-
     /// @notice Withdraws operator earnings
     /// @param operatorId The ID of the operator
     /// @param tokenAmount The amount of tokens to withdraw (SSV)
