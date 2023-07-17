@@ -28,6 +28,8 @@ interface ISSVNetwork {
 
     function getVersion() external pure returns (string memory version);
 
+    function setFeeRecipientAddress(address feeRecipientAddress) external;
+
     function updateModule(SSVModules moduleId, address moduleAddress) external;
 
     function setRegisterAuth(address userAddress, bool authOperators, bool authValidators) external;

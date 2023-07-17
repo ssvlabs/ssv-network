@@ -161,7 +161,7 @@ contract SSVNetwork is
     /*******************************/
 
     function setFeeRecipientAddress(address recipientAddress) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+        emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
     }
 
     /*******************************/
