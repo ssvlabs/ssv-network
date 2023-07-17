@@ -12,8 +12,6 @@ import "./libraries/Types.sol";
 import "./libraries/CoreLib.sol";
 import "./libraries/SSVStorage.sol";
 import "./libraries/SSVStorageProtocol.sol";
-import "./libraries/OperatorLib.sol";
-import "./libraries/ClusterLib.sol";
 import "./libraries/RegisterAuth.sol";
 
 import "./SSVProxy.sol";
@@ -34,7 +32,6 @@ contract SSVNetwork is
     SSVProxy
 {
     using Types256 for uint256;
-    using ClusterLib for Cluster;
 
     /****************/
     /* Initializers */
@@ -150,7 +147,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
@@ -159,7 +156,7 @@ contract SSVNetwork is
     /*******************************/
 
     function setFeeRecipientAddress(address recipientAddress) external override {
-        emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
     /*******************************/
