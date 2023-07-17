@@ -843,6 +843,6 @@ describe('Register Validator Tests', () => {
   });
 
   it('Retrieve a non-existing validator', async () => {
-    await expect(ssvViews.getValidator(helpers.DB.owners[2].address, helpers.DataGenerator.publicKey(90))).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+    expect(await ssvViews.getValidator(helpers.DB.owners[2].address, helpers.DataGenerator.publicKey(90))).to.equal(false);
   });
 });
