@@ -4,6 +4,7 @@ pragma solidity 0.8.18;
 import "../interfaces/ISSVDAO.sol";
 import "../libraries/Types.sol";
 import "../libraries/ProtocolLib.sol";
+import "../libraries/CoreLib.sol";
 
 contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
