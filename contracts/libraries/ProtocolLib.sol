@@ -2,7 +2,7 @@
 pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
-import "../SSVNetwork.sol";
+import "./Types.sol";
 import "./SSVStorageProtocol.sol";
 
 library ProtocolLib {

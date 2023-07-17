@@ -3,7 +3,6 @@ pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
 import "./SSVStorage.sol";
-import "./SSVStorageProtocol.sol";
 import "./Types.sol";
 
 library ClusterLib {

@@ -26,6 +26,8 @@ interface ISSVNetwork {
         uint64 operatorMaxFeeIncrease_
     ) external;
 
+    function getVersion() external pure returns (string memory version);
+
     function updateModule(SSVModules moduleId, address moduleAddress) external;
 
     function setRegisterAuth(address userAddress, bool authOperators, bool authValidators) external;

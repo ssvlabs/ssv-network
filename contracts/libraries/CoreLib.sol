@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 import "./SSVStorage.sol";
 
 library CoreLib {
-    event ModuleUpgraded(SSVModules moduleId, address moduleAddress);
+    event ModuleUpgraded(SSVModules indexed moduleId, address moduleAddress);
 
     function getVersion() internal pure returns (string memory) {
         return "v1.0.0.rc2";

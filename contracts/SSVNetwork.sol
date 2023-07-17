@@ -95,6 +95,11 @@ contract SSVNetwork is
         sp.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /*****************/
     /* UUPS required */
     /*****************/
@@ -238,6 +243,10 @@ contract SSVNetwork is
 
     function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function getVersion() external pure override returns (string memory version) {
+        return CoreLib.getVersion();
     }
 
     /*******************************/
