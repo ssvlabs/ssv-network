@@ -36,10 +36,6 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @param fee The new Operator's fee (SSV)
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external;
 
-    /// @notice Sets the fee recipient address
-    /// @param feeRecipientAddress The address to receive Operator's fee
-    function setFeeRecipientAddress(address feeRecipientAddress) external;
-
     /// @notice Withdraws operator earnings
     /// @param operatorId The ID of the operator
     /// @param tokenAmount The amount of tokens to withdraw (SSV)
@@ -47,7 +43,7 @@ interface ISSVOperators is ISSVNetworkCore {
 
     /// @notice Withdraws all operator earnings
     /// @param operatorId The ID of the operator
-    function withdrawOperatorEarnings(uint64 operatorId) external;
+    function withdrawAllOperatorEarnings(uint64 operatorId) external;
 
     /**
      * @dev Emitted when a new operator has been added.
@@ -72,7 +68,7 @@ interface ISSVOperators is ISSVNetworkCore {
     event OperatorWhitelistUpdated(uint64 indexed operatorId, address whitelisted);
     event OperatorFeeDeclared(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 
-    event OperatorFeeCancellationDeclared(address indexed owner, uint64 indexed operatorId);
+    event OperatorFeeDeclarationCancelled(address indexed owner, uint64 indexed operatorId);
     /**
      * @dev Emitted when an operator's fee is updated.
      * @param owner Operator's owner.

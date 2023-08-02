@@ -7,20 +7,21 @@ interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets the validator status
     /// @param owner The address of the validator's owner
     /// @param publicKey The public key of the validator
-    /// @return A boolean indicating if the validator is active
-    function getValidator(address owner, bytes calldata publicKey) external view returns (bool);
+    /// @return active A boolean indicating if the validator is active. If it does not exist, returns false.
+    function getValidator(address owner, bytes calldata publicKey) external view returns (bool active);
 
     /// @notice Gets the operator fee
     /// @param operatorId The ID of the operator
-    /// @return The fee associated with the operator (SSV)
-    function getOperatorFee(uint64 operatorId) external view returns (uint256);
-
+    /// @return fee The fee associated with the operator (SSV). If the operator does not exist, the returned value is 0.
+    function getOperatorFee(uint64 operatorId) external view returns (uint256 fee);
+    
     /// @notice Gets the declared operator fee
     /// @param operatorId The ID of the operator
+    /// @return isFeeDeclared A boolean indicating if the fee is declared
     /// @return fee The declared operator fee (SSV)
     /// @return approvalBeginTime The time when the fee approval process begins
     /// @return approvalEndTime The time when the fee approval process ends
-    function getOperatorDeclaredFee(uint64 operatorId) external view returns (uint256 fee, uint64 approvalBeginTime, uint64 approvalEndTime);
+    function getOperatorDeclaredFee(uint64 operatorId) external view returns (bool isFeeDeclared, uint256 fee, uint64 approvalBeginTime, uint64 approvalEndTime);
 
     /// @notice Gets operator details by ID
     /// @param operatorId The ID of the operator
@@ -52,8 +53,8 @@ interface ISSVViews is ISSVNetworkCore {
 
     /// @notice Gets operator earnings
     /// @param operatorId The ID of the operator
-    /// @return The earnings associated with the operator (SSV)
-    function getOperatorEarnings(uint64 operatorId) external view returns (uint256);
+    /// @return earnings The earnings associated with the operator (SSV)
+    function getOperatorEarnings(uint64 operatorId) external view returns (uint256 earnings);
 
     /// @notice Gets the balance of the cluster
     /// @param owner The owner address of the cluster

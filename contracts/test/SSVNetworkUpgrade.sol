@@ -181,7 +181,7 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
             abi.encodeWithSignature("withdrawOperatorEarnings(uint64)", operatorId)

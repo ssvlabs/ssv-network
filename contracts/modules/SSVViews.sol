@@ -21,10 +21,10 @@ contract SSVViews is ISSVViews {
     /* Validator External View Functions */
     /*************************************/
 
-    function getValidator(address owner, bytes calldata publicKey) external view override returns (bool active) {
-        bytes32 validatorData = SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKey, owner))];
+    function getValidator(address clusterOwner, bytes calldata publicKey) external view override returns (bool active) {
+        bytes32 validatorData = SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKey, clusterOwner))];
 
-        if (validatorData == bytes32(0)) revert ValidatorDoesNotExist();
+        if (validatorData == bytes32(0)) return false;
         bytes32 activeFlag = validatorData & bytes32(uint256(1)); // Retrieve LSB of stored value
 
         return activeFlag == bytes32(uint256(1));
@@ -36,20 +36,14 @@ contract SSVViews is ISSVViews {
     /************************************/
 
     function getOperatorFee(uint64 operatorId) external view override returns (uint256 fee) {
-        Operator memory operator = SSVStorage.load().operators[operatorId];
-        if (operator.snapshot.block == 0) revert OperatorDoesNotExist();
-
-        fee = operator.fee.expand();
+        return SSVStorage.load().operators[operatorId].fee.expand();
     }
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint64, uint64) {
+    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (bool, uint256, uint64, uint64) {
         OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorage.load().operatorFeeChangeRequests[operatorId];
 
-        if (opFeeChangeRequest.fee == 0) {
-            revert NoFeeDeclared();
-        }
-
         return (
+            opFeeChangeRequest.approvalBeginTime != 0,
             opFeeChangeRequest.fee.expand(),
             opFeeChangeRequest.approvalBeginTime,
             opFeeChangeRequest.approvalEndTime
@@ -70,11 +64,11 @@ contract SSVViews is ISSVViews {
     /***********************************/
 
     function isLiquidatable(
-        address owner,
+        address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
+        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
 
         if (!cluster.active) {
             return false;
@@ -82,8 +76,8 @@ contract SSVViews is ISSVViews {
 
         uint64 clusterIndex;
         uint64 burnRate;
-        uint operatorsLength = operatorIds.length;
-        for (uint i; i < operatorsLength; ++i) {
+        uint256 operatorsLength = operatorIds.length;
+        for (uint256 i; i < operatorsLength; ++i) {
             Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
             burnRate += operator.fee;
@@ -102,24 +96,24 @@ contract SSVViews is ISSVViews {
     }
 
     function isLiquidated(
-        address owner,
+        address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
+        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         return !cluster.active;
     }
 
     function getBurnRate(
-        address owner,
+        address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view returns (uint256) {
-        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
+        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
 
         uint64 aggregateFee;
-        uint operatorsLength = operatorIds.length;
-        for (uint i; i < operatorsLength; ++i) {
+        uint256 operatorsLength = operatorIds.length;
+        for (uint256 i; i < operatorsLength; ++i) {
             Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
             if (operator.owner != address(0)) {
                 aggregateFee += operator.fee;
@@ -142,17 +136,17 @@ contract SSVViews is ISSVViews {
     }
 
     function getBalance(
-        address owner,
+        address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
+        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
         {
-            uint operatorsLength = operatorIds.length;
-            for (uint i; i < operatorsLength; ++i) {
+            uint256 operatorsLength = operatorIds.length;
+            for (uint256 i; i < operatorsLength; ++i) {
                 Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
                 clusterIndex +=
                     operator.snapshot.index +

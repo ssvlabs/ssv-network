@@ -2,7 +2,6 @@
 pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
-import "./Types.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -37,7 +36,7 @@ struct StorageData {
 }
 
 library SSVStorage {
-    uint256 constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
+    uint256 constant private SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
 
     function load() internal pure returns (StorageData storage sd) {
         uint256 position = SSV_STORAGE_POSITION;
