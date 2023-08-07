@@ -118,7 +118,7 @@ contract SSVNetwork is
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+    function registerOperator(bytes calldata publicKey, uint256 fee, IERC20 feeToken) external override returns (uint64 id) {
         if (!RegisterAuth.load().authorization[msg.sender].registerOperator) revert NotAuthorized();
 
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
@@ -168,11 +168,25 @@ contract SSVNetwork is
     /* Validator External Functions */
     /*******************************/
 
+function registerValidator(
+        bytes calldata publicKey,
+        uint64[] memory operatorIds,
+        bytes calldata sharesData,
+        uint256 ssvAmount,
+        uint256 tokenAmount,
+        IERC20 depositToken,
+        TokenCluster memory cluster
+    ) external override {
+        if (!RegisterAuth.load().authorization[msg.sender].registerValidator) revert NotAuthorized();
+
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
-        uint256 amount,
+        uint256 ssvAmount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
         if (!RegisterAuth.load().authorization[msg.sender].registerValidator) revert NotAuthorized();
@@ -192,6 +206,11 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
+    function liquidate(address clusterOwner, uint64[] memory operatorIds, TokenCluster memory cluster) external {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+
     function reactivate(
         uint64[] calldata operatorIds,
         uint256 amount,
@@ -206,6 +225,16 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+    function depositToken(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        uint256 tokenAmount,
+        IERC20 depositToken,
+        TokenCluster memory cluster
+    ) external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 

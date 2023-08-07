@@ -15,7 +15,7 @@ library ClusterLib {
     ) internal pure {
         uint64 networkFee = uint64(currentNetworkFeeIndex - cluster.networkFeeIndex) * cluster.validatorCount;
         uint64 usage = (newIndex - cluster.index) * cluster.validatorCount + networkFee;
-        cluster.balance = usage.expand() > cluster.balance ? 0 : cluster.balance - usage.expand();
+        cluster.ssvBalance = usage.expand() > cluster.ssvBalance ? 0 : cluster.ssvBalance - usage.expand();
     }
 
     function isLiquidatable(
@@ -25,10 +25,10 @@ library ClusterLib {
         uint64 minimumBlocksBeforeLiquidation,
         uint64 minimumLiquidationCollateral
     ) internal pure returns (bool) {
-        if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
+        if (cluster.ssvBalance < minimumLiquidationCollateral.expand()) return true;
         uint64 liquidationThreshold = minimumBlocksBeforeLiquidation * (burnRate + networkFee) * cluster.validatorCount;
 
-        return cluster.balance < liquidationThreshold.expand();
+        return cluster.ssvBalance < liquidationThreshold.expand();
     }
 
     function validateClusterIsNotLiquidated(ISSVNetworkCore.Cluster memory cluster) internal pure {
@@ -71,7 +71,7 @@ library ClusterLib {
                     cluster.validatorCount,
                     cluster.networkFeeIndex,
                     cluster.index,
-                    cluster.balance,
+                    cluster.ssvBalance,
                     cluster.active
                 )
             );

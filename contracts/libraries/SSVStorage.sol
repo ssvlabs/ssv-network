@@ -33,6 +33,8 @@ struct StorageData {
     IERC20 token;
     /// @notice Counter keeping track of the last Operator ID issued
     Counters.Counter lastOperatorId;
+    /// @notice Maps each token cluster's bytes32 identifier to its hashed representation of ISSVNetworkCore.TokenCluster
+    mapping(bytes32 => bytes32) tokenClusters;
 }
 
 library SSVStorage {

@@ -23,7 +23,7 @@ contract SSVOperators is ISSVOperators {
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+    function registerOperator(bytes calldata publicKey, uint256 fee, IERC20 feeToken) external override returns (uint64 id) {
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
@@ -39,7 +39,8 @@ contract SSVOperators is ISSVOperators {
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             validatorCount: 0,
             fee: fee.shrink(),
-            whitelisted: false
+            whitelisted: false,
+            feeToken: feeToken
         });
         s.operatorsPKs[hashedPk] = id;
 
@@ -58,6 +59,7 @@ contract SSVOperators is ISSVOperators {
         operator.snapshot.balance = 0;
         operator.validatorCount = 0;
         operator.fee = 0;
+        operator.feeToken = IERC20(address(0));
 
         s.operators[operatorId] = operator;
 
@@ -65,8 +67,8 @@ contract SSVOperators is ISSVOperators {
             delete s.operatorsWhitelist[operatorId];
         }
 
-        if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
+        if (currentBalance > 0) { // TODO
+            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand(), s.token);
         }
         emit OperatorRemoved(operatorId);
     }
@@ -197,11 +199,11 @@ contract SSVOperators is ISSVOperators {
 
         s.operators[operatorId] = operator;
 
-        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand(), operator.feeToken);
     }
 
-    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        CoreLib.transferBalance(msg.sender, amount);
-        emit OperatorWithdrawn(msg.sender, operatorId, amount);
+    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount, IERC20 feeToken) private {
+        CoreLib.transferBalance(msg.sender, amount, feeToken);
+        emit OperatorWithdrawn(msg.sender, operatorId, amount); // TODO add feeToken
     }
 }

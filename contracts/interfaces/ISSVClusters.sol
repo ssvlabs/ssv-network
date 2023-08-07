@@ -8,14 +8,24 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param publicKey The public key of the new validator
     /// @param operatorIds Array of IDs of operators managing this validator
     /// @param sharesData Encrypted shares related to the new validator
-    /// @param amount Amount of SSV tokens to be deposited
+    /// @param ssvAmount Amount of SSV tokens to be deposited
     /// @param cluster Cluster to be used with the new validator
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
-        uint256 amount,
-        Cluster memory cluster
+        uint256 ssvAmount,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external;
+
+    function registerValidator(
+        bytes calldata publicKey,
+        uint64[] memory operatorIds,
+        bytes calldata sharesData,
+        uint256 ssvAmount,
+        uint256 tokenAmount,
+        IERC20 depositToken,
+        TokenCluster memory cluster
     ) external;
 
     /// @notice Removes an existing validator from the SSV Network
@@ -34,6 +44,8 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param cluster Cluster to be liquidated
     function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external;
 
+    function liquidate(address clusterOwner, uint64[] memory operatorIds, TokenCluster memory cluster) external;
+
     /// @notice Reactivates a cluster
     /// @param operatorIds Array of IDs of operators managing the cluster
     /// @param amount Amount of SSV tokens to be deposited for reactivation
@@ -51,6 +63,14 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param cluster Cluster where the deposit will be made
     function deposit(address owner, uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external;
 
+    function depositToken(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        uint256 tokenAmount,
+        IERC20 depositToken,
+        TokenCluster memory cluster
+    ) external;
+
     /// @notice Withdraws tokens from a cluster
     /// @param operatorIds Array of IDs of operators managing the cluster
     /// @param tokenAmount Amount of SSV tokens to be withdrawn
@@ -66,6 +86,15 @@ interface ISSVClusters is ISSVNetworkCore {
      */
     event ValidatorAdded(address indexed owner, uint64[] operatorIds, bytes publicKey, bytes shares, Cluster cluster);
 
+    event ValidatorAdded(
+        address indexed owner,
+        uint64[] operatorIds,
+        bytes publicKey,
+        bytes shares,
+        TokenCluster cluster,
+        IERC20 depositToken
+    );
+
     /**
      * @dev Emitted when the validator is removed.
      * @param publicKey The public key of a validator.
@@ -75,10 +104,19 @@ interface ISSVClusters is ISSVNetworkCore {
     event ValidatorRemoved(address indexed owner, uint64[] operatorIds, bytes publicKey, Cluster cluster);
 
     event ClusterLiquidated(address indexed owner, uint64[] operatorIds, Cluster cluster);
+    event ClusterLiquidated(address indexed owner, uint64[] operatorIds, TokenCluster cluster);
 
     event ClusterReactivated(address indexed owner, uint64[] operatorIds, Cluster cluster);
 
     event ClusterWithdrawn(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
     event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
+
+    event ClusterDeposited(
+        address indexed owner,
+        uint64[] operatorIds,
+        uint256 value,
+        IERC20 tokenAddress,
+        TokenCluster cluster
+    );
 }
