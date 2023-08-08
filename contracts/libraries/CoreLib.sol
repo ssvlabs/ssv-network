@@ -21,7 +21,7 @@ library CoreLib {
     }
 
     function deposit(uint256 amount, IERC20 token) internal {
-        if (token.transferFrom(msg.sender, address(this), amount)) {
+        if (!token.transferFrom(msg.sender, address(this), amount)) {
             revert ISSVNetworkCore.TokenTransferFailed();
         }
     }

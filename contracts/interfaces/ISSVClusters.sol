@@ -18,13 +18,12 @@ interface ISSVClusters is ISSVNetworkCore {
         ISSVNetworkCore.Cluster memory cluster
     ) external;
 
-    function registerValidator(
+    function registerTokenValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
         uint256 ssvAmount,
         uint256 tokenAmount,
-        IERC20 depositToken,
         TokenCluster memory cluster
     ) external;
 
@@ -67,7 +66,7 @@ interface ISSVClusters is ISSVNetworkCore {
         address clusterOwner,
         uint64[] calldata operatorIds,
         uint256 tokenAmount,
-        IERC20 depositToken,
+        IERC20 tokenAddress,
         TokenCluster memory cluster
     ) external;
 
@@ -88,11 +87,9 @@ interface ISSVClusters is ISSVNetworkCore {
 
     event ValidatorAdded(
         address indexed owner,
-        uint64[] operatorIds,
+        
         bytes publicKey,
-        bytes shares,
-        TokenCluster cluster,
-        IERC20 depositToken
+        TokenCluster cluster
     );
 
     /**

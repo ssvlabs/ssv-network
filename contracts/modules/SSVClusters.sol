@@ -20,22 +20,134 @@ contract SSVClusters is ISSVClusters {
     uint64 private constant MODULO_OPERATORS_LENGTH = 3;
     uint64 private constant PUBLIC_KEY_LENGTH = 48;
 
+    // only SSV
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
-        uint256 ssvAmount,
-        ISSVNetworkCore.Cluster memory cluster
-    ) external {}
+        uint256 amount,
+        Cluster memory cluster
+    ) external override {
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        uint256 operatorsLength = operatorIds.length;
+        {
+            if (
+                operatorsLength < MIN_OPERATORS_LENGTH ||
+                operatorsLength > MAX_OPERATORS_LENGTH ||
+                operatorsLength % MODULO_OPERATORS_LENGTH != 1
+            ) {
+                revert InvalidOperatorIdsLength();
+            }
+
+            if (publicKey.length != PUBLIC_KEY_LENGTH) revert InvalidPublicKeyLength();
+
+            bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
+
+            if (s.validatorPKs[hashedPk] != bytes32(0)) {
+                revert ValidatorAlreadyExists();
+            }
+
+            s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
+        }
+        bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
+
+        {
+            bytes32 clusterData = s.clusters[hashedCluster];
+            if (clusterData == bytes32(0)) {
+                if (
+                    cluster.validatorCount != 0 ||
+                    cluster.networkFeeIndex != 0 ||
+                    cluster.index != 0 ||
+                    cluster.ssvBalance != 0 ||
+                    !cluster.active
+                ) {
+                    revert IncorrectClusterState();
+                }
+            } else if (clusterData != cluster.hashClusterData()) {
+                revert IncorrectClusterState();
+            } else {
+                cluster.validateClusterIsNotLiquidated();
+            }
+        }
+
+        cluster.ssvBalance += amount;
+
+        uint64 burnRate;
+
+        if (cluster.active) {
+            uint64 clusterIndex;
+
+            for (uint256 i; i < operatorsLength; ) {
+                uint64 operatorId = operatorIds[i];
+                {
+                    if (i + 1 < operatorsLength) {
+                        if (operatorId > operatorIds[i + 1]) {
+                            revert UnsortedOperatorsList();
+                        } else if (operatorId == operatorIds[i + 1]) {
+                            revert OperatorsListNotUnique();
+                        }
+                    }
+                }
+
+                Operator memory operator = s.operators[operatorId];
+                if (operator.snapshot.block == 0) {
+                    revert OperatorDoesNotExist();
+                }
+                if (operator.whitelisted) {
+                    address whitelisted = s.operatorsWhitelist[operatorId];
+                    if (whitelisted != address(0) && whitelisted != msg.sender) {
+                        revert CallerNotWhitelisted();
+                    }
+                }
+                operator.updateSnapshot();
+                if (++operator.validatorCount > sp.validatorsPerOperatorLimit) {
+                    revert ExceedValidatorLimit();
+                }
+                clusterIndex += operator.snapshot.index;
+                burnRate += operator.fee;
+
+                s.operators[operatorId] = operator;
+
+                unchecked {
+                    ++i;
+                }
+            }
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+
+            sp.updateDAO(true, 1);
+        }
+
+        ++cluster.validatorCount;
+
+        if (
+            cluster.isLiquidatable(
+                burnRate,
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
+            )
+        ) {
+            revert InsufficientBalance();
+        }
+
+        s.clusters[hashedCluster] = cluster.hashClusterData();
+
+        if (amount != 0) {
+            CoreLib.deposit(amount, s.token);
+        }
+
+        emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
+    }
 
     // using TokenCluster
-    function registerValidator(
+    function registerTokenValidator(
         bytes calldata publicKey,
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         bytes calldata sharesData,
         uint256 ssvAmount,
         uint256 tokenAmount,
-        IERC20 depositToken,
         TokenCluster memory cluster
     ) external override {
         StorageData storage s = SSVStorage.load();
@@ -74,11 +186,11 @@ contract SSVClusters is ISSVClusters {
                     base.ssvBalance != 0 ||
                     !base.active ||
                     cluster.tokenBalance != 0 ||
-                    address(cluster.tokenAddress) != address(0)
+                    address(cluster.tokenAddress) == address(0)
                 ) {
                     revert IncorrectClusterState();
                 }
-                cluster.tokenAddress = depositToken;
+                cluster.tokenAddress = cluster.tokenAddress;
             } else if (clusterData != cluster.hashClusterData()) {
                 revert IncorrectClusterState();
             } else {
@@ -111,17 +223,8 @@ contract SSVClusters is ISSVClusters {
                     revert OperatorDoesNotExist();
                 }
 
-                // verbosed conditionals for clarity
-                // old operator, fee denominated in SSV
-                // check if the deposit token passed is SSV token
-                if (operator.feeToken == IERC20(address(0)) && depositToken != s.token) {
-                    revert FeeTokenMismatch();
-                }
-
-                // if it's address(0) then it's an old operator with fees denominated in SSV
-                // or it's a removed operator (checked previously)
                 // check if the deposit token is the same as operator's fee token
-                if (operator.feeToken != IERC20(address(0)) && operator.feeToken != depositToken) {
+                if (operator.feeToken != cluster.tokenAddress) {
                     revert FeeTokenMismatch();
                 }
 
@@ -162,17 +265,16 @@ contract SSVClusters is ISSVClusters {
             revert InsufficientBalance();
         }
 
-        s.clusters[hashedCluster] = cluster.hashClusterData();
+        s.tokenClusters[hashedCluster] = cluster.hashClusterData();
 
         if (ssvAmount != 0) {
             CoreLib.deposit(ssvAmount, s.token);
         }
 
         if (tokenAmount != 0) {
-            CoreLib.deposit(tokenAmount, depositToken);
+            CoreLib.deposit(tokenAmount, cluster.tokenAddress);
         }
-
-        emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster, depositToken);
+        emit ValidatorAdded(msg.sender, publicKey, cluster);
     }
 
     function removeValidator(
@@ -320,7 +422,7 @@ contract SSVClusters is ISSVClusters {
         cluster.base.networkFeeIndex = 0;
         cluster.base.active = false;
 
-        s.clusters[hashedCluster] = cluster.hashClusterData();
+        s.tokenClusters[hashedCluster] = cluster.hashClusterData();
 
         if (ssvBalanceLiquidatable != 0) {
             CoreLib.transferBalance(msg.sender, ssvBalanceLiquidatable, s.token);
@@ -397,7 +499,7 @@ contract SSVClusters is ISSVClusters {
         address clusterOwner,
         uint64[] calldata operatorIds,
         uint256 tokenAmount,
-        IERC20 depositToken,
+        IERC20 tokenAddress,
         TokenCluster memory cluster
     ) external override {
         StorageData storage s = SSVStorage.load();
@@ -408,9 +510,9 @@ contract SSVClusters is ISSVClusters {
 
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
-        CoreLib.deposit(tokenAmount, depositToken);
+        CoreLib.deposit(tokenAmount, tokenAddress);
 
-        emit ClusterDeposited(clusterOwner, operatorIds, tokenAmount, depositToken, cluster);
+        emit ClusterDeposited(clusterOwner, operatorIds, tokenAmount, tokenAddress, cluster);
     }
 
     function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {

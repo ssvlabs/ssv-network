@@ -157,7 +157,7 @@ contract SSVViews is ISSVViews {
 
         cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndex());
 
-        return cluster.balance;
+        return cluster.ssvBalance;
     }
 
     /*******************************/

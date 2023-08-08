@@ -13,7 +13,8 @@ library TokenClusterLib {
         uint64 newIndex,
         uint64 currentNetworkFeeIndex
     ) internal pure {
-        uint64 networkUsage = uint64(currentNetworkFeeIndex - cluster.base.networkFeeIndex) * cluster.base.validatorCount;
+        uint64 networkUsage = uint64(currentNetworkFeeIndex - cluster.base.networkFeeIndex) *
+            cluster.base.validatorCount;
         uint64 operatorsUsage = (newIndex - cluster.base.index) * cluster.base.validatorCount;
 
         cluster.base.ssvBalance = networkUsage.expand() > cluster.base.ssvBalance
@@ -75,6 +76,17 @@ library TokenClusterLib {
     }
 
     function hashClusterData(ISSVNetworkCore.TokenCluster memory cluster) internal pure returns (bytes32) {
-        return keccak256(abi.encode(cluster.base, cluster.tokenBalance, cluster.tokenAddress));
+        return
+            keccak256(
+                abi.encodePacked(
+                    cluster.base.validatorCount,
+                    cluster.base.networkFeeIndex,
+                    cluster.base.index,
+                    cluster.base.active,
+                    cluster.base.ssvBalance,
+                    cluster.tokenBalance,
+                    cluster.tokenAddress
+                )
+            );
     }
 }

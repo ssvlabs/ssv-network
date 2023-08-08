@@ -4,10 +4,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
- * @title SSV Token
+ * @title Token
  */
-contract SSVTokenMock is Ownable, ERC20 {
-    constructor() ERC20("SSV Token", "SSV") {
+contract TokenMock is Ownable, ERC20 {
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {
         _mint(msg.sender, 1000000000000000000000);
     }
 

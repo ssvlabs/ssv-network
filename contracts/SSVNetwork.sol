@@ -168,13 +168,12 @@ contract SSVNetwork is
     /* Validator External Functions */
     /*******************************/
 
-function registerValidator(
+function registerTokenValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
         uint256 ssvAmount,
         uint256 tokenAmount,
-        IERC20 depositToken,
         TokenCluster memory cluster
     ) external override {
         if (!RegisterAuth.load().authorization[msg.sender].registerValidator) revert NotAuthorized();
