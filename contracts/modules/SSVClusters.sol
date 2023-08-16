@@ -13,117 +13,63 @@ contract SSVClusters is ISSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
+    using Types256 for uint256;
+
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;
     uint64 private constant MODULO_OPERATORS_LENGTH = 3;
     uint64 private constant PUBLIC_KEY_LENGTH = 48;
 
+    // legacy cluster
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
-        uint256 amount,
+        uint256 feeAmount,
         Cluster memory cluster
-    ) external override {
+    ) external {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint256 operatorsLength = operatorIds.length;
-        {
-            if (
-                operatorsLength < MIN_OPERATORS_LENGTH ||
-                operatorsLength > MAX_OPERATORS_LENGTH ||
-                operatorsLength % MODULO_OPERATORS_LENGTH != 1
-            ) {
-                revert InvalidOperatorIdsLength();
-            }
 
-            if (publicKey.length != PUBLIC_KEY_LENGTH) revert InvalidPublicKeyLength();
-
-            bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
-
-            if (s.validatorPKs[hashedPk] != bytes32(0)) {
-                revert ValidatorAlreadyExists();
-            }
-
-            s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
-        }
-        bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
-
-        {
-            bytes32 clusterData = s.clusters[hashedCluster];
-            if (clusterData == bytes32(0)) {
-                if (
-                    cluster.validatorCount != 0 ||
-                    cluster.networkFeeIndex != 0 ||
-                    cluster.index != 0 ||
-                    cluster.balance != 0 ||
-                    !cluster.active
-                ) {
-                    revert IncorrectClusterState();
-                }
-            } else if (clusterData != cluster.hashClusterData()) {
-                revert IncorrectClusterState();
-            } else {
-                cluster.validateClusterIsNotLiquidated();
-            }
+        if (
+            operatorsLength < MIN_OPERATORS_LENGTH ||
+            operatorsLength > MAX_OPERATORS_LENGTH ||
+            operatorsLength % MODULO_OPERATORS_LENGTH != 1
+        ) {
+            revert InvalidOperatorIdsLength();
         }
 
-        cluster.balance += amount;
+        registerValidatorPublicKey(publicKey, operatorIds, s);
 
-        uint64 burnRate;
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(
+            keccak256(abi.encodePacked(msg.sender, operatorIds)),
+            s
+        );
 
-        if (cluster.active) {
-            uint64 clusterIndex;
+        bytes32 account = keccak256(abi.encodePacked(msg.sender));
+        Account memory accountData = s.accounts[account];
 
-            for (uint256 i; i < operatorsLength; ) {
-                uint64 operatorId = operatorIds[i];
-                {
-                    if (i + 1 < operatorsLength) {
-                        if (operatorId > operatorIds[i + 1]) {
-                            revert UnsortedOperatorsList();
-                        } else if (operatorId == operatorIds[i + 1]) {
-                            revert OperatorsListNotUnique();
-                        }
-                    }
-                }
-
-                Operator memory operator = s.operators[operatorId];
-                if (operator.snapshot.block == 0) {
-                    revert OperatorDoesNotExist();
-                }
-                if (operator.whitelisted) {
-                    address whitelisted = s.operatorsWhitelist[operatorId];
-                    if (whitelisted != address(0) && whitelisted != msg.sender) {
-                        revert CallerNotWhitelisted();
-                    }
-                }
-                operator.updateSnapshot();
-                if (++operator.validatorCount > sp.validatorsPerOperatorLimit) {
-                    revert ExceedValidatorLimit();
-                }
-                clusterIndex += operator.snapshot.index;
-                burnRate += operator.fee;
-
-                s.operators[operatorId] = operator;
-
-                unchecked {
-                    ++i;
-                }
-            }
-            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
-
-            sp.updateDAO(true, 1);
-        }
-
-        ++cluster.validatorCount;
+        uint64 burnRate = cluster.updateClusterOnRegistration(
+            feeAmount,
+            operatorsLength,
+            operatorIds,
+            IERC20(address(0)),
+            accountData,
+            s,
+            sp,
+            false
+        );
 
         if (
             cluster.isLiquidatable(
                 burnRate,
                 sp.networkFee,
                 sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
+                sp.minimumLiquidationCollateral,
+                accountData,
+                false
             )
         ) {
             revert InsufficientBalance();
@@ -131,8 +77,80 @@ contract SSVClusters is ISSVClusters {
 
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
-        if (amount != 0) {
-            CoreLib.deposit(amount);
+        if (feeAmount != 0) {
+            CoreLib.deposit(feeAmount, s.token);
+        }
+
+        emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
+    }
+
+    // token cluster
+    function registerValidator(
+        bytes calldata publicKey,
+        uint64[] memory operatorIds,
+        bytes calldata sharesData,
+        uint256 feeAmount,
+        IERC20 feeToken,
+        uint256 ssvAmount,
+        Cluster memory cluster
+    ) external override {
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        uint256 operatorsLength = operatorIds.length;
+
+        if (
+            operatorsLength < MIN_OPERATORS_LENGTH ||
+            operatorsLength > MAX_OPERATORS_LENGTH ||
+            operatorsLength % MODULO_OPERATORS_LENGTH != 1
+        ) {
+            revert InvalidOperatorIdsLength();
+        }
+
+        registerValidatorPublicKey(publicKey, operatorIds, s);
+
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(
+            keccak256(abi.encodePacked(msg.sender, operatorIds, feeToken)),
+            s
+        );
+
+        bytes32 account = keccak256(abi.encodePacked(msg.sender));
+        Account memory accountData = s.accounts[account];
+        ++accountData.validatorCount;
+        accountData.ssvBalance += ssvAmount.shrink();
+
+        uint64 burnRate = cluster.updateClusterOnRegistration(
+            feeAmount,
+            operatorsLength,
+            operatorIds,
+            feeToken,
+            accountData,
+            s,
+            sp,
+            true
+        );
+
+        if (
+            cluster.isLiquidatable(
+                burnRate,
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral,
+                accountData,
+                true
+            )
+        ) {
+            revert InsufficientBalance();
+        }
+
+        s.clusters[hashedCluster] = cluster.hashClusterData();
+
+        if (feeAmount != 0) {
+            CoreLib.deposit(feeAmount, s.token);
+        }
+
+        if (ssvAmount != 0) {
+            CoreLib.deposit(feeAmount, s.token);
         }
 
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
@@ -160,7 +178,7 @@ contract SSVClusters is ISSVClusters {
             revert IncorrectValidatorState();
         }
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        bytes32 hashedCluster = cluster.validateCluster(msg.sender, operatorIds, s);
 
         {
             if (cluster.active) {
@@ -179,118 +197,115 @@ contract SSVClusters is ISSVClusters {
 
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
+        // not sure about the usage of Account.validatorCount for now
+        // --s.accounts[keccak256(abi.encodePacked(msg.sender))].validatorCount;
+
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
+    // legacy clusters
     function liquidate(address clusterOwner, uint64[] memory operatorIds, Cluster memory cluster) external override {
-        StorageData storage s = SSVStorage.load();
-
-        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        cluster.validateClusterIsNotLiquidated();
-
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
+        cluster.liquidateCluster(
+            clusterOwner,
             operatorIds,
-            false,
-            cluster.validatorCount,
-            s
+            keccak256(abi.encodePacked(msg.sender, operatorIds)),
+            SSVStorage.load().token,
+            false
         );
-
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
-
-        uint256 balanceLiquidatable;
-
-        if (
-            clusterOwner != msg.sender &&
-            !cluster.isLiquidatable(
-                burnRate,
-                sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
-            )
-        ) {
-            revert ClusterNotLiquidatable();
-        }
-
-        sp.updateDAO(false, cluster.validatorCount);
-
-        if (cluster.balance != 0) {
-            balanceLiquidatable = cluster.balance;
-            cluster.balance = 0;
-        }
-        cluster.index = 0;
-        cluster.networkFeeIndex = 0;
-        cluster.active = false;
-
-        s.clusters[hashedCluster] = cluster.hashClusterData();
-
-        if (balanceLiquidatable != 0) {
-            CoreLib.transferBalance(msg.sender, balanceLiquidatable);
-        }
 
         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
     }
 
-    function reactivate(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
-        StorageData storage s = SSVStorage.load();
-
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
-        if (cluster.active) revert ClusterAlreadyEnabled();
-
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
+    // token cluster
+    function liquidate(
+        address clusterOwner,
+        uint64[] memory operatorIds,
+        IERC20 feeToken,
+        Cluster memory cluster
+    ) external override {
+        cluster.liquidateCluster(
+            clusterOwner,
             operatorIds,
-            true,
-            cluster.validatorCount,
-            s
+            keccak256(abi.encodePacked(msg.sender, operatorIds, feeToken)),
+            feeToken,
+            true
         );
 
-        cluster.balance += amount;
-        cluster.active = true;
-        cluster.index = clusterIndex;
-        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
+        emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
+    }
 
-        sp.updateDAO(true, cluster.validatorCount);
-
-        if (
-            cluster.isLiquidatable(
-                burnRate,
-                sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
-            )
-        ) {
-            revert InsufficientBalance();
-        }
-
-        s.clusters[hashedCluster] = cluster.hashClusterData();
-
-        if (amount > 0) {
-            CoreLib.deposit(amount);
-        }
-
+    // legacy cluster
+    function reactivate(uint64[] calldata operatorIds, uint256 ssvAmount, Cluster memory cluster) external override {
+        cluster.reactivateCluster(
+            keccak256(abi.encodePacked(msg.sender, operatorIds)),
+            operatorIds,
+            feeAmount,
+            feeToken,
+            ssvAmount,
+            true
+        );
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
     }
 
-    function deposit(
-        address clusterOwner,
+    // token cluster
+    function reactivate(
         uint64[] calldata operatorIds,
-        uint256 amount,
+        uint256 feeAmount,
+        IERC20 feeToken,
+        uint256 ssvAmount,
         Cluster memory cluster
     ) external override {
+        cluster.reactivateCluster(
+            keccak256(abi.encodePacked(msg.sender, operatorIds, feeToken)),
+            operatorIds,
+            feeAmount,
+            feeToken,
+            ssvAmount,
+            true
+        );
+        emit ClusterReactivated(msg.sender, operatorIds, cluster);
+    }
+
+    function depositNetworkFees(address accountOwner, uint256 ssvAmount) external {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
+        bytes32 account = keccak256(abi.encodePacked(msg.sender));
+        Account memory accountData = s.accounts[account];
 
-        cluster.balance += amount;
+        accountData.ssvBalance += ssvAmount;
 
-        s.clusters[hashedCluster] = cluster.hashClusterData();
+        CoreLib.deposit(ssvAmount, s.token);
+    }
 
-        CoreLib.deposit(amount);
+    // legacy cluster
+    function depositClusterBalance(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        uint256 ssvAmount,
+        Cluster memory cluster
+    ) external override {
+        cluster.deposit(keccak256(abi.encodePacked(clusterOwner, operatorIds)), SSVStorage.load().token, ssvAmount);
 
-        emit ClusterDeposited(clusterOwner, operatorIds, amount, cluster);
+        emit ClusterDeposited(clusterOwner, operatorIds, ssvAmount, cluster);
+    }
+
+    // token cluster
+    function depositClusterBalance(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        uint256 feeAmount,
+        IERC20 feeToken,
+        Cluster memory cluster
+    ) external override {
+        // add check to match feeToken with Operator.feeToken
+        cluster.deposit(
+            clusterOwner,
+            keccak256(abi.encodePacked(clusterOwner, operatorIds, feeToken)),
+            feeToken,
+            feeAmount
+        );
+
+        emit ClusterTokenDeposited(clusterOwner, operatorIds, feeToken, feeAmount, cluster);
     }
 
     function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
@@ -343,5 +358,21 @@ contract SSVClusters is ISSVClusters {
         CoreLib.transferBalance(msg.sender, amount);
 
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
+    }
+
+    function registerValidatorPublicKey(
+        bytes calldata publicKey,
+        uint64[] memory operatorIds,
+        StorageData storage s
+    ) private {
+        if (publicKey.length != PUBLIC_KEY_LENGTH) revert ISSVNetworkCore.InvalidPublicKeyLength();
+
+        bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
+
+        if (s.validatorPKs[hashedPk] != bytes32(0)) {
+            revert ISSVNetworkCore.ValidatorAlreadyExists();
+        }
+
+        s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
     }
 }

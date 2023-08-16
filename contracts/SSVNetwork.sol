@@ -118,7 +118,11 @@ contract SSVNetwork is
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+    function registerOperator(
+        bytes calldata publicKey,
+        uint256 fee,
+        IERC20 feeToken
+    ) external override returns (uint64 id) {
         if (!RegisterAuth.load().authorization[msg.sender].registerOperator) revert NotAuthorized();
 
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
@@ -173,6 +177,8 @@ contract SSVNetwork is
         uint64[] memory operatorIds,
         bytes calldata sharesData,
         uint256 amount,
+        IERC20 feeToken,
+        uint256 ssvAmount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
         if (!RegisterAuth.load().authorization[msg.sender].registerValidator) revert NotAuthorized();
@@ -188,13 +194,19 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
-    function liquidate(address clusterOwner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
+    function liquidate(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        IERC20 feeToken,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
     function reactivate(
         uint64[] calldata operatorIds,
         uint256 amount,
+        IERC20 feeToken,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
@@ -204,6 +216,7 @@ contract SSVNetwork is
         address clusterOwner,
         uint64[] calldata operatorIds,
         uint256 amount,
+        IERC20 feeToken,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);

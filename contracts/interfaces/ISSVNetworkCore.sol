@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 interface ISSVNetworkCore {
     /***********/
     /* Structs */
@@ -28,6 +30,8 @@ interface ISSVNetworkCore {
         bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
+        /// @dev The token used for fees
+        IERC20 feeToken;
     }
 
     /// @notice Represents a request to change an operator's fee
@@ -54,6 +58,11 @@ interface ISSVNetworkCore {
         uint256 balance;
     }
 
+    struct Account {
+        /// @dev Total account validators
+        uint32 validatorCount;
+        uint64 ssvBalance;
+    }
     /**********/
     /* Errors */
     /**********/
@@ -87,4 +96,5 @@ interface ISSVNetworkCore {
     error OperatorAlreadyExists(); // 0x289c9494
     error TargetModuleDoesNotExist(); // 0x8f9195fb
     error MaxValueExceeded(); // 0x91aa3017
+    error FeeTokenMismatch();
 }

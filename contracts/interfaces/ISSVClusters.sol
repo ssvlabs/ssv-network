@@ -15,6 +15,8 @@ interface ISSVClusters is ISSVNetworkCore {
         uint64[] memory operatorIds,
         bytes calldata sharesData,
         uint256 amount,
+        IERC20 feeToken,
+        uint256 ssvAmount,
         Cluster memory cluster
     ) external;
 
@@ -32,6 +34,8 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param owner The owner of the cluster
     /// @param operatorIds Array of IDs of operators managing the cluster
     /// @param cluster Cluster to be liquidated
+    function liquidate(address owner, uint64[] memory operatorIds, IERC20 feeToken, Cluster memory cluster) external;
+
     function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external;
 
     /// @notice Reactivates a cluster
@@ -40,16 +44,37 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param cluster Cluster to be reactivated
     function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external;
 
+    function reactivate(
+        uint64[] calldata operatorIds,
+        uint256 feeAmount,
+        IERC20 feeToken,
+        uint256 ssvAmount,
+        Cluster memory cluster
+    ) external;
+
     /******************************/
     /* Balance External Functions */
     /******************************/
 
     /// @notice Deposits tokens into a cluster
-    /// @param owner The owner of the cluster
+    /// @param clusterOwner The owner of the cluster
     /// @param operatorIds Array of IDs of operators managing the cluster
-    /// @param amount Amount of SSV tokens to be deposited
+    /// @param ssvAmount Amount of SSV tokens to be deposited
     /// @param cluster Cluster where the deposit will be made
-    function deposit(address owner, uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external;
+    function depositClusterBalance(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        uint256 ssvAmount,
+        Cluster memory cluster
+    ) external;
+
+    function depositClusterBalance(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        uint256 feeAmount,
+        IERC20 feeToken,
+        Cluster memory cluster
+    ) external;
 
     /// @notice Withdraws tokens from a cluster
     /// @param operatorIds Array of IDs of operators managing the cluster
@@ -80,5 +105,19 @@ interface ISSVClusters is ISSVNetworkCore {
 
     event ClusterWithdrawn(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
-    event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
+    event ClusterDeposited(
+        address indexed owner,
+        uint64[] operatorIds,
+        IERC20 feeToken,
+        uint256 value,
+        Cluster cluster
+    );
+
+    event ClusterTokenDeposited(
+        address indexed owner,
+        uint64[] operatorIds,
+        IERC20 feeToken,
+        uint256 value,
+        Cluster cluster
+    );
 }

@@ -10,14 +10,17 @@ library CoreLib {
         return "v1.0.0.rc3";
     }
 
-    function transferBalance(address to, uint256 amount) internal {
-        if (!SSVStorage.load().token.transfer(to, amount)) {
+    function transferBalance(address to, uint256 amount, IERC20 token) internal {
+        IERC20 targetToken;
+        targetToken = token == IERC20(address(0)) ? SSVStorage.load().token : token;
+
+        if (!targetToken.transfer(to, amount)) {
             revert ISSVNetworkCore.TokenTransferFailed();
         }
     }
 
-    function deposit(uint256 amount) internal {
-        if (!SSVStorage.load().token.transferFrom(msg.sender, address(this), amount)) {
+    function deposit(uint256 amount, IERC20 token) internal {
+        if (!token.transferFrom(msg.sender, address(this), amount)) {
             revert ISSVNetworkCore.TokenTransferFailed();
         }
     }

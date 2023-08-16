@@ -9,8 +9,6 @@ import "./ISSVViews.sol";
 
 import {SSVModules} from "../libraries/SSVStorage.sol";
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 interface ISSVNetwork {
     function initialize(
         IERC20 token_,

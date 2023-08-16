@@ -193,6 +193,8 @@ contract SSVNetworkUpgrade is
         uint64[] memory operatorIds,
         bytes calldata sharesData,
         uint256 amount,
+        IERC20 feeToken,
+        uint256 ssvAmount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegateCall(
@@ -224,7 +226,12 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function liquidate(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
+    function liquidate(
+        address owner,
+        uint64[] calldata operatorIds,
+        IERC20 feeToken,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
@@ -239,6 +246,7 @@ contract SSVNetworkUpgrade is
     function reactivate(
         uint64[] calldata operatorIds,
         uint256 amount,
+        IERC20 feeToken,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegateCall(
@@ -256,6 +264,7 @@ contract SSVNetworkUpgrade is
         address owner,
         uint64[] calldata operatorIds,
         uint256 amount,
+        IERC20 feeToken,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegateCall(

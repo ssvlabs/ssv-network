@@ -33,10 +33,12 @@ struct StorageData {
     IERC20 token;
     /// @notice Counter keeping track of the last Operator ID issued
     Counters.Counter lastOperatorId;
+    /// @notice Maps each account's owner to its corresponding account data
+    mapping(bytes32 => ISSVNetworkCore.Account) accounts;
 }
 
 library SSVStorage {
-    uint256 constant private SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
+    uint256 private constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
 
     function load() internal pure returns (StorageData storage sd) {
         uint256 position = SSV_STORAGE_POSITION;

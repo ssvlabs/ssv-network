@@ -8,6 +8,7 @@ import "../libraries/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract SSVOperators is ISSVOperators {
@@ -23,7 +24,7 @@ contract SSVOperators is ISSVOperators {
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+    function registerOperator(bytes calldata publicKey, uint256 fee, IERC20 feeToken) external override returns (uint64 id) {
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
@@ -39,7 +40,8 @@ contract SSVOperators is ISSVOperators {
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             validatorCount: 0,
             fee: fee.shrink(),
-            whitelisted: false
+            whitelisted: false,
+            feeToken: feeToken
         });
         s.operatorsPKs[hashedPk] = id;
 
@@ -66,7 +68,7 @@ contract SSVOperators is ISSVOperators {
         }
 
         if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
+            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand(), operator.feeToken);
         }
         emit OperatorRemoved(operatorId);
     }
@@ -197,11 +199,11 @@ contract SSVOperators is ISSVOperators {
 
         s.operators[operatorId] = operator;
 
-        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand(), s.token);
     }
 
-    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        CoreLib.transferBalance(msg.sender, amount);
+    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount, IERC20 feeToken) private {
+        CoreLib.transferBalance(msg.sender, amount, feeToken);
         emit OperatorWithdrawn(msg.sender, operatorId, amount);
     }
 }
