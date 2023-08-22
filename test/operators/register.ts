@@ -115,6 +115,13 @@ describe('Register Operator Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooLow');
   });
 
+  it('Register an operator with a fee thats too high reverts "FeeTooHigh"', async () => {
+    await expect(ssvNetworkContract.registerOperator(
+      helpers.DataGenerator.publicKey(0),
+      2e14,
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooHigh');
+  });
+
   it('Register same operator twice reverts "OperatorAlreadyExists"', async () => {
     const publicKey = helpers.DataGenerator.publicKey(1);
     await ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(

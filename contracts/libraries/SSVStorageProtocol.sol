@@ -28,6 +28,8 @@ struct StorageProtocol {
     uint64 executeOperatorFeePeriod;
     /// @notice The maximum increase in operator fee that is allowed (percentage)
     uint64 operatorMaxFeeIncrease;
+    /// @notice The maximum value in operator fee that is allowed (SSV)
+    uint64 operatorMaxFee;
 }
 
 library SSVStorageProtocol {

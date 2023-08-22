@@ -32,6 +32,10 @@ interface ISSVDAO is ISSVNetworkCore {
     /// @param amount The new minimum collateral amount (SSV)
     function updateMinimumLiquidationCollateral(uint256 amount) external;
 
+    /// @notice Updates the maximum fee an operator that uses SSV token can set
+    /// @param maxFee The new maximum fee (SSV)
+    function updateMaximumOperatorFee(uint64 maxFee) external;
+
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
 
     event DeclareOperatorFeePeriodUpdated(uint64 value);
@@ -55,4 +59,6 @@ interface ISSVDAO is ISSVNetworkCore {
      * @param recipient The recipient address.
      */
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
+
+    event OperatorMaximumFeeUpdated(uint64 maxFee);
 }

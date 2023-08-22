@@ -335,6 +335,13 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function updateMaximumOperatorFee(uint64 maxFee) external override {
+         _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateMaximumOperatorFee(uint64)", maxFee)
+        );
+    }
+
     function _delegateCall(address ssvModule, bytes memory callMessage) internal returns (bytes memory) {
         /// @custom:oz-upgrades-unsafe-allow delegatecall
         (bool success, bytes memory result) = ssvModule.delegatecall(callMessage);
