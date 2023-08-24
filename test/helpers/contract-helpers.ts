@@ -73,7 +73,7 @@ export const initializeContract = async () => {
     minimalBlocksBeforeLiquidation: 100800,
     minimumLiquidationCollateral: 200000000,
     validatorsPerOperatorLimit: 500,
-    maximumOperatorFee: 21257960000000
+    maximumOperatorFee: 76528650000000
   };
 
   DB = {
