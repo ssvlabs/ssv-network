@@ -23,7 +23,7 @@ describe('Liquidate Tests', () => {
 
     await ssvNetworkContract.updateNetworkFee(networkFee);
 
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, false, true);
+    await helpers.setRegisterAuth(1, false, true);
     // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 2);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(

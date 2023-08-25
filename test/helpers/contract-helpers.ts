@@ -6,6 +6,7 @@ import { trackGas, GasGroup } from './gas-usage';
 export let DB: any;
 export let CONFIG: any;
 export let SSV_MODULES: any;
+export let EXTRA_BLOCKS_ON_INIT = 0;
 
 const SIGNATURE = "869ff0ade8cb76048fb3aa8d4c26b0d71f96eb3bfb69144c080e7fe8db6e1e2f926f365886a59a25601b290f5f4695dd5b7e8cce1c462bdef5bebee34d94711541baeadbc7546a8c3ca301d86aaab4767c809a"
 
@@ -72,7 +73,8 @@ export const initializeContract = async () => {
     minimalOperatorFee: 100000000,
     minimalBlocksBeforeLiquidation: 100800,
     minimumLiquidationCollateral: 200000000,
-    validatorsPerOperatorLimit: 500
+    validatorsPerOperatorLimit: 500,
+    isRegisterAuthActive: process.env.REGISTER_AUTH
   };
 
   DB = {
@@ -144,7 +146,8 @@ export const initializeContract = async () => {
 
   await DB.ssvNetwork.contract.deployed();
 
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[0].address, true, true);
+  setRegisterAuth(0, true, true);
+  if (CONFIG.isRegisterAuthActive) ++EXTRA_BLOCKS_ON_INIT;
 
   DB.ssvViews.contract = await upgrades.deployProxy(ssvViews, [
     DB.ssvNetwork.contract.address
@@ -163,13 +166,11 @@ export const initializeContract = async () => {
   await DB.ssvToken.mint(DB.owners[5].address, '10000000000000000000');
   await DB.ssvToken.mint(DB.owners[6].address, '10000000000000000000');
 
-  // DB.ssvViews.contract = DB.ssvViews.contract.attach(DB.ssvNetwork.contract.address);
-
   return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract };
 };
 
 export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR]) => {
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, true, false);
+  setRegisterAuth(ownerId, true, false);
   for (let i = 0; i < numberOfOperators; ++i) {
     const { eventsByName } = await trackGas(
       DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerOperator(DataGenerator.publicKey(i), fee),
@@ -229,7 +230,7 @@ export const reactivate = async (ownerId: number, operatorIds: number[], amount:
 };
 
 export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, false, true);
+  await setRegisterAuth(ownerId, false, true);
   const validators: any = [];
   let args: any;
   // Register validators to contract
@@ -259,7 +260,7 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
 };
 
 export const registerValidatorsRaw = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, false, true);
+  await setRegisterAuth(ownerId, false, true);
 
   let cluster: any = {
     validatorCount: 0,
@@ -293,7 +294,7 @@ export const getCluster = (payload: any) => ethers.utils.AbiCoder.prototype.enco
 );
 
 export const coldRegisterValidator = async () => {
-  await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[0].address, false, true);
+  await setRegisterAuth(0, false, true);
 
   await DB.ssvToken.approve(DB.ssvNetwork.contract.address, '1000000000000000');
   await DB.ssvNetwork.contract.registerValidator(
@@ -309,4 +310,8 @@ export const coldRegisterValidator = async () => {
       active: true
     }
   );
+};
+
+export const setRegisterAuth = async (ownerId: number, registerOperator: boolean, registerValidator: boolean) => {
+  if (CONFIG.isRegisterAuthActive) await DB.ssvNetwork.contract.setRegisterAuth(DB.owners[ownerId].address, registerOperator, registerValidator);
 };

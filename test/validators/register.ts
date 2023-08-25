@@ -20,7 +20,7 @@ describe('Register Validator Tests', () => {
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 13;
 
     // cold register
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[6].address, false, true);
+    await helpers.setRegisterAuth(6, false, true);
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     cluster1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
       helpers.DataGenerator.publicKey(90),
@@ -35,8 +35,8 @@ describe('Register Validator Tests', () => {
         active: true
       }
     ));
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, true, true);
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[0].address, true, true);
+    await helpers.setRegisterAuth(1, true, true);
+    await helpers.setRegisterAuth(0, true, true);
   });
 
   it('Register validator with 4 operators emits "ValidatorAdded"', async () => {
@@ -132,7 +132,7 @@ describe('Register Validator Tests', () => {
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]);
 
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[2].address, false, true);
+    await helpers.setRegisterAuth(2, false, true);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
@@ -250,7 +250,7 @@ describe('Register Validator Tests', () => {
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_7]);
 
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[2].address, false, true);
+    await helpers.setRegisterAuth(2, false, true);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
@@ -368,7 +368,7 @@ describe('Register Validator Tests', () => {
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_10]);
 
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[2].address, false, true);
+    await helpers.setRegisterAuth(2, false, true);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
@@ -486,7 +486,7 @@ describe('Register Validator Tests', () => {
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_13]);
 
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[2].address, false, true);
+    await helpers.setRegisterAuth(2, false, true);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
@@ -795,7 +795,7 @@ describe('Register Validator Tests', () => {
 
     await ssvNetworkContract.connect(helpers.DB.owners[1]).setOperatorWhitelist(operatorId, helpers.DB.owners[3].address);
 
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[3].address, false, true);
+    await helpers.setRegisterAuth(3, false, true);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[3]).approve(ssvNetworkContract.address, minDepositAmount);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
