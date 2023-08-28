@@ -124,7 +124,7 @@ describe('Liquidate Tests', () => {
     expect(await ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster)).to.be.equals(minDepositAmount * 2 - burnPerBlock * 2);
   });
 
-  it('Remove validator -> withdraw -> liquidate', async () => {
+  it('Remove validator -> withdraw -> try liquidate reverts "ClusterNotLiquidatable"', async () => {
     await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[2].address, false, true);
 
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
