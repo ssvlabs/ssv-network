@@ -1,5 +1,3 @@
-export const LIVE_NETWORKS = ["goerli", "mainnet"];
-
 export enum SSVModules {
     SSVOperators = 0,
     SSVClusters = 1,

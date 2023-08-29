@@ -1,5 +1,5 @@
 import { task, subtask, types } from "hardhat/config";
-import { SSVModules, LIVE_NETWORKS } from "./config";
+import { SSVModules } from "./config";
 
 /**
 @title Hardhat task to deploy all required contracts for SSVNetwork.
@@ -20,7 +20,7 @@ task("deploy:all", "Deploy SSVNetwork, SSVNetworkViews and module contracts")
         const [deployer] = await ethers.getSigners();
         console.log(`Deploying contracts with the account:${deployer.address}`);
 
-        const ssvTokenAddress = await hre.run("deploy:token");
+        const ssvTokenAddress = await hre.run("deploy:mock-token");
         const operatorsModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVOperators] });
         const clustersModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVClusters] });
         const daoModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVDAO] });
@@ -90,28 +90,21 @@ subtask("deploy:module", "Deploys a new module contract")
 
 /**
 * @title Hardhat subtask to deploy or fetch an SSV Token contract.
-* If the network is one of the live networks, the address for the SSVToken is fetched from the environment variables.
-* If the network used is one of the local networks, a new SSVTokenMock contract will be deployed.
-* If the network used doesn't exists, Hardhat will warn about it and stop the execution.
+* The ssvToken parameter in the hardhat's network section, specifies the address of the SSV Token contract. 
+* If not provided, it will deploy a new MockToken contract.
 * @returns {string} The address of the deployed or fetched SSV Token contract.
-* @remarks
-* The deployer account used will be the first one returned by ethers.getSigners().
-* Therefore, it should be appropriately configured in your Hardhat network configuration.
-* The live network's token address should be set as an environment variable (SSV_TOKEN_ADDRESS).
 */
-subtask("deploy:token", "Deploys / fetch SSV Token")
+subtask("deploy:mock-token", "Deploys / fetch SSV Token")
     .setAction(async ({ }, hre) => {
-        // Live networks, fecth token address from env
-        if (LIVE_NETWORKS.includes(hre.network.name)) {
-            return process.env.SSV_TOKEN_ADDRESS;
-        }
+        const tokenAddress = hre.network.config.ssvToken;
+        if (tokenAddress) return tokenAddress;
+
         // Local networks, deploy mock token
         const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
         const ssvToken = await ssvTokenFactory.deploy();
         await ssvToken.deployed();
 
         return ssvToken.address;
-
     });
 
 /**
