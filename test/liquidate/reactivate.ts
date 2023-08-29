@@ -22,7 +22,6 @@ describe('Reactivate Tests', () => {
     // cold register
     await helpers.coldRegisterValidator();
 
-    await helpers.setRegisterAuth(1, false, true);
     // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(

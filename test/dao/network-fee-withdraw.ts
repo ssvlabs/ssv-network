@@ -26,7 +26,6 @@ describe('DAO Network Fee Withdraw Tests', () => {
     // Set network fee
     await ssvNetworkContract.updateNetworkFee(networkFee);
 
-    await helpers.setRegisterAuth(0, false, true);
     // Register validators
     // cold register
     await helpers.coldRegisterValidator();

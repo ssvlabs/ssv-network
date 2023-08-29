@@ -22,7 +22,6 @@ describe('Withdraw Tests', () => {
     // cold register
     await helpers.coldRegisterValidator();
 
-    await helpers.setRegisterAuth(4, false, true);
     await ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[4]).registerValidator(
       helpers.DataGenerator.publicKey(1),

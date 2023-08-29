@@ -1,5 +1,5 @@
 // Imports
-import { CONFIG, DB, initializeContract, DataGenerator, setRegisterAuth } from '../helpers/contract-helpers';
+import { CONFIG, DB, initializeContract, DataGenerator } from '../helpers/contract-helpers';
 import { trackGas } from '../helpers/gas-usage';
 import { ethers, upgrades } from 'hardhat';
 import { expect } from 'chai';
@@ -14,8 +14,6 @@ describe('Deployment tests', () => {
     });
 
     it('Upgrade SSVNetwork contract. Check new function execution', async () => {
-        await setRegisterAuth(1, true, false);
-
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
             CONFIG.minimalOperatorFee);

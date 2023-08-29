@@ -11,8 +11,6 @@ describe('Register Operator Tests', () => {
     const metadata = (await helpers.initializeContract());
     ssvNetworkContract = metadata.contract;
     ssvViews = metadata.ssvViews;
-
-    await helpers.setRegisterAuth(1, true, false);
   });
 
   it('Register operator emits "OperatorAdded"', async () => {
