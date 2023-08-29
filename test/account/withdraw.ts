@@ -57,11 +57,11 @@ describe('Withdraw Tests', () => {
   });
 
   it('Withdraw the total operator balance emits "OperatorWithdrawn"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorEarnings(uint64)'](1)).to.emit(ssvNetworkContract, 'OperatorWithdrawn');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawAllOperatorEarnings(uint64)'](1)).to.emit(ssvNetworkContract, 'OperatorWithdrawn');
   });
 
   it('Withdraw the total operator balance gas limits', async () => {
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorEarnings(uint64)'](1), [GasGroup.WITHDRAW_OPERATOR_BALANCE]);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawAllOperatorEarnings(uint64)'](1), [GasGroup.WITHDRAW_OPERATOR_BALANCE]);
   });
 
   it('Withdraw from a cluster that has a removed operator emits "ClusterWithdrawn"', async () => {
@@ -98,11 +98,11 @@ describe('Withdraw Tests', () => {
   });
 
   it('Withdraw the total balance from an operator I do not own reverts "CallerNotOwner"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawOperatorEarnings(uint64)'](12)).to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2])['withdrawAllOperatorEarnings(uint64)'](12)).to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
   });
 
   it('Withdraw more than the operator total balance reverts "InsufficientBalance"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawOperatorEarnings(uint64)'](12)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[0])['withdrawAllOperatorEarnings(uint64)'](12)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
 
   it('Withdraw from a cluster without validators', async () => {

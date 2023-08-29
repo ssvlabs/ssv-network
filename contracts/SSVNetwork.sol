@@ -12,8 +12,6 @@ import "./libraries/Types.sol";
 import "./libraries/CoreLib.sol";
 import "./libraries/SSVStorage.sol";
 import "./libraries/SSVStorageProtocol.sol";
-import "./libraries/OperatorLib.sol";
-import "./libraries/ClusterLib.sol";
 import "./libraries/RegisterAuth.sol";
 
 import "./SSVProxy.sol";
@@ -34,7 +32,6 @@ contract SSVNetwork is
     SSVProxy
 {
     using Types256 for uint256;
-    using ClusterLib for Cluster;
 
     /****************/
     /* Initializers */
@@ -98,6 +95,11 @@ contract SSVNetwork is
         sp.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /*****************/
     /* UUPS required */
     /*****************/
@@ -150,7 +152,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
@@ -186,7 +188,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
-    function liquidate(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
+    function liquidate(address clusterOwner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -199,7 +201,7 @@ contract SSVNetwork is
     }
 
     function deposit(
-        address owner,
+        address clusterOwner,
         uint64[] calldata operatorIds,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
@@ -241,6 +243,10 @@ contract SSVNetwork is
 
     function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function getVersion() external pure override returns (string memory version) {
+        return CoreLib.getVersion();
     }
 
     /*******************************/

@@ -22,6 +22,14 @@ describe('Network Fee Tests', () => {
     )).to.emit(ssvNetworkContract, 'NetworkFeeUpdated').withArgs(0, networkFee);
   });
 
+  it('Change network fee when it was set emits "NetworkFeeUpdated"', async () => {
+    const initialNetworkFee = helpers.CONFIG.minimalOperatorFee;
+    await ssvNetworkContract.updateNetworkFee(initialNetworkFee);
+
+    await expect(ssvNetworkContract.updateNetworkFee(networkFee
+    )).to.emit(ssvNetworkContract, 'NetworkFeeUpdated').withArgs(initialNetworkFee, networkFee);
+  });
+
   it('Change network fee gas limit', async () => {
     await trackGas(ssvNetworkContract.updateNetworkFee(networkFee), [GasGroup.NETWORK_FEE_CHANGE]);
   });

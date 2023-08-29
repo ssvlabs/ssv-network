@@ -36,7 +36,7 @@ library OperatorLib {
         uint32 deltaValidatorCount,
         StorageData storage s
     ) internal returns (uint64 clusterIndex, uint64 burnRate) {
-        for (uint i; i < operatorIds.length; ) {
+        for (uint256 i; i < operatorIds.length; ) {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
             if (operator.snapshot.block != 0) {

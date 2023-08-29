@@ -123,4 +123,46 @@ describe('Liquidate Tests', () => {
     await utils.progressBlocks(2);
     expect(await ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster)).to.be.equals(minDepositAmount * 2 - burnPerBlock * 2);
   });
+
+  it('Remove validator -> withdraw -> try liquidate reverts "ClusterNotLiquidatable"', async () => {
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[2].address, false, true);
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
+    const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
+    let clusterEventData = register.eventsByName.ValidatorAdded[0].args;
+    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 10);
+
+    const remove = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).removeValidator(
+      helpers.DataGenerator.publicKey(2),
+      clusterEventData.operatorIds,
+      clusterEventData.cluster
+    ));
+    clusterEventData = remove.eventsByName.ValidatorRemoved[0].args;
+
+    let balance = await ssvViews.getBalance(helpers.DB.owners[2].address, clusterEventData.operatorIds, clusterEventData.cluster);
+
+    clusterEventData = await helpers.withdraw(2,
+      clusterEventData.operatorIds,
+      ((balance - helpers.CONFIG.minimumLiquidationCollateral) * 1.01).toString(),
+      clusterEventData.cluster);
+
+    await expect(ssvNetworkContract.liquidate(
+      clusterEventData.owner,
+      clusterEventData.operatorIds,
+      clusterEventData.cluster
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterNotLiquidatable');
+
+  });
 });

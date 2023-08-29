@@ -1,6 +1,6 @@
 # SSV Network
 
-### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) |  Local development
+### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) |  Local development | [Roles](roles.md)
 
 ## Running against a local node / testnet
 You can deploy and run these contracts in a local node like Hardhat's, Ganache, or public testnets. This guide will cover the process.
