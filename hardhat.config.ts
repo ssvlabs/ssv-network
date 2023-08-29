@@ -38,8 +38,9 @@ const config: HardhatUserConfig = {
   networks: {
     ganache: {
       chainId: 1337,
-      url: "http://127.0.0.1:8585"
-    },
+      url: "http://127.0.0.1:8585",
+      ssvToken: '' // deploy SSV mock token
+    } as SSVNetworkConfig,
     hardhat: {
       allowUnlimitedContractSize: true
     }
