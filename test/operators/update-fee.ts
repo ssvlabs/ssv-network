@@ -120,6 +120,25 @@ describe('Operator Fee Tests', () => {
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooHigh');
   });
 
+  it('Declare fee too high reverts "FeeTooHigh" -> DAO updates limit -> declare fee emits "OperatorFeeDeclared"', async () => {
+    const maxOperatorFee = 8e14;
+    await ssvNetworkContract.updateMaximumOperatorFee(maxOperatorFee);
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[3].address, true, false);
+
+    await ssvNetworkContract.connect(helpers.DB.owners[3]).registerOperator(helpers.DataGenerator.publicKey(10), maxOperatorFee);
+    const newOperatorFee = maxOperatorFee + maxOperatorFee / 10;
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).declareOperatorFee(2, newOperatorFee
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooHigh');
+
+    await expect(ssvNetworkContract.updateMaximumOperatorFee(newOperatorFee
+    )).to.emit(ssvNetworkContract, 'OperatorMaximumFeeUpdated')
+      .withArgs(newOperatorFee);
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).declareOperatorFee(2, newOperatorFee
+    )).to.emit(ssvNetworkContract, 'OperatorFeeDeclared');
+  });
+
   it('Cancel declared fee without a pending request reverts "NoFeeDeclared"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).cancelDeclaredOperatorFee(1
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'NoFeeDeclared');
@@ -185,13 +204,12 @@ describe('Operator Fee Tests', () => {
   it('Reduce maximum fee limit after declaring a fee change reverts "FeeTooHigh', async () => {
     await ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10);
     await ssvNetworkContract.updateMaximumOperatorFee(1000);
-    
+
     await progressTime(helpers.CONFIG.declareOperatorFeePeriod);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1
-      )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooHigh');
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooHigh');
   });
-
 
   //Dao
   it('DAO increase the fee emits "OperatorFeeIncreaseLimitUpdated"', async () => {
@@ -202,7 +220,7 @@ describe('Operator Fee Tests', () => {
   it('DAO update the maximum operator fee emits "OperatorMaximumFeeUpdated"', async () => {
     await expect(ssvNetworkContract.updateMaximumOperatorFee(2e10
     )).to.emit(ssvNetworkContract, 'OperatorMaximumFeeUpdated')
-    .withArgs(2e10);
+      .withArgs(2e10);
   });
 
   it('DAO increase the fee gas limits"', async () => {
