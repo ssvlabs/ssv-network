@@ -67,11 +67,11 @@ if (process.env.GOERLI_ETH_NODE_URL) {
   //@ts-ignore
   config.networks = {
     ...config.networks,
-    goerli_stage: {
+    goerli_development: {
       ...sharedConfig,
       ssvToken: '0x6471F70b932390f527c6403773D082A0Db8e8A9F'
     } as SSVNetworkConfig,
-    goerli_prod: {
+    goerli_testnet: {
       ...sharedConfig,
       ssvToken: '0x3a9f01091C446bdE031E39ea8354647AFef091E7'
     } as SSVNetworkConfig,

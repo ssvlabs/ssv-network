@@ -44,7 +44,7 @@ Following Hardhat's way of working, you must specify the network against which y
 ### Deploy all contracts
 Runs the deployment of the main SSVNetwork and SSVNetworkViews contracts, along with their associated modules:
 ```
-npx hardhat --network goerli_stage deploy:all
+npx hardhat --network goerli_testnet deploy:all
 ```
 
 When deploying to live networks like Goerli or Mainnet, please double check the environment variables:
@@ -80,7 +80,7 @@ POSITIONAL ARGUMENTS:
   params        Function parameters 
 
 Example:
-npx hardhat --network goerli_stage upgrade:proxy --proxyAddress 0x1234... --contract SSVNetworkV2 --initFunction initializev2 --params param1 param2
+npx hardhat --network goerli_testnet upgrade:proxy --proxyAddress 0x1234... --contract SSVNetworkV2 --initFunction initializev2 --params param1 param2
 ```
 
 ### Update a module
@@ -100,7 +100,7 @@ OPTIONS:
 
 Example:
 Update 'SSVOperators' module contract in the SSVNetwork
-npx hardhat --network goerli_stage update:module --module SSVOperators --attach-module true --proxyAddress 0x1234...
+npx hardhat --network goerli_testnet update:module --module SSVOperators --attach-module true --proxyAddress 0x1234...
 ```
 
 ### Upgrade a library
@@ -125,7 +125,7 @@ OPTIONS:
   --proxy-address       Proxy address of SSVNetwork / SSVNetworkViews (default: null)
 
 Example:
-npx hardhat --network goerli_stage upgrade:prepare --proxy-address 0x1234... --contract SSVNetworkViewsV2
+npx hardhat --network goerli_testnet upgrade:prepare --proxy-address 0x1234... --contract SSVNetworkViewsV2
 ```
 
 The task will return the new implementation address. After that, you can run `upgradeTo` or `upgradeToAndCall` in SSVNetwork / SSVNetworkViews proxy address, providing it as a parameter.
