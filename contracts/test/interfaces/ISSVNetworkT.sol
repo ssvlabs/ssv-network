@@ -8,8 +8,6 @@ import "../../interfaces/ISSVDAO.sol";
 import "../../interfaces/ISSVViews.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "../../libraries/RegisterAuth.sol";
-
 interface ISSVNetworkT {
     function initialize(
         IERC20 token_,

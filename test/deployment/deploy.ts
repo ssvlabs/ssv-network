@@ -15,8 +15,6 @@ describe('Deployment tests', () => {
     });
 
     it('Upgrade SSVNetwork contract. Check new function execution', async () => {
-        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, true, false);
-
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),
             CONFIG.minimalOperatorFee);
@@ -94,41 +92,6 @@ describe('Deployment tests', () => {
         );
 
         expect(await ssvNetworkViews.getNetworkFee()).to.be.equals(0);
-    });
-
-    it('Remove registerAuth from SSVNetwork contract', async () => {
-        const publicKey = DataGenerator.publicKey(4);
-        await ssvNetworkContract.setRegisterAuth(DB.owners[1].address, true, false);
-
-        await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
-            publicKey,
-            CONFIG.minimalOperatorFee);
-
-        const SSVNetworkUpgrade = await ethers.getContractFactory("SSVNetworkUpgrade");
-        const ssvNetworkUpgrade = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkUpgrade, {
-            kind: 'uups',
-            unsafeAllow: ['delegatecall']
-        });
-        await ssvNetworkUpgrade.deployed();
-
-        expect(await ssvNetworkViews.getOperatorById(1)).to.deep.equal(
-            [DB.owners[1].address, // owner
-            CONFIG.minimalOperatorFee, // fee
-                0, // validatorCount
-            ethers.constants.AddressZero, // whitelisted
-                false, // isPrivate
-                true // active
-            ]);
-
-        await expect(ssvNetworkContract.connect(DB.owners[4]).registerOperator(
-            publicKey,
-            CONFIG.minimalOperatorFee
-        )).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorAlreadyExists');
-
-        await expect(ssvNetworkContract.connect(DB.owners[1]).registerOperator(
-            DataGenerator.publicKey(2),
-            CONFIG.minimalOperatorFee
-        )).to.emit(ssvNetworkContract, 'OperatorAdded').withArgs(2, DB.owners[1].address, DataGenerator.publicKey(2), CONFIG.minimalOperatorFee);
     });
 
     it('Update a module (SSVOperators)', async () => {
