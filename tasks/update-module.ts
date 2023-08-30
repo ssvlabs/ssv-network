@@ -1,5 +1,5 @@
 import { task, types } from "hardhat/config";
-import { SSVModules } from "./ssvModules";
+import { SSVModules } from "./config";
 
 /**
 @title Hardhat task to update a module contract in the SSVNetwork.
@@ -11,7 +11,7 @@ The address of the SSVNetwork Proxy is expected to be set in the environment var
 @param {string} proxyAddress - The proxy address of the SSVNetwork contract.
 @example
 // Update 'SSVOperators' module contract in the SSVNetwork
-npx hardhat --network goerli update:module --module SSVOperators
+npx hardhat --network goerli_testnet update:module --module SSVOperators
 @remarks
 The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.

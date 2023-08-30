@@ -176,6 +176,10 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().operatorMaxFeeIncrease;
     }
 
+    function getMaximumOperatorFee() external view override returns (uint64 operatorMaxFee) {
+        return SSVStorageProtocol.load().operatorMaxFee;
+    }
+
     function getOperatorFeePeriods()
         external
         view

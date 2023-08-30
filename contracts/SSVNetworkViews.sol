@@ -119,6 +119,10 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorFeeIncreaseLimit();
     }
 
+    function getMaximumOperatorFee() external view override returns (uint64 operatorMaxFee) {
+        return ssvNetwork.getMaximumOperatorFee();
+    }
+
     function getOperatorFeePeriods()
         external
         view

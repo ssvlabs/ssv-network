@@ -73,7 +73,7 @@ export const initializeContract = async () => {
     minimalBlocksBeforeLiquidation: 100800,
     minimumLiquidationCollateral: 200000000,
     validatorsPerOperatorLimit: 500,
-    isRegisterAuthActive: process.env.REGISTER_AUTH
+    maximumOperatorFee: 76528650000000
   };
 
   DB = {
@@ -161,6 +161,8 @@ export const initializeContract = async () => {
   await DB.ssvToken.mint(DB.owners[4].address, '10000000000000000000');
   await DB.ssvToken.mint(DB.owners[5].address, '10000000000000000000');
   await DB.ssvToken.mint(DB.owners[6].address, '10000000000000000000');
+
+  await DB.ssvNetwork.contract.updateMaximumOperatorFee(CONFIG.maximumOperatorFee);
 
   return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract };
 };

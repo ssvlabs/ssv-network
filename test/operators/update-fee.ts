@@ -72,6 +72,10 @@ describe('Operator Fee Tests', () => {
     expect(await ssvViews.getOperatorFee(12)).to.equal(0);
   });
 
+  it('Get operator maximum fee limit', async () => {
+    expect(await ssvViews.getMaximumOperatorFee()).to.equal(helpers.CONFIG.maximumOperatorFee);
+  });
+
   it('Declare fee of operator I do not own reverts "CallerNotOwner"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).declareOperatorFee(1, initialFee + initialFee / 10
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'CallerNotOwner');
@@ -109,6 +113,30 @@ describe('Operator Fee Tests', () => {
   it('Declare fee above the operators max fee increase limit reverts "FeeExceedsIncreaseLimit"', async () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 5
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeExceedsIncreaseLimit');
+  });
+
+  it('Declare fee above the operators max fee limit reverts "FeeTooHigh"', async () => {
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, 2e14
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooHigh');
+  });
+
+  it('Declare fee too high reverts "FeeTooHigh" -> DAO updates limit -> declare fee emits "OperatorFeeDeclared"', async () => {
+    const maxOperatorFee = 8e14;
+    await ssvNetworkContract.updateMaximumOperatorFee(maxOperatorFee);
+    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[3].address, true, false);
+
+    await ssvNetworkContract.connect(helpers.DB.owners[3]).registerOperator(helpers.DataGenerator.publicKey(10), maxOperatorFee);
+    const newOperatorFee = maxOperatorFee + maxOperatorFee / 10;
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).declareOperatorFee(2, newOperatorFee
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooHigh');
+
+    await expect(ssvNetworkContract.updateMaximumOperatorFee(newOperatorFee
+    )).to.emit(ssvNetworkContract, 'OperatorMaximumFeeUpdated')
+      .withArgs(newOperatorFee);
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).declareOperatorFee(2, newOperatorFee
+    )).to.emit(ssvNetworkContract, 'OperatorFeeDeclared');
   });
 
   it('Cancel declared fee without a pending request reverts "NoFeeDeclared"', async () => {
@@ -173,15 +201,31 @@ describe('Operator Fee Tests', () => {
     expect(isFeeDeclared).to.equal(false);
   });
 
+  it('Reduce maximum fee limit after declaring a fee change reverts "FeeTooHigh', async () => {
+    await ssvNetworkContract.connect(helpers.DB.owners[2]).declareOperatorFee(1, initialFee + initialFee / 10);
+    await ssvNetworkContract.updateMaximumOperatorFee(1000);
+
+    await progressTime(helpers.CONFIG.declareOperatorFeePeriod);
+
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[2]).executeOperatorFee(1
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'FeeTooHigh');
+  });
+
   //Dao
   it('DAO increase the fee emits "OperatorFeeIncreaseLimitUpdated"', async () => {
     await expect(ssvNetworkContract.updateOperatorFeeIncreaseLimit(1000
     )).to.emit(ssvNetworkContract, 'OperatorFeeIncreaseLimitUpdated');
   });
 
+  it('DAO update the maximum operator fee emits "OperatorMaximumFeeUpdated"', async () => {
+    await expect(ssvNetworkContract.updateMaximumOperatorFee(2e10
+    )).to.emit(ssvNetworkContract, 'OperatorMaximumFeeUpdated')
+      .withArgs(2e10);
+  });
+
   it('DAO increase the fee gas limits"', async () => {
     await trackGas(ssvNetworkContract.updateOperatorFeeIncreaseLimit(1000
-    ), [GasGroup.OPERATOR_FEE_INCREASE_LIMIT]);
+    ), [GasGroup.DAO_UPDATE_OPERATOR_FEE_INCREASE_LIMIT]);
   });
 
   it('DAO update the declare fee period emits "DeclareOperatorFeePeriodUpdated"', async () => {
@@ -191,7 +235,7 @@ describe('Operator Fee Tests', () => {
 
   it('DAO update the declare fee period gas limits"', async () => {
     await trackGas(ssvNetworkContract.updateDeclareOperatorFeePeriod(1200
-    ), [GasGroup.OPERATOR_DECLARE_FEE_LIMIT]);
+    ), [GasGroup.DAO_UPDATE_DECLARE_OPERATOR_FEE_PERIOD]);
   });
 
   it('DAO update the execute fee period emits "ExecuteOperatorFeePeriodUpdated"', async () => {
@@ -201,7 +245,12 @@ describe('Operator Fee Tests', () => {
 
   it('DAO update the execute fee period gas limits', async () => {
     await trackGas(ssvNetworkContract.updateExecuteOperatorFeePeriod(1200
-    ), [GasGroup.OPERATOR_EXECUTE_FEE_LIMIT]);
+    ), [GasGroup.DAO_UPDATE_EXECUTE_OPERATOR_FEE_PERIOD]);
+  });
+
+  it('DAO update the maximum fee for operators using SSV gas limits', async () => {
+    await trackGas(ssvNetworkContract.updateMaximumOperatorFee(2e10
+    ), [GasGroup.DAO_UPDATE_OPERATOR_MAX_FEE]);
   });
 
   it('DAO get fee increase limit', async () => {

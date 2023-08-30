@@ -14,14 +14,16 @@ interface ISSVViews is ISSVNetworkCore {
     /// @param operatorId The ID of the operator
     /// @return fee The fee associated with the operator (SSV). If the operator does not exist, the returned value is 0.
     function getOperatorFee(uint64 operatorId) external view returns (uint256 fee);
-    
+
     /// @notice Gets the declared operator fee
     /// @param operatorId The ID of the operator
     /// @return isFeeDeclared A boolean indicating if the fee is declared
     /// @return fee The declared operator fee (SSV)
     /// @return approvalBeginTime The time when the fee approval process begins
     /// @return approvalEndTime The time when the fee approval process ends
-    function getOperatorDeclaredFee(uint64 operatorId) external view returns (bool isFeeDeclared, uint256 fee, uint64 approvalBeginTime, uint64 approvalEndTime);
+    function getOperatorDeclaredFee(
+        uint64 operatorId
+    ) external view returns (bool isFeeDeclared, uint256 fee, uint64 approvalBeginTime, uint64 approvalEndTime);
 
     /// @notice Gets operator details by ID
     /// @param operatorId The ID of the operator
@@ -31,25 +33,42 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return whitelisted The whitelisted address of the operator, if any
     /// @return isPrivate A boolean indicating if the operator is private
     /// @return active A boolean indicating if the operator is active
-    function getOperatorById(uint64 operatorId) external view returns (address owner, uint256 fee, uint32 validatorCount, address whitelisted, bool isPrivate, bool active);
+    function getOperatorById(
+        uint64 operatorId
+    )
+        external
+        view
+        returns (address owner, uint256 fee, uint32 validatorCount, address whitelisted, bool isPrivate, bool active);
 
     /// @notice Checks if the cluster can be liquidated
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
     /// @return isLiquidatable A boolean indicating if the cluster can be liquidated
-    function isLiquidatable(address owner, uint64[] memory operatorIds, Cluster memory cluster) external view returns (bool isLiquidatable);
+    function isLiquidatable(
+        address owner,
+        uint64[] memory operatorIds,
+        Cluster memory cluster
+    ) external view returns (bool isLiquidatable);
 
     /// @notice Checks if the cluster is liquidated
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
     /// @return isLiquidated A boolean indicating if the cluster is liquidated
-    function isLiquidated(address owner, uint64[] memory operatorIds, Cluster memory cluster) external view returns (bool isLiquidated);
+    function isLiquidated(
+        address owner,
+        uint64[] memory operatorIds,
+        Cluster memory cluster
+    ) external view returns (bool isLiquidated);
 
     /// @notice Gets the burn rate of the cluster
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
     /// @return burnRate The burn rate of the cluster (SSV)
-    function getBurnRate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external view returns (uint256 burnRate);
+    function getBurnRate(
+        address owner,
+        uint64[] memory operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint256 burnRate);
 
     /// @notice Gets operator earnings
     /// @param operatorId The ID of the operator
@@ -60,7 +79,11 @@ interface ISSVViews is ISSVNetworkCore {
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
     /// @return balance The balance of the cluster (SSV)
-    function getBalance(address owner, uint64[] memory operatorIds, Cluster memory cluster) external view returns (uint256 balance);
+    function getBalance(
+        address owner,
+        uint64[] memory operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint256 balance);
 
     /// @notice Gets the network fee
     /// @return networkFee The fee associated with the network (SSV)
@@ -74,10 +97,17 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return operatorMaxFeeIncrease The maximum limit of operator fee increase
     function getOperatorFeeIncreaseLimit() external view returns (uint64 operatorMaxFeeIncrease);
 
+    /// @notice Gets the operator maximum fee for operators that use SSV token
+    /// @return operatorMaxFee The maximum fee value (SSV)
+    function getMaximumOperatorFee() external view returns (uint64 operatorMaxFee);
+
     /// @notice Gets the periods of operator fee declaration and execution
     /// @return declareOperatorFeePeriod The period for declaring operator fee
     /// @return executeOperatorFeePeriod The period for executing operator fee
-    function getOperatorFeePeriods() external view returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod);
+    function getOperatorFeePeriods()
+        external
+        view
+        returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod);
 
     /// @notice Gets the liquidation threshold period
     /// @return blocks The number of blocks for the liquidation threshold period

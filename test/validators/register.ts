@@ -748,7 +748,7 @@ describe('Register Validator Tests', () => {
   it('Surpassing max number of validators per operator reverts "ExceedValidatorLimit"', async () => {
     await helpers.registerValidatorsRaw(2, 50, minDepositAmount, [8, 9, 10, 11]);
 
-    const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperator");
+    const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperatorUpgrade");
     const ssvNetwork = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkValidatorsPerOperator, {
       kind: 'uups',
       call: {
