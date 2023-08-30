@@ -1,5 +1,5 @@
 import { task, subtask, types } from "hardhat/config";
-import { SSVModules } from "./ssvModules";
+import { SSVModules } from "./config";
 
 /**
 @title Hardhat task to deploy all required contracts for SSVNetwork.
@@ -9,7 +9,7 @@ It uses the Hardhat Runtime Environment (HRE) to execute the deployment tasks an
 it will be printed to the console, and the process will exit with a non-zero status code.
 @example
 // Deploy all contracts with the default deployer account
-npx hardhat --network goerli deploy:all
+npx hardhat --network goerli_testnet deploy:all
 @remarks
 The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
@@ -20,6 +20,7 @@ task("deploy:all", "Deploy SSVNetwork, SSVNetworkViews and module contracts")
         const [deployer] = await ethers.getSigners();
         console.log(`Deploying contracts with the account:${deployer.address}`);
 
+        const ssvTokenAddress = await hre.run("deploy:mock-token");
         const operatorsModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVOperators] });
         const clustersModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVClusters] });
         const daoModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVDAO] });
@@ -30,7 +31,8 @@ task("deploy:all", "Deploy SSVNetwork, SSVNetworkViews and module contracts")
                 operatorsModAddress,
                 clustersModAddress,
                 daoModAddress,
-                viewsModAddress
+                viewsModAddress,
+                ssvTokenAddress
             });
 
         await hre.run("deploy:ssv-network-views",
@@ -48,7 +50,7 @@ The contract parameter specifies the name of the contract implementation to be d
 it will be printed to the console, and the process will exit with a non-zero status code.
 @example
 // Deploy SSVNetwork implementation contract with the default deployer account
-npx hardhat --network goerli deploy:main-impl --contract SSVNetwork
+npx hardhat --network goerli_testnet deploy:main-impl --contract SSVNetwork
 @remarks
 The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
@@ -84,6 +86,25 @@ subtask("deploy:module", "Deploys a new module contract")
 
         const moduleAddress = await hre.run("deploy:impl", { contract: module });
         return moduleAddress;
+    });
+
+/**
+* @title Hardhat subtask to deploy or fetch an SSV Token contract.
+* The ssvToken parameter in the hardhat's network section, specifies the address of the SSV Token contract. 
+* If not provided, it will deploy a new MockToken contract.
+* @returns {string} The address of the deployed or fetched SSV Token contract.
+*/
+subtask("deploy:mock-token", "Deploys / fetch SSV Token")
+    .setAction(async ({ }, hre) => {
+        const tokenAddress = hre.network.config.ssvToken;
+        if (tokenAddress) return tokenAddress;
+
+        // Local networks, deploy mock token
+        const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
+        const ssvToken = await ssvTokenFactory.deploy();
+        await ssvToken.deployed();
+
+        return ssvToken.address;
     });
 
 /**
@@ -133,12 +154,14 @@ subtask("deploy:ssv-network", "Deploys SSVNetwork contract")
     .addPositionalParam("clustersModAddress", "Clusters module address", null, types.string)
     .addPositionalParam("daoModAddress", "DAO module address", null, types.string)
     .addPositionalParam("viewsModAddress", "Views module address", null, types.string)
+    .addPositionalParam("ssvTokenAddress", "SSV Token address", null, types.string)
     .setAction(async ({
         operatorsModAddress,
         clustersModAddress,
         daoModAddress,
-        viewsModAddress }) => {
-        const ssvTokenAddress = process.env.SSV_TOKEN_ADDRESS;
+        viewsModAddress,
+        ssvTokenAddress }) => {
+
 
         const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
 
