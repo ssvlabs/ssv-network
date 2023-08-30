@@ -124,8 +124,6 @@ describe('Liquidate Tests', () => {
   });
 
   it('Remove validator -> withdraw -> try liquidate reverts "ClusterNotLiquidatable"', async () => {
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[2].address, false, true);
-
     await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[2]).registerValidator(
       helpers.DataGenerator.publicKey(2),
