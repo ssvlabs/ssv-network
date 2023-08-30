@@ -68,4 +68,9 @@ contract SSVDAO is ISSVDAO {
         SSVStorageProtocol.load().minimumLiquidationCollateral = amount.shrink();
         emit MinimumLiquidationCollateralUpdated(amount);
     }
+
+    function updateMaximumOperatorFee(uint64 maxFee) external override {
+        SSVStorageProtocol.load().operatorMaxFee = maxFee;
+        emit OperatorMaximumFeeUpdated(maxFee);
+    }
 }

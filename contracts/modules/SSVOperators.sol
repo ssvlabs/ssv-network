@@ -27,6 +27,10 @@ contract SSVOperators is ISSVOperators {
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
+        if (fee > SSVStorageProtocol.load().operatorMaxFee) {
+            revert ISSVNetworkCore.FeeTooHigh();
+        }
+
         StorageData storage s = SSVStorage.load();
 
         bytes32 hashedPk = keccak256(publicKey);
@@ -92,6 +96,8 @@ contract SSVOperators is ISSVOperators {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+        if (fee > sp.operatorMaxFee) revert FeeTooHigh();
+
         uint64 operatorFee = s.operators[operatorId].fee;
         uint64 shrunkFee = fee.shrink();
 
@@ -128,6 +134,8 @@ contract SSVOperators is ISSVOperators {
         ) {
             revert ApprovalNotWithinTimeframe();
         }
+
+        if (feeChangeRequest.fee.expand() > SSVStorageProtocol.load().operatorMaxFee) revert FeeTooHigh();
 
         operator.updateSnapshot();
         operator.fee = feeChangeRequest.fee;

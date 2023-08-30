@@ -15,6 +15,7 @@ contract SSVViewsT is ISSVViews {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
+
     /*************************************/
     /* Validator External View Functions */
     /*************************************/
@@ -39,7 +40,9 @@ contract SSVViewsT is ISSVViews {
         fee = operator.fee.expand();
     }
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (bool feeDeclared, uint256, uint64, uint64) {
+    function getOperatorDeclaredFee(
+        uint64 operatorId
+    ) external view override returns (bool feeDeclared, uint256, uint64, uint64) {
         OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorage.load().operatorFeeChangeRequests[operatorId];
 
         return (
@@ -174,6 +177,10 @@ contract SSVViewsT is ISSVViews {
 
     function getOperatorFeeIncreaseLimit() external view override returns (uint64 operatorMaxFeeIncrease) {
         return SSVStorageProtocol.load().operatorMaxFeeIncrease;
+    }
+
+    function getMaximumOperatorFee() external view override returns (uint64 operatorMaxFee) {
+        return SSVStorageProtocol.load().operatorMaxFee;
     }
 
     function getOperatorFeePeriods()
