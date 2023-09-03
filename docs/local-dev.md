@@ -15,7 +15,7 @@ Copy [.env.example](../.env.example) to `.env` and edit to suit.
 - `GAS_PRICE` example 30000000000
 - `GAS` example 8000000
 - `ETHERSCAN_KEY` etherescan API key to verify deployed contracts
-- `SSVTOKEN_ADDRESS` SSV Token contract address to be used in custom networks. Keep it empty to deploy a mocked SSV token.
+- `SSV_TOKEN_ADDRESS` SSV Token contract address to be used in custom networks. Keep it empty to deploy a mocked SSV token.
 - `MINIMUM_BLOCKS_BEFORE_LIQUIDATION` a number of blocks before the cluster enters into a liquidatable state. Example: 214800 = 30 days
 - `OPERATOR_MAX_FEE_INCREASE` the fee increase limit in percentage with this format: 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
 - `DECLARE_OPERATOR_FEE_PERIOD` the period in which an operator can declare a fee change (seconds)
