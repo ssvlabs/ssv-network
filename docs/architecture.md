@@ -1,6 +1,6 @@
 # SSV Network
 
-### [Intro](../README.md) | Architecture | [Setup](setup.md) | [Tasks](tasks.md) |  [Local development](local-dev.md)
+### [Intro](../README.md) | Architecture | [Setup](setup.md) | [Tasks](tasks.md) |  [Local development](local-dev.md) | [Roles](roles.md)
 
 ## Contract Architecture
 
@@ -24,6 +24,8 @@ It's the main contract for reading information about the network and its partici
 
 #### Modules
 Non-upgradeable, stateless contracts that contain the logic to support Clusters, Operators, and Protocol (DAO / Network) functionalities.
+
+**Important**: Interacting directly with module contracts is not effective as you are not interacting with the correct state maintained by the main contract `SSVNetwork`. All interactions should be done via main contracts: `SSVNetwork` or `SSVNetworkViews`.
 
 #### Libraries
 Libraries are a fundamental part of the architecture to support reusable pieces efficiently. Also, `SSVStorage`  and `SSVStorageProtocol` implement the Diamond storage pattern.

@@ -1,6 +1,6 @@
 # SSV Network Smart Contracts
 
-### Intro | [Architecture](./docs/architecture.md) | [Setup](./docs/setup.md) | [Tasks](./docs/tasks.md) | [Local development](./docs/local-dev.md)
+### Intro | [Architecture](./docs/architecture.md) | [Setup](./docs/setup.md) | [Tasks](./docs/tasks.md) | [Local development](./docs/local-dev.md) | [Roles](./docs/roles.md)
 
 This repository contains the Solidity smart contracts for the SSV Network. The SSV Network is a decentralized network for the operation of Ethereum validators. It allows for secure, scalable, and decentralized staking on the Ethereum blockchain. The key elements of this system are represented through several Ethereum smart contracts, all of which are outlined below.
 
@@ -10,6 +10,7 @@ The documentation is divided into different sections:
 - **Setup** The basic setup of the repository to be able to compile the contracts, run tests, etc.
 - **Tasks** Detailed instructions to run useful tools, deploy, and upgrade the contracts.
 - **Local development** Guide to setup the local environment to work with the contracts.
+- **Roles** Detailed information about the privileged roles in the system.
 
 ## SSV Documentation
 

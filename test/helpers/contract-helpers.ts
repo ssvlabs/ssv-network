@@ -65,14 +65,15 @@ export const DataGenerator = {
 
 export const initializeContract = async () => {
   CONFIG = {
-    initialVersion: "v1.0.0",
+    initialVersion: "v1.0.0.rc3",
     operatorMaxFeeIncrease: 1000,
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY
     minimalOperatorFee: 100000000,
     minimalBlocksBeforeLiquidation: 100800,
     minimumLiquidationCollateral: 200000000,
-    validatorsPerOperatorLimit: 500
+    validatorsPerOperatorLimit: 500,
+    maximumOperatorFee: 76528650000000
   };
 
   DB = {
@@ -163,7 +164,7 @@ export const initializeContract = async () => {
   await DB.ssvToken.mint(DB.owners[5].address, '10000000000000000000');
   await DB.ssvToken.mint(DB.owners[6].address, '10000000000000000000');
 
-  // DB.ssvViews.contract = DB.ssvViews.contract.attach(DB.ssvNetwork.contract.address);
+  await DB.ssvNetwork.contract.updateMaximumOperatorFee(CONFIG.maximumOperatorFee);
 
   return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract };
 };

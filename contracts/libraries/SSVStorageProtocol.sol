@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "../interfaces/ISSVNetworkCore.sol";
-
 /// @title SSV Network Storage Protocol
 /// @notice Represents the operational settings and parameters required by the SSV Network
 struct StorageProtocol {
@@ -30,10 +28,12 @@ struct StorageProtocol {
     uint64 executeOperatorFeePeriod;
     /// @notice The maximum increase in operator fee that is allowed (percentage)
     uint64 operatorMaxFeeIncrease;
+    /// @notice The maximum value in operator fee that is allowed (SSV)
+    uint64 operatorMaxFee;
 }
 
 library SSVStorageProtocol {
-    uint256 constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.protocol")) - 1;
+    uint256 constant private SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.protocol")) - 1;
 
     function load() internal pure returns (StorageProtocol storage sd) {
         uint256 position = SSV_STORAGE_POSITION;

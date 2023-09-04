@@ -20,7 +20,7 @@ describe('Version upgrade tests', () => {
 
         await ssvNetworkContract.updateModule(helpers.SSV_MODULES.SSV_VIEWS, viewsContract.address)
 
-        expect(await ssvNetworkViews.getVersion()).to.equal("v1.0.0");
+        expect(await ssvNetworkViews.getVersion()).to.equal("v1.0.0.rc3");
     });
 
 });

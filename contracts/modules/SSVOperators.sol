@@ -27,6 +27,10 @@ contract SSVOperators is ISSVOperators {
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
+        if (fee > SSVStorageProtocol.load().operatorMaxFee) {
+            revert ISSVNetworkCore.FeeTooHigh();
+        }
+
         StorageData storage s = SSVStorage.load();
 
         bytes32 hashedPk = keccak256(publicKey);
@@ -72,9 +76,8 @@ contract SSVOperators is ISSVOperators {
     }
 
     function setOperatorWhitelist(uint64 operatorId, address whitelisted) external {
-        SSVStorage.load().operators[operatorId].checkOwner();
-
         StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].checkOwner();
 
         if (whitelisted == address(0)) {
             s.operators[operatorId].whitelisted = false;
@@ -87,12 +90,14 @@ contract SSVOperators is ISSVOperators {
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
-        SSVStorage.load().operators[operatorId].checkOwner();
-
         StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].checkOwner();
+
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+        if (fee > sp.operatorMaxFee) revert FeeTooHigh();
+
         uint64 operatorFee = s.operators[operatorId].fee;
         uint64 shrunkFee = fee.shrink();
 
@@ -130,6 +135,8 @@ contract SSVOperators is ISSVOperators {
             revert ApprovalNotWithinTimeframe();
         }
 
+        if (feeChangeRequest.fee.expand() > SSVStorageProtocol.load().operatorMaxFee) revert FeeTooHigh();
+
         operator.updateSnapshot();
         operator.fee = feeChangeRequest.fee;
         s.operators[operatorId] = operator;
@@ -140,13 +147,14 @@ contract SSVOperators is ISSVOperators {
     }
 
     function cancelDeclaredOperatorFee(uint64 operatorId) external override {
-        SSVStorage.load().operators[operatorId].checkOwner();
+        StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].checkOwner();
 
-        if (SSVStorage.load().operatorFeeChangeRequests[operatorId].approvalBeginTime == 0) revert NoFeeDeclared();
+        if (s.operatorFeeChangeRequests[operatorId].approvalBeginTime == 0) revert NoFeeDeclared();
 
-        delete SSVStorage.load().operatorFeeChangeRequests[operatorId];
+        delete s.operatorFeeChangeRequests[operatorId];
 
-        emit OperatorFeeCancellationDeclared(msg.sender, operatorId);
+        emit OperatorFeeDeclarationCancelled(msg.sender, operatorId);
     }
 
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
@@ -166,15 +174,11 @@ contract SSVOperators is ISSVOperators {
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
-    function setFeeRecipientAddress(address recipientAddress) external override {
-        emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
-    }
-
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
         _withdrawOperatorEarnings(operatorId, amount);
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _withdrawOperatorEarnings(operatorId, 0);
     }
 

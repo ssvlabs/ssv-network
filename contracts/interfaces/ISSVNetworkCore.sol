@@ -87,4 +87,5 @@ interface ISSVNetworkCore {
     error OperatorAlreadyExists(); // 0x289c9494
     error TargetModuleDoesNotExist(); // 0x8f9195fb
     error MaxValueExceeded(); // 0x91aa3017
+    error FeeTooHigh(); // 0xcd4e6167
 }

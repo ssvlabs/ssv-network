@@ -181,7 +181,7 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
             abi.encodeWithSignature("withdrawOperatorEarnings(uint64)", operatorId)
@@ -332,6 +332,13 @@ contract SSVNetworkUpgrade is
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
             abi.encodeWithSignature("updateMinimumLiquidationCollateral(uint256)", amount)
+        );
+    }
+
+    function updateMaximumOperatorFee(uint64 maxFee) external override {
+         _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateMaximumOperatorFee(uint64)", maxFee)
         );
     }
 

@@ -15,6 +15,7 @@ contract SSVViewsT is ISSVViews {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
+
     /*************************************/
     /* Validator External View Functions */
     /*************************************/
@@ -39,16 +40,13 @@ contract SSVViewsT is ISSVViews {
         fee = operator.fee.expand();
     }
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (uint256, uint64, uint64) {
-        OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorageUpgrade.load().operatorFeeChangeRequests[
-            operatorId
-        ];
-
-        if (opFeeChangeRequest.fee == 0) {
-            revert NoFeeDeclared();
-        }
+    function getOperatorDeclaredFee(
+        uint64 operatorId
+    ) external view override returns (bool feeDeclared, uint256, uint64, uint64) {
+        OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorage.load().operatorFeeChangeRequests[operatorId];
 
         return (
+            opFeeChangeRequest.approvalBeginTime != 0,
             opFeeChangeRequest.fee.expand(),
             opFeeChangeRequest.approvalBeginTime,
             opFeeChangeRequest.approvalEndTime
@@ -81,8 +79,8 @@ contract SSVViewsT is ISSVViews {
 
         uint64 clusterIndex;
         uint64 burnRate;
-        uint operatorsLength = operatorIds.length;
-        for (uint i; i < operatorsLength; ++i) {
+        uint256 operatorsLength = operatorIds.length;
+        for (uint256 i; i < operatorsLength; ++i) {
             Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
             burnRate += operator.fee;
@@ -117,8 +115,8 @@ contract SSVViewsT is ISSVViews {
         cluster.validateHashedCluster(owner, operatorIds, SSVStorage.load());
 
         uint64 aggregateFee;
-        uint operatorsLength = operatorIds.length;
-        for (uint i; i < operatorsLength; ++i) {
+        uint256 operatorsLength = operatorIds.length;
+        for (uint256 i; i < operatorsLength; ++i) {
             Operator memory operator = SSVStorageUpgrade.load().operators[operatorIds[i]];
             if (operator.owner != address(0)) {
                 aggregateFee += operator.fee;
@@ -150,8 +148,8 @@ contract SSVViewsT is ISSVViews {
 
         uint64 clusterIndex;
         {
-            uint operatorsLength = operatorIds.length;
-            for (uint i; i < operatorsLength; ++i) {
+            uint256 operatorsLength = operatorIds.length;
+            for (uint256 i; i < operatorsLength; ++i) {
                 Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
                 clusterIndex +=
                     operator.snapshot.index +
@@ -179,6 +177,10 @@ contract SSVViewsT is ISSVViews {
 
     function getOperatorFeeIncreaseLimit() external view override returns (uint64 operatorMaxFeeIncrease) {
         return SSVStorageProtocol.load().operatorMaxFeeIncrease;
+    }
+
+    function getMaximumOperatorFee() external view override returns (uint64 operatorMaxFee) {
+        return SSVStorageProtocol.load().operatorMaxFee;
     }
 
     function getOperatorFeePeriods()

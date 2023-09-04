@@ -3,7 +3,6 @@ pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
 import "./SSVStorage.sol";
-import "./SSVStorageProtocol.sol";
 import "./Types.sol";
 
 library ClusterLib {
@@ -25,11 +24,15 @@ library ClusterLib {
         uint64 networkFee,
         uint64 minimumBlocksBeforeLiquidation,
         uint64 minimumLiquidationCollateral
-    ) internal pure returns (bool) {
-        if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
-        uint64 liquidationThreshold = minimumBlocksBeforeLiquidation * (burnRate + networkFee) * cluster.validatorCount;
+    ) internal pure returns (bool liquidatable) {
+        if (cluster.validatorCount != 0) {
+            if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
+            uint64 liquidationThreshold = minimumBlocksBeforeLiquidation *
+                (burnRate + networkFee) *
+                cluster.validatorCount;
 
-        return cluster.balance < liquidationThreshold.expand();
+            return cluster.balance < liquidationThreshold.expand();
+        }
     }
 
     function validateClusterIsNotLiquidated(ISSVNetworkCore.Cluster memory cluster) internal pure {

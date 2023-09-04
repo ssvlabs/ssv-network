@@ -759,7 +759,7 @@ describe('Register Validator Tests', () => {
   it('Surpassing max number of validators per operator reverts "ExceedValidatorLimit"', async () => {
     await helpers.registerValidatorsRaw(2, 50, minDepositAmount, [8, 9, 10, 11]);
 
-    const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperator");
+    const SSVNetworkValidatorsPerOperator = await ethers.getContractFactory("SSVNetworkValidatorsPerOperatorUpgrade");
     const ssvNetwork = await upgrades.upgradeProxy(ssvNetworkContract.address, SSVNetworkValidatorsPerOperator, {
       kind: 'uups',
       call: {
@@ -843,6 +843,6 @@ describe('Register Validator Tests', () => {
   });
 
   it('Retrieve a non-existing validator', async () => {
-    await expect(ssvViews.getValidator(helpers.DB.owners[2].address, helpers.DataGenerator.publicKey(90))).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+    expect(await ssvViews.getValidator(helpers.DB.owners[2].address, helpers.DataGenerator.publicKey(90))).to.equal(false);
   });
 });
