@@ -68,4 +68,14 @@ describe('DAO Network Fee Withdraw Tests', () => {
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawNetworkEarnings(amount
     )).to.be.revertedWith('Ownable: caller is not the owner');
   });
+
+  it('Withdraw network earnings sequentially when not enough balance reverts "InsufficientBalance"', async () => {
+    const amount = await ssvViews.getNetworkEarnings() / 2;
+
+    await ssvNetworkContract.withdrawNetworkEarnings(amount);
+    await ssvNetworkContract.withdrawNetworkEarnings(amount);
+
+    await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
+      )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
+  });
 });
