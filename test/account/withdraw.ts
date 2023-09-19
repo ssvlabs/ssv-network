@@ -75,21 +75,16 @@ describe('Withdraw Tests', () => {
   });
 
   it('Sequentially withdraw more than the cluster balance reverts "InsufficientBalance"', async () => {
-    cluster1 = await helpers.deposit(1,
-      cluster1.owner,
-      cluster1.operatorIds,
-      (minDepositAmount * 2).toString(),
-      cluster1.cluster);
+    const burnPerBlock = helpers.CONFIG.minimalOperatorFee * 4;
 
-    cluster1 = await helpers.withdraw(4,
-      cluster1.operatorIds,
-      minDepositAmount,
-      cluster1.cluster);
+    cluster1 = await helpers.deposit(1, cluster1.owner, cluster1.operatorIds, (minDepositAmount * 2).toString(), cluster1.cluster);
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.operatorIds, cluster1.cluster)).to.be.equals(minDepositAmount * 3 - (burnPerBlock * 2));
 
-    cluster1 = await helpers.withdraw(4,
-      cluster1.operatorIds,
-      minDepositAmount,
-      cluster1.cluster);
+    cluster1 = await helpers.withdraw(4, cluster1.operatorIds, minDepositAmount, cluster1.cluster);
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.operatorIds, cluster1.cluster)).to.be.equals(minDepositAmount * 2 - (burnPerBlock * 3));
+
+    cluster1 = await helpers.withdraw(4, cluster1.operatorIds, minDepositAmount, cluster1.cluster);
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.operatorIds, cluster1.cluster)).to.be.equals(minDepositAmount - (burnPerBlock * 4));
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[4]).withdraw(cluster1.operatorIds, minDepositAmount, cluster1.cluster)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
@@ -120,7 +115,10 @@ describe('Withdraw Tests', () => {
 
   it('Sequentially withdraw more than the operator balance reverts "InsufficientBalance"', async () => {
     await ssvNetworkContract.connect(helpers.DB.owners[0]).withdrawOperatorEarnings(1, helpers.CONFIG.minimalOperatorFee * 3);
+    expect(await ssvViews.getOperatorEarnings(1)).to.be.equals(helpers.CONFIG.minimalOperatorFee * 4 - helpers.CONFIG.minimalOperatorFee * 3);
+
     await ssvNetworkContract.connect(helpers.DB.owners[0]).withdrawOperatorEarnings(1, helpers.CONFIG.minimalOperatorFee * 3);
+    expect(await ssvViews.getOperatorEarnings(1)).to.be.equals(helpers.CONFIG.minimalOperatorFee * 6 - helpers.CONFIG.minimalOperatorFee * 6);
 
     await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).withdrawOperatorEarnings(1, helpers.CONFIG.minimalOperatorFee * 3
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
