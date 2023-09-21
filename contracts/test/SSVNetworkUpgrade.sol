@@ -286,6 +286,13 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature("exitValidator(bytes,uint64[]))", publicKey, operatorIds)
+        );
+    }
+
     function updateNetworkFee(uint256 fee) external override onlyOwner {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
@@ -336,7 +343,7 @@ contract SSVNetworkUpgrade is
     }
 
     function updateMaximumOperatorFee(uint64 maxFee) external override {
-         _delegateCall(
+        _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
             abi.encodeWithSignature("updateMaximumOperatorFee(uint64)", maxFee)
         );
