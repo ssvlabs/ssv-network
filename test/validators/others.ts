@@ -112,14 +112,14 @@ describe('Other Validator Tests', () => {
         )).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
     });
 
-    it('Exiting a validator with the wrong operator setup reverts "IncorrectValidatorState"', async () => {
+    it('Exiting a validator with incorrect operators (unsorted list) reverts with "IncorrectValidatorState"', async () => {
         await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).exitValidator(
             helpers.DataGenerator.publicKey(1),
             [4, 3, 2, 1]
         )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorState');
     });
 
-    it('Exiting a validator with the wrong operator setup reverts "IncorrectValidatorState"', async () => {
+    it('Exiting a validator with incorrect operators (too many operators) reverts with "IncorrectValidatorState"', async () => {
         minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 13;
 
         await helpers.DB.ssvToken.connect(helpers.DB.owners[2]).approve(ssvNetworkContract.address, minDepositAmount);
@@ -143,5 +143,12 @@ describe('Other Validator Tests', () => {
             secondCluster.operatorIds,
         )).to.emit(ssvNetworkContract, 'ValidatorExited')
             .withArgs(helpers.DataGenerator.publicKey(2), secondCluster.operatorIds);
+    });
+
+    it('Exiting a validator with incorrect operators reverts with "IncorrectValidatorState"', async () => {
+        await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).exitValidator(
+            helpers.DataGenerator.publicKey(1),
+            [1, 2, 3, 5]
+        )).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorState');
     });
 });
