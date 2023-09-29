@@ -80,7 +80,7 @@ POSITIONAL ARGUMENTS:
   params        Function parameters 
 
 Example:
-npx hardhat --network goerli_testnet upgrade:proxy --proxyAddress 0x1234... --contract SSVNetworkV2 --initFunction initializev2 --params param1 param2
+npx hardhat --network goerli_testnet upgrade:proxy --proxy-address 0x1234... --contract SSVNetworkV2 --init-function initializev2 param1 param2
 ```
 
 ### Update a module
@@ -100,7 +100,7 @@ OPTIONS:
 
 Example:
 Update 'SSVOperators' module contract in the SSVNetwork
-npx hardhat --network goerli_testnet update:module --module SSVOperators --attach-module true --proxyAddress 0x1234...
+npx hardhat --network goerli_testnet update:module --module SSVOperators --attach-module true --proxy-address 0x1234...
 ```
 
 ### Upgrade a library
