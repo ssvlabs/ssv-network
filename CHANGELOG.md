@@ -17,8 +17,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - [bf0c51d](https://github.com/bloxapp/ssv-network/pull/263/commits/bf0c51d4df191018052d11425c9fcc252de61431) A validator can voluntarily exit.
 
 
-## [Released]
-
 ## [v1.0.0.rc4] - 2023-08-31
 
 - Audit fixes/recommendations
