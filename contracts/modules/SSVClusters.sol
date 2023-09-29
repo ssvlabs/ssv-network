@@ -6,6 +6,7 @@ import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
+import "../libraries/ValidatorLib.sol";
 import "../libraries/SSVStorage.sol";
 import "../libraries/SSVStorageProtocol.sol";
 
@@ -145,20 +146,7 @@ contract SSVClusters is ISSVClusters {
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
-
-        bytes32 mask = ~bytes32(uint256(1)); // All bits set to 1 except LSB
-        bytes32 validatorData = s.validatorPKs[hashedValidator];
-
-        if (validatorData == bytes32(0)) {
-            revert ValidatorDoesNotExist();
-        }
-
-        bytes32 hashedOperatorIds = keccak256(abi.encodePacked(operatorIds)) & mask; // Clear LSB of provided operator ids
-        if ((validatorData & mask) != hashedOperatorIds) {
-            // Clear LSB of stored validator data and compare
-            revert IncorrectValidatorState();
-        }
+        bytes32 hashedValidator = ValidatorLib.validateState(publicKey, operatorIds, s);
 
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
 
@@ -343,5 +331,11 @@ contract SSVClusters is ISSVClusters {
         CoreLib.transferBalance(msg.sender, amount);
 
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
+    }
+
+    function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
+        ValidatorLib.validateState(publicKey, operatorIds, SSVStorage.load());
+
+        emit ValidatorExited(publicKey, operatorIds);
     }
 }

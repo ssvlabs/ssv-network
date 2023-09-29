@@ -79,20 +79,20 @@ describe('Balance Tests', () => {
   it('Check operators earnings in three blocks, one after the other', async () => {
     await utils.progressBlocks(1);
 
-    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 3);
-    expect(await ssvViews.getOperatorEarnings(2)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 3);
-    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 3);
-    expect(await ssvViews.getOperatorEarnings(4)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 3);
+    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(2)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(4)).to.equal(helpers.CONFIG.minimalOperatorFee * 2 + helpers.CONFIG.minimalOperatorFee * 2);
     await utils.progressBlocks(1);
-    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 3);
-    expect(await ssvViews.getOperatorEarnings(2)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 3);
-    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 3);
-    expect(await ssvViews.getOperatorEarnings(4)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 3);
+    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(2)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(4)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee * 2);
     await utils.progressBlocks(1);
-    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 3);
-    expect(await ssvViews.getOperatorEarnings(2)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 3);
-    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 3);
-    expect(await ssvViews.getOperatorEarnings(4)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 3);
+    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(2)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(4)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 2);
   });
 
   it('Check cluster balance with removed operator', async () => {
@@ -128,10 +128,11 @@ describe('Balance Tests', () => {
     // update network fee
     // register a new validator with some shared operators
     // update network fee
+
     // progress blocks in the process
     await utils.progressBlocks(1);
 
-    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee);
+    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 3 + helpers.CONFIG.minimalOperatorFee);
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock);
     expect(await ssvViews.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 2);
 
@@ -148,28 +149,28 @@ describe('Balance Tests', () => {
     const cluster2 = await helpers.registerValidators(4, 1, minDep2.toString(), [3, 4, 5, 6]);
 
     await utils.progressBlocks(2);
-    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 10 + helpers.CONFIG.minimalOperatorFee * 9);
-    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 10 + helpers.CONFIG.minimalOperatorFee * 9 + helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 8 + helpers.CONFIG.minimalOperatorFee * 8);
+    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 8 + helpers.CONFIG.minimalOperatorFee * 8 + helpers.CONFIG.minimalOperatorFee * 2);
 
     expect(await ssvViews.getOperatorEarnings(5)).to.equal(helpers.CONFIG.minimalOperatorFee * 2);
-    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 6);
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 5);
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster2.args.operatorIds, cluster2.args.cluster)).to.equal(minDep2 - newBurnPerBlock * 2);
 
     // cold cluster + cluster1 * networkFee (4) + (cold cluster + cluster1 * newNetworkFee (5 + 5)) + cluster2 * newNetworkFee (2)
-    expect(await ssvViews.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 5 + newNetworkFee * 5 + newNetworkFee * 4);
+    expect(await ssvViews.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 5 + newNetworkFee * 4 + newNetworkFee * 3);
 
     await ssvNetworkContract.updateNetworkFee(networkFee);
     await utils.progressBlocks(4);
 
-    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 7 - burnPerBlock * 4);
+    expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 6 - burnPerBlock * 4);
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster2.args.operatorIds, cluster2.args.cluster)).to.equal(minDep2 - newBurnPerBlock * 3 - burnPerBlock * 4);
 
-    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 15 + helpers.CONFIG.minimalOperatorFee * 14);
-    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 15 + helpers.CONFIG.minimalOperatorFee * 14 + helpers.CONFIG.minimalOperatorFee * 7);
+    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 14 + helpers.CONFIG.minimalOperatorFee * 12);
+    expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 14 + helpers.CONFIG.minimalOperatorFee * 12 + helpers.CONFIG.minimalOperatorFee * 7);
     expect(await ssvViews.getOperatorEarnings(5)).to.equal(helpers.CONFIG.minimalOperatorFee * 7);
 
     // cold cluster + cluster1 * networkFee (4) + (cold cluster + cluster1 * newNetworkFee (6 + 6)) + cluster2 * newNetworkFee (3) + (cold cluster + cluster1 + cluster2 * networkFee (4 + 4 + 4))
-    expect(await ssvViews.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 7 + newNetworkFee * 7 + newNetworkFee * 3 + networkFee * 12);
+    expect(await ssvViews.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 6 + newNetworkFee * 6 + newNetworkFee * 3 + networkFee * 12);
   });
 
   it('Check operator earnings and cluster balance when reducing operator fee"', async () => {
@@ -178,7 +179,7 @@ describe('Balance Tests', () => {
 
     await utils.progressBlocks(2);
 
-    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee + newFee * 4);
+    expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 4 + helpers.CONFIG.minimalOperatorFee + newFee * 2);
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock - ((helpers.CONFIG.minimalOperatorFee * 3 + networkFee) * 2) - newFee * 2);
   });
 
