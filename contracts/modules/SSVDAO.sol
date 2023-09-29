@@ -19,7 +19,7 @@ contract SSVDAO is ISSVDAO {
         uint64 previousFee = sp.networkFee;
 
         sp.updateNetworkFee(fee);
-        emit NetworkFeeUpdated(previousFee.expand(), sp.networkFee);
+        emit NetworkFeeUpdated(previousFee.expand(), sp.networkFee.expand());
     }
 
     function withdrawNetworkEarnings(uint256 amount) external override {
@@ -34,6 +34,7 @@ contract SSVDAO is ISSVDAO {
         }
 
         sp.daoBalance = networkBalance - shrunkAmount;
+        sp.daoIndexBlockNumber = uint32(block.number);
 
         CoreLib.transferBalance(msg.sender, amount);
 
