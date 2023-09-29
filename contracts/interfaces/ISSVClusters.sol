@@ -57,6 +57,11 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param cluster Cluster where the withdrawal will be made
     function withdraw(uint64[] memory operatorIds, uint256 tokenAmount, Cluster memory cluster) external;
 
+    /// @notice Fires the exit event for a validator
+    /// @param publicKey The public key of the validator to be exited
+    /// @param operatorIds Array of IDs of operators managing the validator
+    function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external;
+
     /**
      * @dev Emitted when the validator has been added.
      * @param publicKey The public key of a validator.
@@ -81,4 +86,6 @@ interface ISSVClusters is ISSVNetworkCore {
     event ClusterWithdrawn(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
     event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
+
+    event ValidatorExited(bytes indexed publicKey, uint64[] operatorIds);
 }
