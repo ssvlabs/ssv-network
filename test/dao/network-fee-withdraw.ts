@@ -66,6 +66,12 @@ describe('DAO Network Fee Withdraw Tests', () => {
     )).to.be.revertedWith('Ownable: caller is not the owner');
   });
 
+  it('Withdraw network earnings providing UINT64 max value reverts "Max value exceeded"', async () => {
+    const amount = (ethers.BigNumber.from(2).pow(64)).mul(ethers.BigNumber.from(1e8));
+    await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
+    )).to.be.revertedWith('Max value exceeded');
+  });
+
   it('Withdraw network earnings sequentially when not enough balance reverts "InsufficientBalance"', async () => {
     const amount = await ssvViews.getNetworkEarnings() / 2;
 

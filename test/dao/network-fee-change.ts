@@ -22,6 +22,12 @@ describe('Network Fee Tests', () => {
     )).to.emit(ssvNetworkContract, 'NetworkFeeUpdated').withArgs(0, networkFee);
   });
 
+  it('Change network fee providing UINT64 max value reverts "Max value exceeded"', async () => {
+    const amount = (ethers.BigNumber.from(2).pow(64)).mul(ethers.BigNumber.from(1e8));
+    await expect(ssvNetworkContract.updateNetworkFee(amount
+    )).to.be.revertedWith('Max value exceeded');
+  });
+
   it('Change network fee when it was set emits "NetworkFeeUpdated"', async () => {
     const initialNetworkFee = helpers.CONFIG.minimalOperatorFee;
     await ssvNetworkContract.updateNetworkFee(initialNetworkFee);
