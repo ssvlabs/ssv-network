@@ -17,7 +17,7 @@ describe('Withdraw Tests', () => {
     ssvToken = metadata.ssvToken;
 
     // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
     // Register validators
@@ -129,7 +129,7 @@ describe('Withdraw Tests', () => {
   });
 
   it('Withdraw more than the operator total balance reverts "InsufficientBalance"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).withdrawAllOperatorEarnings(12)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
+    await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).withdrawAllOperatorEarnings(14)).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
 
   it('Withdraw from a cluster without validators', async () => {

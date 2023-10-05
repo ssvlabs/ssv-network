@@ -15,7 +15,7 @@ describe('Balance Tests', () => {
     ssvViews = metadata.ssvViews;
 
     // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
 
     networkFee = helpers.CONFIG.minimalOperatorFee;
     burnPerBlock = helpers.CONFIG.minimalOperatorFee * 4 + networkFee;
@@ -152,7 +152,7 @@ describe('Balance Tests', () => {
     expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 8 + helpers.CONFIG.minimalOperatorFee * 8);
     expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 8 + helpers.CONFIG.minimalOperatorFee * 8 + helpers.CONFIG.minimalOperatorFee * 2);
 
-    expect(await ssvViews.getOperatorEarnings(5)).to.equal(helpers.CONFIG.minimalOperatorFee * 2);
+    expect(await ssvViews.getOperatorEarnings(5)).to.equal(helpers.CONFIG.minimalOperatorFee * 6 + helpers.CONFIG.minimalOperatorFee * 5);
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(minDepositAmount - burnPerBlock * 2 - newBurnPerBlock * 5);
     expect(await ssvViews.getBalance(helpers.DB.owners[4].address, cluster2.args.operatorIds, cluster2.args.cluster)).to.equal(minDep2 - newBurnPerBlock * 2);
 
@@ -167,7 +167,7 @@ describe('Balance Tests', () => {
 
     expect(await ssvViews.getOperatorEarnings(1)).to.equal(helpers.CONFIG.minimalOperatorFee * 14 + helpers.CONFIG.minimalOperatorFee * 12);
     expect(await ssvViews.getOperatorEarnings(3)).to.equal(helpers.CONFIG.minimalOperatorFee * 14 + helpers.CONFIG.minimalOperatorFee * 12 + helpers.CONFIG.minimalOperatorFee * 7);
-    expect(await ssvViews.getOperatorEarnings(5)).to.equal(helpers.CONFIG.minimalOperatorFee * 7);
+    expect(await ssvViews.getOperatorEarnings(5)).to.equal(helpers.CONFIG.minimalOperatorFee * 11 + helpers.CONFIG.minimalOperatorFee * 10);
 
     // cold cluster + cluster1 * networkFee (4) + (cold cluster + cluster1 * newNetworkFee (6 + 6)) + cluster2 * newNetworkFee (3) + (cold cluster + cluster1 + cluster2 * networkFee (4 + 4 + 4))
     expect(await ssvViews.getNetworkEarnings() - initNetworkFeeBalance).to.equal(networkFee * 4 + newNetworkFee * 6 + newNetworkFee * 6 + newNetworkFee * 3 + networkFee * 12);

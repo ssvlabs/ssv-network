@@ -15,7 +15,7 @@ describe('Liquidate Tests', () => {
     ssvViews = metadata.ssvViews;
 
     // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
 
     networkFee = helpers.CONFIG.minimalOperatorFee;
     burnPerBlock = helpers.CONFIG.minimalOperatorFee * 4 + networkFee;

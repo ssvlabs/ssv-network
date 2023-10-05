@@ -18,7 +18,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     networkFee = helpers.CONFIG.minimalOperatorFee;
 
     // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
 
     burnPerBlock = helpers.CONFIG.minimalOperatorFee * 4 + networkFee;
     minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * burnPerBlock;
