@@ -88,6 +88,18 @@ subtask("deploy:module", "Deploys a new module contract")
         return moduleAddress;
     });
 
+task("deploy:token", "Deploys SSV Token")
+    .setAction(async ({ }, hre) => {
+        console.log('Deploying SSV Network Token');
+
+        const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
+        const ssvToken = await ssvTokenFactory.deploy();
+        await ssvToken.deployed();
+
+        console.log(`SSV Network Token deployed to: ${ssvToken.address}`);
+
+    });
+
 /**
 * @title Hardhat subtask to deploy or fetch an SSV Token contract.
 * The ssvToken parameter in the hardhat's network section, specifies the address of the SSV Token contract. 
