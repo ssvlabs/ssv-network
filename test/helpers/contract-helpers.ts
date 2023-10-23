@@ -291,8 +291,8 @@ export const coldRegisterValidator = async () => {
   await DB.ssvToken.approve(DB.ssvNetwork.contract.address, '1000000000000000');
   await DB.ssvNetwork.contract.registerValidator(
     DataGenerator.publicKey(90),
-    [1, 2, 3, 4],
-    DataGenerator.shares(4),
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    DataGenerator.shares(14),
     '1000000000000000',
     {
       validatorCount: 0,

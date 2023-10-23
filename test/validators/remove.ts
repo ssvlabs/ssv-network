@@ -58,12 +58,87 @@ describe('Remove Validator Tests', () => {
     )).to.emit(ssvNetworkContract, 'ValidatorRemoved');
   });
 
-  it('Remove validator gas limit', async () => {
+  it('Remove validator gas limit (4 operators cluster)', async () => {
     await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
       helpers.DataGenerator.publicKey(1),
       firstCluster.operatorIds,
       firstCluster.cluster
     ), [GasGroup.REMOVE_VALIDATOR]);
+  });
+
+  it('Remove validator gas limit (7 operators cluster)', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 2);
+
+    const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1, 2, 3, 4, 5, 6, 7],
+      helpers.DataGenerator.shares(7),
+      minDepositAmount * 2,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
+    firstCluster = register.eventsByName.ValidatorAdded[0].args;
+
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(2),
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ), [GasGroup.REMOVE_VALIDATOR_7]);
+  });
+
+  it('Remove validator gas limit (10 operators cluster)', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 3);
+
+    const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      helpers.DataGenerator.shares(10),
+      minDepositAmount * 3,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
+    firstCluster = register.eventsByName.ValidatorAdded[0].args;
+
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(2),
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ), [GasGroup.REMOVE_VALIDATOR_10]);
+  });
+
+  it('Remove validator gas limit (13 operators cluster)', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount * 4);
+
+    const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(2),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      helpers.DataGenerator.shares(10),
+      minDepositAmount * 4,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
+    firstCluster = register.eventsByName.ValidatorAdded[0].args;
+
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).removeValidator(
+      helpers.DataGenerator.publicKey(2),
+      firstCluster.operatorIds,
+      firstCluster.cluster
+    ), [GasGroup.REMOVE_VALIDATOR_13]);
   });
 
   it('Remove validator with a removed operator in the cluster', async () => {
