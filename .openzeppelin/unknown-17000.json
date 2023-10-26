@@ -204,7 +204,7 @@
             "label": "ssvNetwork",
             "offset": 0,
             "slot": "251",
-            "type": "t_contract(ISSVViews)4269",
+            "type": "t_contract(ISSVViews)2185",
             "contract": "SSVNetworkViews",
             "src": "contracts/SSVNetworkViews.sol:19"
           },
@@ -234,7 +234,7 @@
             "label": "bool",
             "numberOfBytes": "1"
           },
-          "t_contract(ISSVViews)4269": {
+          "t_contract(ISSVViews)2185": {
             "label": "contract ISSVViews",
             "numberOfBytes": "20"
           },
