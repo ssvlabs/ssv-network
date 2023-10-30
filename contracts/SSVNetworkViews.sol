@@ -55,7 +55,9 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorDeclaredFee(operatorId);
     }
 
-    function getOperatorById(uint64 operatorId) external view override returns (address, uint256, uint32, address, bool, bool) {
+    function getOperatorById(
+        uint64 operatorId
+    ) external view override returns (address, uint256, uint32, address, bool, bool) {
         return ssvNetwork.getOperatorById(operatorId);
     }
 
@@ -142,6 +144,10 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
 
     function getValidatorsPerOperatorLimit() external view override returns (uint32) {
         return ssvNetwork.getValidatorsPerOperatorLimit();
+    }
+
+    function getNetworkValidatorsCount() external view override returns (uint32) {
+        return ssvNetwork.getNetworkValidatorsCount();
     }
 
     function getVersion() external view override returns (string memory version) {
