@@ -3,8 +3,27 @@ pragma solidity 0.8.18;
 
 interface ISSVNetworkCore {
     /***********/
+    /* Enums   */
+    /***********/
+
+    enum ProviderType {
+        SSV,
+        LIDO
+    }
+
+    /***********/
     /* Structs */
     /***********/
+    struct CuratedOperator {
+        address owner;
+        bool whitelisted;
+        ProviderType providerType;
+        uint64 providerId;
+    }
+
+    struct Bond {
+        uint64 balance;
+    }
 
     /// @notice Represents a snapshot of an operator's or a DAO's state at a certain block
     struct Snapshot {
@@ -28,6 +47,8 @@ interface ISSVNetworkCore {
         bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
+        /// @dev The type of provider (defaults to SSV)
+        ProviderType providerType;
     }
 
     /// @notice Represents a request to change an operator's fee
