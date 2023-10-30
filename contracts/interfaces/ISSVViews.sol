@@ -121,6 +121,10 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return validators The maximum number of validators per operator
     function getValidatorsPerOperatorLimit() external view returns (uint32 validators);
 
+    /// @notice Gets the total number of validators in the network
+    /// @return validatorsCount The total number of validators in the network
+    function getNetworkValidatorsCount() external view returns (uint32 validatorsCount);
+
     /// @notice Gets the version of the contract
     /// @return version The version of the contract
     function getVersion() external view returns (string memory version);

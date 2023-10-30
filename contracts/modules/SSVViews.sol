@@ -201,6 +201,10 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().validatorsPerOperatorLimit;
     }
 
+    function getNetworkValidatorsCount() external view override returns (uint32) {
+        return SSVStorageProtocol.load().daoValidatorCount;
+    }
+
     function getVersion() external pure override returns (string memory version) {
         return CoreLib.getVersion();
     }
