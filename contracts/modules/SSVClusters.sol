@@ -336,6 +336,6 @@ contract SSVClusters is ISSVClusters {
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
         ValidatorLib.validateState(publicKey, operatorIds, SSVStorage.load());
 
-        emit ValidatorExited(publicKey, operatorIds);
+        emit ValidatorExited(msg.sender, operatorIds, publicKey);
     }
 }
