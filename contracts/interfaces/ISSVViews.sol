@@ -8,7 +8,7 @@ interface ISSVViews is ISSVNetworkCore {
     /// @param owner The address of the validator's owner
     /// @param publicKey The public key of the validator
     /// @return active A boolean indicating if the validator is active. If it does not exist, returns false.
-    function getValidator(address owner, bytes calldata publicKey) external view returns (bool active);
+    function getValidator(address owner, bytes calldata publicKey) external view returns (bool);
 
     /// @notice Gets the operator fee
     /// @param operatorId The ID of the operator
@@ -94,20 +94,17 @@ interface ISSVViews is ISSVNetworkCore {
     function getNetworkEarnings() external view returns (uint256 networkEarnings);
 
     /// @notice Gets the operator fee increase limit
-    /// @return operatorMaxFeeIncrease The maximum limit of operator fee increase
-    function getOperatorFeeIncreaseLimit() external view returns (uint64 operatorMaxFeeIncrease);
+    /// @return The maximum limit of operator fee increase
+    function getOperatorFeeIncreaseLimit() external view returns (uint64);
 
     /// @notice Gets the operator maximum fee for operators that use SSV token
-    /// @return operatorMaxFee The maximum fee value (SSV)
-    function getMaximumOperatorFee() external view returns (uint64 operatorMaxFee);
+    /// @return The maximum fee value (SSV)
+    function getMaximumOperatorFee() external view returns (uint64);
 
     /// @notice Gets the periods of operator fee declaration and execution
-    /// @return declareOperatorFeePeriod The period for declaring operator fee
-    /// @return executeOperatorFeePeriod The period for executing operator fee
-    function getOperatorFeePeriods()
-        external
-        view
-        returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod);
+    /// @return The period for declaring operator fee
+    /// @return The period for executing operator fee
+    function getOperatorFeePeriods() external view returns (uint64, uint64);
 
     /// @notice Gets the liquidation threshold period
     /// @return blocks The number of blocks for the liquidation threshold period
@@ -126,6 +123,6 @@ interface ISSVViews is ISSVNetworkCore {
     function getNetworkValidatorsCount() external view returns (uint32 validatorsCount);
 
     /// @notice Gets the version of the contract
-    /// @return version The version of the contract
-    function getVersion() external view returns (string memory version);
+    /// @return The version of the contract
+    function getVersion() external view returns (string memory);
 }
