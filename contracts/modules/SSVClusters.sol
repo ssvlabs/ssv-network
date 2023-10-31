@@ -170,7 +170,7 @@ contract SSVClusters is ISSVClusters {
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
-    function liquidate(address clusterOwner, uint64[] memory operatorIds, Cluster memory cluster) external override {
+    function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
         StorageData storage s = SSVStorage.load();
 
         bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);

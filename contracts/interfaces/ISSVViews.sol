@@ -46,7 +46,7 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return isLiquidatable A boolean indicating if the cluster can be liquidated
     function isLiquidatable(
         address owner,
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view returns (bool isLiquidatable);
 
