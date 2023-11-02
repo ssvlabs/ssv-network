@@ -21,21 +21,20 @@ contract SSVViews is ISSVViews {
     /* Validator External View Functions */
     /*************************************/
 
-    function getValidator(address clusterOwner, bytes calldata publicKey) external view override returns (bool active) {
+    function getValidator(address clusterOwner, bytes calldata publicKey) external view override returns (bool) {
         bytes32 validatorData = SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKey, clusterOwner))];
 
         if (validatorData == bytes32(0)) return false;
         bytes32 activeFlag = validatorData & bytes32(uint256(1)); // Retrieve LSB of stored value
 
         return activeFlag == bytes32(uint256(1));
-
     }
 
     /************************************/
     /* Operator External View Functions */
     /************************************/
 
-    function getOperatorFee(uint64 operatorId) external view override returns (uint256 fee) {
+    function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
         return SSVStorage.load().operators[operatorId].fee.expand();
     }
 
@@ -172,20 +171,15 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().networkTotalEarnings().expand();
     }
 
-    function getOperatorFeeIncreaseLimit() external view override returns (uint64 operatorMaxFeeIncrease) {
+    function getOperatorFeeIncreaseLimit() external view override returns (uint64) {
         return SSVStorageProtocol.load().operatorMaxFeeIncrease;
     }
 
-    function getMaximumOperatorFee() external view override returns (uint64 operatorMaxFee) {
+    function getMaximumOperatorFee() external view override returns (uint64) {
         return SSVStorageProtocol.load().operatorMaxFee;
     }
 
-    function getOperatorFeePeriods()
-        external
-        view
-        override
-        returns (uint64 declareOperatorFeePeriod, uint64 executeOperatorFeePeriod)
-    {
+    function getOperatorFeePeriods() external view override returns (uint64, uint64) {
         return (SSVStorageProtocol.load().declareOperatorFeePeriod, SSVStorageProtocol.load().executeOperatorFeePeriod);
     }
 
@@ -205,7 +199,7 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().daoValidatorCount;
     }
 
-    function getVersion() external pure override returns (string memory version) {
+    function getVersion() external pure override returns (string memory) {
         return CoreLib.getVersion();
     }
 }
