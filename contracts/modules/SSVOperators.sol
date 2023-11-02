@@ -65,9 +65,7 @@ contract SSVOperators is ISSVOperators {
 
         s.operators[operatorId] = operator;
 
-        if (s.operatorsWhitelist[operatorId] != address(0)) {
-            delete s.operatorsWhitelist[operatorId];
-        }
+        delete s.operatorsWhitelist[operatorId];
 
         if (currentBalance > 0) {
             _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
@@ -169,8 +167,8 @@ contract SSVOperators is ISSVOperators {
         operator.fee = shrunkAmount;
         s.operators[operatorId] = operator;
 
-        if (s.operatorFeeChangeRequests[operatorId].approvalBeginTime != 0)
-            delete s.operatorFeeChangeRequests[operatorId];
+        delete s.operatorFeeChangeRequests[operatorId];
+        
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
