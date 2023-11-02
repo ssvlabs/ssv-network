@@ -10,6 +10,16 @@
       "address": "0x656d5cC4e7d49EaCC063cBB8D3e072F2841D68b4",
       "txHash": "0x05fec282860f01d95aa19fea01907f0e377d529685c33da59dd0b7c85f96b0b2",
       "kind": "uups"
+    },
+    {
+      "address": "0x38A4794cCEd47d3baf7370CcC43B560D3a1beEFA",
+      "txHash": "0x998c38ff37b47e69e23c21a8079168b7e0e0ade7244781587b00be3f08a725c6",
+      "kind": "uups"
+    },
+    {
+      "address": "0x352A18AEe90cdcd825d1E37d9939dCA86C00e281",
+      "txHash": "0xf36e0e114031e961a1e3452477ed71658cf0f809be94832b4dc4a99a293ef664",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -204,7 +214,7 @@
             "label": "ssvNetwork",
             "offset": 0,
             "slot": "251",
-            "type": "t_contract(ISSVViews)4269",
+            "type": "t_contract(ISSVViews)2185",
             "contract": "SSVNetworkViews",
             "src": "contracts/SSVNetworkViews.sol:19"
           },
@@ -234,7 +244,7 @@
             "label": "bool",
             "numberOfBytes": "1"
           },
-          "t_contract(ISSVViews)4269": {
+          "t_contract(ISSVViews)2185": {
             "label": "contract ISSVViews",
             "numberOfBytes": "20"
           },

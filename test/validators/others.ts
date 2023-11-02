@@ -44,7 +44,7 @@ describe('Other Validator Tests', () => {
             helpers.DataGenerator.publicKey(1),
             firstCluster.operatorIds,
         )).to.emit(ssvNetworkContract, 'ValidatorExited')
-            .withArgs(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds);
+            .withArgs(helpers.DB.owners[1].address, firstCluster.operatorIds, helpers.DataGenerator.publicKey(1));
     });
 
     it('Exiting a validator gas limit', async () => {
@@ -68,7 +68,7 @@ describe('Other Validator Tests', () => {
             helpers.DataGenerator.publicKey(2),
             firstCluster.operatorIds,
         )).to.emit(ssvNetworkContract, 'ValidatorExited')
-            .withArgs(helpers.DataGenerator.publicKey(2), firstCluster.operatorIds);
+            .withArgs(helpers.DB.owners[1].address, firstCluster.operatorIds, helpers.DataGenerator.publicKey(2));
     });
 
     it('Exiting a removed validator reverts "ValidatorDoesNotExist"', async () => {
@@ -142,7 +142,7 @@ describe('Other Validator Tests', () => {
             helpers.DataGenerator.publicKey(2),
             secondCluster.operatorIds,
         )).to.emit(ssvNetworkContract, 'ValidatorExited')
-            .withArgs(helpers.DataGenerator.publicKey(2), secondCluster.operatorIds);
+            .withArgs(helpers.DB.owners[2].address, secondCluster.operatorIds, helpers.DataGenerator.publicKey(2));
     });
 
     it('Exiting a validator with incorrect operators reverts with "IncorrectValidatorState"', async () => {

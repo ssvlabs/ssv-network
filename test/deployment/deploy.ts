@@ -14,6 +14,17 @@ describe('Deployment tests', () => {
         ssvToken = metadata.ssvToken;
     });
 
+    it('Check default values after deploying', async () => {
+        expect((await ssvNetworkViews.getNetworkValidatorsCount())).to.equal(0);
+        expect((await ssvNetworkViews.getNetworkEarnings())).to.equal(0);
+        expect((await ssvNetworkViews.getOperatorFeeIncreaseLimit())).to.equal(CONFIG.operatorMaxFeeIncrease);
+        expect((await ssvNetworkViews.getOperatorFeePeriods())).to.deep.equal([CONFIG.declareOperatorFeePeriod, CONFIG.executeOperatorFeePeriod]);
+        expect((await ssvNetworkViews.getLiquidationThresholdPeriod())).to.equal(CONFIG.minimalBlocksBeforeLiquidation);
+        expect((await ssvNetworkViews.getMinimumLiquidationCollateral())).to.equal(CONFIG.minimumLiquidationCollateral);
+        expect((await ssvNetworkViews.getValidatorsPerOperatorLimit())).to.equal(CONFIG.validatorsPerOperatorLimit);
+        expect((await ssvNetworkViews.getOperatorFeeIncreaseLimit())).to.equal(CONFIG.operatorMaxFeeIncrease);
+    });
+
     it('Upgrade SSVNetwork contract. Check new function execution', async () => {
         await ssvNetworkContract.connect(DB.owners[1]).registerOperator(
             DataGenerator.publicKey(0),

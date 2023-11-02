@@ -107,7 +107,7 @@ if (process.env.HOLESKY_ETH_NODE_URL) {
     } as SSVNetworkConfig,
     holesky_testnet: {
       ...sharedConfig,
-      ssvToken: ''
+      ssvToken: '0xad45A78180961079BFaeEe349704F411dfF947C6'
     } as SSVNetworkConfig,
   }
 }

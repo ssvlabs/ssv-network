@@ -19,7 +19,7 @@ contract SSVDAO is ISSVDAO {
         uint64 previousFee = sp.networkFee;
 
         sp.updateNetworkFee(fee);
-        emit NetworkFeeUpdated(previousFee.expand(), sp.networkFee.expand());
+        emit NetworkFeeUpdated(previousFee.expand(), fee);
     }
 
     function withdrawNetworkEarnings(uint256 amount) external override {

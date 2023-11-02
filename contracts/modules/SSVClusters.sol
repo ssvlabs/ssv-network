@@ -152,8 +152,8 @@ contract SSVClusters is ISSVClusters {
 
         {
             if (cluster.active) {
-                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s);
                 StorageProtocol storage sp = SSVStorageProtocol.load();
+                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s, sp);
 
                 cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
@@ -170,7 +170,7 @@ contract SSVClusters is ISSVClusters {
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
-    function liquidate(address clusterOwner, uint64[] memory operatorIds, Cluster memory cluster) external override {
+    function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
         StorageData storage s = SSVStorage.load();
 
         bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
@@ -182,7 +182,8 @@ contract SSVClusters is ISSVClusters {
             operatorIds,
             false,
             cluster.validatorCount,
-            s
+            s,
+            sp
         );
 
         cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
@@ -232,7 +233,8 @@ contract SSVClusters is ISSVClusters {
             operatorIds,
             true,
             cluster.validatorCount,
-            s
+            s,
+            sp
         );
 
         cluster.balance += amount;
@@ -336,6 +338,6 @@ contract SSVClusters is ISSVClusters {
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
         ValidatorLib.validateState(publicKey, operatorIds, SSVStorage.load());
 
-        emit ValidatorExited(publicKey, operatorIds);
+        emit ValidatorExited(msg.sender, operatorIds, publicKey);
     }
 }
