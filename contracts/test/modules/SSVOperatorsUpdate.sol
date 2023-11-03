@@ -66,7 +66,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
         }
 
         if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
+            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand(), s.token);
         }
         emit OperatorRemoved(operatorId);
     }
@@ -172,11 +172,11 @@ contract SSVOperatorsUpdate is ISSVOperators {
 
         s.operators[operatorId] = operator;
 
-        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand(), s.token);
     }
 
-    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        CoreLib.transferBalance(msg.sender, amount);
+    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount, IERC20 token) private {
+        CoreLib.transferBalance(msg.sender, amount, token);
         emit OperatorWithdrawn(msg.sender, operatorId, amount);
     }
 }

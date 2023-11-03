@@ -8,6 +8,33 @@ import "./Types.sol";
 
 library OperatorLib {
     using Types64 for uint64;
+    using Counters for Counters.Counter;
+
+    function fetchId(bytes calldata publicKey, StorageData storage s) internal returns (uint64 id) {
+        bytes32 hashedPk = keccak256(publicKey);
+        id = s.operatorsPKs[hashedPk];
+
+        if (id == 0) {
+            s.lastOperatorId.increment();
+            id = uint64(s.lastOperatorId.current());
+            s.operatorsPKs[hashedPk] = id;
+        }
+    }
+
+    function fetchOperatorId(bytes calldata publicKey, StorageData storage s) internal returns (uint64 id) {
+        id = fetchId(publicKey, s);
+        if (s.operators[id].owner != address(0)) revert ISSVNetworkCore.OperatorAlreadyExists();
+    }
+
+    function fetchOperatorId(
+        bytes calldata publicKey,
+        ISSVNetworkCore.ProtocolType protocolType,
+        StorageData storage s
+    ) internal returns (uint64 id) {
+        id = fetchId(publicKey, s);
+        if (s.protocolOperators[id][uint8(protocolType)].owner != address(0))
+            revert ISSVNetworkCore.OperatorAlreadyExists();
+    }
 
     function updateSnapshot(ISSVNetworkCore.Operator memory operator) internal view {
         uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;

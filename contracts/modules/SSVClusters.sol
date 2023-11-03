@@ -133,7 +133,7 @@ contract SSVClusters is ISSVClusters {
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
         if (amount != 0) {
-            CoreLib.deposit(amount);
+            CoreLib.deposit(amount, s.token);
         }
 
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
@@ -215,7 +215,7 @@ contract SSVClusters is ISSVClusters {
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
         if (balanceLiquidatable != 0) {
-            CoreLib.transferBalance(msg.sender, balanceLiquidatable);
+            CoreLib.transferBalance(msg.sender, balanceLiquidatable, s.token);
         }
 
         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
@@ -258,7 +258,7 @@ contract SSVClusters is ISSVClusters {
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
         if (amount > 0) {
-            CoreLib.deposit(amount);
+            CoreLib.deposit(amount, s.token);
         }
 
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
@@ -278,7 +278,7 @@ contract SSVClusters is ISSVClusters {
 
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
-        CoreLib.deposit(amount);
+        CoreLib.deposit(amount, s.token);
 
         emit ClusterDeposited(clusterOwner, operatorIds, amount, cluster);
     }
@@ -330,7 +330,7 @@ contract SSVClusters is ISSVClusters {
 
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
-        CoreLib.transferBalance(msg.sender, amount);
+        CoreLib.transferBalance(msg.sender, amount, s.token);
 
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
     }

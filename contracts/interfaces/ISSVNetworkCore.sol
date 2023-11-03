@@ -2,23 +2,19 @@
 pragma solidity 0.8.18;
 
 interface ISSVNetworkCore {
-    /***********/
-    /* Enums   */
-    /***********/
-
-    enum ProviderType {
-        SSV,
+    enum ProtocolType {
         LIDO
     }
 
     /***********/
     /* Structs */
     /***********/
-    struct CuratedOperator {
+    struct ProtocolOperator {
         address owner;
-        bool whitelisted;
-        ProviderType providerType;
-        uint64 providerId;
+        address rewardAddress;
+        // TODO: optional to optimize gas when performing actions that
+        // require the operator to be/not be slashed
+        // bool slashed;
     }
 
     struct Bond {
@@ -47,8 +43,6 @@ interface ISSVNetworkCore {
         bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
-        /// @dev The type of provider (defaults to SSV)
-        ProviderType providerType;
     }
 
     /// @notice Represents a request to change an operator's fee
@@ -109,4 +103,6 @@ interface ISSVNetworkCore {
     error TargetModuleDoesNotExist(); // 0x8f9195fb
     error MaxValueExceeded(); // 0x91aa3017
     error FeeTooHigh(); // 0xcd4e6167
+    error EmptyRewardAddress(); // 0x05b04064
+    error BondTooLow(); // 0x6e360f94
 }

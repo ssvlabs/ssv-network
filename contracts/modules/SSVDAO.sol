@@ -5,6 +5,7 @@ import "../interfaces/ISSVDAO.sol";
 import "../libraries/Types.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
+import "../libraries/SSVStorage.sol";
 
 contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
@@ -36,7 +37,7 @@ contract SSVDAO is ISSVDAO {
         sp.daoBalance = networkBalance - shrunkAmount;
         sp.daoIndexBlockNumber = uint32(block.number);
 
-        CoreLib.transferBalance(msg.sender, amount);
+        CoreLib.transferBalance(msg.sender, amount, SSVStorage.load().token);
 
         emit NetworkEarningsWithdrawn(amount, msg.sender);
     }

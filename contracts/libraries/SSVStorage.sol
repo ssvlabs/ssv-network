@@ -33,14 +33,15 @@ struct StorageData {
     IERC20 token;
     /// @notice Counter keeping track of the last Operator ID issued
     Counters.Counter lastOperatorId;
-    /// @notice Maps each operator's ID to its corresponding curated operator data
-    mapping(uint64 => ISSVNetworkCore.CuratedOperator) curatedOperators;
-    /// @notice Maps each operator's ID to its corresponding bond data
-    mapping(uint64 => ISSVNetworkCore.Bond) operatorBonds;
+    /// @notice Maps each integration operator's ID to its corresponding protocol type and operator data
+    // TODO depending on the use cases, this can be changed to  mapping(uint8 => mapping(uint64 => ISSVNetworkCore.ProtocolOperator))
+    mapping(uint64 => mapping(uint8 => ISSVNetworkCore.ProtocolOperator)) protocolOperators; 
+    /// @notice Maps each operator's ID to its corresponding protocol type and bond data
+    mapping(uint64 => mapping(uint8 => ISSVNetworkCore.Bond)) protocolOperatorBonds;
 }
 
 library SSVStorage {
-    uint256 constant private SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
+    uint256 private constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
 
     function load() internal pure returns (StorageData storage sd) {
         uint256 position = SSV_STORAGE_POSITION;

@@ -11,13 +11,12 @@ import "../libraries/CoreLib.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract SSVOperators is ISSVOperators {
-    uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
-    uint64 private constant PRECISION_FACTOR = 10_000;
-
     using Types256 for uint256;
     using Types64 for uint64;
-    using Counters for Counters.Counter;
     using OperatorLib for Operator;
+
+    uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
+    uint64 private constant PRECISION_FACTOR = 10_000;
 
     /*******************************/
     /* Operator External Functions */
@@ -33,11 +32,8 @@ contract SSVOperators is ISSVOperators {
 
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedPk = keccak256(publicKey);
-        if (s.operatorsPKs[hashedPk] != 0) revert ISSVNetworkCore.OperatorAlreadyExists();
+        id = OperatorLib.fetchOperatorId(publicKey, s);
 
-        s.lastOperatorId.increment();
-        id = uint64(s.lastOperatorId.current());
         s.operators[id] = Operator({
             owner: msg.sender,
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
@@ -45,7 +41,6 @@ contract SSVOperators is ISSVOperators {
             fee: fee.shrink(),
             whitelisted: false
         });
-        s.operatorsPKs[hashedPk] = id;
 
         emit OperatorAdded(id, msg.sender, publicKey, fee);
     }
@@ -68,7 +63,7 @@ contract SSVOperators is ISSVOperators {
         delete s.operatorsWhitelist[operatorId];
 
         if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
+            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand(), s.token);
         }
         emit OperatorRemoved(operatorId);
     }
@@ -168,7 +163,7 @@ contract SSVOperators is ISSVOperators {
         s.operators[operatorId] = operator;
 
         delete s.operatorFeeChangeRequests[operatorId];
-        
+
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
@@ -203,11 +198,11 @@ contract SSVOperators is ISSVOperators {
 
         s.operators[operatorId] = operator;
 
-        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand(), s.token);
     }
 
-    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        CoreLib.transferBalance(msg.sender, amount);
+    function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount, IERC20 token) private {
+        CoreLib.transferBalance(msg.sender, amount, token);
         emit OperatorWithdrawn(msg.sender, operatorId, amount);
     }
 }

@@ -30,6 +30,10 @@ struct StorageProtocol {
     uint64 operatorMaxFeeIncrease;
     /// @notice The maximum value in operator fee that is allowed (SSV)
     uint64 operatorMaxFee;
+    /// @notice The bond per validator required per each protocol
+    mapping(uint8 => uint64) protocolRequiredBonds; // TODO assuming these values can change over time. If not, they can be constants/immutable 
+    /// @notice The total bonds deposited per protocol (0 = LIDO)
+    mapping(uint8 => uint64) protocolBondDeposits; // TODO warm-up initializing each protocol with 1 on deployment? pros/cons
 }
 
 library SSVStorageProtocol {
