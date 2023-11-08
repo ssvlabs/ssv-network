@@ -117,6 +117,27 @@ if (process.env.HOLESKY_ETH_NODE_URL) {
   };
 }
 
+if (process.env.HOLESKY_ETH_NODE_URL) {
+  const sharedConfig = {
+    url: process.env.HOLESKY_ETH_NODE_URL,
+    accounts: [`0x${process.env.HOLESKY_OWNER_PRIVATE_KEY}`],
+    gasPrice: +(process.env.GAS_PRICE || ''),
+    gas: +(process.env.GAS || ''),
+  };
+  //@ts-ignore
+  config.networks = {
+    ...config.networks,
+    holesky_development: {
+      ...sharedConfig,
+      ssvToken: '0x68A8DDD7a59A900E0657e9f8bbE02B70c947f25F'
+    } as SSVNetworkConfig,
+    holesky_testnet: {
+      ...sharedConfig,
+      ssvToken: '0xad45A78180961079BFaeEe349704F411dfF947C6'
+    } as SSVNetworkConfig,
+  }
+}
+
 if (process.env.MAINNET_ETH_NODE_URL) {
   //@ts-ignore
   config.networks = {
