@@ -34,6 +34,7 @@
     "prompts": "^2.4.2",
     "simple-git": "^3.16.1",
     "ts-node": "^10.7.0",
-    "typescript": "^4.6.3"
+    "typescript": "^4.6.3",
+    "ssv-keys": "github:bloxapp/ssv-keys#v1.0.5-dev"
   }
 }

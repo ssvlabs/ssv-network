@@ -1,13 +1,14 @@
 // Imports
 declare const ethers: any;
-
+import { SSVKeys, KeyShares, EncryptShare } from 'ssv-keys';
 import { trackGas, GasGroup } from './gas-usage';
 
 export let DB: any;
 export let CONFIG: any;
 export let SSV_MODULES: any;
 
-const SIGNATURE = "869ff0ade8cb76048fb3aa8d4c26b0d71f96eb3bfb69144c080e7fe8db6e1e2f926f365886a59a25601b290f5f4695dd5b7e8cce1c462bdef5bebee34d94711541baeadbc7546a8c3ca301d86aaab4767c809a"
+const SIGNATURE =
+  '869ff0ade8cb76048fb3aa8d4c26b0d71f96eb3bfb69144c080e7fe8db6e1e2f926f365886a59a25601b290f5f4695dd5b7e8cce1c462bdef5bebee34d94711541baeadbc7546a8c3ca301d86aaab4767c809a';
 
 const SHARES_RSA = [
   // 4 shares
@@ -17,7 +18,7 @@ const SHARES_RSA = [
   // 10 shares
   `0x${SIGNATURE}03c2871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631930f49165acc5e605bcdbd1a4bcdd7b44366f2af42e4126cbffc9e34ec9fa29662a401c5aa7ebef5e4ee287c895617dc930f49165acc5e605bcdbd1a4bcdd7b44366f2af42e4126cbffc9e34ec9fa29662a401c5aa7ebef5e4ee287c895617dcaf4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631b7d586100b1137d7c7fc4c9b6aad63021581fcd3fa6bb55455e6eb5e42fdba1b1fe1e25b8a350c47f4904064241c034c5dc03027fb3532501eff0877819eedebeb982d651c47ccc7cecf2cc508ad3ba7dd802e993acbaf696a6dcce1eada8ad77c75fc6085a183990b6fadbfb888205b29e17a00671ce8d04b9f3dd64283c29a58ec2ea3a4f1da6227c207708024bc6243e77f41ad7c219e40e14a4b965a9e9957a44fceba379b7c0082d25446c8d3cbb5e0f81b5fea835f5277f6cb3e62df9680f182571466fdbd28585cd2571c832ce11ff9c9a1d144a505f2ff198b6ab3ba19b0ce3096967635c916be872dacefe2c5477c6da28d6a47fd49d8ecad7f161a8d69fb343ca785c795c3242639866789f8d8631693c4a5c68e5a95061e176635d39e28f9afa9a1f23b5ddaaa6212bc699982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb9982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb9982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d579c98d5c9687ada34ee6a6734575ddbf685490ea50d88dafaa3fcc004ca41b7cc31119d92b7b9dadd5f7deefb3ffcc0e9b19d0ec70be4d07e8a657277bfb36bbb3e465c2c5edcfcc21c6be449dc5d67b2c774809e7103f81d3bd36900fc59bc92e935df496164acd8935a7734eb04ac979bc317d0525b7ecb835a79740d80b7d0643ddbd8bcafeaf7f12a61affbbe627f6c561545bd0edaaa1db01c90342c0cad0a25bd92447e27cd03dea84c53d4696f9e16df06d354ce2c34a26b481075eb53c0748e66c2a21425edf9dbc82c60b16dabfa788b78c7926166762df864e2288fb7db2e4deb57c23cce6e9a85524f10ee2b57df91054d00aa80155a376579caeb9c98d5c9687ada34ee6a6734575ddbf685490ea50d88dafaa3fcc004ca41b7cc31119d92b7b9dadd5f7deefb3ffcc0e9b19d0ec70be4d07e8a657277bfb36bbb3e465c2c5edcfcc21c6be449dc5d67b2c774809e7103f81d3bd36900fc59bc92e935df496164acd8935a7734eb04ac979bc317d0525b7ecb835a79740d80b7d0643ddbd8bcafeaf7f12a61affbbe627f6c561545bd0edaaa1db01c90342c0cad0a25bd92447e27cd03dea84c53d4696f9e16df06d354ce2c34a26b481075eb53c0748e66c2a21425edf9dbc82c60b16dabfa788b78c7926166762df864e2288fb7db2e4deb57c23cce6e9a85524f10ee2b57df91054d00aa80155a376579caeb`,
   // 13 shares
-  `0x${SIGNATURE}04e2871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631930f49165acc5e605bcdbd1a4bcdd7b44366f2af42e4126cbffc9e34ec9fa29662a401c5aa7ebef5e4ee287c895617dc930f49165acc5e605bcdbd1a4bcdd7b44366f2af42e4126cbffc9e34ec9fa29662a401c5aa7ebef5e4ee287c895617dc930f49165acc5e605bcdbd1a4bcdd7b44366f2af42e4126cbffc9e34ec9fa29662a401c5aa7ebef5e4ee287c895617dcaf4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631b7d586100b1137d7c7fc4c9b6aad63021581fcd3fa6bb55455e6eb5e42fdba1b1fe1e25b8a350c47f4904064241c034c5dc03027fb3532501eff0877819eedebeb982d651c47ccc7cecf2cc508ad3ba7dd802e993acbaf696a6dcce1eada8ad77c75fc6085a183990b6fadbfb888205b29e17a00671ce8d04b9f3dd64283c29a58ec2ea3a4f1da6227c207708024bc6243e77f41ad7c219e40e14a4b965a9e9957a44fceba379b7c0082d25446c8d3cbb5e0f81b5fea835f5277f6cb3e62df9680f182571466fdbd28585cd2571c832ce11ff9c9a1d144a505f2ff198b6ab3ba19b0ce3096967635c916be872dacefe2c5477c6da28d6a47fd49d8ecad7f161a8d69fb343ca785c795c3242639866789f8d8631693c4a5c68e5a95061e176635d39e28f9afa9a1f23b5ddaaa6212bc699982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb9982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb9982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb9982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d579c98d5c9687ada34ee6a6734575ddbf685490ea50d88dafaa3fcc004ca41b7cc31119d92b7b9dadd5f7deefb3ffcc0e9b19d0ec70be4d07e8a657277bfb36bbb3e465c2c5edcfcc21c6be449dc5d67b2c774809e7103f81d3bd36900fc59bc92e935df496164acd8935a7734eb04ac979bc317d0525b7ecb835a79740d80b7d0643ddbd8bcafeaf7f12a61affbbe627f6c561545bd0edaaa1db01c90342c0cad0a25bd92447e27cd03dea84c53d4696f9e16df06d354ce2c34a26b481075eb53c0748e66c2a21425edf9dbc82c60b16dabfa788b78c7926166762df864e2288fb7db2e4deb57c23cce6e9a85524f10ee2b57df91054d00aa80155a376579caeb9c98d5c9687ada34ee6a6734575ddbf685490ea50d88dafaa3fcc004ca41b7cc31119d92b7b9dadd5f7deefb3ffcc0e9b19d0ec70be4d07e8a657277bfb36bbb3e465c2c5edcfcc21c6be449dc5d67b2c774809e7103f81d3bd36900fc59bc92e935df496164acd8935a7734eb04ac979bc317d0525b7ecb835a79740d80b7d0643ddbd8bcafeaf7f12a61affbbe627f6c561545bd0edaaa1db01c90342c0cad0a25bd92447e27cd03dea84c53d4696f9e16df06d354ce2c34a26b481075eb53c0748e66c2a21425edf9dbc82c60b16dabfa788b78c7926166762df864e2288fb7db2e4deb57c23cce6e9a85524f10ee2b57df91054d00aa80155a376579caeb9c98d5c9687ada34ee6a6734575ddbf685490ea50d88dafaa3fcc004ca41b7cc31119d92b7b9dadd5f7deefb3ffcc0e9b19d0ec70be4d07e8a657277bfb36bbb3e465c2c5edcfcc21c6be449dc5d67b2c774809e7103f81d3bd36900fc59bc92e935df496164acd8935a7734eb04ac979bc317d0525b7ecb835a79740d80b7d0643ddbd8bcafeaf7f12a61affbbe627f6c561545bd0edaaa1db01c90342c0cad0a25bd92447e27cd03dea84c53d4696f9e16df06d354ce2c34a26b481075eb53c0748e66c2a21425edf9dbc82c60b16dabfa788b78c7926166762df864e2288fb7db2e4deb57c23cce6e9a85524f10ee2b57df91054d00aa80155a376579caeb`
+  `0x${SIGNATURE}04e2871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631930f49165acc5e605bcdbd1a4bcdd7b44366f2af42e4126cbffc9e34ec9fa29662a401c5aa7ebef5e4ee287c895617dc930f49165acc5e605bcdbd1a4bcdd7b44366f2af42e4126cbffc9e34ec9fa29662a401c5aa7ebef5e4ee287c895617dc930f49165acc5e605bcdbd1a4bcdd7b44366f2af42e4126cbffc9e34ec9fa29662a401c5aa7ebef5e4ee287c895617dcaf4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962af4dd395545044ac2c83fe26548751891ac655ede78d6d346d5c1611ec39cd5b828440dddc8d5739253a272b128ea962871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631871c338c3206657ce90c00655f526a2055355bde197116efcc55de8b7bc69db23f2a78c91ccee05bd48c03f1d4903631b7d586100b1137d7c7fc4c9b6aad63021581fcd3fa6bb55455e6eb5e42fdba1b1fe1e25b8a350c47f4904064241c034c5dc03027fb3532501eff0877819eedebeb982d651c47ccc7cecf2cc508ad3ba7dd802e993acbaf696a6dcce1eada8ad77c75fc6085a183990b6fadbfb888205b29e17a00671ce8d04b9f3dd64283c29a58ec2ea3a4f1da6227c207708024bc6243e77f41ad7c219e40e14a4b965a9e9957a44fceba379b7c0082d25446c8d3cbb5e0f81b5fea835f5277f6cb3e62df9680f182571466fdbd28585cd2571c832ce11ff9c9a1d144a505f2ff198b6ab3ba19b0ce3096967635c916be872dacefe2c5477c6da28d6a47fd49d8ecad7f161a8d69fb343ca785c795c3242639866789f8d8631693c4a5c68e5a95061e176635d39e28f9afa9a1f23b5ddaaa6212bc699982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb9982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb9982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb9982631ed39ea56134e10efd459421f4abb9a8d9881e78d538c536e0e3062dd3f0f4ac19e2bf0e8329eaf86279235e6b13507f27a3a1afb5845ffe3fe09b1865f2c9cdccd7efc2c1a45244e67cd62ea7ac5a3316e19ed019d7ba0ac6e420f303e2a951e043e7d69b98a8e0975c69c373074a69f40e423bc4787338b33fa1dc15642849a66d89be6c614c9d7372918ed3f12c8767aeda14800cdde15ed83e1df9824b71fcfe636cdb755c374a9df628a9e2f189c900b02a57306e4099b794cb42fa84dc43e186e9e10e2c786a75b32ffdeaf228a77e53b013d830ebbbbb72af84dbf2f64bd66f0584f26a38324d93ae0acb717c60daa7c947fb4cce4d1865fbbb343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d57343775b368f031ebb11cf73a910c86aa91ab662ccd0dabbec26d656551c1fa4bdd55f72c8f24e0442a453f229633f2db01cb728f38dea94fa3d7319d0689c128eb60ca2935673df587f8c60901fd8ac0eba49510ba1b7f51198c7840524eb237c35da262718eb64918f7c39cf64e47bcdd88abd4c16b0ea220e4f598f721e8d1338422d8c77ea63eac77c7644c516d4d7118fbae442839563243684046c25a445b48d4678e5fd1005124b4c02e122756d4f79d8aa9fd6d2b03d1011c669a4cafa16f2e236539ce6014bf4b0e240d127c1d478db2a9e5bd3c33e79246ee208ae51e96142a76553bca928a7cc8e6f8619106f311ae58953272bc96cc5b0b3d0d579c98d5c9687ada34ee6a6734575ddbf685490ea50d88dafaa3fcc004ca41b7cc31119d92b7b9dadd5f7deefb3ffcc0e9b19d0ec70be4d07e8a657277bfb36bbb3e465c2c5edcfcc21c6be449dc5d67b2c774809e7103f81d3bd36900fc59bc92e935df496164acd8935a7734eb04ac979bc317d0525b7ecb835a79740d80b7d0643ddbd8bcafeaf7f12a61affbbe627f6c561545bd0edaaa1db01c90342c0cad0a25bd92447e27cd03dea84c53d4696f9e16df06d354ce2c34a26b481075eb53c0748e66c2a21425edf9dbc82c60b16dabfa788b78c7926166762df864e2288fb7db2e4deb57c23cce6e9a85524f10ee2b57df91054d00aa80155a376579caeb9c98d5c9687ada34ee6a6734575ddbf685490ea50d88dafaa3fcc004ca41b7cc31119d92b7b9dadd5f7deefb3ffcc0e9b19d0ec70be4d07e8a657277bfb36bbb3e465c2c5edcfcc21c6be449dc5d67b2c774809e7103f81d3bd36900fc59bc92e935df496164acd8935a7734eb04ac979bc317d0525b7ecb835a79740d80b7d0643ddbd8bcafeaf7f12a61affbbe627f6c561545bd0edaaa1db01c90342c0cad0a25bd92447e27cd03dea84c53d4696f9e16df06d354ce2c34a26b481075eb53c0748e66c2a21425edf9dbc82c60b16dabfa788b78c7926166762df864e2288fb7db2e4deb57c23cce6e9a85524f10ee2b57df91054d00aa80155a376579caeb9c98d5c9687ada34ee6a6734575ddbf685490ea50d88dafaa3fcc004ca41b7cc31119d92b7b9dadd5f7deefb3ffcc0e9b19d0ec70be4d07e8a657277bfb36bbb3e465c2c5edcfcc21c6be449dc5d67b2c774809e7103f81d3bd36900fc59bc92e935df496164acd8935a7734eb04ac979bc317d0525b7ecb835a79740d80b7d0643ddbd8bcafeaf7f12a61affbbe627f6c561545bd0edaaa1db01c90342c0cad0a25bd92447e27cd03dea84c53d4696f9e16df06d354ce2c34a26b481075eb53c0748e66c2a21425edf9dbc82c60b16dabfa788b78c7926166762df864e2288fb7db2e4deb57c23cce6e9a85524f10ee2b57df91054d00aa80155a376579caeb`,
 ];
 
 export const DataGenerator = {
@@ -59,13 +60,13 @@ export const DataGenerator = {
       }
       return result;
     },
-    byId: (id: any) => DB.clusters[id].operatorIds
-  }
+    byId: (id: any) => DB.clusters[id].operatorIds,
+  },
 };
 
 export const initializeContract = async () => {
   CONFIG = {
-    initialVersion: "v1.0.0.rc5",
+    initialVersion: 'v1.0.0.rc5',
     operatorMaxFeeIncrease: 1000,
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY
@@ -73,7 +74,7 @@ export const initializeContract = async () => {
     minimalBlocksBeforeLiquidation: 100800,
     minimumLiquidationCollateral: 200000000,
     validatorsPerOperatorLimit: 500,
-    maximumOperatorFee: 76528650000000
+    maximumOperatorFee: 76528650000000,
   };
 
   DB = {
@@ -87,7 +88,7 @@ export const initializeContract = async () => {
     ssvOperatorsMod: {},
     ssvClustersMod: {},
     ssvDAOMod: {},
-    ssvViewsMod: {}
+    ssvViewsMod: {},
   };
 
   SSV_MODULES = {
@@ -125,32 +126,32 @@ export const initializeContract = async () => {
   DB.ssvDAOMod.contract = await ssvDAOMod.deploy();
   await DB.ssvDAOMod.contract.deployed();
 
-  DB.ssvNetwork.contract = await upgrades.deployProxy(ssvNetwork, [
-    DB.ssvToken.address,
-    DB.ssvOperatorsMod.contract.address,
-    DB.ssvClustersMod.contract.address,
-    DB.ssvDAOMod.contract.address,
-    DB.ssvViewsMod.contract.address,
-    CONFIG.minimalBlocksBeforeLiquidation,
-    CONFIG.minimumLiquidationCollateral,
-    CONFIG.validatorsPerOperatorLimit,
-    CONFIG.declareOperatorFeePeriod,
-    CONFIG.executeOperatorFeePeriod,
-    CONFIG.operatorMaxFeeIncrease
-  ],
+  DB.ssvNetwork.contract = await upgrades.deployProxy(
+    ssvNetwork,
+    [
+      DB.ssvToken.address,
+      DB.ssvOperatorsMod.contract.address,
+      DB.ssvClustersMod.contract.address,
+      DB.ssvDAOMod.contract.address,
+      DB.ssvViewsMod.contract.address,
+      CONFIG.minimalBlocksBeforeLiquidation,
+      CONFIG.minimumLiquidationCollateral,
+      CONFIG.validatorsPerOperatorLimit,
+      CONFIG.declareOperatorFeePeriod,
+      CONFIG.executeOperatorFeePeriod,
+      CONFIG.operatorMaxFeeIncrease,
+    ],
     {
       kind: 'uups',
-      unsafeAllow: ['delegatecall']
-    });
+      unsafeAllow: ['delegatecall'],
+    },
+  );
 
   await DB.ssvNetwork.contract.deployed();
 
-  DB.ssvViews.contract = await upgrades.deployProxy(ssvViews, [
-    DB.ssvNetwork.contract.address
-  ],
-    {
-      kind: "uups"
-    });
+  DB.ssvViews.contract = await upgrades.deployProxy(ssvViews, [DB.ssvNetwork.contract.address], {
+    kind: 'uups',
+  });
   await DB.ssvViews.contract.deployed();
 
   DB.ssvNetwork.owner = DB.owners[0];
@@ -164,69 +165,131 @@ export const initializeContract = async () => {
 
   await DB.ssvNetwork.contract.updateMaximumOperatorFee(CONFIG.maximumOperatorFee);
 
-  return { contract: DB.ssvNetwork.contract, owner: DB.ssvNetwork.owner, ssvToken: DB.ssvToken, ssvViews: DB.ssvViews.contract };
+  return {
+    contract: DB.ssvNetwork.contract,
+    owner: DB.ssvNetwork.owner,
+    ssvToken: DB.ssvToken,
+    ssvViews: DB.ssvViews.contract,
+  };
 };
 
-export const registerOperators = async (ownerId: number, numberOfOperators: number, fee: string, gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR]) => {
+export const registerOperators = async (
+  ownerId: number,
+  numberOfOperators: number,
+  fee: string,
+  gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR],
+) => {
   for (let i = 0; i < numberOfOperators; ++i) {
     const { eventsByName } = await trackGas(
       DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerOperator(DataGenerator.publicKey(i), fee),
-      gasGroups
+      gasGroups,
     );
     const event = eventsByName.OperatorAdded[0];
     DB.operators[event.args.operatorId] = {
-      operatorId: event.args.operatorId, ownerId: ownerId, publicKey: DataGenerator.publicKey(i)
+      operatorId: event.args.operatorId,
+      ownerId: ownerId,
+      publicKey: DataGenerator.publicKey(i),
     };
   }
 };
 
-export const deposit = async (ownerId: number, ownerAddress: string, operatorIds: number[], amount: string, cluster: any) => {
+export const deposit = async (
+  ownerId: number,
+  ownerAddress: string,
+  operatorIds: number[],
+  amount: string,
+  cluster: any,
+) => {
   await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
-  const depositedCluster = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).deposit(
-    ownerAddress,
-    operatorIds,
-    amount,
-    cluster));
+  const depositedCluster = await trackGas(
+    DB.ssvNetwork.contract.connect(DB.owners[ownerId]).deposit(ownerAddress, operatorIds, amount, cluster),
+  );
   return depositedCluster.eventsByName.ClusterDeposited[0].args;
 };
 
 export const liquidate = async (ownerAddress: string, operatorIds: number[], cluster: any) => {
-  const liquidatedCluster = await trackGas(DB.ssvNetwork.contract.liquidate(
-    ownerAddress,
-    operatorIds,
-    cluster
-  ));
+  const liquidatedCluster = await trackGas(DB.ssvNetwork.contract.liquidate(ownerAddress, operatorIds, cluster));
   return liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 };
 
 export const removeValidator = async (ownerId: number, pk: string, operatorIds: number[], cluster: any) => {
-  const removedValidator = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).removeValidator(
-    pk,
-    operatorIds,
-    cluster
-  ));
+  const removedValidator = await trackGas(
+    DB.ssvNetwork.contract.connect(DB.owners[ownerId]).removeValidator(pk, operatorIds, cluster),
+  );
   return removedValidator.eventsByName.ValidatorRemoved[0].args;
 };
 
 export const withdraw = async (ownerId: number, operatorIds: number[], amount: string, cluster: any) => {
-  const withdrawnCluster = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).withdraw(
-    operatorIds,
-    amount,
-    cluster));
+  const withdrawnCluster = await trackGas(
+    DB.ssvNetwork.contract.connect(DB.owners[ownerId]).withdraw(operatorIds, amount, cluster),
+  );
 
   return withdrawnCluster.eventsByName.ClusterWithdrawn[0].args;
 };
 
 export const reactivate = async (ownerId: number, operatorIds: number[], amount: string, cluster: any) => {
   await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
-  const reactivatedCluster = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).reactivate(
-    operatorIds,
-    amount,
-    cluster));
+  const reactivatedCluster = await trackGas(
+    DB.ssvNetwork.contract.connect(DB.owners[ownerId]).reactivate(operatorIds, amount, cluster),
+  );
   return reactivatedCluster.eventsByName.ClusterReactivated[0].args;
 };
 
-export const registerValidators = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
+export const registerValidatorsWithKeystore = async (
+  ownerId: number,
+  numberOfValidators: number,
+  amount: string,
+  keystore: string,
+  password: string,
+  operatorIds: number[],
+  operatorKeys: string[],
+  gasGroups?: GasGroup[],
+) => {
+  const validators: any = [];
+  let args: any;
+
+  if (operatorIds.length === operatorKeys.length) {
+    const operators = operatorKeys.map((operatorKey, index) => ({
+      id: operatorIds[index],
+      operatorKey,
+    }));
+
+    const ssvKeys = new SSVKeys();
+    const { publicKey, privateKey } = await ssvKeys.extractKeys(keystore, password);
+
+    const threshold = await ssvKeys.createThreshold(privateKey, operators);
+    const encShares: EncryptShare[] = await ssvKeys.encryptShares(operators, threshold.shares);
+
+    // Register validators to contract
+    for (let i = 0; i < numberOfValidators; i++) {
+      const shares = DataGenerator.shares(DB.validators.length);
+      await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
+      const result = await trackGas(
+        DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(publicKey, operatorIds, shares, amount, {
+          validatorCount: 0,
+          networkFeeIndex: 0,
+          index: 0,
+          balance: 0,
+          active: true,
+        }),
+        gasGroups,
+      );
+      args = result.eventsByName.ValidatorAdded[0].args;
+      DB.validators.push({ publicKey, operatorIds, shares });
+      validators.push({ publicKey, shares });
+    }
+  }
+
+  return { validators, args };
+};
+
+export const registerValidators = async (
+  ownerId: number,
+  numberOfValidators: number,
+  amount: string,
+  operatorIds: number[],
+  gasGroups?: GasGroup[],
+) => {
   const validators: any = [];
   let args: any;
   // Register validators to contract
@@ -234,19 +297,16 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
     const publicKey = DataGenerator.publicKey(DB.validators.length ? DB.validators.length + 1 : 1);
     const shares = DataGenerator.shares(DB.validators.length);
     await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
-    const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
-      publicKey,
-      operatorIds,
-      shares,
-      amount,
-      {
+    const result = await trackGas(
+      DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(publicKey, operatorIds, shares, amount, {
         validatorCount: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
-        active: true
-      }
-    ), gasGroups);
+        active: true,
+      }),
+      gasGroups,
+    );
     args = result.eventsByName.ValidatorAdded[0].args;
     DB.validators.push({ publicKey, operatorIds, shares });
     validators.push({ publicKey, shares });
@@ -255,37 +315,43 @@ export const registerValidators = async (ownerId: number, numberOfValidators: nu
   return { validators, args };
 };
 
-export const registerValidatorsRaw = async (ownerId: number, numberOfValidators: number, amount: string, operatorIds: number[], gasGroups?: GasGroup[]) => {
+export const registerValidatorsRaw = async (
+  ownerId: number,
+  numberOfValidators: number,
+  amount: string,
+  operatorIds: number[],
+  gasGroups?: GasGroup[],
+) => {
   let cluster: any = {
     validatorCount: 0,
     networkFeeIndex: 0,
     index: 0,
     balance: 0,
-    active: true
+    active: true,
   };
 
   for (let i = 1; i <= numberOfValidators; i++) {
-
     const shares = DataGenerator.shares(4);
     const publicKey = DataGenerator.publicKey(i);
 
     await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, amount);
-    const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).registerValidator(
-      publicKey,
-      operatorIds,
-      shares,
-      amount,
-      cluster
-    ), gasGroups);
+    const result = await trackGas(
+      DB.ssvNetwork.contract
+        .connect(DB.owners[ownerId])
+        .registerValidator(publicKey, operatorIds, shares, amount, cluster),
+      gasGroups,
+    );
     cluster = result.eventsByName.ValidatorAdded[0].args.cluster;
   }
-}
+};
 
-
-export const getCluster = (payload: any) => ethers.utils.AbiCoder.prototype.encode(
-  ['tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool active) cluster'],
-  [payload]
-);
+export const getCluster = (payload: any) =>
+  ethers.utils.AbiCoder.prototype.encode(
+    [
+      'tuple(uint32 validatorCount, uint64 networkFee, uint64 networkFeeIndex, uint64 index, uint64 balance, bool active) cluster',
+    ],
+    [payload],
+  );
 
 export const coldRegisterValidator = async () => {
   await DB.ssvToken.approve(DB.ssvNetwork.contract.address, '1000000000000000');
@@ -299,7 +365,7 @@ export const coldRegisterValidator = async () => {
       networkFeeIndex: 0,
       index: 0,
       balance: 0,
-      active: true
-    }
+      active: true,
+    },
   );
 };
