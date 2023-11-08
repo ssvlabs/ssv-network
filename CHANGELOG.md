@@ -6,7 +6,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [v1.0.0.rc5] - 2023-10-02
+## [v1.0.1] - 2023-11-08
+
+- Add Quantstamp audit report
+
+## [v1.0.0] - 2023-10-02
 
 ### Fixed
 
@@ -15,6 +19,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 - [bf0c51d](https://github.com/bloxapp/ssv-network/pull/263/commits/bf0c51d4df191018052d11425c9fcc252de61431) A validator can voluntarily exit.
+- [ca3ad7f](https://github.com/bloxapp/ssv-network/commit/ca3ad7f3c77d732eb7d15510b0cc3a386eaf8eae) Add add SSVViews.getNetworkValidatorsCount()
 
 
 ## [v1.0.0.rc4] - 2023-08-31
@@ -25,3 +30,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The DAO can set a maximum operator fee (SSV)
 - Remove the setRegisterAuth function (register operator/validator without restrictions)
 - SSVNetworkViews contract does not throw an error as a way of return.
+
+## [Released]
+
+## [v1.0.0.rc3] - 2023-07-17
+
+- Audit fixes/recommendations
+- Improve delegate call logic in SSVNetwork contract
