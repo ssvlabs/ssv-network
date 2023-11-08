@@ -123,7 +123,6 @@ describe('Operator Fee Tests', () => {
   it('Declare fee too high reverts "FeeTooHigh" -> DAO updates limit -> declare fee emits "OperatorFeeDeclared"', async () => {
     const maxOperatorFee = 8e14;
     await ssvNetworkContract.updateMaximumOperatorFee(maxOperatorFee);
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[3].address, true, false);
 
     await ssvNetworkContract.connect(helpers.DB.owners[3]).registerOperator(helpers.DataGenerator.publicKey(10), maxOperatorFee);
     const newOperatorFee = maxOperatorFee + maxOperatorFee / 10;

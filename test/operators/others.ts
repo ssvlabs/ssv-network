@@ -14,7 +14,6 @@ describe('Others Operator Tests', () => {
   });
 
   it('Add fee recipient address emits "FeeRecipientAddressUpdated"', async () => {
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, true, false);
     await expect(ssvNetworkContract.connect(helpers.DB.owners[1]).setFeeRecipientAddress(
       helpers.DB.owners[2].address
     ))
@@ -37,7 +36,6 @@ describe('Others Operator Tests', () => {
   });
 
   it('Non-owner remove operator whitelisted address reverts "CallerNotOwner"', async () => {
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, true, false);
     const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(1),
       helpers.CONFIG.minimalOperatorFee
@@ -63,7 +61,6 @@ describe('Others Operator Tests', () => {
   });
 
   it('Non-owner update operator whitelisted address reverts "CallerNotOwner"', async () => {
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, true, false);
     const result = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerOperator(
       helpers.DataGenerator.publicKey(1),
       helpers.CONFIG.minimalOperatorFee

@@ -6,8 +6,10 @@ struct Authorization {
     bool registerValidator;
 }
 
+/// @notice Deprecated. Notice that if the library is used again,
+/// all the values in AuthData.authorization will still be available.
 library RegisterAuth {
-    uint256 constant private SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.auth")) - 1;
+    uint256 private constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.auth")) - 1;
 
     struct AuthData {
         mapping(address => Authorization) authorization;

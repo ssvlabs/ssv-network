@@ -12,7 +12,6 @@ import "./libraries/Types.sol";
 import "./libraries/CoreLib.sol";
 import "./libraries/SSVStorage.sol";
 import "./libraries/SSVStorageProtocol.sol";
-import "./libraries/RegisterAuth.sol";
 
 import "./SSVProxy.sol";
 
@@ -119,8 +118,6 @@ contract SSVNetwork is
     /*******************************/
 
     function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
-        if (!RegisterAuth.load().authorization[msg.sender].registerOperator) revert NotAuthorized();
-
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
@@ -175,8 +172,6 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
-        if (!RegisterAuth.load().authorization[msg.sender].registerValidator) revert NotAuthorized();
-
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -221,6 +216,10 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
+    function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
     function updateNetworkFee(uint256 fee) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
@@ -262,19 +261,5 @@ contract SSVNetwork is
     /*******************************/
     function updateModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
         CoreLib.setModuleContract(moduleId, moduleAddress);
-    }
-
-    /*******************************/
-    /* Register Authorization      */
-    /*******************************/
-    function setRegisterAuth(address userAddress, bool authOperator, bool authValidator) external override onlyOwner {
-        RegisterAuth.load().authorization[userAddress] = Authorization(authOperator, authValidator);
-    }
-
-    function getRegisterAuth(
-        address userAddress
-    ) external view override returns (bool authOperators, bool authValidators) {
-        Authorization memory auth = RegisterAuth.load().authorization[userAddress];
-        return (auth.registerOperator, auth.registerValidator);
     }
 }

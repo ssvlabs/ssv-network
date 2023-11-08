@@ -25,6 +25,9 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
+        version: "0.8.4",
+      },
+      {
         version: '0.8.18',
         settings: {
           optimizer: {
@@ -48,7 +51,17 @@ const config: HardhatUserConfig = {
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
-    apiKey: process.env.ETHERSCAN_KEY
+    apiKey: process.env.ETHERSCAN_KEY,
+    customChains: [
+      {
+        network: "holesky",
+        chainId: 17000,
+        urls: {
+          apiURL: "https://api-holesky.etherscan.io/api",
+          browserURL: "https://holesky.etherscan.io"
+        }
+      }
+    ]
   },
   gasReporter: {
     enabled: true,
@@ -74,6 +87,27 @@ if (process.env.GOERLI_ETH_NODE_URL) {
     goerli_testnet: {
       ...sharedConfig,
       ssvToken: '0x3a9f01091C446bdE031E39ea8354647AFef091E7'
+    } as SSVNetworkConfig,
+  }
+}
+
+if (process.env.HOLESKY_ETH_NODE_URL) {
+  const sharedConfig = {
+    url: process.env.HOLESKY_ETH_NODE_URL,
+    accounts: [`0x${process.env.HOLESKY_OWNER_PRIVATE_KEY}`],
+    gasPrice: +(process.env.GAS_PRICE || ''),
+    gas: +(process.env.GAS || ''),
+  };
+  //@ts-ignore
+  config.networks = {
+    ...config.networks,
+    holesky_development: {
+      ...sharedConfig,
+      ssvToken: '0x68A8DDD7a59A900E0657e9f8bbE02B70c947f25F'
+    } as SSVNetworkConfig,
+    holesky_testnet: {
+      ...sharedConfig,
+      ssvToken: '0xad45A78180961079BFaeEe349704F411dfF947C6'
     } as SSVNetworkConfig,
   }
 }

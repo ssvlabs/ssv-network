@@ -15,7 +15,7 @@ describe('Deposit Tests', () => {
     ssvViews = metadata.ssvViews;
 
     // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
 
     // Define the operator fee
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;

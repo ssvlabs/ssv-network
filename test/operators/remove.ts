@@ -13,7 +13,7 @@ describe('Remove Operator Tests', () => {
     ssvViews = metadata.ssvViews;
 
     // Register operators
-    await helpers.registerOperators(0, 5, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
 
     // Register a validator
     // cold register
@@ -26,9 +26,8 @@ describe('Remove Operator Tests', () => {
   });
 
   it('Remove private operator emits "OperatorRemoved"', async () => {
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[0].address, true, false);
     const result = await trackGas(ssvNetworkContract.registerOperator(
-      helpers.DataGenerator.publicKey(12),
+      helpers.DataGenerator.publicKey(22),
       helpers.CONFIG.minimalOperatorFee
     ));
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
@@ -53,7 +52,7 @@ describe('Remove Operator Tests', () => {
   });
 
   it('Remove operator with 0 balance emits "OperatorWithdrawn"', async () => {
-    await expect(ssvNetworkContract.removeOperator(5)).not.to.emit(ssvNetworkContract, 'OperatorWithdrawn');
+    await expect(ssvNetworkContract.removeOperator(14)).not.to.emit(ssvNetworkContract, 'OperatorWithdrawn');
   });
 
   it('Remove operator with a balance emits "OperatorWithdrawn"', async () => {

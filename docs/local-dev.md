@@ -12,15 +12,16 @@ Execute the steps to set up all tools needed.
 Copy [.env.example](../.env.example) to `.env` and edit to suit.
 - `[NETWORK]_ETH_NODE_URL` RPC URL of the node
 - `[NETWORK]_OWNER_PRIVATE_KEY` Private key of the deployer account, without 0x prefix
-- `GAS_PRICE` example 30000000000
-- `GAS` example 8000000
-- `ETHERSCAN_KEY` etherescan API key to verify deployed contracts
-- `SSVTOKEN_ADDRESS` SSV Token contract address to be used in custom networks. Keep it empty to deploy a mocked SSV token.
-- `MINIMUM_BLOCKS_BEFORE_LIQUIDATION` a number of blocks before the cluster enters into a liquidatable state. Example: 214800 = 30 days
-- `OPERATOR_MAX_FEE_INCREASE` the fee increase limit in percentage with this format: 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-- `DECLARE_OPERATOR_FEE_PERIOD` the period in which an operator can declare a fee change (seconds)
-- `EXECUTE_OPERATOR_FEE_PERIOD` the period in which an operator fee change can be executed (seconds)
-- `VALIDATORS_PER_OPERATOR_LIMIT` the number of validators an operator can manage
+- `GAS_PRICE` Example 30000000000
+- `GAS` Example 8000000
+- `ETHERSCAN_KEY` Etherescan API key to verify deployed contracts
+- `SSV_TOKEN_ADDRESS` SSV Token contract address to be used in custom networks. Keep it empty to deploy a mocked SSV token.
+- `MINIMUM_BLOCKS_BEFORE_LIQUIDATION` A number of blocks before the cluster enters into a liquidatable state. Example: 214800 = 30 days
+- `OPERATOR_MAX_FEE_INCREASE` The fee increase limit in percentage with this format: 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
+- `DECLARE_OPERATOR_FEE_PERIOD` The period in which an operator can declare a fee change (seconds)
+- `EXECUTE_OPERATOR_FEE_PERIOD` The period in which an operator fee change can be executed (seconds)
+- `VALIDATORS_PER_OPERATOR_LIMIT` The number of validators an operator can manage
+- `MINIMUM_LIQUIDATION_COLLATERAL` The lowest number in wei a cluster can have before its liquidatable
 
 
 #### Network configuration

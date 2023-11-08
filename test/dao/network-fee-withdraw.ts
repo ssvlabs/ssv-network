@@ -18,7 +18,7 @@ describe('DAO Network Fee Withdraw Tests', () => {
     networkFee = helpers.CONFIG.minimalOperatorFee;
 
     // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
 
     burnPerBlock = helpers.CONFIG.minimalOperatorFee * 4 + networkFee;
     minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * burnPerBlock;
@@ -26,7 +26,6 @@ describe('DAO Network Fee Withdraw Tests', () => {
     // Set network fee
     await ssvNetworkContract.updateNetworkFee(networkFee);
 
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[0].address, false, true);
     // Register validators
     // cold register
     await helpers.coldRegisterValidator();
@@ -34,9 +33,6 @@ describe('DAO Network Fee Withdraw Tests', () => {
     await helpers.registerValidators(4, 1, minDepositAmount, helpers.DataGenerator.cluster.new(), [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
     await utils.progressBlocks(10);
 
-    // Temporary till deposit logic not available
-    // Mint tokens
-    await helpers.DB.ssvToken.mint(ssvNetworkContract.address, minDepositAmount);
   });
 
   it('Withdraw network earnings emits "NetworkEarningsWithdrawn"', async () => {
@@ -68,5 +64,24 @@ describe('DAO Network Fee Withdraw Tests', () => {
     const amount = await ssvViews.getNetworkEarnings();
     await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).withdrawNetworkEarnings(amount
     )).to.be.revertedWith('Ownable: caller is not the owner');
+  });
+
+  it('Withdraw network earnings providing UINT64 max value reverts "Max value exceeded"', async () => {
+    const amount = (ethers.BigNumber.from(2).pow(64)).mul(ethers.BigNumber.from(1e8));
+    await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
+    )).to.be.revertedWith('Max value exceeded');
+  });
+
+  it('Withdraw network earnings sequentially when not enough balance reverts "InsufficientBalance"', async () => {
+    const amount = await ssvViews.getNetworkEarnings() / 2;
+
+    await ssvNetworkContract.withdrawNetworkEarnings(amount);
+    expect(await ssvViews.getNetworkEarnings()).to.be.equals(((networkFee * 13) + (networkFee * 11) - amount));
+
+    await ssvNetworkContract.withdrawNetworkEarnings(amount);
+    expect(await ssvViews.getNetworkEarnings()).to.be.equals(((networkFee * 14) + (networkFee * 12) - amount * 2));
+
+    await expect(ssvNetworkContract.withdrawNetworkEarnings(amount
+    )).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
 });

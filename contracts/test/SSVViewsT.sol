@@ -208,6 +208,10 @@ contract SSVViewsT is ISSVViews {
         return CoreLibT.getVersion();
     }
 
+    function getNetworkValidatorsCount() external view override returns (uint32) {
+        return SSVStorageProtocol.load().daoValidatorCount;
+    }
+
     function getMinOperatorsPerCluster() external view returns (uint64) {
         return SSVStorageUpgrade.load().minOperatorsPerCluster;
     }

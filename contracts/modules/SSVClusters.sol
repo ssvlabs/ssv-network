@@ -6,6 +6,7 @@ import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
+import "../libraries/ValidatorLib.sol";
 import "../libraries/SSVStorage.sol";
 import "../libraries/SSVStorageProtocol.sol";
 
@@ -145,27 +146,14 @@ contract SSVClusters is ISSVClusters {
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
-
-        bytes32 mask = ~bytes32(uint256(1)); // All bits set to 1 except LSB
-        bytes32 validatorData = s.validatorPKs[hashedValidator];
-
-        if (validatorData == bytes32(0)) {
-            revert ValidatorDoesNotExist();
-        }
-
-        bytes32 hashedOperatorIds = keccak256(abi.encodePacked(operatorIds)) & mask; // Clear LSB of provided operator ids
-        if ((validatorData & mask) != hashedOperatorIds) {
-            // Clear LSB of stored validator data and compare
-            revert IncorrectValidatorState();
-        }
+        bytes32 hashedValidator = ValidatorLib.validateState(publicKey, operatorIds, s);
 
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
 
         {
             if (cluster.active) {
-                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s);
                 StorageProtocol storage sp = SSVStorageProtocol.load();
+                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s, sp);
 
                 cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
@@ -182,7 +170,7 @@ contract SSVClusters is ISSVClusters {
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
 
-    function liquidate(address clusterOwner, uint64[] memory operatorIds, Cluster memory cluster) external override {
+    function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
         StorageData storage s = SSVStorage.load();
 
         bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
@@ -194,7 +182,8 @@ contract SSVClusters is ISSVClusters {
             operatorIds,
             false,
             cluster.validatorCount,
-            s
+            s,
+            sp
         );
 
         cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
@@ -244,7 +233,8 @@ contract SSVClusters is ISSVClusters {
             operatorIds,
             true,
             cluster.validatorCount,
-            s
+            s,
+            sp
         );
 
         cluster.balance += amount;
@@ -343,5 +333,11 @@ contract SSVClusters is ISSVClusters {
         CoreLib.transferBalance(msg.sender, amount);
 
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
+    }
+
+    function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
+        ValidatorLib.validateState(publicKey, operatorIds, SSVStorage.load());
+
+        emit ValidatorExited(msg.sender, operatorIds, publicKey);
     }
 }
