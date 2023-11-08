@@ -35,7 +35,7 @@ Do you think some things could be done better in the repo or have new ideas?
 
 SSV Network is committed to ensuring the security of our smart contracts. We've partnered with [Immunefi](https://immunefi.com/) to host a dedicated bug bounty program.
 
-If you believe you've identified a vulnerability within our project, we encourage you to report it via our [Immunefi Bug Bounty page](https://immunefi.com/bounty/ssvnetwork/). All submissions and communications regarding vulnerabilities will be managed by the Immunefi team.
+If you believe you've identified a vulnerability in our smart contracts, we encourage you to report it via our [Immunefi Bug Bounty page](https://immunefi.com/bounty/ssvnetwork/). All submissions and communications regarding vulnerabilities will be managed by the Immunefi team.
 
 Visit our [bounty page](https://immunefi.com/bounty/ssvnetwork/) to get detailed information on the types of vulnerabilities we're interested in, potential reward amounts, and the guidelines for participation.
 
