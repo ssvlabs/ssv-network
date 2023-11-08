@@ -46,12 +46,11 @@ describe('Register Validator Tests', () => {
   });
 
   it('Register validator with keyshare and operators json using ssv-keys', async () => {
-    await helpers.registerValidatorsWithKeystore(
+    await helpers.registerValidatorsWithKeystores(
       2,
-      1,
       minDepositAmount,
-      JSON.stringify(keystore),
-      'testtest',
+      [JSON.stringify(keystore)],
+      ['testtest'],
       operatorIds,
       operatorKeys,
     );
