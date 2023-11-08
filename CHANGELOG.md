@@ -19,7 +19,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 - [bf0c51d](https://github.com/bloxapp/ssv-network/pull/263/commits/bf0c51d4df191018052d11425c9fcc252de61431) A validator can voluntarily exit.
-- [ca3ad7f](https://github.com/bloxapp/ssv-network/commit/ca3ad7f3c77d732eb7d15510b0cc3a386eaf8eae) Add add SSVViews.getNetworkValidatorsCount()
+- [ca3ad7f](https://github.com/bloxapp/ssv-network/commit/ca3ad7f3c77d732eb7d15510b0cc3a386eaf8eae) Add SSVViews.getNetworkValidatorsCount()
 
 
 ## [v1.0.0.rc4] - 2023-08-31
