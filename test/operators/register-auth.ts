@@ -48,40 +48,4 @@ describe('Register Auth Operator Tests', () => {
       helpers.CONFIG.minimalOperatorFee
     )).to.be.revertedWithCustomError(ssvNetworkContract, 'NotAuthorized');
   });
-
-  it('Register validator with unauthorized address reverts "NotAuthorized"', async () => {
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
-      helpers.DataGenerator.publicKey(12),
-      [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
-      10000000,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true
-      }
-    )).to.be.revertedWithCustomError(ssvNetworkContract, 'NotAuthorized');
-
-  });
-
-  it('Register validator with unauthorized address reverts "NotAuthorized" (2)', async () => {
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[3].address, true, false);
-
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[3]).registerValidator(
-      helpers.DataGenerator.publicKey(12),
-      [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
-      10000000,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true
-      }
-    )).to.be.revertedWithCustomError(ssvNetworkContract, 'NotAuthorized');
-  });
-
 });

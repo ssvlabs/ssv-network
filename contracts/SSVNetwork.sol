@@ -175,8 +175,6 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
-        if (!RegisterAuth.load().authorization[msg.sender].registerValidator) revert NotAuthorized();
-
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
