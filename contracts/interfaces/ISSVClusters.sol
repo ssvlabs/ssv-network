@@ -119,5 +119,5 @@ interface ISSVClusters is ISSVNetworkCore {
      * @param operatorIds The operator IDs managing the validator.
      * @param publicKey The public key of the exiting validator.
      */
-    event ValidatorExited(address owner, uint64[] operatorIds, bytes indexed publicKey);
+    event ValidatorExited(address indexed owner, uint64[] operatorIds, bytes publicKey);
 }
