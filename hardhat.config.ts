@@ -126,4 +126,17 @@ if (process.env.MAINNET_ETH_NODE_URL) {
   }
 }
 
+if (process.env.DEVNET_ETH_NODE_URL) {
+  //@ts-ignore
+  config.networks = {
+    ...config.networks,
+    devnet: {
+      url: process.env.DEVNET_ETH_NODE_URL,
+      accounts: [`0x${process.env.DEVNET_OWNER_PRIVATE_KEY}`],
+      gasPrice: +(process.env.GAS_PRICE || ''),
+      gas: +(process.env.GAS || ''),
+    } as SSVNetworkConfig
+  }
+}
+
 export default config;
