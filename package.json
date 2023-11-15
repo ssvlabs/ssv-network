@@ -33,8 +33,8 @@
     "hardhat-tracer": "^1.2.1",
     "prompts": "^2.4.2",
     "simple-git": "^3.16.1",
+    "ssv-keys": "github:bloxapp/ssv-keys#v1.0.5-dev",
     "ts-node": "^10.7.0",
-    "typescript": "^4.6.3",
-    "ssv-keys": "github:bloxapp/ssv-keys#v1.0.5-dev"
+    "typescript": "^4.6.3"
   }
 }
