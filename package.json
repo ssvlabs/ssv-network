@@ -1,5 +1,6 @@
 {
   "name": "ssv-network",
+  "version": "v1.0.2",
   "scripts": {
     "build": "npx hardhat compile",
     "test": "npx hardhat test",
