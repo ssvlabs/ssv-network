@@ -6,7 +6,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [v1.0.0.rc5] - 2023-10-02
+## [v1.0.2] 2023-11-08
+- [8f5df42](https://github.com/bloxapp/ssv-network/commit/8f5df42633d2b92c6bb70253a41e6afa80b9f111) - Change ValidatorExited signature: owner indexed.
+
+## [v1.0.1] 2023-11-08
+
+### Added
+- [0ab954e](https://github.com/bloxapp/ssv-network/commit/0ab954ec24fc0b32b51c278958c3d51480940f1a) - Permissionless audited version.
+
+
+## [v1.0.0-rc3-permissionless-validators] 2023-11-08
+Takes v1.0.0-rc3 as the base tag.
+- [8878241](https://github.com/bloxapp/ssv-network/commit/88782410ad3223c75f205484811a010231c64152) Enable permissionless validator registration.
+
+
+## [v1.0.0] - 2023-10-30
 
 ### Fixed
 
