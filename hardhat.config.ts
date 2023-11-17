@@ -75,6 +75,7 @@ const config: HardhatUserConfig = {
     flat: true,
     spacing: 2,
     pretty: false,
+    only: ['contracts/SSVNetwork.sol', 'contracts/SSVNetworkViews.sol'],
   },
 };
 
