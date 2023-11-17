@@ -34,40 +34,11 @@ npm login
 
 ## Configure GitHub Actions for Automated Publishing
 
-- Create a `.github/workflows/publish.yaml` file in your project.
+- Create a [.github/workflows/publish.yaml](../.github/workflows/publish.yaml) file in your project.
 - Define the npm publishing process using GitHub Actions:
-
-```
-name: Publish npm package
-
-on:
-  release:
-    types: [created]
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Use Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '16'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Publish to npm
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-```
-
 - Add your npm token `NPM_TOKEN` to the GitHub repository secrets (Settings > Secrets).
 
 ## Publish Package
 
-- Push some changes to the `main` branch of the `ssv_network` GitHub repository.
+- Generate a release in the `main` branch of the `ssv_network` GitHub repository.
 - The GitHub Actions workflow will automatically publish the package to npm.
