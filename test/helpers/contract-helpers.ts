@@ -3,8 +3,8 @@ declare const ethers: any;
 import { SSVKeys, KeyShares, EncryptShare } from 'ssv-keys';
 import { trackGas, GasGroup } from './gas-usage';
 import { Validator, Operator } from './types';
-import validatorKeys from '../json/validatorKeys.json';
-import operatorKeys from '../json/operatorKeys.json';
+import validatorKeys from './json/validatorKeys.json';
+import operatorKeys from './json/operatorKeys.json';
 
 export let DB: any;
 export let CONFIG: any;
@@ -102,7 +102,7 @@ export const getClusterForValidator = (
 
 export const initializeContract = async () => {
   CONFIG = {
-    initialVersion: 'v1.0.0.rc5',
+    initialVersion: 'v1.0.2',
     operatorMaxFeeIncrease: 1000,
     declareOperatorFeePeriod: 3600, // HOUR
     executeOperatorFeePeriod: 86400, // DAY
