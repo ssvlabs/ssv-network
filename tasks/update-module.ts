@@ -7,6 +7,7 @@ This task first deploys a new version of a specified SSV module contract, and th
 The module's name is required and it's expected to match one of the SSVModules enumeration values.
 The address of the SSVNetwork Proxy is expected to be set in the environment variable SSVNETWORK_PROXY_ADDRESS.
 @param {string} module - The name of the SSV module to be updated.
+@param {string} contract - The name of the new SSV contract to be used for updating.
 @param {boolean} attachModule - Flag to attach new deployed module to SSVNetwork contract. Dafaults to true.
 @param {string} proxyAddress - The proxy address of the SSVNetwork contract.
 @example
