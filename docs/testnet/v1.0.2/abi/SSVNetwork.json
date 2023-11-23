@@ -1,12 +1,6 @@
 [
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_registerAuth",
-        "type": "address"
-      }
-    ],
+    "inputs": [],
     "stateMutability": "nonpayable",
     "type": "constructor"
   },
@@ -62,6 +56,11 @@
   },
   {
     "inputs": [],
+    "name": "FeeTooHigh",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "FeeTooLow",
     "type": "error"
   },
@@ -88,6 +87,11 @@
   {
     "inputs": [],
     "name": "InvalidPublicKeyLength",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxValueExceeded",
     "type": "error"
   },
   {
@@ -123,6 +127,11 @@
   {
     "inputs": [],
     "name": "SameFeeChangeNotAllowed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TargetModuleDoesNotExist",
     "type": "error"
   },
   {
@@ -566,7 +575,7 @@
         "type": "uint64"
       }
     ],
-    "name": "OperatorFeeCancellationDeclared",
+    "name": "OperatorFeeDeclarationCancelled",
     "type": "event"
   },
   {
@@ -642,6 +651,19 @@
       }
     ],
     "name": "OperatorFeeIncreaseLimitUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "maxFee",
+        "type": "uint64"
+      }
+    ],
+    "name": "OperatorMaximumFeeUpdated",
     "type": "event"
   },
   {
@@ -836,6 +858,31 @@
         "internalType": "bytes",
         "name": "publicKey",
         "type": "bytes"
+      }
+    ],
+    "name": "ValidatorExited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64[]",
+        "name": "operatorIds",
+        "type": "uint64[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
       },
       {
         "components": [
@@ -875,6 +922,10 @@
     "type": "event"
   },
   {
+    "stateMutability": "nonpayable",
+    "type": "fallback"
+  },
+  {
     "inputs": [],
     "name": "acceptOwnership",
     "outputs": [],
@@ -892,48 +943,6 @@
     "name": "cancelDeclaredOperatorFee",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "name": "clusters",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "dao",
-    "outputs": [
-      {
-        "internalType": "uint32",
-        "name": "validatorCount",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint64",
-        "name": "balance",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "block",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -958,7 +967,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "owner",
+        "name": "clusterOwner",
         "type": "address"
       },
       {
@@ -1025,29 +1034,60 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "initialVersion_",
-        "type": "string"
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
       },
+      {
+        "internalType": "uint64[]",
+        "name": "operatorIds",
+        "type": "uint64[]"
+      }
+    ],
+    "name": "exitValidator",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getVersion",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "version",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
         "internalType": "contract IERC20",
         "name": "token_",
         "type": "address"
       },
       {
-        "internalType": "uint64",
-        "name": "operatorMaxFeeIncrease_",
-        "type": "uint64"
+        "internalType": "contract ISSVOperators",
+        "name": "ssvOperators_",
+        "type": "address"
       },
       {
-        "internalType": "uint64",
-        "name": "declareOperatorFeePeriod_",
-        "type": "uint64"
+        "internalType": "contract ISSVClusters",
+        "name": "ssvClusters_",
+        "type": "address"
       },
       {
-        "internalType": "uint64",
-        "name": "executeOperatorFeePeriod_",
-        "type": "uint64"
+        "internalType": "contract ISSVDAO",
+        "name": "ssvDAO_",
+        "type": "address"
+      },
+      {
+        "internalType": "contract ISSVViews",
+        "name": "ssvViews_",
+        "type": "address"
       },
       {
         "internalType": "uint64",
@@ -1063,6 +1103,21 @@
         "internalType": "uint32",
         "name": "validatorsPerOperatorLimit_",
         "type": "uint32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "declareOperatorFeePeriod_",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "executeOperatorFeePeriod_",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "operatorMaxFeeIncrease_",
+        "type": "uint64"
       }
     ],
     "name": "initialize",
@@ -1074,7 +1129,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "owner",
+        "name": "clusterOwner",
         "type": "address"
       },
       {
@@ -1118,196 +1173,6 @@
     "name": "liquidate",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "minimumBlocksBeforeLiquidation",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "minimumLiquidationCollateral",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "network",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "networkFee",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "networkFeeIndex",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "networkFeeIndexBlockNumber",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "name": "operatorFeeChangeRequests",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "fee",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "approvalBeginTime",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "approvalEndTime",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "operatorFeeConfig",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "declareOperatorFeePeriod",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "executeOperatorFeePeriod",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "operatorMaxFeeIncrease",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "name": "operators",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "internalType": "uint64",
-        "name": "fee",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint32",
-        "name": "validatorCount",
-        "type": "uint32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint64",
-            "name": "block",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "index",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "balance",
-            "type": "uint64"
-          }
-        ],
-        "internalType": "struct ISSVNetworkCore.Snapshot",
-        "name": "snapshot",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "name": "operatorsPKs",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "name": "operatorsWhitelist",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1657,12 +1522,43 @@
   {
     "inputs": [
       {
+        "internalType": "uint64",
+        "name": "maxFee",
+        "type": "uint64"
+      }
+    ],
+    "name": "updateMaximumOperatorFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
       }
     ],
     "name": "updateMinimumLiquidationCollateral",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum SSVModules",
+        "name": "moduleId",
+        "type": "uint8"
+      },
+      {
+        "internalType": "address",
+        "name": "moduleAddress",
+        "type": "address"
+      }
+    ],
+    "name": "updateModule",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1727,56 +1623,6 @@
   {
     "inputs": [
       {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "name": "validatorPKs",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "hashedOperatorIds",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "bool",
-        "name": "active",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "validatorsPerOperatorLimit",
-    "outputs": [
-      {
-        "internalType": "uint32",
-        "name": "",
-        "type": "uint32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "version",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
@@ -1827,6 +1673,19 @@
   {
     "inputs": [
       {
+        "internalType": "uint64",
+        "name": "operatorId",
+        "type": "uint64"
+      }
+    ],
+    "name": "withdrawAllOperatorEarnings",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
@@ -1848,19 +1707,6 @@
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
-      }
-    ],
-    "name": "withdrawOperatorEarnings",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "operatorId",
-        "type": "uint64"
       }
     ],
     "name": "withdrawOperatorEarnings",
