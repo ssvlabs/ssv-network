@@ -108,6 +108,7 @@ task("deploy:token", "Deploys SSV Token")
 */
 subtask("deploy:mock-token", "Deploys / fetch SSV Token")
     .setAction(async ({ }, hre) => {
+        console.log("SSVMockToken checking token")
         const tokenAddress = hre.network.config.ssvToken;
         if (tokenAddress) return tokenAddress;
 
