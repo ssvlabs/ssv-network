@@ -116,6 +116,8 @@ subtask("deploy:mock-token", "Deploys / fetch SSV Token")
         const ssvToken = await ssvTokenFactory.deploy();
         await ssvToken.deployed();
 
+        console.log("SSVMockToken deployed to:", ssvToken.address)
+
         return ssvToken.address;
     });
 
