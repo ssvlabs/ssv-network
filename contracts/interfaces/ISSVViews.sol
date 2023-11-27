@@ -85,6 +85,8 @@ interface ISSVViews is ISSVNetworkCore {
         Cluster memory cluster
     ) external view returns (uint256 balance);
 
+    function getNetworkFeeIndex() external view returns (uint256);
+
     /// @notice Gets the network fee
     /// @return networkFee The fee associated with the network (SSV)
     function getNetworkFee() external view returns (uint256 networkFee);

@@ -62,6 +62,7 @@ contract SSVOperators is ISSVOperators {
         operator.snapshot.balance = 0;
         operator.validatorCount = 0;
         operator.fee = 0;
+        operator.whitelisted = false;
 
         s.operators[operatorId] = operator;
 

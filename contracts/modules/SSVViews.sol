@@ -9,6 +9,7 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/SSVStorage.sol";
 import "../libraries/SSVStorageProtocol.sol";
+import "hardhat/console.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -162,6 +163,10 @@ contract SSVViews is ISSVViews {
     /*******************************/
     /* DAO External View Functions */
     /*******************************/
+
+    function getNetworkFeeIndex() external view override returns (uint256) {
+        return SSVStorageProtocol.load().currentNetworkFeeIndex();
+    }
 
     function getNetworkFee() external view override returns (uint256) {
         return SSVStorageProtocol.load().networkFee.expand();

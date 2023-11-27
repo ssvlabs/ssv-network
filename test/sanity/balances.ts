@@ -41,14 +41,17 @@ describe('Balance Tests', () => {
   });
 
   it.only('Check cluster balance with removing operator', async () => {
-    //await utils.progressBlocks(1);
     const operatorIds = cluster1.args.operatorIds;
     const cluster = cluster1.args.cluster;
-    for (let i = 1; i <= 4; i++) {
-      await ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(5 - i);
-      // await ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(i);
+    let prevBalance: any;
+    for (let i = 1; i <= 13; i++) {
+      await ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(i);
       let balance = await ssvViews.getBalance(helpers.DB.owners[4].address, operatorIds, cluster);
-      console.log(balance.toString());
+      let networkFee = await ssvViews.getNetworkFee();
+      if (i > 4) {
+        expect(prevBalance - balance).to.equal(networkFee);
+      }
+      prevBalance = balance;
     }
   });
 

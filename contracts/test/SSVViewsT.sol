@@ -166,6 +166,9 @@ contract SSVViewsT is ISSVViews {
     /*******************************/
     /* DAO External View Functions */
     /*******************************/
+    function getNetworkFeeIndex() external view override returns (uint256) {
+        return SSVStorageProtocol.load().currentNetworkFeeIndex();
+    }
 
     function getNetworkFee() external view override returns (uint256) {
         return SSVStorageProtocol.load().networkFee.expand();
