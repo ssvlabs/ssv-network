@@ -40,8 +40,8 @@ const config: HardhatUserConfig = {
   },
   networks: {
     devnet: {
-      url: process.env.DEVNET_ETH_NODE_URL,
-      accounts: [`0x${process.env.DEVNET_OWNER_PRIVATE_KEY}`],
+      url: "http://geth:8545",
+      accounts: [`0x2e0834786285daccd064ca17f1654f67b4aef298acbb82cef9ec422fb4975622`],
       gasPrice: +(process.env.GAS_PRICE || ''),
       gas: +(process.env.GAS || ''),
     } as SSVNetworkConfig
