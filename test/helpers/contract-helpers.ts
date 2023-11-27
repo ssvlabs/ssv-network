@@ -30,7 +30,7 @@ const getSecretSharedPayload = async (validator: Validator, operatorIds: number[
     },
     {
       ownerAddress: DB.owners[ownerId].address,
-      ownerNonce: 1,
+      ownerNonce: DB.ownerNonce,
       privateKey,
     },
   );
@@ -127,6 +127,7 @@ export const initializeContract = async () => {
     ssvClustersMod: {},
     ssvDAOMod: {},
     ssvViewsMod: {},
+    ownerNonce: 0,
   };
 
   SSV_MODULES = {
@@ -294,7 +295,7 @@ export const registerValidators = async (
         .registerValidator(payload.publicKey, payload.operatorIds, payload.sharesData, amount, cluster),
       gasGroups,
     );
-
+    DB.ownerNonce++;
     DB.registeredValidators.push({ id: validator.id, payload });
     regValidators.push({ publicKey: payload.publicKey, shares: payload.sharesData });
     args = result.eventsByName.ValidatorAdded[0].args;
