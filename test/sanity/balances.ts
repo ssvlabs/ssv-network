@@ -40,7 +40,7 @@ describe('Balance Tests', () => {
     initNetworkFeeBalance = await ssvViews.getNetworkEarnings();
   });
 
-  it.only('Check cluster balance with removing operator', async () => {
+  it('Check cluster balance with removing operator', async () => {
     const operatorIds = cluster1.args.operatorIds;
     const cluster = cluster1.args.cluster;
     let prevBalance: any;
