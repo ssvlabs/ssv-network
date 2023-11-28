@@ -1,5 +1,5 @@
-import { task, subtask, types } from "hardhat/config";
-import { SSVModules } from "./config";
+import { task, subtask, types } from 'hardhat/config';
+import { SSVModules } from './config';
 
 /**
 @title Hardhat task to deploy all required contracts for SSVNetwork.
@@ -15,32 +15,31 @@ The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
 This task assumes that the SSVModules enum and deployment tasks for individual contracts have been properly defined.
 */
-task("deploy:all", "Deploy SSVNetwork, SSVNetworkViews and module contracts")
-    .setAction(async ({ }, hre) => {
-        const [deployer] = await ethers.getSigners();
-        console.log(`Deploying contracts with the account:${deployer.address}`);
+task('deploy:all', 'Deploy SSVNetwork, SSVNetworkViews and module contracts').setAction(async ({}, hre) => {
+  // Triggering compilation
+  await hre.run('compile');
 
-        const ssvTokenAddress = await hre.run("deploy:mock-token");
-        const operatorsModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVOperators] });
-        const clustersModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVClusters] });
-        const daoModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVDAO] });
-        const viewsModAddress = await hre.run("deploy:module", { module: SSVModules[SSVModules.SSVViews] });
+  const [deployer] = await ethers.getSigners();
+  console.log(`Deploying contracts with the account:${deployer.address}`);
 
-        const { ssvNetworkProxyAddress: ssvNetworkAddress } = await hre.run("deploy:ssv-network",
-            {
-                operatorsModAddress,
-                clustersModAddress,
-                daoModAddress,
-                viewsModAddress,
-                ssvTokenAddress
-            });
+  const ssvTokenAddress = await hre.run('deploy:mock-token');
+  const operatorsModAddress = await hre.run('deploy:module', { module: SSVModules[SSVModules.SSVOperators] });
+  const clustersModAddress = await hre.run('deploy:module', { module: SSVModules[SSVModules.SSVClusters] });
+  const daoModAddress = await hre.run('deploy:module', { module: SSVModules[SSVModules.SSVDAO] });
+  const viewsModAddress = await hre.run('deploy:module', { module: SSVModules[SSVModules.SSVViews] });
 
-        await hre.run("deploy:ssv-network-views",
-            {
-                ssvNetworkAddress
-            });
-    });
+  const { ssvNetworkProxyAddress: ssvNetworkAddress } = await hre.run('deploy:ssv-network', {
+    operatorsModAddress,
+    clustersModAddress,
+    daoModAddress,
+    viewsModAddress,
+    ssvTokenAddress,
+  });
 
+  await hre.run('deploy:ssv-network-views', {
+    ssvNetworkAddress,
+  });
+});
 
 /**
 @title Hardhat task to deploy a main implementation contract for SSVNetwork or SSVNetworkViews.
@@ -56,13 +55,11 @@ The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
 This task uses the "deploy:impl" subtask for the actual deployment.
 */
-task("deploy:main-impl", "Deploys SSVNetwork / SSVNetworkViews implementation contract")
-    .addParam("contract", "New contract implemetation", null, types.string)
-    .setAction(async ({ contract }, hre) => {
-
-        await hre.run("deploy:impl", { contract });
-    });
-
+task('deploy:main-impl', 'Deploys SSVNetwork / SSVNetworkViews implementation contract')
+  .addParam('contract', 'New contract implemetation', null, types.string)
+  .setAction(async ({ contract }, hre) => {
+    await hre.run('deploy:impl', { contract });
+  });
 
 /**
 @title Hardhat subtask to deploy an SSV module contract.
@@ -76,48 +73,45 @@ The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
 This subtask uses the "deploy:impl" subtask for the actual deployment.
 */
-subtask("deploy:module", "Deploys a new module contract")
-    .addParam("module", "SSV Module", null, types.string)
-    .setAction(async ({ module }, hre) => {
-        const moduleValues = Object.values(SSVModules);
-        if (!moduleValues.includes(module)) {
-            throw new Error(`Invalid SSVModule: ${module}. Expected one of: ${moduleValues.join(", ")}`);
-        }
+subtask('deploy:module', 'Deploys a new module contract')
+  .addParam('module', 'SSV Module', null, types.string)
+  .setAction(async ({ module }, hre) => {
+    const moduleValues = Object.values(SSVModules);
+    if (!moduleValues.includes(module)) {
+      throw new Error(`Invalid SSVModule: ${module}. Expected one of: ${moduleValues.join(', ')}`);
+    }
 
-        const moduleAddress = await hre.run("deploy:impl", { contract: module });
-        return moduleAddress;
-    });
+    const moduleAddress = await hre.run('deploy:impl', { contract: module });
+    return moduleAddress;
+  });
 
-task("deploy:token", "Deploys SSV Token")
-    .setAction(async ({ }, hre) => {
-        console.log('Deploying SSV Network Token');
+task('deploy:token', 'Deploys SSV Token').setAction(async ({}, hre) => {
+  console.log('Deploying SSV Network Token');
 
-        const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
-        const ssvToken = await ssvTokenFactory.deploy();
-        await ssvToken.deployed();
+  const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
+  const ssvToken = await ssvTokenFactory.deploy();
+  await ssvToken.deployed();
 
-        console.log(`SSV Network Token deployed to: ${ssvToken.address}`);
-
-    });
+  console.log(`SSV Network Token deployed to: ${ssvToken.address}`);
+});
 
 /**
-* @title Hardhat subtask to deploy or fetch an SSV Token contract.
-* The ssvToken parameter in the hardhat's network section, specifies the address of the SSV Token contract. 
-* If not provided, it will deploy a new MockToken contract.
-* @returns {string} The address of the deployed or fetched SSV Token contract.
-*/
-subtask("deploy:mock-token", "Deploys / fetch SSV Token")
-    .setAction(async ({ }, hre) => {
-        const tokenAddress = hre.network.config.ssvToken;
-        if (tokenAddress) return tokenAddress;
+ * @title Hardhat subtask to deploy or fetch an SSV Token contract.
+ * The ssvToken parameter in the hardhat's network section, specifies the address of the SSV Token contract.
+ * If not provided, it will deploy a new MockToken contract.
+ * @returns {string} The address of the deployed or fetched SSV Token contract.
+ */
+subtask('deploy:mock-token', 'Deploys / fetch SSV Token').setAction(async ({}, hre) => {
+  const tokenAddress = hre.network.config.ssvToken;
+  if (tokenAddress) return tokenAddress;
 
-        // Local networks, deploy mock token
-        const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
-        const ssvToken = await ssvTokenFactory.deploy();
-        await ssvToken.deployed();
+  // Local networks, deploy mock token
+  const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
+  const ssvToken = await ssvTokenFactory.deploy();
+  await ssvToken.deployed();
 
-        return ssvToken.address;
-    });
+  return ssvToken.address;
+});
 
 /**
 @title Hardhat subtask to deploy a new implementation contract.
@@ -130,19 +124,22 @@ The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
 The contract specified should be already compiled and exist in the 'artifacts' directory.
 */
-subtask("deploy:impl", "Deploys an implementation contract")
-    .addParam("contract", "New contract implemetation", null, types.string)
-    .setAction(async ({ contract }) => {
-        // Initialize contract
-        const contractFactory = await ethers.getContractFactory(contract);
+subtask('deploy:impl', 'Deploys an implementation contract')
+  .addParam('contract', 'New contract implemetation', null, types.string)
+  .setAction(async ({ contract }, hre) => {
+    // Triggering compilation
+    await hre.run('compile');
 
-        // Deploy implemetation contract
-        const contractImpl = await contractFactory.deploy();
-        await contractImpl.deployed();
-        console.log(`${contract} implementation deployed to: ${contractImpl.address}`);
+    // Initialize contract
+    const contractFactory = await ethers.getContractFactory(contract);
 
-        return contractImpl.address;
-    });
+    // Deploy implemetation contract
+    const contractImpl = await contractFactory.deploy();
+    await contractImpl.deployed();
+    console.log(`${contract} implementation deployed to: ${contractImpl.address}`);
+
+    return contractImpl.address;
+  });
 
 /**
 @title Hardhat subtask to deploy the SSVNetwork contract.
@@ -161,50 +158,46 @@ The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
 The 'SSVNetwork' contract specified should be already compiled and exist in the 'artifacts' directory.
 */
-subtask("deploy:ssv-network", "Deploys SSVNetwork contract")
-    .addPositionalParam("operatorsModAddress", "Operators module address", null, types.string)
-    .addPositionalParam("clustersModAddress", "Clusters module address", null, types.string)
-    .addPositionalParam("daoModAddress", "DAO module address", null, types.string)
-    .addPositionalParam("viewsModAddress", "Views module address", null, types.string)
-    .addPositionalParam("ssvTokenAddress", "SSV Token address", null, types.string)
-    .setAction(async ({
+subtask('deploy:ssv-network', 'Deploys SSVNetwork contract')
+  .addPositionalParam('operatorsModAddress', 'Operators module address', null, types.string)
+  .addPositionalParam('clustersModAddress', 'Clusters module address', null, types.string)
+  .addPositionalParam('daoModAddress', 'DAO module address', null, types.string)
+  .addPositionalParam('viewsModAddress', 'Views module address', null, types.string)
+  .addPositionalParam('ssvTokenAddress', 'SSV Token address', null, types.string)
+  .setAction(async ({ operatorsModAddress, clustersModAddress, daoModAddress, viewsModAddress, ssvTokenAddress }) => {
+    const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+
+    // deploy SSVNetwork
+    console.log(`Deploying SSVNetwork with ssvToken ${ssvTokenAddress}`);
+    const ssvNetwork = await upgrades.deployProxy(
+      ssvNetworkFactory,
+      [
+        ssvTokenAddress,
         operatorsModAddress,
         clustersModAddress,
         daoModAddress,
         viewsModAddress,
-        ssvTokenAddress }) => {
+        process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+        process.env.MINIMUM_LIQUIDATION_COLLATERAL,
+        process.env.VALIDATORS_PER_OPERATOR_LIMIT,
+        process.env.DECLARE_OPERATOR_FEE_PERIOD,
+        process.env.EXECUTE_OPERATOR_FEE_PERIOD,
+        process.env.OPERATOR_MAX_FEE_INCREASE,
+      ],
+      {
+        kind: 'uups',
+      },
+    );
+    await ssvNetwork.deployed();
 
+    const ssvNetworkProxyAddress = ssvNetwork.address;
+    const ssvNetworkImplAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
 
-        const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+    console.log(`SSVNetwork proxy deployed to: ${ssvNetworkProxyAddress}`);
+    console.log(`SSVNetwork implementation deployed to: ${ssvNetworkImplAddress}`);
 
-        // deploy SSVNetwork
-        console.log(`Deploying SSVNetwork with ssvToken ${ssvTokenAddress}`);
-        const ssvNetwork = await upgrades.deployProxy(ssvNetworkFactory, [
-            ssvTokenAddress,
-            operatorsModAddress,
-            clustersModAddress,
-            daoModAddress,
-            viewsModAddress,
-            process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
-            process.env.MINIMUM_LIQUIDATION_COLLATERAL,
-            process.env.VALIDATORS_PER_OPERATOR_LIMIT,
-            process.env.DECLARE_OPERATOR_FEE_PERIOD,
-            process.env.EXECUTE_OPERATOR_FEE_PERIOD,
-            process.env.OPERATOR_MAX_FEE_INCREASE
-        ],
-            {
-                kind: "uups"
-            });
-        await ssvNetwork.deployed();
-
-        const ssvNetworkProxyAddress = ssvNetwork.address;
-        const ssvNetworkImplAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
-
-        console.log(`SSVNetwork proxy deployed to: ${ssvNetworkProxyAddress}`);
-        console.log(`SSVNetwork implementation deployed to: ${ssvNetworkImplAddress}`);
-
-        return { ssvNetworkProxyAddress, ssvNetworkImplAddress };
-    });
+    return { ssvNetworkProxyAddress, ssvNetworkImplAddress };
+  });
 
 /**
 @title Hardhat subtask to deploy the SSVNetworkViews contract.
@@ -217,26 +210,22 @@ The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
 The 'SSVNetworkViews' contract specified should be already compiled and exist in the 'artifacts' directory.
 */
-subtask("deploy:ssv-network-views", "Deploys SSVNetworkViews contract")
-    .addParam("ssvNetworkAddress", "SSVNetwork address", null, types.string)
-    .setAction(async ({
-        ssvNetworkAddress }) => {
-        const ssvNetworkViewsFactory = await ethers.getContractFactory('SSVNetworkViews');
+subtask('deploy:ssv-network-views', 'Deploys SSVNetworkViews contract')
+  .addParam('ssvNetworkAddress', 'SSVNetwork address', null, types.string)
+  .setAction(async ({ ssvNetworkAddress }) => {
+    const ssvNetworkViewsFactory = await ethers.getContractFactory('SSVNetworkViews');
 
-        // deploy SSVNetwork
-        const ssvNetworkViews = await upgrades.deployProxy(ssvNetworkViewsFactory, [
-            ssvNetworkAddress
-        ],
-            {
-                kind: "uups"
-            });
-        await ssvNetworkViews.deployed();
-
-        const ssvNetworkViewsProxyAddress = ssvNetworkViews.address;
-        const ssvNetworkViewsImplAddress = await upgrades.erc1967.getImplementationAddress(ssvNetworkViews.address);
-
-        console.log(`SSVNetworkViews proxy deployed to: ${ssvNetworkViewsProxyAddress}`);
-        console.log(`SSVNetworkViews implementation deployed to: ${ssvNetworkViewsImplAddress}`);
-
-        return { ssvNetworkViewsProxyAddress, ssvNetworkViewsImplAddress };
+    // deploy SSVNetwork
+    const ssvNetworkViews = await upgrades.deployProxy(ssvNetworkViewsFactory, [ssvNetworkAddress], {
+      kind: 'uups',
     });
+    await ssvNetworkViews.deployed();
+
+    const ssvNetworkViewsProxyAddress = ssvNetworkViews.address;
+    const ssvNetworkViewsImplAddress = await upgrades.erc1967.getImplementationAddress(ssvNetworkViews.address);
+
+    console.log(`SSVNetworkViews proxy deployed to: ${ssvNetworkViewsProxyAddress}`);
+    console.log(`SSVNetworkViews implementation deployed to: ${ssvNetworkViewsImplAddress}`);
+
+    return { ssvNetworkViewsProxyAddress, ssvNetworkViewsImplAddress };
+  });
