@@ -55,7 +55,7 @@ describe('Balance Tests', () => {
     }
   });
 
-  it.only('Check cluster balance after removing operator, progress blocks and confirm', async () => {
+  it('Check cluster balance after removing operator, progress blocks and confirm', async () => {
     const operatorIds = cluster1.args.operatorIds;
     const cluster = cluster1.args.cluster;
     const owner = cluster1.args.owner;
