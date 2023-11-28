@@ -127,7 +127,7 @@ After this action, you can go to the proxy contract in Etherscan and start inter
 
 ### How to resolve issues during the verification
 
-- Error: no such file ro directory, open ‘…/artifacts/build-info/XXXX...XXXX.json’
+- Error: no such file or directory, open ‘…/artifacts/build-info/XXXX...XXXX.json’
 
 This issue can be resolved by executing the following commands.
 
