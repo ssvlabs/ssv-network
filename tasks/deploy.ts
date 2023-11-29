@@ -86,6 +86,9 @@ subtask('deploy:module', 'Deploys a new module contract')
   });
 
 task('deploy:token', 'Deploys SSV Token').setAction(async ({}, hre) => {
+  // Triggering compilation
+  await hre.run('compile');
+
   console.log('Deploying SSV Network Token');
 
   const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
