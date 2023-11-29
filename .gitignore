@@ -8,7 +8,7 @@ coverage
 coverage.json
 artifacts
 typechain-types/
-.openzeppelin/dev-*.json
+.openzeppelin/*.json
 .DS_Store
 .history
 .dccache
