@@ -108,7 +108,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
     /*******************************/
     /* DAO External View Functions */
     /*******************************/
-    
+
     function getNetworkFee() external view override returns (uint256) {
         return ssvNetwork.getNetworkFee();
     }

@@ -55,7 +55,7 @@ describe('Balance Tests', () => {
     }
   });
 
-  it.only('Check cluster balance after removing operator, progress blocks and confirm', async () => {
+  it('Check cluster balance after removing operator, progress blocks and confirm', async () => {
     const operatorIds = cluster1.args.operatorIds;
     const cluster = cluster1.args.cluster;
     const owner = cluster1.args.owner;
@@ -82,21 +82,24 @@ describe('Balance Tests', () => {
       'OperatorDoesNotExist',
     );
 
-    // // try to remove the validator again and check the operator removed is skipped
-    // await ssvNetworkContract
-    //   .connect(helpers.DB.owners[0])
-    //   .removeValidator(helpers.DataGenerator.publicKey(1), operatorIds, cluster);
+    // try to remove the validator again and check the operator removed is skipped
+    const removed = await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[0])
+        .removeValidator(helpers.DataGenerator.publicKey(1), operatorIds, cluster),
+    );
+    const cluster2 = removed.eventsByName.ValidatorRemoved[0];
 
     // try to liquidate
-    await expect(ssvNetworkContract.connect(helpers.DB.owners[0]).liquidate(owner, operatorIds, cluster)).to.emit(
-      ssvNetworkContract,
-      'ClusterLiquidated',
+    const liquidated = await trackGas(
+      ssvNetworkContract.connect(helpers.DB.owners[0]).liquidate(owner, operatorIds, cluster2.args.cluster),
     );
+    const cluster3 = liquidated.eventsByName.ClusterLiquidated[0];
+    console.log(cluster3);
 
-    await expect(ssvViews.getBalance(helpers.DB.owners[0].address, operatorIds, cluster)).to.be.revertedWithCustomError(
-      ssvViews,
-      'ClusterIsLiquidated',
-    );
+    await expect(
+      ssvViews.getBalance(helpers.DB.owners[0].address, operatorIds, cluster3.args.cluster),
+    ).to.be.revertedWithCustomError(ssvViews, 'ClusterIsLiquidated');
   });
 
   it('Check cluster balance in three blocks, one after the other', async () => {
