@@ -95,7 +95,6 @@ describe('Balance Tests', () => {
       ssvNetworkContract.connect(helpers.DB.owners[0]).liquidate(owner, operatorIds, cluster2.args.cluster),
     );
     const cluster3 = liquidated.eventsByName.ClusterLiquidated[0];
-    console.log(cluster3);
 
     await expect(
       ssvViews.getBalance(helpers.DB.owners[0].address, operatorIds, cluster3.args.cluster),
