@@ -99,10 +99,11 @@ contract SSVClusters is ISSVClusters {
                         revert CallerNotWhitelisted();
                     }
                 }
-                operator.updateSnapshot();
+                
                 if (++operator.validatorCount > sp.validatorsPerOperatorLimit) {
                     revert ExceedValidatorLimit();
                 }
+                operator.updateSnapshot();
                 clusterIndex += operator.snapshot.index;
                 burnRate += operator.fee;
 
