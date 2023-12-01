@@ -95,7 +95,7 @@ contract SSVClusters is ISSVClusters {
                 }
                 if (operator.whitelisted) {
                     address whitelisted = s.operatorsWhitelist[operatorId];
-                    if (whitelisted != address(0) && whitelisted != msg.sender) {
+                    if (whitelisted != msg.sender) {
                         revert CallerNotWhitelisted();
                     }
                 }
