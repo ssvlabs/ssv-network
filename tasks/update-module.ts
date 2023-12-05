@@ -7,7 +7,6 @@ This task first deploys a new version of a specified SSV module contract, and th
 The module's name is required and it's expected to match one of the SSVModules enumeration values.
 The address of the SSVNetwork Proxy is expected to be set in the environment variable SSVNETWORK_PROXY_ADDRESS.
 @param {string} module - The name of the SSV module to be updated.
-@param {string} contract - The name of the new SSV contract to be used for updating.
 @param {boolean} attachModule - Flag to attach new deployed module to SSVNetwork contract. Dafaults to true.
 @param {string} proxyAddress - The proxy address of the SSVNetwork contract.
 @example
@@ -20,15 +19,14 @@ The module's contract specified should be already compiled and exist in the 'art
 */
 task('update:module', 'Deploys a new module contract and links it to SSVNetwork')
   .addParam('module', 'SSV Module', null, types.string)
-  .addParam('contract', 'SSV Module Contract', null, types.string)
   .addOptionalParam('attachModule', 'Attach module to SSVNetwork contract', false, types.boolean)
   .addOptionalParam('proxyAddress', 'Proxy address of SSVNetwork / SSVNetworkViews', '', types.string)
-  .setAction(async ({ module, contract, attachModule, proxyAddress }, hre) => {
+  .setAction(async ({ module, attachModule, proxyAddress }, hre) => {
     if (attachModule && !proxyAddress) throw new Error('SSVNetwork proxy address not set.');
 
     const [deployer] = await ethers.getSigners();
     console.log(`Deploying contracts with the account: ${deployer.address}`);
-    const moduleAddress = await hre.run('deploy:module', { module, contract });
+    const moduleAddress = await hre.run('deploy:module', { module });
 
     if (attachModule) {
       if (!proxyAddress) throw new Error('SSVNetwork proxy address not set.');

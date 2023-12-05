@@ -113,13 +113,12 @@ OPTIONS:
 
   --attach-module       Attach module to SSVNetwork contract (default: false)
   --module              SSV Module
-  --contract            SSV Module Contract to be used for updating
   --proxy-address       Proxy address of SSVNetwork / SSVNetworkViews (default: null)
 
 
 Example:
 Update 'SSVOperators' module contract in the SSVNetwork
-npx hardhat --network goerli_testnet update:module --module SSVOperators --contract SSVOperatorsV2 --attach-module true --proxy-address 0x1234...
+npx hardhat --network goerli_testnet update:module --module SSVOperators --attach-module true --proxy-address 0x1234...
 ```
 
 ### Upgrade a library

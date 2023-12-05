@@ -72,15 +72,13 @@ This subtask uses the "deploy:impl" subtask for the actual deployment.
 */
 subtask('deploy:module', 'Deploys a new module contract')
   .addParam('module', 'SSV Module', null, types.string)
-  .addParam('contract', 'SSV Module Contract', null, types.string)
-  .setAction(async ({ module, contract }, hre) => {
+  .setAction(async ({ module }, hre) => {
     const moduleValues = Object.values(SSVModules);
     if (!moduleValues.includes(module)) {
       throw new Error(`Invalid SSVModule: ${module}. Expected one of: ${moduleValues.join(', ')}`);
     }
 
-    if (contract === undefined) contract = module;
-    const moduleAddress = await hre.run('deploy:impl', { contract });
+    const moduleAddress = await hre.run('deploy:impl', { module });
     return moduleAddress;
   });
 
