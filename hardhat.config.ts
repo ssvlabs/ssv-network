@@ -68,6 +68,12 @@ const config: HardhatUserConfig = {
     currency: 'USD',
     gasPrice: 0.3,
   },
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: true,
+    strict: false,
+  },
   abiExporter: {
     path: './abis',
     runOnCompile: true,
