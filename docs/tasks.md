@@ -1,6 +1,6 @@
 # SSV Network
 
-### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | Tasks | [Local development](local-dev.md) | [Roles](roles.md)
+### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | Tasks | [Local development](local-dev.md) | [Roles](roles.md) | [Publish](publish.md)
 
 ## Development scripts
 
