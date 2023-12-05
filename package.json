@@ -1,5 +1,32 @@
 {
   "name": "ssv-network",
+  "version": "1.0.2",
+  "description": "Solidity smart contracts for the SSV Network",
+  "author": "SSV.Network",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bloxapp/ssv-network.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ssv",
+    "ssv.network",
+    "solidity",
+    "staking"
+  ],
+  "files": [
+    "contracts/**/*.sol",
+    "!contracts/**/deprecated/**",
+    "!contracts/**/mocks/**",
+    "!contracts/**/test/**",
+    "!contracts/**/upgrades/**",
+    "abis/*.json",
+    "tasks/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "build": "npx hardhat compile",
     "test": "npx hardhat test",
@@ -31,6 +58,7 @@
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-storage-layout-changes": "^0.1.2",
     "hardhat-tracer": "^1.2.1",
+    "hardhat-abi-exporter": "^2.10.1",
     "prompts": "^2.4.2",
     "simple-git": "^3.16.1",
     "ssv-keys": "github:bloxapp/ssv-keys#v1.0.4",
