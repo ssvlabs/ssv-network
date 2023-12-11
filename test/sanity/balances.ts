@@ -45,6 +45,73 @@ describe('Balance Tests', () => {
     initNetworkFeeBalance = await ssvViews.getNetworkEarnings();
   });
 
+  it('Check cluster balance with removing operator', async () => {
+    const operatorIds = cluster1.args.operatorIds;
+    const cluster = cluster1.args.cluster;
+    let prevBalance: any;
+    for (let i = 1; i <= 13; i++) {
+      await ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(i);
+      let balance = await ssvViews.getBalance(helpers.DB.owners[4].address, operatorIds, cluster);
+      let networkFee = await ssvViews.getNetworkFee();
+      if (i > 4) {
+        expect(prevBalance - balance).to.equal(networkFee);
+      }
+      prevBalance = balance;
+    }
+  });
+
+  it('Check cluster balance after removing operator, progress blocks and confirm', async () => {
+    const operatorIds = cluster1.args.operatorIds;
+    const cluster = cluster1.args.cluster;
+    const owner = cluster1.args.owner;
+
+    // get difference of account balance between blocks before removing operator
+    let balance1 = await ssvViews.getBalance(helpers.DB.owners[4].address, operatorIds, cluster);
+    await utils.progressBlocks(1);
+    let balance2 = await ssvViews.getBalance(helpers.DB.owners[4].address, operatorIds, cluster);
+
+    await ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(1);
+
+    // get difference of account balance between blocks after removing operator
+    let balance3 = await ssvViews.getBalance(helpers.DB.owners[4].address, operatorIds, cluster);
+    await utils.progressBlocks(1);
+    let balance4 = await ssvViews.getBalance(helpers.DB.owners[4].address, operatorIds, cluster);
+
+    // check the reducing the balance after removing operator (only 3 operators)
+    expect(balance1 - balance2).to.be.greaterThan(balance3 - balance4);
+
+    // try to register a new validator in the new cluster with the same operator Ids, check revert
+    const newOperatorIds = operatorIds.map((id: any) => id.toNumber());
+    await expect(
+      helpers.registerValidators(
+        1,
+        minDepositAmount,
+        [1],
+        newOperatorIds,
+        helpers.getClusterForValidator(0, 0, 0, 0, true),
+        [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
+      ),
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'OperatorDoesNotExist');
+
+    // try to remove the validator again and check the operator removed is skipped
+    const removed = await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[4])
+        .removeValidator(helpers.DataGenerator.publicKey(1), operatorIds, cluster),
+    );
+    const cluster2 = removed.eventsByName.ValidatorRemoved[0];
+
+    // try to liquidate
+    const liquidated = await trackGas(
+      ssvNetworkContract.connect(helpers.DB.owners[4]).liquidate(owner, operatorIds, cluster2.args.cluster),
+    );
+    const cluster3 = liquidated.eventsByName.ClusterLiquidated[0];
+
+    await expect(
+      ssvViews.getBalance(helpers.DB.owners[4].address, operatorIds, cluster3.args.cluster),
+    ).to.be.revertedWithCustomError(ssvViews, 'ClusterIsLiquidated');
+  });
+
   it('Check cluster balance in three blocks, one after the other', async () => {
     await utils.progressBlocks(1);
     expect(
