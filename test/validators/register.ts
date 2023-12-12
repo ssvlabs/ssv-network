@@ -3,6 +3,7 @@ import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
+import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 
 let ssvNetworkContract: any, ssvViews: any, ssvToken: any, minDepositAmount: any, cluster1: any;
 
@@ -22,9 +23,9 @@ describe('Register Validator Tests', () => {
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     cluster1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
-      helpers.DataGenerator.publicKey(90),
+      [helpers.DataGenerator.publicKey(90)],
       [1, 2, 3, 4],
-      helpers.DataGenerator.shares(4),
+      [helpers.DataGenerator.shares(4)],
       '1000000000000000',
       {
         validatorCount: 0,
@@ -169,6 +170,54 @@ describe('Register Validator Tests', () => {
       0,
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT]);
+  });
+
+  it('Bulk register 2 validators with 4 operators into the same cluster', async () => {
+    const pks = [helpers.DataGenerator.publicKey(1), helpers.DataGenerator.publicKey(2)];
+    const operatorIds = [1, 2, 3, 4];
+    const shares = [helpers.DataGenerator.shares(4), helpers.DataGenerator.shares(4)];
+    const depositAmount = minDepositAmount * 2;
+
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
+    await expect(ssvNetworkContract.registerValidator(
+      pks,
+      operatorIds,
+      shares,
+      depositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    )).to.emit(ssvNetworkContract, 'ValidatorAdded');
+  });
+
+  it.only('Bulk register 10 validators with 4 operators into the same cluster', async () => {
+    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
+    const operatorIds = [1, 2, 3, 4];
+    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
+
+    const depositAmount = minDepositAmount * 10;
+
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
+    await expect(ssvNetworkContract.registerValidator(
+      pks,
+      operatorIds,
+      shares,
+      depositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    )).to.emit(ssvNetworkContract, 'ValidatorAdded')
+    .withArgs(helpers.DB.owners[0].address,operatorIds, pks[0], shares[0],anyValue)
+    .and.to.emit(ssvNetworkContract, 'ValidatorAdded')
+    .withArgs(helpers.DB.owners[0].address,operatorIds, pks[1], shares[1],anyValue);
   });
 
   // 7 operators

@@ -17,19 +17,22 @@ contract SSVClusters is ISSVClusters {
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;
     uint64 private constant MODULO_OPERATORS_LENGTH = 3;
-    uint64 private constant PUBLIC_KEY_LENGTH = 48;
 
     function registerValidator(
-        bytes calldata publicKey,
+        bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
-        bytes calldata sharesData,
+        bytes[] calldata shares,
         uint256 amount,
         Cluster memory cluster
     ) external override {
+        if (publicKeys.length != shares.length) revert PublicKeysSharesLengthMismatch();
+
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint256 operatorsLength = operatorIds.length;
+        uint32 validatorsLength = uint32(publicKeys.length);
+
         {
             if (
                 operatorsLength < MIN_OPERATORS_LENGTH ||
@@ -39,15 +42,7 @@ contract SSVClusters is ISSVClusters {
                 revert InvalidOperatorIdsLength();
             }
 
-            if (publicKey.length != PUBLIC_KEY_LENGTH) revert InvalidPublicKeyLength();
-
-            bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
-
-            if (s.validatorPKs[hashedPk] != bytes32(0)) {
-                revert ValidatorAlreadyExists();
-            }
-
-            s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
+            ValidatorLib.registerPublicKeys(publicKeys, operatorIds, s);
         }
         bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
 
@@ -100,7 +95,8 @@ contract SSVClusters is ISSVClusters {
                     }
                 }
                 operator.updateSnapshot();
-                if (++operator.validatorCount > sp.validatorsPerOperatorLimit) {
+                operator.validatorCount += validatorsLength;
+                if (operator.validatorCount > sp.validatorsPerOperatorLimit) {
                     revert ExceedValidatorLimit();
                 }
                 clusterIndex += operator.snapshot.index;
@@ -114,10 +110,10 @@ contract SSVClusters is ISSVClusters {
             }
             cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
-            sp.updateDAO(true, 1);
+            sp.updateDAO(true, validatorsLength);
         }
 
-        ++cluster.validatorCount;
+        cluster.validatorCount += validatorsLength;
 
         if (
             cluster.isLiquidatable(
@@ -136,7 +132,15 @@ contract SSVClusters is ISSVClusters {
             CoreLib.deposit(amount);
         }
 
-        emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
+        for (uint i; i < validatorsLength; ) {
+            bytes memory pk = publicKeys[i];
+            bytes memory sh = shares[i];
+            emit ValidatorAdded(msg.sender, operatorIds, pk, sh, cluster);
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     function removeValidator(

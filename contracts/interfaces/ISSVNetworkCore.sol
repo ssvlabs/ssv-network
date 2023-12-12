@@ -88,4 +88,5 @@ interface ISSVNetworkCore {
     error TargetModuleDoesNotExist(); // 0x8f9195fb
     error MaxValueExceeded(); // 0x91aa3017
     error FeeTooHigh(); // 0xcd4e6167
+    error PublicKeysSharesLengthMismatch(); // 0x9ad467b8
 }

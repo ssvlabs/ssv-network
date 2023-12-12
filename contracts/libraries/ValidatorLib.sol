@@ -5,6 +5,24 @@ import "../interfaces/ISSVNetworkCore.sol";
 import "./SSVStorage.sol";
 
 library ValidatorLib {
+    uint64 private constant PUBLIC_KEY_LENGTH = 48;
+
+    function registerPublicKeys(bytes[] calldata publicKeys, uint64[] memory operatorIds, StorageData storage s) internal {
+        for (uint i; i < publicKeys.length; ++i) {
+            if (publicKeys[i].length != PUBLIC_KEY_LENGTH) {
+                revert ISSVNetworkCore.InvalidPublicKeyLength();
+            }
+
+            bytes32 hashedPk = keccak256(abi.encodePacked(publicKeys[i], msg.sender));
+
+            if (s.validatorPKs[hashedPk] != bytes32(0)) {
+                revert ISSVNetworkCore.ValidatorAlreadyExists();
+            }
+
+            s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
+        }
+    }
+
     function validateState(
         bytes calldata publicKey,
         uint64[] calldata operatorIds,

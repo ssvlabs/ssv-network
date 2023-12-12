@@ -166,9 +166,9 @@ contract SSVNetwork is
     /*******************************/
 
     function registerValidator(
-        bytes calldata publicKey,
+        bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
-        bytes calldata sharesData,
+        bytes[] calldata shares,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
