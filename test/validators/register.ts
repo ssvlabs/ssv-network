@@ -23,9 +23,9 @@ describe('Register Validator Tests', () => {
     // cold register
     await helpers.DB.ssvToken.connect(helpers.DB.owners[6]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
     cluster1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[6]).registerValidator(
-      [helpers.DataGenerator.publicKey(90)],
+      helpers.DataGenerator.publicKey(90),
       [1, 2, 3, 4],
-      [helpers.DataGenerator.shares(4)],
+      helpers.DataGenerator.shares(4),
       '1000000000000000',
       {
         validatorCount: 0,
@@ -172,62 +172,12 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT]);
   });
 
-  it('Bulk register 2 validators with 4 operators into the same cluster', async () => {
-    const pks = [helpers.DataGenerator.publicKey(1), helpers.DataGenerator.publicKey(2)];
-    const operatorIds = [1, 2, 3, 4];
-    const shares = [helpers.DataGenerator.shares(4), helpers.DataGenerator.shares(4)];
-    const depositAmount = minDepositAmount * 2;
-
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
-    await expect(ssvNetworkContract.registerValidator(
-      pks,
-      operatorIds,
-      shares,
-      depositAmount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true
-      }
-    )).to.emit(ssvNetworkContract, 'ValidatorAdded');
-  });
-
-  it.only('Bulk register 10 validators with 4 operators into the same cluster', async () => {
-    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
-    const operatorIds = [1, 2, 3, 4];
-    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
-
-    const depositAmount = minDepositAmount * 10;
-
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
-    await expect(ssvNetworkContract.registerValidator(
-      pks,
-      operatorIds,
-      shares,
-      depositAmount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true
-      }
-    )).to.emit(ssvNetworkContract, 'ValidatorAdded')
-    .withArgs(helpers.DB.owners[0].address,operatorIds, pks[0], shares[0],anyValue)
-    .and.to.emit(ssvNetworkContract, 'ValidatorAdded')
-    .withArgs(helpers.DB.owners[0].address,operatorIds, pks[1], shares[1],anyValue);
-  });
-
-  // 7 operators
-
-  it('Register validator with 7 operators gas limit', async () => {
+  it('Bulk register 10 validators with 4 operators into the same cluster', async () => {
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
-      helpers.DataGenerator.publicKey(1),
-      helpers.DataGenerator.cluster.new(7),
-      helpers.DataGenerator.shares(7),
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
+      [helpers.DataGenerator.publicKey(100)],
+      [1, 2, 3, 4],
+      [helpers.DataGenerator.shares(4)],
       minDepositAmount,
       {
         validatorCount: 0,
@@ -236,7 +186,64 @@ describe('Register Validator Tests', () => {
         balance: 0,
         active: true
       }
-    ), [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
+    ));
+
+    const args = eventsByName.ValidatorAdded[0].args;
+
+    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
+    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
+    const depositAmount = minDepositAmount * 10;
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
+      pks,
+      [1, 2, 3, 4],
+      shares,
+      depositAmount,
+      args.cluster
+    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_4]);
+  });
+
+  it('Bulk register 10 validators with 4 operators new cluster', async () => {
+    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
+    const operatorIds = [1, 2, 3, 4];
+    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
+
+    const depositAmount = minDepositAmount * 10;
+
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
+    await trackGas(ssvNetworkContract.bulkRegisterValidator(
+      pks,
+      operatorIds,
+      shares,
+      depositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_4]);
+  });
+
+  // 7 operators
+
+  it('Register validator with 7 operators gas limit', async () => {
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(helpers.DB.ssvNetwork.contract.address, '1000000000000000');
+    cluster1 = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(
+      helpers.DataGenerator.publicKey(90),
+      [1, 2, 3, 4],
+      helpers.DataGenerator.shares(4),
+      '1000000000000000',
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
   });
 
   it('Register 2 validators with 7 operators into the same cluster gas limit', async () => {
@@ -334,6 +341,64 @@ describe('Register Validator Tests', () => {
       0,
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_7]);
+  });
+
+  it('Bulk register 10 validators with 7 operators into the same cluster', async () => {
+    const operatorIds = [1, 2, 3, 4, 5, 6, 7];
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
+      [helpers.DataGenerator.publicKey(100)],
+      operatorIds,
+      [helpers.DataGenerator.shares(4)],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
+
+    const args = eventsByName.ValidatorAdded[0].args;
+
+    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
+    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
+    const depositAmount = minDepositAmount * 10;
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
+      pks,
+      operatorIds,
+      shares,
+      depositAmount,
+      args.cluster
+    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_7]);
+  });
+
+  it('Bulk register 10 validators with 7 operators new cluster', async () => {
+    const operatorIds = [1, 2, 3, 4, 5, 6, 7];
+
+    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
+    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
+
+    const depositAmount = minDepositAmount * 10;
+
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
+    await trackGas(ssvNetworkContract.bulkRegisterValidator(
+      pks,
+      operatorIds,
+      shares,
+      depositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_4]);
   });
 
   // 10 operators
@@ -452,6 +517,64 @@ describe('Register Validator Tests', () => {
     ), [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_10]);
   });
 
+  it('Bulk register 10 validators with 10 operators into the same cluster', async () => {
+    const operatorIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
+      [helpers.DataGenerator.publicKey(100)],
+      operatorIds,
+      [helpers.DataGenerator.shares(4)],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
+
+    const args = eventsByName.ValidatorAdded[0].args;
+
+    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
+    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
+    const depositAmount = minDepositAmount * 10;
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
+      pks,
+      operatorIds,
+      shares,
+      depositAmount,
+      args.cluster
+    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_10]);
+  });
+
+  it('Bulk register 10 validators with 10 operators new cluster', async () => {
+    const operatorIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
+    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
+
+    const depositAmount = minDepositAmount * 10;
+
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
+    await trackGas(ssvNetworkContract.bulkRegisterValidator(
+      pks,
+      operatorIds,
+      shares,
+      depositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_10]);
+  });
+
   // 13 operators
 
   it('Register validator with 13 operators gas limit', async () => {
@@ -566,6 +689,64 @@ describe('Register Validator Tests', () => {
       0,
       args.cluster
     ), [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_13]);
+  });
+
+  it('Bulk register 10 validators with 13 operators into the same cluster', async () => {
+    const operatorIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    const { eventsByName } = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
+      [helpers.DataGenerator.publicKey(100)],
+      operatorIds,
+      [helpers.DataGenerator.shares(4)],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ));
+
+    const args = eventsByName.ValidatorAdded[0].args;
+
+    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
+    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
+    const depositAmount = minDepositAmount * 10;
+
+    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
+    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
+      pks,
+      operatorIds,
+      shares,
+      depositAmount,
+      args.cluster
+    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_13]);
+  });
+
+  it('Bulk register 10 validators with 13 operators new cluster', async () => {
+    const operatorIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+
+    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
+    const shares = Array.from({ length: 10 }, (_, __) => helpers.DataGenerator.shares(4));
+
+    const depositAmount = minDepositAmount * 10;
+
+    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
+    await trackGas(ssvNetworkContract.bulkRegisterValidator(
+      pks,
+      operatorIds,
+      shares,
+      depositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true
+      }
+    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_13]);
   });
 
   it('Get cluster burn rate', async () => {

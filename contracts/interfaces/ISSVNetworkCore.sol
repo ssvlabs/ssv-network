@@ -41,7 +41,7 @@ interface ISSVNetworkCore {
     }
 
     /// @notice Represents a cluster of validators
-    struct Cluster {
+        struct Cluster {
         /// @dev The number of validators in the cluster
         uint32 validatorCount;
         /// @dev The index of network fees related to this cluster

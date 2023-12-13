@@ -189,6 +189,26 @@ contract SSVNetworkUpgrade is
     }
 
     function registerValidator(
+        bytes calldata publicKey,
+        uint64[] memory operatorIds,
+        bytes calldata shares,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "registerValidator(bytes[],uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
+                publicKey,
+                operatorIds,
+                shares,
+                amount,
+                cluster
+            )
+        );
+    }
+
+    function bulkRegisterValidator(
         bytes[] calldata publicKey,
         uint64[] memory operatorIds,
         bytes[] calldata shares,

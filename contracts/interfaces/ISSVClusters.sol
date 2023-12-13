@@ -5,15 +5,29 @@ import "./ISSVNetworkCore.sol";
 
 interface ISSVClusters is ISSVNetworkCore {
     /// @notice Registers a new validator on the SSV Network
-    /// @param publicKeys The public key of the new validator
+    /// @param publicKey The public key of the new validator
     /// @param operatorIds Array of IDs of operators managing this validator
-    /// @param shares Encrypted shares related to the new validator
+    /// @param sharesData Encrypted shares related to the new validator
     /// @param amount Amount of SSV tokens to be deposited
     /// @param cluster Cluster to be used with the new validator
     function registerValidator(
+        bytes calldata publicKey,
+        uint64[] memory operatorIds,
+        bytes calldata sharesData,
+        uint256 amount,
+        Cluster memory cluster
+    ) external;
+
+    /// @notice Registers new validators on the SSV Network
+    /// @param publicKeys The public key of the new validator
+    /// @param operatorIds Array of IDs of operators managing this validator
+    /// @param sharesData Encrypted shares related to the new validator
+    /// @param amount Amount of SSV tokens to be deposited
+    /// @param cluster Cluster to be used with the new validator
+    function bulkRegisterValidator(
         bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
-        bytes[] calldata shares,
+        bytes[] calldata sharesData,
         uint256 amount,
         Cluster memory cluster
     ) external;
