@@ -3,7 +3,6 @@ import * as helpers from '../helpers/contract-helpers';
 import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 
 let ssvNetworkContract: any, ssvViews: any, ssvToken: any, minDepositAmount: any, cluster1: any;
 
@@ -398,7 +397,7 @@ describe('Register Validator Tests', () => {
         balance: 0,
         active: true
       }
-    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_4]);
+    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_7]);
   });
 
   // 10 operators

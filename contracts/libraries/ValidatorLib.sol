@@ -5,7 +5,22 @@ import "../interfaces/ISSVNetworkCore.sol";
 import "./SSVStorage.sol";
 
 library ValidatorLib {
+    uint64 private constant MIN_OPERATORS_LENGTH = 4;
+    uint64 private constant MAX_OPERATORS_LENGTH = 13;
+    uint64 private constant MODULO_OPERATORS_LENGTH = 3;
     uint64 private constant PUBLIC_KEY_LENGTH = 48;
+
+    function validateOperatorsLength(uint64[] memory operatorIds) internal pure {
+        uint256 operatorsLength = operatorIds.length;
+
+        if (
+            operatorsLength < MIN_OPERATORS_LENGTH ||
+            operatorsLength > MAX_OPERATORS_LENGTH ||
+            operatorsLength % MODULO_OPERATORS_LENGTH != 1
+        ) {
+            revert ISSVNetworkCore.InvalidOperatorIdsLength();
+        }
+    }
 
     function registerPublicKeys(
         bytes[] calldata publicKeys,

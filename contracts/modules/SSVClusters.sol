@@ -14,9 +14,6 @@ contract SSVClusters is ISSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
-    uint64 private constant MIN_OPERATORS_LENGTH = 4;
-    uint64 private constant MAX_OPERATORS_LENGTH = 13;
-    uint64 private constant MODULO_OPERATORS_LENGTH = 3;
 
     function registerValidator(
         bytes calldata publicKey,
@@ -28,100 +25,15 @@ contract SSVClusters is ISSVClusters {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        uint256 operatorsLength = operatorIds.length;
-        {
-            if (
-                operatorsLength < MIN_OPERATORS_LENGTH ||
-                operatorsLength > MAX_OPERATORS_LENGTH ||
-                operatorsLength % MODULO_OPERATORS_LENGTH != 1
-            ) {
-                revert InvalidOperatorIdsLength();
-            }
+        ValidatorLib.validateOperatorsLength(operatorIds);
 
-            ValidatorLib.resgisterPublicKey(publicKey, operatorIds, s);
-        }
-        bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
+        ValidatorLib.resgisterPublicKey(publicKey, operatorIds, s);
 
-        {
-            bytes32 clusterData = s.clusters[hashedCluster];
-            if (clusterData == bytes32(0)) {
-                if (
-                    cluster.validatorCount != 0 ||
-                    cluster.networkFeeIndex != 0 ||
-                    cluster.index != 0 ||
-                    cluster.balance != 0 ||
-                    !cluster.active
-                ) {
-                    revert IncorrectClusterState();
-                }
-            } else if (clusterData != cluster.hashClusterData()) {
-                revert IncorrectClusterState();
-            } else {
-                cluster.validateClusterIsNotLiquidated();
-            }
-        }
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += amount;
 
-        uint64 burnRate;
-
-        if (cluster.active) {
-            uint64 clusterIndex;
-
-            for (uint256 i; i < operatorsLength; ) {
-                uint64 operatorId = operatorIds[i];
-                {
-                    if (i + 1 < operatorsLength) {
-                        if (operatorId > operatorIds[i + 1]) {
-                            revert UnsortedOperatorsList();
-                        } else if (operatorId == operatorIds[i + 1]) {
-                            revert OperatorsListNotUnique();
-                        }
-                    }
-                }
-
-                Operator memory operator = s.operators[operatorId];
-                if (operator.snapshot.block == 0) {
-                    revert OperatorDoesNotExist();
-                }
-                if (operator.whitelisted) {
-                    address whitelisted = s.operatorsWhitelist[operatorId];
-                    if (whitelisted != address(0) && whitelisted != msg.sender) {
-                        revert CallerNotWhitelisted();
-                    }
-                }
-                operator.updateSnapshot();
-                if (++operator.validatorCount > sp.validatorsPerOperatorLimit) {
-                    revert ExceedValidatorLimit();
-                }
-                clusterIndex += operator.snapshot.index;
-                burnRate += operator.fee;
-
-                s.operators[operatorId] = operator;
-
-                unchecked {
-                    ++i;
-                }
-            }
-            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
-
-            sp.updateDAO(true, 1);
-        }
-
-        ++cluster.validatorCount;
-
-        if (
-            cluster.isLiquidatable(
-                burnRate,
-                sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
-            )
-        ) {
-            revert InsufficientBalance();
-        }
-
-        s.clusters[hashedCluster] = cluster.hashClusterData();
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, 1, s, sp);
 
         if (amount != 0) {
             CoreLib.deposit(amount);
@@ -142,103 +54,17 @@ contract SSVClusters is ISSVClusters {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        uint256 operatorsLength = operatorIds.length;
         uint32 validatorsLength = uint32(publicKeys.length);
 
-        {
-            if (
-                operatorsLength < MIN_OPERATORS_LENGTH ||
-                operatorsLength > MAX_OPERATORS_LENGTH ||
-                operatorsLength % MODULO_OPERATORS_LENGTH != 1
-            ) {
-                revert InvalidOperatorIdsLength();
-            }
+        ValidatorLib.validateOperatorsLength(operatorIds);
 
-            ValidatorLib.registerPublicKeys(publicKeys, operatorIds, s);
-        }
-        bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
+        ValidatorLib.registerPublicKeys(publicKeys, operatorIds, s);
 
-        {
-            bytes32 clusterData = s.clusters[hashedCluster];
-            if (clusterData == bytes32(0)) {
-                if (
-                    cluster.validatorCount != 0 ||
-                    cluster.networkFeeIndex != 0 ||
-                    cluster.index != 0 ||
-                    cluster.balance != 0 ||
-                    !cluster.active
-                ) {
-                    revert IncorrectClusterState();
-                }
-            } else if (clusterData != cluster.hashClusterData()) {
-                revert IncorrectClusterState();
-            } else {
-                cluster.validateClusterIsNotLiquidated();
-            }
-        }
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += amount;
 
-        uint64 burnRate;
-
-        if (cluster.active) {
-            uint64 clusterIndex;
-
-            for (uint256 i; i < operatorsLength; ) {
-                uint64 operatorId = operatorIds[i];
-                {
-                    if (i + 1 < operatorsLength) {
-                        if (operatorId > operatorIds[i + 1]) {
-                            revert UnsortedOperatorsList();
-                        } else if (operatorId == operatorIds[i + 1]) {
-                            revert OperatorsListNotUnique();
-                        }
-                    }
-                }
-
-                Operator memory operator = s.operators[operatorId];
-                if (operator.snapshot.block == 0) {
-                    revert OperatorDoesNotExist();
-                }
-                if (operator.whitelisted) {
-                    address whitelisted = s.operatorsWhitelist[operatorId];
-                    if (whitelisted != address(0) && whitelisted != msg.sender) {
-                        revert CallerNotWhitelisted();
-                    }
-                }
-                operator.updateSnapshot();
-                operator.validatorCount += validatorsLength;
-                if (operator.validatorCount > sp.validatorsPerOperatorLimit) {
-                    revert ExceedValidatorLimit();
-                }
-                clusterIndex += operator.snapshot.index;
-                burnRate += operator.fee;
-
-                s.operators[operatorId] = operator;
-
-                unchecked {
-                    ++i;
-                }
-            }
-            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
-
-            sp.updateDAO(true, validatorsLength);
-        }
-
-        cluster.validatorCount += validatorsLength;
-
-        if (
-            cluster.isLiquidatable(
-                burnRate,
-                sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
-            )
-        ) {
-            revert InsufficientBalance();
-        }
-
-        s.clusters[hashedCluster] = cluster.hashClusterData();
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, validatorsLength, s, sp);
 
         if (amount != 0) {
             CoreLib.deposit(amount);
@@ -269,7 +95,7 @@ contract SSVClusters is ISSVClusters {
         {
             if (cluster.active) {
                 StorageProtocol storage sp = SSVStorageProtocol.load();
-                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s, sp);
+                (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, false, 1, s, sp);
 
                 cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
@@ -294,8 +120,9 @@ contract SSVClusters is ISSVClusters {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
+            false,
             false,
             cluster.validatorCount,
             s,
@@ -345,8 +172,9 @@ contract SSVClusters is ISSVClusters {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
+            false,
             true,
             cluster.validatorCount,
             s,
