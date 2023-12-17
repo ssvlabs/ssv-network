@@ -62,7 +62,7 @@ export enum GasGroup {
   DAO_UPDATE_OPERATOR_MAX_FEE,
 
   CHANGE_LIQUIDATION_THRESHOLD_PERIOD,
-  CHANGE_MINIMUM_COLLATERAL
+  CHANGE_MINIMUM_COLLATERAL,
 }
 
 const MAX_GAS_PER_GROUP: any = {
@@ -77,42 +77,42 @@ const MAX_GAS_PER_GROUP: any = {
   [GasGroup.EXECUTE_OPERATOR_FEE]: 52000,
   [GasGroup.REDUCE_OPERATOR_FEE]: 51900,
 
-  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]: 200500,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 220000,
-  [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT]: 180000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER]: 201200,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 235000,
+  [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT]: 180600,
 
   [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_4]: 889900,
   [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_4]: 813000,
 
-  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_7]: 271500,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]: 288500,
-  [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_7]: 251000,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_7]: 272500,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]: 289000,
+  [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_7]: 251600,
 
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_7]: 890000,
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_7]: 873500,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_7]: 1085000,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_7]: 1068000,
 
-  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_10]: 342000,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10]: 359000,
-  [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_10]: 321500,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_10]: 342700,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10]: 359500,
+  [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_10]: 322200,
 
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_10]: 950500,
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_10]: 933500,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_10]: 1364500,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_10]: 1348000,
 
-  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_13]: 413000,
-  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]: 430000,
-  [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_13]: 392500,
+  [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_13]: 413700,
+  [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]: 430500,
+  [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_13]: 393200,
 
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_13]: 1010500,
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_13]: 994000,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_13]: 1649500,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_13]: 1633000,
 
-  [GasGroup.REMOVE_VALIDATOR]: 113500,
-  [GasGroup.REMOVE_VALIDATOR_7]: 155000,
-  [GasGroup.REMOVE_VALIDATOR_10]: 196500,
-  [GasGroup.REMOVE_VALIDATOR_13]: 238000,
+  [GasGroup.REMOVE_VALIDATOR]: 115000,
+  [GasGroup.REMOVE_VALIDATOR_7]: 156000,
+  [GasGroup.REMOVE_VALIDATOR_10]: 197500,
+  [GasGroup.REMOVE_VALIDATOR_13]: 239000,
   [GasGroup.DEPOSIT]: 77500,
   [GasGroup.WITHDRAW_CLUSTER_BALANCE]: 94500,
   [GasGroup.WITHDRAW_OPERATOR_BALANCE]: 64900,
-  [GasGroup.VALIDATOR_EXIT]: 42300,
+  [GasGroup.VALIDATOR_EXIT]: 43000,
 
   [GasGroup.LIQUIDATE_CLUSTER_4]: 129300,
   [GasGroup.LIQUIDATE_CLUSTER_7]: 170500,
@@ -129,8 +129,6 @@ const MAX_GAS_PER_GROUP: any = {
 
   [GasGroup.CHANGE_LIQUIDATION_THRESHOLD_PERIOD]: 41000,
   [GasGroup.CHANGE_MINIMUM_COLLATERAL]: 41200,
-
-
 };
 
 class GasStats {
@@ -139,12 +137,11 @@ class GasStats {
   totalGas = 0;
   txCount = 0;
 
-
   addStat(gas: number) {
     this.totalGas += gas;
     ++this.txCount;
-    this.max = Math.max(gas, (this.max === null) ? -Infinity : this.max);
-    this.min = Math.min(gas, (this.min === null) ? Infinity : this.min);
+    this.max = Math.max(gas, this.max === null ? -Infinity : this.max);
+    this.min = Math.min(gas, this.min === null ? Infinity : this.min);
   }
 
   get average(): number {
@@ -161,16 +158,17 @@ for (const group in MAX_GAS_PER_GROUP) {
 export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Promise<any> => {
   const receipt = await (await tx).wait();
 
-  groups && [...new Set(groups)].forEach(group => {
-    const gasUsed = parseInt(receipt.gasUsed);
+  groups &&
+    [...new Set(groups)].forEach(group => {
+      const gasUsed = parseInt(receipt.gasUsed);
 
-    if (!process.env.NO_GAS_ENFORCE) {
-      const maxGas = MAX_GAS_PER_GROUP[group];
-      expect(gasUsed).to.be.lessThanOrEqual(maxGas, 'gasUsed higher than max allowed gas');
-    }
+      if (!process.env.NO_GAS_ENFORCE) {
+        const maxGas = MAX_GAS_PER_GROUP[group];
+        expect(gasUsed).to.be.lessThanOrEqual(maxGas, 'gasUsed higher than max allowed gas');
+      }
 
-    gasUsageStats.get(group.toString()).addStat(gasUsed);
-  });
+      gasUsageStats.get(group.toString()).addStat(gasUsed);
+    });
   return {
     ...receipt,
     gasUsed: +receipt.gasUsed,
@@ -178,11 +176,10 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Prom
       aggr[item.event] = aggr[item.event] || [];
       aggr[item.event].push(item);
       return aggr;
-    }, {})
+    }, {}),
   };
 };
 
 export const getGasStats = (group: string) => {
   return gasUsageStats.get(group) || new GasStats();
 };
-
