@@ -16,6 +16,9 @@ Therefore, it should be appropriately configured in your Hardhat network configu
 This task assumes that the SSVModules enum and deployment tasks for individual contracts have been properly defined.
 */
 task('deploy:all', 'Deploy SSVNetwork, SSVNetworkViews and module contracts').setAction(async ({}, hre) => {
+  // Triggering compilation
+  await hre.run('compile');
+
   const [deployer] = await ethers.getSigners();
   console.log(`Deploying contracts with the account:${deployer.address}`);
 
@@ -78,11 +81,14 @@ subtask('deploy:module', 'Deploys a new module contract')
       throw new Error(`Invalid SSVModule: ${module}. Expected one of: ${moduleValues.join(', ')}`);
     }
 
-    const moduleAddress = await hre.run('deploy:impl', { module });
+    const moduleAddress = await hre.run('deploy:impl', { contract: module });
     return moduleAddress;
   });
 
 task('deploy:token', 'Deploys SSV Token').setAction(async ({}, hre) => {
+  // Triggering compilation
+  await hre.run('compile');
+
   console.log('Deploying SSV Network Token');
 
   const ssvTokenFactory = await ethers.getContractFactory('SSVToken');
@@ -123,7 +129,10 @@ The contract specified should be already compiled and exist in the 'artifacts' d
 */
 subtask('deploy:impl', 'Deploys an implementation contract')
   .addParam('contract', 'New contract implemetation', null, types.string)
-  .setAction(async ({ contract }) => {
+  .setAction(async ({ contract }, hre) => {
+    // Triggering compilation
+    await hre.run('compile');
+
     // Initialize contract
     const contractFactory = await ethers.getContractFactory(contract);
 

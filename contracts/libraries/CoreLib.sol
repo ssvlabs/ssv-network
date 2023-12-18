@@ -7,7 +7,7 @@ library CoreLib {
     event ModuleUpgraded(SSVModules indexed moduleId, address moduleAddress);
 
     function getVersion() internal pure returns (string memory) {
-        return "v1.0.2";
+        return "v1.1.0";
     }
 
     function transferBalance(address to, uint256 amount) internal {

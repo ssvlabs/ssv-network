@@ -6,6 +6,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [v1.1.0] 2023-12-18
+- Bulk registration of validators.
+
 ## [v1.0.2] 2023-11-08
 - [8f5df42](https://github.com/bloxapp/ssv-network/commit/8f5df42633d2b92c6bb70253a41e6afa80b9f111) - Change ValidatorExited signature: owner indexed.
 
