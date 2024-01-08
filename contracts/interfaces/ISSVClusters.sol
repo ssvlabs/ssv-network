@@ -18,6 +18,20 @@ interface ISSVClusters is ISSVNetworkCore {
         Cluster memory cluster
     ) external;
 
+    /// @notice Registers new validators on the SSV Network
+    /// @param publicKeys The public key of the new validator
+    /// @param operatorIds Array of IDs of operators managing this validator
+    /// @param sharesData Encrypted shares related to the new validator
+    /// @param amount Amount of SSV tokens to be deposited
+    /// @param cluster Cluster to be used with the new validator
+    function bulkRegisterValidator(
+        bytes[] calldata publicKeys,
+        uint64[] memory operatorIds,
+        bytes[] calldata sharesData,
+        uint256 amount,
+        Cluster memory cluster
+    ) external;
+
     /// @notice Removes an existing validator from the SSV Network
     /// @param publicKey The public key of the validator to be removed
     /// @param operatorIds Array of IDs of operators managing the validator

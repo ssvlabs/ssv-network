@@ -126,6 +126,11 @@
   },
   {
     "inputs": [],
+    "name": "PublicKeysSharesLengthMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "SameFeeChangeNotAllowed",
     "type": "error"
   },
@@ -935,6 +940,66 @@
   {
     "inputs": [
       {
+        "internalType": "bytes[]",
+        "name": "publicKeys",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "uint64[]",
+        "name": "operatorIds",
+        "type": "uint64[]"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "sharesData",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "validatorCount",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "networkFeeIndex",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "index",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bool",
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "balance",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct ISSVNetworkCore.Cluster",
+        "name": "cluster",
+        "type": "tuple"
+      }
+    ],
+    "name": "bulkRegisterValidator",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint64",
         "name": "operatorId",
         "type": "uint64"
@@ -1320,7 +1385,7 @@
       },
       {
         "internalType": "bytes",
-        "name": "sharesData",
+        "name": "shares",
         "type": "bytes"
       },
       {

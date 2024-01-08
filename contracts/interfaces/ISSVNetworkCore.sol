@@ -41,7 +41,7 @@ interface ISSVNetworkCore {
     }
 
     /// @notice Represents a cluster of validators
-    struct Cluster {
+        struct Cluster {
         /// @dev The number of validators in the cluster
         uint32 validatorCount;
         /// @dev The index of network fees related to this cluster
@@ -88,4 +88,5 @@ interface ISSVNetworkCore {
     error TargetModuleDoesNotExist(); // 0x8f9195fb
     error MaxValueExceeded(); // 0x91aa3017
     error FeeTooHigh(); // 0xcd4e6167
+    error PublicKeysSharesLengthMismatch(); // 0x9ad467b8
 }

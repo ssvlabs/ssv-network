@@ -126,6 +126,11 @@
   },
   {
     "inputs": [],
+    "name": "PublicKeysSharesLengthMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "SameFeeChangeNotAllowed",
     "type": "error"
   },

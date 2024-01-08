@@ -168,7 +168,17 @@ contract SSVNetwork is
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata sharesData,
+        bytes calldata shares,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+    function bulkRegisterValidator(
+        bytes[] calldata publicKeys,
+        uint64[] memory operatorIds,
+        bytes[] calldata sharesData,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {

@@ -46,6 +46,7 @@ const config: HardhatUserConfig = {
     } as SSVNetworkConfig,
     hardhat: {
       allowUnlimitedContractSize: true,
+      gas: 5000000,
     },
   },
   etherscan: {
