@@ -2,7 +2,8 @@ testMode: assertion
 # testLimit: 50000
 # multi-abi: true
 # corpusDir: "corpus"
-cryticArgs: ["--solc-remaps", "@openzeppelin=node_modules/@openzeppelin"]
+cryticArgs: ['--solc-remaps', '@openzeppelin=node_modules/@openzeppelin']
+# contractAddr: '0xContractAddress'
 # filterBlacklist: false
 # filterFunctions: ["Operators.registerOperator(bytes,uint256)", "setOperatorWhitelist(uint64,address)"]
 
