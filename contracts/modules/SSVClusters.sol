@@ -88,19 +88,18 @@ contract SSVClusters is ISSVClusters {
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedValidator = ValidatorLib.validateState(publicKey, operatorIds, s);
+        bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
+        bytes32 hashedValidator = ValidatorLib.validateState(publicKey, hashedOperatorIds, s);
 
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
 
-        {
-            if (cluster.active) {
-                StorageProtocol storage sp = SSVStorageProtocol.load();
-                (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, false, 1, s, sp);
+        if (cluster.active) {
+            StorageProtocol storage sp = SSVStorageProtocol.load();
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, false, 1, s, sp);
 
-                cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
-                sp.updateDAO(false, 1);
-            }
+            sp.updateDAO(false, 1);
         }
 
         --cluster.validatorCount;
@@ -110,6 +109,48 @@ contract SSVClusters is ISSVClusters {
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
+    }
+
+    function bulkRemoveValidator(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external override {
+        StorageData storage s = SSVStorage.load();
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+
+        bytes32[] memory hashedValidators = ValidatorLib.validateStates(publicKeys, operatorIds, s);
+
+        uint32 validatorsLength = uint32(publicKeys.length);
+
+        if (cluster.active) {
+            StorageProtocol storage sp = SSVStorageProtocol.load();
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
+                operatorIds,
+                false,
+                false,
+                validatorsLength,
+                s,
+                sp
+            );
+
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+
+            sp.updateDAO(false, validatorsLength);
+        }
+
+        for (uint i; i < validatorsLength; ++i) {
+            delete s.validatorPKs[hashedValidators[i]];
+        }
+
+        cluster.validatorCount -= validatorsLength;
+
+        s.clusters[hashedCluster] = cluster.hashClusterData();
+
+        for (uint i; i < validatorsLength; ++i) {
+            emit ValidatorRemoved(msg.sender, operatorIds, publicKeys[i], cluster);
+        }
     }
 
     function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
@@ -280,7 +321,8 @@ contract SSVClusters is ISSVClusters {
     }
 
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
-        ValidatorLib.validateState(publicKey, operatorIds, SSVStorage.load());
+        bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
+        ValidatorLib.validateState(publicKey, hashedOperatorIds, SSVStorage.load());
 
         emit ValidatorExited(msg.sender, operatorIds, publicKey);
     }

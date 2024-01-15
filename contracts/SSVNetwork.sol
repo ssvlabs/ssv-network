@@ -193,6 +193,14 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
+    function bulkRemoveValidator(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
     function liquidate(
         address clusterOwner,
         uint64[] calldata operatorIds,

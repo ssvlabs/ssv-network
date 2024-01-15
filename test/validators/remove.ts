@@ -27,7 +27,7 @@ describe('Remove Validator Tests', () => {
       1,
       minDepositAmount,
       [1],
-      [1, 2, 3, 4],
+      helpers.DEFAULT_OPERATOR_IDS[4],
       helpers.getClusterForValidator(0, 0, 0, 0, true),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -40,6 +40,28 @@ describe('Remove Validator Tests', () => {
       ssvNetworkContract
         .connect(helpers.DB.owners[1])
         .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
+    ).to.emit(ssvNetworkContract, 'ValidatorRemoved');
+  });
+
+  it('Bulk remove validator emits "ValidatorRemoved"', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await expect(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
     ).to.emit(ssvNetworkContract, 'ValidatorRemoved');
   });
 
@@ -62,12 +84,35 @@ describe('Remove Validator Tests', () => {
     );
   });
 
+  it('Bulk remove 10 validator gas limit (4 operators cluster)', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      [GasGroup.BULK_REMOVE_10_VALIDATOR_4],
+    );
+  });
+
   it('Remove validator gas limit (7 operators cluster)', async () => {
     const cluster = await helpers.registerValidators(
       1,
       (minDepositAmount * 2).toString(),
       [2],
-      [1, 2, 3, 4, 5, 6, 7],
+      helpers.DEFAULT_OPERATOR_IDS[7],
       helpers.getClusterForValidator(0, 0, 0, 0, true),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -81,12 +126,35 @@ describe('Remove Validator Tests', () => {
     );
   });
 
+  it('Bulk remove 10 validator gas limit (7 operators cluster)', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[7],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      [GasGroup.BULK_REMOVE_10_VALIDATOR_7],
+    );
+  });
+
   it('Remove validator gas limit (10 operators cluster)', async () => {
     const cluster = await helpers.registerValidators(
       1,
       (minDepositAmount * 3).toString(),
       [2],
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      helpers.DEFAULT_OPERATOR_IDS[10],
       helpers.getClusterForValidator(0, 0, 0, 0, true),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -97,6 +165,29 @@ describe('Remove Validator Tests', () => {
         .connect(helpers.DB.owners[1])
         .removeValidator(helpers.DataGenerator.publicKey(2), firstCluster.operatorIds, firstCluster.cluster),
       [GasGroup.REMOVE_VALIDATOR_10],
+    );
+  });
+
+  it('Bulk remove 10 validator gas limit (10 operators cluster)', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[10],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      [GasGroup.BULK_REMOVE_10_VALIDATOR_10],
     );
   });
 
@@ -116,6 +207,29 @@ describe('Remove Validator Tests', () => {
         .connect(helpers.DB.owners[1])
         .removeValidator(helpers.DataGenerator.publicKey(2), firstCluster.operatorIds, firstCluster.cluster),
       [GasGroup.REMOVE_VALIDATOR_13],
+    );
+  });
+
+  it('Bulk remove 10 validator gas limit (13 operators cluster)', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      [GasGroup.BULK_REMOVE_10_VALIDATOR_13],
     );
   });
 

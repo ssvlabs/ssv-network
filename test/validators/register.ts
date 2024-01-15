@@ -4,7 +4,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, ssvViews: any, ssvToken: any, minDepositAmount: any, cluster1: any;
+let ssvNetworkContract: any, ssvViews: any, ssvToken: any, minDepositAmount: any, cluster1: any, initialClusterState: any;
 
 describe('Register Validator Tests', () => {
   beforeEach(async () => {
@@ -13,6 +13,8 @@ describe('Register Validator Tests', () => {
     ssvNetworkContract = metadata.contract;
     ssvToken = metadata.ssvToken;
     ssvViews = metadata.ssvViews;
+
+    initialClusterState = helpers.DB.initialClusterState;
 
     // Register operators
     await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
@@ -31,13 +33,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(6, 1, 4),
           '1000000000000000',
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
     );
   });
@@ -52,13 +48,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(1, 1, 4),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
     ).to.emit(ssvNetworkContract, 'ValidatorAdded');
   });
@@ -75,13 +65,7 @@ describe('Register Validator Tests', () => {
           helpers.DataGenerator.cluster.new(),
           helpers.DataGenerator.shares(1, 1, 4),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -101,13 +85,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(1, 1, 4),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -139,13 +117,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(1, 1, 4),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -175,13 +147,7 @@ describe('Register Validator Tests', () => {
           [2, 3, 4, 5],
           helpers.DataGenerator.shares(2, 4, 4),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -199,13 +165,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(1, 1, 4),
           `${minDepositAmount * 2}`,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -242,42 +202,32 @@ describe('Register Validator Tests', () => {
     ));
 
     const args = eventsByName.ValidatorAdded[0].args;
-
-    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
-    const shares = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.shares(1, index, 4));
-    const depositAmount = minDepositAmount * 10;
-
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
-      pks,
+    await helpers.bulkRegisterValidators(
+      1,
+      10,
       [1, 2, 3, 4],
-      shares,
-      depositAmount,
-      args.cluster
-    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_4]);
+      minDepositAmount,
+      args.cluster,
+      [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_4],
+    );
   });
 
   it('Bulk register 10 validators with 4 operators new cluster', async () => {
-    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
-    const operatorIds = [1, 2, 3, 4];
-    const shares = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.shares(1, index, 4));
 
-    const depositAmount = minDepositAmount * 10;
-
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
-    await trackGas(ssvNetworkContract.bulkRegisterValidator(
-      pks,
-      operatorIds,
-      shares,
-      depositAmount,
+    await helpers.bulkRegisterValidators(
+      1,
+      10,
+      [1, 2, 3, 4],
+      minDepositAmount,
       {
         validatorCount: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
         active: true
-      }
-    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_4]);
+      },
+      [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_4],
+    );
   });
 
   // 7 operators
@@ -292,13 +242,7 @@ describe('Register Validator Tests', () => {
           helpers.DataGenerator.cluster.new(7),
           helpers.DataGenerator.shares(1, 2, 7),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -314,13 +258,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7],
           helpers.DataGenerator.shares(1, 1, 7),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -352,13 +290,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7],
           helpers.DataGenerator.shares(1, 1, 7),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -388,13 +320,7 @@ describe('Register Validator Tests', () => {
           [2, 3, 4, 5, 6, 7, 8],
           helpers.DataGenerator.shares(2, 4, 7),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -412,13 +338,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7],
           helpers.DataGenerator.shares(1, 1, 7),
           `${minDepositAmount * 2}`,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -458,42 +378,31 @@ describe('Register Validator Tests', () => {
 
     const args = eventsByName.ValidatorAdded[0].args;
 
-    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
-    const shares = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.shares(1, index, operatorIds.length));
-    const depositAmount = minDepositAmount * 10;
-
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
-      pks,
+    await helpers.bulkRegisterValidators(
+      1,
+      10,
       operatorIds,
-      shares,
-      depositAmount,
-      args.cluster
-    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_7]);
+      minDepositAmount,
+      args.cluster,
+      [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_7],
+    );
   });
 
   it('Bulk register 10 validators with 7 operators new cluster', async () => {
-    const operatorIds = [1, 2, 3, 4, 5, 6, 7];
-
-    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
-    const shares = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.shares(1, index, operatorIds.length));
-    const depositAmount = minDepositAmount * 10;
-
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
-
-    await trackGas(ssvNetworkContract.bulkRegisterValidator(
-      pks,
-      operatorIds,
-      shares,
-      depositAmount,
+    await helpers.bulkRegisterValidators(
+      1,
+      10,
+      [1, 2, 3, 4, 5, 6, 7],
+      minDepositAmount,
       {
         validatorCount: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
         active: true
-      }
-    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_7]);
+      },
+      [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_7],
+    );
   });
 
   // 10 operators
@@ -508,13 +417,7 @@ describe('Register Validator Tests', () => {
           helpers.DataGenerator.cluster.new(10),
           helpers.DataGenerator.shares(1, 1, 10),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -530,13 +433,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
           helpers.DataGenerator.shares(1, 1, 10),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -568,13 +465,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
           helpers.DataGenerator.shares(1, 1, 10),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -604,13 +495,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
           helpers.DataGenerator.shares(2, 4, 10),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -628,13 +513,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
           helpers.DataGenerator.shares(1, 1, 10),
           `${minDepositAmount * 2}`,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -674,42 +553,31 @@ describe('Register Validator Tests', () => {
 
     const args = eventsByName.ValidatorAdded[0].args;
 
-    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
-    const shares = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.shares(1,index, operatorIds.length));
-    const depositAmount = minDepositAmount * 10;
-
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
-      pks,
+    await helpers.bulkRegisterValidators(
+      1,
+      10,
       operatorIds,
-      shares,
-      depositAmount,
-      args.cluster
-    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_10]);
+      minDepositAmount,
+      args.cluster,
+      [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_10],
+    );
   });
 
   it('Bulk register 10 validators with 10 operators new cluster', async () => {
-    const operatorIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
-    const shares = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.shares(1, index, operatorIds.length));
-
-    const depositAmount = minDepositAmount * 10;
-
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
-    await trackGas(ssvNetworkContract.bulkRegisterValidator(
-      pks,
-      operatorIds,
-      shares,
-      depositAmount,
+    await helpers.bulkRegisterValidators(
+      1,
+      10,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      minDepositAmount,
       {
         validatorCount: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
         active: true
-      }
-    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_10]);
+      },
+      [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_10],
+    );
   });
 
   // 13 operators
@@ -724,13 +592,7 @@ describe('Register Validator Tests', () => {
           helpers.DataGenerator.cluster.new(13),
           helpers.DataGenerator.shares(1, 1, 13),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -746,13 +608,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
           helpers.DataGenerator.shares(1, 1, 13),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -783,13 +639,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
           helpers.DataGenerator.shares(1, 1, 13),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -818,13 +668,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
           helpers.DataGenerator.shares(2, 4, 13),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -842,13 +686,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
           helpers.DataGenerator.shares(1, 1, 13),
           `${minDepositAmount * 2}`,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -888,42 +726,31 @@ describe('Register Validator Tests', () => {
 
     const args = eventsByName.ValidatorAdded[0].args;
 
-    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
-    const shares = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.shares(1, index, operatorIds.length));
-    const depositAmount = minDepositAmount * 10;
-
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, depositAmount);
-    await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).bulkRegisterValidator(
-      pks,
+    await helpers.bulkRegisterValidators(
+      1,
+      10,
       operatorIds,
-      shares,
-      depositAmount,
-      args.cluster
-    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_13]);
+      minDepositAmount,
+      args.cluster,
+      [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_13],
+    );
   });
 
   it('Bulk register 10 validators with 13 operators new cluster', async () => {
-    const operatorIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-
-    const pks = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.publicKey(index + 1));
-    const shares = Array.from({ length: 10 }, (_, index) => helpers.DataGenerator.shares(1, index, operatorIds.length));
-
-    const depositAmount = minDepositAmount * 10;
-
-    await helpers.DB.ssvToken.approve(ssvNetworkContract.address, depositAmount);
-    await trackGas(ssvNetworkContract.bulkRegisterValidator(
-      pks,
-      operatorIds,
-      shares,
-      depositAmount,
+    await helpers.bulkRegisterValidators(
+      1,
+      10,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      minDepositAmount,
       {
         validatorCount: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
         active: true
-      }
-    ), [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_13]);
+      },
+      [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_13],
+    );
   });
 
   it('Get cluster burn rate', async () => {
@@ -1171,13 +998,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(6, 1, 4),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
   });
@@ -1194,13 +1015,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 5, 6],
           helpers.DataGenerator.shares(6, 1, 4),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
   });
@@ -1226,13 +1041,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, operatorId],
           helpers.DataGenerator.shares(3, 1, 4),
           minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
+          initialClusterState,
         ),
     ).to.emit(ssvNetworkContract, 'ValidatorAdded');
   });

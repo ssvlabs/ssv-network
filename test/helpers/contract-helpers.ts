@@ -10,6 +10,13 @@ export let DB: any;
 export let CONFIG: any;
 export let SSV_MODULES: any;
 
+export const DEFAULT_OPERATOR_IDS = {
+  4: [1, 2, 3, 4],
+  7: [1, 2, 3, 4, 5, 6, 7],
+  10: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  13: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+};
+
 const getSecretSharedPayload = async (validator: Validator, operatorIds: number[], ownerId: number) => {
   const selOperators = DB.operators.filter((item: Operator) => operatorIds.includes(item.id));
   const operators = selOperators.map((item: Operator) => ({ id: item.id, operatorKey: item.operatorKey }));
@@ -128,6 +135,13 @@ export const initializeContract = async () => {
     ssvDAOMod: {},
     ssvViewsMod: {},
     ownerNonce: 0,
+    initialClusterState: {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0,
+      active: true
+    }
   };
 
   SSV_MODULES = {
@@ -304,12 +318,40 @@ export const registerValidators = async (
   return { regValidators, args };
 };
 
+export const bulkRegisterValidators = async (
+  ownerId: number,
+  numberOfValidators: number,
+  operatorIds: number[],
+  minDepositAmount: any,
+  cluster: any,
+  gasGroups?: GasGroup[]
+) => {
+  const pks = Array.from({ length: numberOfValidators }, (_, index) => DataGenerator.publicKey(index + 1));
+  const shares = Array.from({ length: numberOfValidators }, (_, index) => DataGenerator.shares(1, index, operatorIds.length));
+  const depositAmount = minDepositAmount * numberOfValidators;
+
+  await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, depositAmount);
+
+  const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).bulkRegisterValidator(
+    pks,
+    operatorIds,
+    shares,
+    depositAmount,
+    cluster
+  ), gasGroups);
+
+  return {
+    args: result.eventsByName.ValidatorAdded[0].args,
+    pks
+  };
+};
+
 export const coldRegisterValidator = async () => {
   const ssvKeys = new SSVKeys();
   const keyShares = new KeyShares();
 
   const validator = DB.validators[0];
-  const operators = DB.operators.map((item: Operator) => ({ id: item.id, operatorKey: item.operatorKey }));
+  const operators = DB.operators.slice(0, 4).map((item: Operator) => ({ id: item.id, operatorKey: item.operatorKey }));
   const publicKey = validator.publicKey;
   const privateKey = validator.privateKey;
   const threshold = await ssvKeys.createThreshold(privateKey, operators);

@@ -46,9 +46,27 @@ library ValidatorLib {
         s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
     }
 
+    function hashOperatorIds(uint64[] calldata operatorIds) internal pure returns (bytes32) {
+        bytes32 mask = ~bytes32(uint256(1)); // All bits set to 1 except LSB
+        return keccak256(abi.encodePacked(operatorIds)) & mask; // Clear LSB of provided operator ids
+    }
+
+    function validateStates(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        StorageData storage s
+    ) internal view returns (bytes32[] memory hashedValidator) {
+        hashedValidator = new bytes32[](publicKeys.length);
+        bytes32 hashedOperatorIds = hashOperatorIds(operatorIds);
+
+        for (uint i; i < publicKeys.length; ++i) {
+            hashedValidator[i] = validateState(publicKeys[i], hashedOperatorIds, s);
+        }
+    }
+
     function validateState(
         bytes calldata publicKey,
-        uint64[] calldata operatorIds,
+        bytes32 hashedOperatorIds,
         StorageData storage s
     ) internal view returns (bytes32 hashedValidator) {
         hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
@@ -57,10 +75,8 @@ library ValidatorLib {
         if (validatorData == bytes32(0)) {
             revert ISSVNetworkCore.ValidatorDoesNotExist();
         }
-        bytes32 mask = ~bytes32(uint256(1)); // All bits set to 1 except LSB
 
-        bytes32 hashedOperatorIds = keccak256(abi.encodePacked(operatorIds)) & mask; // Clear LSB of provided operator ids
-        if ((validatorData & mask) != hashedOperatorIds) {
+        if ((validatorData & ~bytes32(uint256(1))) != hashedOperatorIds) { // All bits set to 1 except LSB
             // Clear LSB of stored validator data and compare
             revert ISSVNetworkCore.IncorrectValidatorState();
         }

@@ -244,6 +244,22 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function bulkRemoveValidator(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "bulkRemoveValidator(bytes[],uint64[],(uint32,uint64,uint64,bool,uint256))",
+                publicKeys,
+                operatorIds,
+                cluster
+            )
+        );
+    }
+
     function liquidate(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
