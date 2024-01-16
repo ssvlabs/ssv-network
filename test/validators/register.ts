@@ -202,6 +202,7 @@ describe('Register Validator Tests', () => {
     ));
 
     const args = eventsByName.ValidatorAdded[0].args;
+
     await helpers.bulkRegisterValidators(
       1,
       10,
@@ -219,15 +220,18 @@ describe('Register Validator Tests', () => {
       10,
       [1, 2, 3, 4],
       minDepositAmount,
+
       {
         validatorCount: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
         active: true
+
       },
       [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_4],
     );
+
   });
 
   // 7 operators
@@ -394,6 +398,7 @@ describe('Register Validator Tests', () => {
       10,
       [1, 2, 3, 4, 5, 6, 7],
       minDepositAmount,
+
       {
         validatorCount: 0,
         networkFeeIndex: 0,
@@ -403,6 +408,7 @@ describe('Register Validator Tests', () => {
       },
       [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_7],
     );
+
   });
 
   // 10 operators
@@ -553,6 +559,7 @@ describe('Register Validator Tests', () => {
 
     const args = eventsByName.ValidatorAdded[0].args;
 
+
     await helpers.bulkRegisterValidators(
       1,
       10,
@@ -569,15 +576,18 @@ describe('Register Validator Tests', () => {
       10,
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       minDepositAmount,
+
       {
         validatorCount: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
         active: true
+
       },
       [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_10],
     );
+
   });
 
   // 13 operators
@@ -726,6 +736,7 @@ describe('Register Validator Tests', () => {
 
     const args = eventsByName.ValidatorAdded[0].args;
 
+
     await helpers.bulkRegisterValidators(
       1,
       10,
@@ -742,15 +753,18 @@ describe('Register Validator Tests', () => {
       10,
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       minDepositAmount,
+
       {
         validatorCount: 0,
         networkFeeIndex: 0,
         index: 0,
         balance: 0,
         active: true
+
       },
       [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_13],
     );
+
   });
 
   it('Get cluster burn rate', async () => {
