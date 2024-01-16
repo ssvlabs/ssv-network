@@ -7,7 +7,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### [v1.1.0] 2024-01-08
-- [9c609cd](https://github.com/bloxapp/ssv-network/commit/9c609cd) - Bulk registration of validators.
+- [c80dc3b](https://github.com/bloxapp/ssv-network/commit/c80dc3b) - [Feature] Bulk exit of validators.
+- [6431a00](https://github.com/bloxapp/ssv-network/commit/6431a00) - [Feature] Bulk removal of validators.
+- [9c609cd](https://github.com/bloxapp/ssv-network/commit/9c609cd) - [Feature] Bulk registration of validators.
 - [c9a90b1](https://github.com/bloxapp/ssv-network/commit/c9a90b1) - [Update] Added triggers for compilation in a few tasks (upgrading / updating).
 - [4471f05](https://github.com/bloxapp/ssv-network/commit/4471f05) - [Update] Deployment tests and update task and documentation.
 - [7564dfe](https://github.com/bloxapp/ssv-network/commit/7564dfe) - [Feature] Integration ssv-keys in ssv-network for generating keyshares.
