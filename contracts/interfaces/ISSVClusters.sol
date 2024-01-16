@@ -86,6 +86,11 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param operatorIds Array of IDs of operators managing the validator
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external;
 
+    /// @notice Fires the exit event for a set of validators
+    /// @param publicKeys The public keys of the validators to be exited
+    /// @param operatorIds Array of IDs of operators managing the validators
+    function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external;
+
     /**
      * @dev Emitted when the validator has been added.
      * @param publicKey The public key of a validator.

@@ -70,14 +70,11 @@ contract SSVClusters is ISSVClusters {
             CoreLib.deposit(amount);
         }
 
-        for (uint i; i < validatorsLength; ) {
+        for (uint i; i < validatorsLength; ++i) {
             bytes memory pk = publicKeys[i];
             bytes memory sh = sharesData[i];
-            emit ValidatorAdded(msg.sender, operatorIds, pk, sh, cluster);
 
-            unchecked {
-                ++i;
-            }
+            emit ValidatorAdded(msg.sender, operatorIds, pk, sh, cluster);
         }
     }
 
@@ -325,5 +322,13 @@ contract SSVClusters is ISSVClusters {
         ValidatorLib.validateState(publicKey, hashedOperatorIds, SSVStorage.load());
 
         emit ValidatorExited(msg.sender, operatorIds, publicKey);
+    }
+
+    function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
+        ValidatorLib.validateStates(publicKeys, operatorIds, SSVStorage.load());
+
+        for (uint i; i < publicKeys.length; ++i) {
+            emit ValidatorExited(msg.sender, operatorIds, publicKeys[i]);
+        }
     }
 }

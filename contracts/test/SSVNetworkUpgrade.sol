@@ -329,6 +329,13 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature("bulkExitValidator(bytes[],uint64[]))", publicKeys, operatorIds)
+        );
+    }
+
     function updateNetworkFee(uint256 fee) external override onlyOwner {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],

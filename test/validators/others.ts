@@ -169,4 +169,119 @@ describe('Other Validator Tests', () => {
       ssvNetworkContract.connect(helpers.DB.owners[1]).exitValidator(helpers.DataGenerator.publicKey(1), [1, 2, 3, 5]),
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorState');
   });
+
+  it('Bulk exiting a validator emits "ValidatorExited"', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await expect(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkExitValidator(pks, args.operatorIds),
+    )
+      .to.emit(ssvNetworkContract, 'ValidatorExited');
+  });
+
+  it('Bulk exiting 10 validator (4 operators cluster) gas limit', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkExitValidator(pks, args.operatorIds),
+      [GasGroup.BULK_EXIT_10_VALIDATOR_4],
+    );
+  });
+
+  it('Bulk exiting 10 validator (7 operators cluster) gas limit', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[7],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkExitValidator(pks, args.operatorIds),
+      [GasGroup.BULK_EXIT_10_VALIDATOR_7],
+    );
+  });
+
+  it('Bulk exiting 10 validator (10 operators cluster) gas limit', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[10],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkExitValidator(pks, args.operatorIds),
+      [GasGroup.BULK_EXIT_10_VALIDATOR_10],
+    );
+  });
+
+  it('Bulk exiting 10 validator (13 operators cluster) gas limit', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[13],
+      minDepositAmount,
+      {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0,
+        active: true,
+      },
+    );
+
+    await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkExitValidator(pks, args.operatorIds),
+      [GasGroup.BULK_EXIT_10_VALIDATOR_13],
+    );
+  });
 });
