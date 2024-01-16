@@ -6,7 +6,12 @@ import "./SSVDAO.sol";
 contract DAO is SSVDAO {
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
 
-    function echidna_test(uint256 amount) public returns (bool) {
-        return SSVStorageProtocol.load().networkFee == amount;
+    constructor() {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        sp.networkFee = 100000000 / 10;
+    }
+
+    function helper_updateNetworkFee(uint256 amount) public returns (bool) {
+        this.updateNetworkFee(amount);
     }
 }

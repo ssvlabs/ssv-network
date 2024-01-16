@@ -27,10 +27,12 @@ contract Operators is SSVOperators {
     }
 
     function helper_createOperator(bytes calldata publicKey, uint256 fee) public {
+        require(publicKey.length != 0 && publicKey[0] != 0, "invalid publicKey: cannot be empty");
+    
         uint256 maxValue = 2 ** 64 * DEDUCTED_DIGITS;
 
         uint256 minN = (MINIMAL_OPERATOR_FEE + DEDUCTED_DIGITS - 1) / DEDUCTED_DIGITS;
-        uint256 maxN = maxValue / DEDUCTED_DIGITS;
+        uint256 maxN = SSVStorageProtocol.load().operatorMaxFee;
 
         require(fee > minN && fee < maxN, "fee value exceeded");
         fee = fee * DEDUCTED_DIGITS;
@@ -44,13 +46,11 @@ contract Operators is SSVOperators {
         }
     }
 
-    /*
     function helper_setOperatorWhitelist(uint64 operatorId, address whitelisted) public {
         operatorId = operatorId % uint64(opIds.length);
 
         this.setOperatorWhitelist(operatorId, whitelisted);
     }
-    */
 
     function helper_declareOperatorFee(uint64 operatorId) public {
         operatorId = operatorId % uint64(opIds.length);
@@ -81,7 +81,6 @@ contract Operators is SSVOperators {
     /***********
      * Assertions
      ***********/
-    /*
     function check_removedOperatorNotWhitelisted(uint64 operatorId) public {
         operatorId = operatorId % uint64(opIds.length);
 
@@ -90,7 +89,6 @@ contract Operators is SSVOperators {
         if ((operator.snapshot.block == 0) && operator.whitelisted)
             emit AssertionFailed(operatorId, operator.whitelisted);
     }
-*/
 
     function check_removedOperatorNoFeeDeclared(uint64 operatorId) public {
         operatorId = 1 + (operatorId % (uint64(opIds.length) - 1));

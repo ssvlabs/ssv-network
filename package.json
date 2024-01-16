@@ -9,7 +9,7 @@
     "slither": "slither contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin",
     "size-contracts": "npx hardhat size-contracts",
     "install-echidna": "brew install echidna",
-    "run-echidna": "echidna --config echidna.yaml"
+    "echidna": "echidna --config echidna.yaml --contract"
   },
   "devDependencies": {
     "@crytic/echidna": "^0.0.6",

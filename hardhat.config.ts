@@ -41,9 +41,9 @@ const config: HardhatUserConfig = {
       ssvToken: process.env.SSVTOKEN_ADDRESS, // if empty, deploy SSV mock token
     } as SSVNetworkConfig,
     hardhat: {
-      forking: process.env.GOERLI_ETH_NODE_URL
+      forking: process.env.HOLESKY_ETH_NODE_URL
         ? {
-            url: process.env.GOERLI_ETH_NODE_URL,
+            url: process.env.HOLESKY_ETH_NODE_URL,
             // blockNumber can be specified here if needed
           }
         : undefined,

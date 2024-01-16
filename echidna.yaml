@@ -1,6 +1,5 @@
 testMode: assertion
 # testLimit: 50000
-# multi-abi: true
 # corpusDir: "corpus"
 cryticArgs: ['--solc-remaps', '@openzeppelin=node_modules/@openzeppelin']
 # contractAddr: '0xContractAddress'
