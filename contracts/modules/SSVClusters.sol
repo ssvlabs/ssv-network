@@ -85,10 +85,9 @@ contract SSVClusters is ISSVClusters {
     ) external override {
         StorageData storage s = SSVStorage.load();
 
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
         bytes32 hashedValidator = ValidatorLib.validateState(publicKey, hashedOperatorIds, s);
-
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
 
         if (cluster.active) {
             StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -116,7 +115,6 @@ contract SSVClusters is ISSVClusters {
         StorageData storage s = SSVStorage.load();
 
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
-
         bytes32[] memory hashedValidators = ValidatorLib.validateStates(publicKeys, operatorIds, s);
 
         uint32 validatorsLength = uint32(publicKeys.length);
@@ -137,11 +135,11 @@ contract SSVClusters is ISSVClusters {
             sp.updateDAO(false, validatorsLength);
         }
 
+        cluster.validatorCount -= validatorsLength;
+
         for (uint i; i < validatorsLength; ++i) {
             delete s.validatorPKs[hashedValidators[i]];
         }
-
-        cluster.validatorCount -= validatorsLength;
 
         s.clusters[hashedCluster] = cluster.hashClusterData();
 

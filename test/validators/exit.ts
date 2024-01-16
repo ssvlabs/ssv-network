@@ -6,7 +6,7 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 // Declare globals
 let ssvNetworkContract: any, minDepositAmount: any, firstCluster: any;
 
-describe('Other Validator Tests', () => {
+describe('Exit Validator Tests', () => {
   beforeEach(async () => {
     // Initialize contract
     const metadata = await helpers.initializeContract();
@@ -176,13 +176,7 @@ describe('Other Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true,
-      },
+      helpers.DB.initialClusterState,
     );
 
     await expect(
@@ -199,13 +193,7 @@ describe('Other Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true,
-      },
+      helpers.DB.initialClusterState,
     );
 
     await trackGas(
@@ -222,13 +210,7 @@ describe('Other Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[7],
       minDepositAmount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true,
-      },
+      helpers.DB.initialClusterState,
     );
 
     await trackGas(
@@ -245,13 +227,7 @@ describe('Other Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[10],
       minDepositAmount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true,
-      },
+      helpers.DB.initialClusterState,
     );
 
     await trackGas(
@@ -268,13 +244,7 @@ describe('Other Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[13],
       minDepositAmount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true,
-      },
+      helpers.DB.initialClusterState,
     );
 
     await trackGas(
@@ -283,5 +253,102 @@ describe('Other Validator Tests', () => {
         .bulkExitValidator(pks, args.operatorIds),
       [GasGroup.BULK_EXIT_10_VALIDATOR_13],
     );
+  });
+
+  it('Bulk exiting removed validators reverts "ValidatorDoesNotExist"', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      helpers.DB.initialClusterState,
+    );
+
+    await trackGas(ssvNetworkContract
+      .connect(helpers.DB.owners[2])
+      .bulkRemoveValidator(pks.slice(0, 5), args.operatorIds, args.cluster)
+    );
+
+    await expect(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkExitValidator(pks.slice(0, 5), args.operatorIds),
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+  });
+
+  it('Bulk exiting non-existing validators reverts "ValidatorDoesNotExist"', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      helpers.DB.initialClusterState,
+    );
+    
+    pks[4] = "0xabcd1234";
+
+    await expect(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkExitValidator(pks, args.operatorIds),
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+  });
+
+  it('Bulk exiting validators with empty operator list reverts "IncorrectValidatorState"', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      helpers.DB.initialClusterState,
+    );
+
+    await expect(
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkExitValidator(pks, []),
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorState');
+  });
+
+  it('Bulk exiting validators with empty public key reverts "ValidatorDoesNotExist', async () => {
+    const { args } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      helpers.DB.initialClusterState,
+    );
+
+    await expect(
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkExitValidator([], args.operatorIds),
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+  });
+
+  it('Bulk exiting validators using the wrong account reverts "ValidatorDoesNotExist"', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      helpers.DB.initialClusterState,
+    );
+
+    await expect(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[3])
+        .bulkExitValidator(pks, args.operatorIds),
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+  });
+
+  it('Bulk exiting validators with incorrect operators (unsorted list) reverts with "IncorrectValidatorState"', async () => {
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      helpers.DB.initialClusterState,
+    );
+
+    await expect(
+      ssvNetworkContract.connect(helpers.DB.owners[1]).bulkExitValidator(pks, [4, 3, 2, 1]),
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorState');
   });
 });

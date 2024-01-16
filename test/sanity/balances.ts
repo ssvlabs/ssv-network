@@ -430,13 +430,7 @@ describe('Balance Tests', () => {
       10,
       [5, 6, 7, 8],
       minDepositAmount,
-      {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0,
-        active: true,
-      },
+      helpers.DB.initialClusterState,
     );
 
     await utils.progressBlocks(2);
@@ -473,5 +467,48 @@ describe('Balance Tests', () => {
     expect(await ssvViews.getOperatorEarnings(6)).to.equal((helpers.CONFIG.minimalOperatorFee * 10 * 3) + (helpers.CONFIG.minimalOperatorFee * 5 * 2));
     expect(await ssvViews.getOperatorEarnings(7)).to.equal((helpers.CONFIG.minimalOperatorFee * 10 * 3) + (helpers.CONFIG.minimalOperatorFee * 5 * 2));
     expect(await ssvViews.getOperatorEarnings(8)).to.equal((helpers.CONFIG.minimalOperatorFee * 10 * 3) + (helpers.CONFIG.minimalOperatorFee * 5 * 2));
+  });
+
+  it('Remove validators from a liquidated cluster', async () => {
+    const clusterDeposit = minDepositAmount * 10;
+    // 3 operators cluster burnPerBlock 
+    const newBurnPerBlock = helpers.CONFIG.minimalOperatorFee * 3 + networkFee;
+
+    // register 10 validators
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      [5, 6, 7, 8],
+      minDepositAmount,
+      helpers.DB.initialClusterState,
+    );
+
+    await utils.progressBlocks(2);
+
+    // remove one operator
+    await ssvNetworkContract.connect(helpers.DB.owners[0]).removeOperator(8);
+
+    await utils.progressBlocks(2);
+
+    // bulk remove 10 validators
+    const result = await trackGas(ssvNetworkContract
+      .connect(helpers.DB.owners[2])
+      .bulkRemoveValidator(pks, args.operatorIds, args.cluster)
+    );
+    const removed = result.eventsByName.ValidatorRemoved[0].args;
+
+    await utils.progressBlocks(2);
+
+    // check operators' balances
+    expect(await ssvViews.getOperatorEarnings(5)).to.equal((helpers.CONFIG.minimalOperatorFee * 10 * 6));
+    expect(await ssvViews.getOperatorEarnings(6)).to.equal((helpers.CONFIG.minimalOperatorFee * 10 * 6));
+    expect(await ssvViews.getOperatorEarnings(7)).to.equal((helpers.CONFIG.minimalOperatorFee * 10 * 6));
+    expect(await ssvViews.getOperatorEarnings(8)).to.equal(0);
+
+    // check cluster balance
+    expect(
+      await ssvViews.getBalance(helpers.DB.owners[2].address, removed.operatorIds, removed.cluster),
+    ).to.equal(clusterDeposit - (burnPerBlock * 10 * 3) - (newBurnPerBlock * 10 * 3));
+
   });
 });

@@ -56,6 +56,9 @@ library ValidatorLib {
         uint64[] calldata operatorIds,
         StorageData storage s
     ) internal view returns (bytes32[] memory hashedValidator) {
+        if (publicKeys.length == 0) {
+            revert ISSVNetworkCore.ValidatorDoesNotExist();
+        }
         hashedValidator = new bytes32[](publicKeys.length);
         bytes32 hashedOperatorIds = hashOperatorIds(operatorIds);
 
@@ -76,7 +79,8 @@ library ValidatorLib {
             revert ISSVNetworkCore.ValidatorDoesNotExist();
         }
 
-        if ((validatorData & ~bytes32(uint256(1))) != hashedOperatorIds) { // All bits set to 1 except LSB
+        if ((validatorData & ~bytes32(uint256(1))) != hashedOperatorIds) {
+            // All bits set to 1 except LSB
             // Clear LSB of stored validator data and compare
             revert ISSVNetworkCore.IncorrectValidatorState();
         }
