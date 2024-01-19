@@ -134,14 +134,7 @@ export const initializeContract = async () => {
     ssvClustersMod: {},
     ssvDAOMod: {},
     ssvViewsMod: {},
-    ownerNonce: 0,
-    initialClusterState: {
-      validatorCount: 0,
-      networkFeeIndex: 0,
-      index: 0,
-      balance: 0,
-      active: true
-    }
+    ownerNonce: 0
   };
 
   SSV_MODULES = {

@@ -42,7 +42,7 @@ Only the owner of a cluster can execute these functions:
 - `SSVNetwork.registerValidator` - Registers a new validator on the SSV Network
 - `SSVNetwork.bulkRegisterValidator` - Registers a set of validators in the same cluster on the SSV Network
 - `SSVNetwork.removeValidator` - Removes an existing validator from the SSV Network
-- `SSVNetwork.bulkRemoveValidator` - Bulk removes an set of existing validators in the same cluster from the SSV Network
+- `SSVNetwork.bulkRemoveValidator` - Bulk removes a set of existing validators in the same cluster from the SSV Network
 - `SSVNetwork.reactivate` - Reactivates a cluster
 - `SSVNetwork.withdraw` - Withdraws tokens from a cluster
 - `SSVNetwork.exitValidator` - Starts the exit protocol for an exisiting validator

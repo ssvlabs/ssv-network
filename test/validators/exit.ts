@@ -176,7 +176,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await expect(
@@ -193,7 +193,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await trackGas(
@@ -210,7 +210,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[7],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await trackGas(
@@ -227,7 +227,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[10],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await trackGas(
@@ -244,7 +244,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[13],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await trackGas(
@@ -261,7 +261,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await trackGas(ssvNetworkContract
@@ -282,7 +282,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
     
     pks[4] = "0xabcd1234";
@@ -300,7 +300,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await expect(
@@ -314,7 +314,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await expect(
@@ -328,7 +328,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await expect(
@@ -344,7 +344,7 @@ describe('Exit Validator Tests', () => {
       10,
       helpers.DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await expect(

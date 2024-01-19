@@ -430,7 +430,7 @@ describe('Balance Tests', () => {
       10,
       [5, 6, 7, 8],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await utils.progressBlocks(2);
@@ -480,7 +480,7 @@ describe('Balance Tests', () => {
       10,
       [5, 6, 7, 8],
       minDepositAmount,
-      helpers.DB.initialClusterState,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
     await utils.progressBlocks(2);

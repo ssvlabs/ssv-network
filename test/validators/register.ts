@@ -4,7 +4,7 @@ import * as utils from '../helpers/utils';
 import { expect } from 'chai';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, ssvViews: any, ssvToken: any, minDepositAmount: any, cluster1: any, initialClusterState: any;
+let ssvNetworkContract: any, ssvViews: any, ssvToken: any, minDepositAmount: any, cluster1: any;
 
 describe('Register Validator Tests', () => {
   beforeEach(async () => {
@@ -13,8 +13,6 @@ describe('Register Validator Tests', () => {
     ssvNetworkContract = metadata.contract;
     ssvToken = metadata.ssvToken;
     ssvViews = metadata.ssvViews;
-
-    initialClusterState = helpers.DB.initialClusterState;
 
     // Register operators
     await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
@@ -33,7 +31,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(6, 1, 4),
           '1000000000000000',
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
     );
   });
@@ -48,7 +46,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(1, 1, 4),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
     ).to.emit(ssvNetworkContract, 'ValidatorAdded');
   });
@@ -65,7 +63,7 @@ describe('Register Validator Tests', () => {
           helpers.DataGenerator.cluster.new(),
           helpers.DataGenerator.shares(1, 1, 4),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -85,7 +83,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(1, 1, 4),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -117,7 +115,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(1, 1, 4),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -147,7 +145,7 @@ describe('Register Validator Tests', () => {
           [2, 3, 4, 5],
           helpers.DataGenerator.shares(2, 4, 4),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -165,7 +163,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(1, 1, 4),
           `${minDepositAmount * 2}`,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
@@ -246,7 +244,7 @@ describe('Register Validator Tests', () => {
           helpers.DataGenerator.cluster.new(7),
           helpers.DataGenerator.shares(1, 2, 7),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -262,7 +260,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7],
           helpers.DataGenerator.shares(1, 1, 7),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -294,7 +292,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7],
           helpers.DataGenerator.shares(1, 1, 7),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -324,7 +322,7 @@ describe('Register Validator Tests', () => {
           [2, 3, 4, 5, 6, 7, 8],
           helpers.DataGenerator.shares(2, 4, 7),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -342,7 +340,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7],
           helpers.DataGenerator.shares(1, 1, 7),
           `${minDepositAmount * 2}`,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
     );
@@ -423,7 +421,7 @@ describe('Register Validator Tests', () => {
           helpers.DataGenerator.cluster.new(10),
           helpers.DataGenerator.shares(1, 1, 10),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -439,7 +437,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
           helpers.DataGenerator.shares(1, 1, 10),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -471,7 +469,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
           helpers.DataGenerator.shares(1, 1, 10),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -501,7 +499,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
           helpers.DataGenerator.shares(2, 4, 10),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -519,7 +517,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
           helpers.DataGenerator.shares(1, 1, 10),
           `${minDepositAmount * 2}`,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
     );
@@ -602,7 +600,7 @@ describe('Register Validator Tests', () => {
           helpers.DataGenerator.cluster.new(13),
           helpers.DataGenerator.shares(1, 1, 13),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -618,7 +616,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
           helpers.DataGenerator.shares(1, 1, 13),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -649,7 +647,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
           helpers.DataGenerator.shares(1, 1, 13),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -678,7 +676,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
           helpers.DataGenerator.shares(2, 4, 13),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -696,7 +694,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
           helpers.DataGenerator.shares(1, 1, 13),
           `${minDepositAmount * 2}`,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
       [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
     );
@@ -1012,7 +1010,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, 4],
           helpers.DataGenerator.shares(6, 1, 4),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
   });
@@ -1029,7 +1027,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 5, 6],
           helpers.DataGenerator.shares(6, 1, 4),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
   });
@@ -1055,7 +1053,7 @@ describe('Register Validator Tests', () => {
           [1, 2, 3, operatorId],
           helpers.DataGenerator.shares(3, 1, 4),
           minDepositAmount,
-          initialClusterState,
+          helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
     ).to.emit(ssvNetworkContract, 'ValidatorAdded');
   });
