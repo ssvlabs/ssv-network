@@ -1,7 +1,9 @@
 testMode: assertion
-# testLimit: 50000
-# corpusDir: "corpus"
+testLimit: 2000
+corpusDir: 'echidna-corpus'
 cryticArgs: ['--solc-remaps', '@openzeppelin=node_modules/@openzeppelin']
+format: text
+prefix: 'echidna_'
 # contractAddr: '0xContractAddress'
 # filterBlacklist: false
 # filterFunctions: ["Operators.registerOperator(bytes,uint256)", "setOperatorWhitelist(uint64,address)"]

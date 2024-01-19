@@ -9,7 +9,7 @@
     "slither": "slither contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin",
     "size-contracts": "npx hardhat size-contracts",
     "install-echidna": "brew install echidna",
-    "echidna": "echidna --config echidna.yaml --contract"
+    "echidna": "node .echidna.test.js"
   },
   "devDependencies": {
     "@crytic/echidna": "^0.0.6",
@@ -26,6 +26,7 @@
     "@types/node": "^17.0.23",
     "@typescript-eslint/eslint-plugin": "^5.36.0",
     "chai-as-promised": "^7.1.1",
+    "chalk": "^4.1.2",
     "cli-table": "^0.3.11",
     "dotenv": "^16.0.0",
     "eslint": "^8.23.0",

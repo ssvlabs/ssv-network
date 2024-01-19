@@ -28,7 +28,7 @@ contract Operators is SSVOperators {
 
     function helper_createOperator(bytes calldata publicKey, uint256 fee) public {
         require(publicKey.length != 0 && publicKey[0] != 0, "invalid publicKey: cannot be empty");
-    
+
         uint256 maxValue = 2 ** 64 * DEDUCTED_DIGITS;
 
         uint256 minN = (MINIMAL_OPERATOR_FEE + DEDUCTED_DIGITS - 1) / DEDUCTED_DIGITS;
