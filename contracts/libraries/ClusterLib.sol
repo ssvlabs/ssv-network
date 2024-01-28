@@ -118,22 +118,18 @@ library ClusterLib {
         StorageData storage s,
         StorageProtocol storage sp
     ) internal {
-        uint64 burnRate;
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+            operatorIds,
+            true,
+            true,
+            validatorCountDelta,
+            s,
+            sp
+        );
 
-        if (cluster.active) {
-            (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
-                operatorIds,
-                true,
-                true,
-                validatorCountDelta,
-                s,
-                sp
-            );
+        updateClusterData(cluster, clusterIndex, sp.currentNetworkFeeIndex());
 
-            updateClusterData(cluster, clusterIndex, sp.currentNetworkFeeIndex());
-
-            sp.updateDAO(true, validatorCountDelta);
-        }
+        sp.updateDAO(true, validatorCountDelta);
 
         cluster.validatorCount += validatorCountDelta;
 

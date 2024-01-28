@@ -114,6 +114,8 @@ describe('Remove Validator Tests', () => {
   });
 
   it('Bulk remove 10 validator gas limit (7 operators cluster)', async () => {
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 7;
+
     const { args, pks } = await helpers.bulkRegisterValidators(
       2,
       10,
@@ -150,6 +152,8 @@ describe('Remove Validator Tests', () => {
   });
 
   it('Bulk remove 10 validator gas limit (10 operators cluster)', async () => {
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 10;
+
     const { args, pks } = await helpers.bulkRegisterValidators(
       2,
       10,
@@ -186,6 +190,8 @@ describe('Remove Validator Tests', () => {
   });
 
   it('Bulk remove 10 validator gas limit (13 operators cluster)', async () => {
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 13;
+
     const { args, pks } = await helpers.bulkRegisterValidators(
       2,
       10,

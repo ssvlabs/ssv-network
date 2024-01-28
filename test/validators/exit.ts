@@ -205,6 +205,8 @@ describe('Exit Validator Tests', () => {
   });
 
   it('Bulk exiting 10 validator (7 operators cluster) gas limit', async () => {
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 7;
+
     const { args, pks } = await helpers.bulkRegisterValidators(
       2,
       10,
@@ -222,6 +224,8 @@ describe('Exit Validator Tests', () => {
   });
 
   it('Bulk exiting 10 validator (10 operators cluster) gas limit', async () => {
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 10;
+
     const { args, pks } = await helpers.bulkRegisterValidators(
       2,
       10,
@@ -239,6 +243,8 @@ describe('Exit Validator Tests', () => {
   });
 
   it('Bulk exiting 10 validator (13 operators cluster) gas limit', async () => {
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 13;
+
     const { args, pks } = await helpers.bulkRegisterValidators(
       2,
       10,
