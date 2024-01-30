@@ -103,4 +103,11 @@ contract Operators is SSVOperators {
             emit AssertionFailed(operatorId, SSVStorage.load().operatorFeeChangeRequests[operatorId].approvalBeginTime);
         }
     }
+
+    function check_removedOperatorBalances() public returns (bool) {
+        for (uint256 i; i < opIds.length; i++) {
+            Operator storage operator = SSVStorage.load().operators[opIds[i]];
+            if (operator.validatorCount == 0) assert(operator.snapshot.balance == 0);
+        }
+    }
 }
