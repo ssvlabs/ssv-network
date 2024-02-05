@@ -7,7 +7,7 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @notice Registers a new operator
     /// @param publicKey The public key of the operator
     /// @param fee The operator's fee (SSV)
-    function registerOperator(bytes calldata publicKey, uint256 fee) external returns (uint64);
+    function registerOperator(bytes calldata publicKey, uint64 fee) external returns (uint64);
 
     /// @notice Removes an existing operator
     /// @param operatorId The ID of the operator to be removed

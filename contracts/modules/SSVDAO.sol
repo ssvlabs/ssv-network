@@ -15,8 +15,6 @@ contract SSVDAO is ISSVDAO {
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
 
     function updateNetworkFee(uint256 fee) external override {
-        if (fee == 0) revert FeeTooLow();
-
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64 previousFee = sp.networkFee;
 

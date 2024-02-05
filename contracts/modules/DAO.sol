@@ -13,7 +13,7 @@ contract DAO is SSVDAO {
         this.updateNetworkFee(fee);
     }
 
-    function check_invariant_networkfee() public returns (bool) {
+    function check_invariant_networkfee() public {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         assert(sp.networkFee > 0);
     }

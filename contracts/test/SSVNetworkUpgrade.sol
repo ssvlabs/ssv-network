@@ -117,10 +117,10 @@ contract SSVNetworkUpgrade is
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+    function registerOperator(bytes calldata publicKey, uint64 fee) external override returns (uint64 id) {
         bytes memory result = _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
-            abi.encodeWithSignature("registerOperator(bytes,uint256)", publicKey, fee)
+            abi.encodeWithSignature("registerOperator(bytes,uint64)", publicKey, fee)
         );
         return abi.decode(result, (uint64));
     }
@@ -336,7 +336,7 @@ contract SSVNetworkUpgrade is
     }
 
     function updateMaximumOperatorFee(uint64 maxFee) external override {
-         _delegateCall(
+        _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
             abi.encodeWithSignature("updateMaximumOperatorFee(uint64)", maxFee)
         );

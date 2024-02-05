@@ -118,7 +118,7 @@ contract SSVNetwork is
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+    function registerOperator(bytes calldata publicKey, uint64 fee) external override returns (uint64 id) {
         if (!RegisterAuth.load().authorization[msg.sender].registerOperator) revert NotAuthorized();
 
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
