@@ -41,7 +41,7 @@ interface ISSVNetworkCore {
     }
 
     /// @notice Represents a cluster of validators
-        struct Cluster {
+    struct Cluster {
         /// @dev The number of validators in the cluster
         uint32 validatorCount;
         /// @dev The index of network fees related to this cluster
@@ -66,9 +66,7 @@ interface ISSVNetworkCore {
     error ApprovalNotWithinTimeframe(); // 0x97e4b518
     error OperatorDoesNotExist(); // 0x961e3e8c
     error InsufficientBalance(); // 0xf4d678b8
-    error ValidatorAlreadyExists(); // 0x8d09a73e
     error ValidatorDoesNotExist(); // 0xe51315d2
-    error IncorrectValidatorState(); // 0x2feda3c1
     error ClusterNotLiquidatable(); // 0x60300a8d
     error InvalidPublicKeyLength(); // 0x637297a4
     error InvalidOperatorIdsLength(); // 0x38186224
@@ -89,4 +87,6 @@ interface ISSVNetworkCore {
     error MaxValueExceeded(); // 0x91aa3017
     error FeeTooHigh(); // 0xcd4e6167
     error PublicKeysSharesLengthMismatch(); // 0x9ad467b8
+    error IncorrectValidatorStateWithData(bytes publicKey); // 0x89307938
+    error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
 }

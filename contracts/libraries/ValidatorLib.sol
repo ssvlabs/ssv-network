@@ -22,17 +22,7 @@ library ValidatorLib {
         }
     }
 
-    function registerPublicKeys(
-        bytes[] calldata publicKeys,
-        uint64[] memory operatorIds,
-        StorageData storage s
-    ) internal {
-        for (uint i; i < publicKeys.length; ++i) {
-            resgisterPublicKey(publicKeys[i], operatorIds, s);
-        }
-    }
-
-    function resgisterPublicKey(bytes memory publicKey, uint64[] memory operatorIds, StorageData storage s) internal {
+    function registerPublicKey(bytes memory publicKey, uint64[] memory operatorIds, StorageData storage s) internal {
         if (publicKey.length != PUBLIC_KEY_LENGTH) {
             revert ISSVNetworkCore.InvalidPublicKeyLength();
         }
@@ -40,49 +30,20 @@ library ValidatorLib {
         bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
 
         if (s.validatorPKs[hashedPk] != bytes32(0)) {
-            revert ISSVNetworkCore.ValidatorAlreadyExists();
+            revert ISSVNetworkCore.ValidatorAlreadyExistsWithData(publicKey);
         }
 
         s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
     }
 
-    function hashOperatorIds(uint64[] calldata operatorIds) internal pure returns (bytes32) {
+    function hashOperatorIds(uint64[] memory operatorIds) internal pure returns (bytes32) {
         bytes32 mask = ~bytes32(uint256(1)); // All bits set to 1 except LSB
         return keccak256(abi.encodePacked(operatorIds)) & mask; // Clear LSB of provided operator ids
     }
 
-    function validateStates(
-        bytes[] calldata publicKeys,
-        uint64[] calldata operatorIds,
-        StorageData storage s
-    ) internal view returns (bytes32[] memory hashedValidator) {
-        if (publicKeys.length == 0) {
-            revert ISSVNetworkCore.ValidatorDoesNotExist();
-        }
-        hashedValidator = new bytes32[](publicKeys.length);
-        bytes32 hashedOperatorIds = hashOperatorIds(operatorIds);
-
-        for (uint i; i < publicKeys.length; ++i) {
-            hashedValidator[i] = validateState(publicKeys[i], hashedOperatorIds, s);
-        }
-    }
-
-    function validateState(
-        bytes calldata publicKey,
-        bytes32 hashedOperatorIds,
-        StorageData storage s
-    ) internal view returns (bytes32 hashedValidator) {
-        hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
-        bytes32 validatorData = s.validatorPKs[hashedValidator];
-
-        if (validatorData == bytes32(0)) {
-            revert ISSVNetworkCore.ValidatorDoesNotExist();
-        }
-
-        if ((validatorData & ~bytes32(uint256(1))) != hashedOperatorIds) {
+    function validateCorrectState(bytes32 validatorData, bytes32 hashedOperatorIds) internal pure returns (bool) {
             // All bits set to 1 except LSB
             // Clear LSB of stored validator data and compare
-            revert ISSVNetworkCore.IncorrectValidatorState();
-        }
+            return (validatorData & ~bytes32(uint256(1))) == hashedOperatorIds;
     }
 }

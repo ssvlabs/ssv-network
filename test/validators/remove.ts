@@ -414,4 +414,25 @@ describe('Remove Validator Tests', () => {
     expect(removed.cluster.active).to.equal(false);
     expect(removed.cluster.balance.toNumber()).to.equal(0);
   });
+
+  it('Bulk remove 10 validator, non unique keys', async () => {
+    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 13;
+
+    const { args, pks } = await helpers.bulkRegisterValidators(
+      2,
+      10,
+      helpers.DEFAULT_OPERATOR_IDS[4],
+      minDepositAmount,
+      helpers.getClusterForValidator(0, 0, 0, 0, true),
+    );
+
+    const keys = [pks[0], pks[1], pks[2], pks[3], pks[2], pks[5], pks[2], pks[7], pks[2], pks[8]];
+
+
+    await expect(ssvNetworkContract
+      .connect(helpers.DB.owners[2])
+      .bulkRemoveValidator(keys, args.operatorIds, args.cluster)
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
+      .withArgs(pks[2]);
+  });
 });

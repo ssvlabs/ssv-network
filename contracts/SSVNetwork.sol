@@ -167,7 +167,7 @@ contract SSVNetwork is
 
     function registerValidator(
         bytes calldata publicKey,
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         bytes calldata sharesData,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
@@ -177,7 +177,7 @@ contract SSVNetwork is
 
     function bulkRegisterValidator(
         bytes[] calldata publicKeys,
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         bytes[] calldata sharesData,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
