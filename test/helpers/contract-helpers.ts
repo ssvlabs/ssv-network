@@ -14,7 +14,7 @@ export const DEFAULT_OPERATOR_IDS = {
   4: [1, 2, 3, 4],
   7: [1, 2, 3, 4, 5, 6, 7],
   10: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-  13: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+  13: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
 };
 
 const getSecretSharedPayload = async (validator: Validator, operatorIds: number[], ownerId: number) => {
@@ -134,7 +134,7 @@ export const initializeContract = async () => {
     ssvClustersMod: {},
     ssvDAOMod: {},
     ssvViewsMod: {},
-    ownerNonce: 0
+    ownerNonce: 0,
   };
 
   SSV_MODULES = {
@@ -158,7 +158,7 @@ export const initializeContract = async () => {
   const ssvViews = await ethers.getContractFactory('SSVNetworkViews');
 
   const ssvViewsMod = await ethers.getContractFactory('contracts/modules/SSVViews.sol:SSVViews');
-  const ssvToken = await ethers.getContractFactory('SSVTokenMock');
+  const ssvToken = await ethers.getContractFactory('SSVToken');
   const ssvOperatorsMod = await ethers.getContractFactory('SSVOperators');
   const ssvClustersMod = await ethers.getContractFactory('SSVClusters');
   const ssvDAOMod = await ethers.getContractFactory('SSVDAO');
@@ -317,25 +317,26 @@ export const bulkRegisterValidators = async (
   operatorIds: number[],
   minDepositAmount: any,
   cluster: any,
-  gasGroups?: GasGroup[]
+  gasGroups?: GasGroup[],
 ) => {
   const pks = Array.from({ length: numberOfValidators }, (_, index) => DataGenerator.publicKey(index + 1));
-  const shares = Array.from({ length: numberOfValidators }, (_, index) => DataGenerator.shares(1, index, operatorIds.length));
+  const shares = Array.from({ length: numberOfValidators }, (_, index) =>
+    DataGenerator.shares(1, index, operatorIds.length),
+  );
   const depositAmount = minDepositAmount * numberOfValidators;
 
   await DB.ssvToken.connect(DB.owners[ownerId]).approve(DB.ssvNetwork.contract.address, depositAmount);
 
-  const result = await trackGas(DB.ssvNetwork.contract.connect(DB.owners[ownerId]).bulkRegisterValidator(
-    pks,
-    operatorIds,
-    shares,
-    depositAmount,
-    cluster
-  ), gasGroups);
+  const result = await trackGas(
+    DB.ssvNetwork.contract
+      .connect(DB.owners[ownerId])
+      .bulkRegisterValidator(pks, operatorIds, shares, depositAmount, cluster),
+    gasGroups,
+  );
 
   return {
     args: result.eventsByName.ValidatorAdded[0].args,
-    pks
+    pks,
   };
 };
 
