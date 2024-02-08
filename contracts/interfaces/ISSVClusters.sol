@@ -32,13 +32,14 @@ interface ISSVClusters is ISSVNetworkCore {
         Cluster memory cluster
     ) external;
 
-    /// @notice Bulk removes an set of existing validators in the same cluster from the SSV Network
+    /// @notice Removes an existing validator from the SSV Network
     /// @param publicKey The public key of the validator to be removed
     /// @param operatorIds Array of IDs of operators managing the validator
     /// @param cluster Cluster associated with the validator
     function removeValidator(bytes calldata publicKey, uint64[] memory operatorIds, Cluster memory cluster) external;
 
-    /// @notice Removes an existing validator set from the SSV Network
+    /// @notice Bulk removes a set of existing validators in the same cluster from the SSV Network
+    /// @notice Reverts if publicKeys contains duplicates or non-existent validators
     /// @param publicKeys The public keys of the validators to be removed
     /// @param operatorIds Array of IDs of operators managing the validator
     /// @param cluster Cluster associated with the validator
