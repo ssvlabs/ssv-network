@@ -89,4 +89,8 @@ interface ISSVNetworkCore {
     error PublicKeysSharesLengthMismatch(); // 0x9ad467b8
     error IncorrectValidatorStateWithData(bytes publicKey); // 0x89307938
     error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
+
+    // legacy errors
+    error ValidatorAlreadyExists(); // 0x8d09a73e
+    error IncorrectValidatorState(); // 0x2feda3c1
 }

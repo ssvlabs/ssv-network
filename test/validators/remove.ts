@@ -324,7 +324,7 @@ describe('Remove Validator Tests', () => {
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
   });
 
-  it('Bulk Remove validator that does not exist in a valid cluster reverts "ValidatorDoesNotExist"', async () => {
+  it('Bulk Remove validator that does not exist in a valid cluster reverts "IncorrectValidatorStateWithData"', async () => {
     const { args, pks } = await helpers.bulkRegisterValidators(
       2,
       10,
@@ -339,7 +339,8 @@ describe('Remove Validator Tests', () => {
       ssvNetworkContract
         .connect(helpers.DB.owners[2])
         .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
+      .withArgs(pks[2]);
   });
 
   it('Bulk remove validator with an invalid operator setup reverts "ClusterDoesNotExists"', async () => {
@@ -358,7 +359,7 @@ describe('Remove Validator Tests', () => {
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
 
-  it('Bulk Remove the same validator twice reverts "ValidatorDoesNotExist"', async () => {
+  it('Bulk Remove the same validator twice reverts "IncorrectValidatorStateWithData"', async () => {
     const { args, pks } = await helpers.bulkRegisterValidators(
       2,
       10,
@@ -380,7 +381,8 @@ describe('Remove Validator Tests', () => {
       ssvNetworkContract
         .connect(helpers.DB.owners[2])
         .bulkRemoveValidator(pks, removed.operatorIds, removed.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
+      .withArgs(pks[0]);
   });
 
   it('Remove validators from a liquidated cluster', async () => {
@@ -415,7 +417,7 @@ describe('Remove Validator Tests', () => {
     expect(removed.cluster.balance.toNumber()).to.equal(0);
   });
 
-  it('Bulk remove 10 validator, non unique keys', async () => {
+  it('Bulk remove 10 validator with duplicated public keys reverts "IncorrectValidatorStateWithData"', async () => {
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 13;
 
     const { args, pks } = await helpers.bulkRegisterValidators(
@@ -434,5 +436,12 @@ describe('Remove Validator Tests', () => {
       .bulkRemoveValidator(keys, args.operatorIds, args.cluster)
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
       .withArgs(pks[2]);
+  });
+
+  it('Bulk remove 10 validator with empty public keys reverts "IncorrectValidatorStateWithData"', async () => {
+    await expect(ssvNetworkContract
+      .connect(helpers.DB.owners[2])
+      .bulkRemoveValidator([], firstCluster.operatorIds, firstCluster.cluster)
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
   });
 });

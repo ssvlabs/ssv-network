@@ -48,8 +48,8 @@ library ClusterLib {
         address owner,
         uint64[] memory operatorIds,
         StorageData storage s
-    ) internal view returns (bytes32) {
-        bytes32 hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
+    ) internal view returns (bytes32 hashedCluster) {
+        hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
         bytes32 hashedClusterData = hashClusterData(cluster);
 
         bytes32 clusterData = s.clusters[hashedCluster];
@@ -58,8 +58,6 @@ library ClusterLib {
         } else if (clusterData != hashedClusterData) {
             revert ISSVNetworkCore.IncorrectClusterState();
         }
-
-        return hashedCluster;
     }
 
     function updateClusterData(

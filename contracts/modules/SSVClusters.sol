@@ -16,7 +16,7 @@ contract SSVClusters is ISSVClusters {
     using ProtocolLib for StorageProtocol;
 
     function registerValidator(
-        bytes memory publicKey,
+        bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
         uint256 amount,
@@ -60,7 +60,7 @@ contract SSVClusters is ISSVClusters {
 
         for (uint i; i < validatorsLength; ++i) {
             ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
-}
+        }
         bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += amount;
@@ -81,14 +81,14 @@ contract SSVClusters is ISSVClusters {
 
     function removeValidator(
         bytes calldata publicKey,
-        uint64[] calldata operatorIds,
+        uint64[] memory operatorIds,
         Cluster memory cluster
     ) external override {
         StorageData storage s = SSVStorage.load();
 
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
-        
+
         bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
         bytes32 validatorData = s.validatorPKs[hashedValidator];
 
@@ -118,11 +118,11 @@ contract SSVClusters is ISSVClusters {
     }
 
     function bulkRemoveValidator(
-        bytes[] memory publicKeys,
+        bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external override {
-uint256 validatorsLength = publicKeys.length;
+        uint256 validatorsLength = publicKeys.length;
 
         if (validatorsLength == 0) {
             revert ISSVNetworkCore.ValidatorDoesNotExist();
@@ -358,7 +358,7 @@ uint256 validatorsLength = publicKeys.length;
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         for (uint i; i < publicKeys.length; ++i) {
-if (
+            if (
                 !ValidatorLib.validateCorrectState(
                     SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKeys[i], msg.sender))],
                     hashedOperatorIds

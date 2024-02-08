@@ -998,7 +998,7 @@ describe('Register Validator Tests', () => {
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
   });
 
-  it('Register an existing validator with same operators setup reverts "ValidatorAlreadyExists"', async () => {
+  it('Register an existing validator with same operators setup reverts "ValidatorAlreadyExistsWithData"', async () => {
     await helpers.DB.ssvToken
       .connect(helpers.DB.owners[6])
       .approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
@@ -1012,10 +1012,11 @@ describe('Register Validator Tests', () => {
           minDepositAmount,
           helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExistsWithData')
+    .withArgs(helpers.DataGenerator.publicKey(1));
   });
 
-  it('Register an existing validator with different operators setup reverts "ValidatorAlreadyExists"', async () => {
+  it('Register an existing validator with different operators setup reverts "ValidatorAlreadyExistsWithData"', async () => {
     await helpers.DB.ssvToken
       .connect(helpers.DB.owners[6])
       .approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
@@ -1029,7 +1030,8 @@ describe('Register Validator Tests', () => {
           minDepositAmount,
           helpers.getClusterForValidator(0, 0, 0, 0, true),
         ),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExists');
+    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorAlreadyExistsWithData')
+    .withArgs(helpers.DataGenerator.publicKey(1));
   });
 
   it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
