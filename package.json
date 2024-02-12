@@ -55,12 +55,13 @@
     "eslint": "^8.23.0",
     "gh-pages": "^3.2.3",
     "hardhat": "^2.14.0",
+    "hardhat-abi-exporter": "^2.10.1",
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-storage-layout-changes": "^0.1.2",
     "hardhat-tracer": "^1.2.1",
-    "hardhat-abi-exporter": "^2.10.1",
     "prompts": "^2.4.2",
     "simple-git": "^3.16.1",
+    "ssv-keys": "github:bloxapp/ssv-keys#v1.0.4",
     "ts-node": "^10.7.0",
     "typescript": "^4.6.3"
   }

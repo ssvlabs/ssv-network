@@ -842,7 +842,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "owner",
         "type": "address"
@@ -854,7 +854,7 @@
         "type": "uint64[]"
       },
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes",
         "name": "publicKey",
         "type": "bytes"
