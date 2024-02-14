@@ -57,6 +57,11 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param cluster Cluster where the withdrawal will be made
     function withdraw(uint64[] memory operatorIds, uint256 tokenAmount, Cluster memory cluster) external;
 
+    /// @notice Fires the exit event for a validator
+    /// @param publicKey The public key of the validator to be exited
+    /// @param operatorIds Array of IDs of operators managing the validator
+    function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external;
+
     /**
      * @dev Emitted when the validator has been added.
      * @param publicKey The public key of a validator.
@@ -74,11 +79,45 @@ interface ISSVClusters is ISSVNetworkCore {
      */
     event ValidatorRemoved(address indexed owner, uint64[] operatorIds, bytes publicKey, Cluster cluster);
 
+    /**
+     * @dev Emitted when a cluster is liquidated.
+     * @param owner The owner of the liquidated cluster.
+     * @param operatorIds The operator IDs managing the cluster.
+     * @param cluster The liquidated cluster data.
+     */
     event ClusterLiquidated(address indexed owner, uint64[] operatorIds, Cluster cluster);
 
+    /**
+     * @dev Emitted when a cluster is reactivated.
+     * @param owner The owner of the reactivated cluster.
+     * @param operatorIds The operator IDs managing the cluster.
+     * @param cluster The reactivated cluster data.
+     */
     event ClusterReactivated(address indexed owner, uint64[] operatorIds, Cluster cluster);
 
+    /**
+     * @dev Emitted when tokens are withdrawn from a cluster.
+     * @param owner The owner of the cluster.
+     * @param operatorIds The operator IDs managing the cluster.
+     * @param value The amount of tokens withdrawn.
+     * @param cluster The cluster from which tokens were withdrawn.
+     */
     event ClusterWithdrawn(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
+    /**
+     * @dev Emitted when tokens are deposited into a cluster.
+     * @param owner The owner of the cluster.
+     * @param operatorIds The operator IDs managing the cluster.
+     * @param value The amount of SSV tokens deposited.
+     * @param cluster The cluster into which SSV tokens were deposited.
+     */
     event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
+
+    /**
+     * @dev Emitted when a validator begins the exit process.
+     * @param owner The owner of the exiting validator.
+     * @param operatorIds The operator IDs managing the validator.
+     * @param publicKey The public key of the exiting validator.
+     */
+    event ValidatorExited(address indexed owner, uint64[] operatorIds, bytes publicKey);
 }

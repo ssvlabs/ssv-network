@@ -1,5 +1,32 @@
 {
   "name": "ssv-network",
+  "version": "1.0.2",
+  "description": "Solidity smart contracts for the SSV Network",
+  "author": "SSV.Network",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bloxapp/ssv-network.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ssv",
+    "ssv.network",
+    "solidity",
+    "staking"
+  ],
+  "files": [
+    "contracts/**/*.sol",
+    "!contracts/**/deprecated/**",
+    "!contracts/**/mocks/**",
+    "!contracts/**/test/**",
+    "!contracts/**/upgrades/**",
+    "abis/*.json",
+    "tasks/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "build": "npx hardhat compile",
     "test": "npx hardhat test",
@@ -12,7 +39,6 @@
     "echidna": "node .echidna.test.js"
   },
   "devDependencies": {
-    "@crytic/echidna": "^0.0.6",
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@nomiclabs/hardhat-solhint": "^2.0.0",
@@ -26,7 +52,6 @@
     "@types/node": "^17.0.23",
     "@typescript-eslint/eslint-plugin": "^5.36.0",
     "chai-as-promised": "^7.1.1",
-    "chalk": "^4.1.2",
     "cli-table": "^0.3.11",
     "dotenv": "^16.0.0",
     "eslint": "^8.23.0",
@@ -35,6 +60,7 @@
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-storage-layout-changes": "^0.1.2",
     "hardhat-tracer": "^1.2.1",
+    "hardhat-abi-exporter": "^2.10.1",
     "prompts": "^2.4.2",
     "simple-git": "^3.16.1",
     "ts-node": "^10.7.0",

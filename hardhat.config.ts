@@ -8,6 +8,7 @@ import 'hardhat-tracer';
 import '@nomiclabs/hardhat-solhint';
 import 'hardhat-contract-sizer';
 import 'hardhat-storage-layout-changes';
+import 'hardhat-abi-exporter';
 import './tasks/deploy';
 import './tasks/update-module';
 import './tasks/upgrade';
@@ -23,6 +24,9 @@ const config: HardhatUserConfig = {
   },
   solidity: {
     compilers: [
+      {
+        version: '0.8.4',
+      },
       {
         version: '0.8.18',
         settings: {
@@ -54,11 +58,30 @@ const config: HardhatUserConfig = {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
     apiKey: process.env.ETHERSCAN_KEY,
+    customChains: [
+      {
+        network: 'holesky',
+        chainId: 17000,
+        urls: {
+          apiURL: 'https://api-holesky.etherscan.io/api',
+          browserURL: 'https://holesky.etherscan.io',
+        },
+      },
+    ],
   },
   gasReporter: {
     enabled: true,
     currency: 'USD',
     gasPrice: 0.3,
+  },
+  abiExporter: {
+    path: './abis',
+    runOnCompile: true,
+    clear: true,
+    flat: true,
+    spacing: 2,
+    pretty: false,
+    only: ['contracts/SSVNetwork.sol', 'contracts/SSVNetworkViews.sol'],
   },
 };
 

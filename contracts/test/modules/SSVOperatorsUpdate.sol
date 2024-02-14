@@ -23,7 +23,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint64 fee) external override returns (uint64 id) {
+    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
@@ -38,7 +38,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
             owner: msg.sender,
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             validatorCount: 0,
-            fee: fee,
+            fee: fee.shrink(),
             whitelisted: false
         });
         s.operatorsPKs[hashedPk] = id;

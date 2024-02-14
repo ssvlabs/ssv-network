@@ -14,7 +14,7 @@ describe('Reactivate Tests', () => {
     ssvNetworkContract = metadata.contract;
 
     // Register operators
-    await helpers.registerOperators(0, 12, helpers.CONFIG.minimalOperatorFee);
+    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
 
     minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
 
@@ -22,7 +22,6 @@ describe('Reactivate Tests', () => {
     // cold register
     await helpers.coldRegisterValidator();
 
-    await ssvNetworkContract.setRegisterAuth(helpers.DB.owners[1].address, false, true);
     // first validator
     await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
     const register = await trackGas(ssvNetworkContract.connect(helpers.DB.owners[1]).registerValidator(

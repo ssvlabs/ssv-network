@@ -23,7 +23,7 @@ contract SSVOperators is ISSVOperators {
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint64 fee) external override returns (uint64 id) {
+    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
@@ -42,7 +42,7 @@ contract SSVOperators is ISSVOperators {
             owner: msg.sender,
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             validatorCount: 0,
-            fee: fee,
+            fee: fee.shrink(),
             whitelisted: false
         });
         s.operatorsPKs[hashedPk] = id;
@@ -62,17 +62,20 @@ contract SSVOperators is ISSVOperators {
         operator.snapshot.balance = 0;
         operator.validatorCount = 0;
         operator.fee = 0;
+        operator.whitelisted = false;
 
-        if (operator.whitelisted) {
-            operator.whitelisted = false;
-            delete s.operatorsWhitelist[operatorId];
-        }
         s.operators[operatorId] = operator;
+
+        delete s.operatorsWhitelist[operatorId];
 
         if (currentBalance > 0) {
             _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
         }
         emit OperatorRemoved(operatorId);
+
+        delete s.operatorFeeChangeRequests[operatorId];
+
+        emit OperatorFeeDeclarationCancelled(msg.sender, operatorId);
     }
 
     function setOperatorWhitelist(uint64 operatorId, address whitelisted) external {
@@ -169,8 +172,8 @@ contract SSVOperators is ISSVOperators {
         operator.fee = shrunkAmount;
         s.operators[operatorId] = operator;
 
-        if (s.operatorFeeChangeRequests[operatorId].approvalBeginTime != 0)
-            delete s.operatorFeeChangeRequests[operatorId];
+        delete s.operatorFeeChangeRequests[operatorId];
+
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 

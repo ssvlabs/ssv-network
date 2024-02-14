@@ -34,18 +34,19 @@ library OperatorLib {
         uint64[] memory operatorIds,
         bool increaseValidatorCount,
         uint32 deltaValidatorCount,
-        StorageData storage s
+        StorageData storage s,
+        StorageProtocol storage sp
     ) internal returns (uint64 clusterIndex, uint64 burnRate) {
-        for (uint256 i; i < operatorIds.length; ) {
+        uint256 operatorsLength = operatorIds.length;
+
+        for (uint256 i; i < operatorsLength; ) {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
             if (operator.snapshot.block != 0) {
                 updateSnapshotSt(operator);
                 if (!increaseValidatorCount) {
                     operator.validatorCount -= deltaValidatorCount;
-                } else if (
-                    (operator.validatorCount += deltaValidatorCount) > SSVStorageProtocol.load().validatorsPerOperatorLimit
-                ) {
+                } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
                     revert ISSVNetworkCore.ExceedValidatorLimit();
                 }
                 burnRate += operator.fee;

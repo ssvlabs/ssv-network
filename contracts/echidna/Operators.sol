@@ -10,8 +10,9 @@ contract Operators is SSVOperators {
     using ProtocolLib for StorageProtocol;
 
     uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
+    uint64 private constant MAXIMUM_OPERATOR_FEE = 76_528_650_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
-    uint64[] opIds;
+    uint64[] public opIds;
     uint256 private sault;
     uint64 private minNetworkFee;
 
@@ -27,9 +28,17 @@ contract Operators is SSVOperators {
         sp.declareOperatorFeePeriod = 604800;
         sp.executeOperatorFeePeriod = 604800;
         sp.operatorMaxFeeIncrease = 1000;
-        sp.operatorMaxFee = minNetworkFee * 2;
+        sp.operatorMaxFee = MAXIMUM_OPERATOR_FEE;
 
         sp.updateNetworkFee(0);
+    }
+
+    function getOperatorIds() public view returns (uint64[] memory) {
+        return opIds;
+    }
+
+    function getOperatorBlock(uint64 operatorId) public view returns (uint256) {
+        return SSVStorage.load().operators[operatorId].snapshot.block;
     }
 
     function _generatePublicKey() internal returns (bytes memory) {
@@ -43,23 +52,36 @@ contract Operators is SSVOperators {
         return randomBytes;
     }
 
-    function _generateFee(uint64 min, uint64 max) public returns (uint64) {
+    function _generateFee(uint256 min, uint256 max) internal returns (uint256) {
         require(max > min, "Max must be greater than min");
+        require(
+            min % DEDUCTED_DIGITS == 0 && max % DEDUCTED_DIGITS == 0,
+            "Min and Max must be multiples of 10,000,000"
+        );
+
         uint256 randomHash = uint256(keccak256(abi.encodePacked(sault, block.timestamp)));
         sault++;
         uint64 reducedHash = uint64(randomHash);
-        return (reducedHash % (max - min + 1)) + min;
+
+        // Calculate a fee within the range, ensuring it ends in a multiple of 10,000,000
+        uint256 range = (max - min) / DEDUCTED_DIGITS + 1;
+        uint256 feeMultiplier = (reducedHash % range) * DEDUCTED_DIGITS;
+        uint256 fee = min + feeMultiplier;
+        fee = fee - (fee % DEDUCTED_DIGITS);
+
+        return fee;
     }
 
-    function helper_createOperator() public {
-        uint64 minN = minNetworkFee;
-        uint64 maxN = SSVStorageProtocol.load().operatorMaxFee;
+    function helper_createOperator() public returns (uint64) {
+        uint256 minN = minNetworkFee;
+        uint256 maxN = SSVStorageProtocol.load().operatorMaxFee;
 
         bytes memory publicKey = _generatePublicKey();
-        uint64 fee = _generateFee(minN, maxN);
+        uint256 fee = _generateFee(minN, maxN);
 
         try this.registerOperator(publicKey, fee) returns (uint64 operatorId) {
             opIds.push(operatorId);
+            return operatorId;
         } catch {
             assert(false);
         }
@@ -103,15 +125,16 @@ contract Operators is SSVOperators {
     function check_removedOperatorNotWhitelisted(uint64 operatorId) public {
         operatorId = operatorId % uint64(opIds.length);
 
-        Operator storage operator = SSVStorage.load().operators[operatorId];
+        Operator memory operator = SSVStorage.load().operators[operatorId];
 
         if ((operator.snapshot.block == 0) && operator.whitelisted)
             emit AssertionFailed(operatorId, operator.whitelisted);
     }
 
     function check_removedOperatorNoFeeDeclared(uint64 operatorId) public {
-        operatorId = 1 + (operatorId % (uint64(opIds.length) - 1));
-        Operator storage operator = SSVStorage.load().operators[operatorId];
+        operatorId = operatorId % uint64(opIds.length);
+
+        Operator memory operator = SSVStorage.load().operators[operatorId];
 
         if (
             (operator.snapshot.block == 0) &&
