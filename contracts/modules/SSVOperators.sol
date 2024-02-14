@@ -62,7 +62,6 @@ contract SSVOperators is ISSVOperators {
         operator.snapshot.balance = 0;
         operator.validatorCount = 0;
         operator.fee = 0;
-        operator.whitelisted = false;
 
         s.operators[operatorId] = operator;
 
@@ -72,10 +71,6 @@ contract SSVOperators is ISSVOperators {
             _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
         }
         emit OperatorRemoved(operatorId);
-
-        delete s.operatorFeeChangeRequests[operatorId];
-
-        emit OperatorFeeDeclarationCancelled(msg.sender, operatorId);
     }
 
     function setOperatorWhitelist(uint64 operatorId, address whitelisted) external {
