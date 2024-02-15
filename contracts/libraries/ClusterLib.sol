@@ -3,10 +3,14 @@ pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
 import "./SSVStorage.sol";
+import "./SSVStorageProtocol.sol";
+import "./OperatorLib.sol";
+import "./ProtocolLib.sol";
 import "./Types.sol";
 
 library ClusterLib {
     using Types64 for uint64;
+    using ProtocolLib for StorageProtocol;
 
     function updateBalance(
         ISSVNetworkCore.Cluster memory cluster,
@@ -44,8 +48,8 @@ library ClusterLib {
         address owner,
         uint64[] memory operatorIds,
         StorageData storage s
-    ) internal view returns (bytes32) {
-        bytes32 hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
+    ) internal view returns (bytes32 hashedCluster) {
+        hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
         bytes32 hashedClusterData = hashClusterData(cluster);
 
         bytes32 clusterData = s.clusters[hashedCluster];
@@ -54,8 +58,6 @@ library ClusterLib {
         } else if (clusterData != hashedClusterData) {
             revert ISSVNetworkCore.IncorrectClusterState();
         }
-
-        return hashedCluster;
     }
 
     function updateClusterData(
@@ -79,5 +81,68 @@ library ClusterLib {
                     cluster.active
                 )
             );
+    }
+
+    function validateClusterOnRegistration(
+        ISSVNetworkCore.Cluster memory cluster,
+        uint64[] memory operatorIds,
+        StorageData storage s
+    ) internal view returns (bytes32 hashedCluster) {
+        hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
+
+        bytes32 clusterData = s.clusters[hashedCluster];
+        if (clusterData == bytes32(0)) {
+            if (
+                cluster.validatorCount != 0 ||
+                cluster.networkFeeIndex != 0 ||
+                cluster.index != 0 ||
+                cluster.balance != 0 ||
+                !cluster.active
+            ) {
+                revert ISSVNetworkCore.IncorrectClusterState();
+            }
+        } else if (clusterData != hashClusterData(cluster)) {
+            revert ISSVNetworkCore.IncorrectClusterState();
+        } else {
+            validateClusterIsNotLiquidated(cluster);
+        }
+    }
+
+    function updateClusterOnRegistration(
+        ISSVNetworkCore.Cluster memory cluster,
+        uint64[] memory operatorIds,
+        bytes32 hashedCluster,
+        uint32 validatorCountDelta,
+        StorageData storage s,
+        StorageProtocol storage sp
+    ) internal {
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+            operatorIds,
+            true,
+            true,
+            validatorCountDelta,
+            s,
+            sp
+        );
+
+        updateClusterData(cluster, clusterIndex, sp.currentNetworkFeeIndex());
+
+        sp.updateDAO(true, validatorCountDelta);
+
+        cluster.validatorCount += validatorCountDelta;
+
+        if (
+            isLiquidatable(
+                cluster,
+                burnRate,
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
+            )
+        ) {
+            revert ISSVNetworkCore.InsufficientBalance();
+        }
+
+        s.clusters[hashedCluster] = hashClusterData(cluster);
     }
 }

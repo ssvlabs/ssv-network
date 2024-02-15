@@ -191,17 +191,37 @@ contract SSVNetworkUpgrade is
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
-        bytes calldata sharesData,
+        bytes calldata shares,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
-                "registerValidator(bytes,uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
+                "registerValidator(bytes[],uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
                 publicKey,
                 operatorIds,
-                sharesData,
+                shares,
+                amount,
+                cluster
+            )
+        );
+    }
+
+    function bulkRegisterValidator(
+        bytes[] calldata publicKey,
+        uint64[] memory operatorIds,
+        bytes[] calldata shares,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "registerValidator(bytes[],uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
+                publicKey,
+                operatorIds,
+                shares,
                 amount,
                 cluster
             )
@@ -218,6 +238,22 @@ contract SSVNetworkUpgrade is
             abi.encodeWithSignature(
                 "removeValidator(bytes,uint64[],(uint32,uint64,uint64,bool,uint256))",
                 publicKey,
+                operatorIds,
+                cluster
+            )
+        );
+    }
+
+    function bulkRemoveValidator(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "bulkRemoveValidator(bytes[],uint64[],(uint32,uint64,uint64,bool,uint256))",
+                publicKeys,
                 operatorIds,
                 cluster
             )
@@ -290,6 +326,13 @@ contract SSVNetworkUpgrade is
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature("exitValidator(bytes,uint64[]))", publicKey, operatorIds)
+        );
+    }
+
+    function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature("bulkExitValidator(bytes[],uint64[]))", publicKeys, operatorIds)
         );
     }
 

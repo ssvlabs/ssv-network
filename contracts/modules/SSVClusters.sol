@@ -14,10 +14,6 @@ contract SSVClusters is ISSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
-    uint64 private constant MIN_OPERATORS_LENGTH = 4;
-    uint64 private constant MAX_OPERATORS_LENGTH = 13;
-    uint64 private constant MODULO_OPERATORS_LENGTH = 3;
-    uint64 private constant PUBLIC_KEY_LENGTH = 48;
 
     function registerValidator(
         bytes calldata publicKey,
@@ -29,108 +25,15 @@ contract SSVClusters is ISSVClusters {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        uint256 operatorsLength = operatorIds.length;
-        {
-            if (
-                operatorsLength < MIN_OPERATORS_LENGTH ||
-                operatorsLength > MAX_OPERATORS_LENGTH ||
-                operatorsLength % MODULO_OPERATORS_LENGTH != 1
-            ) {
-                revert InvalidOperatorIdsLength();
-            }
+        ValidatorLib.validateOperatorsLength(operatorIds);
 
-            if (publicKey.length != PUBLIC_KEY_LENGTH) revert InvalidPublicKeyLength();
+        ValidatorLib.registerPublicKey(publicKey, operatorIds, s);
 
-            bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
-
-            if (s.validatorPKs[hashedPk] != bytes32(0)) {
-                revert ValidatorAlreadyExists();
-            }
-
-            s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
-        }
-        bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
-
-        {
-            bytes32 clusterData = s.clusters[hashedCluster];
-            if (clusterData == bytes32(0)) {
-                if (
-                    cluster.validatorCount != 0 ||
-                    cluster.networkFeeIndex != 0 ||
-                    cluster.index != 0 ||
-                    cluster.balance != 0 ||
-                    !cluster.active
-                ) {
-                    revert IncorrectClusterState();
-                }
-            } else if (clusterData != cluster.hashClusterData()) {
-                revert IncorrectClusterState();
-            } else {
-                cluster.validateClusterIsNotLiquidated();
-            }
-        }
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += amount;
 
-        uint64 burnRate;
-
-        if (cluster.active) {
-            uint64 clusterIndex;
-
-            for (uint256 i; i < operatorsLength; ) {
-                uint64 operatorId = operatorIds[i];
-                {
-                    if (i + 1 < operatorsLength) {
-                        if (operatorId > operatorIds[i + 1]) {
-                            revert UnsortedOperatorsList();
-                        } else if (operatorId == operatorIds[i + 1]) {
-                            revert OperatorsListNotUnique();
-                        }
-                    }
-                }
-
-                Operator memory operator = s.operators[operatorId];
-                if (operator.snapshot.block == 0) {
-                    revert OperatorDoesNotExist();
-                }
-                if (operator.whitelisted) {
-                    address whitelisted = s.operatorsWhitelist[operatorId];
-                    if (whitelisted != address(0) && whitelisted != msg.sender) {
-                        revert CallerNotWhitelisted();
-                    }
-                }
-                operator.updateSnapshot();
-                if (++operator.validatorCount > sp.validatorsPerOperatorLimit) {
-                    revert ExceedValidatorLimit();
-                }
-                clusterIndex += operator.snapshot.index;
-                burnRate += operator.fee;
-
-                s.operators[operatorId] = operator;
-
-                unchecked {
-                    ++i;
-                }
-            }
-            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
-
-            sp.updateDAO(true, 1);
-        }
-
-        ++cluster.validatorCount;
-
-        if (
-            cluster.isLiquidatable(
-                burnRate,
-                sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
-            )
-        ) {
-            revert InsufficientBalance();
-        }
-
-        s.clusters[hashedCluster] = cluster.hashClusterData();
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, 1, s, sp);
 
         if (amount != 0) {
             CoreLib.deposit(amount);
@@ -139,35 +42,135 @@ contract SSVClusters is ISSVClusters {
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
     }
 
+    function bulkRegisterValidator(
+        bytes[] memory publicKeys,
+        uint64[] memory operatorIds,
+        bytes[] calldata sharesData,
+        uint256 amount,
+        Cluster memory cluster
+    ) external override {
+        if (publicKeys.length != sharesData.length) revert PublicKeysSharesLengthMismatch();
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        uint256 validatorsLength = publicKeys.length;
+
+        ValidatorLib.validateOperatorsLength(operatorIds);
+
+        for (uint i; i < validatorsLength; ++i) {
+            ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
+        }
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
+
+        cluster.balance += amount;
+
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
+
+        if (amount != 0) {
+            CoreLib.deposit(amount);
+        }
+
+        for (uint i; i < validatorsLength; ++i) {
+            bytes memory pk = publicKeys[i];
+            bytes memory sh = sharesData[i];
+
+            emit ValidatorAdded(msg.sender, operatorIds, pk, sh, cluster);
+        }
+    }
+
     function removeValidator(
         bytes calldata publicKey,
-        uint64[] calldata operatorIds,
+        uint64[] memory operatorIds,
         Cluster memory cluster
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedValidator = ValidatorLib.validateState(publicKey, operatorIds, s);
-
         bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
-        {
-            if (cluster.active) {
-                StorageProtocol storage sp = SSVStorageProtocol.load();
-                (uint64 clusterIndex, ) = OperatorLib.updateOperators(operatorIds, false, 1, s, sp);
+        bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
+        bytes32 validatorData = s.validatorPKs[hashedValidator];
 
-                cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+        if (validatorData == bytes32(0)) {
+            revert ISSVNetworkCore.ValidatorDoesNotExist();
+        }
 
-                sp.updateDAO(false, 1);
-            }
+        if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds))
+            revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKey);
+
+        delete s.validatorPKs[hashedValidator];
+
+        if (cluster.active) {
+            StorageProtocol storage sp = SSVStorageProtocol.load();
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, false, 1, s, sp);
+
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+
+            sp.updateDAO(false, 1);
         }
 
         --cluster.validatorCount;
 
-        delete s.validatorPKs[hashedValidator];
-
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
+    }
+
+    function bulkRemoveValidator(
+        bytes[] calldata publicKeys,
+        uint64[] memory operatorIds,
+        Cluster memory cluster
+    ) external override {
+        uint256 validatorsLength = publicKeys.length;
+
+        if (validatorsLength == 0) {
+            revert ISSVNetworkCore.ValidatorDoesNotExist();
+        }
+        StorageData storage s = SSVStorage.load();
+
+        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
+
+        bytes32 hashedValidator;
+        bytes32 validatorData;
+
+        uint32 validatorsRemoved;
+
+        for (uint i; i < validatorsLength; ++i) {
+            hashedValidator = keccak256(abi.encodePacked(publicKeys[i], msg.sender));
+            validatorData = s.validatorPKs[hashedValidator];
+
+            if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds))
+                revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKeys[i]);
+
+            delete s.validatorPKs[hashedValidator];
+            validatorsRemoved++;
+        }
+
+        if (cluster.active) {
+            StorageProtocol storage sp = SSVStorageProtocol.load();
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
+                operatorIds,
+                false,
+                false,
+                validatorsRemoved,
+                s,
+                sp
+            );
+
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+
+            sp.updateDAO(false, validatorsRemoved);
+        }
+
+        cluster.validatorCount -= validatorsRemoved;
+
+        s.clusters[hashedCluster] = cluster.hashClusterData();
+
+        for (uint i; i < validatorsLength; ++i) {
+            emit ValidatorRemoved(msg.sender, operatorIds, publicKeys[i], cluster);
+        }
     }
 
     function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
@@ -178,8 +181,9 @@ contract SSVClusters is ISSVClusters {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
+            false,
             false,
             cluster.validatorCount,
             s,
@@ -229,8 +233,9 @@ contract SSVClusters is ISSVClusters {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateOperators(
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
+            false,
             true,
             cluster.validatorCount,
             s,
@@ -336,8 +341,31 @@ contract SSVClusters is ISSVClusters {
     }
 
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
-        ValidatorLib.validateState(publicKey, operatorIds, SSVStorage.load());
+        if (
+            !ValidatorLib.validateCorrectState(
+                SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKey, msg.sender))],
+                ValidatorLib.hashOperatorIds(operatorIds)
+            )
+        ) revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKey);
 
         emit ValidatorExited(msg.sender, operatorIds, publicKey);
+    }
+
+    function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
+        if (publicKeys.length == 0) {
+            revert ISSVNetworkCore.ValidatorDoesNotExist();
+        }
+        bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
+
+        for (uint i; i < publicKeys.length; ++i) {
+            if (
+                !ValidatorLib.validateCorrectState(
+                    SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKeys[i], msg.sender))],
+                    hashedOperatorIds
+                )
+            ) revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKeys[i]);
+
+            emit ValidatorExited(msg.sender, operatorIds, publicKeys[i]);
+        }
     }
 }

@@ -167,8 +167,18 @@ contract SSVNetwork is
 
     function registerValidator(
         bytes calldata publicKey,
-        uint64[] memory operatorIds,
+        uint64[] calldata operatorIds,
         bytes calldata sharesData,
+        uint256 amount,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+    function bulkRegisterValidator(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        bytes[] calldata sharesData,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
@@ -179,6 +189,14 @@ contract SSVNetwork is
         bytes calldata publicKey,
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+    function bulkRemoveValidator(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
     ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
@@ -217,6 +235,10 @@ contract SSVNetwork is
     }
 
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+    function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
