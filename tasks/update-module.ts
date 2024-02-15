@@ -1,5 +1,5 @@
-import { task, types } from "hardhat/config";
-import { SSVModules } from "./config";
+import { task, types } from 'hardhat/config';
+import { SSVModules } from './config';
 
 /**
 @title Hardhat task to update a module contract in the SSVNetwork.
@@ -17,24 +17,24 @@ The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
 The module's contract specified should be already compiled and exist in the 'artifacts' directory.
 */
-task("update:module", "Deploys a new module contract and links it to SSVNetwork")
-    .addParam("module", "SSV Module", null, types.string)
-    .addOptionalParam("attachModule", "Attach module to SSVNetwork contract", false, types.boolean)
-    .addOptionalParam("proxyAddress", "Proxy address of SSVNetwork / SSVNetworkViews", '', types.string)
-    .setAction(async ({ module, attachModule, proxyAddress }, hre) => {
-        if (attachModule && !proxyAddress) throw new Error("SSVNetwork proxy address not set.");
+task('update:module', 'Deploys a new module contract and links it to SSVNetwork')
+  .addParam('module', 'SSV Module', null, types.string)
+  .addOptionalParam('attachModule', 'Attach module to SSVNetwork contract', false, types.boolean)
+  .addOptionalParam('proxyAddress', 'Proxy address of SSVNetwork / SSVNetworkViews', '', types.string)
+  .setAction(async ({ module, attachModule, proxyAddress }, hre) => {
+    if (attachModule && !proxyAddress) throw new Error('SSVNetwork proxy address not set.');
 
-        const [deployer] = await ethers.getSigners();
-        console.log(`Deploying contracts with the account: ${deployer.address}`);
-        const moduleAddress = await hre.run("deploy:module", { module });
+    const [deployer] = await ethers.getSigners();
+    console.log(`Deploying contracts with the account: ${deployer.address}`);
+    const moduleAddress = await hre.run('deploy:module', { module });
 
-        if (attachModule) {
-            if (!proxyAddress) throw new Error("SSVNetwork proxy address not set.");
+    if (attachModule) {
+      if (!proxyAddress) throw new Error('SSVNetwork proxy address not set.');
 
-            const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
-            const ssvNetwork = await ssvNetworkFactory.attach(proxyAddress);
+      const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
+      const ssvNetwork = await ssvNetworkFactory.attach(proxyAddress);
 
-            await ssvNetwork.updateModule(SSVModules[module], moduleAddress);
-            console.log(`${module} module attached to SSVNetwork succesfully`);
-        }
-    });
+      await ssvNetwork.updateModule(SSVModules[module], moduleAddress);
+      console.log(`${module} module attached to SSVNetwork succesfully`);
+    }
+  });

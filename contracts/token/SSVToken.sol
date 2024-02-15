@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
  */
 contract SSVToken is Ownable, ERC20, ERC20Burnable {
     constructor() ERC20("SSV Token", "SSV") {
+        _mint(msg.sender, 1000000000000000000000);
     }
 
     /**

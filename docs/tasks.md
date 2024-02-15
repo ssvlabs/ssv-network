@@ -97,6 +97,9 @@ Example:
 npx hardhat --network goerli_testnet upgrade:proxy --proxy-address 0x1234... --contract SSVNetworkV2 --init-function initializev2 param1 param2
 ```
 
+It is crucial to verify the upgraded contract using its proxy address.
+This ensures that users can interact with the correct, upgraded implementation on Etherscan.
+
 ### Update a module
 
 Sometimes you only need to perform changes in the logic of a function of a module, add a private function or do something that doesn't affect other components in the architecture. Then you can use the task to update a module.

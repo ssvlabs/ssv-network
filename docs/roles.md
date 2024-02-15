@@ -20,6 +20,7 @@ The contract owner can perform operational actions over the contract and protoco
 - `SSVNetwork.updateExecuteOperatorFeePeriod()` - Updates the period for executing operator fees
 - `SSVNetwork.updateLiquidationThresholdPeriod()` - Updates the liquidation threshold period
 - `SSVNetwork.updateMinimumLiquidationCollateral()` - Updates the minimum collateral required to prevent liquidation
+- `SSVNetwork.updateMaximumOperatorFee()` - Updates the maximum fee an operator can set
 
 ## Operator owner
 
@@ -39,6 +40,10 @@ Only the owner of an operator can execute these functions:
 Only the owner of a cluster can execute these functions:
 
 - `SSVNetwork.registerValidator` - Registers a new validator on the SSV Network
+- `SSVNetwork.bulkRegisterValidator` - Registers a set of validators in the same cluster on the SSV Network
 - `SSVNetwork.removeValidator` - Removes an existing validator from the SSV Network
+- `SSVNetwork.bulkRemoveValidator` - Bulk removes a set of existing validators in the same cluster from the SSV Network
 - `SSVNetwork.reactivate` - Reactivates a cluster
 - `SSVNetwork.withdraw` - Withdraws tokens from a cluster
+- `SSVNetwork.exitValidator` - Starts the exit protocol for an exisiting validator
+- `SSVNetwork.bulkExitValidator` - Starts the exit protocol for a set of existing validators

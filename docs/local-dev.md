@@ -92,9 +92,19 @@ Open `.openzeppelin/<network>.json` file and find `[impls.<hash>.address]` value
 You will find 2 `[impls.<hash>]` entries, one for `SSVNetwork` and another for `SSVNetworkViews`.
 Run this verification process for both.
 
-You can take it from the output of the `deploy-all.ts` script.
+You can take it from the output of the `npx hardhat --network <network> deploy:all` command.
 
-To verify an implementation contract (SSVNetwork, SSVNetworkViews or any module), run this:
+To verify a proxy contract (SSVNetwork, SSVNetworkViews), run this:
+
+```sh
+npx hardhat verify --network <network> <proxy-address>
+```
+
+By verifying a contract using its proxy address, the verification process for both the proxy and the implementation contracts is conducted seamlessly.
+The proxy contract is automatically linked to the implementation contract.
+As a result, users will be able to view interfaces of both the proxy and the implementation contracts on the Etherscan website's contract page, ensuring comprehensive visibility and transparency.
+
+To verify a module contract (SSVClusters, SSVOperators, SSVDAO, SSVViews), run this:
 
 ```sh
 npx hardhat verify --network <network> <implementation-address>
@@ -114,3 +124,14 @@ https://goerli.etherscan.io/address/0x227...#code
 ```
 
 After this action, you can go to the proxy contract in Etherscan and start interacting with it.
+
+### How to resolve issues during the verification
+
+- Error: no such file or directory, open ‘…/artifacts/build-info/XXXX...XXXX.json’
+
+This issue can be resolved by executing the following commands.
+
+```sh
+npx hardhat clean
+npx hardhat compile
+```

@@ -46,6 +46,7 @@ const config: HardhatUserConfig = {
     } as SSVNetworkConfig,
     hardhat: {
       allowUnlimitedContractSize: true,
+      gas: 5000000,
     },
   },
   etherscan: {
@@ -67,6 +68,12 @@ const config: HardhatUserConfig = {
     enabled: true,
     currency: 'USD',
     gasPrice: 0.3,
+  },
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: true,
+    strict: false,
   },
   abiExporter: {
     path: './abis',
