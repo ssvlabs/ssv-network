@@ -4,7 +4,7 @@ const path = require('path');
 module.exports = {
   coverageContractDepth: 10,
   gasLimit: 10000000,
-  skipFiles: getSkipFiles(['deprecated', 'test']),
+  skipFiles: getSkipFiles(['deprecated', 'test', 'upgrades']),
 };
 
 function getSkipFiles(folders) {
