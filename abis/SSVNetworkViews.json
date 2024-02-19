@@ -75,6 +75,17 @@
     "type": "error"
   },
   {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
+      }
+    ],
+    "name": "IncorrectValidatorStateWithData",
+    "type": "error"
+  },
+  {
     "inputs": [],
     "name": "InsufficientBalance",
     "type": "error"
@@ -126,6 +137,11 @@
   },
   {
     "inputs": [],
+    "name": "PublicKeysSharesLengthMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "SameFeeChangeNotAllowed",
     "type": "error"
   },
@@ -147,6 +163,17 @@
   {
     "inputs": [],
     "name": "ValidatorAlreadyExists",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
+      }
+    ],
+    "name": "ValidatorAlreadyExistsWithData",
     "type": "error"
   },
   {

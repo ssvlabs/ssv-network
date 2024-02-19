@@ -34,9 +34,7 @@
     "lint:fix": "eslint --fix . --ext .ts",
     "solidity-coverage": "NO_GAS_ENFORCE=1 npx hardhat coverage",
     "slither": "slither contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin",
-    "size-contracts": "npx hardhat size-contracts",
-    "install-echidna": "brew install echidna",
-    "echidna": "node .echidna.test.js"
+    "size-contracts": "npx hardhat size-contracts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
