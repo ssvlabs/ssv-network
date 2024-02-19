@@ -1,4 +1,4 @@
-import { task, types } from "hardhat/config";
+import { task, types } from 'hardhat/config';
 
 /**
 @title Hardhat task to upgrade a UUPS proxy contract.
@@ -18,33 +18,36 @@ If 'initFunction' is not provided, this parameter has no effect.
 // Upgrade the SSVNetwork contract to a new version 'SSVNetworkV2', and call a function 'initializev2' with parameters after upgrade:
 npx hardhat --network goerli_testnet upgrade:proxy --proxyAddress 0x1234... --contract SSVNetworkV2 --initFunction initializev2 --params param1 param2
 */
-task("upgrade:proxy", "Upgrade SSVNetwork / SSVNetworkViews proxy via hardhat upgrades plugin")
-    .addParam("proxyAddress", "Proxy address of SSVNetwork / SSVNetworkViews", null, types.string)
-    .addParam("contract", "New contract upgrade", null, types.string)
-    .addOptionalParam("initFunction", "Function to be executed after upgrading")
-    .addOptionalVariadicPositionalParam("params", "Function parameters")
-    .setAction(async ({ proxyAddress, contract, initFunction, params }) => {
-        const [deployer] = await ethers.getSigners();
-        console.log(`Upgading ${proxyAddress} with the account: ${deployer.address}`);
+task('upgrade:proxy', 'Upgrade SSVNetwork / SSVNetworkViews proxy via hardhat upgrades plugin')
+  .addParam('proxyAddress', 'Proxy address of SSVNetwork / SSVNetworkViews', null, types.string)
+  .addParam('contract', 'New contract upgrade', null, types.string)
+  .addOptionalParam('initFunction', 'Function to be executed after upgrading')
+  .addOptionalVariadicPositionalParam('params', 'Function parameters')
+  .setAction(async ({ proxyAddress, contract, initFunction, params }, hre) => {
+    // Triggering compilation
+    await hre.run('compile');
 
-        const SSVUpgradeFactory = await ethers.getContractFactory(contract);
+    // Upgrading proxy
+    const [deployer] = await ethers.getSigners();
+    console.log(`Upgading ${proxyAddress} with the account: ${deployer.address}`);
 
-        const ssvUpgrade = await upgrades.upgradeProxy(proxyAddress, SSVUpgradeFactory,
-            {
-                kind: 'uups',
-                call: initFunction
-                    ? {
-                        fn: initFunction,
-                        args: params ? params : ''
-                    } :
-                    ''
-            });
-        await ssvUpgrade.deployed();
-        console.log(`${proxyAddress} upgraded successfully`);
+    const SSVUpgradeFactory = await ethers.getContractFactory(contract);
 
-        const implAddress = await upgrades.erc1967.getImplementationAddress(ssvUpgrade.address);
-        console.log(`Implementation deployed to: ${implAddress}`);
+    const ssvUpgrade = await upgrades.upgradeProxy(proxyAddress, SSVUpgradeFactory, {
+      kind: 'uups',
+      call: initFunction
+        ? {
+            fn: initFunction,
+            args: params ? params : '',
+          }
+        : '',
     });
+    await ssvUpgrade.deployed();
+    console.log(`${proxyAddress} upgraded successfully`);
+
+    const implAddress = await upgrades.erc1967.getImplementationAddress(ssvUpgrade.address);
+    console.log(`Implementation deployed to: ${implAddress}`);
+  });
 
 /**
 @title Hardhat task to prepare the upgrade of the SSVNetwork or SSVNetworkViews proxy contract.
@@ -62,18 +65,20 @@ The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
 The new implementation contract specified should be already compiled and exist in the 'artifacts' directory.
 */
-task("upgrade:prepare", "Prepares the upgrade of SSVNetwork / SSVNetworkViews proxy")
-    .addParam("proxyAddress", "Proxy address of SSVNetwork / SSVNetworkViews", null, types.string)
-    .addParam("contract", "New contract upgrade", null, types.string)
-    .setAction(async ({ proxyAddress, contract }) => {
-        const [deployer] = await ethers.getSigners();
-        console.log(`Preparing the upgrade of ${proxyAddress} with the account: ${deployer.address}`);
+task('upgrade:prepare', 'Prepares the upgrade of SSVNetwork / SSVNetworkViews proxy')
+  .addParam('proxyAddress', 'Proxy address of SSVNetwork / SSVNetworkViews', null, types.string)
+  .addParam('contract', 'New contract upgrade', null, types.string)
+  .setAction(async ({ proxyAddress, contract }, hre) => {
+    // Triggering compilation
+    await hre.run('compile');
 
-        const SSVUpgradeFactory = await ethers.getContractFactory(contract);
+    const [deployer] = await ethers.getSigners();
+    console.log(`Preparing the upgrade of ${proxyAddress} with the account: ${deployer.address}`);
 
-        const implAddress = await upgrades.prepareUpgrade(proxyAddress, SSVUpgradeFactory,
-            {
-                kind: 'uups',
-            });
-        console.log(`Implementation deployed to: ${implAddress}`);
+    const SSVUpgradeFactory = await ethers.getContractFactory(contract);
+
+    const implAddress = await upgrades.prepareUpgrade(proxyAddress, SSVUpgradeFactory, {
+      kind: 'uups',
     });
+    console.log(`Implementation deployed to: ${implAddress}`);
+  });

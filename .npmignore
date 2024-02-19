@@ -1,16 +1,19 @@
+/.github/
+/.vscode/
+
 node_modules
 .env
 .env.prod
 .env.stage
-abis
+#Hardhat files
 cache
 coverage
 coverage.json
 artifacts
-crytic-export
-echidna-corpus
 typechain-types/
-.openzeppelin/*.json
+.openzeppelin/dev-*.json
 .DS_Store
 .history
 .dccache
+
+package-lock.json
