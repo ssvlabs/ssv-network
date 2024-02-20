@@ -3,6 +3,7 @@ pragma solidity 0.8.18;
 
 import "../modules/SSVOperators.sol";
 import "../libraries/ProtocolLib.sol";
+import "./EchidnaLib.sol";
 
 contract Operators is SSVOperators {
     using Types64 for uint64;
@@ -29,55 +30,21 @@ contract Operators is SSVOperators {
         sp.executeOperatorFeePeriod = 604800;
         sp.operatorMaxFeeIncrease = 1000;
         sp.operatorMaxFee = MAXIMUM_OPERATOR_FEE;
+        sp.validatorsPerOperatorLimit = 50;
 
         sp.updateNetworkFee(0);
     }
 
-    function getOperatorIds() public view returns (uint64[] memory) {
-        return opIds;
-    }
-
-    function getOperatorBlock(uint64 operatorId) public view returns (uint256) {
-        return SSVStorage.load().operators[operatorId].snapshot.block;
-    }
-
-    function _generatePublicKey() internal returns (bytes memory) {
-        bytes memory randomBytes = new bytes(48);
-        for (uint i = 0; i < 48; i++) {
-            randomBytes[i] = bytes1(
-                uint8(uint(keccak256(abi.encodePacked(sault, block.timestamp, msg.sender, i))) % 256)
-            );
-        }
-        sault++;
-        return randomBytes;
-    }
-
-    function _generateFee(uint256 min, uint256 max) internal returns (uint256) {
-        require(max > min, "Max must be greater than min");
-        require(
-            min % DEDUCTED_DIGITS == 0 && max % DEDUCTED_DIGITS == 0,
-            "Min and Max must be multiples of 10,000,000"
-        );
-
-        uint256 randomHash = uint256(keccak256(abi.encodePacked(sault, block.timestamp)));
-        sault++;
-        uint64 reducedHash = uint64(randomHash);
-
-        // Calculate a fee within the range, ensuring it ends in a multiple of 10,000,000
-        uint256 range = (max - min) / DEDUCTED_DIGITS + 1;
-        uint256 feeMultiplier = (reducedHash % range) * DEDUCTED_DIGITS;
-        uint256 fee = min + feeMultiplier;
-        fee = fee - (fee % DEDUCTED_DIGITS);
-
-        return fee;
+    function getOperatorById(uint64 id) public view returns (ISSVNetworkCore.Operator memory operator) {
+        return SSVStorage.load().operators[id];
     }
 
     function helper_createOperator() public returns (uint64) {
         uint256 minN = minNetworkFee;
         uint256 maxN = SSVStorageProtocol.load().operatorMaxFee;
 
-        bytes memory publicKey = _generatePublicKey();
-        uint256 fee = _generateFee(minN, maxN);
+        bytes memory publicKey = EchidnaLib.generatePublicKey(sault++);
+        uint256 fee = EchidnaLib.generateRandomShrinkable(sault++, minN, maxN);
 
         try this.registerOperator(publicKey, fee) returns (uint64 operatorId) {
             opIds.push(operatorId);

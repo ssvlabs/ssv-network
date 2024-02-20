@@ -1,5 +1,5 @@
 testMode: assertion
-testLimit: 2000
+testLimit: 5000
 corpusDir: 'echidna-corpus'
 cryticArgs: ['--solc-remaps', '@openzeppelin=node_modules/@openzeppelin']
 format: text

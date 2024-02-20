@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
+import "../token/SSVToken.sol";
 import "../modules/SSVClusters.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/ProtocolLib.sol";
+import "../libraries/OperatorLib.sol";
+import "./EchidnaLib.sol";
+import "./Operators.sol";
 
 contract Clusters is SSVClusters {
     using ClusterLib for Cluster;
@@ -12,71 +16,115 @@ contract Clusters is SSVClusters {
     using ProtocolLib for StorageProtocol;
 
     bytes[] publicKeys;
-    bytes32[] hashedClusters;
+    uint64[] opIds;
+    mapping(bytes32 => Cluster) clusters;
 
     uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
+    uint64 private constant MAXIMUM_OPERATOR_FEE = 76_528_650_000_000;
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
     uint64 private constant MAX_OPERATORS_LENGTH = 13;
     uint64 private constant MODULO_OPERATORS_LENGTH = 3;
     uint64 private constant PUBLIC_KEY_LENGTH = 48;
+    uint64 private constant MIN_BLOCKS_BEFORE_LIQUIDATION = 214800;
+    uint256 private constant MIN_LIQUIDATION_COLLATERAL = 1000000000000000000;
+    uint256 private constant TOTAL_SSVTOKEN_BALANCE = 1000000000000000000000;
     uint256 private sault = 0;
 
+    Operators ssvOperators;
+    SSVToken ssvToken;
+
+    event AssertionFailed(uint256 amount);
+
     constructor() {
-        // operators = new Operators();
-        // for (uint i; i < 4; i++) {
-        //     uint64 operatorId = operators.helper_createOperator();
-        // }
-        // assert(operators.getOperatorBlock(1) == SSVStorage.load().operators[1].snapshot.block);
-    }
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        sp.minimumBlocksBeforeLiquidation = MIN_BLOCKS_BEFORE_LIQUIDATION;
+        sp.minimumLiquidationCollateral = MIN_LIQUIDATION_COLLATERAL.shrink();
+        sp.validatorsPerOperatorLimit = 500;
+        sp.declareOperatorFeePeriod = 604800;
+        sp.executeOperatorFeePeriod = 604800;
+        sp.operatorMaxFeeIncrease = 1000;
+        sp.operatorMaxFee = MAXIMUM_OPERATOR_FEE;
+        sp.updateNetworkFee(0);
 
-    function _generatePublicKey() internal returns (bytes memory) {
-        bytes memory randomBytes = new bytes(48);
-        for (uint i = 0; i < 48; i++) {
-            randomBytes[i] = bytes1(
-                uint8(uint(keccak256(abi.encodePacked(sault, block.timestamp, msg.sender, i))) % 256)
-            );
+        ssvOperators = new Operators();
+        for (uint256 i; i < MAX_OPERATORS_LENGTH; i++) {
+            uint64 operatorId = ssvOperators.helper_createOperator();
+            opIds.push(operatorId);
+            updateStorage(operatorId, ssvOperators.getOperatorById(operatorId));
         }
-        sault++;
-        return randomBytes;
+
+        ssvToken = new SSVToken();
+        SSVStorage.load().token = ssvToken;
+        ssvToken.approve(address(this), TOTAL_SSVTOKEN_BALANCE);
     }
 
-    // function helper_registerValidator(bytes calldata sharesData, uint256 amount, Cluster memory cluster) public {
-    //     StorageData storage s = SSVStorage.load();
-    //     bytes memory _publicKey = _generatePublicKey();
-    //     uint64[] memory _operatorIds = operators.getOperatorIds();
+    function updateStorage(uint64 id, ISSVNetworkCore.Operator memory operator) internal {
+        StorageData storage s = SSVStorage.load();
+        s.operators[id] = operator;
+    }
 
-    //     bytes32 _hashedCluster = keccak256(abi.encodePacked(msg.sender, _operatorIds));
+    function check_registerValidator() public {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageData storage s = SSVStorage.load();
 
-    //     bytes32 clusterData = s.clusters[_hashedCluster];
-    //     if (clusterData == bytes32(0)) {
-    //         cluster.validatorCount = 0;
-    //         cluster.networkFeeIndex = 0;
-    //         cluster.index = 0;
-    //         cluster.balance = 0;
-    //         cluster.active = true;
-    //     } else {
-    //         s.clusters[_hashedCluster] = cluster.hashClusterData();
+        bytes memory publicKey = EchidnaLib.generatePublicKey(sault++);
+        bytes memory emptyBytes;
+
+        bytes32 hashedCluster = keccak256(abi.encodePacked(msg.sender, opIds));
+        Cluster memory cluster = clusters[hashedCluster];
+        cluster.active = true;
+
+        uint64 liquidationThreshold = MIN_BLOCKS_BEFORE_LIQUIDATION * EchidnaLib.getBurnRate(opIds, s);
+        uint256 min = liquidationThreshold.expand() > MIN_LIQUIDATION_COLLATERAL
+            ? liquidationThreshold.expand()
+            : MIN_LIQUIDATION_COLLATERAL;
+        uint256 amount = EchidnaLib.generateRandomShrinkable(sault++, min, min * 2);
+
+        try this.registerValidator(publicKey, opIds, emptyBytes, amount, cluster) {
+            publicKeys.push(publicKey);
+
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(opIds, true, true, 1, s, sp);
+            cluster.balance += amount;
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+            cluster.validatorCount += 1;
+
+            clusters[hashedCluster] = cluster;
+        } catch {
+            emit AssertionFailed(amount);
+        }
+    }
+
+    // function check_bulkRegisterValidator(uint256 amount) public {
+    //     bytes[] memory publicKey = new bytes[](4);
+    //     bytes[] memory sharesData = new bytes[](4);
+    //     for (uint256 i; i < publicKey.length; i++) {
+    //         publicKey[i] = EchidnaLib.generatePublicKey(sault++);
     //     }
+    //     Cluster memory cluster;
+    //     cluster.active = true;
 
-    //     try this.registerValidator(_publicKey, _operatorIds, sharesData, amount, cluster) {
-    //         publicKeys.push(_publicKey);
-    //         hashedClusters.push(_hashedCluster);
+    //     uint256 minLiquidationCollateral = SSVStorageProtocol.load().minimumLiquidationCollateral.expand();
+    //     require(amount > minLiquidationCollateral, "InsufficientBalance");
+
+    //     try this.bulkRegisterValidator(publicKey, opIds, sharesData, amount, cluster) {
+    //         for (uint256 i; i < publicKey.length; i++) {
+    //             publicKeys.push(publicKey[i]);
+    //         }
     //     } catch {
     //         assert(false);
     //     }
     // }
 
-    // function check_removeValidator(uint64 publicKeyId, uint64[] calldata operatorIds, Cluster memory cluster) public {
-    //     publicKeyId = publicKeyId % uint64(publicKeys.length);
+    function check_validRegisteredOperators() public {
+        assert(opIds.length == MAX_OPERATORS_LENGTH);
 
-    //     this.removeValidator(publicKeys[publicKeyId], operatorIds, cluster);
-    // }
+        for (uint256 i; i < opIds.length; i++) {
+            ISSVNetworkCore.Operator memory operator = ssvOperators.getOperatorById(opIds[i]);
+            assert(operator.owner != address(0));
+        }
+    }
 
-    // function check_invariant_validatorPKs() public {
-    //     StorageData storage s = SSVStorage.load();
-
-    //     for (uint64 i = 0; i < hashedClusters.length; i++) {
-    //         assert(s.clusters[hashedClusters[i]] == bytes32(0));
-    //     }
-    // }
+    function check_RegisteredValidatorsCount() public {
+        assert(sault == 0 || publicKeys.length > 0);
+    }
 }
