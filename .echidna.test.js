@@ -1,5 +1,4 @@
 const { execSync } = require('child_process');
-const chalk = require('chalk');
 const contract = process.argv[2];
 
 const exec = commands => {
@@ -21,6 +20,6 @@ switch (contract) {
     exec(echidnaPath + ' --config echidna.yaml --contract DAO contracts/echidna/DAO.sol');
     break;
   default:
-    console.log(chalk.redBright('Invalid contract name. Use Operators, Clusters, or DAO.'));
-    console.log(chalk.greenBright('npm run echidna <Operators | Clusters | DAO>'));
+    console.log('Invalid contract name. Use Operators, Clusters, or DAO.');
+    console.log('npm run echidna <Operators | Clusters | DAO>');
 }
