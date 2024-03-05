@@ -50,7 +50,7 @@ export const DataGenerator = {
     if (validators.length > 0) {
       return validators[0].publicKey;
     }
-    return `0x${id.toString(16).padStart(48, '0')}`;
+    return `0x${id.toString(16).padStart(96, '0')}`;
   },
   shares: async (ownerId: number, validatorId: number, operatorCount: number) => {
     let shared: any;
@@ -107,7 +107,7 @@ export const getClusterForValidator = (
   return { validatorCount, networkFeeIndex, index, balance, active };
 };
 
-export const initializeContract = async () => {
+export const initializeContract = async (validatorsPerOperatorLimit = 500) => {
   CONFIG = {
     initialVersion: 'v1.1.0',
     operatorMaxFeeIncrease: 1000,
@@ -116,7 +116,7 @@ export const initializeContract = async () => {
     minimalOperatorFee: 100000000,
     minimalBlocksBeforeLiquidation: 100800,
     minimumLiquidationCollateral: 200000000,
-    validatorsPerOperatorLimit: 500,
+    validatorsPerOperatorLimit: validatorsPerOperatorLimit,
     maximumOperatorFee: 76528650000000,
   };
 

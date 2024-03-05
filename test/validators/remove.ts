@@ -53,18 +53,17 @@ describe('Remove Validator Tests', () => {
     );
 
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(pks, args.operatorIds, args.cluster),
     ).to.emit(ssvNetworkContract, 'ValidatorRemoved');
   });
 
   it('Remove validator after cluster liquidation period emits "ValidatorRemoved"', async () => {
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
 
-    await expect(ssvNetworkContract
-      .connect(helpers.DB.owners[1])
-      .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
+    await expect(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[1])
+        .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
     ).to.emit(ssvNetworkContract, 'ValidatorRemoved');
   });
 
@@ -87,9 +86,7 @@ describe('Remove Validator Tests', () => {
     );
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(pks, args.operatorIds, args.cluster),
       [GasGroup.BULK_REMOVE_10_VALIDATOR_4],
     );
   });
@@ -125,9 +122,7 @@ describe('Remove Validator Tests', () => {
     );
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(pks, args.operatorIds, args.cluster),
       [GasGroup.BULK_REMOVE_10_VALIDATOR_7],
     );
   });
@@ -163,9 +158,7 @@ describe('Remove Validator Tests', () => {
     );
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(pks, args.operatorIds, args.cluster),
       [GasGroup.BULK_REMOVE_10_VALIDATOR_10],
     );
   });
@@ -201,9 +194,7 @@ describe('Remove Validator Tests', () => {
     );
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(pks, args.operatorIds, args.cluster),
       [GasGroup.BULK_REMOVE_10_VALIDATOR_13],
     );
   });
@@ -324,6 +315,8 @@ describe('Remove Validator Tests', () => {
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
   });
 
+  it('Remove validator with invalid publicKey and OperatorIds reverts "IncorrectValidatorStateWithData"', async () => {});
+
   it('Bulk Remove validator that does not exist in a valid cluster reverts "IncorrectValidatorStateWithData"', async () => {
     const { args, pks } = await helpers.bulkRegisterValidators(
       2,
@@ -333,13 +326,12 @@ describe('Remove Validator Tests', () => {
       helpers.getClusterForValidator(0, 0, 0, 0, true),
     );
 
-    pks[2] = "0xabcd1234";
+    pks[2] = '0xabcd1234';
 
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+    )
+      .to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
       .withArgs(pks[2]);
   });
 
@@ -353,9 +345,7 @@ describe('Remove Validator Tests', () => {
     );
 
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, [1, 2, 3, 5], args.cluster),
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(pks, [1, 2, 3, 5], args.cluster),
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
   });
 
@@ -369,19 +359,16 @@ describe('Remove Validator Tests', () => {
     );
 
     const result = await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster)
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(pks, args.operatorIds, args.cluster),
     );
 
     const removed = result.eventsByName.ValidatorRemoved[0].args;
 
     // Remove validator again
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, removed.operatorIds, removed.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(pks, removed.operatorIds, removed.cluster),
+    )
+      .to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
       .withArgs(pks[0]);
   });
 
@@ -396,16 +383,16 @@ describe('Remove Validator Tests', () => {
 
     await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 2);
 
-    let result = await trackGas(ssvNetworkContract
-      .connect(helpers.DB.owners[1])
-      .liquidate(args.owner, args.operatorIds, args.cluster)
+    let result = await trackGas(
+      ssvNetworkContract.connect(helpers.DB.owners[1]).liquidate(args.owner, args.operatorIds, args.cluster),
     );
 
     const liquidated = result.eventsByName.ClusterLiquidated[0].args;
 
-    result = await trackGas(ssvNetworkContract
-      .connect(helpers.DB.owners[2])
-      .bulkRemoveValidator(pks.slice(0, 5), liquidated.operatorIds, liquidated.cluster)
+    result = await trackGas(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkRemoveValidator(pks.slice(0, 5), liquidated.operatorIds, liquidated.cluster),
     );
 
     const removed = result.eventsByName.ValidatorRemoved[0].args;
@@ -430,18 +417,18 @@ describe('Remove Validator Tests', () => {
 
     const keys = [pks[0], pks[1], pks[2], pks[3], pks[2], pks[5], pks[2], pks[7], pks[2], pks[8]];
 
-
-    await expect(ssvNetworkContract
-      .connect(helpers.DB.owners[2])
-      .bulkRemoveValidator(keys, args.operatorIds, args.cluster)
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
+    await expect(
+      ssvNetworkContract.connect(helpers.DB.owners[2]).bulkRemoveValidator(keys, args.operatorIds, args.cluster),
+    )
+      .to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
       .withArgs(pks[2]);
   });
 
   it('Bulk remove 10 validator with empty public keys reverts "IncorrectValidatorStateWithData"', async () => {
-    await expect(ssvNetworkContract
-      .connect(helpers.DB.owners[2])
-      .bulkRemoveValidator([], firstCluster.operatorIds, firstCluster.cluster)
+    await expect(
+      ssvNetworkContract
+        .connect(helpers.DB.owners[2])
+        .bulkRemoveValidator([], firstCluster.operatorIds, firstCluster.cluster),
     ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
   });
 });
