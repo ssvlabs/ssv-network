@@ -8,7 +8,7 @@ async function getBrewPrefixPath() {
     console.log(`Homebrew prefix path: ${stdout.trim()}`);
     fuzzTestByEchidna(stdout.trim());
   } catch (error) {
-    console.error(`Error: ${error}`);
+    console.error(`Please install brew and echidna.`);
   }
 }
 

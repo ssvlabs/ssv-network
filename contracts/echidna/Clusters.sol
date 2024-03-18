@@ -94,26 +94,26 @@ contract Clusters is SSVClusters {
         }
     }
 
-    // function check_bulkRegisterValidator(uint256 amount) public {
-    //     bytes[] memory publicKey = new bytes[](4);
-    //     bytes[] memory sharesData = new bytes[](4);
-    //     for (uint256 i; i < publicKey.length; i++) {
-    //         publicKey[i] = EchidnaLib.generatePublicKey(sault++);
-    //     }
-    //     Cluster memory cluster;
-    //     cluster.active = true;
+    function check_bulkRegisterValidator(uint256 amount) public {
+        bytes[] memory publicKey = new bytes[](4);
+        bytes[] memory sharesData = new bytes[](4);
+        for (uint256 i; i < publicKey.length; i++) {
+            publicKey[i] = EchidnaLib.generatePublicKey(sault++);
+        }
+        Cluster memory cluster;
+        cluster.active = true;
 
-    //     uint256 minLiquidationCollateral = SSVStorageProtocol.load().minimumLiquidationCollateral.expand();
-    //     require(amount > minLiquidationCollateral, "InsufficientBalance");
+        uint256 minLiquidationCollateral = SSVStorageProtocol.load().minimumLiquidationCollateral.expand();
+        require(amount > minLiquidationCollateral, "InsufficientBalance");
 
-    //     try this.bulkRegisterValidator(publicKey, opIds, sharesData, amount, cluster) {
-    //         for (uint256 i; i < publicKey.length; i++) {
-    //             publicKeys.push(publicKey[i]);
-    //         }
-    //     } catch {
-    //         assert(false);
-    //     }
-    // }
+        try this.bulkRegisterValidator(publicKey, opIds, sharesData, amount, cluster) {
+            for (uint256 i; i < publicKey.length; i++) {
+                publicKeys.push(publicKey[i]);
+            }
+        } catch {
+            assert(false);
+        }
+    }
 
     function check_validRegisteredOperators() public {
         assert(opIds.length == MAX_OPERATORS_LENGTH);
