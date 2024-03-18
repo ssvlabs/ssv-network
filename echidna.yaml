@@ -1,0 +1,9 @@
+testMode: assertion
+testLimit: 5000
+corpusDir: 'echidna-corpus'
+cryticArgs: ['--solc-remaps', '@openzeppelin=node_modules/@openzeppelin']
+format: text
+# filterFunctions: ['helper_createOperator()']
+# contractAddr: '0xContractAddress'
+# filterBlacklist: false
+

@@ -7,6 +7,8 @@ cache
 coverage
 coverage.json
 artifacts
+crytic-export
+echidna-corpus
 typechain-types/
 .openzeppelin/*.json
 .DS_Store
