@@ -37,6 +37,7 @@
     "size-contracts": "npx hardhat size-contracts"
   },
   "devDependencies": {
+    "@nomicfoundation/edr": "^0.3.4",
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
     "@nomicfoundation/hardhat-ethers": "^3.0.5",
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
