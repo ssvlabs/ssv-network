@@ -6,11 +6,12 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    name: Solidity linter
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
         with:
-          node-version: '16.x'
+          node-version: '20.x'
       - run: npm ci
         env:
           GH_TOKEN: ${{ secrets.github_token }}

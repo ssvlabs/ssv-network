@@ -5,12 +5,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run Slither
-        uses: crytic/slither-action@v0.3.0
+        uses: crytic/slither-action@v0.3.2
         id: slither
         with:
-          node-version: 18
+          node-version: 20
           fail-on: high
           slither-args: --exclude controlled-delegatecall
