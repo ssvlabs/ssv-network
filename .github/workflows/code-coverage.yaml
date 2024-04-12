@@ -14,4 +14,4 @@ jobs:
       - run: npm ci
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-      - run: NO_GAS_ENFORCE=1 npx hardhat coverage
+      - run: SOLIDITY_COVERAGE=true NO_GAS_ENFORCE=1 npx hardhat coverage

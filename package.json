@@ -32,7 +32,7 @@
     "test": "npx hardhat test",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
-    "solidity-coverage": "NO_GAS_ENFORCE=1 npx hardhat coverage",
+    "solidity-coverage": "SOLIDITY_COVERAGE=true NO_GAS_ENFORCE=1 npx hardhat coverage",
     "slither": "slither contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin",
     "size-contracts": "npx hardhat size-contracts"
   },
@@ -48,6 +48,7 @@
     "hardhat": "^2.22.2",
     "hardhat-abi-exporter": "^2.10.1",
     "hardhat-contract-sizer": "^2.10.0",
+    "solidity-coverage": "^0.8.12",
     "ssv-keys": "github:bloxapp/ssv-keys#v1.0.4"
   }
 }

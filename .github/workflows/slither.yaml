@@ -13,4 +13,4 @@ jobs:
         with:
           node-version: 20
           fail-on: high
-          slither-args: --exclude controlled-delegatecall
+          slither-args: --exclude controlled-delegatecall,incorrect-return

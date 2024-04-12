@@ -9,6 +9,7 @@ import '@openzeppelin/hardhat-upgrades';
 
 import 'hardhat-abi-exporter';
 import 'hardhat-contract-sizer';
+import 'solidity-coverage'
 
 import './tasks/deploy';
 import './tasks/update-module';
@@ -46,7 +47,6 @@ const config: HardhatUserConfig = {
     } as SSVNetworkConfig,
     hardhat: {
       allowUnlimitedContractSize: true,
-      gas: 5000000,
     },
   },
   etherscan: {

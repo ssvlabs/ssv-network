@@ -179,10 +179,11 @@ for (const group in MAX_GAS_PER_GROUP) {
 }
 
 export const trackGas = async function (tx: Promise<any>, groups?: Array<GasGroup>): Promise<any> {
-  // const receipt = await (await tx).wait();
   const hash = await tx;
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash,
+  });
 
   const logs = parseEventLogs({
     abi: ssvNetwork.abi,
