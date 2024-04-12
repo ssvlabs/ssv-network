@@ -1,6 +1,6 @@
 {
   "name": "ssv-network",
-  "version": "1.0.2",
+  "version": "1.1.1",
   "description": "Solidity smart contracts for the SSV Network",
   "author": "SSV.Network",
   "repository": {
