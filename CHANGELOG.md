@@ -6,6 +6,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### [v1.1.1] 2024-04-12
+- [7b61d4f](https://github.com/bloxapp/ssv-network/commit/7b61d4f) - [Fix] Revert when passing an empty public keys list.
+
+## [Released]
+
 ### [v1.1.0] 2024-01-08
 - [c80dc3b](https://github.com/bloxapp/ssv-network/commit/c80dc3b) - [Feature] Bulk exit of validators.
 - [6431a00](https://github.com/bloxapp/ssv-network/commit/6431a00) - [Feature] Bulk removal of validators.
@@ -14,8 +19,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - [4471f05](https://github.com/bloxapp/ssv-network/commit/4471f05) - [Update] Deployment tests and update task and documentation.
 - [7564dfe](https://github.com/bloxapp/ssv-network/commit/7564dfe) - [Feature] Integration ssv-keys in ssv-network for generating keyshares.
 - [8647401](https://github.com/bloxapp/ssv-network/commit/8647401) - [Update]: Configuration for publishing npm package.
-
-## [Released]
 
 ### [v1.0.2] 2023-11-08
 - [8f5df42](https://github.com/bloxapp/ssv-network/commit/8f5df42633d2b92c6bb70253a41e6afa80b9f111) - Change ValidatorExited signature: owner indexed.
