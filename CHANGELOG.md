@@ -7,7 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### [v1.1.1] 2024-04-12
-- [Update] Update project dependencies.
+- [7b61d4f](https://github.com/bloxapp/ssv-network/commit/7b61d4f) - [Fix] Revert when passing an empty public keys list.
 
 ## [Released]
 

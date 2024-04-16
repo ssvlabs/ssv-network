@@ -49,12 +49,13 @@ contract SSVClusters is ISSVClusters {
         uint256 amount,
         Cluster memory cluster
     ) external override {
-        if (publicKeys.length != sharesData.length) revert PublicKeysSharesLengthMismatch();
+        uint256 validatorsLength = publicKeys.length;
+
+        if (validatorsLength == 0) revert EmptyPublicKeysList();
+        if (validatorsLength != sharesData.length) revert PublicKeysSharesLengthMismatch();
 
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        uint256 validatorsLength = publicKeys.length;
 
         ValidatorLib.validateOperatorsLength(operatorIds);
 
