@@ -1181,6 +1181,99 @@ describe('Register Validator Tests', () => {
     ).to.be.rejectedWith('ValidatorAlreadyExistsWithData', DataGenerator.publicKey(1));
   });
 
+  it('Register validator with an empty public key reverts "InvalidPublicKeyLength"', async () => {
+    await expect(
+      ssvNetwork.write.registerValidator([
+        '0x',
+        [1, 2, 3, 4],
+        await DataGenerator.shares(0, 4, 4),
+        minDepositAmount,
+        {
+          validatorCount: 0,
+          networkFeeIndex: 0,
+          index: 0,
+          balance: 0n,
+          active: true,
+        },
+      ]),
+    ).to.be.rejectedWith('InvalidPublicKeyLength');
+  });
+
+  it('Bulk register 10 validators with empty public keys list reverts "EmptyPublicKeysList"', async () => {
+    await expect(
+      ssvNetwork.write.bulkRegisterValidator(
+        [
+          [],
+          [1, 2, 3, 4],
+          [],
+          minDepositAmount,
+          {
+            validatorCount: 0,
+            networkFeeIndex: 0,
+            index: 0,
+            balance: 0n,
+            active: true,
+          },
+        ],
+        { account: owners[1].account },
+      ),
+    ).to.be.rejectedWith('EmptyPublicKeysList');
+  });
+
+  it('Bulk register 10 validators with different pks/shares lenght reverts "PublicKeysSharesLengthMismatch"', async () => {
+    const pks = Array.from({ length: 10 }, (_, index) => DataGenerator.publicKey(index + 1));
+    const shares = await Promise.all(Array.from({ length: 8 }, (_, index) => DataGenerator.shares(1, index, 4)));
+
+    await expect(
+      ssvNetwork.write.bulkRegisterValidator(
+        [
+          pks,
+          [1, 2, 3, 4],
+          shares,
+          minDepositAmount,
+          {
+            validatorCount: 0,
+            networkFeeIndex: 0,
+            index: 0,
+            balance: 0,
+            active: true,
+          },
+        ],
+        { account: owners[1].account },
+      ),
+    ).to.be.rejectedWith('PublicKeysSharesLengthMismatch');
+  });
+
+  it('Bulk register 10 validators with wrong operators length reverts "InvalidOperatorIdsLength"', async () => {
+    const pks = Array.from({ length: 10 }, (_, index) => DataGenerator.publicKey(index + 1));
+    const shares = await Promise.all(Array.from({ length: 10 }, (_, index) => DataGenerator.shares(1, index, 4)));
+
+    await expect(
+      ssvNetwork.write.bulkRegisterValidator([pks, [1, 2, 3, 4, 5], shares, minDepositAmount, {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0n,
+        active: true,
+      }], { account: owners[1].account },),
+    ).to.be.rejectedWith('InvalidOperatorIdsLength');
+  });
+
+  it('Bulk register 10 validators with empty operators list reverts "InvalidOperatorIdsLength"', async () => {
+    const pks = Array.from({ length: 10 }, (_, index) => DataGenerator.publicKey(index + 1));
+    const shares = await Promise.all(Array.from({ length: 10 }, (_, index) => DataGenerator.shares(1, index, 4)));
+
+    await expect(
+      ssvNetwork.write.bulkRegisterValidator([pks, [], shares, minDepositAmount, {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0n,
+        active: true,
+      }], { account: owners[1].account },),
+    ).to.be.rejectedWith('InvalidOperatorIdsLength');
+  });
+
   it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
     const result = await trackGas(
       ssvNetwork.write.registerOperator([DataGenerator.publicKey(20), CONFIG.minimalOperatorFee], {
