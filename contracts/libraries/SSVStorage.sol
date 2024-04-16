@@ -33,6 +33,10 @@ struct StorageData {
     IERC20 token;
     /// @notice Counter keeping track of the last Operator ID issued
     Counters.Counter lastOperatorId;
+    /// @notice Operators' whitelist: Maps each whitelisted address to a list of operators 
+    /// @notice that are whitelisted for that address using bitmaps
+    /// @dev The nested mapping's key represents a uint256 slot to handle more than 256 operators per address
+    mapping(address => mapping(uint256 => uint256)) addressWhitelistedForOperators;
 }
 
 library SSVStorage {
