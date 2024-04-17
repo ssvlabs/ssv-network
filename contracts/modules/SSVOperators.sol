@@ -73,18 +73,45 @@ contract SSVOperators is ISSVOperators {
         emit OperatorRemoved(operatorId);
     }
 
-    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external {
+    function setOperatorWhitelist(uint64 operatorId, address whitelistAddress) external override {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
 
-        if (whitelisted == address(0)) {
-            s.operators[operatorId].whitelisted = false;
-        } else {
-            s.operators[operatorId].whitelisted = true;
-        }
+        if (OperatorLib.isWhitelistingContract(whitelistAddress)) revert AddressIsContract();
 
-        s.operatorsWhitelist[operatorId] = whitelisted;
-        emit OperatorWhitelistUpdated(operatorId, whitelisted);
+        // Set the bit at bitPosition for the operatorId in the corresponding uint256 blockIndex
+        (uint256 blockIndex, uint256 bitPosition) = OperatorLib.getBitmapIndexes(operatorId);
+
+        s.addressWhitelistedForOperators[whitelistAddress][blockIndex] |= (1 << bitPosition);
+        if (!s.operators[operatorId].whitelisted) s.operators[operatorId].whitelisted = true;
+
+        emit OperatorWhitelistUpdated(operatorId, whitelistAddress);
+    }
+
+    function setOperatorMultipleWhitelists(
+        uint64[] calldata operatorIds,
+        address[] calldata whitelistAddresses
+    ) external override {
+        OperatorLib.updateMultipleWhitelists(whitelistAddresses, operatorIds, true, SSVStorage.load());
+    }
+
+    function removeOperatorMultipleWhitelists(
+        uint64[] calldata operatorIds,
+        address[] calldata whitelistAddresses
+    ) external override {
+        OperatorLib.updateMultipleWhitelists(whitelistAddresses, operatorIds, false, SSVStorage.load());
+    }
+
+    function setOperatorsWhitelistingContract(uint64[] calldata operatorIds, address whitelistingContract) external {
+        uint256 operatorsLength = operatorIds.length;
+        if (operatorsLength == 0) revert InvalidOperatorIdsLength();
+
+        StorageData storage s = SSVStorage.load();
+
+        for (uint256 i = 0; i < operatorsLength; ++i) {
+            OperatorLib.updateWhitelistingContract(operatorIds[i], whitelistingContract, s);
+        }
+        emit OperatorWhitelistingContractUpdated(operatorIds, whitelistingContract);
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
@@ -168,7 +195,7 @@ contract SSVOperators is ISSVOperators {
         s.operators[operatorId] = operator;
 
         delete s.operatorFeeChangeRequests[operatorId];
-        
+
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 

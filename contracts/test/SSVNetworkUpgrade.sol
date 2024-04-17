@@ -139,6 +139,48 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function setOperatorMultipleWhitelists(
+        uint64[] calldata operatorIds,
+        address[] calldata whitelistAddresses
+    ) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature(
+                "setOperatorMultipleWhitelists(address[],uint64[])",
+                whitelistAddresses,
+                operatorIds
+            )
+        );
+    }
+
+    function removeOperatorMultipleWhitelists(
+        uint64[] calldata operatorIds,
+        address[] calldata whitelistAddresses
+    ) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature(
+                "removeOperatorMultipleWhitelists(address[],uint64[])",
+                whitelistAddresses,
+                operatorIds
+            )
+        );
+    }
+
+    function setOperatorsWhitelistingContract(
+        uint64[] calldata operatorIds,
+        address whitelistingContract
+    ) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature(
+                "setOperatorsWhitelistingContract(uint64[],address)",
+                operatorIds,
+                whitelistingContract
+            )
+        );
+    }
+
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],

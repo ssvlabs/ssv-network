@@ -90,6 +90,9 @@ interface ISSVNetworkCore {
     error IncorrectValidatorStateWithData(bytes publicKey); // 0x89307938
     error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
     error EmptyPublicKeysList(); // df83e679
+    error InvalidContractAddress(); // 0xa710429d
+    error AddressIsContract(); // 0x9166b12d
+    error InvalidWhitelistAddressesLength(); // 0xcbb362dc
 
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
