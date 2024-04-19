@@ -116,10 +116,8 @@ library ClusterLib {
         StorageData storage s,
         StorageProtocol storage sp
     ) internal {
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsOnRegistration(
             operatorIds,
-            true,
-            true,
             validatorCountDelta,
             s,
             sp

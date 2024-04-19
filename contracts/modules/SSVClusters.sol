@@ -104,7 +104,7 @@ contract SSVClusters is ISSVClusters {
 
         if (cluster.active) {
             StorageProtocol storage sp = SSVStorageProtocol.load();
-            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, false, 1, s, sp);
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 1, s, sp);
 
             cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
@@ -154,7 +154,6 @@ contract SSVClusters is ISSVClusters {
             (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
                 operatorIds,
                 false,
-                false,
                 validatorsRemoved,
                 s,
                 sp
@@ -184,7 +183,6 @@ contract SSVClusters is ISSVClusters {
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
-            false,
             false,
             cluster.validatorCount,
             s,
@@ -236,7 +234,6 @@ contract SSVClusters is ISSVClusters {
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
-            false,
             true,
             cluster.validatorCount,
             s,
