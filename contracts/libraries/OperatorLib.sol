@@ -2,6 +2,7 @@
 pragma solidity 0.8.18;
 
 import "../interfaces/ISSVNetworkCore.sol";
+import "../interfaces/external/ISSVWhitelistingContract.sol";
 import "./CoreLib.sol";
 import "./SSVStorage.sol";
 import "./SSVStorageProtocol.sol";
@@ -10,9 +11,6 @@ import "./Types.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
 library OperatorLib {
-    // isWhitelisted(address,uint64)
-    bytes4 private constant IS_WHITELISTED_INTERFACE = 0xbe7a1ee7;
-
     using Types64 for uint64;
 
     function updateSnapshot(ISSVNetworkCore.Operator memory operator) internal view {
@@ -149,7 +147,7 @@ library OperatorLib {
         for (uint256 i = 0; i < addressesLength; ++i) {
             address addr = whitelistAddresses[i];
 
-            if (isWhitelistingContract(addr)) revert ISSVNetworkCore.AddressIsContract();
+            if (isWhitelistingContract(addr)) revert ISSVNetworkCore.AddressIsWhitelistingContract(addr);
 
             for (blockIndex = 0; blockIndex < masks.length; ++blockIndex) {
                 // only update storage for updated masks
@@ -166,13 +164,11 @@ library OperatorLib {
 
     function updateWhitelistingContract(
         uint64 operatorId,
-        address whitelistingContract,
+        ISSVWhitelistingContract whitelistingContract,
         StorageData storage s
     ) internal {
         checkOwner(s.operators[operatorId]);
-
-        if (!isWhitelistingContract(whitelistingContract)) revert ISSVNetworkCore.InvalidContractAddress();
-
+        
         address currentWhitelisted = s.operatorsWhitelist[operatorId];
 
         // operator already whitelisted? EOA or generic contract
@@ -182,12 +178,12 @@ library OperatorLib {
             s.addressWhitelistedForOperators[currentWhitelisted][blockIndex] |= (1 << bitPosition);
         }
 
-        s.operatorsWhitelist[operatorId] = whitelistingContract;
+        s.operatorsWhitelist[operatorId] = address(whitelistingContract);
         if (!s.operators[operatorId].whitelisted) s.operators[operatorId].whitelisted = true;
     }
 
     function isWhitelistingContract(address whitelistingContract) internal view returns (bool) {
-        // TODO create type for whitelisting contracts
-        return ERC165Checker.supportsInterface(whitelistingContract, IS_WHITELISTED_INTERFACE);
+        // TODO create type for whitelisting contracts?
+        return ERC165Checker.supportsInterface(whitelistingContract, type(ISSVWhitelistingContract).interfaceId);
     }
 }

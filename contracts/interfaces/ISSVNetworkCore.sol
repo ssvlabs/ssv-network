@@ -91,7 +91,7 @@ interface ISSVNetworkCore {
     error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
     error EmptyPublicKeysList(); // df83e679
     error InvalidContractAddress(); // 0xa710429d
-    error AddressIsContract(); // 0x9166b12d
+    error AddressIsWhitelistingContract(address contractAddress); // 0x71cadba7
     error InvalidWhitelistAddressesLength(); // 0xcbb362dc
 
     // legacy errors

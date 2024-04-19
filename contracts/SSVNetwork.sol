@@ -5,6 +5,7 @@ import "./interfaces/ISSVNetwork.sol";
 
 import "./interfaces/ISSVClusters.sol";
 import "./interfaces/ISSVOperators.sol";
+import "./interfaces/ISSVOperatorsWhitelist.sol";
 import "./interfaces/ISSVDAO.sol";
 import "./interfaces/ISSVViews.sol";
 
@@ -26,6 +27,7 @@ contract SSVNetwork is
     Ownable2StepUpgradeable,
     ISSVNetwork,
     ISSVOperators,
+    ISSVOperatorsWhitelist,
     ISSVClusters,
     ISSVDAO,
     SSVProxy
@@ -126,28 +128,28 @@ contract SSVNetwork is
     }
 
     function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }
 
     function setOperatorMultipleWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses
     ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }
 
     function setOperatorsWhitelistingContract(
         uint64[] calldata operatorIds,
-        address whitelistingContract
+        ISSVWhitelistingContract whitelistingContract
     ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }
 
     function removeOperatorMultipleWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses
     ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {

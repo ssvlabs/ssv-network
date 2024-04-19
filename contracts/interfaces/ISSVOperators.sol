@@ -13,32 +13,6 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @param operatorId The ID of the operator to be removed
     function removeOperator(uint64 operatorId) external;
 
-    /// @notice Sets the whitelist for an operator
-    /// @param operatorId The ID of the operator
-    /// @param whitelistAddress The address to be whitelisted
-    function setOperatorWhitelist(uint64 operatorId, address whitelistAddress) external;
-
-    /// @notice Sets a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
-    /// @param operatorIds The operator IDs to set the whitelists for
-    /// @param whitelistAddresses The list of addresses to be whitelisted
-    function setOperatorMultipleWhitelists(
-        uint64[] calldata operatorIds,
-        address[] calldata whitelistAddresses
-    ) external;
-
-    /// @notice Removes a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
-    /// @param operatorIds Operator IDs for which whitelists are removed
-    /// @param whitelistAddresses List of addresses to be removed from the whitelist
-    function removeOperatorMultipleWhitelists(
-        uint64[] calldata operatorIds,
-        address[] calldata whitelistAddresses
-    ) external;
-
-    /// @notice Sets a whitelisting contract for a list of operators
-    /// @param operatorIds The operator IDs to set the whitelisting contract for
-    /// @param whitelistingContract The address of a whitelisting contract
-    function setOperatorsWhitelistingContract(uint64[] calldata operatorIds, address whitelistingContract) external;
-
     /// @notice Declares the operator's fee
     /// @param operatorId The ID of the operator
     /// @param fee The fee to be declared (SSV)
@@ -80,20 +54,6 @@ interface ISSVOperators is ISSVNetworkCore {
      * @param operatorId operator's ID.
      */
     event OperatorRemoved(uint64 indexed operatorId);
-
-    /**
-     * @dev Emitted when the whitelist of an operator is updated.
-     * @param operatorId operator's ID.
-     * @param whitelisted operator's new whitelisted address.
-     */
-    event OperatorWhitelistUpdated(uint64 indexed operatorId, address whitelisted);
-
-    /**
-     * @dev Emitted when the whitelisting contract of an operator is updated.
-     * @param operatorIds operators' IDs.
-     * @param whitelistingContract operators' new whitelisting contract address.
-     */
-    event OperatorWhitelistingContractUpdated(uint64[] indexed operatorIds, address whitelistingContract);
 
     event OperatorFeeDeclared(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 

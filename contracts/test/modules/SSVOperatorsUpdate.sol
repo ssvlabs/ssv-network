@@ -71,36 +71,6 @@ contract SSVOperatorsUpdate is ISSVOperators {
         emit OperatorRemoved(operatorId);
     }
 
-    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external {
-        SSVStorage.load().operators[operatorId].checkOwner();
-
-        StorageData storage s = SSVStorage.load();
-
-        if (whitelisted == address(0)) {
-            s.operators[operatorId].whitelisted = false;
-        } else {
-            s.operators[operatorId].whitelisted = true;
-        }
-
-        s.operatorsWhitelist[operatorId] = whitelisted;
-        emit OperatorWhitelistUpdated(operatorId, whitelisted);
-    }
-
-    function setOperatorMultipleWhitelists(
-        uint64[] calldata operatorIds,
-        address[] calldata whitelistAddresses
-    ) external override {}
-
-    function removeOperatorMultipleWhitelists(
-        uint64[] calldata operatorIds,
-        address[] calldata whitelistAddresses
-    ) external override {}
-
-    function setOperatorsWhitelistingContract(
-        uint64[] calldata operatorIds,
-        address whitelistingContract
-    ) external override {}
-
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {}
 
     function executeOperatorFee(uint64 operatorId) external override {

@@ -9,7 +9,8 @@ enum SSVModules {
     SSV_OPERATORS,
     SSV_CLUSTERS,
     SSV_DAO,
-    SSV_VIEWS
+    SSV_VIEWS,
+    SSV_OPERATORS_WHITELIST
 }
 
 /// @title SSV Network Storage Data
