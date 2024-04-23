@@ -138,6 +138,13 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }
 
+    function removeOperatorMultipleWhitelists(
+        uint64[] calldata operatorIds,
+        address[] calldata whitelistAddresses
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
+    }
+
     function setOperatorsWhitelistingContract(
         uint64[] calldata operatorIds,
         ISSVWhitelistingContract whitelistingContract
@@ -145,10 +152,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }
 
-    function removeOperatorMultipleWhitelists(
-        uint64[] calldata operatorIds,
-        address[] calldata whitelistAddresses
-    ) external override {
+    function removeOperatorsWhitelistingContract(uint64[] calldata operatorIds) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }
 

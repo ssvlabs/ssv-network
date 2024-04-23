@@ -61,6 +61,13 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorById(operatorId);
     }
 
+    function getWhitelistedOperators(
+        uint64[] calldata operatorIds,
+        address whitelistedAddress
+    ) external view override returns (uint64[] memory whitelistedOperatorIds) {
+        return ssvNetwork.getWhitelistedOperators(operatorIds, whitelistedAddress);
+    }
+
     /***********************************/
     /* Cluster External View Functions */
     /***********************************/

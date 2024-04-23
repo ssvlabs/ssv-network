@@ -27,7 +27,6 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         (uint256 blockIndex, uint256 bitPosition) = OperatorLib.getBitmapIndexes(operatorId);
 
         s.addressWhitelistedForOperators[whitelistAddress][blockIndex] |= (1 << bitPosition);
-        if (!s.operators[operatorId].whitelisted) s.operators[operatorId].whitelisted = true;
 
         emit OperatorWhitelistUpdated(operatorId, whitelistAddress);
     }
@@ -61,5 +60,25 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
 
         // TODO test set event param type to ISSVOperatorsWhitelist
         emit OperatorWhitelistingContractUpdated(operatorIds, address(whitelistingContract));
+    }
+
+    function removeOperatorsWhitelistingContract(uint64[] calldata operatorIds) external {
+        uint256 operatorsLength = operatorIds.length;
+        if (operatorsLength == 0) revert InvalidOperatorIdsLength();
+
+        StorageData storage s = SSVStorage.load();
+
+        Operator memory operator;
+        for (uint256 i = 0; i < operatorsLength; ++i) {
+            operator = s.operators[operatorIds[i]];
+
+            operator.checkOwner();
+            operator.whitelisted = false;
+
+            s.operatorsWhitelist[operatorIds[i]] = address(0);
+            s.operators[operatorIds[i]] = operator;
+        }
+
+        emit OperatorWhitelistingContractUpdated(operatorIds, address(0));
     }
 }

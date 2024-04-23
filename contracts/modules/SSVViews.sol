@@ -49,13 +49,69 @@ contract SSVViews is ISSVViews {
         );
     }
 
-    function getOperatorById(uint64 operatorId) external view returns (address, uint256, uint32, address, bool, bool) {
+    function getOperatorById(
+        uint64 operatorId
+    ) external view override returns (address, uint256, uint32, address, bool, bool) {
         ISSVNetworkCore.Operator memory operator = SSVStorage.load().operators[operatorId];
-        address whitelisted = SSVStorage.load().operatorsWhitelist[operatorId];
-        bool isPrivate = whitelisted == address(0) ? false : true;
+
+        address whitelistedContract = SSVStorage.load().operatorsWhitelist[operatorId];
+        bool useWhitelistedContract = OperatorLib.isWhitelistingContract(whitelistedContract);
         bool isActive = operator.snapshot.block == 0 ? false : true;
 
-        return (operator.owner, operator.fee.expand(), operator.validatorCount, whitelisted, isPrivate, isActive);
+        return (
+            operator.owner,
+            operator.fee.expand(),
+            operator.validatorCount,
+            whitelistedContract,
+            useWhitelistedContract,
+            isActive
+        );
+    }
+
+    function getWhitelistedOperators(
+        uint64[] calldata operatorIds,
+        address whitelistedAddress
+    ) external view override returns (uint64[] memory whitelistedOperatorIds) {
+        uint256 operatorsLength = operatorIds.length;
+        if (operatorsLength == 0) return whitelistedOperatorIds;
+
+        StorageData storage s = SSVStorage.load();
+
+        // create the max number of masks that will be updated
+        uint256[] memory masks = OperatorLib.generateBlockMasks(operatorIds);
+
+        uint256 count = 0;
+        whitelistedOperatorIds = new uint64[](operatorsLength);
+
+        uint256 whitelistedMask;
+        uint256 matchedMask;
+
+        // Check whitelisting status for each mask
+        for (uint256 blockIndex; blockIndex < masks.length; ++blockIndex) {
+            // Only check blocks that have operator IDs
+            if (masks[blockIndex] != 0) {
+                whitelistedMask = s.addressWhitelistedForOperators[whitelistedAddress][blockIndex];
+
+                // This will give the matching whitelisted operators
+                matchedMask = whitelistedMask & masks[blockIndex];
+
+                // Now we need to extract operator IDs from matchedMask
+                uint256 blockPointer = blockIndex << 8;
+                for (uint256 bit = 0; bit < 256; bit++) {
+                    if (matchedMask & (1 << bit) != 0) {
+                        whitelistedOperatorIds[count++] = uint64(blockPointer + bit);
+                        if (count == operatorsLength) {
+                            return whitelistedOperatorIds; // Early termination
+                        }
+                    }
+                }
+            }
+        }
+
+        // Resize whitelistedOperatorIds to the actual number of whitelisted operators
+        assembly {
+            mstore(whitelistedOperatorIds, count)
+        }
     }
 
     /***********************************/
