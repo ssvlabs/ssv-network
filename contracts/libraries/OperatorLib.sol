@@ -42,6 +42,10 @@ library OperatorLib {
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
         uint256 operatorsLength = operatorIds.length;
 
+        uint256 blockIndex;
+        uint256 lastBlockIndex = ~uint256(0); // Use an invalid block index as the initial value
+        uint256 currentWhitelistedMask;
+
         for (uint256 i; i < operatorsLength; ) {
             uint64 operatorId = operatorIds[i];
 
@@ -57,10 +61,33 @@ library OperatorLib {
             if (operator.snapshot.block == 0) {
                 revert ISSVNetworkCore.OperatorDoesNotExist();
             }
+
+            // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
-                address whitelisted = s.operatorsWhitelist[operatorId];
-                if (whitelisted != address(0) && whitelisted != msg.sender) {
-                    revert ISSVNetworkCore.CallerNotWhitelisted();
+                address whitelistedAddress = s.operatorsWhitelist[operatorId];
+                if (whitelistedAddress != address(0)) {
+                    // Check if the whitelisted address is a custom contract and use its logic to check if msg.sender is whitelisted
+                    if (isWhitelistingContract(whitelistedAddress)) {
+                        if (!ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(msg.sender, operatorId)) {
+                            revert ISSVNetworkCore.CallerNotWhitelisted();
+                        }
+                    } else {
+                        // Legacy address whitelists (EOAs or generic contracts)
+                        if (whitelistedAddress != msg.sender) {
+                            revert ISSVNetworkCore.CallerNotWhitelisted();
+                        }
+                    }
+                } else {
+                    // Handle bitmap-based whitelisting
+                    blockIndex = operatorId >> 8;
+                    if (blockIndex != lastBlockIndex) {
+                        currentWhitelistedMask = s.addressWhitelistedForOperators[msg.sender][blockIndex];
+                        lastBlockIndex = blockIndex;
+                    }
+
+                    if (currentWhitelistedMask & (1 << (operatorId & 0xFF)) == 0) {
+                        revert ISSVNetworkCore.CallerNotWhitelisted();
+                    }
                 }
             }
 
@@ -143,6 +170,13 @@ library OperatorLib {
                 }
             }
         }
+
+        // TODO see the way to not iterate over operatorIds twice
+        for (uint256 i = 0; i < operatorsLength; ++i) {
+            if (!s.operators[operatorIds[i]].whitelisted) {
+                s.operators[operatorIds[i]].whitelisted = true;
+            }
+        }
     }
 
     function updateWhitelistingContract(
@@ -186,19 +220,6 @@ library OperatorLib {
         masks = new uint256[]((operatorIds[operatorsLength - 1] >> 8) + 1);
 
         for (uint256 i = 0; i < operatorsLength; ++i) {
-            /* check if its not required to pass ordered operator ids
-            if (checkOwner) checkOwner(s.operators[currentOperatorId]);
-
-            if (i + 1 < operatorsLength) {
-                nextOperatorId = operatorIds[i + 1];
-                if (currentOperatorId >= nextOperatorId) {
-                    if (currentOperatorId == nextOperatorId) {
-                        revert ISSVNetworkCore.OperatorsListNotUnique();
-                    }
-                    revert ISSVNetworkCore.UnsortedOperatorsList();
-                }
-            }
-            */
             (blockIndex, bitPosition) = getBitmapIndexes(operatorIds[i]);
 
             masks[blockIndex] |= (1 << bitPosition);
