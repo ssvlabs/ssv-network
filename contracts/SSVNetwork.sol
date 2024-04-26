@@ -9,6 +9,8 @@ import "./interfaces/ISSVOperatorsWhitelist.sol";
 import "./interfaces/ISSVDAO.sol";
 import "./interfaces/ISSVViews.sol";
 
+import "./interfaces/external/ISSVWhitelistingContract.sol";
+
 import "./libraries/Types.sol";
 import "./libraries/CoreLib.sol";
 import "./libraries/SSVStorage.sol";

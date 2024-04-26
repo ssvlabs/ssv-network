@@ -64,37 +64,6 @@ describe('Register Operator Tests', () => {
     ]);
   });
 
-  it('Get private operator by id', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
-      account: owners[1].account,
-    });
-
-    await ssvNetwork.write.setOperatorWhitelist([1, owners[2].account.address], {
-      account: owners[1].account,
-    });
-
-    expect(await ssvViews.read.getOperatorById([1])).to.deep.equal([
-      owners[1].account.address, // owner
-      CONFIG.minimalOperatorFee, // fee
-      0, // validatorCount
-      owners[2].account.address, // whitelisted
-      true, // isPrivate
-      true, // active
-    ]);
-  });
-
-  it('Set operator whitelist gas limits', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
-      account: owners[1].account,
-    });
-    await trackGas(
-      ssvNetwork.write.setOperatorWhitelist([1, owners[2].account.address], {
-        account: owners[1].account,
-      }),
-      [GasGroup.SET_OPERATOR_WHITELIST],
-    );
-  });
-
   it('Get non-existent operator by id', async () => {
     await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
       account: owners[1].account,

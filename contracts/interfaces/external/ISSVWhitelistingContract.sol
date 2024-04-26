@@ -5,5 +5,5 @@ interface ISSVWhitelistingContract {
     /// @notice Checks if the caller is whitelisted
     /// @param account The account that is being checked for whitelisting
     /// @param operatorId The SSV Operator Id which is being checked
-    function isWhitelisted(address account, uint64 operatorId) external view returns (bool);
+    function isWhitelisted(address account, uint256 operatorId) external view returns (bool);
 }

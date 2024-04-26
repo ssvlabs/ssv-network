@@ -101,6 +101,7 @@ export const initializeContract = async function () {
   const ssvClustersMod = await hre.viem.deployContract('SSVClusters');
   const ssvDAOMod = await hre.viem.deployContract('SSVDAO');
   const ssvViewsMod = await hre.viem.deployContract('contracts/modules/SSVViews.sol:SSVViews');
+  const ssvWhitelistMod = await hre.viem.deployContract('SSVOperatorsWhitelist');
 
   const ssvNetworkFactory = await ethers.getContractFactory('SSVNetwork');
   const ssvNetworkProxy = await await upgrades.deployProxy(
@@ -137,6 +138,8 @@ export const initializeContract = async function () {
   const ssvNetworkViews = await hre.viem.getContractAt('SSVNetworkViews', ssvNetworkViewsAddress as Address);
 
   await ssvNetwork.write.updateMaximumOperatorFee([CONFIG.maximumOperatorFee as bigint]);
+
+  ssvNetwork.write.updateModule([4, await ssvWhitelistMod.address]);
 
   for (let i = 1; i < 7; i++) {
     await ssvToken.write.mint([owners[i].account.address, 10000000000000000000n]);

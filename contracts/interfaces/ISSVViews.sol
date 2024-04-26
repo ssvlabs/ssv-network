@@ -31,7 +31,7 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return fee The fee associated with the operator (SSV)
     /// @return validatorCount The count of validators associated with the operator
     /// @return whitelistedContract The whitelisted contract address of the operator, if any
-    /// @return useWhitelistedContract A boolean indicating if the operator uses a whitelisted contract
+    /// @return isPrivate A boolean indicating if the operator is private (uses whitelisting contract or SSV Whitelisting module)
     /// @return active A boolean indicating if the operator is active
     function getOperatorById(
         uint64 operatorId
@@ -43,7 +43,7 @@ interface ISSVViews is ISSVNetworkCore {
             uint256 fee,
             uint32 validatorCount,
             address whitelistedContract,
-            bool useWhitelistedContract,
+            bool isPrivate,
             bool active
         );
 
@@ -55,6 +55,11 @@ interface ISSVViews is ISSVNetworkCore {
         uint64[] calldata operatorIds,
         address whitelistedAddress
     ) external view returns (uint64[] memory whitelistedOperatorIds);
+
+    /// @notice Checks if the given address is a whitelisting contract (implements ISSVWhitelistingContract)
+    /// @param contractAddress The address to check
+    /// @return isWhitelistingContract A boolean indicating if the address is a whitelisting contract
+    function isWhitelistingContract(address contractAddress) external view returns (bool isWhitelistingContract);
 
     /// @notice Checks if the cluster can be liquidated
     /// @param owner The owner address of the cluster

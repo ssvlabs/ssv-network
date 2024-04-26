@@ -52,6 +52,7 @@ contract SSVOperators is ISSVOperators {
 
     function removeOperator(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
+
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
@@ -62,6 +63,7 @@ contract SSVOperators is ISSVOperators {
         operator.snapshot.balance = 0;
         operator.validatorCount = 0;
         operator.fee = 0;
+        operator.whitelisted = false;
 
         s.operators[operatorId] = operator;
 

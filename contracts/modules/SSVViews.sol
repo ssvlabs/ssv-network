@@ -51,21 +51,27 @@ contract SSVViews is ISSVViews {
 
     function getOperatorById(
         uint64 operatorId
-    ) external view override returns (address, uint256, uint32, address, bool, bool) {
-        ISSVNetworkCore.Operator memory operator = SSVStorage.load().operators[operatorId];
+    )
+        external
+        view
+        override
+        returns (
+            address owner,
+            uint256 fee,
+            uint32 validatorCount,
+            address whitelistedContract,
+            bool isPrivate,
+            bool isActive
+        )
+    {
+        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
 
-        address whitelistedContract = SSVStorage.load().operatorsWhitelist[operatorId];
-        bool useWhitelistedContract = OperatorLib.isWhitelistingContract(whitelistedContract);
-        bool isActive = operator.snapshot.block == 0 ? false : true;
-
-        return (
-            operator.owner,
-            operator.fee.expand(),
-            operator.validatorCount,
-            whitelistedContract,
-            useWhitelistedContract,
-            isActive
-        );
+        owner = operator.owner;
+        fee = operator.fee.expand();
+        validatorCount = operator.validatorCount;
+        whitelistedContract = SSVStorage.load().operatorsWhitelist[operatorId];
+        isPrivate = operator.whitelisted;
+        isActive = operator.snapshot.block != 0;
     }
 
     function getWhitelistedOperators(
@@ -80,7 +86,7 @@ contract SSVViews is ISSVViews {
         // create the max number of masks that will be updated
         uint256[] memory masks = OperatorLib.generateBlockMasks(operatorIds);
 
-        uint256 count = 0;
+        uint256 count;
         whitelistedOperatorIds = new uint64[](operatorsLength);
 
         uint256 whitelistedMask;
@@ -97,7 +103,7 @@ contract SSVViews is ISSVViews {
 
                 // Now we need to extract operator IDs from matchedMask
                 uint256 blockPointer = blockIndex << 8;
-                for (uint256 bit = 0; bit < 256; bit++) {
+                for (uint256 bit; bit < 256; ++bit) {
                     if (matchedMask & (1 << bit) != 0) {
                         whitelistedOperatorIds[count++] = uint64(blockPointer + bit);
                         if (count == operatorsLength) {
@@ -112,6 +118,10 @@ contract SSVViews is ISSVViews {
         assembly {
             mstore(whitelistedOperatorIds, count)
         }
+    }
+
+    function isWhitelistingContract(address contractAddress) external view override returns (bool) {
+        return OperatorLib.isWhitelistingContract(contractAddress);
     }
 
     /***********************************/

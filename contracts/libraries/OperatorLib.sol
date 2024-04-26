@@ -151,30 +151,38 @@ library OperatorLib {
         if (addressesLength == 0) revert ISSVNetworkCore.InvalidWhitelistAddressesLength();
         if (operatorsLength == 0) revert ISSVNetworkCore.InvalidOperatorIdsLength();
 
+        ISSVNetworkCore.Operator storage operator;
+        for (uint256 i; i < operatorsLength; ++i) {
+            operator = s.operators[operatorIds[i]];
+
+            checkOwner(operator);
+            if (addAddresses) {
+                if (!operator.whitelisted) {
+                    operator.whitelisted = true;
+                }
+            }
+        }
+
         // create the max number of masks that will be updated
         uint256[] memory masks = generateBlockMasks(operatorIds);
 
-        for (uint256 i = 0; i < addressesLength; ++i) {
-            address addr = whitelistAddresses[i];
+        for (uint256 i; i < addressesLength; ++i) {
+            address whitelistAddress = whitelistAddresses[i];
+            checkZeroAddress(whitelistAddress);
 
-            if (isWhitelistingContract(addr)) revert ISSVNetworkCore.AddressIsWhitelistingContract(addr);
+            // If whitelistAddress is a custom contract, revert also when removing
+            if (isWhitelistingContract(whitelistAddress))
+                revert ISSVNetworkCore.AddressIsWhitelistingContract(whitelistAddress);
 
             for (uint256 blockIndex; blockIndex < masks.length; ++blockIndex) {
                 // only update storage for updated masks
                 if (masks[blockIndex] != 0) {
                     if (addAddresses) {
-                        s.addressWhitelistedForOperators[addr][blockIndex] |= masks[blockIndex];
+                        s.addressWhitelistedForOperators[whitelistAddress][blockIndex] |= masks[blockIndex];
                     } else {
-                        s.addressWhitelistedForOperators[addr][blockIndex] &= ~masks[blockIndex];
+                        s.addressWhitelistedForOperators[whitelistAddress][blockIndex] &= ~masks[blockIndex];
                     }
                 }
-            }
-        }
-
-        // TODO see the way to not iterate over operatorIds twice
-        for (uint256 i = 0; i < operatorsLength; ++i) {
-            if (!s.operators[operatorIds[i]].whitelisted) {
-                s.operators[operatorIds[i]].whitelisted = true;
             }
         }
     }
@@ -200,29 +208,42 @@ library OperatorLib {
         s.operatorsWhitelist[operatorId] = address(whitelistingContract);
     }
 
-    function getBitmapIndexes(uint64 operatorId) internal pure returns (uint256 blockIndex, uint256 bitPosition) {
-        blockIndex = operatorId >> 8; // Equivalent to operatorId / 256
-        bitPosition = operatorId & 0xFF; // Equivalent to operatorId % 256
-    }
-
-    function isWhitelistingContract(address whitelistingContract) internal view returns (bool) {
-        // TODO create type for whitelisting contracts?
-        return ERC165Checker.supportsInterface(whitelistingContract, type(ISSVWhitelistingContract).interfaceId);
-    }
-
     function generateBlockMasks(uint64[] calldata operatorIds) internal pure returns (uint256[] memory masks) {
         uint256 blockIndex;
         uint256 bitPosition;
+        uint64 currentOperatorId;
 
         uint256 operatorsLength = operatorIds.length;
 
         // create the max number of masks that will be updated
         masks = new uint256[]((operatorIds[operatorsLength - 1] >> 8) + 1);
 
-        for (uint256 i = 0; i < operatorsLength; ++i) {
-            (blockIndex, bitPosition) = getBitmapIndexes(operatorIds[i]);
+        for (uint256 i; i < operatorsLength; ++i) {
+            currentOperatorId = operatorIds[i];
+
+            if (i > 0 && currentOperatorId <= operatorIds[i - 1]) {
+                if (currentOperatorId == operatorIds[i - 1]) {
+                    revert ISSVNetworkCore.OperatorsListNotUnique();
+                }
+                revert ISSVNetworkCore.UnsortedOperatorsList();
+            }
+
+            (blockIndex, bitPosition) = getBitmapIndexes(currentOperatorId);
 
             masks[blockIndex] |= (1 << bitPosition);
         }
+    }
+
+    function getBitmapIndexes(uint64 operatorId) internal pure returns (uint256 blockIndex, uint256 bitPosition) {
+        blockIndex = operatorId >> 8; // Equivalent to operatorId / 256
+        bitPosition = operatorId & 0xFF; // Equivalent to operatorId % 256
+    }
+
+    function checkZeroAddress(address whitelistAddress) internal pure {
+        if (whitelistAddress == address(0)) revert ISSVNetworkCore.ZeroAddressNotAllowed();
+    }
+
+    function isWhitelistingContract(address whitelistingContract) internal view returns (bool) {
+        return ERC165Checker.supportsInterface(whitelistingContract, type(ISSVWhitelistingContract).interfaceId);
     }
 }

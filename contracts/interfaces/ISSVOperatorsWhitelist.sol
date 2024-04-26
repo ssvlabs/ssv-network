@@ -41,28 +41,28 @@ interface ISSVOperatorsWhitelist is ISSVNetworkCore {
     /**
      * @dev Emitted when the whitelist of an operator is updated.
      * @param operatorId operator's ID.
-     * @param whitelisted operator's new whitelisted address.
+     * @param whitelistAddress operator's new whitelisted address.
      */
-    event OperatorWhitelistUpdated(uint64 indexed operatorId, address whitelisted);
+    event OperatorWhitelistUpdated(uint64 indexed operatorId, address whitelistAddress);
 
     /**
      * @dev Emitted when a list of adresses are whitelisted for a set of operators.
      * @param operatorIds operators' IDs.
      * @param whitelistAddresses operators' new whitelist addresses (EOAs or generic contracts).
      */
-    event OperatorMultipleWhitelistUpdated(uint64[] indexed operatorIds, address[] whitelistAddresses);
+    event OperatorMultipleWhitelistUpdated(uint64[] operatorIds, address[] whitelistAddresses);
 
     /**
      * @dev Emitted when a list of adresses are de-whitelisted for a set of operators.
      * @param operatorIds operators' IDs.
      * @param whitelistAddresses operators' list of whitelist addresses to be removed (EOAs or generic contracts).
      */
-    event OperatorMultipleWhitelistRemoved(uint64[] indexed operatorIds, address[] whitelistAddresses);
+    event OperatorMultipleWhitelistRemoved(uint64[] operatorIds, address[] whitelistAddresses);
 
     /**
      * @dev Emitted when the whitelisting contract of an operator is updated.
      * @param operatorIds operators' IDs.
      * @param whitelistingContract operators' new whitelisting contract address.
      */
-    event OperatorWhitelistingContractUpdated(uint64[] indexed operatorIds, address whitelistingContract);
+    event OperatorWhitelistingContractUpdated(uint64[] operatorIds, address whitelistingContract);
 }

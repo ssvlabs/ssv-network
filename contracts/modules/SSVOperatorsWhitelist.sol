@@ -17,11 +17,13 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
     /*******************************/
 
     function setOperatorWhitelist(uint64 operatorId, address whitelistAddress) external override {
-        StorageData storage s = SSVStorage.load();
-        s.operators[operatorId].checkOwner();
+        OperatorLib.checkZeroAddress(whitelistAddress);
 
         if (OperatorLib.isWhitelistingContract(whitelistAddress))
             revert AddressIsWhitelistingContract(whitelistAddress);
+
+        StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].checkOwner();
 
         // Set the bit at bitPosition for the operatorId in the corresponding uint256 blockIndex
         (uint256 blockIndex, uint256 bitPosition) = OperatorLib.getBitmapIndexes(operatorId);
@@ -53,13 +55,16 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         uint64[] calldata operatorIds,
         ISSVWhitelistingContract whitelistingContract
     ) external {
+        // Reverts also when whitelistingContract == address(0)
+        if (!OperatorLib.isWhitelistingContract(address(whitelistingContract))) revert InvalidWhitelistingContract();
+
         uint256 operatorsLength = operatorIds.length;
         if (operatorsLength == 0) revert InvalidOperatorIdsLength();
 
         StorageData storage s = SSVStorage.load();
         Operator storage operator;
 
-        for (uint256 i = 0; i < operatorsLength; ++i) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
 
             operator = s.operators[operatorId];
@@ -89,12 +94,11 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         StorageData storage s = SSVStorage.load();
         Operator storage operator;
 
-        for (uint256 i = 0; i < operatorsLength; ++i) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             operator = s.operators[operatorId];
 
             operator.checkOwner();
-            operator.whitelisted = false;
 
             s.operatorsWhitelist[operatorId] = address(0);
         }
