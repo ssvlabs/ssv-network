@@ -30,7 +30,7 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return owner The owner of the operator
     /// @return fee The fee associated with the operator (SSV)
     /// @return validatorCount The count of validators associated with the operator
-    /// @return whitelistedContract The whitelisted contract address of the operator, if any
+    /// @return whitelistedAddress The whitelisted address of the operator. It can be and EOA or generic contract (legacy) or a whitelisting contract
     /// @return isPrivate A boolean indicating if the operator is private (uses whitelisting contract or SSV Whitelisting module)
     /// @return active A boolean indicating if the operator is active
     function getOperatorById(
@@ -42,7 +42,7 @@ interface ISSVViews is ISSVNetworkCore {
             address owner,
             uint256 fee,
             uint32 validatorCount,
-            address whitelistedContract,
+            address whitelistedAddress,
             bool isPrivate,
             bool active
         );

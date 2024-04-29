@@ -30,7 +30,7 @@
   "scripts": {
     "build": "npx hardhat compile",
     "test": "npx hardhat test",
-    "fork-test": "FORK_TESTING_ENABLED=true npx hardhat test",
+    "test-forked": "FORK_TESTING_ENABLED=true npx hardhat test test-forked/*.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
     "solidity-coverage": "SOLIDITY_COVERAGE=true NO_GAS_ENFORCE=1 npx hardhat coverage",

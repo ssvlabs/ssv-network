@@ -24,7 +24,7 @@ interface ISSVNetworkCore {
         uint64 fee;
         /// @dev The address of the operator's owner
         address owner;
-        /// @dev Whitelisted flag for this operator
+        /// @dev private flag for this operator
         bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;

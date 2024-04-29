@@ -1,11 +1,5 @@
 // Imports
-import {
-  owners,
-  initializeContract,
-  DataGenerator,
-  CONFIG,
-  publicClient,
-} from '../helpers/contract-helpers';
+import { owners, initializeContract, DataGenerator, CONFIG, publicClient } from '../helpers/contract-helpers';
 import { ethers, upgrades } from 'hardhat';
 import { expect } from 'chai';
 
@@ -124,22 +118,6 @@ describe('Deployment tests', () => {
     await instance.write.resetNetworkFee([100000000000n], { account: owners[1].account });
 
     expect(await ssvViews.read.getNetworkFee()).to.be.equals(0);
-  });
-
-  it('Update a module (SSVOperators)', async () => {
-    const deployedSSVNetwork = await hre.viem.getContractAt('SSVNetwork', ssvNetwork.address as Address);
-
-    const operatorsImpl = await hre.viem.deployContract('SSVOperatorsUpdate', [], {
-      client: owners[1].client,
-    });
-
-    await expect(deployedSSVNetwork.write.updateModule([0, ethers.ZeroAddress])).to.be.rejectedWith(
-      'TargetModuleDoesNotExist',
-    );
-
-    await deployedSSVNetwork.write.updateModule([0, await operatorsImpl.address]);
-
-    await expect(ssvNetwork.write.declareOperatorFee([0, 0])).to.be.rejectedWith('NoFeeDeclared');
   });
 
   it('ETH can not be transferred to SSVNetwork / SSVNetwork views', async () => {

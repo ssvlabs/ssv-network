@@ -1249,13 +1249,22 @@ describe('Register Validator Tests', () => {
     const shares = await Promise.all(Array.from({ length: 10 }, (_, index) => DataGenerator.shares(1, index, 4)));
 
     await expect(
-      ssvNetwork.write.bulkRegisterValidator([pks, [1, 2, 3, 4, 5], shares, minDepositAmount, {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0n,
-        active: true,
-      }], { account: owners[1].account },),
+      ssvNetwork.write.bulkRegisterValidator(
+        [
+          pks,
+          [1, 2, 3, 4, 5],
+          shares,
+          minDepositAmount,
+          {
+            validatorCount: 0,
+            networkFeeIndex: 0,
+            index: 0,
+            balance: 0n,
+            active: true,
+          },
+        ],
+        { account: owners[1].account },
+      ),
     ).to.be.rejectedWith('InvalidOperatorIdsLength');
   });
 
@@ -1264,13 +1273,22 @@ describe('Register Validator Tests', () => {
     const shares = await Promise.all(Array.from({ length: 10 }, (_, index) => DataGenerator.shares(1, index, 4)));
 
     await expect(
-      ssvNetwork.write.bulkRegisterValidator([pks, [], shares, minDepositAmount, {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0n,
-        active: true,
-      }], { account: owners[1].account },),
+      ssvNetwork.write.bulkRegisterValidator(
+        [
+          pks,
+          [],
+          shares,
+          minDepositAmount,
+          {
+            validatorCount: 0,
+            networkFeeIndex: 0,
+            index: 0,
+            balance: 0n,
+            active: true,
+          },
+        ],
+        { account: owners[1].account },
+      ),
     ).to.be.rejectedWith('InvalidOperatorIdsLength');
   });
 

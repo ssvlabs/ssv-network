@@ -59,7 +59,7 @@ contract SSVViews is ISSVViews {
             address owner,
             uint256 fee,
             uint32 validatorCount,
-            address whitelistedContract,
+            address whitelistedAddress,
             bool isPrivate,
             bool isActive
         )
@@ -69,7 +69,7 @@ contract SSVViews is ISSVViews {
         owner = operator.owner;
         fee = operator.fee.expand();
         validatorCount = operator.validatorCount;
-        whitelistedContract = SSVStorage.load().operatorsWhitelist[operatorId];
+        whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
         isPrivate = operator.whitelisted;
         isActive = operator.snapshot.block != 0;
     }
