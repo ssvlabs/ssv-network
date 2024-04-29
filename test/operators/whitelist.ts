@@ -123,6 +123,32 @@ describe('Whitelisting Operator Tests', () => {
     );
   });
 
+  it('Set operators private (10 operators) gas limits', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    await trackGas(
+      ssvNetwork.write.setOperatorsPrivateUnchecked([OPERATOR_IDS_10], {
+        account: owners[1].account,
+      }),
+      [GasGroup.SET_OPERATORS_PRIVATE_10],
+    );
+  });
+
+  it('Set operators public (10 operators) gas limits', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    await ssvNetwork.write.setOperatorsPrivateUnchecked([OPERATOR_IDS_10], {
+      account: owners[1].account,
+    });
+
+    await trackGas(
+      ssvNetwork.write.setOperatorsPublicUnchecked([OPERATOR_IDS_10], {
+        account: owners[1].account,
+      }),
+      [GasGroup.SET_OPERATORS_PUBLIC_10],
+    );
+  });
+
   /* EVENTS */
 
   it('Set operator whitelist (EOA) emits "OperatorWhitelistUpdated"', async () => {
@@ -225,6 +251,42 @@ describe('Whitelisting Operator Tests', () => {
           eventName: 'OperatorMultipleWhitelistRemoved',
           argNames: ['operatorIds', 'whitelistAddresses'],
           argValuesList: [[OPERATOR_IDS_10, whitelistAddresses]],
+        },
+      ],
+    );
+  });
+
+  it('Set operators private (10 operators) emits "OperatorPrivacyStatusUpdated"', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    await assertEvent(
+      ssvNetwork.write.setOperatorsPrivateUnchecked([OPERATOR_IDS_10], {
+        account: owners[1].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'OperatorPrivacyStatusUpdated',
+          argNames: ['operatorIds', 'toPrivate'],
+          argValuesList: [[OPERATOR_IDS_10, true]],
+        },
+      ],
+    );
+  });
+
+  it('Set operators public (10 operators) emits "OperatorPrivacyStatusUpdated"', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    await assertEvent(
+      ssvNetwork.write.setOperatorsPublicUnchecked([OPERATOR_IDS_10], {
+        account: owners[1].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'OperatorPrivacyStatusUpdated',
+          argNames: ['operatorIds', 'toPrivate'],
+          argValuesList: [[OPERATOR_IDS_10, false]],
         },
       ],
     );
@@ -425,6 +487,34 @@ describe('Whitelisting Operator Tests', () => {
     ).to.be.rejectedWith('CallerNotOwner');
   });
 
+  it('Set operators private with empty operator IDs reverts "InvalidOperatorIdsLength"', async () => {
+    await expect(ssvNetwork.write.setOperatorsPrivateUnchecked([[]])).to.be.rejectedWith('InvalidOperatorIdsLength');
+  });
+
+  it('Set operators public with empty operator IDs reverts "InvalidOperatorIdsLength"', async () => {
+    await expect(ssvNetwork.write.setOperatorsPublicUnchecked([[]])).to.be.rejectedWith('InvalidOperatorIdsLength');
+  });
+
+  it('Non-owner set operators private reverts "CallerNotOwner"', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    await expect(
+      ssvNetwork.write.setOperatorsPrivateUnchecked([OPERATOR_IDS_10], {
+        account: owners[2].account,
+      }),
+    ).to.be.rejectedWith('CallerNotOwner');
+  });
+
+  it('Non-owner set operators public reverts "CallerNotOwner"', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    await expect(
+      ssvNetwork.write.setOperatorsPublicUnchecked([OPERATOR_IDS_10], {
+        account: owners[2].account,
+      }),
+    ).to.be.rejectedWith('CallerNotOwner');
+  });
+
   /* LOGIC */
 
   it('Get whitelisted address for no operators returns empty list', async () => {
@@ -473,7 +563,7 @@ describe('Whitelisting Operator Tests', () => {
       owners[1].account.address, // owner
       CONFIG.minimalOperatorFee, // fee
       0, // validatorCount
-      mockWhitelistingContractAddress, // whitelisted
+      mockWhitelistingContractAddress, // whitelisting contract address
       true, // isPrivate
       true, // active
     ]);
@@ -496,135 +586,48 @@ describe('Whitelisting Operator Tests', () => {
       owners[1].account.address, // owner
       0, // fee
       0, // validatorCount
-      ethers.ZeroAddress, // whitelisted
+      ethers.ZeroAddress, // whitelisting contract address
       false, // isPrivate
       false, // active
     ]);
   });
 
   it('Check if an address is a whitelisting contract', async () => {
+    // whitelisting contract
     expect(await ssvViews.read.isWhitelistingContract([mockWhitelistingContractAddress])).to.be.true;
+    // EOA
     expect(await ssvViews.read.isWhitelistingContract([owners[1].account.address])).to.be.false;
+    // generic contract
+    expect(await ssvViews.read.isWhitelistingContract([ssvViews.address])).to.be.false;
   });
 
-  /*************************/
-  /*
-  it('Register operator emits "OperatorAdded"', async () => {
-    const publicKey = DataGenerator.publicKey(0);
+  it('Set operators private (10 operators)', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
-    await assertEvent(
-      ssvNetwork.write.registerOperator([publicKey, CONFIG.minimalOperatorFee], {
-        account: owners[1].account,
-      }),
-      [
-        {
-          contract: ssvNetwork,
-          eventName: 'OperatorAdded',
-          argNames: ['operatorId', 'owner', 'publicKey', 'fee'],
-          argValuesList: [[1, owners[1].account.address, publicKey, CONFIG.minimalOperatorFee]],
-        },
-      ],
-    );
-  });
-
-  it('Register operator gas limits', async () => {
-    await trackGas(
-      ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
-        account: owners[1].account,
-      }),
-      [GasGroup.REGISTER_OPERATOR],
-    );
-  });
-
-  it('Get operator by id', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
+    await ssvNetwork.write.setOperatorsPrivateUnchecked([OPERATOR_IDS_10], {
       account: owners[1].account,
     });
 
-    expect(await ssvViews.read.getOperatorById([1])).to.deep.equal([
-      owners[1].account.address, // owner
-      CONFIG.minimalOperatorFee, // fee
-      0, // validatorCount
-      ethers.ZeroAddress, // whitelisted
-      false, // isPrivate
-      true, // active
-    ]);
+    for (let i = 0; i < OPERATOR_IDS_10.length; i++) {
+      const operatorData = await ssvViews.read.getOperatorById([OPERATOR_IDS_10[i]]);
+      expect(operatorData[4]).to.be.true;
+    }
   });
 
-  it('Get private operator by id', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
+  it('Set operators private (10 operators)', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    await ssvNetwork.write.setOperatorsPrivateUnchecked([OPERATOR_IDS_10], {
       account: owners[1].account,
     });
 
-    await ssvNetwork.write.setOperatorWhitelist([1, owners[2].account.address], {
+    await ssvNetwork.write.setOperatorsPublicUnchecked([OPERATOR_IDS_10], {
       account: owners[1].account,
     });
 
-    expect(await ssvViews.read.getOperatorById([1])).to.deep.equal([
-      owners[1].account.address, // owner
-      CONFIG.minimalOperatorFee, // fee
-      0, // validatorCount
-      owners[2].account.address, // whitelisted
-      true, // isPrivate
-      true, // active
-    ]);
+    for (let i = 0; i < OPERATOR_IDS_10.length; i++) {
+      const operatorData = await ssvViews.read.getOperatorById([OPERATOR_IDS_10[i]]);
+      expect(operatorData[4]).to.be.false;
+    }
   });
-
-  it('Get non-existent operator by id', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
-      account: owners[1].account,
-    });
-
-    expect(await ssvViews.read.getOperatorById([5])).to.deep.equal([
-      ethers.ZeroAddress, // owner
-      0, // fee
-      0, // validatorCount
-      ethers.ZeroAddress, // whitelisted
-      false, // isPrivate
-      false, // active
-    ]);
-  });
-
-  it('Get operator removed by id', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
-      account: owners[1].account,
-    });
-    await ssvNetwork.write.removeOperator([1], {
-      account: owners[1].account,
-    });
-
-    expect(await ssvViews.read.getOperatorById([1])).to.deep.equal([
-      owners[1].account.address, // owner
-      0, // fee
-      0, // validatorCount
-      ethers.ZeroAddress, // whitelisted
-      false, // isPrivate
-      false, // active
-    ]);
-  });
-
-  it('Register an operator with a fee thats too low reverts "FeeTooLow"', async () => {
-    await expect(ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), '10'])).to.be.rejectedWith('FeeTooLow');
-  });
-
-  it('Register an operator with a fee thats too high reverts "FeeTooHigh"', async () => {
-    await expect(ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), 2e14])).to.be.rejectedWith(
-      'FeeTooHigh',
-    );
-  });
-
-  it('Register same operator twice reverts "OperatorAlreadyExists"', async () => {
-    const publicKey = DataGenerator.publicKey(1);
-    await ssvNetwork.write.registerOperator([publicKey, CONFIG.minimalOperatorFee], {
-      account: owners[1].account,
-    });
-
-    await expect(
-      ssvNetwork.write.registerOperator([publicKey, CONFIG.minimalOperatorFee], {
-        account: owners[1].account,
-      }),
-    ).to.be.rejectedWith('OperatorAlreadyExists');
-  });
-
-  */
 });

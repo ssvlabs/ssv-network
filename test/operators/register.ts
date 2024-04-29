@@ -1,10 +1,5 @@
 // Declare imports
-import {
-  owners,
-  initializeContract,
-  DataGenerator,
-  CONFIG,
-} from '../helpers/contract-helpers';
+import { owners, initializeContract, DataGenerator, CONFIG } from '../helpers/contract-helpers';
 import { assertEvent } from '../helpers/utils/test';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
@@ -58,7 +53,7 @@ describe('Register Operator Tests', () => {
       owners[1].account.address, // owner
       CONFIG.minimalOperatorFee, // fee
       0, // validatorCount
-      ethers.ZeroAddress, // whitelisted
+      ethers.ZeroAddress, // whitelisting contract address
       false, // isPrivate
       true, // active
     ]);
@@ -73,7 +68,7 @@ describe('Register Operator Tests', () => {
       ethers.ZeroAddress, // owner
       0, // fee
       0, // validatorCount
-      ethers.ZeroAddress, // whitelisted
+      ethers.ZeroAddress, // whitelisting contract address
       false, // isPrivate
       false, // active
     ]);
@@ -82,7 +77,7 @@ describe('Register Operator Tests', () => {
   it('Get operator removed by id', async () => {
     await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
       account: owners[1].account,
-    });    
+    });
     await ssvNetwork.write.removeOperator([1], {
       account: owners[1].account,
     });
@@ -91,16 +86,14 @@ describe('Register Operator Tests', () => {
       owners[1].account.address, // owner
       0, // fee
       0, // validatorCount
-      ethers.ZeroAddress, // whitelisted
+      ethers.ZeroAddress, // whitelisting contract address
       false, // isPrivate
       false, // active
     ]);
   });
 
   it('Register an operator with a fee thats too low reverts "FeeTooLow"', async () => {
-    await expect(ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), '10'])).to.be.rejectedWith(
-      'FeeTooLow',
-    );
+    await expect(ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), '10'])).to.be.rejectedWith('FeeTooLow');
   });
 
   it('Register an operator with a fee thats too high reverts "FeeTooHigh"', async () => {
@@ -113,12 +106,12 @@ describe('Register Operator Tests', () => {
     const publicKey = DataGenerator.publicKey(1);
     await ssvNetwork.write.registerOperator([publicKey, CONFIG.minimalOperatorFee], {
       account: owners[1].account,
-    }); 
+    });
 
     await expect(
       ssvNetwork.write.registerOperator([publicKey, CONFIG.minimalOperatorFee], {
         account: owners[1].account,
-      })
+      }),
     ).to.be.rejectedWith('OperatorAlreadyExists');
   });
 });

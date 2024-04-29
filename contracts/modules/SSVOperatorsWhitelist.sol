@@ -58,8 +58,7 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         // Reverts also when whitelistingContract == address(0)
         if (!OperatorLib.isWhitelistingContract(address(whitelistingContract))) revert InvalidWhitelistingContract();
 
-        uint256 operatorsLength = operatorIds.length;
-        if (operatorsLength == 0) revert InvalidOperatorIdsLength();
+        uint256 operatorsLength = OperatorLib.getOperatorsLength(operatorIds);
 
         StorageData storage s = SSVStorage.load();
         Operator storage operator;
@@ -88,8 +87,7 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
     }
 
     function removeOperatorsWhitelistingContract(uint64[] calldata operatorIds) external {
-        uint256 operatorsLength = operatorIds.length;
-        if (operatorsLength == 0) revert InvalidOperatorIdsLength();
+        uint256 operatorsLength = OperatorLib.getOperatorsLength(operatorIds);
 
         StorageData storage s = SSVStorage.load();
         Operator storage operator;
@@ -104,5 +102,15 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         }
 
         emit OperatorWhitelistingContractUpdated(operatorIds, address(0));
+    }
+
+    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
+        OperatorLib.updatePrivacyStatus(operatorIds, true, SSVStorage.load());
+        emit OperatorPrivacyStatusUpdated(operatorIds, true);
+    }
+
+    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external override {
+        OperatorLib.updatePrivacyStatus(operatorIds, false, SSVStorage.load());
+        emit OperatorPrivacyStatusUpdated(operatorIds, false);
     }
 }

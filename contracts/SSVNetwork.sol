@@ -154,6 +154,14 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }
 
+    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
+    }
+
+    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
+    }
+
     function removeOperatorsWhitelistingContract(uint64[] calldata operatorIds) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }

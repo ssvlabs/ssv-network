@@ -65,7 +65,7 @@ describe('Remove Operator Tests', () => {
       owners[0].account.address, // owner
       0, // fee
       0, // validatorCount
-      ethers.ZeroAddress, // whitelisted address
+      ethers.ZeroAddress, // whitelisting contract address
       false, // isPrivate
       false, // active
     ]);
@@ -118,17 +118,15 @@ describe('Remove Operator Tests', () => {
   });
 
   it('Remove operator I do not own reverts "CallerNotOwner"', async () => {
-    await expect(ssvNetwork.write.removeOperator([1],{
-      account: owners[1].account,
-    })).to.be.rejectedWith(
-      'CallerNotOwner',
-    );
+    await expect(
+      ssvNetwork.write.removeOperator([1], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('CallerNotOwner');
   });
 
   it('Remove same operator twice reverts "OperatorDoesNotExist"', async () => {
     await ssvNetwork.write.removeOperator([1]);
-    await expect(ssvNetwork.write.removeOperator([1])).to.be.rejectedWith(
-      'OperatorDoesNotExist',
-    );
+    await expect(ssvNetwork.write.removeOperator([1])).to.be.rejectedWith('OperatorDoesNotExist');
   });
 });

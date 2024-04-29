@@ -307,6 +307,16 @@ export const reactivate = async function (ownerId: number, operatorIds: number[]
   return reactivatedCluster.eventsByName.ClusterReactivated[0].args;
 };
 
+export const getTransactionReceipt = async function (tx: Promise<any>) {
+  const hash = await tx;
+
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash,
+  });
+
+  return receipt;
+};
+
 async function initialize() {
   publicClient = await hre.viem.getPublicClient();
 }

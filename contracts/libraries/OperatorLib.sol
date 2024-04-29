@@ -146,10 +146,9 @@ library OperatorLib {
         StorageData storage s
     ) internal {
         uint256 addressesLength = whitelistAddresses.length;
-        uint256 operatorsLength = operatorIds.length;
-
         if (addressesLength == 0) revert ISSVNetworkCore.InvalidWhitelistAddressesLength();
-        if (operatorsLength == 0) revert ISSVNetworkCore.InvalidOperatorIdsLength();
+
+        uint256 operatorsLength = getOperatorsLength(operatorIds);
 
         ISSVNetworkCore.Operator storage operator;
         for (uint256 i; i < operatorsLength; ++i) {
@@ -187,27 +186,6 @@ library OperatorLib {
         }
     }
 
-    function updateWhitelistingContract(
-        uint64 operatorId,
-        ISSVWhitelistingContract whitelistingContract,
-        StorageData storage s
-    ) internal {
-        checkOwner(s.operators[operatorId]);
-
-        address currentWhitelisted = s.operatorsWhitelist[operatorId];
-
-        // operator already whitelisted? EOA or generic contract
-        if (currentWhitelisted != address(0)) {
-            (uint256 blockIndex, uint256 bitPosition) = OperatorLib.getBitmapIndexes(operatorId);
-            delete s.operatorsWhitelist[operatorId];
-            s.addressWhitelistedForOperators[currentWhitelisted][blockIndex] |= (1 << bitPosition);
-        } else {
-            s.operators[operatorId].whitelisted = true;
-        }
-
-        s.operatorsWhitelist[operatorId] = address(whitelistingContract);
-    }
-
     function generateBlockMasks(uint64[] calldata operatorIds) internal pure returns (uint256[] memory masks) {
         uint256 blockIndex;
         uint256 bitPosition;
@@ -234,6 +212,19 @@ library OperatorLib {
         }
     }
 
+    function updatePrivacyStatus(uint64[] calldata operatorIds, bool setPrivate, StorageData storage s) internal {
+        uint256 operatorsLength = getOperatorsLength(operatorIds);
+
+        ISSVNetworkCore.Operator storage operator;
+        for (uint256 i; i < operatorsLength; ++i) {
+            uint64 operatorId = operatorIds[i];
+            operator = s.operators[operatorId];
+            checkOwner(operator);
+
+            operator.whitelisted = setPrivate;
+        }
+    }
+
     function getBitmapIndexes(uint64 operatorId) internal pure returns (uint256 blockIndex, uint256 bitPosition) {
         blockIndex = operatorId >> 8; // Equivalent to operatorId / 256
         bitPosition = operatorId & 0xFF; // Equivalent to operatorId % 256
@@ -241,6 +232,11 @@ library OperatorLib {
 
     function checkZeroAddress(address whitelistAddress) internal pure {
         if (whitelistAddress == address(0)) revert ISSVNetworkCore.ZeroAddressNotAllowed();
+    }
+
+    function getOperatorsLength(uint64[] calldata operatorIds) internal pure returns (uint256 operatorsLength) {
+        operatorsLength = operatorIds.length;
+        if (operatorsLength == 0) revert ISSVNetworkCore.InvalidOperatorIdsLength();
     }
 
     function isWhitelistingContract(address whitelistingContract) internal view returns (bool) {
