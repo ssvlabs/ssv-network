@@ -1,6 +1,6 @@
 # SSV Network
 
-### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | Roles | [Publish](publish.md)
+### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | Roles | [Publish](publish.md) | [Operator owners](operators.md)
 
 ## Contract owner
 

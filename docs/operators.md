@@ -1,0 +1,70 @@
+# SSV Network
+
+### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | [Roles](roles.md) | [Publish](publish.md) | Operator owners
+
+## Registering an operator
+The function `SSVNetwork.registerOperator()` is used to register a validator.
+Input parameters:
+`publicKey`: The public key of the operator
+`fee`: Should be `0` or greater than `100000000` and less than the value returned by `SSVNetworkViews.getMaximumOperatorFee()`
+
+After the operator is registered, the caller becomes the `owner`, the `fee` is set and the `whitelisted` status is set to `false`.
+The `whitelisted` flag of the operator indicates if the operator is private (when set to `true`) or public (`false`),
+
+## Whitelisted operators
+An operator owner can restrict the usage of it to specific EOAs, generic contracts and whitelisting contracts. After doing it, the operator becomes private.
+A whitelisting contract is the one that implements the [ISSVWhitelistingContract](../contracts/interfaces/external/ISSVWhitelistingContract.sol) interface.
+
+To manage the whitelisted addresses, these 2 data structures are used:
+
+`mapping(uint64 => address) operatorsWhitelist`: Keeps the relation between an operator and a whitelisting contract.
+`mapping(address => mapping(uint256 => uint256)) addressWhitelistedForOperators`: Links an address (EOA/generic contract) ot a list of operators identified by its `operatorId` using bitmaps.
+
+### What is a Whitelisting Contract?
+The operators can choose to whitelist an external contract with custom logic to manage authorized addresses externally. To be used in SSV contracts, it needs to implement the [ISSVWhitelistingContract](../contracts/interfaces/external/ISSVWhitelistingContract.sol) interface, that requires to implement the `isWhitelisted(address account, uint256 operatorId)` function. This function is called in the register validator process, that must return `true/false` to indicate if the caller (`msg.sender`) is whitelisted for the operator.
+
+To check if a contact is a valid whitelisting contract, use the function `SSVNetworkViews.isWhitelistingContract(address contractAddress)`.
+
+### Legacy whitelisted addresses transition process
+Up until v1.1.1, operators use the `operatorsWhitelist` mapping to save EOAs and generic contracts. Now in v1.2.0, those type of addresses are stored in `addressWhitelistedForOperators`, leaving `operatorsWhitelist` to save only whitelisting contracts.
+When whitelisting a new whitelisting contract, the current address stored in `operatorsWhitelist` will be moved to `addressWhitelistedForOperators`, and the new address stored in `operatorsWhitelist`.
+When whitelising a new EOA/generic contract, it will be saved in `addressWhitelistedForOperators`, leaving the previous address in `operatorsWhitelist` intact.
+
+### Operator whitelist states
+The following table shows all possible combinations of whitelisted addresses for a given operator.
+|   | Use legacy EOA/generic contract  | Use whitelising contract  | Use EOAs/generic contracts | Operator private |
+|---|---|---|---|---|
+| 1  | Y  |   |   | Y  |
+| 2  | Y  |   | Y  | Y  |
+| 3  |   | Y  |   | Y  |
+| 4  |   |   | Y  | Y  |
+| 5  |   | Y  | Y  | Y  |
+
+The operarator status changes to private (`Operator.whitelisted == true`), so only the whitelisted addresses can use the operator's services when:
+- The operator owner sets a whitelisting contract.
+- The operator owner whitelist EOAs or generic contracts.
+- The operator owner explicitly sets the private status calling `SSVNetwork.setOperatorsPrivateUnchecked()`, no matter if it has whitelisted addresses.
+
+The operarator status changes to public (`Operator.whitelisted == false`), so anyone can use the operator`s services when:
+- The operator owner explicitly sets the public status calling `SSVNetwork.setOperatorsPublicUnchecked()`, no matter if it still has whitelisted addresses.
+
+### Registering whitelist addresses
+Functions related to whitelisting contracts:
+- Register: `SSVNetwork.setOperatorsWhitelistingContract(uint64[] calldata operatorIds, ISSVWhitelistingContract whitelistingContract)`
+- Remove: `SSVNetwork.removeOperatorsWhitelistingContract(uint64[] calldata operatorIds)`
+
+Functions related to EOAs/generic contracts:
+- Register one address: `SSVNetwork.setOperatorWhitelist(uint64 operatorId, address whitelistAddress)`
+- Register multiple addresses to multiple operators: `SSVNetwork.setOperatorMultipleWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
+- Remove multiple addresses for multiple operators: `SSVNetwork.removeOperatorMultipleWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
+
+### Registering validators using whitelisted operators
+When registering validators using `SSVNetwork.registerValidator` or `SSVNetwork.registerValidator`, the flow to check if the caller is authorized to use a whitelisted operator is the following:
+1. Check if the operator has a whitelisted address in `operatorsWhitelist`.
+1.1. If the address is a whitelisting contract, call its `isWhitelisted()` function.
+1.2. If it's not a whitelisting contract, check if the caller is the whitelisted address. In this step we keep the whitelisting system backward compatible with previous whitelisted EOAs/generic contracts.
+2. Check if the operator is whitelisted via the SSV whitelisting module, using `addressWhitelistedForOperators`.
+
+If the caller is not authorized for any of the whitelisted operators, the transaction will revert with the `CallerNotWhitelisted()` error.
+
+

@@ -25,12 +25,12 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
 
+        if (!s.operators[operatorId].whitelisted) s.operators[operatorId].whitelisted = true;
+
         // Set the bit at bitPosition for the operatorId in the corresponding uint256 blockIndex
         (uint256 blockIndex, uint256 bitPosition) = OperatorLib.getBitmapIndexes(operatorId);
 
         s.addressWhitelistedForOperators[whitelistAddress][blockIndex] |= (1 << bitPosition);
-
-        if (!s.operators[operatorId].whitelisted) s.operators[operatorId].whitelisted = true;
 
         emit OperatorWhitelistUpdated(operatorId, whitelistAddress);
     }

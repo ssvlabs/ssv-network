@@ -142,7 +142,7 @@ library OperatorLib {
     function updateMultipleWhitelists(
         address[] calldata whitelistAddresses,
         uint64[] calldata operatorIds,
-        bool addAddresses,
+        bool registerAddresses,
         StorageData storage s
     ) internal {
         uint256 addressesLength = whitelistAddresses.length;
@@ -155,10 +155,8 @@ library OperatorLib {
             operator = s.operators[operatorIds[i]];
 
             checkOwner(operator);
-            if (addAddresses) {
-                if (!operator.whitelisted) {
-                    operator.whitelisted = true;
-                }
+            if (registerAddresses && !operator.whitelisted) {
+                operator.whitelisted = true;
             }
         }
 
@@ -176,7 +174,7 @@ library OperatorLib {
             for (uint256 blockIndex; blockIndex < masks.length; ++blockIndex) {
                 // only update storage for updated masks
                 if (masks[blockIndex] != 0) {
-                    if (addAddresses) {
+                    if (registerAddresses) {
                         s.addressWhitelistedForOperators[whitelistAddress][blockIndex] |= masks[blockIndex];
                     } else {
                         s.addressWhitelistedForOperators[whitelistAddress][blockIndex] &= ~masks[blockIndex];
