@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "../interfaces/ISSVClusters.sol";
 import "../libraries/ClusterLib.sol";
@@ -151,13 +151,7 @@ contract SSVClusters is ISSVClusters {
 
         if (cluster.active) {
             StorageProtocol storage sp = SSVStorageProtocol.load();
-            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
-                operatorIds,
-                false,
-                validatorsRemoved,
-                s,
-                sp
-            );
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, validatorsRemoved, s, sp);
 
             cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 

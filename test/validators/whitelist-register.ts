@@ -8,6 +8,7 @@ import {
   bulkRegisterValidators,
   DataGenerator,
   getTransactionReceipt,
+  coldRegisterValidator,
   CONFIG,
   DEFAULT_OPERATOR_IDS,
 } from '../helpers/contract-helpers';
@@ -30,6 +31,8 @@ describe('Register Validator Tests', () => {
     await registerOperators(0, 14, CONFIG.minimalOperatorFee);
 
     minDepositAmount = (BigInt(CONFIG.minimalBlocksBeforeLiquidation) + 2n) * CONFIG.minimalOperatorFee * 4n;
+    // cold register
+    await coldRegisterValidator();
   });
 
   it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"/gas limits/logic', async () => {
@@ -114,21 +117,21 @@ describe('Register Validator Tests', () => {
     // Check totalValidatorsCount is incremented for all operators
     for (let i = 0; i < DEFAULT_OPERATOR_IDS[4].length; i++) {
       const operatorData = await ssvViews.read.getOperatorById([DEFAULT_OPERATOR_IDS[4][i]]);
-      expect(operatorData[2]).to.be.equal(1);
+      expect(operatorData[2]).to.be.equal(2); // validatorCount starts with 1 because coldRegiserValidator
     }
   });
 
   it('Register non-whitelisted validator in 1 public operator with 4 operators emits "ValidatorAdded"/logic', async () => {
-    await ssvNetwork.write.setOperatorMultipleWhitelists([[2], [owners[3].account.address]]);
+    await ssvNetwork.write.setOperatorMultipleWhitelists([[5], [owners[3].account.address]]);
 
-    await ssvNetwork.write.setOperatorsPublicUnchecked([[2]]);
+    await ssvNetwork.write.setOperatorsPublicUnchecked([[5]]);
 
     await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
 
     await ssvNetwork.write.registerValidator(
       [
         DataGenerator.publicKey(1),
-        DEFAULT_OPERATOR_IDS[4],
+        [5, 6, 7, 8],
         await DataGenerator.shares(3, 1, 4),
         minDepositAmount,
         {
@@ -142,7 +145,7 @@ describe('Register Validator Tests', () => {
       { account: owners[3].account },
     );
 
-    expect(await ssvViews.read.getOperatorById([2])).to.deep.equal([
+    expect(await ssvViews.read.getOperatorById([5])).to.deep.equal([
       owners[0].account.address, // owner
       CONFIG.minimalOperatorFee, // fee
       1, // validatorCount
@@ -174,7 +177,7 @@ describe('Register Validator Tests', () => {
     );
 
     const args = eventsByName.ValidatorAdded[0].args;
-    
+
     await ssvNetwork.write.setOperatorMultipleWhitelists([DEFAULT_OPERATOR_IDS[4], [owners[3].account.address]]);
 
     await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
@@ -304,7 +307,7 @@ describe('Register Validator Tests', () => {
       expect(await ssvViews.read.getOperatorById([4])).to.deep.equal([
         owners[0].account.address, // owner
         CONFIG.minimalOperatorFee, // fee
-        1, // validatorCount
+        2, // validatorCount -> starts with 1 validator because coldRegisterValidator
         mockWhitelistingContractAddress, // whitelisting contract address
         true, // isPrivate
         true, // active
@@ -341,7 +344,7 @@ describe('Register Validator Tests', () => {
       expect(await ssvViews.read.getOperatorById([4])).to.deep.equal([
         owners[0].account.address, // owner
         CONFIG.minimalOperatorFee, // fee
-        11, // validatorCount
+        12, // validatorCount -> starts with 1 validator because coldRegisterValidator
         mockWhitelistingContractAddress, // whitelisting contract address
         true, // isPrivate
         true, // active
@@ -373,7 +376,7 @@ describe('Register Validator Tests', () => {
       expect(await ssvViews.read.getOperatorById([4])).to.deep.equal([
         owners[0].account.address, // owner
         CONFIG.minimalOperatorFee, // fee
-        1, // validatorCount
+        2, // validatorCount -> starts with 1 validator because coldRegisterValidator
         mockWhitelistingContractAddress, // whitelisting contract address
         false, // isPrivate
         true, // active
@@ -405,7 +408,7 @@ describe('Register Validator Tests', () => {
       expect(await ssvViews.read.getOperatorById([4])).to.deep.equal([
         owners[0].account.address, // owner
         CONFIG.minimalOperatorFee, // fee
-        1, // validatorCount
+        2, // validatorCount -> starts with 1 validator because coldRegisterValidator
         mockWhitelistingContractAddress, // whitelisting contract address
         true, // isPrivate
         true, // active

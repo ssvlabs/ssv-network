@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "./interfaces/ISSVNetworkT.sol";
 
@@ -131,7 +131,7 @@ contract SSVNetworkUpgrade is
             abi.encodeWithSignature("removeOperator(uint64)", operatorId)
         );
     }
-    
+
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],

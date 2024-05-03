@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "../interfaces/ISSVNetworkCore.sol";
 import "../interfaces/external/ISSVWhitelistingContract.sol";
@@ -66,14 +66,11 @@ library OperatorLib {
             if (operator.whitelisted) {
                 address whitelistedAddress = s.operatorsWhitelist[operatorId];
                 if (whitelistedAddress != address(0)) {
-                    // Check if the whitelisted address is a custom contract and use its logic to check if msg.sender is whitelisted
-                    if (isWhitelistingContract(whitelistedAddress)) {
+                    // Legacy address whitelists (EOAs or generic contracts)
+                    if (whitelistedAddress != msg.sender) {
+                        // Check if msg.sender is whitelisted via whitelisting contract
+                        // No need to check isWhitelistingContract() as its verified when registering it
                         if (!ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(msg.sender, operatorId)) {
-                            revert ISSVNetworkCore.CallerNotWhitelisted();
-                        }
-                    } else {
-                        // Legacy address whitelists (EOAs or generic contracts)
-                        if (whitelistedAddress != msg.sender) {
                             revert ISSVNetworkCore.CallerNotWhitelisted();
                         }
                     }

@@ -30,6 +30,9 @@ const config: HardhatUserConfig = {
       },
       {
         version: '0.8.18',
+      },
+      {
+        version: '0.8.24',
         settings: {
           optimizer: {
             enabled: true,
@@ -48,10 +51,11 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         enabled: process.env.FORK_TESTING_ENABLED ? true : false,
-        url: "https://mainnet.infura.io/v3/1810bc4fb927499990638f8451a455e4",
+        url: process.env.MAINNET_ETH_NODE_URL,
         blockNumber: 19621100,
       },
       allowUnlimitedContractSize: true,
+      gas: 5000000,
     },
   },
   etherscan: {
