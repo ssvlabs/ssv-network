@@ -9,7 +9,7 @@ import '@openzeppelin/hardhat-upgrades';
 
 import 'hardhat-abi-exporter';
 import 'hardhat-contract-sizer';
-import 'solidity-coverage'
+import 'solidity-coverage';
 
 import './tasks/deploy';
 import './tasks/update-module';
@@ -50,7 +50,7 @@ const config: HardhatUserConfig = {
     } as SSVNetworkConfig,
     hardhat: {
       forking: {
-        enabled: process.env.FORK_TESTING_ENABLED ? true : false,
+        enabled: process.env.FORK_TESTING_ENABLED === 'true',
         url: process.env.MAINNET_ETH_NODE_URL,
         blockNumber: 19621100,
       },
