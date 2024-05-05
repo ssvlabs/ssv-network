@@ -56,7 +56,8 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         ISSVWhitelistingContract whitelistingContract
     ) external {
         // Reverts also when whitelistingContract == address(0)
-        if (!OperatorLib.isWhitelistingContract(address(whitelistingContract))) revert InvalidWhitelistingContract();
+        if (!OperatorLib.isWhitelistingContract(address(whitelistingContract)))
+            revert InvalidWhitelistingContract(address(whitelistingContract));
 
         uint256 operatorsLength = OperatorLib.getOperatorsLength(operatorIds);
 

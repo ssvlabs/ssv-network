@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../interfaces/ISSVNetworkCore.sol";
-import "./SSVStorage.sol";
+import {StorageData} from "./SSVStorage.sol";
 
 library ValidatorLib {
     uint64 private constant MIN_OPERATORS_LENGTH = 4;

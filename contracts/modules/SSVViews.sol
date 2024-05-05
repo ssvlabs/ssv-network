@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../interfaces/ISSVViews.sol";
-import "../libraries/Types.sol";
+import {ISSVViews} from "../interfaces/ISSVViews.sol";
+import {Types64} from "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
-import "../libraries/SSVStorage.sol";
-import "../libraries/SSVStorageProtocol.sol";
+import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;

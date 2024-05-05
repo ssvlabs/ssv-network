@@ -59,7 +59,7 @@ interface ISSVNetworkCore {
     /**********/
 
     error CallerNotOwner(); // 0x5cd83192
-    error CallerNotWhitelisted(); // 0x8c6e5d71
+    error CallerNotWhitelisted(uint64 operatorId); // 0x60d86593
     error FeeTooLow(); // 0x732f9413
     error FeeExceedsIncreaseLimit(); // 0x958065d9
     error NoFeeDeclared(); // 0x1d226c30
@@ -92,7 +92,7 @@ interface ISSVNetworkCore {
     error EmptyPublicKeysList(); // df83e679
     error InvalidContractAddress(); // 0xa710429d
     error AddressIsWhitelistingContract(address contractAddress); // 0x71cadba7
-    error InvalidWhitelistingContract(); // 0x81ed29ff
+    error InvalidWhitelistingContract(address contractAddress); // 0x886e6a03
     error InvalidWhitelistAddressesLength(); // 0xcbb362dc
     error ZeroAddressNotAllowed(); // 0x8579befe
 

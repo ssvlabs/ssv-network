@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "./ISSVNetworkCore.sol";
+import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
 
 interface ISSVOperators is ISSVNetworkCore {
     /// @notice Registers a new operator

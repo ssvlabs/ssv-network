@@ -2,11 +2,10 @@
 pragma solidity 0.8.24;
 
 import "../interfaces/ISSVNetworkCore.sol";
-import "../interfaces/external/ISSVWhitelistingContract.sol";
-import "./CoreLib.sol";
-import "./SSVStorage.sol";
-import "./SSVStorageProtocol.sol";
-import "./Types.sol";
+import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
+import {StorageData} from "./SSVStorage.sol";
+import {StorageProtocol} from "./SSVStorageProtocol.sol";
+import {Types64} from "./Types.sol";
 
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
@@ -69,9 +68,11 @@ library OperatorLib {
                     // Legacy address whitelists (EOAs or generic contracts)
                     if (whitelistedAddress != msg.sender) {
                         // Check if msg.sender is whitelisted via whitelisting contract
-                        // No need to check isWhitelistingContract() as its verified when registering it
+                        if (!OperatorLib.isWhitelistingContract(whitelistedAddress)) {
+                            revert ISSVNetworkCore.InvalidWhitelistingContract(whitelistedAddress);
+                        }
                         if (!ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(msg.sender, operatorId)) {
-                            revert ISSVNetworkCore.CallerNotWhitelisted();
+                            revert ISSVNetworkCore.CallerNotWhitelisted(operatorId);
                         }
                     }
                 } else {
@@ -83,7 +84,7 @@ library OperatorLib {
                     }
 
                     if (currentWhitelistedMask & (1 << (operatorId & 0xFF)) == 0) {
-                        revert ISSVNetworkCore.CallerNotWhitelisted();
+                        revert ISSVNetworkCore.CallerNotWhitelisted(operatorId);
                     }
                 }
             }

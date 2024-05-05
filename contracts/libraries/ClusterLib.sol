@@ -2,11 +2,11 @@
 pragma solidity 0.8.24;
 
 import "../interfaces/ISSVNetworkCore.sol";
-import "./SSVStorage.sol";
-import "./SSVStorageProtocol.sol";
+import {StorageData} from "./SSVStorage.sol";
+import {StorageProtocol} from "./SSVStorageProtocol.sol";
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
-import "./Types.sol";
+import {Types64} from "./Types.sol";
 
 library ClusterLib {
     using Types64 for uint64;

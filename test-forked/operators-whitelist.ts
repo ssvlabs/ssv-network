@@ -68,6 +68,43 @@ describe('Whitelisting Tests (fork)', () => {
     expect(await ssvViews.read.isWhitelistingContract([operatorData[3]])).to.equal(false);
   });
 
+  it('Register with an operator that uses a non-whitelisting contract reverts "InvalidWhitelistingContract"', async () => {
+    // SSV contracts owner
+    await client.impersonateAccount({ address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' });
+
+    // 0xB4084F25DfCb2c1bf6636b420b59eda807953769 -> whitelisted address for operators 314, 315, 316, 317
+    const liquidationCollateral = await ssvViews.read.getMinimumLiquidationCollateral();
+    const minDepositAmount = liquidationCollateral * 2n;
+
+    // give the sender enough SSV tokens
+    await ssvToken.write.mint([owners[2].account.address, minDepositAmount], {
+      account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
+    });
+
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], {
+      account: owners[2].account,
+    });
+
+    await expect(
+      ssvNetwork.write.registerValidator(
+        [
+          DataGenerator.publicKey(1),
+          [314, 315, 316, 317],
+          MOCK_SHARES,
+          minDepositAmount,
+          {
+            validatorCount: 0,
+            networkFeeIndex: 0,
+            index: 0,
+            balance: 0n,
+            active: true,
+          },
+        ],
+        { account: owners[2].account },
+      ),
+    ).to.be.rejectedWith('InvalidWhitelistingContract');
+  });
+
   it('Register using legacy whitelisted operators in 4 operators cluster events/logic', async () => {
     // get the current number of validators for these operators
     const operatorsValidatorsCount = {

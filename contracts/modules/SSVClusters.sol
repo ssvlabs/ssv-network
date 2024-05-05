@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../interfaces/ISSVClusters.sol";
+import {ISSVClusters} from "../interfaces/ISSVClusters.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
-import "../libraries/SSVStorage.sol";
-import "../libraries/SSVStorageProtocol.sol";
+import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 
 contract SSVClusters is ISSVClusters {
     using ClusterLib for Cluster;

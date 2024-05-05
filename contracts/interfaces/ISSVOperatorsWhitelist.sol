@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "./ISSVNetworkCore.sol";
-import "./external/ISSVWhitelistingContract.sol";
+import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
+import {ISSVWhitelistingContract} from "./external/ISSVWhitelistingContract.sol";
 
 interface ISSVOperatorsWhitelist is ISSVNetworkCore {
     /// @notice Sets the whitelist for an operator
