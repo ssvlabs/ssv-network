@@ -5,7 +5,7 @@ on: [push]
 jobs:
   ci:
     runs-on: ubuntu-latest
-    name: Hardhat unit test
+    name: Hardhat unit test (forked network)
     env: # Set environment variables for all steps in this job
       GH_TOKEN: ${{ secrets.github_token }}
       FORK_TESTING_ENABLED: true

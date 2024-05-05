@@ -49,11 +49,6 @@ const config: HardhatUserConfig = {
       ssvToken: process.env.SSVTOKEN_ADDRESS, // if empty, deploy SSV mock token
     } as SSVNetworkConfig,
     hardhat: {
-      forking: {
-        enabled: process.env.FORK_TESTING_ENABLED === 'true',
-        url: process.env.MAINNET_ETH_NODE_URL,
-        blockNumber: 19621100,
-      },
       allowUnlimitedContractSize: true,
       gas: 5000000,
     },
@@ -141,6 +136,20 @@ if (process.env.MAINNET_ETH_NODE_URL) {
       gas: +(process.env.GAS || ''),
       ssvToken: '0x9D65fF81a3c488d585bBfb0Bfe3c7707c7917f54',
     } as SSVNetworkConfig,
+  };
+}
+
+if (process.env.FORK_TESTING_ENABLED) {
+  config.networks = {
+    ...config.networks,
+    hardhat: {
+      ...config.networks?.hardhat,
+      forking: {
+        enabled: process.env.FORK_TESTING_ENABLED === 'true',
+        url: process.env.MAINNET_ETH_NODE_URL ? process.env.MAINNET_ETH_NODE_URL : '',
+        blockNumber: 19621100,
+      },
+    },
   };
 }
 
