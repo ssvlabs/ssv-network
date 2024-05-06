@@ -63,8 +63,20 @@ library OperatorLib {
 
             // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
-                address whitelistedAddress = s.operatorsWhitelist[operatorId];
-                if (whitelistedAddress != address(0)) {
+                // Handle bitmap-based whitelisting
+                blockIndex = operatorId >> 8;
+                if (blockIndex != lastBlockIndex) {
+                    currentWhitelistedMask = s.addressWhitelistedForOperators[msg.sender][blockIndex];
+                    lastBlockIndex = blockIndex;
+                }
+
+                // if msg.sender is not whitelisted via bitmap, check for legacy whitelist/whitelisting contract
+                if (currentWhitelistedMask & (1 << (operatorId & 0xFF)) == 0) {
+                    address whitelistedAddress = s.operatorsWhitelist[operatorId];
+                    if (whitelistedAddress == address(0)) {
+                        // msg.sender is not whitelisted via bitmap or legacy whitelist/whitelisting contract
+                        revert ISSVNetworkCore.CallerNotWhitelisted(operatorId);
+                    }
                     // Legacy address whitelists (EOAs or generic contracts)
                     if (whitelistedAddress != msg.sender) {
                         // Check if msg.sender is whitelisted via whitelisting contract
@@ -74,17 +86,6 @@ library OperatorLib {
                         if (!ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(msg.sender, operatorId)) {
                             revert ISSVNetworkCore.CallerNotWhitelisted(operatorId);
                         }
-                    }
-                } else {
-                    // Handle bitmap-based whitelisting
-                    blockIndex = operatorId >> 8;
-                    if (blockIndex != lastBlockIndex) {
-                        currentWhitelistedMask = s.addressWhitelistedForOperators[msg.sender][blockIndex];
-                        lastBlockIndex = blockIndex;
-                    }
-
-                    if (currentWhitelistedMask & (1 << (operatorId & 0xFF)) == 0) {
-                        revert ISSVNetworkCore.CallerNotWhitelisted(operatorId);
                     }
                 }
             }
