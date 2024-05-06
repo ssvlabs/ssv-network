@@ -1,142 +1,161 @@
 // Declare imports
-import * as helpers from '../helpers/contract-helpers';
-import { progressBlocks } from '../helpers/utils';
-import { expect } from 'chai';
+// Declare imports
+import {
+  owners,
+  initializeContract,
+  registerOperators,
+  coldRegisterValidator,
+  bulkRegisterValidators,
+  deposit,
+  CONFIG,
+  DEFAULT_OPERATOR_IDS,
+} from '../helpers/contract-helpers';
+import { assertEvent } from '../helpers/utils/test';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any, minDepositAmount: any, firstCluster: any;
+import { mine } from '@nomicfoundation/hardhat-network-helpers';
+
+import { expect } from 'chai';
+
+let ssvNetwork: any, ssvToken: any, minDepositAmount: BigInt, firstCluster: Cluster;
 
 // Declare globals
 describe('Reactivate Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    const metadata = await helpers.initializeContract();
-    ssvNetworkContract = metadata.contract;
+    const metadata = await initializeContract();
+    ssvNetwork = metadata.ssvNetwork;
+    ssvToken = metadata.ssvToken;
 
     // Register operators
-    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
+    await registerOperators(0, 14, CONFIG.minimalOperatorFee);
 
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
+    minDepositAmount = BigInt(CONFIG.minimalBlocksBeforeLiquidation + 10) * CONFIG.minimalOperatorFee * 4n;
 
     // Register validators
     // cold register
-    await helpers.coldRegisterValidator();
+    await coldRegisterValidator();
 
     // first validator
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
-    const register = await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .registerValidator(
-          helpers.DataGenerator.publicKey(1),
-          [1, 2, 3, 4],
-          helpers.DataGenerator.shares(1, 1, 4),
-          minDepositAmount,
-          {
-            validatorCount: 0,
-            networkFeeIndex: 0,
-            index: 0,
-            balance: 0,
-            active: true,
-          },
-        ),
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
-    );
-    firstCluster = register.eventsByName.ValidatorAdded[0].args;
+    firstCluster = (
+      await bulkRegisterValidators(1, 1, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0n,
+        active: true,
+      })
+    ).args;
   });
 
   it('Reactivate a disabled cluster emits "ClusterReactivated"', async () => {
-    await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(
-      ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.liquidate([firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster]),
       [GasGroup.LIQUIDATE_CLUSTER_4],
     );
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], {
+      account: owners[1].account,
+    });
 
-    await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .reactivate(updatedCluster.operatorIds, minDepositAmount, updatedCluster.cluster),
-    ).to.emit(ssvNetworkContract, 'ClusterReactivated');
+    await assertEvent(
+      ssvNetwork.write.reactivate([updatedCluster.operatorIds, minDepositAmount, updatedCluster.cluster], {
+        account: owners[1].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'ClusterReactivated',
+        },
+      ],
+    );
   });
 
   it('Reactivate a cluster with a removed operator in the cluster', async () => {
-    await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(
-      ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.liquidate([firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster]),
       [GasGroup.LIQUIDATE_CLUSTER_4],
     );
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
-    await ssvNetworkContract.removeOperator(1);
+    await ssvNetwork.write.removeOperator([1]);
 
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], {
+      account: owners[1].account,
+    });
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .reactivate(updatedCluster.operatorIds, minDepositAmount, updatedCluster.cluster),
+      ssvNetwork.write.reactivate([updatedCluster.operatorIds, minDepositAmount, updatedCluster.cluster], {
+        account: owners[1].account,
+      }),
       [GasGroup.REACTIVATE_CLUSTER],
     );
   });
 
   it('Reactivate an enabled cluster reverts "ClusterAlreadyEnabled"', async () => {
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .reactivate(firstCluster.operatorIds, minDepositAmount, firstCluster.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterAlreadyEnabled');
+      ssvNetwork.write.reactivate([firstCluster.operatorIds, minDepositAmount, firstCluster.cluster], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('ClusterAlreadyEnabled');
   });
 
   it('Reactivate a cluster when the amount is not enough reverts "InsufficientBalance"', async () => {
-    await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(
-      ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.liquidate([firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster]),
       [GasGroup.LIQUIDATE_CLUSTER_4],
     );
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .reactivate(updatedCluster.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedCluster.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
+      ssvNetwork.write.reactivate([updatedCluster.operatorIds, CONFIG.minimalOperatorFee, updatedCluster.cluster], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('InsufficientBalance');
   });
 
   it('Reactivate a liquidated cluster after making a deposit', async () => {
-    await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(
-      ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.liquidate([firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster]),
     );
     let clusterData = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
-    const depositedCluster = await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .deposit(firstCluster.owner, firstCluster.operatorIds, minDepositAmount, clusterData.cluster),
-    );
-    clusterData = depositedCluster.eventsByName.ClusterDeposited[0].args;
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], {
+      account: owners[1].account,
+    });
 
-    await expect(
-      ssvNetworkContract.connect(helpers.DB.owners[1]).reactivate(firstCluster.operatorIds, 0, clusterData.cluster),
-    ).to.emit(ssvNetworkContract, 'ClusterReactivated');
+    clusterData = await deposit(1, firstCluster.owner, firstCluster.operatorIds, minDepositAmount, clusterData.cluster);
+
+    await assertEvent(
+      ssvNetwork.write.reactivate([firstCluster.operatorIds, 0, clusterData.cluster], {
+        account: owners[1].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'ClusterReactivated',
+        },
+      ],
+    );
   });
 
   it('Reactivate a cluster after liquidation period when the amount is not enough reverts "InsufficientBalance"', async () => {
-    await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(
-      ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.liquidate([firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster]),
       [GasGroup.LIQUIDATE_CLUSTER_4],
     );
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
-    await helpers.DB.ssvToken
-      .connect(helpers.DB.owners[1])
-      .approve(ssvNetworkContract.address, helpers.CONFIG.minimalOperatorFee);
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], {
+      account: owners[1].account,
+    });
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .reactivate(updatedCluster.operatorIds, helpers.CONFIG.minimalOperatorFee, updatedCluster.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'InsufficientBalance');
+      ssvNetwork.write.reactivate([updatedCluster.operatorIds, CONFIG.minimalOperatorFee, updatedCluster.cluster], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('InsufficientBalance');
   });
 });

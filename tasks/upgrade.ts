@@ -42,10 +42,11 @@ task('upgrade:proxy', 'Upgrade SSVNetwork / SSVNetworkViews proxy via hardhat up
           }
         : '',
     });
-    await ssvUpgrade.deployed();
+    await ssvUpgrade.waitForDeployment();
     console.log(`${proxyAddress} upgraded successfully`);
 
-    const implAddress = await upgrades.erc1967.getImplementationAddress(ssvUpgrade.address);
+    const ssvUpgradeAddress = await ssvUpgrade.getAddress();
+    const implAddress = await upgrades.erc1967.getImplementationAddress(ssvUpgradeAddress);
     console.log(`Implementation deployed to: ${implAddress}`);
   });
 

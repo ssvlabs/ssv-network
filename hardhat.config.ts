@@ -1,14 +1,16 @@
-import 'dotenv/config';
-
 import { HardhatUserConfig } from 'hardhat/config';
 import { NetworkUserConfig } from 'hardhat/types';
-import '@nomicfoundation/hardhat-toolbox';
+
+import 'dotenv/config';
+
+import '@nomicfoundation/hardhat-toolbox-viem';
+import '@nomicfoundation/hardhat-chai-matchers';
 import '@openzeppelin/hardhat-upgrades';
-import 'hardhat-tracer';
-import '@nomiclabs/hardhat-solhint';
-import 'hardhat-contract-sizer';
-import 'hardhat-storage-layout-changes';
+
 import 'hardhat-abi-exporter';
+import 'hardhat-contract-sizer';
+import 'solidity-coverage'
+
 import './tasks/deploy';
 import './tasks/update-module';
 import './tasks/upgrade';
@@ -18,7 +20,6 @@ type SSVNetworkConfig = NetworkUserConfig & {
 };
 
 const config: HardhatUserConfig = {
-  // Your type-safe config goes here
   mocha: {
     timeout: 40000000000000000,
   },
@@ -46,12 +47,9 @@ const config: HardhatUserConfig = {
     } as SSVNetworkConfig,
     hardhat: {
       allowUnlimitedContractSize: true,
-      gas: 5000000,
     },
   },
   etherscan: {
-    // Your API key for Etherscan
-    // Obtain one at https://etherscan.io/
     apiKey: process.env.ETHERSCAN_KEY,
     customChains: [
       {
@@ -64,15 +62,10 @@ const config: HardhatUserConfig = {
       },
     ],
   },
-  gasReporter: {
-    enabled: true,
-    currency: 'USD',
-    gasPrice: 0.3,
-  },
   contractSizer: {
     alphaSort: true,
     disambiguatePaths: false,
-    runOnCompile: true,
+    runOnCompile: false,
     strict: false,
   },
   abiExporter: {

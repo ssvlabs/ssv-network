@@ -1,219 +1,244 @@
-// Decalre imports
-import * as helpers from '../helpers/contract-helpers';
-import * as utils from '../helpers/utils';
-import { expect } from 'chai';
+// Declare imports
+import {
+  owners,
+  initializeContract,
+  registerOperators,
+  coldRegisterValidator,
+  bulkRegisterValidators,
+  DataGenerator,
+  CONFIG,
+  DEFAULT_OPERATOR_IDS,
+} from '../helpers/contract-helpers';
+import { assertEvent } from '../helpers/utils/test';
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
+import { mine } from '@nomicfoundation/hardhat-network-helpers';
+import { expect } from 'chai';
+
 // Declare globals
-let ssvNetworkContract: any, minDepositAmount: any, firstCluster: any;
+let ssvNetwork: any, minDepositAmount: BigInt, firstCluster: Cluster;
 
 describe('Remove Validator Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    const metadata = await helpers.initializeContract();
-    ssvNetworkContract = metadata.contract;
+    const metadata = await initializeContract();
+    ssvNetwork = metadata.ssvNetwork;
 
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
+    minDepositAmount = (BigInt(CONFIG.minimalBlocksBeforeLiquidation) + 10n) * CONFIG.minimalOperatorFee * 4n;
 
     // Register operators
-    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
+    await registerOperators(0, 14, CONFIG.minimalOperatorFee);
 
     // Register a validator
     // cold register
-    await helpers.coldRegisterValidator();
+    await coldRegisterValidator();
 
-    // first validator
-    const cluster = await helpers.registerValidators(
-      1,
-      minDepositAmount,
-      [1],
-      helpers.DEFAULT_OPERATOR_IDS[4],
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
-    );
-
-    firstCluster = cluster.args;
+    firstCluster = (
+      await bulkRegisterValidators(1, 1, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0n,
+        active: true,
+      })
+    ).args;
   });
 
   it('Remove validator emits "ValidatorRemoved"', async () => {
-    await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
-    ).to.emit(ssvNetworkContract, 'ValidatorRemoved');
+    await assertEvent(
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster], {
+        account: owners[1].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'ValidatorRemoved',
+        },
+      ],
+    );
   });
 
   it('Bulk remove validator emits "ValidatorRemoved"', async () => {
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[4],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
-    await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
-    ).to.emit(ssvNetworkContract, 'ValidatorRemoved');
+    await assertEvent(
+      ssvNetwork.write.bulkRemoveValidator([pks, args.operatorIds, args.cluster], {
+        account: owners[2].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'ValidatorRemoved',
+        },
+      ],
+    );
   });
 
   it('Remove validator after cluster liquidation period emits "ValidatorRemoved"', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation + 10);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation + 10);
 
-    await expect(ssvNetworkContract
-      .connect(helpers.DB.owners[1])
-      .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
-    ).to.emit(ssvNetworkContract, 'ValidatorRemoved');
+    await assertEvent(
+      ssvNetwork.write.bulkRemoveValidator(
+        [[DataGenerator.publicKey(1)], firstCluster.operatorIds, firstCluster.cluster],
+        {
+          account: owners[1].account,
+        },
+      ),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'ValidatorRemoved',
+        },
+      ],
+    );
   });
 
   it('Remove validator gas limit (4 operators cluster)', async () => {
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster], {
+        account: owners[1].account,
+      }),
       [GasGroup.REMOVE_VALIDATOR],
     );
   });
 
   it('Bulk remove 10 validator gas limit (4 operators cluster)', async () => {
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[4],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      ssvNetwork.write.bulkRemoveValidator([pks, args.operatorIds, args.cluster], {
+        account: owners[2].account,
+      }),
       [GasGroup.BULK_REMOVE_10_VALIDATOR_4],
     );
   });
 
   it('Remove validator gas limit (7 operators cluster)', async () => {
-    const cluster = await helpers.registerValidators(
-      1,
-      (minDepositAmount * 2).toString(),
-      [2],
-      helpers.DEFAULT_OPERATOR_IDS[7],
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7],
-    );
-    firstCluster = cluster.args;
+    const { args } = await bulkRegisterValidators(1, 1, DEFAULT_OPERATOR_IDS[7], minDepositAmount * 2n, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(2), firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(2), args.operatorIds, args.cluster], {
+        account: owners[1].account,
+      }),
       [GasGroup.REMOVE_VALIDATOR_7],
     );
   });
 
   it('Bulk remove 10 validator gas limit (7 operators cluster)', async () => {
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 7;
+    minDepositAmount = (BigInt(CONFIG.minimalBlocksBeforeLiquidation) + 10n) * (CONFIG.minimalOperatorFee * 7n);
 
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[7],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[7], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      ssvNetwork.write.bulkRemoveValidator([pks, args.operatorIds, args.cluster], {
+        account: owners[2].account,
+      }),
       [GasGroup.BULK_REMOVE_10_VALIDATOR_7],
     );
   });
 
   it('Remove validator gas limit (10 operators cluster)', async () => {
-    const cluster = await helpers.registerValidators(
-      1,
-      (minDepositAmount * 3).toString(),
-      [2],
-      helpers.DEFAULT_OPERATOR_IDS[10],
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10],
-    );
-    firstCluster = cluster.args;
+    const { args } = await bulkRegisterValidators(1, 2, DEFAULT_OPERATOR_IDS[10], minDepositAmount * 3n, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(2), firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(2), args.operatorIds, args.cluster], {
+        account: owners[1].account,
+      }),
       [GasGroup.REMOVE_VALIDATOR_10],
     );
   });
 
   it('Bulk remove 10 validator gas limit (10 operators cluster)', async () => {
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 10;
+    minDepositAmount = (BigInt(CONFIG.minimalBlocksBeforeLiquidation) + 10n) * (CONFIG.minimalOperatorFee * 10n);
 
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[10],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[10], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      ssvNetwork.write.bulkRemoveValidator([pks, args.operatorIds, args.cluster], {
+        account: owners[2].account,
+      }),
       [GasGroup.BULK_REMOVE_10_VALIDATOR_10],
     );
   });
 
   it('Remove validator gas limit (13 operators cluster)', async () => {
-    const cluster = await helpers.registerValidators(
-      1,
-      (minDepositAmount * 4).toString(),
-      [2],
-      helpers.DEFAULT_OPERATOR_IDS[13],
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13],
-    );
-    firstCluster = cluster.args;
+    const { args } = await bulkRegisterValidators(1, 2, DEFAULT_OPERATOR_IDS[13], minDepositAmount * 4n, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(2), firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(2), args.operatorIds, args.cluster], {
+        account: owners[1].account,
+      }),
       [GasGroup.REMOVE_VALIDATOR_13],
     );
   });
 
   it('Bulk remove 10 validator gas limit (13 operators cluster)', async () => {
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 13;
+    minDepositAmount = (BigInt(CONFIG.minimalBlocksBeforeLiquidation) + 10n) * (CONFIG.minimalOperatorFee * 13n);
 
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[13],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[13], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
+      ssvNetwork.write.bulkRemoveValidator([pks, args.operatorIds, args.cluster], {
+        account: owners[2].account,
+      }),
       [GasGroup.BULK_REMOVE_10_VALIDATOR_13],
     );
   });
 
   it('Remove validator with a removed operator in the cluster', async () => {
-    await trackGas(ssvNetworkContract.removeOperator(1), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
+    await trackGas(ssvNetwork.write.removeOperator([1]), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster], {
+        account: owners[1].account,
+      }),
       [GasGroup.REMOVE_VALIDATOR],
     );
   });
@@ -221,79 +246,84 @@ describe('Remove Validator Tests', () => {
   it('Register a removed validator and remove the same validator again', async () => {
     // Remove validator
     const remove = await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster], {
+        account: owners[1].account,
+      }),
       [GasGroup.REMOVE_VALIDATOR],
     );
     const updatedCluster = remove.eventsByName.ValidatorRemoved[0].args;
 
     // Re-register validator
     const newRegister = await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .registerValidator(
-          helpers.DataGenerator.publicKey(1),
+      ssvNetwork.write.registerValidator(
+        [
+          DataGenerator.publicKey(1),
           updatedCluster.operatorIds,
-          helpers.DataGenerator.shares(1, 1, 4),
+          await DataGenerator.shares(1, 1, 4),
           0,
           updatedCluster.cluster,
-        ),
+        ],
+        {
+          account: owners[1].account,
+        },
+      ),
       [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER],
     );
     const afterRegisterCluster = newRegister.eventsByName.ValidatorAdded[0].args;
 
     // Remove the validator again
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(
-          helpers.DataGenerator.publicKey(1),
-          afterRegisterCluster.operatorIds,
-          afterRegisterCluster.cluster,
-        ),
+      ssvNetwork.write.removeValidator(
+        [DataGenerator.publicKey(1), afterRegisterCluster.operatorIds, afterRegisterCluster.cluster],
+        {
+          account: owners[1].account,
+        },
+      ),
       [GasGroup.REMOVE_VALIDATOR],
     );
   });
 
   it('Remove validator from a liquidated cluster', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
     const liquidatedCluster = await trackGas(
-      ssvNetworkContract.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.liquidate([firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster]),
       [GasGroup.LIQUIDATE_CLUSTER_4],
     );
     const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
 
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), updatedCluster.operatorIds, updatedCluster.cluster),
+      ssvNetwork.write.removeValidator(
+        [DataGenerator.publicKey(1), updatedCluster.operatorIds, updatedCluster.cluster],
+        {
+          account: owners[1].account,
+        },
+      ),
       [GasGroup.REMOVE_VALIDATOR],
     );
   });
 
   it('Remove validator with an invalid owner reverts "ClusterDoesNotExists"', async () => {
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster], {
+        account: owners[2].account,
+      }),
+    ).to.be.rejectedWith('ClusterDoesNotExists');
   });
 
   it('Remove validator with an invalid operator setup reverts "ClusterDoesNotExists"', async () => {
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), [1, 2, 3, 5], firstCluster.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), [1, 2, 3, 5], firstCluster.cluster], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('ClusterDoesNotExists');
   });
 
   it('Remove the same validator twice reverts "ValidatorDoesNotExist"', async () => {
     // Remove validator
     const result = await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster], {
+        account: owners[1].account,
+      }),
       [GasGroup.REMOVE_VALIDATOR],
     );
 
@@ -301,147 +331,147 @@ describe('Remove Validator Tests', () => {
 
     // Remove validator again
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), removed.operatorIds, removed.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), removed.operatorIds, removed.cluster], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('ValidatorDoesNotExist');
   });
 
   it('Remove the same validator with wrong input parameters reverts "IncorrectClusterState"', async () => {
     // Remove validator
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster], {
+        account: owners[1].account,
+      }),
       [GasGroup.REMOVE_VALIDATOR],
     );
 
     // Remove validator again
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectClusterState');
+      ssvNetwork.write.removeValidator([DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('IncorrectClusterState');
   });
 
   it('Bulk Remove validator that does not exist in a valid cluster reverts "IncorrectValidatorStateWithData"', async () => {
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[4],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
-    pks[2] = "0xabcd1234";
+    pks[2] = '0xabcd1234';
 
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
-      .withArgs(pks[2]);
+      ssvNetwork.write.bulkRemoveValidator([pks, args.operatorIds, args.cluster], {
+        account: owners[2].account,
+      }),
+    ).to.be.rejectedWith('IncorrectValidatorStateWithData', pks[2]);
   });
 
   it('Bulk remove validator with an invalid operator setup reverts "ClusterDoesNotExists"', async () => {
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[4],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, [1, 2, 3, 5], args.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
+      ssvNetwork.write.bulkRemoveValidator([pks, [1, 2, 3, 5], args.cluster], {
+        account: owners[2].account,
+      }),
+    ).to.be.rejectedWith('ClusterDoesNotExists');
   });
 
   it('Bulk Remove the same validator twice reverts "IncorrectValidatorStateWithData"', async () => {
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[4],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     const result = await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, args.operatorIds, args.cluster)
+      ssvNetwork.write.bulkRemoveValidator([pks, args.operatorIds, args.cluster], {
+        account: owners[2].account,
+      }),
     );
 
     const removed = result.eventsByName.ValidatorRemoved[0].args;
 
     // Remove validator again
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .bulkRemoveValidator(pks, removed.operatorIds, removed.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
-      .withArgs(pks[0]);
+      ssvNetwork.write.bulkRemoveValidator([pks, removed.operatorIds, removed.cluster], {
+        account: owners[2].account,
+      }),
+    ).to.be.rejectedWith('IncorrectValidatorStateWithData', pks[0]);
   });
 
   it('Remove validators from a liquidated cluster', async () => {
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[4],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 2);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation - 2);
 
-    let result = await trackGas(ssvNetworkContract
-      .connect(helpers.DB.owners[1])
-      .liquidate(args.owner, args.operatorIds, args.cluster)
+    let result = await trackGas(
+      ssvNetwork.write.liquidate([args.owner, args.operatorIds, args.cluster], {
+        account: owners[1].account,
+      }),
     );
 
     const liquidated = result.eventsByName.ClusterLiquidated[0].args;
 
-    result = await trackGas(ssvNetworkContract
-      .connect(helpers.DB.owners[2])
-      .bulkRemoveValidator(pks.slice(0, 5), liquidated.operatorIds, liquidated.cluster)
+    result = await trackGas(
+      ssvNetwork.write.bulkRemoveValidator([pks.slice(0, 5), liquidated.operatorIds, liquidated.cluster], {
+        account: owners[2].account,
+      }),
     );
 
     const removed = result.eventsByName.ValidatorRemoved[0].args;
 
     expect(removed.cluster.validatorCount).to.equal(5);
-    expect(removed.cluster.networkFeeIndex.toNumber()).to.equal(0);
-    expect(removed.cluster.index.toNumber()).to.equal(0);
+    expect(removed.cluster.networkFeeIndex).to.equal(0);
+    expect(removed.cluster.index).to.equal(0);
     expect(removed.cluster.active).to.equal(false);
-    expect(removed.cluster.balance.toNumber()).to.equal(0);
+    expect(removed.cluster.balance).to.equal(0);
   });
 
   it('Bulk remove 10 validator with duplicated public keys reverts "IncorrectValidatorStateWithData"', async () => {
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 13;
+    minDepositAmount = (BigInt(CONFIG.minimalBlocksBeforeLiquidation) + 10n) * (CONFIG.minimalOperatorFee * 13n);
 
-    const { args, pks } = await helpers.bulkRegisterValidators(
-      2,
-      10,
-      helpers.DEFAULT_OPERATOR_IDS[4],
-      minDepositAmount,
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const { args, pks } = await bulkRegisterValidators(2, 10, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+      validatorCount: 0,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: 0n,
+      active: true,
+    });
 
     const keys = [pks[0], pks[1], pks[2], pks[3], pks[2], pks[5], pks[2], pks[7], pks[2], pks[8]];
 
-
-    await expect(ssvNetworkContract
-      .connect(helpers.DB.owners[2])
-      .bulkRemoveValidator(keys, args.operatorIds, args.cluster)
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'IncorrectValidatorStateWithData')
-      .withArgs(pks[2]);
+    await expect(
+      ssvNetwork.write.bulkRemoveValidator([keys, args.operatorIds, args.cluster], {
+        account: owners[2].account,
+      }),
+    ).to.be.rejectedWith('IncorrectValidatorStateWithData', pks[2]);
   });
 
   it('Bulk remove 10 validator with empty public keys reverts "IncorrectValidatorStateWithData"', async () => {
-    await expect(ssvNetworkContract
-      .connect(helpers.DB.owners[2])
-      .bulkRemoveValidator([], firstCluster.operatorIds, firstCluster.cluster)
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ValidatorDoesNotExist');
+    await expect(
+      ssvNetwork.write.bulkRemoveValidator([[], firstCluster.operatorIds, firstCluster.cluster], {
+        account: owners[2].account,
+      }),
+    ).to.be.rejectedWith('ValidatorDoesNotExist');
   });
 });

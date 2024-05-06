@@ -1,112 +1,152 @@
 // Declare imports
-import * as helpers from '../helpers/contract-helpers';
-import { progressBlocks } from '../helpers/utils';
-import { expect } from 'chai';
+import {
+  owners,
+  initializeContract,
+  registerOperators,
+  coldRegisterValidator,
+  bulkRegisterValidators,
+  CONFIG,
+  DEFAULT_OPERATOR_IDS,
+} from '../helpers/contract-helpers';
+import { assertEvent } from '../helpers/utils/test';
+
 import { trackGas, GasGroup } from '../helpers/gas-usage';
 
+import { mine } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers';
+import { expect } from 'chai';
+
 // Declare globals
-let ssvNetworkContract: any, ssvViews: any, cluster1: any, minDepositAmount: any;
+let ssvNetwork: any, ssvViews: any, ssvToken: any, cluster1: any, minDepositAmount: any;
 
-describe('Deposit Tests', () => {
-  beforeEach(async () => {
+describe('Deposit Tests', function () {
+  beforeEach(async function () {
     // Initialize contract
-    const metadata = await helpers.initializeContract();
-    ssvNetworkContract = metadata.contract;
-    ssvViews = metadata.ssvViews;
+    const metadata = await initializeContract();
+    ssvNetwork = metadata.ssvNetwork;
+    ssvViews = metadata.ssvNetworkViews;
+    ssvToken = metadata.ssvToken;
 
-    // Register operators
-    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
+    await registerOperators(0, 14, CONFIG.minimalOperatorFee);
 
-    // Define the operator fee
-    minDepositAmount = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 10) * helpers.CONFIG.minimalOperatorFee * 4;
+    minDepositAmount = BigInt(CONFIG.minimalBlocksBeforeLiquidation + 10) * CONFIG.minimalOperatorFee * 4n;
 
-    // cold register
-    await helpers.coldRegisterValidator();
+    await coldRegisterValidator();
 
-    // Register validators
-    cluster1 = await helpers.registerValidators(
-      4,
-      minDepositAmount,
-      [1],
-      [1, 2, 3, 4],
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
-    );
+    cluster1 = (
+      await bulkRegisterValidators(
+        4,
+        1,
+        DEFAULT_OPERATOR_IDS[4],
+        minDepositAmount,
+        { validatorCount: 0, networkFeeIndex: 0, index: 0, balance: 0n, active: true },
+        [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
+      )
+    ).args;
   });
 
   it('Deposit to a non liquidated cluster I own emits "ClusterDeposited"', async () => {
-    expect(await ssvViews.isLiquidated(cluster1.args.owner, cluster1.args.operatorIds, cluster1.args.cluster)).to.equal(
-      false,
+    expect(await ssvViews.read.isLiquidated([cluster1.owner, cluster1.operatorIds, cluster1.cluster])).to.equal(false);
+
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], {
+      account: owners[4].account,
+    });
+
+    await assertEvent(
+      ssvNetwork.write.deposit([owners[4].account.address, cluster1.operatorIds, minDepositAmount, cluster1.cluster], {
+        account: owners[4].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'ClusterDeposited',
+        },
+      ],
     );
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[4])
-        .deposit(helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster),
-    ).to.emit(ssvNetworkContract, 'ClusterDeposited');
   });
 
   it('Deposit to a cluster I own gas limits', async () => {
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], {
+      account: owners[4].account,
+    });
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[4])
-        .deposit(helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster),
+      ssvNetwork.write.deposit([owners[4].account.address, cluster1.operatorIds, minDepositAmount, cluster1.cluster], {
+        account: owners[4].account,
+      }),
       [GasGroup.DEPOSIT],
     );
   });
 
   it('Deposit to a cluster I do not own emits "ClusterDeposited"', async () => {
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[0]).approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[0])
-        .deposit(helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster),
-    ).to.emit(ssvNetworkContract, 'ClusterDeposited');
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount]);
+
+    await assertEvent(
+      ssvNetwork.write.deposit([owners[4].account.address, cluster1.operatorIds, minDepositAmount, cluster1.cluster], {
+        account: owners[0].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'ClusterDeposited',
+        },
+      ],
+    );
   });
 
   it('Deposit to a cluster I do not own gas limits', async () => {
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[0]).approve(ssvNetworkContract.address, minDepositAmount);
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount]);
     await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[0])
-        .deposit(helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster),
+      ssvNetwork.write.deposit([owners[4].account.address, cluster1.operatorIds, minDepositAmount, cluster1.cluster], {
+        account: owners[0].account,
+      }),
       [GasGroup.DEPOSIT],
+    );
+  });
+
+  it('Deposit to a cluster I do not own with a cluster that does not exist reverts "ClusterDoesNotExists"', async () => {
+    await expect(
+      ssvNetwork.write.deposit([owners[1].account.address, [1, 2, 4, 5], minDepositAmount, cluster1.cluster], {
+        account: owners[4].account,
+      }),
+    ).to.be.rejectedWith('ClusterDoesNotExists');
+  });
+
+  it('Deposit to a liquidated cluster emits "ClusterDeposited"', async () => {
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
+
+    const liquidatedCluster = await trackGas(
+      ssvNetwork.write.liquidate([cluster1.owner, cluster1.operatorIds, cluster1.cluster]),
+    );
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
+
+    expect(await ssvViews.read.isLiquidated([cluster1.owner, cluster1.operatorIds, updatedCluster.cluster])).to.equal(
+      true,
+    );
+
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], {
+      account: owners[4].account,
+    });
+
+    await assertEvent(
+      ssvNetwork.write.deposit(
+        [owners[4].account.address, cluster1.operatorIds, minDepositAmount, updatedCluster.cluster],
+        {
+          account: owners[4].account,
+        },
+      ),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'ClusterDeposited',
+        },
+      ],
     );
   });
 
   it('Deposit to a cluster I do own with a cluster that does not exist reverts "ClusterDoesNotExists"', async () => {
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .deposit(helpers.DB.owners[1].address, cluster1.args.operatorIds, minDepositAmount, cluster1.args.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
-  });
-
-  it('Deposit to a cluster I do not own with a cluster that does not exist reverts "ClusterDoesNotExists"', async () => {
-    await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[4])
-        .deposit(helpers.DB.owners[1].address, [1, 2, 4, 5], minDepositAmount, cluster1.args.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterDoesNotExists');
-  });
-
-  it('Deposit to a liquidated cluster emits "ClusterDeposited"', async () => {
-    await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
-    const liquidatedCluster = await trackGas(
-      ssvNetworkContract.liquidate(cluster1.args.owner, cluster1.args.operatorIds, cluster1.args.cluster),
-    );
-    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
-
-    expect(
-      await ssvViews.isLiquidated(cluster1.args.owner, cluster1.args.operatorIds, updatedCluster.cluster),
-    ).to.equal(true);
-
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[4]).approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[4])
-        .deposit(helpers.DB.owners[4].address, cluster1.args.operatorIds, minDepositAmount, updatedCluster.cluster),
-    ).to.emit(ssvNetworkContract, 'ClusterDeposited');
+      ssvNetwork.write.deposit([owners[1].account.address, cluster1.operatorIds, minDepositAmount, cluster1.cluster], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('ClusterDoesNotExists');
   });
 });

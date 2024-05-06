@@ -109,9 +109,7 @@ subtask('deploy:mock-token', 'Deploys / fetch SSV Token').setAction(async ({}, h
   if (tokenAddress) return tokenAddress;
 
   // Local networks, deploy mock token
-  const ssvTokenFactory = await ethers.getContractFactory('SSVTokenMock');
-  const ssvToken = await ssvTokenFactory.deploy();
-  await ssvToken.deployed();
+  const ssvToken = await hre.viem.deployContract('SSVToken');
 
   return ssvToken.address;
 });
@@ -133,12 +131,8 @@ subtask('deploy:impl', 'Deploys an implementation contract')
     // Triggering compilation
     await hre.run('compile');
 
-    // Initialize contract
-    const contractFactory = await ethers.getContractFactory(contract);
-
     // Deploy implemetation contract
-    const contractImpl = await contractFactory.deploy();
-    await contractImpl.deployed();
+    const contractImpl = await hre.viem.deployContract(contract);
     console.log(`${contract} implementation deployed to: ${contractImpl.address}`);
 
     return contractImpl.address;
@@ -191,10 +185,10 @@ subtask('deploy:ssv-network', 'Deploys SSVNetwork contract')
         kind: 'uups',
       },
     );
-    await ssvNetwork.deployed();
+    await ssvNetwork.waitForDeployment();
 
-    const ssvNetworkProxyAddress = ssvNetwork.address;
-    const ssvNetworkImplAddress = await upgrades.erc1967.getImplementationAddress(ssvNetwork.address);
+    const ssvNetworkProxyAddress = await ssvNetwork.getAddress();
+    const ssvNetworkImplAddress = await upgrades.erc1967.getImplementationAddress(ssvNetworkProxyAddress);
 
     console.log(`SSVNetwork proxy deployed to: ${ssvNetworkProxyAddress}`);
     console.log(`SSVNetwork implementation deployed to: ${ssvNetworkImplAddress}`);
@@ -222,10 +216,10 @@ subtask('deploy:ssv-network-views', 'Deploys SSVNetworkViews contract')
     const ssvNetworkViews = await upgrades.deployProxy(ssvNetworkViewsFactory, [ssvNetworkAddress], {
       kind: 'uups',
     });
-    await ssvNetworkViews.deployed();
+    await ssvNetworkViews.waitForDeployment();
 
-    const ssvNetworkViewsProxyAddress = ssvNetworkViews.address;
-    const ssvNetworkViewsImplAddress = await upgrades.erc1967.getImplementationAddress(ssvNetworkViews.address);
+    const ssvNetworkViewsProxyAddress = await ssvNetworkViews.getAddress();
+    const ssvNetworkViewsImplAddress = await upgrades.erc1967.getImplementationAddress(ssvNetworkViewsProxyAddress);
 
     console.log(`SSVNetworkViews proxy deployed to: ${ssvNetworkViewsProxyAddress}`);
     console.log(`SSVNetworkViews implementation deployed to: ${ssvNetworkViewsImplAddress}`);

@@ -1,56 +1,73 @@
-// Decalre imports
-import * as helpers from '../helpers/contract-helpers';
-import * as utils from '../helpers/utils';
-import { expect } from 'chai';
-import { trackGas, GasGroup } from '../helpers/gas-usage';
+// Declare imports
+import {
+  owners,
+  initializeContract,
+  registerOperators,
+  bulkRegisterValidators,
+  deposit,
+  liquidate,
+  withdraw,
+  reactivate,
+  removeValidator,
+  DataGenerator,
+  CONFIG,
+  DEFAULT_OPERATOR_IDS,
+} from '../helpers/contract-helpers';
+import { assertEvent } from '../helpers/utils/test';
+import { trackGas } from '../helpers/gas-usage';
 
-let ssvNetworkContract: any,
+import { mine } from '@nomicfoundation/hardhat-network-helpers';
+
+import { expect } from 'chai';
+
+let ssvNetwork: any,
   ssvViews: any,
-  minDepositAmount: any,
-  firstCluster: any,
-  burnPerBlock: any,
-  networkFee: any;
+  ssvToken: any,
+  minDepositAmount: BigInt,
+  firstCluster: Cluster,
+  burnPerBlock: BigInt,
+  networkFee: BigInt;
 
 // Declare globals
 describe('Liquidate Cluster Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    const metadata = await helpers.initializeContract();
-    ssvNetworkContract = metadata.contract;
-    ssvViews = metadata.ssvViews;
+    const metadata = await initializeContract();
+    ssvNetwork = metadata.ssvNetwork;
+    ssvViews = metadata.ssvNetworkViews;
+    ssvToken = metadata.ssvToken;
 
     // Register operators
-    await helpers.registerOperators(0, 14, helpers.CONFIG.minimalOperatorFee);
+    await registerOperators(0, 14, CONFIG.minimalOperatorFee);
 
-    networkFee = helpers.CONFIG.minimalOperatorFee;
-    burnPerBlock = helpers.CONFIG.minimalOperatorFee * 4 + networkFee;
-    minDepositAmount = helpers.CONFIG.minimalBlocksBeforeLiquidation * burnPerBlock;
+    networkFee = CONFIG.minimalOperatorFee;
+    burnPerBlock = CONFIG.minimalOperatorFee * 4n + networkFee;
+    minDepositAmount = BigInt(CONFIG.minimalBlocksBeforeLiquidation) * burnPerBlock;
 
-    await ssvNetworkContract.updateNetworkFee(networkFee);
+    await ssvNetwork.write.updateNetworkFee([networkFee]);
 
     // first validator
-    const cluster = await helpers.registerValidators(
-      1,
-      (minDepositAmount * 2).toString(),
-      [1],
-      [1, 2, 3, 4],
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
-    );
-
-    firstCluster = cluster.args;
+    firstCluster = (
+      await bulkRegisterValidators(1, 1, DEFAULT_OPERATOR_IDS[4], minDepositAmount * 2n, {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0n,
+        active: true,
+      })
+    ).args;
   });
 
   it('Liquidate -> deposit -> reactivate', async () => {
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
 
-    let clusterEventData = await helpers.liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster);
+    let clusterEventData = await liquidate(firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster);
 
     expect(
-      await ssvViews.isLiquidated(firstCluster.owner, firstCluster.operatorIds, clusterEventData.cluster),
+      await ssvViews.read.isLiquidated([firstCluster.owner, firstCluster.operatorIds, clusterEventData.cluster]),
     ).to.equal(true);
 
-    clusterEventData = await helpers.deposit(
+    clusterEventData = await deposit(
       1,
       firstCluster.owner,
       firstCluster.operatorIds,
@@ -58,41 +75,47 @@ describe('Liquidate Cluster Tests', () => {
       clusterEventData.cluster,
     );
 
-    await helpers.DB.ssvToken.connect(helpers.DB.owners[1]).approve(ssvNetworkContract.address, minDepositAmount);
-    await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .reactivate(clusterEventData.operatorIds, minDepositAmount, clusterEventData.cluster),
-    ).to.emit(ssvNetworkContract, 'ClusterReactivated');
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[1].account });
+
+    await assertEvent(
+      ssvNetwork.write.reactivate([clusterEventData.operatorIds, minDepositAmount, clusterEventData.cluster], {
+        account: owners[1].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'ClusterReactivated',
+        },
+      ],
+    );
   });
 
   it('RegisterValidator -> liquidate -> removeValidator -> deposit -> withdraw', async () => {
-    let clusterEventData = await helpers.registerValidators(
+    let clusterEventData = await bulkRegisterValidators(
       1,
+      2,
+      DEFAULT_OPERATOR_IDS[4],
       minDepositAmount,
-      [2],
-      [1, 2, 3, 4],
       firstCluster.cluster,
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
     );
 
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
 
-    clusterEventData.args = await helpers.liquidate(
+    clusterEventData.args = await liquidate(
       clusterEventData.args.owner,
       clusterEventData.args.operatorIds,
       clusterEventData.args.cluster,
     );
     await expect(clusterEventData.args.cluster.balance).to.be.equals(0);
 
-    clusterEventData.args = await helpers.removeValidator(
+    clusterEventData.args = await removeValidator(
       1,
-      helpers.DataGenerator.publicKey(1),
+      DataGenerator.publicKey(1),
       clusterEventData.args.operatorIds,
       clusterEventData.args.cluster,
     );
 
-    clusterEventData.args = await helpers.deposit(
+    clusterEventData.args = await deposit(
       1,
       clusterEventData.args.owner,
       clusterEventData.args.operatorIds,
@@ -102,38 +125,33 @@ describe('Liquidate Cluster Tests', () => {
     await expect(clusterEventData.args.cluster.balance).to.be.equals(minDepositAmount); // shrink
 
     await expect(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[1])
-        .withdraw(clusterEventData.args.operatorIds, minDepositAmount, clusterEventData.args.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterIsLiquidated');
+      ssvNetwork.write.withdraw([clusterEventData.args.operatorIds, minDepositAmount, clusterEventData.args.cluster], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('ClusterIsLiquidated');
   });
 
   it('Withdraw -> liquidate -> deposit -> reactivate', async () => {
-    await utils.progressBlocks(2);
+    await mine(2);
 
-    const withdrawAmount = 2e7;
-    let clusterEventData = await helpers.withdraw(
-      1,
-      firstCluster.operatorIds,
-      withdrawAmount.toString(),
-      firstCluster.cluster,
-    );
+    const withdrawAmount: BigInt = 20000000n;
+    let clusterEventData = await withdraw(1, firstCluster.operatorIds, withdrawAmount, firstCluster.cluster);
     expect(
-      await ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster),
-    ).to.be.equals(minDepositAmount * 2 - withdrawAmount - burnPerBlock * 3);
+      await ssvViews.read.getBalance([
+        owners[1].account.address,
+        clusterEventData.operatorIds,
+        clusterEventData.cluster,
+      ]),
+    ).to.be.equal(minDepositAmount * 2n - withdrawAmount - burnPerBlock * 3n);
 
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 2);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation - 2);
 
-    clusterEventData = await helpers.liquidate(
-      clusterEventData.owner,
-      clusterEventData.operatorIds,
-      clusterEventData.cluster,
-    );
+    clusterEventData = await liquidate(clusterEventData.owner, clusterEventData.operatorIds, clusterEventData.cluster);
     await expect(
-      ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterIsLiquidated');
+      ssvViews.read.getBalance([owners[1].account.address, clusterEventData.operatorIds, clusterEventData.cluster]),
+    ).to.be.rejectedWith('ClusterIsLiquidated');
 
-    clusterEventData = await helpers.deposit(
+    clusterEventData = await deposit(
       1,
       clusterEventData.owner,
       clusterEventData.operatorIds,
@@ -141,56 +159,61 @@ describe('Liquidate Cluster Tests', () => {
       clusterEventData.cluster,
     );
 
-    clusterEventData = await helpers.reactivate(
-      1,
-      clusterEventData.operatorIds,
-      minDepositAmount,
-      clusterEventData.cluster,
-    );
+    clusterEventData = await reactivate(1, clusterEventData.operatorIds, minDepositAmount, clusterEventData.cluster);
     expect(
-      await ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster),
-    ).to.be.equals(minDepositAmount * 2);
+      await ssvViews.read.getBalance([
+        owners[1].account.address,
+        clusterEventData.operatorIds,
+        clusterEventData.cluster,
+      ]),
+    ).to.be.equal(minDepositAmount * 2n);
 
-    await utils.progressBlocks(2);
+    await mine(2);
     expect(
-      await ssvViews.getBalance(helpers.DB.owners[1].address, clusterEventData.operatorIds, clusterEventData.cluster),
-    ).to.be.equals(minDepositAmount * 2 - burnPerBlock * 2);
+      await ssvViews.read.getBalance([
+        owners[1].account.address,
+        clusterEventData.operatorIds,
+        clusterEventData.cluster,
+      ]),
+    ).to.be.equal(minDepositAmount * 2n - burnPerBlock * 2n);
   });
 
   it('Remove validator -> withdraw -> try liquidate reverts "ClusterNotLiquidatable"', async () => {
-    let cluster = await helpers.registerValidators(
-      2,
-      minDepositAmount,
-      [2],
-      [1, 2, 3, 4],
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE],
-    );
-    let clusterEventData = cluster.args;
-    await utils.progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation - 10);
+    let clusterEventData = (
+      await bulkRegisterValidators(2, 1, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0n,
+        active: true,
+      })
+    ).args;
+
+    await mine(CONFIG.minimalBlocksBeforeLiquidation - 10);
 
     const remove = await trackGas(
-      ssvNetworkContract
-        .connect(helpers.DB.owners[2])
-        .removeValidator(helpers.DataGenerator.publicKey(2), clusterEventData.operatorIds, clusterEventData.cluster),
+      ssvNetwork.write.removeValidator(
+        [DataGenerator.publicKey(2), clusterEventData.operatorIds, clusterEventData.cluster],
+        { account: owners[2].account },
+      ),
     );
     clusterEventData = remove.eventsByName.ValidatorRemoved[0].args;
 
-    let balance = await ssvViews.getBalance(
-      helpers.DB.owners[2].address,
+    let balance = await ssvViews.read.getBalance([
+      owners[2].account.address,
       clusterEventData.operatorIds,
       clusterEventData.cluster,
-    );
+    ]);
 
-    clusterEventData = await helpers.withdraw(
+    clusterEventData = await withdraw(
       2,
       clusterEventData.operatorIds,
-      ((balance - helpers.CONFIG.minimumLiquidationCollateral) * 1.01).toString(),
+      (balance - BigInt(CONFIG.minimumLiquidationCollateral)) * (101n / 100n),
       clusterEventData.cluster,
     );
 
     await expect(
-      ssvNetworkContract.liquidate(clusterEventData.owner, clusterEventData.operatorIds, clusterEventData.cluster),
-    ).to.be.revertedWithCustomError(ssvNetworkContract, 'ClusterNotLiquidatable');
+      ssvNetwork.write.liquidate([clusterEventData.owner, clusterEventData.operatorIds, clusterEventData.cluster]),
+    ).to.be.rejectedWith('ClusterNotLiquidatable');
   });
 });

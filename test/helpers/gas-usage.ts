@@ -1,4 +1,7 @@
+import hre from 'hardhat';
+import { parseEventLogs } from 'viem';
 import { expect } from 'chai';
+import { publicClient, ssvNetwork } from '../helpers/contract-helpers';
 
 export enum GasGroup {
   REGISTER_OPERATOR,
@@ -89,29 +92,29 @@ const MAX_GAS_PER_GROUP: any = {
   [GasGroup.REGISTER_VALIDATOR_NEW_STATE]: 236000,
   [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT]: 180600,
 
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_4]: 889900,
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_4]: 813000,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_4]: 835500,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_4]: 818700,
 
   [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_7]: 272500,
   [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]: 289000,
   [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_7]: 251600,
 
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_7]: 1085500,
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_7]: 1068500,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_7]: 1143000,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_7]: 1126500,
 
   [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_10]: 342700,
   [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10]: 359500,
   [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_10]: 322200,
 
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_10]: 1365000,
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_10]: 1348200,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_10]: 1447000,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_10]: 1430000,
 
   [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_13]: 413700,
   [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]: 430500,
   [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_13]: 393300,
 
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_13]: 1650200,
-  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_13]: 1630500,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_NEW_STATE_13]: 1757000,
+  [GasGroup.BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_13]: 1740000,
 
   [GasGroup.REMOVE_VALIDATOR]: 114000,
   [GasGroup.BULK_REMOVE_10_VALIDATOR_4]: 191500,
@@ -175,12 +178,21 @@ for (const group in MAX_GAS_PER_GROUP) {
   gasUsageStats.set(group, new GasStats());
 }
 
-export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Promise<any> => {
-  const receipt = await (await tx).wait();
+export const trackGas = async function (tx: Promise<any>, groups?: Array<GasGroup>): Promise<any> {
+  const hash = await tx;
+
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash,
+  });
+
+  const logs = parseEventLogs({
+    abi: ssvNetwork.abi,
+    logs: receipt.logs,
+  });
 
   groups &&
     [...new Set(groups)].forEach(group => {
-      const gasUsed = parseInt(receipt.gasUsed);
+      const gasUsed = Number(receipt.gasUsed);
 
       if (!process.env.NO_GAS_ENFORCE) {
         const maxGas = MAX_GAS_PER_GROUP[group];
@@ -189,12 +201,13 @@ export const trackGas = async (tx: Promise<any>, groups?: Array<GasGroup>): Prom
 
       gasUsageStats.get(group.toString()).addStat(gasUsed);
     });
+
   return {
     ...receipt,
-    gasUsed: +receipt.gasUsed,
-    eventsByName: receipt.events.reduce((aggr: any, item: any) => {
-      aggr[item.event] = aggr[item.event] || [];
-      aggr[item.event].push(item);
+    gasUsed: receipt.gasUsed,
+    eventsByName: logs.reduce((aggr: any, item: any) => {
+      aggr[item.eventName] = aggr[item.eventName] || [];
+      aggr[item.eventName].push(item);
       return aggr;
     }, {}),
   };

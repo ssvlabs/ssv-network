@@ -1,77 +1,90 @@
 // Declare imports
-import * as helpers from '../helpers/contract-helpers';
-import { trackGas } from '../helpers/gas-usage';
-import { progressBlocks } from '../helpers/utils';
+import {
+  owners,
+  initializeContract,
+  registerOperators,
+  bulkRegisterValidators,
+  DataGenerator,
+  CONFIG,
+  DEFAULT_OPERATOR_IDS,
+} from '../helpers/contract-helpers';
+
+import { mine } from '@nomicfoundation/hardhat-network-helpers';
 
 import { expect } from 'chai';
 
-let ssvNetworkContract: any, ssvNetworkViews: any, firstCluster: any;
+let ssvNetwork: any, ssvViews: any, firstCluster: any;
 
 // Declare globals
 describe('DAO operational Tests', () => {
   beforeEach(async () => {
     // Initialize contract
-    const metadata = await helpers.initializeContract();
-    ssvNetworkContract = metadata.contract;
-    ssvNetworkViews = metadata.ssvViews;
+    const metadata = await initializeContract();
+    ssvNetwork = metadata.ssvNetwork;
+    ssvViews = metadata.ssvNetworkViews;
   });
 
   it('Starting the transfer process does not change owner', async () => {
-    await ssvNetworkContract.transferOwnership(helpers.DB.owners[4].address);
+    await ssvNetwork.write.transferOwnership([owners[4].account.address]);
 
-    expect(await ssvNetworkContract.owner()).equals(helpers.DB.owners[0].address);
+    expect(await ssvNetwork.read.owner()).to.deep.equal(owners[0].account.address);
   });
 
   it('Ownership is transferred in a 2-step process', async () => {
-    await ssvNetworkContract.transferOwnership(helpers.DB.owners[4].address);
-    await ssvNetworkContract.connect(helpers.DB.owners[4]).acceptOwnership();
+    await ssvNetwork.write.transferOwnership([owners[4].account.address]);
+    await ssvNetwork.write.acceptOwnership([], { account: owners[4].account });
 
-    expect(await ssvNetworkContract.owner()).equals(helpers.DB.owners[4].address);
+    expect(await ssvNetwork.read.owner()).to.deep.equal(owners[4].account.address);
   });
 
   it('Get the network validators count (add/remove validaotor)', async () => {
-    await helpers.registerOperators(0, 4, helpers.CONFIG.minimalOperatorFee);
+    await registerOperators(0, 4, CONFIG.minimalOperatorFee);
 
-    const deposit = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 13;
+    const deposit = (BigInt(CONFIG.minimalBlocksBeforeLiquidation) + 2n) * CONFIG.minimalOperatorFee * 13n;
 
-    const cluster = await helpers.registerValidators(
-      4,
-      deposit.toString(),
-      [1],
-      [1, 2, 3, 4],
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
+    firstCluster = (
+      await bulkRegisterValidators(4, 1, DEFAULT_OPERATOR_IDS[4], deposit, {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0n,
+        active: true,
+      })
+    ).args;
+
+    expect(await ssvViews.read.getNetworkValidatorsCount()).to.equal(1);
+
+    await ssvNetwork.write.removeValidator(
+      [DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster],
+      { account: owners[4].account },
     );
 
-    firstCluster = cluster.args;
-
-    expect(await ssvNetworkViews.getNetworkValidatorsCount()).to.equal(1);
-
-    await ssvNetworkContract
-      .connect(helpers.DB.owners[4])
-      .removeValidator(helpers.DataGenerator.publicKey(1), firstCluster.operatorIds, firstCluster.cluster);
-    expect(await ssvNetworkViews.getNetworkValidatorsCount()).to.equal(0);
+    expect(await ssvViews.read.getNetworkValidatorsCount()).to.equal(0);
   });
 
   it('Get the network validators count (add/remove validaotor)', async () => {
-    await helpers.registerOperators(0, 4, helpers.CONFIG.minimalOperatorFee);
+    await registerOperators(0, 4, CONFIG.minimalOperatorFee);
 
-    const deposit = (helpers.CONFIG.minimalBlocksBeforeLiquidation + 2) * helpers.CONFIG.minimalOperatorFee * 13;
-    firstCluster = await helpers.registerValidators(
-      4,
-      deposit.toString(),
-      [1],
-      [1, 2, 3, 4],
-      helpers.getClusterForValidator(0, 0, 0, 0, true),
-    );
+    const deposit = (BigInt(CONFIG.minimalBlocksBeforeLiquidation) + 2n) * (CONFIG.minimalOperatorFee * 13n);
 
-    expect(await ssvNetworkViews.getNetworkValidatorsCount()).to.equal(1);
+    firstCluster = (
+      await bulkRegisterValidators(4, 1, DEFAULT_OPERATOR_IDS[4], deposit, {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0n,
+        active: true,
+      })
+    ).args;
 
-    await progressBlocks(helpers.CONFIG.minimalBlocksBeforeLiquidation);
+    expect(await ssvViews.read.getNetworkValidatorsCount()).to.equal(1);
 
-    await ssvNetworkContract
-      .connect(helpers.DB.owners[4])
-      .liquidate(firstCluster.args.owner, firstCluster.args.operatorIds, firstCluster.args.cluster);
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
 
-    expect(await ssvNetworkViews.getNetworkValidatorsCount()).to.equal(0);
+    await ssvNetwork.write.liquidate([firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster], {
+      account: owners[4].account,
+    });
+
+    expect(await ssvViews.read.getNetworkValidatorsCount()).to.equal(0);
   });
 });
