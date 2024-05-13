@@ -72,13 +72,11 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
 
             address currentWhitelisted = s.operatorsWhitelist[operatorId];
 
-            // operator already whitelisted? EOA or generic contract
-            if (currentWhitelisted != address(0)) {
+            // operator already whitelisted?
+            // if EOA or generic contract, move it to SSV whitelisting module
+            if (!OperatorLib.isWhitelistingContract(currentWhitelisted)) {
                 (uint256 blockIndex, uint256 bitPosition) = OperatorLib.getBitmapIndexes(operatorId);
-                delete s.operatorsWhitelist[operatorId];
                 s.addressWhitelistedForOperators[currentWhitelisted][blockIndex] |= (1 << bitPosition);
-            } else {
-                operator.whitelisted = true;
             }
 
             s.operatorsWhitelist[operatorId] = address(whitelistingContract);

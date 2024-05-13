@@ -51,6 +51,31 @@ describe('Whitelisting Operator Tests', () => {
     );
   });
 
+  it('Update operator whitelisting contract (1 operator) gas limits', async () => {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
+      account: owners[1].account,
+    });
+
+    const fakeWhitelistingContract = await hre.viem.deployContract(
+      'FakeWhitelistingContract',
+      [await ssvNetwork.address],
+      {
+        client: owners[0].client,
+      },
+    );
+
+    ssvNetwork.write.setOperatorsWhitelistingContract([[1], await fakeWhitelistingContract.address], {
+      account: owners[1].account,
+    });
+
+    await trackGas(
+      ssvNetwork.write.setOperatorsWhitelistingContract([[1], mockWhitelistingContractAddress], {
+        account: owners[1].account,
+      }),
+      [GasGroup.SET_OPERATOR_WHITELISTING_CONTRACT],
+    );
+  });
+
   it('Set operator whitelisting contract (10 operators) gas limits', async () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
@@ -75,7 +100,7 @@ describe('Whitelisting Operator Tests', () => {
       ssvNetwork.write.removeOperatorsWhitelistingContract([[1]], {
         account: owners[1].account,
       }),
-      [GasGroup.SET_OPERATOR_WHITELISTING_CONTRACT],
+      [GasGroup.REMOVE_OPERATOR_WHITELISTING_CONTRACT],
     );
   });
 
@@ -556,6 +581,10 @@ describe('Whitelisting Operator Tests', () => {
     });
 
     await ssvNetwork.write.setOperatorsWhitelistingContract([[1], mockWhitelistingContractAddress], {
+      account: owners[1].account,
+    });
+
+    await ssvNetwork.write.setOperatorsPrivateUnchecked([[1]], {
       account: owners[1].account,
     });
 

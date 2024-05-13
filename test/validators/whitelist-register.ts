@@ -262,6 +262,10 @@ describe('Register Validator Tests', () => {
         account: owners[0].account,
       },
     );
+    await ssvNetwork.write.setOperatorsPrivateUnchecked([DEFAULT_OPERATOR_IDS[4]], {
+      account: owners[0].account,
+    });
+
     await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
 
     const pk = DataGenerator.publicKey(1);
@@ -435,6 +439,9 @@ describe('Register Validator Tests', () => {
           account: owners[0].account,
         },
       );
+      await ssvNetwork.write.setOperatorsPrivateUnchecked([DEFAULT_OPERATOR_IDS[4]], {
+        account: owners[0].account,
+      });
     });
 
     it('Register using whitelisting contract for 1 operator in 4 operators cluster gas limits/events/logic', async () => {
@@ -620,6 +627,46 @@ describe('Register Validator Tests', () => {
           { account: owners[4].account },
         ),
       ).to.be.rejectedWith('CallerNotWhitelisted');
+    });
+
+    it('Register using whitelisting contract but a public operator allows registration', async () => {
+      // This test checks a non-whitelisted account (owners[4]) in a whitelisting contract
+      // can register validators in a public operator
+
+      await ssvNetwork.write.setOperatorsPublicUnchecked([[4]], {
+        account: owners[0].account,
+      });
+
+      await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[4].account });
+
+      const pk = DataGenerator.publicKey(1);
+      const shares = await DataGenerator.shares(4, 1, 4);
+
+      await ssvNetwork.write.registerValidator(
+        [
+          pk,
+          [4, 5, 6, 7],
+          shares,
+          minDepositAmount,
+          {
+            validatorCount: 0,
+            networkFeeIndex: 0,
+            index: 0,
+            balance: 0n,
+            active: true,
+          },
+        ],
+        { account: owners[4].account },
+      );
+
+      expect(await ssvViews.read.getOperatorById([4])).to.deep.equal([
+        owners[0].account.address, // owner
+        CONFIG.minimalOperatorFee, // fee
+        2, // validatorCount -> starts with 1 validator because coldRegisterValidator
+        mockWhitelistingContractAddress, // whitelisting contract address
+        false, // isPrivate
+        true, // active
+      ]);
     });
   });
 });
