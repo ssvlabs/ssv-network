@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "../interfaces/ISSVOperators.sol";
 import "../libraries/Types.sol";
@@ -168,7 +168,7 @@ contract SSVOperators is ISSVOperators {
         s.operators[operatorId] = operator;
 
         delete s.operatorFeeChangeRequests[operatorId];
-        
+
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 

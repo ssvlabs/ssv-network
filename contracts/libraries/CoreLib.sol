@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "./SSVStorage.sol";
 
@@ -54,7 +54,6 @@ library CoreLib {
         }
         return size > 0;
     }
-
 
     function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
         if (!isContract(moduleAddress)) revert ISSVNetworkCore.TargetModuleDoesNotExist();

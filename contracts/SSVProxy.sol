@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import {SSVModules, SSVStorage, StorageData} from "./libraries/SSVStorage.sol";
 
 abstract contract SSVProxy {
-
     function _delegate(address implementation) internal {
         assembly {
             // Copy msg.data. We take full control of memory in this inline assembly
