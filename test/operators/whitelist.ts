@@ -9,7 +9,7 @@ import { ethers } from 'hardhat';
 import { expect } from 'chai';
 
 // Declare globals
-let ssvNetwork: any, ssvViews: any, mockWhitelistingContractAddress: any;
+let ssvNetwork: any, ssvViews: any, mockWhitelistingContract: any, mockWhitelistingContractAddress: any;
 const OPERATOR_IDS_10 = Array.from({ length: 10 }, (_, i) => i + 1);
 
 describe('Whitelisting Operator Tests', () => {
@@ -19,7 +19,7 @@ describe('Whitelisting Operator Tests', () => {
     ssvNetwork = metadata.ssvNetwork;
     ssvViews = metadata.ssvNetworkViews;
 
-    const mockWhitelistingContract = await hre.viem.deployContract('MockWhitelistingContract', [[]], {
+    mockWhitelistingContract = await hre.viem.deployContract('MockWhitelistingContract', [[]], {
       client: owners[0].client,
     });
     mockWhitelistingContractAddress = await mockWhitelistingContract.address;
@@ -658,5 +658,51 @@ describe('Whitelisting Operator Tests', () => {
       const operatorData = await ssvViews.read.getOperatorById([OPERATOR_IDS_10[i]]);
       expect(operatorData[4]).to.be.false;
     }
+  });
+
+  it('Check account is whitelisted in a whitelisting contract', async () => {
+    await mockWhitelistingContract.write.setWhitelistedAddress([owners[4].account.address]);
+
+    expect(
+      await ssvViews.read.isAddressWhitelistedInWhitelistingContract([
+        owners[4].account.address,
+        0,
+        mockWhitelistingContractAddress,
+      ]),
+    ).to.be.true;
+  });
+
+  it('Check account is not whitelisted in a whitelisting contract', async () => {
+    await mockWhitelistingContract.write.setWhitelistedAddress([owners[4].account.address]);
+
+    expect(
+      await ssvViews.read.isAddressWhitelistedInWhitelistingContract([
+        owners[2].account.address,
+        0,
+        mockWhitelistingContractAddress,
+      ]),
+    ).to.be.false;
+  });
+
+  it('Check address(0) account in a whitelisting contract', async () => {
+    await mockWhitelistingContract.write.setWhitelistedAddress([owners[4].account.address]);
+
+    expect(
+      await ssvViews.read.isAddressWhitelistedInWhitelistingContract([
+        ethers.ZeroAddress,
+        0,
+        mockWhitelistingContractAddress,
+      ]),
+    ).to.be.false;
+  });
+
+  it('Check account in an address(0) contract', async () => {
+    expect(
+      await ssvViews.read.isAddressWhitelistedInWhitelistingContract([
+        owners[2].account.address,
+        0,
+        ethers.ZeroAddress,
+      ]),
+    ).to.be.false;
   });
 });

@@ -13,6 +13,10 @@ contract MockWhitelistingContract is ISSVWhitelistingContract, ERC165 {
         }
     }
 
+    function setWhitelistedAddress(address account) external {
+        whitelisted[account] = true;
+    }
+
     function isWhitelisted(address account, uint256) external view override returns (bool) {
         return whitelisted[account];
     }

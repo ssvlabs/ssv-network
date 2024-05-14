@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {ISSVViews} from "../interfaces/ISSVViews.sol";
+import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {Types64} from "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
@@ -122,6 +123,15 @@ contract SSVViews is ISSVViews {
 
     function isWhitelistingContract(address contractAddress) external view override returns (bool) {
         return OperatorLib.isWhitelistingContract(contractAddress);
+    }
+
+    function isAddressWhitelistedInWhitelistingContract(
+        address addressToCheck,
+        uint256 operatorId,
+        address whitelistingContract
+    ) external view override returns (bool) {
+        if (!OperatorLib.isWhitelistingContract(whitelistingContract) || addressToCheck == address(0)) return false;
+        return ISSVWhitelistingContract(whitelistingContract).isWhitelisted(addressToCheck, operatorId);
     }
 
     /***********************************/

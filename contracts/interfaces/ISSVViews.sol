@@ -61,6 +61,18 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return isWhitelistingContract A boolean indicating if the address is a whitelisting contract
     function isWhitelistingContract(address contractAddress) external view returns (bool isWhitelistingContract);
 
+    /// @notice Checks if the given address is whitelisted in a specific whitelisting contract.
+    /// @notice It's up to the whitelisting contract implementation to use the operatorId parameter or not.
+    /// @param addressToCheck The address to check
+    /// @param operatorId The operator ID to check in combination with addressToCheck
+    /// @param whitelistingContract The whitelisting contract address
+    /// @return isWhitelisted A boolean indicating if the address is whitelisted in the given whitelisting contract for the given operator
+    function isAddressWhitelistedInWhitelistingContract(
+        address addressToCheck,
+        uint256 operatorId,
+        address whitelistingContract
+    ) external view returns (bool isWhitelisted);
+
     /// @notice Checks if the cluster can be liquidated
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster

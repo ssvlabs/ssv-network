@@ -67,8 +67,17 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
     ) external view override returns (uint64[] memory whitelistedOperatorIds) {
         return ssvNetwork.getWhitelistedOperators(operatorIds, whitelistedAddress);
     }
-    function isWhitelistingContract(address contractAddress) external view returns (bool) {
+
+    function isWhitelistingContract(address contractAddress) external view override returns (bool) {
         return ssvNetwork.isWhitelistingContract(contractAddress);
+    }
+
+    function isAddressWhitelistedInWhitelistingContract(
+        address addressToCheck,
+        uint256 operatorId,
+        address whitelistingContract
+    ) external view override returns (bool isWhitelisted) {
+        return ssvNetwork.isAddressWhitelistedInWhitelistingContract(addressToCheck, operatorId, whitelistingContract);
     }
 
     /***********************************/
