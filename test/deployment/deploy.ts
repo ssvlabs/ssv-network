@@ -1,5 +1,11 @@
 // Imports
-import { owners, initializeContract, DataGenerator, CONFIG, publicClient } from '../helpers/contract-helpers';
+import {
+  owners,
+  initializeContract,
+  DataGenerator,
+  CONFIG,
+  publicClient,
+} from '../helpers/contract-helpers';
 import { ethers, upgrades } from 'hardhat';
 import { expect } from 'chai';
 

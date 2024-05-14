@@ -28,7 +28,7 @@ describe('Whitelisting Tests (fork)', () => {
     client = await hre.viem.getTestClient();
     await client.impersonateAccount({ address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' });
 
-    await setBalance('0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6', 500000000000000000n);
+    await setBalance('0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6', 2000000000000000000n);
 
     ssvNetwork = await hre.viem.getContractAt('SSVNetwork', ssvNetworkAddress);
     ssvViews = await hre.viem.getContractAt('SSVNetworkViews', ssvNetworkViewsAddress as Address);
