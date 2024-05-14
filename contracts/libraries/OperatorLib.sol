@@ -147,20 +147,10 @@ library OperatorLib {
         uint256 addressesLength = whitelistAddresses.length;
         if (addressesLength == 0) revert ISSVNetworkCore.InvalidWhitelistAddressesLength();
 
-        uint256 operatorsLength = getOperatorsLength(operatorIds);
-
-        ISSVNetworkCore.Operator storage operator;
-        for (uint256 i; i < operatorsLength; ++i) {
-            operator = s.operators[operatorIds[i]];
-
-            checkOwner(operator);
-            if (registerAddresses && !operator.whitelisted) {
-                operator.whitelisted = true;
-            }
-        }
-
+        checkOperatorsLength(operatorIds);
+        
         // create the max number of masks that will be updated
-        uint256[] memory masks = generateBlockMasks(operatorIds);
+        uint256[] memory masks = generateBlockMasks(operatorIds, true, s);
 
         for (uint256 i; i < addressesLength; ++i) {
             address whitelistAddress = whitelistAddresses[i];
@@ -183,7 +173,11 @@ library OperatorLib {
         }
     }
 
-    function generateBlockMasks(uint64[] calldata operatorIds) internal pure returns (uint256[] memory masks) {
+    function generateBlockMasks(
+        uint64[] calldata operatorIds,
+        bool checkOperatorsOwnership,
+        StorageData storage s
+    ) internal view returns (uint256[] memory masks) {
         uint256 blockIndex;
         uint256 bitPosition;
         uint64 currentOperatorId;
@@ -195,6 +189,10 @@ library OperatorLib {
 
         for (uint256 i; i < operatorsLength; ++i) {
             currentOperatorId = operatorIds[i];
+
+            if (checkOperatorsOwnership) {
+                checkOwner(s.operators[currentOperatorId]);
+            }
 
             if (i > 0 && currentOperatorId <= operatorIds[i - 1]) {
                 if (currentOperatorId == operatorIds[i - 1]) {
@@ -210,7 +208,7 @@ library OperatorLib {
     }
 
     function updatePrivacyStatus(uint64[] calldata operatorIds, bool setPrivate, StorageData storage s) internal {
-        uint256 operatorsLength = getOperatorsLength(operatorIds);
+        uint256 operatorsLength = checkOperatorsLength(operatorIds);
 
         ISSVNetworkCore.Operator storage operator;
         for (uint256 i; i < operatorsLength; ++i) {
@@ -231,7 +229,7 @@ library OperatorLib {
         if (whitelistAddress == address(0)) revert ISSVNetworkCore.ZeroAddressNotAllowed();
     }
 
-    function getOperatorsLength(uint64[] calldata operatorIds) internal pure returns (uint256 operatorsLength) {
+    function checkOperatorsLength(uint64[] calldata operatorIds) internal pure returns (uint256 operatorsLength) {
         operatorsLength = operatorIds.length;
         if (operatorsLength == 0) revert ISSVNetworkCore.InvalidOperatorIdsLength();
     }

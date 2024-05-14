@@ -48,6 +48,9 @@ describe('Register Validator Tests', () => {
     await ssvNetwork.write.setOperatorWhitelist([operatorId, owners[3].account.address], {
       account: owners[1].account,
     });
+    await ssvNetwork.write.setOperatorsPrivateUnchecked([[operatorId]], {
+      account: owners[1].account,
+    });
 
     await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
 
@@ -200,6 +203,10 @@ describe('Register Validator Tests', () => {
 
   it('Register using non-authorized account for 1 operator with 4 operators cluster reverts "CallerNotWhitelisted"', async () => {
     await ssvNetwork.write.setOperatorMultipleWhitelists([[3], [owners[3].account.address]], {
+      account: owners[0].account,
+    });
+
+    await ssvNetwork.write.setOperatorsPrivateUnchecked([[3]], {
       account: owners[0].account,
     });
 
@@ -566,6 +573,8 @@ describe('Register Validator Tests', () => {
       await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
 
       await ssvNetwork.write.setOperatorMultipleWhitelists([[6], [owners[3].account.address]]);
+
+      await ssvNetwork.write.setOperatorsPrivateUnchecked([[6]]);
 
       await ssvNetwork.write.registerValidator(
         [

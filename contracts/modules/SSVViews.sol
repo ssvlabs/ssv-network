@@ -84,7 +84,7 @@ contract SSVViews is ISSVViews {
         StorageData storage s = SSVStorage.load();
 
         // create the max number of masks that will be updated
-        uint256[] memory masks = OperatorLib.generateBlockMasks(operatorIds);
+        uint256[] memory masks = OperatorLib.generateBlockMasks(operatorIds, false, s);
 
         uint256 count;
         whitelistedOperatorIds = new uint64[](operatorsLength);
