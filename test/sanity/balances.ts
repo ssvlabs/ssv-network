@@ -390,8 +390,8 @@ describe('Balance Tests', () => {
       ssvNetwork.write.registerValidator(
         [
           DataGenerator.publicKey(3),
-          [1, 2, 3, 4],
-          await DataGenerator.shares(4, 3, 4),
+          DEFAULT_OPERATOR_IDS[4],
+          await DataGenerator.shares(4, 3, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount * 2n,
           cluster1.cluster,
         ],

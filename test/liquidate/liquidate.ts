@@ -165,7 +165,7 @@ describe('Liquidate Tests', () => {
         [
           DataGenerator.publicKey(2),
           updatedCluster.operatorIds,
-          await DataGenerator.shares(1, 2, 4),
+          await DataGenerator.shares(1, 2, updatedCluster.operatorIds),
           minDepositAmount * 2n,
           updatedCluster.cluster,
         ],

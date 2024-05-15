@@ -29,7 +29,7 @@
   ],
   "scripts": {
     "build": "npx hardhat compile",
-    "test": "npx hardhat test",
+    "test": "npx hardhat test --parallel",
     "test-forked": "FORK_TESTING_ENABLED=true npx hardhat test test-forked/*.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
