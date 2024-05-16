@@ -9,7 +9,7 @@ It uses the Hardhat Runtime Environment (HRE) to execute the deployment tasks an
 it will be printed to the console, and the process will exit with a non-zero status code.
 @example
 // Deploy all contracts with the default deployer account
-npx hardhat --network goerli_testnet deploy:all
+npx hardhat --network holesky_testnet deploy:all
 @remarks
 The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
@@ -49,7 +49,7 @@ The contract parameter specifies the name of the contract implementation to be d
 it will be printed to the console, and the process will exit with a non-zero status code.
 @example
 // Deploy SSVNetwork implementation contract with the default deployer account
-npx hardhat --network goerli_testnet deploy:main-impl --contract SSVNetwork
+npx hardhat --network holesky_testnet deploy:main-impl --contract SSVNetwork
 @remarks
 The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.

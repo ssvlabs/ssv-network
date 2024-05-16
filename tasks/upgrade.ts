@@ -16,7 +16,7 @@ If 'initFunction' is not provided, this parameter has no effect.
 @returns {void} This function doesn't return anything. After successfully upgrading, it prints the new implementation address to the console.
 @example
 // Upgrade the SSVNetwork contract to a new version 'SSVNetworkV2', and call a function 'initializev2' with parameters after upgrade:
-npx hardhat --network goerli_testnet upgrade:proxy --proxyAddress 0x1234... --contract SSVNetworkV2 --initFunction initializev2 --params param1 param2
+npx hardhat --network holesky_testnet upgrade:proxy --proxyAddress 0x1234... --contract SSVNetworkV2 --initFunction initializev2 --params param1 param2
 */
 task('upgrade:proxy', 'Upgrade SSVNetwork / SSVNetworkViews proxy via hardhat upgrades plugin')
   .addParam('proxyAddress', 'Proxy address of SSVNetwork / SSVNetworkViews', null, types.string)
@@ -60,7 +60,7 @@ The proxy address and contract name must be provided as parameters.
 @param {string} contract - The name of the new implementation contract to deploy for the upgrade.
 @example
 // Prepare an upgrade for the SSVNetworkViews proxy contract with a new implementation contract named 'SSVNetworkViewsV2'
-npx hardhat --network goerli_testnet upgrade:prepare --proxyAddress 0x1234... --contract SSVNetworkViewsV2
+npx hardhat --network holesky_testnet upgrade:prepare --proxyAddress 0x1234... --contract SSVNetworkViewsV2
 @remarks
 The deployer account used will be the first one returned by ethers.getSigners().
 Therefore, it should be appropriately configured in your Hardhat network configuration.
