@@ -46,7 +46,7 @@
     "@openzeppelin/contracts-upgradeable": "^4.9.6",
     "@openzeppelin/hardhat-upgrades": "^3.0.5",
     "dotenv": "^16.4.5",
-    "hardhat": "^2.22.3",
+    "hardhat": "^2.22.4",
     "hardhat-abi-exporter": "^2.10.1",
     "hardhat-contract-sizer": "^2.10.0",
     "solidity-coverage": "^0.8.12",

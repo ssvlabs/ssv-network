@@ -540,6 +540,41 @@ describe('Whitelisting Operator Tests', () => {
     ).to.be.rejectedWith('CallerNotOwner');
   });
 
+  it('Whitelist accounts passing repeated operator IDs reverts "OperatorsListNotUnique"', async () => {
+    // register 10 operators
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    await expect(
+      ssvNetwork.write.setOperatorMultipleWhitelists(
+        [
+          [2, 2, 2, 2, 4, 4, 4, 4, 6, 6, 6, 6, 8, 8, 8, 8],
+          [owners[4].account.address, owners[5].account.address],
+        ],
+        {
+          account: owners[1].account,
+        },
+      ),
+    ).to.be.rejectedWith('OperatorsListNotUnique');
+  });
+
+  it('Remove whitelist addresses passing repeated operator IDs reverts "OperatorsListNotUnique"', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+    const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
+
+    await ssvNetwork.write.setOperatorMultipleWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+      account: owners[1].account,
+    });
+
+    await expect(
+      ssvNetwork.write.removeOperatorMultipleWhitelists(
+        [[2, 2, 2, 2, 4, 4, 4, 4, 6, 6, 6, 6, 8, 8, 8, 8], whitelistAddresses],
+        {
+          account: owners[1].account,
+        },
+      ),
+    ).to.be.rejectedWith('OperatorsListNotUnique');
+  });
+
   /* LOGIC */
 
   it('Get whitelisted address for no operators returns empty list', async () => {
@@ -553,7 +588,7 @@ describe('Whitelisting Operator Tests', () => {
   it('Get whitelisted address for operators returns only the whitelisted operators', async () => {
     const whitelistAddress = owners[4].account.address;
 
-    // Register 100o operators to have 4 bitmap blocks
+    // Register 1000 operators to have 4 bitmap blocks
     await registerOperators(1, 1000, CONFIG.minimalOperatorFee);
 
     await ssvNetwork.write.setOperatorMultipleWhitelists(
@@ -704,5 +739,87 @@ describe('Whitelisting Operator Tests', () => {
         ethers.ZeroAddress,
       ]),
     ).to.be.false;
+  });
+
+  it('Set multiple whitelisted addresses to one operator', async () => {
+    await registerOperators(1, 1, CONFIG.minimalOperatorFee);
+
+    const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
+
+    await assertEvent(
+      ssvNetwork.write.setOperatorMultipleWhitelists([[1], whitelistAddresses], {
+        account: owners[1].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'OperatorMultipleWhitelistUpdated',
+          argNames: ['operatorIds', 'whitelistAddresses'],
+          argValuesList: [[[1], whitelistAddresses]],
+        },
+      ],
+    );
+
+    for (let i = 0; i < whitelistAddresses.length; i++) {
+      expect(
+        await ssvViews.read.getWhitelistedOperators([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], whitelistAddresses[i]]),
+      ).to.be.deep.equal([1]);
+    }
+
+    expect(
+      await ssvViews.read.getWhitelistedOperators([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], owners[11].account.address]),
+    ).to.be.deep.equal([]);
+  });
+
+  it('Set 10 whitelist addresses (EOAs) for 10 operators', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
+
+    await assertEvent(
+      ssvNetwork.write.setOperatorMultipleWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+        account: owners[1].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'OperatorMultipleWhitelistUpdated',
+          argNames: ['operatorIds', 'whitelistAddresses'],
+          argValuesList: [[OPERATOR_IDS_10, whitelistAddresses]],
+        },
+      ],
+    );
+
+    for (let i = 0; i < whitelistAddresses.length; i++) {
+      expect(await ssvViews.read.getWhitelistedOperators([OPERATOR_IDS_10, whitelistAddresses[i]])).to.be.deep.equal(
+        OPERATOR_IDS_10,
+      );
+      expect(await ssvViews.read.getWhitelistedOperators([[500], whitelistAddresses[i]])).to.be.deep.equal([]);
+    }
+  });
+
+  it('Set 1 whitelist addresses for 1 operator', async () => {
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    await assertEvent(
+      ssvNetwork.write.setOperatorMultipleWhitelists([[2], [owners[3].account.address]], {
+        account: owners[1].account,
+      }),
+      [
+        {
+          contract: ssvNetwork,
+          eventName: 'OperatorMultipleWhitelistUpdated',
+          argNames: ['operatorIds', 'whitelistAddresses'],
+          argValuesList: [[[2], [owners[3].account.address]]],
+        },
+      ],
+    );
+
+    expect(await ssvViews.read.getWhitelistedOperators([OPERATOR_IDS_10, owners[3].account.address])).to.be.deep.equal([
+      2,
+    ]);
+    expect(await ssvViews.read.getWhitelistedOperators([OPERATOR_IDS_10, owners[2].account.address])).to.be.deep.equal(
+      [],
+    );
   });
 });
