@@ -5,7 +5,6 @@ import "../../interfaces/external/ISSVWhitelistingContract.sol";
 import "../../interfaces/ISSVClusters.sol";
 import "./BeneficiaryContract.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import "hardhat/console.sol";
 
 /// @notice Whitelisted contract that passes the validatity check of supporting ISSVWhitelistingContract
 /// and tries to re-enter SSVNetwork.registerValidator function.
@@ -25,7 +24,8 @@ contract BadOperatorWhitelistingContract is ERC165 {
         // only proceed if the function being called is isWhitelisted
         if (selector == ISSVWhitelistingContract.isWhitelisted.selector) {
             // decode the operator Id
-            (uint256 operatorId) = abi.decode(msg.data[36:], (uint256));
+            // we can save the target operatorId and try the withdrawal only if it matches
+            // (uint256 operatorId) = abi.decode(msg.data[36:], (uint256));
             // call BeneficiaryContract to withdraw operator earnings
             beneficiaryContract.withdrawOperatorEarnings(10000000);
         }

@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "../../interfaces/external/ISSVWhitelistingContract.sol";
 import "../../interfaces/ISSVOperators.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import "hardhat/console.sol";
 
 contract BeneficiaryContract {
     ISSVOperators private ssvContract;

@@ -14,7 +14,7 @@ import {
   MOCK_SHARES,
   publicClient,
 } from '../helpers/contract-helpers';
-import { assertPostTxEvent } from '../helpers/utils/test';
+import { assertPostTxEvent, assertEvent } from '../helpers/utils/test';
 import { trackGas, GasGroup, trackGasFromReceipt } from '../helpers/gas-usage';
 
 import { mine } from '@nomicfoundation/hardhat-toolbox-viem/network-helpers';
@@ -426,6 +426,7 @@ describe('Register Validator Tests', () => {
 
     describe('Register using whitelisting contract', () => {
       let mockWhitelistingContractAddress: any;
+
       beforeEach(async () => {
         // Whitelist whitelistedCaller using an external contract
         const mockWhitelistingContract = await hre.viem.deployContract(
@@ -447,6 +448,119 @@ describe('Register Validator Tests', () => {
         await ssvNetwork.write.setOperatorsPrivateUnchecked([DEFAULT_OPERATOR_IDS[4]], {
           account: owners[0].account,
         });
+      });
+
+      it('Register using whitelisting contract and SSV whitelisting module for 2 operators', async () => {
+        // Account A whitelists account B on SSV whitelisting module
+        // Account A adds a whitelisting contract
+        // Account A adds account C to that whitelist contract
+        // Register validator with account B and C both work
+
+        // Account A = owners[0]
+        // Account B = owners[3]
+        // Account C = owners[4]
+
+        // Account A whitelists account B on SSV whitelisting module (operator 5)
+        await ssvNetwork.write.setOperatorWhitelist([5, owners[3].account.address]);
+
+        // Account A adds account C to that whitelist contract
+        const whitelistingContract = await hre.viem.deployContract(
+          'MockWhitelistingContract',
+          [[owners[4].account.address]],
+          {
+            client: owners[0].client,
+          },
+        );
+        const whitelistingContractAddress = await whitelistingContract.address;
+
+        // Account A adds a whitelisting contract (operator 6)
+        await ssvNetwork.write.setOperatorsWhitelistingContract([[6], whitelistingContractAddress], {
+          account: owners[0].account,
+        });
+
+        await ssvNetwork.write.setOperatorsPrivateUnchecked([[5, 6]], {
+          account: owners[0].account,
+        });
+
+        await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
+
+        // Register validator with account B works
+        await assertEvent(
+          ssvNetwork.write.registerValidator(
+            [
+              DataGenerator.publicKey(1),
+              [2, 3, 4, 5],
+              MOCK_SHARES,
+              minDepositAmount,
+              {
+                validatorCount: 0,
+                networkFeeIndex: 0,
+                index: 0,
+                balance: 0n,
+                active: true,
+              },
+            ],
+            { account: owners[3].account },
+          ),
+          [
+            {
+              contract: ssvNetwork,
+              eventName: 'ValidatorAdded',
+              argNames: ['owner', 'operatorIds'],
+              argValuesList: [[owners[3].account.address, [2, 3, 4, 5]]],
+            },
+          ],
+        );
+
+        // Check the operator 5 increased validatorCount
+        expect(await ssvViews.read.getOperatorById([5])).to.deep.equal([
+          owners[0].account.address, // owner
+          CONFIG.minimalOperatorFee, // fee
+          1,
+          ethers.ZeroAddress,
+          true, // isPrivate
+          true, // active
+        ]);
+
+        await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[4].account });
+
+        // Register validator with account C works
+        await assertEvent(
+          ssvNetwork.write.registerValidator(
+            [
+              DataGenerator.publicKey(1),
+              [6, 7, 8, 9],
+              MOCK_SHARES,
+              minDepositAmount,
+              {
+                validatorCount: 0,
+                networkFeeIndex: 0,
+                index: 0,
+                balance: 0n,
+                active: true,
+              },
+            ],
+            { account: owners[4].account },
+          ),
+          [
+            {
+              contract: ssvNetwork,
+              eventName: 'ValidatorAdded',
+              argNames: ['owner', 'operatorIds'],
+              argValuesList: [[owners[4].account.address, [6, 7, 8, 9]]],
+            },
+          ],
+        );
+
+        // Check the operator 6 increased validatorCount
+        expect(await ssvViews.read.getOperatorById([6])).to.deep.equal([
+          owners[0].account.address, // owner
+          CONFIG.minimalOperatorFee, // fee
+          1,
+          whitelistingContractAddress,
+          true, // isPrivate
+          true, // active
+        ]);
       });
 
       it('Register using whitelisting contract for 1 operator in 4 operators cluster gas limits/events/logic', async () => {

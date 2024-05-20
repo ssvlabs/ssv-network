@@ -6,10 +6,10 @@ import { setBalance } from '@nomicfoundation/hardhat-toolbox-viem/network-helper
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 
-import { DataGenerator, MOCK_SHARES } from '../test/helpers/contract-helpers';
+import { DataGenerator, MOCK_SHARES, publicClient } from '../test/helpers/contract-helpers';
 import { assertPostTxEvent } from '../test/helpers/utils/test';
 
-import { Address, TestClient } from 'viem';
+import { Address, TestClient, encodeFunctionData, walletActions } from 'viem';
 
 // Declare globals
 let ssvNetwork: any, ssvViews: any, ssvToken: any, owners: any[], client: TestClient;
@@ -22,7 +22,7 @@ describe('Whitelisting Tests (fork)', () => {
   beforeEach(async () => {
     owners = await hre.viem.getWalletClients();
 
-    client = await hre.viem.getTestClient();
+    client = (await hre.viem.getTestClient()).extend(walletActions);
     await client.impersonateAccount({ address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' });
 
     await setBalance('0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6', 2000000000000000000n);
@@ -32,30 +32,9 @@ describe('Whitelisting Tests (fork)', () => {
     ssvToken = await hre.viem.getContractAt('SSVToken', ssvTokenAddress as Address);
   });
 
-  describe('After Upgrade SSV Core Contracts Tests', () => {
+  describe('Pre-upgrade SSV Core Contracts Tests', () => {
     beforeEach(async () => {
-      const ssvNetworkUpgrade = await hre.viem.deployContract('SSVNetwork', [], {
-        account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
-      });
-      await ssvNetwork.write.upgradeTo([await ssvNetworkUpgrade.address], {
-        account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
-      });
-
-      const ssvViewsUpgrade = await hre.viem.deployContract('SSVNetworkViews', [], {
-        account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
-      });
-      await ssvViews.write.upgradeTo([await ssvViewsUpgrade.address], {
-        account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
-      });
-
-      await upgradeModule('SSVOperators', 0);
-      await upgradeModule('SSVClusters', 1);
-      await upgradeModule('SSVViews', 3);
-      await upgradeModule('SSVOperatorsWhitelist', 4);
-
-      await client.stopImpersonatingAccount({
-        address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6',
-      });
+      await upgradeAllContracts();
     });
     it('Check an existing whitelisted operator is whitelisted but not using an external contract', async () => {
       const operatorData = await ssvViews.read.getOperatorById([314]);
@@ -213,6 +192,102 @@ describe('Whitelisting Tests (fork)', () => {
       expect((await ssvViews.read.getOperatorById([314]))[3]).to.deep.equal(prevWhitelistedAddress);
     });
   });
+
+  describe('Ongoing SSV Core Contracts upgrade Tests', () => {
+    it('WT-3 - Check backward compatibility with existing generic contracts', async () => {
+      // owner of the operator 314
+      await client.impersonateAccount({ address: '0xB4084F25DfCb2c1bf6636b420b59eda807953769' });
+      await setBalance('0xB4084F25DfCb2c1bf6636b420b59eda807953769', 1200000000000000000n);
+
+      // deploy a generic contract
+      const genericWhitelistContract = await hre.viem.deployContract(
+        'GenericWhitelistContract',
+        [await ssvNetwork.address, await ssvToken.address],
+        {
+          account: { address: '0xB4084F25DfCb2c1bf6636b420b59eda807953769' },
+        },
+      );
+
+      const generiWhitelistContractAddress = await genericWhitelistContract.address;
+
+      const abiItem = {
+        inputs: [
+          {
+            name: 'operatorId',
+            type: 'uint64',
+          },
+          {
+            name: 'whitelisted',
+            type: 'address',
+          },
+        ],
+        name: 'setOperatorWhitelist',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      };
+
+      // whitelist the generic contract for operator 314
+      await client.sendTransaction({
+        account: '0xB4084F25DfCb2c1bf6636b420b59eda807953769',
+        data: encodeFunctionData({
+          abi: [abiItem],
+          functionName: 'setOperatorWhitelist',
+          args: [314n, generiWhitelistContractAddress],
+        }),
+        to: await ssvNetwork.address,
+      });
+
+      const validatorCount = (await ssvViews.read.getOperatorById([314n]))[2];
+
+      await upgradeAllContracts();
+
+      // whitelist a different operator using SSV whitelisting module
+      await ssvNetwork.write.setOperatorMultipleWhitelists([[315n], ['0xB4084F25DfCb2c1bf6636b420b59eda807953769']], {
+        account: { address: '0xB4084F25DfCb2c1bf6636b420b59eda807953769' },
+      });
+
+      const minDepositAmount = 1000000000000000000000n;
+
+      await client.impersonateAccount({ address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' });
+
+      // give the generic contract enough SSV tokens
+      await ssvToken.write.mint([generiWhitelistContractAddress, minDepositAmount], {
+        account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
+      });
+
+      // use a new account owners[4] to register a validator using
+      // the operator 314 through the generic contract
+      await genericWhitelistContract.write.registerValidatorSSV(
+        [
+          DataGenerator.publicKey(1),
+          [30, 31, 32, 314],
+          MOCK_SHARES,
+          minDepositAmount,
+          {
+            validatorCount: 0,
+            networkFeeIndex: 0,
+            index: 0,
+            balance: 0n,
+            active: true,
+          },
+        ],
+        { account: owners[4].account },
+      );
+
+      // event confirms full execution
+      await assertPostTxEvent([
+        {
+          contract: ssvNetwork,
+          eventName: 'ValidatorAdded',
+          argNames: ['owner'],
+          argValuesList: [[generiWhitelistContractAddress]],
+        },
+      ]);
+
+      expect((await ssvViews.read.getOperatorById([314n]))[2]).to.equal(validatorCount + 1);
+    });
+  });
 });
 
 //* HELPERS */
@@ -223,5 +298,32 @@ const upgradeModule = async function (contractName: string, id: number) {
   });
   await ssvNetwork.write.updateModule([id, await ssvModule.address], {
     account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
+  });
+};
+
+const upgradeAllContracts = async function () {
+  await client.impersonateAccount({ address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' });
+
+  const ssvNetworkUpgrade = await hre.viem.deployContract('SSVNetwork', [], {
+    account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
+  });
+  await ssvNetwork.write.upgradeTo([await ssvNetworkUpgrade.address], {
+    account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
+  });
+
+  const ssvViewsUpgrade = await hre.viem.deployContract('SSVNetworkViews', [], {
+    account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
+  });
+  await ssvViews.write.upgradeTo([await ssvViewsUpgrade.address], {
+    account: { address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6' },
+  });
+
+  await upgradeModule('SSVOperators', 0);
+  await upgradeModule('SSVClusters', 1);
+  await upgradeModule('SSVViews', 3);
+  await upgradeModule('SSVOperatorsWhitelist', 4);
+
+  await client.stopImpersonatingAccount({
+    address: '0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6',
   });
 };

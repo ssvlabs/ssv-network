@@ -82,7 +82,7 @@ const config: HardhatUserConfig = {
   },
 };
 
-if (process.env.HOLESKY_ETH_NODE_URL) {
+if (process.env.HOLESKY_ETH_NODE_URL && process.env.HOLESKY_OWNER_PRIVATE_KEY) {
   const sharedConfig = {
     url: `${process.env.HOLESKY_ETH_NODE_URL}${process.env.NODE_PROVIDER_KEY}`,
     accounts: [`0x${process.env.HOLESKY_OWNER_PRIVATE_KEY}`],
@@ -103,7 +103,7 @@ if (process.env.HOLESKY_ETH_NODE_URL) {
   };
 }
 
-if (process.env.MAINNET_ETH_NODE_URL) {
+if (process.env.MAINNET_ETH_NODE_URL && process.env.MAINNET_OWNER_PRIVATE_KEY) {
   //@ts-ignore
   config.networks = {
     ...config.networks,
