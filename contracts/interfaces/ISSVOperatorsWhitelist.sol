@@ -5,11 +5,6 @@ import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
 import {ISSVWhitelistingContract} from "./external/ISSVWhitelistingContract.sol";
 
 interface ISSVOperatorsWhitelist is ISSVNetworkCore {
-    /// @notice Sets the whitelist for an operator
-    /// @param operatorId The ID of the operator
-    /// @param whitelistAddress The address to be whitelisted
-    function setOperatorWhitelist(uint64 operatorId, address whitelistAddress) external;
-
     /// @notice Sets a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
     /// @param operatorIds The operator IDs to set the whitelists for
     /// @param whitelistAddresses The list of addresses to be whitelisted
@@ -48,13 +43,6 @@ interface ISSVOperatorsWhitelist is ISSVNetworkCore {
     /// @notice The operators are considered public when registering validators
     /// @param operatorIds The operator IDs to set as public
     function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external;
-
-    /**
-     * @dev Emitted when the whitelist of an operator is updated.
-     * @param operatorId operator's ID.
-     * @param whitelistAddress operator's new whitelisted address.
-     */
-    event OperatorWhitelistUpdated(uint64 indexed operatorId, address whitelistAddress);
 
     /**
      * @dev Emitted when a list of adresses are whitelisted for a set of operators.

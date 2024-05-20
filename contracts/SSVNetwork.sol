@@ -129,10 +129,6 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
-    }
-
     function setOperatorMultipleWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses

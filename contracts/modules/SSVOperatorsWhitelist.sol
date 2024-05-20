@@ -16,23 +16,6 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
     /* Operator External Functions */
     /*******************************/
 
-    function setOperatorWhitelist(uint64 operatorId, address whitelistAddress) external override {
-        OperatorLib.checkZeroAddress(whitelistAddress);
-
-        if (OperatorLib.isWhitelistingContract(whitelistAddress))
-            revert AddressIsWhitelistingContract(whitelistAddress);
-
-        StorageData storage s = SSVStorage.load();
-        s.operators[operatorId].checkOwner();
-
-        // Set the bit at bitPosition for the operatorId in the corresponding uint256 blockIndex
-        (uint256 blockIndex, uint256 bitPosition) = OperatorLib.getBitmapIndexes(operatorId);
-
-        s.addressWhitelistedForOperators[whitelistAddress][blockIndex] |= (1 << bitPosition);
-
-        emit OperatorWhitelistUpdated(operatorId, whitelistAddress);
-    }
-
     function setOperatorMultipleWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses

@@ -56,7 +56,6 @@ Functions related to whitelisting contracts:
 - Remove: `SSVNetwork.removeOperatorsWhitelistingContract(uint64[] calldata operatorIds)`
 
 Functions related to EOAs/generic contracts:
-- Register one address: `SSVNetwork.setOperatorWhitelist(uint64 operatorId, address whitelistAddress)`
 - Register multiple addresses to multiple operators: `SSVNetwork.setOperatorMultipleWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
 - Remove multiple addresses for multiple operators: `SSVNetwork.removeOperatorMultipleWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
 

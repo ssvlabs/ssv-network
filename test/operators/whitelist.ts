@@ -26,19 +26,6 @@ describe('Whitelisting Operator Tests', () => {
   });
 
   /* GAS LIMITS */
-
-  it('Set operator whitelist (EOA) gas limits', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
-      account: owners[1].account,
-    });
-    await trackGas(
-      ssvNetwork.write.setOperatorWhitelist([1, owners[1].account.address], {
-        account: owners[1].account,
-      }),
-      [GasGroup.SET_OPERATOR_WHITELIST],
-    );
-  });
-
   it('Set operator whitelisting contract (1 operator) gas limits', async () => {
     await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
       account: owners[1].account,
@@ -175,29 +162,6 @@ describe('Whitelisting Operator Tests', () => {
   });
 
   /* EVENTS */
-
-  it('Set operator whitelist (EOA) emits "OperatorWhitelistUpdated"', async () => {
-    const operatorId = 1;
-    const whitelistAddress = owners[2].account.address;
-
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
-      account: owners[1].account,
-    });
-    await assertEvent(
-      ssvNetwork.write.setOperatorWhitelist([1, owners[2].account.address], {
-        account: owners[1].account,
-      }),
-      [
-        {
-          contract: ssvNetwork,
-          eventName: 'OperatorWhitelistUpdated',
-          argNames: ['operatorId', 'whitelistAddress'],
-          argValuesList: [[operatorId, whitelistAddress]],
-        },
-      ],
-    );
-  });
-
   it('Set operator whitelisting contract (10 operators) emits "OperatorWhitelistingContractUpdated"', async () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
@@ -318,34 +282,9 @@ describe('Whitelisting Operator Tests', () => {
   });
 
   /* REVERTS */
-  it('Set operator whitelisted address (zero address) reverts "ZeroAddressNotAllowed"', async () => {
-    await expect(ssvNetwork.write.setOperatorWhitelist([1, ethers.ZeroAddress])).to.be.rejectedWith(
-      'ZeroAddressNotAllowed',
-    );
-  });
-
-  it('Non-owner sets operator whitelisted address (EOA) reverts "CallerNotOwner"', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
-      account: owners[1].account,
-    });
-
-    await expect(ssvNetwork.write.setOperatorWhitelist([1, owners[2].account.address])).to.be.rejectedWith(
-      'CallerNotOwner',
-    );
-  });
-
   it('Set operator whitelisted address (EOA) in non-existing operator reverts "OperatorDoesNotExist"', async () => {
-    await expect(ssvNetwork.write.setOperatorWhitelist([1, owners[2].account.address])).to.be.rejectedWith(
+    await expect(ssvNetwork.write.setOperatorMultipleWhitelists([[1], [owners[2].account.address]])).to.be.rejectedWith(
       'OperatorDoesNotExist',
-    );
-  });
-
-  it('Set operator whitelisted passing a whitelisting contract reverts "AddressIsWhitelistingContract"', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee]);
-
-    await expect(ssvNetwork.write.setOperatorWhitelist([1, mockWhitelistingContractAddress])).to.be.rejectedWith(
-      'AddressIsWhitelistingContract',
-      mockWhitelistingContractAddress,
     );
   });
 

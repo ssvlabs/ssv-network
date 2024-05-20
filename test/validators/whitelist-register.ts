@@ -45,7 +45,7 @@ describe('Register Validator Tests', () => {
     it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"/gas limits/logic', async () => {
       const operatorId = await registerOperators(1, 1, CONFIG.minimalOperatorFee);
 
-      await ssvNetwork.write.setOperatorWhitelist([operatorId, owners[3].account.address], {
+      await ssvNetwork.write.setOperatorMultipleWhitelists([[operatorId], [owners[3].account.address]], {
         account: owners[1].account,
       });
       await ssvNetwork.write.setOperatorsPrivateUnchecked([[operatorId]], {
@@ -461,7 +461,7 @@ describe('Register Validator Tests', () => {
         // Account C = owners[4]
 
         // Account A whitelists account B on SSV whitelisting module (operator 5)
-        await ssvNetwork.write.setOperatorWhitelist([5, owners[3].account.address]);
+        await ssvNetwork.write.setOperatorMultipleWhitelists([[5], [owners[3].account.address]]);
 
         // Account A adds account C to that whitelist contract
         const whitelistingContract = await hre.viem.deployContract(
@@ -870,7 +870,7 @@ describe('Register Validator Tests', () => {
       clusterData = clusterData.eventsByName.ValidatorAdded[0].args;
 
       // Step 2
-      await ssvNetwork.write.setOperatorWhitelist([2, owners[3].account.address], {
+      await ssvNetwork.write.setOperatorMultipleWhitelists([[2], [owners[3].account.address]], {
         account: owners[1].account,
       });
       await ssvNetwork.write.setOperatorsPrivateUnchecked([[2]], {
