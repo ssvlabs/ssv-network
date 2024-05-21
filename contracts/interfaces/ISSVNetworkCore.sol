@@ -59,7 +59,7 @@ interface ISSVNetworkCore {
     /**********/
 
     error CallerNotOwnerWithData(address caller, address owner); // 0x163678e9
-    error CallerNotWhitelisted(uint64 operatorId); // 0x60d86593
+    error CallerNotWhitelistedWithData(uint64 operatorId); // 0xb7f529fe
     error FeeTooLow(); // 0x732f9413
     error FeeExceedsIncreaseLimit(); // 0x958065d9
     error NoFeeDeclared(); // 0x1d226c30
@@ -102,4 +102,5 @@ interface ISSVNetworkCore {
     error ExceedValidatorLimit(uint64 operatorId); // 0x6df5ab76
     error CallerNotOwner(); // 0x5cd83192
     error TargetModuleDoesNotExist(); // 0x8f9195fb
+    error CallerNotWhitelisted(); // 0x8c6e5d71
 }

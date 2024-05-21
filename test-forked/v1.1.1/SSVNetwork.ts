@@ -11,7 +11,7 @@ export const ssvNetworkABI = [
   },
   {
     inputs: [],
-    name: 'CallerNotOwnerWithData',
+    name: 'CallerNotOwner',
     type: 'error',
   },
   {
@@ -46,7 +46,7 @@ export const ssvNetworkABI = [
   },
   {
     inputs: [],
-    name: 'ExceedValidatorLimitWithData',
+    name: 'ExceedValidatorLimit',
     type: 'error',
   },
   {

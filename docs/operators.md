@@ -66,6 +66,6 @@ When registering validators using `SSVNetwork.registerValidator` or `SSVNetwork.
     1. Check if the caller is the whitelisted address. In this step we keep the whitelisting system backward compatible with previous whitelisted EOAs/generic contracts.
     2. Check if the address is a whitelisting contract. Then call its `isWhitelisted()` function.
 
-If the caller is not authorized for any of the whitelisted operators, the transaction will revert with the `CallerNotWhitelisted()` error.
+If the caller is not authorized for any of the whitelisted operators, the transaction will revert with the `CallerNotWhitelistedWithData(<operatorId>)` error.
 
 

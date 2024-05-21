@@ -201,7 +201,7 @@ describe('Register Validator Tests', () => {
       );
     });
 
-    it('Register using non-authorized account for 1 operator with 4 operators cluster reverts "CallerNotWhitelisted"', async () => {
+    it('Register using non-authorized account for 1 operator with 4 operators cluster reverts "CallerNotWhitelistedWithData"', async () => {
       await ssvNetwork.write.setOperatorMultipleWhitelists([[3], [owners[3].account.address]], {
         account: owners[0].account,
       });
@@ -227,10 +227,10 @@ describe('Register Validator Tests', () => {
           ],
           { account: owners[2].account },
         ),
-      ).to.be.rejectedWith('CallerNotWhitelisted');
+      ).to.be.rejectedWith('CallerNotWhitelistedWithData');
     });
 
-    it('Register using non-authorized account for 1 operator with 4 operators cluster reverts "CallerNotWhitelisted"', async () => {
+    it('Register using non-authorized account for 1 operator with 4 operators cluster reverts "CallerNotWhitelistedWithData"', async () => {
       await ssvNetwork.write.setOperatorsPrivateUnchecked([[2]]);
 
       await expect(
@@ -250,7 +250,7 @@ describe('Register Validator Tests', () => {
           ],
           { account: owners[2].account },
         ),
-      ).to.be.rejectedWith('CallerNotWhitelisted');
+      ).to.be.rejectedWith('CallerNotWhitelistedWithData');
     });
 
     it('Register using fake whitelisting contract reverts', async () => {
@@ -724,7 +724,7 @@ describe('Register Validator Tests', () => {
         ]);
       });
 
-      it('Register using whitelisting contract with an unauthorized account reverts "CallerNotWhitelisted"', async () => {
+      it('Register using whitelisting contract with an unauthorized account reverts "CallerNotWhitelistedWithData"', async () => {
         await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[4].account });
 
         const pk = DataGenerator.publicKey(1);
@@ -747,7 +747,7 @@ describe('Register Validator Tests', () => {
             ],
             { account: owners[4].account },
           ),
-        ).to.be.rejectedWith('CallerNotWhitelisted');
+        ).to.be.rejectedWith('CallerNotWhitelistedWithData');
       });
 
       it('Register using whitelisting contract but a public operator allows registration', async () => {
@@ -890,7 +890,7 @@ describe('Register Validator Tests', () => {
           ],
           { account: owners[2].account },
         ),
-      ).to.be.rejectedWith('CallerNotWhitelisted');
+      ).to.be.rejectedWith('CallerNotWhitelistedWithData');
 
       // Step 4
       clusterData = await trackGas(

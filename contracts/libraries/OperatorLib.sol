@@ -75,7 +75,7 @@ library OperatorLib {
                     address whitelistedAddress = s.operatorsWhitelist[operatorId];
                     if (whitelistedAddress == address(0)) {
                         // msg.sender is not whitelisted via bitmap or legacy whitelist/whitelisting contract
-                        revert ISSVNetworkCore.CallerNotWhitelisted(operatorId);
+                        revert ISSVNetworkCore.CallerNotWhitelistedWithData(operatorId);
                     }
                     // Legacy address whitelists (EOAs or generic contracts)
                     if (whitelistedAddress != msg.sender) {
@@ -84,7 +84,7 @@ library OperatorLib {
                             revert ISSVNetworkCore.InvalidWhitelistingContract(whitelistedAddress);
                         }
                         if (!ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(msg.sender, operatorId)) {
-                            revert ISSVNetworkCore.CallerNotWhitelisted(operatorId);
+                            revert ISSVNetworkCore.CallerNotWhitelistedWithData(operatorId);
                         }
                     }
                 }
