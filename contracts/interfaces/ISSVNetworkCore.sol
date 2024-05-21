@@ -58,7 +58,7 @@ interface ISSVNetworkCore {
     /* Errors */
     /**********/
 
-    error CallerNotOwner(); // 0x5cd83192
+    error CallerNotOwnerWithData(address caller, address owner); // 0x163678e9
     error CallerNotWhitelisted(uint64 operatorId); // 0x60d86593
     error FeeTooLow(); // 0x732f9413
     error FeeExceedsIncreaseLimit(); // 0x958065d9
@@ -76,14 +76,14 @@ interface ISSVNetworkCore {
     error IncorrectClusterState(); // 0x12e04c87
     error UnsortedOperatorsList(); // 0xdd020e25
     error NewBlockPeriodIsBelowMinimum(); // 0x6e6c9cac
-    error ExceedValidatorLimit(); // 0x6df5ab76
+    error ExceedValidatorLimitWithData(uint64 operatorId); // 0x8ddf7de4
     error TokenTransferFailed(); // 0x045c4b02
     error SameFeeChangeNotAllowed(); // 0xc81272f8
     error FeeIncreaseNotAllowed(); // 0x410a2b6c
     error NotAuthorized(); // 0xea8e4eb5
     error OperatorsListNotUnique(); // 0xa5a1ff5d
     error OperatorAlreadyExists(); // 0x289c9494
-    error TargetModuleDoesNotExist(); // 0x8f9195fb
+    error TargetModuleDoesNotExistWithData(uint8 moduleId); // 0x208bb85d
     error MaxValueExceeded(); // 0x91aa3017
     error FeeTooHigh(); // 0xcd4e6167
     error PublicKeysSharesLengthMismatch(); // 0x9ad467b8
@@ -99,4 +99,7 @@ interface ISSVNetworkCore {
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
     error IncorrectValidatorState(); // 0x2feda3c1
+    error ExceedValidatorLimit(uint64 operatorId); // 0x6df5ab76
+    error CallerNotOwner(); // 0x5cd83192
+    error TargetModuleDoesNotExist(); // 0x8f9195fb
 }

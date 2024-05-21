@@ -30,7 +30,7 @@ library OperatorLib {
 
     function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
         if (operator.snapshot.block == 0) revert ISSVNetworkCore.OperatorDoesNotExist();
-        if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwner();
+        if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwnerWithData(msg.sender, operator.owner);
     }
 
     function updateClusterOperatorsOnRegistration(
@@ -45,7 +45,7 @@ library OperatorLib {
         uint256 lastBlockIndex = ~uint256(0); // Use an invalid block index as the initial value
         uint256 currentWhitelistedMask;
 
-        for (uint256 i; i < operatorsLength; ) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
 
             if (i + 1 < operatorsLength) {
@@ -92,17 +92,13 @@ library OperatorLib {
 
             updateSnapshot(operator);
             if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                revert ISSVNetworkCore.ExceedValidatorLimit();
+                revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
             }
 
             cumulativeFee += operator.fee;
             cumulativeIndex += operator.snapshot.index;
 
             s.operators[operatorId] = operator;
-
-            unchecked {
-                ++i;
-            }
         }
     }
 
@@ -115,7 +111,7 @@ library OperatorLib {
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
         uint256 operatorsLength = operatorIds.length;
 
-        for (uint256 i; i < operatorsLength; ) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
 
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
@@ -125,16 +121,12 @@ library OperatorLib {
                 if (!increaseValidatorCount) {
                     operator.validatorCount -= deltaValidatorCount;
                 } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                    revert ISSVNetworkCore.ExceedValidatorLimit();
+                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
                 }
 
                 cumulativeFee += operator.fee;
             }
             cumulativeIndex += operator.snapshot.index;
-
-            unchecked {
-                ++i;
-            }
         }
     }
 
@@ -148,7 +140,7 @@ library OperatorLib {
         if (addressesLength == 0) revert ISSVNetworkCore.InvalidWhitelistAddressesLength();
 
         checkOperatorsLength(operatorIds);
-        
+
         // create the max number of masks that will be updated
         uint256[] memory masks = generateBlockMasks(operatorIds, true, s);
 

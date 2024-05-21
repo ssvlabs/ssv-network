@@ -56,7 +56,7 @@ library CoreLib {
     }
 
     function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
-        if (!isContract(moduleAddress)) revert ISSVNetworkCore.TargetModuleDoesNotExist();
+        if (!isContract(moduleAddress)) revert ISSVNetworkCore.TargetModuleDoesNotExistWithData(uint8(moduleId));
 
         SSVStorage.load().ssvContracts[moduleId] = moduleAddress;
         emit ModuleUpgraded(moduleId, moduleAddress);

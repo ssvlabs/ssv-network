@@ -117,12 +117,12 @@ describe('Remove Operator Tests', () => {
     await trackGas(ssvNetwork.write.removeOperator([1]), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
   });
 
-  it('Remove operator I do not own reverts "CallerNotOwner"', async () => {
+  it('Remove operator I do not own reverts "CallerNotOwnerWithData"', async () => {
     await expect(
       ssvNetwork.write.removeOperator([1], {
         account: owners[1].account,
       }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Remove same operator twice reverts "OperatorDoesNotExist"', async () => {

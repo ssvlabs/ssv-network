@@ -293,16 +293,13 @@ contract SSVClusters is ISSVClusters {
             uint64 clusterIndex;
             {
                 uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ) {
+                for (uint256 i; i < operatorsLength; ++i) {
                     Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
                     clusterIndex +=
                         operator.snapshot.index +
                         (uint64(block.number) - operator.snapshot.block) *
                         operator.fee;
                     burnRate += operator.fee;
-                    unchecked {
-                        ++i;
-                    }
                 }
             }
 

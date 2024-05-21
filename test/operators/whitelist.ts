@@ -298,7 +298,7 @@ describe('Whitelisting Operator Tests', () => {
     ).to.be.rejectedWith('ZeroAddressNotAllowed');
   });
 
-  it('Non-owner sets multiple operator whitelisted addresses (EOA) reverts "CallerNotOwner"', async () => {
+  it('Non-owner sets multiple operator whitelisted addresses (EOA) reverts "CallerNotOwnerWithData"', async () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
@@ -307,7 +307,7 @@ describe('Whitelisting Operator Tests', () => {
       ssvNetwork.write.setOperatorMultipleWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
         account: owners[2].account,
       }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Set multiple operator whitelisted addresses (EOA) with empty operator IDs reverts "InvalidOperatorIdsLength"', async () => {
@@ -350,7 +350,7 @@ describe('Whitelisting Operator Tests', () => {
     ).to.be.rejectedWith('AddressIsWhitelistingContract', mockWhitelistingContractAddress);
   });
 
-  it('Non-owner removes multiple operator whitelisted addresses (EOA) reverts "CallerNotOwner"', async () => {
+  it('Non-owner removes multiple operator whitelisted addresses (EOA) reverts "CallerNotOwnerWithData"', async () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
@@ -363,7 +363,7 @@ describe('Whitelisting Operator Tests', () => {
       ssvNetwork.write.removeOperatorMultipleWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
         account: owners[2].account,
       }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Remove multiple operator whitelisted addresses (EOA) passing unsorted operator IDs reverts "UnsortedOperatorsList"', async () => {
@@ -419,14 +419,14 @@ describe('Whitelisting Operator Tests', () => {
     ).to.be.rejectedWith('InvalidOperatorIdsLength');
   });
 
-  it('Non-owner sets operator whitelisting contract reverts "CallerNotOwner"', async () => {
+  it('Non-owner sets operator whitelisting contract reverts "CallerNotOwnerWithData"', async () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     await expect(
       ssvNetwork.write.setOperatorsWhitelistingContract([OPERATOR_IDS_10, mockWhitelistingContractAddress], {
         account: owners[2].account,
       }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Sets operator whitelisting contract for a non-existing operator reverts "OperatorDoesNotExist"', async () => {
@@ -441,14 +441,14 @@ describe('Whitelisting Operator Tests', () => {
     );
   });
 
-  it('Non-owner removes operator whitelisting contract reverts "CallerNotOwner"', async () => {
+  it('Non-owner removes operator whitelisting contract reverts "CallerNotOwnerWithData"', async () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     await expect(
       ssvNetwork.write.removeOperatorsWhitelistingContract([OPERATOR_IDS_10], {
         account: owners[2].account,
       }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Set operators private with empty operator IDs reverts "InvalidOperatorIdsLength"', async () => {
@@ -459,24 +459,24 @@ describe('Whitelisting Operator Tests', () => {
     await expect(ssvNetwork.write.setOperatorsPublicUnchecked([[]])).to.be.rejectedWith('InvalidOperatorIdsLength');
   });
 
-  it('Non-owner set operators private reverts "CallerNotOwner"', async () => {
+  it('Non-owner set operators private reverts "CallerNotOwnerWithData"', async () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     await expect(
       ssvNetwork.write.setOperatorsPrivateUnchecked([OPERATOR_IDS_10], {
         account: owners[2].account,
       }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
-  it('Non-owner set operators public reverts "CallerNotOwner"', async () => {
+  it('Non-owner set operators public reverts "CallerNotOwnerWithData"', async () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     await expect(
       ssvNetwork.write.setOperatorsPublicUnchecked([OPERATOR_IDS_10], {
         account: owners[2].account,
       }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Whitelist accounts passing repeated operator IDs reverts "OperatorsListNotUnique"', async () => {
