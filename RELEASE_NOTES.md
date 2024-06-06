@@ -10,8 +10,8 @@
 #### Added
 
 **SSVNetwork**
-- `function setOperatorMultipleWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
-- `function removeOperatorMultipleWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
+- `function setOperatosWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
+- `function removeOperatorsWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
 - `function setOperatorsWhitelistingContract(uint64[] calldata operatorIds, ISSVWhitelistingContract whitelistingContract)`
 - `function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds)`
 - `function setOperatorsPublicUnchecked(uint64[] calldata operatorIds)`

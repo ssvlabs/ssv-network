@@ -8,18 +8,12 @@ interface ISSVOperatorsWhitelist is ISSVNetworkCore {
     /// @notice Sets a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
     /// @param operatorIds The operator IDs to set the whitelists for
     /// @param whitelistAddresses The list of addresses to be whitelisted
-    function setOperatorMultipleWhitelists(
-        uint64[] calldata operatorIds,
-        address[] calldata whitelistAddresses
-    ) external;
+    function setOperatosWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses) external;
 
     /// @notice Removes a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
     /// @param operatorIds Operator IDs for which whitelists are removed
     /// @param whitelistAddresses List of addresses to be removed from the whitelist
-    function removeOperatorMultipleWhitelists(
-        uint64[] calldata operatorIds,
-        address[] calldata whitelistAddresses
-    ) external;
+    function removeOperatorsWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses) external;
 
     /// @notice Sets a whitelisting contract for a list of operators
     /// @param operatorIds The operator IDs to set the whitelisting contract for
@@ -32,17 +26,6 @@ interface ISSVOperatorsWhitelist is ISSVNetworkCore {
     /// @notice Removes the whitelisting contract set for a list of operators
     /// @param operatorIds The operator IDs to remove the whitelisting contract for
     function removeOperatorsWhitelistingContract(uint64[] calldata operatorIds) external;
-
-    /// @notice Set the list of operators as private without checking for any whitelisting address
-    /// @notice The operators are considered private when registering validators
-    /// @param operatorIds The operator IDs to set as private
-    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external;
-
-    /// @notice Set the list of operators as public without removing any whitelisting address
-    /// @notice The operators still keep its adresses whitelisted (external contract or EOAs/generic contracts)
-    /// @notice The operators are considered public when registering validators
-    /// @param operatorIds The operator IDs to set as public
-    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external;
 
     /**
      * @dev Emitted when a list of adresses are whitelisted for a set of operators.
@@ -64,11 +47,4 @@ interface ISSVOperatorsWhitelist is ISSVNetworkCore {
      * @param whitelistingContract operators' new whitelisting contract address.
      */
     event OperatorWhitelistingContractUpdated(uint64[] operatorIds, address whitelistingContract);
-
-    /**
-     * @dev Emitted when the operators changed its privacy status
-     * @param operatorIds operators' IDs.
-     * @param toPrivate Flag that indicates if the operators are being set to private (true) or public (false).
-     */
-    event OperatorPrivacyStatusUpdated(uint64[] operatorIds, bool toPrivate);
 }

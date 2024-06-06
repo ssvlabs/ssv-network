@@ -56,8 +56,8 @@ Functions related to whitelisting contracts:
 - Remove: `SSVNetwork.removeOperatorsWhitelistingContract(uint64[] calldata operatorIds)`
 
 Functions related to EOAs/generic contracts:
-- Register multiple addresses to multiple operators: `SSVNetwork.setOperatorMultipleWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
-- Remove multiple addresses for multiple operators: `SSVNetwork.removeOperatorMultipleWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
+- Register multiple addresses to multiple operators: `SSVNetwork.setOperatosWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
+- Remove multiple addresses for multiple operators: `SSVNetwork.removeOperatorsWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
 
 ### Registering validators using whitelisted operators
 When registering validators using `SSVNetwork.registerValidator` or `SSVNetwork.registerValidator`, the flow to check if the caller is authorized to use a whitelisted operator is the following:

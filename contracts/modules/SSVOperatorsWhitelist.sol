@@ -16,7 +16,7 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
     /* Operator External Functions */
     /*******************************/
 
-    function setOperatorMultipleWhitelists(
+    function setOperatosWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses
     ) external override {
@@ -24,7 +24,7 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         emit OperatorMultipleWhitelistUpdated(operatorIds, whitelistAddresses);
     }
 
-    function removeOperatorMultipleWhitelists(
+    function removeOperatorsWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses
     ) external override {
@@ -82,15 +82,5 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         }
 
         emit OperatorWhitelistingContractUpdated(operatorIds, address(0));
-    }
-
-    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
-        OperatorLib.updatePrivacyStatus(operatorIds, true, SSVStorage.load());
-        emit OperatorPrivacyStatusUpdated(operatorIds, true);
-    }
-
-    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external override {
-        OperatorLib.updatePrivacyStatus(operatorIds, false, SSVStorage.load());
-        emit OperatorPrivacyStatusUpdated(operatorIds, false);
     }
 }

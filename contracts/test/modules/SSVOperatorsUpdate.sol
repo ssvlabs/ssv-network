@@ -124,6 +124,16 @@ contract SSVOperatorsUpdate is ISSVOperators {
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
+    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
+        OperatorLib.updatePrivacyStatus(operatorIds, true, SSVStorage.load());
+        emit OperatorPrivacyStatusUpdated(operatorIds, true);
+    }
+
+    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external override {
+        OperatorLib.updatePrivacyStatus(operatorIds, false, SSVStorage.load());
+        emit OperatorPrivacyStatusUpdated(operatorIds, false);
+    }
+
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
         _withdrawOperatorEarnings(operatorId, amount);
     }

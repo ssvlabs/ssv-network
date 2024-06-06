@@ -40,6 +40,17 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @param operatorId The ID of the operator
     function withdrawAllOperatorEarnings(uint64 operatorId) external;
 
+    /// @notice Set the list of operators as private without checking for any whitelisting address
+    /// @notice The operators are considered private when registering validators
+    /// @param operatorIds The operator IDs to set as private
+    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external;
+
+    /// @notice Set the list of operators as public without removing any whitelisting address
+    /// @notice The operators still keep its adresses whitelisted (external contract or EOAs/generic contracts)
+    /// @notice The operators are considered public when registering validators
+    /// @param operatorIds The operator IDs to set as public
+    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external;
+
     /**
      * @dev Emitted when a new operator has been added.
      * @param operatorId operator's ID.
@@ -67,4 +78,11 @@ interface ISSVOperators is ISSVNetworkCore {
     event OperatorFeeExecuted(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
     event OperatorWithdrawn(address indexed owner, uint64 indexed operatorId, uint256 value);
     event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress);
+
+    /**
+     * @dev Emitted when the operators changed its privacy status
+     * @param operatorIds operators' IDs.
+     * @param toPrivate Flag that indicates if the operators are being set to private (true) or public (false).
+     */
+    event OperatorPrivacyStatusUpdated(uint64[] operatorIds, bool toPrivate);
 }

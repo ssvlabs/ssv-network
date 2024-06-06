@@ -167,6 +167,20 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("setOperatorsPrivateUnchecked(address)", operatorIds)
+        );
+    }
+
+    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("setOperatorsPublicUnchecked(address)", operatorIds)
+        );
+    }
+
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
