@@ -1621,6 +1621,11 @@
         "internalType": "uint256",
         "name": "fee",
         "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "setPrivate",
+        "type": "bool"
       }
     ],
     "name": "registerOperator",
@@ -1713,14 +1718,9 @@
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
-      },
-      {
-        "internalType": "address[]",
-        "name": "whitelistAddresses",
-        "type": "address[]"
       }
     ],
-    "name": "removeOperatorMultipleWhitelists",
+    "name": "removeOperatorsWhitelistingContract",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1731,9 +1731,14 @@
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "whitelistAddresses",
+        "type": "address[]"
       }
     ],
-    "name": "removeOperatorsWhitelistingContract",
+    "name": "removeOperatorsWhitelists",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1814,24 +1819,6 @@
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
-      },
-      {
-        "internalType": "address[]",
-        "name": "whitelistAddresses",
-        "type": "address[]"
-      }
-    ],
-    "name": "setOperatorMultipleWhitelists",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64[]",
-        "name": "operatorIds",
-        "type": "uint64[]"
       }
     ],
     "name": "setOperatorsPrivateUnchecked",
@@ -1866,6 +1853,24 @@
       }
     ],
     "name": "setOperatorsWhitelistingContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64[]",
+        "name": "operatorIds",
+        "type": "uint64[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "whitelistAddresses",
+        "type": "address[]"
+      }
+    ],
+    "name": "setOperatosWhitelists",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
