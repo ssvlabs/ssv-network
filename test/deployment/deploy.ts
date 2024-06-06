@@ -38,7 +38,7 @@ describe('Deployment tests', () => {
   });
 
   it('Upgrade SSVNetwork contract. Check new function execution', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee, false], {
       account: owners[1].account,
     });
 

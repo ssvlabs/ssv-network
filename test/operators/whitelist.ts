@@ -27,7 +27,7 @@ describe('Whitelisting Operator Tests', () => {
 
   /* GAS LIMITS */
   it('Set operator whitelisting contract (1 operator) gas limits', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee, true], {
       account: owners[1].account,
     });
     await trackGas(
@@ -39,7 +39,7 @@ describe('Whitelisting Operator Tests', () => {
   });
 
   it('Update operator whitelisting contract (1 operator) gas limits', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee, true], {
       account: owners[1].account,
     });
 
@@ -75,7 +75,7 @@ describe('Whitelisting Operator Tests', () => {
   });
 
   it('Remove operator whitelisting contract (1 operator) gas limits', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee, true], {
       account: owners[1].account,
     });
 
@@ -116,7 +116,7 @@ describe('Whitelisting Operator Tests', () => {
         account: owners[1].account,
       }),
       [GasGroup.SET_MULTIPLE_OPERATOR_WHITELIST_10_10],
-    );ƒ
+    );
   });
 
   it('Remove 10 whitelist addresses (EOAs) for 10 operators gas limits', async () => {
@@ -547,7 +547,7 @@ describe('Whitelisting Operator Tests', () => {
   });
 
   it('Get private operator by id', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee, false], {
       account: owners[1].account,
     });
 
@@ -570,7 +570,7 @@ describe('Whitelisting Operator Tests', () => {
   });
 
   it('Get removed private operator by id', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee, false], {
       account: owners[1].account,
     });
 

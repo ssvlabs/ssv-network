@@ -356,11 +356,11 @@ describe('Register Validator Tests', () => {
         address: await ssvNetwork.address,
         abi: ssvNetwork.abi,
         functionName: 'registerOperator',
-        args: ['0xabcd', CONFIG.minimalOperatorFee],
+        args: ['0xabcd', CONFIG.minimalOperatorFee, true],
         account: owners[0].account,
       });
 
-      await ssvNetwork.write.registerOperator(['0xabcd', CONFIG.minimalOperatorFee]);
+      await ssvNetwork.write.registerOperator(['0xabcd', CONFIG.minimalOperatorFee, true]);
       // Whitelist the new operator with the attacker contract
       await ssvNetwork.write.setOperatorsWhitelistingContract(
         [[goodOperatorId], await badOperatorWhitelistingContract.address],

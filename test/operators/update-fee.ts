@@ -193,7 +193,7 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Declare fee after registering an operator with zero fee reverts "FeeIncreaseNotAllowed"', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(2), 0], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(2), 0, false], {
       account: owners[2].account,
     });
 
@@ -218,7 +218,7 @@ describe('Operator Fee Tests', () => {
     const maxOperatorFee = 8e14;
     await ssvNetwork.write.updateMaximumOperatorFee([maxOperatorFee]);
 
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(10), maxOperatorFee], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(10), maxOperatorFee, false], {
       account: owners[3].account,
     });
 

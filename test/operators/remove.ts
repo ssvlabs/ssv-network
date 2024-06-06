@@ -46,7 +46,7 @@ describe('Remove Operator Tests', () => {
 
   it('Remove private operator emits "OperatorRemoved"', async () => {
     const result = await trackGas(
-      ssvNetwork.write.registerOperator([DataGenerator.publicKey(22), CONFIG.minimalOperatorFee]),
+      ssvNetwork.write.registerOperator([DataGenerator.publicKey(22), CONFIG.minimalOperatorFee, true]),
     );
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
@@ -66,7 +66,7 @@ describe('Remove Operator Tests', () => {
       0, // fee
       0, // validatorCount
       ethers.ZeroAddress, // whitelisting contract address
-      false, // isPrivate
+      true, // isPrivate
       false, // active
     ]);
   });

@@ -176,7 +176,7 @@ export const registerOperators = async function (
     operator.publicKey = keccak256(toBytes(operator.operatorKey));
 
     const { eventsByName } = await trackGas(
-      ssvNetwork.write.registerOperator([operator.publicKey, fee], {
+      ssvNetwork.write.registerOperator([operator.publicKey, fee, false], {
         account: owners[ownerId].account,
       }),
       gasGroups,
