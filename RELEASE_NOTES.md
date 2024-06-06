@@ -22,6 +22,9 @@
 - `function isWhitelistingContract(address contractAddress) external view returns (bool)`
 - `function isAddressWhitelistedInWhitelistingContract(address addressToCheck, uint256 operatorId, address whitelistingContract) external view returns (bool sWhitelisted)`
 
+#### Modified
+- `function registerOperator(bytes calldata publicKey, uint256 fee, bool setPrivate) external returns (uint64 id)`
+
 ### Errors
 
 #### New

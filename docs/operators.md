@@ -7,6 +7,7 @@ The function `SSVNetwork.registerOperator()` is used to register a validator.
 Input parameters:
 `publicKey`: The public key of the operator
 `fee`: Should be `0` or greater than `100000000` and less than the value returned by `SSVNetworkViews.getMaximumOperatorFee()`
+`setPrivate`: Flag to set the privacy status of the operator. Public means anyone can use the operator for registering validators. Private means only the operator's whitelisted addresses can.
 
 After the operator is registered, the caller becomes the `owner`, the `fee` is set and the `whitelisted` status is set to `false`.
 The `whitelisted` flag of the operator indicates if the operator is private (when set to `true`) or public (`false`),

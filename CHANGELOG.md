@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### [v1.2.0] 2024-05-21
 - [Feature] Support for mulitple whitelist addresses for operators (see [docs/operators.md](docs/operators.md)).
 - [Feature] Support for external whitelisting contracts (see [docs/operators.md](docs/operators.md)).
+- [Feature] Set the privacy status when registering an operator (see [docs/operators.md](docs/operators.md)).
 
 ## [Released]
 
