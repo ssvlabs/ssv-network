@@ -1,0 +1,20 @@
+{
+  "name": "ssv-network-package-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.6",
+    "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
+    "@openzeppelin/contracts": "^4.9.6",
+    "@openzeppelin/contracts-upgradeable": "^4.9.6",
+    "hardhat": "^2.22.5",
+    "ssv-network": "^1.1.1",
+    "@openzeppelin/hardhat-upgrades": "^3.0.5"
+  }
+}
