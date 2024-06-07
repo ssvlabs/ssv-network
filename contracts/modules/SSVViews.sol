@@ -84,14 +84,14 @@ contract SSVViews is ISSVViews {
 
         StorageData storage s = SSVStorage.load();
 
-        // create the max number of masks that will be updated
-        uint256[] memory masks = OperatorLib.generateBlockMasks(operatorIds, false, s);
+        uint256 internalCount;
 
-        uint256 count;
-        whitelistedOperatorIds = new uint64[](operatorsLength);
-
+        // Check whitelisting address for each operator using the internal SSV whitelisting module
         uint256 whitelistedMask;
         uint256 matchedMask;
+
+        uint256[] memory masks = OperatorLib.generateBlockMasks(operatorIds, false, s);
+        uint64[] memory internalWhitelistedOperatorIds = new uint64[](operatorsLength);
 
         // Check whitelisting status for each mask
         for (uint256 blockIndex; blockIndex < masks.length; ++blockIndex) {
@@ -106,13 +106,46 @@ contract SSVViews is ISSVViews {
                 uint256 blockPointer = blockIndex << 8;
                 for (uint256 bit; bit < 256; ++bit) {
                     if (matchedMask & (1 << bit) != 0) {
-                        whitelistedOperatorIds[count++] = uint64(blockPointer + bit);
-                        if (count == operatorsLength) {
-                            return whitelistedOperatorIds; // Early termination
+                        internalWhitelistedOperatorIds[internalCount++] = uint64(blockPointer + bit);
+                        if (internalCount == operatorsLength) {
+                            return internalWhitelistedOperatorIds; // Early termination
                         }
                     }
                 }
             }
+        }
+
+        // Resize internalWhitelistedOperatorIds to the actual number of whitelisted operators
+        assembly {
+            mstore(internalWhitelistedOperatorIds, internalCount)
+        }
+
+        // Check if pending operators use an external whitelisting contract and check whitelistedAddress using it
+        whitelistedOperatorIds = new uint64[](operatorsLength);
+        uint256 operatorIndex;
+        uint256 internalWhitelistIndex;
+        uint256 count;
+
+        while (operatorIndex < operatorsLength) {
+            uint64 operatorId = operatorIds[operatorIndex];
+
+            // Check if operatorId is already in internalWhitelistedOperatorIds
+            if (internalWhitelistIndex < internalCount && operatorId == internalWhitelistedOperatorIds[internalWhitelistIndex]) {
+                whitelistedOperatorIds[count++] = operatorId;
+                ++internalWhitelistIndex;
+            } else {
+                // Check whitelisting contract
+                address whitelistingContract = s.operatorsWhitelist[operatorId];
+                if (whitelistingContract != address(0)) {
+                    if (
+                        OperatorLib.isWhitelistingContract(whitelistingContract) &&
+                        ISSVWhitelistingContract(whitelistingContract).isWhitelisted(whitelistedAddress, operatorId)
+                    ) {
+                        whitelistedOperatorIds[count++] = operatorId;
+                    }
+                }
+            }
+            ++operatorIndex;
         }
 
         // Resize whitelistedOperatorIds to the actual number of whitelisted operators

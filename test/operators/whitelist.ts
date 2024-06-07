@@ -524,7 +524,7 @@ describe('Whitelisting Operator Tests', () => {
     expect(await ssvViews.read.getWhitelistedOperators([[1, 2], ethers.ZeroAddress])).to.be.deep.equal([]);
   });
 
-  it('Get whitelisted address for operators returns only the whitelisted operators', async () => {
+  it('Get whitelisted address for operators returns the whitelisted operators (only SSV whitelisting module)', async () => {
     const whitelistAddress = owners[4].account.address;
 
     // Register 1000 operators to have 4 bitmap blocks
@@ -544,6 +544,210 @@ describe('Whitelisting Operator Tests', () => {
     expect(
       await ssvViews.read.getWhitelistedOperators([[1, 60, 150, 320, 512, 715, 905], whitelistAddress]),
     ).to.be.deep.equal([]);
+  });
+
+  it('Get whitelisted address for operators returns the whitelisted operators (only externally whitelisted)', async () => {
+    const whitelistAddress = owners[4].account.address;
+
+    // Register 1000 operators to have 4 bitmap blocks
+    await registerOperators(1, 1000, CONFIG.minimalOperatorFee);
+
+    await ssvNetwork.write.setOperatorsWhitelistingContract(
+      [[100, 200, 300, 400, 500, 600, 700, 800], mockWhitelistingContractAddress],
+      {
+        account: owners[1].account,
+      },
+    );
+
+    await mockWhitelistingContract.write.setWhitelistedAddress([whitelistAddress]);
+
+    expect(await ssvViews.read.getWhitelistedOperators([[200, 400, 600, 800], whitelistAddress])).to.be.deep.equal([
+      200, 400, 600, 800,
+    ]);
+    expect(
+      await ssvViews.read.getWhitelistedOperators([[1, 60, 150, 200, 320, 400, 512, 715, 800, 905], whitelistAddress]),
+    ).to.be.deep.equal([200, 400, 800]);
+    expect(
+      await ssvViews.read.getWhitelistedOperators([[1, 60, 150, 320, 512, 715, 905], whitelistAddress]),
+    ).to.be.deep.equal([]);
+  });
+
+  it('Get whitelisted address for operators returns the whitelisted operators (internally and externally whitelisted)', async () => {
+    const whitelistAddress = owners[4].account.address;
+
+    // Register 1000 operators to have 4 bitmap blocks
+    await registerOperators(1, 1000, CONFIG.minimalOperatorFee);
+
+    // Whitelist using external whitelisting contract
+    await ssvNetwork.write.setOperatorsWhitelistingContract([[100, 400, 700, 800], mockWhitelistingContractAddress], {
+      account: owners[1].account,
+    });
+
+    await mockWhitelistingContract.write.setWhitelistedAddress([whitelistAddress]);
+
+    // Whitelist using SSV whitelisting module
+    await ssvNetwork.write.setOperatosWhitelists([[200, 300, 500, 600], [whitelistAddress]], {
+      account: owners[1].account,
+    });
+
+    expect(await ssvViews.read.getWhitelistedOperators([[200, 400, 600, 800], whitelistAddress])).to.be.deep.equal([
+      200, 400, 600, 800,
+    ]);
+    expect(
+      await ssvViews.read.getWhitelistedOperators([[1, 60, 150, 200, 320, 400, 512, 715, 800, 905], whitelistAddress]),
+    ).to.be.deep.equal([200, 400, 800]);
+    expect(
+      await ssvViews.read.getWhitelistedOperators([[1, 60, 150, 320, 512, 715, 905], whitelistAddress]),
+    ).to.be.deep.equal([]);
+  });
+
+  it('Get whitelisted address for a single operator whitelisted both internally and externally', async () => {
+    const whitelistAddress = owners[4].account.address;
+
+    // Register operators
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    // Whitelist using external whitelisting contract
+    await ssvNetwork.write.setOperatorsWhitelistingContract([[1], mockWhitelistingContractAddress], {
+      account: owners[1].account,
+    });
+
+    await mockWhitelistingContract.write.setWhitelistedAddress([whitelistAddress]);
+
+    // Whitelist using SSV whitelisting module
+    await ssvNetwork.write.setOperatosWhitelists([[1], [whitelistAddress]], {
+      account: owners[1].account,
+    });
+
+    expect(await ssvViews.read.getWhitelistedOperators([[1], whitelistAddress])).to.be.deep.equal([1]);
+  });
+
+  it('Get whitelisted address for overlapping internal and external whitelisting', async () => {
+    const whitelistAddress = owners[4].account.address;
+
+    // Register operators
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    // Whitelist using external whitelisting contract
+    await ssvNetwork.write.setOperatorsWhitelistingContract([[1, 2, 3], mockWhitelistingContractAddress], {
+      account: owners[1].account,
+    });
+
+    await mockWhitelistingContract.write.setWhitelistedAddress([whitelistAddress]);
+
+    // Whitelist using SSV whitelisting module
+    await ssvNetwork.write.setOperatosWhitelists([[2, 3, 4], [whitelistAddress]], {
+      account: owners[1].account,
+    });
+
+    expect(await ssvViews.read.getWhitelistedOperators([[1, 2, 3, 4], whitelistAddress])).to.be.deep.equal([
+      1, 2, 3, 4,
+    ]);
+  });
+
+  it('Get whitelisted address for a list containing non-whitelisted operators', async () => {
+    const whitelistAddress = owners[4].account.address;
+
+    // Register operators
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    // Whitelist using SSV whitelisting module
+    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress]], {
+      account: owners[1].account,
+    });
+
+    expect(await ssvViews.read.getWhitelistedOperators([[1, 2, 3, 4, 5, 6, 7, 8], whitelistAddress])).to.be.deep.equal([
+      2, 4, 6,
+    ]);
+  });
+
+  it('Get whitelisted address for non-existent operator IDs', async () => {
+    const whitelistAddress = owners[4].account.address;
+
+    // Register operators
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    // Whitelist using SSV whitelisting module
+    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress]], {
+      account: owners[1].account,
+    });
+
+    expect(await ssvViews.read.getWhitelistedOperators([[11, 12, 13], whitelistAddress])).to.be.deep.equal([]);
+  });
+
+  it('Get whitelisted address for mixed whitelisted and non-whitelisted addresses', async () => {
+    const whitelistAddress1 = owners[4].account.address;
+    const whitelistAddress2 = owners[5].account.address;
+
+    // Register operators
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    // Whitelist using SSV whitelisting module
+    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress1]], {
+      account: owners[1].account,
+    });
+
+    await ssvNetwork.write.setOperatosWhitelists([[3, 5, 7], [whitelistAddress2]], {
+      account: owners[1].account,
+    });
+
+    expect(await ssvViews.read.getWhitelistedOperators([[1, 2, 3, 4, 5, 6, 7, 8], whitelistAddress1])).to.be.deep.equal(
+      [2, 4, 6],
+    );
+    expect(await ssvViews.read.getWhitelistedOperators([[1, 2, 3, 4, 5, 6, 7, 8], whitelistAddress2])).to.be.deep.equal(
+      [3, 5, 7],
+    );
+  });
+
+  it('Get whitelisted address for unsorted operators', async () => {
+    const whitelistAddress = owners[4].account.address;
+
+    // Register operators
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    // Whitelist using SSV whitelisting module
+    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress]], {
+      account: owners[1].account,
+    });
+
+    await expect(ssvViews.read.getWhitelistedOperators([[6, 2, 4], whitelistAddress])).to.be.rejectedWith(
+      'UnsortedOperatorsList',
+    );
+  });
+
+  it('Get whitelisted address for duplicate operator IDs', async () => {
+    const whitelistAddress = owners[4].account.address;
+
+    // Register operators
+    await registerOperators(1, 10, CONFIG.minimalOperatorFee);
+
+    // Whitelist using SSV whitelisting module
+    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress]], {
+      account: owners[1].account,
+    });
+
+    await expect(ssvViews.read.getWhitelistedOperators([[2, 2, 4, 6, 6], whitelistAddress])).to.be.rejectedWith(
+      'OperatorsListNotUnique',
+    );
+  });
+
+  it('Get whitelisted address for a large number of operator IDs', async () => {
+    const whitelistAddress = owners[4].account.address;
+
+    // Register a large number of operators
+    const largeNumber = 3000;
+    await registerOperators(1, largeNumber, CONFIG.minimalOperatorFee);
+
+    let operatorIds = [];
+    for (let i = 1; i <= largeNumber; i++) {
+      operatorIds.push(i);
+    }
+
+    await ssvNetwork.write.setOperatosWhitelists([operatorIds, [whitelistAddress]], {
+      account: owners[1].account,
+    });
+
+    expect(await ssvViews.read.getWhitelistedOperators([operatorIds, whitelistAddress])).to.be.deep.equal(operatorIds);
   });
 
   it('Get private operator by id', async () => {
