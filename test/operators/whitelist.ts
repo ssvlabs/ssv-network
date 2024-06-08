@@ -731,24 +731,29 @@ describe('Whitelisting Operator Tests', () => {
     );
   });
 
-  it('Get whitelisted address for a large number of operator IDs', async () => {
-    const whitelistAddress = owners[4].account.address;
+  (process.env.SOLIDITY_COVERAGE ? it.skip : it)(
+    'Get whitelisted address for a large number of operator IDs',
+    async () => {
+      const whitelistAddress = owners[4].account.address;
 
-    // Register a large number of operators
-    const largeNumber = 3000;
-    await registerOperators(1, largeNumber, CONFIG.minimalOperatorFee);
+      // Register a large number of operators
+      const largeNumber = 3000;
+      await registerOperators(1, largeNumber, CONFIG.minimalOperatorFee);
 
-    let operatorIds = [];
-    for (let i = 1; i <= largeNumber; i++) {
-      operatorIds.push(i);
-    }
+      let operatorIds = [];
+      for (let i = 1; i <= largeNumber; i++) {
+        operatorIds.push(i);
+      }
 
-    await ssvNetwork.write.setOperatosWhitelists([operatorIds, [whitelistAddress]], {
-      account: owners[1].account,
-    });
+      await ssvNetwork.write.setOperatosWhitelists([operatorIds, [whitelistAddress]], {
+        account: owners[1].account,
+      });
 
-    expect(await ssvViews.read.getWhitelistedOperators([operatorIds, whitelistAddress])).to.be.deep.equal(operatorIds);
-  });
+      expect(await ssvViews.read.getWhitelistedOperators([operatorIds, whitelistAddress])).to.be.deep.equal(
+        operatorIds,
+      );
+    },
+  );
 
   it('Get private operator by id', async () => {
     await ssvNetwork.write.registerOperator([DataGenerator.publicKey(0), CONFIG.minimalOperatorFee, false], {
