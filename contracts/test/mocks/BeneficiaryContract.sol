@@ -23,6 +23,6 @@ contract BeneficiaryContract {
     }
 
     function registerOperator() external returns (uint64 operatorId) {
-        return ISSVOperators(ssvContract).registerOperator("0xcafecafe", 100000000, false);
+        return ISSVOperators(ssvContract).registerOperator("0xcafecafe", 1000000000, false);
     }
 }

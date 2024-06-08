@@ -11,7 +11,7 @@ import "../libraries/CoreLib.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
 contract SSVOperators is ISSVOperators {
-    uint64 private constant MINIMAL_OPERATOR_FEE = 100_000_000;
+    uint64 private constant MINIMAL_OPERATOR_FEE = 1_000_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
 
     using Types256 for uint256;
@@ -154,6 +154,8 @@ contract SSVOperators is ISSVOperators {
         StorageData storage s = SSVStorage.load();
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
+
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
 
         uint64 shrunkAmount = fee.shrink();
         if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();

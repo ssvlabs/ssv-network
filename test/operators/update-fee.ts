@@ -328,6 +328,12 @@ describe('Operator Fee Tests', () => {
     ]);
   });
 
+  it('Reduce fee with a fee thats too low reverts "FeeTooLow"', async () => {
+    await expect(ssvNetwork.write.reduceOperatorFee([1, 10e6], { account: owners[2].account })).to.be.rejectedWith(
+      'FeeTooLow',
+    );
+  });
+
   it('Reduce fee with an increased value reverts "FeeIncreaseNotAllowed"', async () => {
     await expect(
       ssvNetwork.write.reduceOperatorFee([1, initialFee * 2n], { account: owners[2].account }),

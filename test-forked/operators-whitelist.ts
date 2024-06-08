@@ -181,13 +181,17 @@ describe('Whitelisting Tests (fork) - Pre-upgrade SSV Core Contracts Tests', () 
     // get the current whitelisted address
     const prevWhitelistedAddress = (await ssvViews.read.getOperatorById([314]))[3];
 
-    await ssvNetwork.write.setOperatosWhitelists([[314, 315, 316, 317], [owners[2].account.address]], {
+    await ssvNetwork.write.setOperatosWhitelists([[315, 316, 317], [owners[2].account.address]], {
       account: { address: '0xB4084F25DfCb2c1bf6636b420b59eda807953769' },
     });
 
-    expect(
-      await ssvViews.read.getWhitelistedOperators([[314, 315, 316, 317], owners[2].account.address]),
-    ).to.deep.equal([314n, 315n, 316n, 317n]);
+    expect(await ssvViews.read.getWhitelistedOperators([[315, 316, 317], owners[2].account.address])).to.deep.equal([
+      315n,
+      316n,
+      317n,
+    ]);
+
+    expect(await ssvViews.read.getWhitelistedOperators([[314], prevWhitelistedAddress])).to.deep.equal([314n]);
 
     // the operator uses the previous whitelisting main address
     expect((await ssvViews.read.getOperatorById([314]))[3]).to.deep.equal(prevWhitelistedAddress);

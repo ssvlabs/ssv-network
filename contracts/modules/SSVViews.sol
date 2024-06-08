@@ -77,10 +77,10 @@ contract SSVViews is ISSVViews {
 
     function getWhitelistedOperators(
         uint64[] calldata operatorIds,
-        address whitelistedAddress
+        address addressToCheck
     ) external view override returns (uint64[] memory whitelistedOperatorIds) {
         uint256 operatorsLength = operatorIds.length;
-        if (operatorsLength == 0) return whitelistedOperatorIds;
+        if (operatorsLength == 0 || addressToCheck == address(0)) return whitelistedOperatorIds;
 
         StorageData storage s = SSVStorage.load();
 
@@ -97,7 +97,7 @@ contract SSVViews is ISSVViews {
         for (uint256 blockIndex; blockIndex < masks.length; ++blockIndex) {
             // Only check blocks that have operator IDs
             if (masks[blockIndex] != 0) {
-                whitelistedMask = s.addressWhitelistedForOperators[whitelistedAddress][blockIndex];
+                whitelistedMask = s.addressWhitelistedForOperators[addressToCheck][blockIndex];
 
                 // This will give the matching whitelisted operators
                 matchedMask = whitelistedMask & masks[blockIndex];
@@ -130,19 +130,22 @@ contract SSVViews is ISSVViews {
             uint64 operatorId = operatorIds[operatorIndex];
 
             // Check if operatorId is already in internalWhitelistedOperatorIds
-            if (internalWhitelistIndex < internalCount && operatorId == internalWhitelistedOperatorIds[internalWhitelistIndex]) {
+            if (
+                internalWhitelistIndex < internalCount &&
+                operatorId == internalWhitelistedOperatorIds[internalWhitelistIndex]
+            ) {
                 whitelistedOperatorIds[count++] = operatorId;
                 ++internalWhitelistIndex;
             } else {
-                // Check whitelisting contract
-                address whitelistingContract = s.operatorsWhitelist[operatorId];
-                if (whitelistingContract != address(0)) {
-                    if (
-                        OperatorLib.isWhitelistingContract(whitelistingContract) &&
-                        ISSVWhitelistingContract(whitelistingContract).isWhitelisted(whitelistedAddress, operatorId)
-                    ) {
-                        whitelistedOperatorIds[count++] = operatorId;
-                    }
+                address whitelistedAddress = s.operatorsWhitelist[operatorId];
+
+                // Legacy address whitelists (EOAs or generic contracts)
+                if (
+                    whitelistedAddress == addressToCheck ||
+                    (OperatorLib.isWhitelistingContract(whitelistedAddress) &&
+                        ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(addressToCheck, operatorId))
+                ) {
+                    whitelistedOperatorIds[count++] = operatorId;
                 }
             }
             ++operatorIndex;

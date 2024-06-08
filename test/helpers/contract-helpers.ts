@@ -25,7 +25,7 @@ export const CONFIG: SSVConfig = {
   operatorMaxFeeIncrease: 1000,
   declareOperatorFeePeriod: 3600, // HOUR
   executeOperatorFeePeriod: 86400, // DAY
-  minimalOperatorFee: 100000000n,
+  minimalOperatorFee: 1000000000n,
   minimalBlocksBeforeLiquidation: 100800,
   minimumLiquidationCollateral: 200000000,
   validatorsPerOperatorLimit: 500,
