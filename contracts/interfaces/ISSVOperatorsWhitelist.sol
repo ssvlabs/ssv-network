@@ -6,9 +6,11 @@ import {ISSVWhitelistingContract} from "./external/ISSVWhitelistingContract.sol"
 
 interface ISSVOperatorsWhitelist is ISSVNetworkCore {
     /// @notice Sets a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
+    /// @notice Changes to an operator's whitelist will not impact existing validators registered with that operator
+    /// @notice Only new validator registrations will adhere to the updated whitelist rules
     /// @param operatorIds The operator IDs to set the whitelists for
     /// @param whitelistAddresses The list of addresses to be whitelisted
-    function setOperatosWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses) external;
+    function setOperatorsWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses) external;
 
     /// @notice Removes a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
     /// @param operatorIds Operator IDs for which whitelists are removed

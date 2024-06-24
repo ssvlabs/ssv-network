@@ -142,23 +142,25 @@ library OperatorLib {
         checkOperatorsLength(operatorIds);
 
         // create the max number of masks that will be updated
-        uint256[] memory masks = generateBlockMasks(operatorIds, true, s);
+        (uint256[] memory masks, uint256 startBlockIndex) = generateBlockMasks(operatorIds, true, s);
+        uint256 endBlockIndex = startBlockIndex + masks.length;
 
         for (uint256 i; i < addressesLength; ++i) {
             address whitelistAddress = whitelistAddresses[i];
             checkZeroAddress(whitelistAddress);
 
-            // If whitelistAddress is a custom contract, revert also when removing
-            if (isWhitelistingContract(whitelistAddress))
+            // If whitelistAddress is a custom contract, reverts only when registering addresses
+            if (registerAddresses && isWhitelistingContract(whitelistAddress))
                 revert ISSVNetworkCore.AddressIsWhitelistingContract(whitelistAddress);
 
-            for (uint256 blockIndex; blockIndex < masks.length; ++blockIndex) {
+            for (uint256 blockIndex = startBlockIndex; blockIndex < endBlockIndex; ++blockIndex) {
                 // only update storage for updated masks
-                if (masks[blockIndex] != 0) {
+                uint256 mask = masks[blockIndex - startBlockIndex];
+                if (mask != 0) {
                     if (registerAddresses) {
-                        s.addressWhitelistedForOperators[whitelistAddress][blockIndex] |= masks[blockIndex];
+                        s.addressWhitelistedForOperators[whitelistAddress][blockIndex] |= mask;
                     } else {
-                        s.addressWhitelistedForOperators[whitelistAddress][blockIndex] &= ~masks[blockIndex];
+                        s.addressWhitelistedForOperators[whitelistAddress][blockIndex] &= ~mask;
                     }
                 }
             }
@@ -169,15 +171,15 @@ library OperatorLib {
         uint64[] calldata operatorIds,
         bool checkOperatorsOwnership,
         StorageData storage s
-    ) internal view returns (uint256[] memory masks) {
-        uint256 blockIndex;
-        uint256 bitPosition;
-        uint64 currentOperatorId;
-
+    ) internal view returns (uint256[] memory masks, uint256 startBlockIndex) {
         uint256 operatorsLength = operatorIds.length;
+        startBlockIndex = operatorIds[0] >> 8;
 
-        // create the max number of masks that will be updated
-        masks = new uint256[]((operatorIds[operatorsLength - 1] >> 8) + 1);
+        // Create the masks array from startBlockIndex to the last block index
+        masks = new uint256[]((operatorIds[operatorsLength - 1] >> 8) - startBlockIndex + 1);
+
+        uint64 currentOperatorId;
+        uint64 prevOperatorId;
 
         for (uint256 i; i < operatorsLength; ++i) {
             currentOperatorId = operatorIds[i];
@@ -186,16 +188,17 @@ library OperatorLib {
                 checkOwner(s.operators[currentOperatorId]);
             }
 
-            if (i > 0 && currentOperatorId <= operatorIds[i - 1]) {
-                if (currentOperatorId == operatorIds[i - 1]) {
+            if (i > 0 && currentOperatorId <= prevOperatorId) {
+                if (currentOperatorId == prevOperatorId) {
                     revert ISSVNetworkCore.OperatorsListNotUnique();
                 }
                 revert ISSVNetworkCore.UnsortedOperatorsList();
             }
 
-            (blockIndex, bitPosition) = getBitmapIndexes(currentOperatorId);
+            (uint256 blockIndex, uint256 bitPosition) = getBitmapIndexes(currentOperatorId);
 
-            masks[blockIndex] |= (1 << bitPosition);
+            masks[blockIndex - startBlockIndex] |= (1 << bitPosition);
+            prevOperatorId = currentOperatorId;
         }
     }
 

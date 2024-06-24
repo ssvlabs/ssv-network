@@ -21,7 +21,7 @@ The restriction is only effective when the operator owner sets the privacy statu
 To manage the whitelisted addresses, these 2 data structures are used:
 
 `mapping(uint64 => address) operatorsWhitelist`: Keeps the relation between an operator and a whitelisting contract.
-`mapping(address => mapping(uint256 => uint256)) addressWhitelistedForOperators`: Links an address (EOA/generic contract) ot a list of operators identified by its `operatorId` using bitmaps.
+`mapping(address => mapping(uint256 => uint256)) addressWhitelistedForOperators`: Links an address (EOA/generic contract) to a list of operators identified by its `operatorId` using bitmaps.
 
 ### What is a Whitelisting Contract?
 The operators can choose to whitelist an external contract with custom logic to manage authorized addresses externally. To be used in SSV contracts, it needs to implement the [ISSVWhitelistingContract](../contracts/interfaces/external/ISSVWhitelistingContract.sol) interface, that requires to implement the `isWhitelisted(address account, uint256 operatorId)` function. This function is called in the register validator process, that must return `true/false` to indicate if the caller (`msg.sender`) is whitelisted for the operator.
@@ -35,11 +35,11 @@ To check if an account is whitelisted in a whitelisting contract, use the functi
 ### Legacy whitelisted addresses transition process
 Up until v1.1.1, operators use the `operatorsWhitelist` mapping to save EOAs and generic contracts. Now in v1.2.0, those type of addresses are stored in `addressWhitelistedForOperators`, leaving `operatorsWhitelist` to save only whitelisting contracts.
 When whitelisting a new whitelisting contract, the current address stored in `operatorsWhitelist` will be moved to `addressWhitelistedForOperators`, and the new address stored in `operatorsWhitelist`.
-When whitelising a new EOA/generic contract, it will be saved in `addressWhitelistedForOperators`, leaving the previous address in `operatorsWhitelist` intact.
+When whitelisting a new EOA/generic contract, it will be saved in `addressWhitelistedForOperators`, leaving the previous address in `operatorsWhitelist` intact.
 
 ### Operator whitelist states
 The following table shows all possible combinations of whitelisted addresses for a given operator.
-| Use legacy EOA/generic contract  | Use whitelising contract  | Use EOAs/generic contracts |
+| Use legacy EOA/generic contract  | Use whitelisting contract  | Use EOAs/generic contracts |
 |---|---|---|
 | Y  |   |   |
 | Y  |   | Y  |
@@ -57,7 +57,7 @@ Functions related to whitelisting contracts:
 - Remove: `SSVNetwork.removeOperatorsWhitelistingContract(uint64[] calldata operatorIds)`
 
 Functions related to EOAs/generic contracts:
-- Register multiple addresses to multiple operators: `SSVNetwork.setOperatosWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
+- Register multiple addresses to multiple operators: `SSVNetwork.setOperatorsWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
 - Remove multiple addresses for multiple operators: `SSVNetwork.removeOperatorsWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
 
 ### Registering validators using whitelisted operators
@@ -68,5 +68,8 @@ When registering validators using `SSVNetwork.registerValidator` or `SSVNetwork.
     2. Check if the address is a whitelisting contract. Then call its `isWhitelisted()` function.
 
 If the caller is not authorized for any of the whitelisted operators, the transaction will revert with the `CallerNotWhitelistedWithData(<operatorId>)` error.
+
+**Important**: Changes to an operator's whitelist will not impact existing validators registered with that operator. Only new validator registrations will adhere to the updated whitelist rules.
+
 
 

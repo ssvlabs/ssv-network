@@ -27,7 +27,7 @@ The contract owner can perform operational actions over the contract and protoco
 Only the owner of an operator can execute these functions:
 
 - `SSVNetwork.removeOperator` - Removes an existing operator
-- `SSVNetwork.setOperatosWhitelists` - Sets a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
+- `SSVNetwork.setOperatorsWhitelists` - Sets a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
 - `SSVNetwork.removeOperatorsWhitelists` - Removes a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
 - `SSVNetwork.setOperatorsWhitelistingContract` - Sets a whitelisting contract for a list of operators
 - `SSVNetwork.removeOperatorsWhitelistingContract` - Removes the whitelisting contract set for a list of operators

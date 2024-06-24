@@ -45,7 +45,7 @@ describe('Register Validator Tests', () => {
     it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"/gas limits/logic', async () => {
       const operatorId = await registerOperators(1, 1, CONFIG.minimalOperatorFee);
 
-      await ssvNetwork.write.setOperatosWhitelists([[operatorId], [owners[3].account.address]], {
+      await ssvNetwork.write.setOperatorsWhitelists([[operatorId], [owners[3].account.address]], {
         account: owners[1].account,
       });
       await ssvNetwork.write.setOperatorsPrivateUnchecked([[operatorId]], {
@@ -93,7 +93,7 @@ describe('Register Validator Tests', () => {
     });
 
     it('Register whitelisted validator in 4 operators in 4 operators cluster gas limits/logic', async () => {
-      await ssvNetwork.write.setOperatosWhitelists([DEFAULT_OPERATOR_IDS[4], [owners[3].account.address]], {
+      await ssvNetwork.write.setOperatorsWhitelists([DEFAULT_OPERATOR_IDS[4], [owners[3].account.address]], {
         account: owners[0].account,
       });
 
@@ -127,7 +127,7 @@ describe('Register Validator Tests', () => {
     });
 
     it('Register non-whitelisted validator in 1 public operator with 4 operators emits "ValidatorAdded"/logic', async () => {
-      await ssvNetwork.write.setOperatosWhitelists([[5], [owners[3].account.address]]);
+      await ssvNetwork.write.setOperatorsWhitelists([[5], [owners[3].account.address]]);
 
       await ssvNetwork.write.setOperatorsPublicUnchecked([[5]]);
 
@@ -183,7 +183,7 @@ describe('Register Validator Tests', () => {
 
       const args = eventsByName.ValidatorAdded[0].args;
 
-      await ssvNetwork.write.setOperatosWhitelists([DEFAULT_OPERATOR_IDS[4], [owners[3].account.address]]);
+      await ssvNetwork.write.setOperatorsWhitelists([DEFAULT_OPERATOR_IDS[4], [owners[3].account.address]]);
 
       await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
       await trackGas(
@@ -202,7 +202,7 @@ describe('Register Validator Tests', () => {
     });
 
     it('Register using non-authorized account for 1 operator with 4 operators cluster reverts "CallerNotWhitelistedWithData"', async () => {
-      await ssvNetwork.write.setOperatosWhitelists([[3], [owners[3].account.address]], {
+      await ssvNetwork.write.setOperatorsWhitelists([[3], [owners[3].account.address]], {
         account: owners[0].account,
       });
 
@@ -461,7 +461,7 @@ describe('Register Validator Tests', () => {
         // Account C = owners[4]
 
         // Account A whitelists account B on SSV whitelisting module (operator 5)
-        await ssvNetwork.write.setOperatosWhitelists([[5], [owners[3].account.address]]);
+        await ssvNetwork.write.setOperatorsWhitelists([[5], [owners[3].account.address]]);
 
         // Account A adds account C to that whitelist contract
         const whitelistingContract = await hre.viem.deployContract(
@@ -684,7 +684,7 @@ describe('Register Validator Tests', () => {
       it('Register using whitelisting contract for 1 operator & EOA for 1 operator in 4 operators cluster', async () => {
         await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
 
-        await ssvNetwork.write.setOperatosWhitelists([[6], [owners[3].account.address]]);
+        await ssvNetwork.write.setOperatorsWhitelists([[6], [owners[3].account.address]]);
 
         await ssvNetwork.write.setOperatorsPrivateUnchecked([[6]]);
 
@@ -799,7 +799,7 @@ describe('Register Validator Tests', () => {
 
       const operatorIds = [2, 258, 514, 770, 1026, 1282, 1538, 1794, 2050, 2306, 2562, 2818, 3074];
 
-      await ssvNetwork.write.setOperatosWhitelists([operatorIds, [owners[3].account.address]], {
+      await ssvNetwork.write.setOperatorsWhitelists([operatorIds, [owners[3].account.address]], {
         account: owners[2].account,
       });
 
@@ -870,7 +870,7 @@ describe('Register Validator Tests', () => {
       clusterData = clusterData.eventsByName.ValidatorAdded[0].args;
 
       // Step 2
-      await ssvNetwork.write.setOperatosWhitelists([[2], [owners[3].account.address]], {
+      await ssvNetwork.write.setOperatorsWhitelists([[2], [owners[3].account.address]], {
         account: owners[1].account,
       });
       await ssvNetwork.write.setOperatorsPrivateUnchecked([[2]], {

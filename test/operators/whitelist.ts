@@ -112,7 +112,7 @@ describe('Whitelisting Operator Tests', () => {
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
     await trackGas(
-      ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+      ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
         account: owners[1].account,
       }),
       [GasGroup.SET_MULTIPLE_OPERATOR_WHITELIST_10_10],
@@ -123,7 +123,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
-    await ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+    await ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
       account: owners[1].account,
     });
 
@@ -208,7 +208,7 @@ describe('Whitelisting Operator Tests', () => {
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
     await assertEvent(
-      ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+      ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
         account: owners[1].account,
       }),
       [
@@ -226,7 +226,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
-    await ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+    await ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
       account: owners[1].account,
     });
 
@@ -283,7 +283,7 @@ describe('Whitelisting Operator Tests', () => {
 
   /* REVERTS */
   it('Set operator whitelisted address (EOA) in non-existing operator reverts "OperatorDoesNotExist"', async () => {
-    await expect(ssvNetwork.write.setOperatosWhitelists([[1], [owners[2].account.address]])).to.be.rejectedWith(
+    await expect(ssvNetwork.write.setOperatorsWhitelists([[1], [owners[2].account.address]])).to.be.rejectedWith(
       'OperatorDoesNotExist',
     );
   });
@@ -292,7 +292,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     await expect(
-      ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, [ethers.ZeroAddress]], {
+      ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, [ethers.ZeroAddress]], {
         account: owners[1].account,
       }),
     ).to.be.rejectedWith('ZeroAddressNotAllowed');
@@ -304,7 +304,7 @@ describe('Whitelisting Operator Tests', () => {
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
     await expect(
-      ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+      ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
         account: owners[2].account,
       }),
     ).to.be.rejectedWith('CallerNotOwnerWithData');
@@ -313,13 +313,13 @@ describe('Whitelisting Operator Tests', () => {
   it('Set multiple operator whitelisted addresses (EOA) with empty operator IDs reverts "InvalidOperatorIdsLength"', async () => {
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
-    await expect(ssvNetwork.write.setOperatosWhitelists([[], whitelistAddresses])).to.be.rejectedWith(
+    await expect(ssvNetwork.write.setOperatorsWhitelists([[], whitelistAddresses])).to.be.rejectedWith(
       'InvalidOperatorIdsLength',
     );
   });
 
   it('Set multiple operator whitelisted addresses (EOA) with empty addresses IDs reverts "InvalidWhitelistAddressesLength"', async () => {
-    await expect(ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, []])).to.be.rejectedWith(
+    await expect(ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, []])).to.be.rejectedWith(
       'InvalidWhitelistAddressesLength',
     );
   });
@@ -331,7 +331,7 @@ describe('Whitelisting Operator Tests', () => {
 
     const unsortedOperatorIds = [1, 3, 2, 4, 5];
     await expect(
-      ssvNetwork.write.setOperatosWhitelists([unsortedOperatorIds, whitelistAddresses], {
+      ssvNetwork.write.setOperatorsWhitelists([unsortedOperatorIds, whitelistAddresses], {
         account: owners[1].account,
       }),
     ).to.be.rejectedWith('UnsortedOperatorsList');
@@ -344,7 +344,7 @@ describe('Whitelisting Operator Tests', () => {
     whitelistAddresses.push(mockWhitelistingContractAddress);
 
     await expect(
-      ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+      ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
         account: owners[1].account,
       }),
     ).to.be.rejectedWith('AddressIsWhitelistingContract', mockWhitelistingContractAddress);
@@ -355,7 +355,7 @@ describe('Whitelisting Operator Tests', () => {
 
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
-    await ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+    await ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
       account: owners[1].account,
     });
 
@@ -404,7 +404,7 @@ describe('Whitelisting Operator Tests', () => {
       ssvNetwork.write.removeOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
         account: owners[1].account,
       }),
-    ).to.be.rejectedWith('AddressIsWhitelistingContract', mockWhitelistingContractAddress);
+    ).to.not.be.rejectedWith('AddressIsWhitelistingContract', mockWhitelistingContractAddress);
   });
 
   it('Set operator whitelisting contract with an EOA reverts "InvalidWhitelistingContract"', async () => {
@@ -484,7 +484,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     await expect(
-      ssvNetwork.write.setOperatosWhitelists(
+      ssvNetwork.write.setOperatorsWhitelists(
         [
           [2, 2, 2, 2, 4, 4, 4, 4, 6, 6, 6, 6, 8, 8, 8, 8],
           [owners[4].account.address, owners[5].account.address],
@@ -500,7 +500,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
-    await ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+    await ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
       account: owners[1].account,
     });
 
@@ -530,7 +530,7 @@ describe('Whitelisting Operator Tests', () => {
     // Register 1000 operators to have 4 bitmap blocks
     await registerOperators(1, 1000, CONFIG.minimalOperatorFee);
 
-    await ssvNetwork.write.setOperatosWhitelists([[100, 200, 300, 400, 500, 600, 700, 800], [whitelistAddress]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[100, 200, 300, 400, 500, 600, 700, 800], [whitelistAddress]], {
       account: owners[1].account,
     });
 
@@ -586,7 +586,7 @@ describe('Whitelisting Operator Tests', () => {
     await mockWhitelistingContract.write.setWhitelistedAddress([whitelistAddress]);
 
     // Whitelist using SSV whitelisting module
-    await ssvNetwork.write.setOperatosWhitelists([[200, 300, 500, 600], [whitelistAddress]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[200, 300, 500, 600], [whitelistAddress]], {
       account: owners[1].account,
     });
 
@@ -615,7 +615,7 @@ describe('Whitelisting Operator Tests', () => {
     await mockWhitelistingContract.write.setWhitelistedAddress([whitelistAddress]);
 
     // Whitelist using SSV whitelisting module
-    await ssvNetwork.write.setOperatosWhitelists([[1], [whitelistAddress]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[1], [whitelistAddress]], {
       account: owners[1].account,
     });
 
@@ -636,7 +636,7 @@ describe('Whitelisting Operator Tests', () => {
     await mockWhitelistingContract.write.setWhitelistedAddress([whitelistAddress]);
 
     // Whitelist using SSV whitelisting module
-    await ssvNetwork.write.setOperatosWhitelists([[2, 3, 4], [whitelistAddress]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[2, 3, 4], [whitelistAddress]], {
       account: owners[1].account,
     });
 
@@ -652,7 +652,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     // Whitelist using SSV whitelisting module
-    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[2, 4, 6], [whitelistAddress]], {
       account: owners[1].account,
     });
 
@@ -668,7 +668,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     // Whitelist using SSV whitelisting module
-    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[2, 4, 6], [whitelistAddress]], {
       account: owners[1].account,
     });
 
@@ -683,11 +683,11 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     // Whitelist using SSV whitelisting module
-    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress1]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[2, 4, 6], [whitelistAddress1]], {
       account: owners[1].account,
     });
 
-    await ssvNetwork.write.setOperatosWhitelists([[3, 5, 7], [whitelistAddress2]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[3, 5, 7], [whitelistAddress2]], {
       account: owners[1].account,
     });
 
@@ -706,7 +706,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     // Whitelist using SSV whitelisting module
-    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[2, 4, 6], [whitelistAddress]], {
       account: owners[1].account,
     });
 
@@ -722,7 +722,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     // Whitelist using SSV whitelisting module
-    await ssvNetwork.write.setOperatosWhitelists([[2, 4, 6], [whitelistAddress]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[2, 4, 6], [whitelistAddress]], {
       account: owners[1].account,
     });
 
@@ -745,7 +745,7 @@ describe('Whitelisting Operator Tests', () => {
         operatorIds.push(i);
       }
 
-      await ssvNetwork.write.setOperatosWhitelists([operatorIds, [whitelistAddress]], {
+      await ssvNetwork.write.setOperatorsWhitelists([operatorIds, [whitelistAddress]], {
         account: owners[1].account,
       });
 
@@ -892,7 +892,7 @@ describe('Whitelisting Operator Tests', () => {
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
     await assertEvent(
-      ssvNetwork.write.setOperatosWhitelists([[1], whitelistAddresses], {
+      ssvNetwork.write.setOperatorsWhitelists([[1], whitelistAddresses], {
         account: owners[1].account,
       }),
       [
@@ -922,7 +922,7 @@ describe('Whitelisting Operator Tests', () => {
     const whitelistAddresses = owners.slice(0, 10).map(owner => owner.account.address);
 
     await assertEvent(
-      ssvNetwork.write.setOperatosWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
+      ssvNetwork.write.setOperatorsWhitelists([OPERATOR_IDS_10, whitelistAddresses], {
         account: owners[1].account,
       }),
       [
@@ -947,7 +947,7 @@ describe('Whitelisting Operator Tests', () => {
     await registerOperators(1, 10, CONFIG.minimalOperatorFee);
 
     await assertEvent(
-      ssvNetwork.write.setOperatosWhitelists([[2], [owners[3].account.address]], {
+      ssvNetwork.write.setOperatorsWhitelists([[2], [owners[3].account.address]], {
         account: owners[1].account,
       }),
       [

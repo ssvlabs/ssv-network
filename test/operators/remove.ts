@@ -50,7 +50,7 @@ describe('Remove Operator Tests', () => {
     );
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
-    await ssvNetwork.write.setOperatosWhitelists([[operatorId], [owners[2].account.address]]);
+    await ssvNetwork.write.setOperatorsWhitelists([[operatorId], [owners[2].account.address]]);
 
     await assertEvent(ssvNetwork.write.removeOperator([operatorId]), [
       {

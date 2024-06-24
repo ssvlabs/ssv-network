@@ -181,7 +181,7 @@ describe('Whitelisting Tests (fork) - Pre-upgrade SSV Core Contracts Tests', () 
     // get the current whitelisted address
     const prevWhitelistedAddress = (await ssvViews.read.getOperatorById([314]))[3];
 
-    await ssvNetwork.write.setOperatosWhitelists([[315, 316, 317], [owners[2].account.address]], {
+    await ssvNetwork.write.setOperatorsWhitelists([[315, 316, 317], [owners[2].account.address]], {
       account: { address: '0xB4084F25DfCb2c1bf6636b420b59eda807953769' },
     });
 
@@ -302,7 +302,7 @@ describe('Whitelisting Tests (fork) - Ongoing SSV Core Contracts upgrade Tests',
     await upgradeAllContracts();
 
     // whitelist a different operator using SSV whitelisting module
-    await ssvNetwork.write.setOperatosWhitelists([[315n], ['0xB4084F25DfCb2c1bf6636b420b59eda807953769']], {
+    await ssvNetwork.write.setOperatorsWhitelists([[315n], ['0xB4084F25DfCb2c1bf6636b420b59eda807953769']], {
       account: { address: '0xB4084F25DfCb2c1bf6636b420b59eda807953769' },
     });
 

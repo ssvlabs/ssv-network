@@ -16,7 +16,7 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
     /* Operator External Functions */
     /*******************************/
 
-    function setOperatosWhitelists(
+    function setOperatorsWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses
     ) external override {
@@ -55,8 +55,9 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
 
             // operator already whitelisted?
             // if EOA or generic contract, move it to SSV whitelisting module
-            if (!OperatorLib.isWhitelistingContract(currentWhitelisted)) {
+            if (currentWhitelisted != address(0) && !OperatorLib.isWhitelistingContract(currentWhitelisted)) {
                 (uint256 blockIndex, uint256 bitPosition) = OperatorLib.getBitmapIndexes(operatorId);
+
                 s.addressWhitelistedForOperators[currentWhitelisted][blockIndex] |= (1 << bitPosition);
             }
 

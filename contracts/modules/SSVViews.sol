@@ -87,20 +87,19 @@ contract SSVViews is ISSVViews {
         uint256 internalCount;
 
         // Check whitelisting address for each operator using the internal SSV whitelisting module
-        uint256 whitelistedMask;
-        uint256 matchedMask;
-
-        uint256[] memory masks = OperatorLib.generateBlockMasks(operatorIds, false, s);
+        (uint256[] memory masks, uint256 startBlockIndex) = OperatorLib.generateBlockMasks(operatorIds, false, s);
         uint64[] memory internalWhitelistedOperatorIds = new uint64[](operatorsLength);
 
+        uint256 endBlockIndex = startBlockIndex + masks.length;
         // Check whitelisting status for each mask
-        for (uint256 blockIndex; blockIndex < masks.length; ++blockIndex) {
+        for (uint256 blockIndex = startBlockIndex; blockIndex < endBlockIndex; ++blockIndex) {
+            uint256 mask = masks[blockIndex - startBlockIndex];
             // Only check blocks that have operator IDs
-            if (masks[blockIndex] != 0) {
-                whitelistedMask = s.addressWhitelistedForOperators[addressToCheck][blockIndex];
+            if (mask != 0) {
+                uint256 whitelistedMask = s.addressWhitelistedForOperators[addressToCheck][blockIndex];
 
                 // This will give the matching whitelisted operators
-                matchedMask = whitelistedMask & masks[blockIndex];
+                uint256 matchedMask = whitelistedMask & mask;
 
                 // Now we need to extract operator IDs from matchedMask
                 uint256 blockPointer = blockIndex << 8;
@@ -122,11 +121,10 @@ contract SSVViews is ISSVViews {
 
         // Check if pending operators use an external whitelisting contract and check whitelistedAddress using it
         whitelistedOperatorIds = new uint64[](operatorsLength);
-        uint256 operatorIndex;
         uint256 internalWhitelistIndex;
         uint256 count;
 
-        while (operatorIndex < operatorsLength) {
+        for (uint256 operatorIndex; operatorIndex < operatorsLength; ++operatorIndex) {
             uint64 operatorId = operatorIds[operatorIndex];
 
             // Check if operatorId is already in internalWhitelistedOperatorIds
@@ -148,7 +146,6 @@ contract SSVViews is ISSVViews {
                     whitelistedOperatorIds[count++] = operatorId;
                 }
             }
-            ++operatorIndex;
         }
 
         // Resize whitelistedOperatorIds to the actual number of whitelisted operators
