@@ -170,6 +170,7 @@ export const registerOperators = async function (
   fee: BigInt,
   gasGroups: GasGroup[] = [GasGroup.REGISTER_OPERATOR],
 ) {
+  const newOperatorIds = [];
   const targetOperatorId = lastOperatorId + numberOfOperators;
   for (let i = lastOperatorId; i < lastOperatorId + numberOfOperators && i < mockedOperators.length; i++) {
     const operator = mockedOperators[i];
@@ -185,9 +186,10 @@ export const registerOperators = async function (
     const event = eventsByName.OperatorAdded[0];
     operator.id = Number(event.args.operatorId);
     mockedOperators[i] = operator;
+    newOperatorIds.push(operator.id);
   }
   lastOperatorId = targetOperatorId;
-  return lastOperatorId;
+  return newOperatorIds;
 };
 
 export const coldRegisterValidator = async function () {

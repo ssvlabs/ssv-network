@@ -8,8 +8,10 @@ import { trackGas, GasGroup } from '../helpers/gas-usage';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
 
+import { mine } from '@nomicfoundation/hardhat-network-helpers';
+
 // Declare globals
-let ssvNetwork: any, ssvViews: any, mockWhitelistingContract: any, mockWhitelistingContractAddress: any;
+let ssvNetwork: any, ssvViews: any, ssvToken: any, mockWhitelistingContract: any, mockWhitelistingContractAddress: any;
 const OPERATOR_IDS_10 = Array.from({ length: 10 }, (_, i) => i + 1);
 
 describe('Whitelisting Operator Tests', () => {
@@ -18,6 +20,7 @@ describe('Whitelisting Operator Tests', () => {
     const metadata = await initializeContract();
     ssvNetwork = metadata.ssvNetwork;
     ssvViews = metadata.ssvNetworkViews;
+    ssvToken = metadata.ssvToken;
 
     mockWhitelistingContract = await hre.viem.deployContract('MockWhitelistingContract', [[]], {
       client: owners[0].client,
@@ -966,5 +969,84 @@ describe('Whitelisting Operator Tests', () => {
     expect(await ssvViews.read.getWhitelistedOperators([OPERATOR_IDS_10, owners[2].account.address])).to.be.deep.equal(
       [],
     );
+  });
+
+  it('Custom test: Operators balances sync', async () => {
+    // owners[2] -> operators' owner
+    // owners[3] -> whitelisted address for all 4 operators
+
+    // create 4 operators with a fee
+    const operatorIds = await registerOperators(2, 4, CONFIG.minimalOperatorFee);
+
+    // set operators private
+    ssvNetwork.write.setOperatorsPrivateUnchecked([operatorIds], {
+      account: owners[2].account,
+    });
+
+    // whitelist owners[3] address for all operators
+    await ssvNetwork.write.setOperatorsWhitelists([operatorIds, [owners[3].account.address]], {
+      account: owners[2].account,
+    });
+
+    // owners[3] registers a validator
+    const minDepositAmount = (BigInt(CONFIG.minimalBlocksBeforeLiquidation) + 2n) * CONFIG.minimalOperatorFee * 4n;
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
+    const { eventsByName } = await trackGas(
+      ssvNetwork.write.registerValidator(
+        [
+          DataGenerator.publicKey(1),
+          operatorIds,
+          await DataGenerator.shares(2, 1, operatorIds),
+          minDepositAmount,
+          {
+            validatorCount: 0,
+            networkFeeIndex: 0,
+            index: 0,
+            balance: 0n,
+            active: true,
+          },
+        ],
+        { account: owners[3].account },
+      ),
+    );
+
+    const firstCluster = eventsByName.ValidatorAdded[0].args;
+
+    // liquidate the cluster
+    await mine(CONFIG.minimalBlocksBeforeLiquidation);
+    const liquidatedCluster = await trackGas(
+      ssvNetwork.write.liquidate([firstCluster.owner, firstCluster.operatorIds, firstCluster.cluster]),
+    );
+    const updatedCluster = liquidatedCluster.eventsByName.ClusterLiquidated[0].args;
+
+    // withdraw all operators' earnings
+    for (let i = 0; i < operatorIds.length; i++) {
+      await ssvNetwork.write.withdrawAllOperatorEarnings([operatorIds[i]], {
+        account: owners[2].account,
+      });
+    }
+
+    // de-whitelist owners[3] address for all operators
+    await ssvNetwork.write.removeOperatorsWhitelists([operatorIds, [owners[3].account.address]], {
+      account: owners[2].account,
+    });
+
+    // check operators' balance is 0 after few blocks
+    await mine(1000);
+    for (let i = 0; i < operatorIds.length; i++) {
+      expect(await ssvViews.read.getOperatorEarnings([operatorIds[i]])).to.equal(0);
+    }
+
+    // reactivate the cluster
+    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
+    await ssvNetwork.write.reactivate([updatedCluster.operatorIds, minDepositAmount, updatedCluster.cluster], {
+      account: owners[3].account,
+    });
+
+    // all operators have have the right balance
+    await mine(100);
+    for (let i = 0; i < operatorIds.length; i++) {
+      expect(await ssvViews.read.getOperatorEarnings([operatorIds[i]])).to.equal(CONFIG.minimalOperatorFee * 100n);
+    }
   });
 });
