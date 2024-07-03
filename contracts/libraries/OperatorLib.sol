@@ -77,13 +77,14 @@ library OperatorLib {
                         // msg.sender is not whitelisted via bitmap or legacy whitelist/whitelisting contract
                         revert ISSVNetworkCore.CallerNotWhitelistedWithData(operatorId);
                     }
-                    // Legacy address whitelists (EOAs or generic contracts)
+                    // Legacy address & whitelisting contract check
                     if (whitelistedAddress != msg.sender) {
-                        // Check if msg.sender is whitelisted via whitelisting contract
-                        if (!OperatorLib.isWhitelistingContract(whitelistedAddress)) {
-                            revert ISSVNetworkCore.InvalidWhitelistingContract(whitelistedAddress);
-                        }
-                        if (!ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(msg.sender, operatorId)) {
+                        // Check if whitelistedAddress is a valid whitelisting contract and if msg.sender is whitelisted by it
+                        // For non-whitelisting contracts, check if msg.sender is whitelisted (EOAs or generic contracts)
+                        if (
+                            !OperatorLib.isWhitelistingContract(whitelistedAddress) ||
+                            !ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(msg.sender, operatorId)
+                        ) {
                             revert ISSVNetworkCore.CallerNotWhitelistedWithData(operatorId);
                         }
                     }

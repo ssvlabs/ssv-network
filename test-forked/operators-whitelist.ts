@@ -81,7 +81,7 @@ describe('Whitelisting Tests (fork) - Pre-upgrade SSV Core Contracts Tests', () 
         ],
         { account: owners[2].account },
       ),
-    ).to.be.rejectedWith('InvalidWhitelistingContract');
+    ).to.be.rejectedWith('CallerNotWhitelistedWithData');
   });
 
   it('Register using legacy whitelisted operators in 4 operators cluster events/logic', async () => {
