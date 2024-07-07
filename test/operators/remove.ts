@@ -46,11 +46,11 @@ describe('Remove Operator Tests', () => {
 
   it('Remove private operator emits "OperatorRemoved"', async () => {
     const result = await trackGas(
-      ssvNetwork.write.registerOperator([DataGenerator.publicKey(22), CONFIG.minimalOperatorFee]),
+      ssvNetwork.write.registerOperator([DataGenerator.publicKey(22), CONFIG.minimalOperatorFee, true]),
     );
     const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
-    await ssvNetwork.write.setOperatorWhitelist([operatorId, owners[2].account.address]);
+    await ssvNetwork.write.setOperatorsWhitelists([[operatorId], [owners[2].account.address]]);
 
     await assertEvent(ssvNetwork.write.removeOperator([operatorId]), [
       {
@@ -65,8 +65,8 @@ describe('Remove Operator Tests', () => {
       owners[0].account.address, // owner
       0, // fee
       0, // validatorCount
-      ethers.ZeroAddress, // whitelisted address
-      false, // isPrivate
+      ethers.ZeroAddress, // whitelisting contract address
+      true, // isPrivate
       false, // active
     ]);
   });
@@ -117,18 +117,16 @@ describe('Remove Operator Tests', () => {
     await trackGas(ssvNetwork.write.removeOperator([1]), [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]);
   });
 
-  it('Remove operator I do not own reverts "CallerNotOwner"', async () => {
-    await expect(ssvNetwork.write.removeOperator([1],{
-      account: owners[1].account,
-    })).to.be.rejectedWith(
-      'CallerNotOwner',
-    );
+  it('Remove operator I do not own reverts "CallerNotOwnerWithData"', async () => {
+    await expect(
+      ssvNetwork.write.removeOperator([1], {
+        account: owners[1].account,
+      }),
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Remove same operator twice reverts "OperatorDoesNotExist"', async () => {
     await ssvNetwork.write.removeOperator([1]);
-    await expect(ssvNetwork.write.removeOperator([1])).to.be.rejectedWith(
-      'OperatorDoesNotExist',
-    );
+    await expect(ssvNetwork.write.removeOperator([1])).to.be.rejectedWith('OperatorDoesNotExist');
   });
 });

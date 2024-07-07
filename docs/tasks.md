@@ -1,6 +1,6 @@
 # SSV Network
 
-### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | Tasks | [Local development](local-dev.md) | [Roles](roles.md) | [Publish](publish.md)
+### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | Tasks | [Local development](local-dev.md) | [Roles](roles.md) | [Publish](publish.md) | [Operator owners](operators.md)
 
 ## Development scripts
 
@@ -47,17 +47,17 @@ npm run size-contracts
 
 This project uses hardhat tasks to perform the deployment and upgrade of the main contracts and modules.
 
-Following Hardhat's way of working, you must specify the network against which you want to run the task using the `--network` parameter. In all the following examples, the goerli network will be used, but you can specify any defined in your `hardhat.config` file.
+Following Hardhat's way of working, you must specify the network against which you want to run the task using the `--network` parameter. In all the following examples, the holesky network will be used, but you can specify any defined in your `hardhat.config` file.
 
 ### Deploy all contracts
 
 Runs the deployment of the main SSVNetwork and SSVNetworkViews contracts, along with their associated modules:
 
 ```
-npx hardhat --network goerli_testnet deploy:all
+npx hardhat --network holesky_testnet deploy:all
 ```
 
-When deploying to live networks like Goerli or Mainnet, please double check the environment variables:
+When deploying to live networks like Holesky or Mainnet, please double check the environment variables:
 
 - MINIMUM_BLOCKS_BEFORE_LIQUIDATION
 - MINIMUM_LIQUIDATION_COLLATERAL
@@ -94,7 +94,7 @@ POSITIONAL ARGUMENTS:
   params        Function parameters
 
 Example:
-npx hardhat --network goerli_testnet upgrade:proxy --proxy-address 0x1234... --contract SSVNetworkV2 --init-function initializev2 param1 param2
+npx hardhat --network holesky_testnet upgrade:proxy --proxy-address 0x1234... --contract SSVNetworkV2 --init-function initializev2 param1 param2
 ```
 
 It is crucial to verify the upgraded contract using its proxy address.
@@ -118,7 +118,7 @@ OPTIONS:
 
 Example:
 Update 'SSVOperators' module contract in the SSVNetwork
-npx hardhat --network goerli_testnet update:module --module SSVOperators --attach-module true --proxy-address 0x1234...
+npx hardhat --network holesky_testnet update:module --module SSVOperators --attach-module true --proxy-address 0x1234...
 ```
 
 ### Upgrade a library
@@ -144,7 +144,7 @@ OPTIONS:
   --proxy-address       Proxy address of SSVNetwork / SSVNetworkViews (default: null)
 
 Example:
-npx hardhat --network goerli_testnet upgrade:prepare --proxy-address 0x1234... --contract SSVNetworkViewsV2
+npx hardhat --network holesky_testnet upgrade:prepare --proxy-address 0x1234... --contract SSVNetworkViewsV2
 ```
 
 The task will return the new implementation address. After that, you can run `upgradeTo` or `upgradeToAndCall` in SSVNetwork / SSVNetworkViews proxy address, providing it as a parameter.

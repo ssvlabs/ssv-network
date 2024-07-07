@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "../interfaces/ISSVNetworkCore.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -9,7 +9,8 @@ enum SSVModules {
     SSV_OPERATORS,
     SSV_CLUSTERS,
     SSV_DAO,
-    SSV_VIEWS
+    SSV_VIEWS,
+    SSV_OPERATORS_WHITELIST
 }
 
 /// @title SSV Network Storage Data
@@ -23,7 +24,7 @@ struct StorageData {
     mapping(bytes32 => uint64) operatorsPKs;
     /// @notice Maps each SSVModules' module to its corresponding contract address
     mapping(SSVModules => address) ssvContracts;
-    /// @notice Operators' whitelist: Maps each operator's ID to its corresponding whitelisted Ethereum address
+    /// @notice Operators' whitelist: Maps each operator's ID to a whitelisting contract
     mapping(uint64 => address) operatorsWhitelist;
     /// @notice Maps each operator's ID to its corresponding operator fee change request data
     mapping(uint64 => ISSVNetworkCore.OperatorFeeChangeRequest) operatorFeeChangeRequests;
@@ -33,10 +34,14 @@ struct StorageData {
     IERC20 token;
     /// @notice Counter keeping track of the last Operator ID issued
     Counters.Counter lastOperatorId;
+    /// @notice Operators' whitelist: Maps each whitelisted address to a list of operators
+    /// @notice that are whitelisted for that address using bitmaps
+    /// @dev The nested mapping's key represents a uint256 slot to handle more than 256 operators per address
+    mapping(address => mapping(uint256 => uint256)) addressWhitelistedForOperators;
 }
 
 library SSVStorage {
-    uint256 constant private SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
+    uint256 private constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage.main")) - 1;
 
     function load() internal pure returns (StorageData storage sd) {
         uint256 position = SSV_STORAGE_POSITION;

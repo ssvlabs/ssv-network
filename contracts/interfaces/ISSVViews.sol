@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity ^0.8.20;
 
-import "./ISSVNetworkCore.sol";
+import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
 
 interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets the validator status
@@ -30,15 +30,48 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return owner The owner of the operator
     /// @return fee The fee associated with the operator (SSV)
     /// @return validatorCount The count of validators associated with the operator
-    /// @return whitelisted The whitelisted address of the operator, if any
-    /// @return isPrivate A boolean indicating if the operator is private
+    /// @return whitelistedAddress The whitelisted address of the operator. It can be and EOA or generic contract (legacy) or a whitelisting contract
+    /// @return isPrivate A boolean indicating if the operator is private (uses whitelisting contract or SSV Whitelisting module)
     /// @return active A boolean indicating if the operator is active
     function getOperatorById(
         uint64 operatorId
     )
         external
         view
-        returns (address owner, uint256 fee, uint32 validatorCount, address whitelisted, bool isPrivate, bool active);
+        returns (
+            address owner,
+            uint256 fee,
+            uint32 validatorCount,
+            address whitelistedAddress,
+            bool isPrivate,
+            bool active
+        );
+
+    /// @notice Gets the list of operators that have the given whitelisted address (EOA or generic contract)
+    /// @param operatorIds The list of operator IDs to check
+    /// @param whitelistedAddress The address whitelisted for the operators
+    /// @return whitelistedOperatorIds The list of operator IDs that have the given whitelisted address
+    function getWhitelistedOperators(
+        uint64[] calldata operatorIds,
+        address whitelistedAddress
+    ) external view returns (uint64[] memory whitelistedOperatorIds);
+
+    /// @notice Checks if the given address is a whitelisting contract (implements ISSVWhitelistingContract)
+    /// @param contractAddress The address to check
+    /// @return isWhitelistingContract A boolean indicating if the address is a whitelisting contract
+    function isWhitelistingContract(address contractAddress) external view returns (bool isWhitelistingContract);
+
+    /// @notice Checks if the given address is whitelisted in a specific whitelisting contract.
+    /// @notice It's up to the whitelisting contract implementation to use the operatorId parameter or not.
+    /// @param addressToCheck The address to check
+    /// @param operatorId The operator ID to check in combination with addressToCheck
+    /// @param whitelistingContract The whitelisting contract address
+    /// @return isWhitelisted A boolean indicating if the address is whitelisted in the given whitelisting contract for the given operator
+    function isAddressWhitelistedInWhitelistingContract(
+        address addressToCheck,
+        uint256 operatorId,
+        address whitelistingContract
+    ) external view returns (bool isWhitelisted);
 
     /// @notice Checks if the cluster can be liquidated
     /// @param owner The owner address of the cluster

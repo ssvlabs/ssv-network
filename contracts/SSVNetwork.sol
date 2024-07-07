@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "./interfaces/ISSVNetwork.sol";
 
 import "./interfaces/ISSVClusters.sol";
 import "./interfaces/ISSVOperators.sol";
+import "./interfaces/ISSVOperatorsWhitelist.sol";
 import "./interfaces/ISSVDAO.sol";
 import "./interfaces/ISSVViews.sol";
+
+import "./interfaces/external/ISSVWhitelistingContract.sol";
 
 import "./libraries/Types.sol";
 import "./libraries/CoreLib.sol";
@@ -26,6 +29,7 @@ contract SSVNetwork is
     Ownable2StepUpgradeable,
     ISSVNetwork,
     ISSVOperators,
+    ISSVOperatorsWhitelist,
     ISSVClusters,
     ISSVDAO,
     SSVProxy
@@ -117,7 +121,11 @@ contract SSVNetwork is
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+    function registerOperator(
+        bytes calldata publicKey,
+        uint256 fee,
+        bool setPrivate
+    ) external override returns (uint64 id) {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
@@ -125,8 +133,37 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
+    function setOperatorsWhitelists(
+        uint64[] calldata operatorIds,
+        address[] calldata whitelistAddresses
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
+    }
+
+    function removeOperatorsWhitelists(
+        uint64[] calldata operatorIds,
+        address[] calldata whitelistAddresses
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
+    }
+
+    function setOperatorsWhitelistingContract(
+        uint64[] calldata operatorIds,
+        ISSVWhitelistingContract whitelistingContract
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
+    }
+
+    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+    }
+
+    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+    }
+
+    function removeOperatorsWhitelistingContract(uint64[] calldata operatorIds) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS_WHITELIST]);
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {

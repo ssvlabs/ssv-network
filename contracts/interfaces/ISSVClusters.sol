@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity ^0.8.20;
 
-import "./ISSVNetworkCore.sol";
+import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
 
 interface ISSVClusters is ISSVNetworkCore {
     /// @notice Registers a new validator on the SSV Network

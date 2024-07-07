@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity ^0.8.20;
 
-import "./ISSVNetworkCore.sol";
-import "./ISSVOperators.sol";
-import "./ISSVClusters.sol";
-import "./ISSVDAO.sol";
-import "./ISSVViews.sol";
+import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
+import {ISSVOperators} from "./ISSVOperators.sol";
+import {ISSVClusters} from "./ISSVClusters.sol";
+import {ISSVDAO} from "./ISSVDAO.sol";
+import {ISSVViews} from "./ISSVViews.sol";
 
 import {SSVModules} from "../libraries/SSVStorage.sol";
 

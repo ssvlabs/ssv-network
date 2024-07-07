@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "../interfaces/ISSVNetworkCore.sol";
-import "./SSVStorage.sol";
+import {StorageData} from "./SSVStorage.sol";
 
 library ValidatorLib {
     uint64 private constant MIN_OPERATORS_LENGTH = 4;
@@ -42,8 +42,8 @@ library ValidatorLib {
     }
 
     function validateCorrectState(bytes32 validatorData, bytes32 hashedOperatorIds) internal pure returns (bool) {
-            // All bits set to 1 except LSB
-            // Clear LSB of stored validator data and compare
-            return (validatorData & ~bytes32(uint256(1))) == hashedOperatorIds;
+        // All bits set to 1 except LSB
+        // Clear LSB of stored validator data and compare
+        return (validatorData & ~bytes32(uint256(1))) == hashedOperatorIds;
     }
 }

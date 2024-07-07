@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "../interfaces/ISSVNetworkCore.sol";
-import "./Types.sol";
-import "./SSVStorageProtocol.sol";
+import {Types256} from "./Types.sol";
+import {StorageProtocol} from "./SSVStorageProtocol.sol";
 
 library ProtocolLib {
     using Types256 for uint256;

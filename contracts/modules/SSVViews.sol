@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
-import "../interfaces/ISSVViews.sol";
-import "../libraries/Types.sol";
+import {ISSVViews} from "../interfaces/ISSVViews.sol";
+import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
+import {Types64} from "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
-import "../libraries/SSVStorage.sol";
-import "../libraries/SSVStorageProtocol.sol";
+import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -49,13 +50,121 @@ contract SSVViews is ISSVViews {
         );
     }
 
-    function getOperatorById(uint64 operatorId) external view returns (address, uint256, uint32, address, bool, bool) {
-        ISSVNetworkCore.Operator memory operator = SSVStorage.load().operators[operatorId];
-        address whitelisted = SSVStorage.load().operatorsWhitelist[operatorId];
-        bool isPrivate = whitelisted == address(0) ? false : true;
-        bool isActive = operator.snapshot.block == 0 ? false : true;
+    function getOperatorById(
+        uint64 operatorId
+    )
+        external
+        view
+        override
+        returns (
+            address owner,
+            uint256 fee,
+            uint32 validatorCount,
+            address whitelistedAddress,
+            bool isPrivate,
+            bool isActive
+        )
+    {
+        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
 
-        return (operator.owner, operator.fee.expand(), operator.validatorCount, whitelisted, isPrivate, isActive);
+        owner = operator.owner;
+        fee = operator.fee.expand();
+        validatorCount = operator.validatorCount;
+        whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
+        isPrivate = operator.whitelisted;
+        isActive = operator.snapshot.block != 0;
+    }
+
+    function getWhitelistedOperators(
+        uint64[] calldata operatorIds,
+        address addressToCheck
+    ) external view override returns (uint64[] memory whitelistedOperatorIds) {
+        uint256 operatorsLength = operatorIds.length;
+        if (operatorsLength == 0 || addressToCheck == address(0)) return whitelistedOperatorIds;
+
+        StorageData storage s = SSVStorage.load();
+
+        uint256 internalCount;
+
+        // Check whitelisting address for each operator using the internal SSV whitelisting module
+        (uint256[] memory masks, uint256 startBlockIndex) = OperatorLib.generateBlockMasks(operatorIds, false, s);
+        uint64[] memory internalWhitelistedOperatorIds = new uint64[](operatorsLength);
+
+        uint256 endBlockIndex = startBlockIndex + masks.length;
+        // Check whitelisting status for each mask
+        for (uint256 blockIndex = startBlockIndex; blockIndex < endBlockIndex; ++blockIndex) {
+            uint256 mask = masks[blockIndex - startBlockIndex];
+            // Only check blocks that have operator IDs
+            if (mask != 0) {
+                uint256 whitelistedMask = s.addressWhitelistedForOperators[addressToCheck][blockIndex];
+
+                // This will give the matching whitelisted operators
+                uint256 matchedMask = whitelistedMask & mask;
+
+                // Now we need to extract operator IDs from matchedMask
+                uint256 blockPointer = blockIndex << 8;
+                for (uint256 bit; bit < 256; ++bit) {
+                    if (matchedMask & (1 << bit) != 0) {
+                        internalWhitelistedOperatorIds[internalCount++] = uint64(blockPointer + bit);
+                        if (internalCount == operatorsLength) {
+                            return internalWhitelistedOperatorIds; // Early termination
+                        }
+                    }
+                }
+            }
+        }
+
+        // Resize internalWhitelistedOperatorIds to the actual number of whitelisted operators
+        assembly {
+            mstore(internalWhitelistedOperatorIds, internalCount)
+        }
+
+        // Check if pending operators use an external whitelisting contract and check whitelistedAddress using it
+        whitelistedOperatorIds = new uint64[](operatorsLength);
+        uint256 internalWhitelistIndex;
+        uint256 count;
+
+        for (uint256 operatorIndex; operatorIndex < operatorsLength; ++operatorIndex) {
+            uint64 operatorId = operatorIds[operatorIndex];
+
+            // Check if operatorId is already in internalWhitelistedOperatorIds
+            if (
+                internalWhitelistIndex < internalCount &&
+                operatorId == internalWhitelistedOperatorIds[internalWhitelistIndex]
+            ) {
+                whitelistedOperatorIds[count++] = operatorId;
+                ++internalWhitelistIndex;
+            } else {
+                address whitelistedAddress = s.operatorsWhitelist[operatorId];
+
+                // Legacy address whitelists (EOAs or generic contracts)
+                if (
+                    whitelistedAddress == addressToCheck ||
+                    (OperatorLib.isWhitelistingContract(whitelistedAddress) &&
+                        ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(addressToCheck, operatorId))
+                ) {
+                    whitelistedOperatorIds[count++] = operatorId;
+                }
+            }
+        }
+
+        // Resize whitelistedOperatorIds to the actual number of whitelisted operators
+        assembly {
+            mstore(whitelistedOperatorIds, count)
+        }
+    }
+
+    function isWhitelistingContract(address contractAddress) external view override returns (bool) {
+        return OperatorLib.isWhitelistingContract(contractAddress);
+    }
+
+    function isAddressWhitelistedInWhitelistingContract(
+        address addressToCheck,
+        uint256 operatorId,
+        address whitelistingContract
+    ) external view override returns (bool) {
+        if (!OperatorLib.isWhitelistingContract(whitelistingContract) || addressToCheck == address(0)) return false;
+        return ISSVWhitelistingContract(whitelistingContract).isWhitelisted(addressToCheck, operatorId);
     }
 
     /***********************************/

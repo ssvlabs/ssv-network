@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
-import "../interfaces/ISSVClusters.sol";
+import {ISSVClusters} from "../interfaces/ISSVClusters.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
-import "../libraries/SSVStorage.sol";
-import "../libraries/SSVStorageProtocol.sol";
+import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 
 contract SSVClusters is ISSVClusters {
     using ClusterLib for Cluster;
@@ -104,7 +104,7 @@ contract SSVClusters is ISSVClusters {
 
         if (cluster.active) {
             StorageProtocol storage sp = SSVStorageProtocol.load();
-            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, false, 1, s, sp);
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 1, s, sp);
 
             cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
@@ -151,14 +151,7 @@ contract SSVClusters is ISSVClusters {
 
         if (cluster.active) {
             StorageProtocol storage sp = SSVStorageProtocol.load();
-            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
-                operatorIds,
-                false,
-                false,
-                validatorsRemoved,
-                s,
-                sp
-            );
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, validatorsRemoved, s, sp);
 
             cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
@@ -184,7 +177,6 @@ contract SSVClusters is ISSVClusters {
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
-            false,
             false,
             cluster.validatorCount,
             s,
@@ -236,7 +228,6 @@ contract SSVClusters is ISSVClusters {
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
-            false,
             true,
             cluster.validatorCount,
             s,
@@ -302,16 +293,13 @@ contract SSVClusters is ISSVClusters {
             uint64 clusterIndex;
             {
                 uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ) {
+                for (uint256 i; i < operatorsLength; ++i) {
                     Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
                     clusterIndex +=
                         operator.snapshot.index +
                         (uint64(block.number) - operator.snapshot.block) *
                         operator.fee;
                     burnRate += operator.fee;
-                    unchecked {
-                        ++i;
-                    }
                 }
             }
 

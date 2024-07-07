@@ -14,4 +14,4 @@ jobs:
       - run: npm ci
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-      - run: npx hardhat test
+      - run: npx hardhat test --parallel

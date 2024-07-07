@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "./SSVStorage.sol";
 
@@ -7,7 +7,7 @@ library CoreLib {
     event ModuleUpgraded(SSVModules indexed moduleId, address moduleAddress);
 
     function getVersion() internal pure returns (string memory) {
-        return "v1.1.0";
+        return "v1.2.0";
     }
 
     function transferBalance(address to, uint256 amount) internal {
@@ -55,9 +55,8 @@ library CoreLib {
         return size > 0;
     }
 
-
     function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
-        if (!isContract(moduleAddress)) revert ISSVNetworkCore.TargetModuleDoesNotExist();
+        if (!isContract(moduleAddress)) revert ISSVNetworkCore.TargetModuleDoesNotExistWithData(uint8(moduleId));
 
         SSVStorage.load().ssvContracts[moduleId] = moduleAddress;
         emit ModuleUpgraded(moduleId, moduleAddress);

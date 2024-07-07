@@ -259,7 +259,7 @@ describe('Remove Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           updatedCluster.operatorIds,
-          await DataGenerator.shares(1, 1, 4),
+          await DataGenerator.shares(1, 1, updatedCluster.operatorIds),
           0,
           updatedCluster.cluster,
         ],

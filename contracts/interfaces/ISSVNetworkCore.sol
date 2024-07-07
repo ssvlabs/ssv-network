@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity ^0.8.20;
 
 interface ISSVNetworkCore {
     /***********/
@@ -24,7 +24,7 @@ interface ISSVNetworkCore {
         uint64 fee;
         /// @dev The address of the operator's owner
         address owner;
-        /// @dev Whitelisted flag for this operator
+        /// @dev private flag for this operator
         bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
@@ -58,8 +58,8 @@ interface ISSVNetworkCore {
     /* Errors */
     /**********/
 
-    error CallerNotOwner(); // 0x5cd83192
-    error CallerNotWhitelisted(); // 0x8c6e5d71
+    error CallerNotOwnerWithData(address caller, address owner); // 0x163678e9
+    error CallerNotWhitelistedWithData(uint64 operatorId); // 0xb7f529fe
     error FeeTooLow(); // 0x732f9413
     error FeeExceedsIncreaseLimit(); // 0x958065d9
     error NoFeeDeclared(); // 0x1d226c30
@@ -76,22 +76,31 @@ interface ISSVNetworkCore {
     error IncorrectClusterState(); // 0x12e04c87
     error UnsortedOperatorsList(); // 0xdd020e25
     error NewBlockPeriodIsBelowMinimum(); // 0x6e6c9cac
-    error ExceedValidatorLimit(); // 0x6df5ab76
+    error ExceedValidatorLimitWithData(uint64 operatorId); // 0x8ddf7de4
     error TokenTransferFailed(); // 0x045c4b02
     error SameFeeChangeNotAllowed(); // 0xc81272f8
     error FeeIncreaseNotAllowed(); // 0x410a2b6c
     error NotAuthorized(); // 0xea8e4eb5
     error OperatorsListNotUnique(); // 0xa5a1ff5d
     error OperatorAlreadyExists(); // 0x289c9494
-    error TargetModuleDoesNotExist(); // 0x8f9195fb
+    error TargetModuleDoesNotExistWithData(uint8 moduleId); // 0x208bb85d
     error MaxValueExceeded(); // 0x91aa3017
     error FeeTooHigh(); // 0xcd4e6167
     error PublicKeysSharesLengthMismatch(); // 0x9ad467b8
     error IncorrectValidatorStateWithData(bytes publicKey); // 0x89307938
     error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
     error EmptyPublicKeysList(); // df83e679
+    error InvalidContractAddress(); // 0xa710429d
+    error AddressIsWhitelistingContract(address contractAddress); // 0x71cadba7
+    error InvalidWhitelistingContract(address contractAddress); // 0x886e6a03
+    error InvalidWhitelistAddressesLength(); // 0xcbb362dc
+    error ZeroAddressNotAllowed(); // 0x8579befe
 
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
     error IncorrectValidatorState(); // 0x2feda3c1
+    error ExceedValidatorLimit(uint64 operatorId); // 0x6df5ab76
+    error CallerNotOwner(); // 0x5cd83192
+    error TargetModuleDoesNotExist(); // 0x8f9195fb
+    error CallerNotWhitelisted(); // 0x8c6e5d71
 }

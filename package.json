@@ -1,6 +1,6 @@
 {
   "name": "ssv-network",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Solidity smart contracts for the SSV Network",
   "author": "SSV.Network",
   "repository": {
@@ -29,7 +29,8 @@
   ],
   "scripts": {
     "build": "npx hardhat compile",
-    "test": "npx hardhat test",
+    "test": "npx hardhat test --parallel",
+    "test-forked": "FORK_TESTING_ENABLED=true npx hardhat test test-forked/*.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
     "solidity-coverage": "SOLIDITY_COVERAGE=true NO_GAS_ENFORCE=1 npx hardhat coverage",
@@ -45,7 +46,7 @@
     "@openzeppelin/contracts-upgradeable": "^4.9.6",
     "@openzeppelin/hardhat-upgrades": "^3.0.5",
     "dotenv": "^16.4.5",
-    "hardhat": "^2.22.2",
+    "hardhat": "^2.22.4",
     "hardhat-abi-exporter": "^2.10.1",
     "hardhat-contract-sizer": "^2.10.0",
     "solidity-coverage": "^0.8.12",

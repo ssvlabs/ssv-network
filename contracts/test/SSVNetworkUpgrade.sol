@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "./interfaces/ISSVNetworkT.sol";
 
@@ -117,10 +117,10 @@ contract SSVNetworkUpgrade is
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+    function registerOperator(bytes calldata publicKey, uint256 fee, bool setPrivate) external override returns (uint64 id) {
         bytes memory result = _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
-            abi.encodeWithSignature("registerOperator(bytes,uint256)", publicKey, fee)
+            abi.encodeWithSignature("registerOperator(bytes,uint256)", publicKey, fee, setPrivate)
         );
         return abi.decode(result, (uint64));
     }
@@ -129,13 +129,6 @@ contract SSVNetworkUpgrade is
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
             abi.encodeWithSignature("removeOperator(uint64)", operatorId)
-        );
-    }
-
-    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external override {
-        _delegateCall(
-            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
-            abi.encodeWithSignature("setOperatorWhitelist(uint64,address)", operatorId, whitelisted)
         );
     }
 
@@ -171,6 +164,20 @@ contract SSVNetworkUpgrade is
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
             abi.encodeWithSignature("setFeeRecipientAddress(address)", recipientAddress)
+        );
+    }
+
+    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("setOperatorsPrivateUnchecked(address)", operatorIds)
+        );
+    }
+
+    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("setOperatorsPublicUnchecked(address)", operatorIds)
         );
     }
 

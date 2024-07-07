@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "./interfaces/ISSVViews.sol";
 import "./libraries/Types.sol";
@@ -59,6 +59,25 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         uint64 operatorId
     ) external view override returns (address, uint256, uint32, address, bool, bool) {
         return ssvNetwork.getOperatorById(operatorId);
+    }
+
+    function getWhitelistedOperators(
+        uint64[] calldata operatorIds,
+        address whitelistedAddress
+    ) external view override returns (uint64[] memory whitelistedOperatorIds) {
+        return ssvNetwork.getWhitelistedOperators(operatorIds, whitelistedAddress);
+    }
+
+    function isWhitelistingContract(address contractAddress) external view override returns (bool) {
+        return ssvNetwork.isWhitelistingContract(contractAddress);
+    }
+
+    function isAddressWhitelistedInWhitelistingContract(
+        address addressToCheck,
+        uint256 operatorId,
+        address whitelistingContract
+    ) external view override returns (bool isWhitelisted) {
+        return ssvNetwork.isAddressWhitelistedInWhitelistingContract(addressToCheck, operatorId, whitelistingContract);
     }
 
     /***********************************/

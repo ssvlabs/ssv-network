@@ -178,12 +178,12 @@ describe('Withdraw Tests', () => {
     ).to.be.rejectedWith('InsufficientBalance');
   });
 
-  it('Withdraw balance from an operator I do not own reverts "CallerNotOwner"', async () => {
+  it('Withdraw balance from an operator I do not own reverts "CallerNotOwnerWithData"', async () => {
     await expect(
       ssvNetwork.write.withdrawOperatorEarnings([1, minDepositAmount], {
         account: owners[2].account,
       }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Withdraw more than the operator balance reverts "InsufficientBalance"', async () => {
@@ -209,12 +209,12 @@ describe('Withdraw Tests', () => {
     );
   });
 
-  it('Withdraw the total balance from an operator I do not own reverts "CallerNotOwner"', async () => {
+  it('Withdraw the total balance from an operator I do not own reverts "CallerNotOwnerWithData"', async () => {
     await expect(
       ssvNetwork.write.withdrawAllOperatorEarnings([12], {
         account: owners[2].account,
       }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Withdraw more than the operator total balance reverts "InsufficientBalance"', async () => {

@@ -78,7 +78,7 @@ describe('Exit Validator Tests', () => {
       [
         DataGenerator.publicKey(2),
         DEFAULT_OPERATOR_IDS[4],
-        await DataGenerator.shares(1, 2, 4),
+        await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[4]),
         minDepositAmount,
         firstCluster.cluster,
       ],
@@ -168,8 +168,8 @@ describe('Exit Validator Tests', () => {
       ssvNetwork.write.registerValidator(
         [
           DataGenerator.publicKey(2),
-          [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
-          await DataGenerator.shares(2, 2, 13),
+          DEFAULT_OPERATOR_IDS[13],
+          await DataGenerator.shares(2, 2, DEFAULT_OPERATOR_IDS[13]),
           minDepositAmount,
           {
             validatorCount: 0,

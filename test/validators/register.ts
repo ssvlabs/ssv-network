@@ -48,7 +48,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 1, 4),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -82,7 +82,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 1, 4),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -107,7 +107,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 1, 4),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -130,7 +130,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 2, 4),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           args.cluster,
         ],
@@ -147,7 +147,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 1, 4),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -170,7 +170,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 2, 4),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           args.cluster,
         ],
@@ -186,7 +186,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(4),
           [2, 3, 4, 5],
-          await DataGenerator.shares(2, 4, 4),
+          await DataGenerator.shares(2, 4, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -210,7 +210,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 1, 4),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount * 2n,
           {
             validatorCount: 0,
@@ -228,7 +228,13 @@ describe('Register Validator Tests', () => {
     const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(
       ssvNetwork.write.registerValidator(
-        [DataGenerator.publicKey(2), DEFAULT_OPERATOR_IDS[4], await DataGenerator.shares(1, 2, 4), 0, args.cluster],
+        [
+          DataGenerator.publicKey(2),
+          DEFAULT_OPERATOR_IDS[4],
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[4]),
+          0,
+          args.cluster,
+        ],
         { account: owners[1].account },
       ),
       [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT],
@@ -242,7 +248,7 @@ describe('Register Validator Tests', () => {
         [
           [DataGenerator.publicKey(12)],
           DEFAULT_OPERATOR_IDS[4],
-          [await DataGenerator.shares(1, 11, 4)],
+          [await DataGenerator.shares(1, 11, DEFAULT_OPERATOR_IDS[4])],
           minDepositAmount,
           {
             validatorCount: 0,
@@ -289,7 +295,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[7],
-          await DataGenerator.shares(1, 2, 7),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[7]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -312,7 +318,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[7],
-          await DataGenerator.shares(1, 1, 7),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[7]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -335,7 +341,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[7],
-          await DataGenerator.shares(1, 2, 7),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[7]),
           minDepositAmount,
           args.cluster,
         ],
@@ -352,7 +358,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[7],
-          await DataGenerator.shares(1, 1, 7),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[7]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -375,7 +381,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[7],
-          await DataGenerator.shares(1, 2, 7),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[7]),
           minDepositAmount,
           args.cluster,
         ],
@@ -391,7 +397,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(4),
           [2, 3, 4, 5, 6, 7, 8],
-          await DataGenerator.shares(2, 4, 7),
+          await DataGenerator.shares(2, 4, DEFAULT_OPERATOR_IDS[7]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -415,7 +421,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[7],
-          await DataGenerator.shares(1, 1, 7),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[7]),
           minDepositAmount * 2n,
           {
             validatorCount: 0,
@@ -433,7 +439,13 @@ describe('Register Validator Tests', () => {
     const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(
       ssvNetwork.write.registerValidator(
-        [DataGenerator.publicKey(2), DEFAULT_OPERATOR_IDS[7], await DataGenerator.shares(1, 2, 7), 0, args.cluster],
+        [
+          DataGenerator.publicKey(2),
+          DEFAULT_OPERATOR_IDS[7],
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[7]),
+          0,
+          args.cluster,
+        ],
         { account: owners[1].account },
       ),
       [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_7],
@@ -449,7 +461,7 @@ describe('Register Validator Tests', () => {
         [
           [DataGenerator.publicKey(12)],
           operatorIds,
-          [await DataGenerator.shares(1, 11, operatorIds.length)],
+          [await DataGenerator.shares(1, 11, operatorIds)],
           minDepositAmount,
           {
             validatorCount: 0,
@@ -496,7 +508,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[10],
-          await DataGenerator.shares(1, 1, 10),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[10]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -519,7 +531,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[10],
-          await DataGenerator.shares(1, 1, 10),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[10]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -542,7 +554,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[10],
-          await DataGenerator.shares(1, 2, 10),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[10]),
           minDepositAmount,
           args.cluster,
         ],
@@ -559,7 +571,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[10],
-          await DataGenerator.shares(1, 1, 10),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[10]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -582,7 +594,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[10],
-          await DataGenerator.shares(1, 2, 10),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[10]),
           minDepositAmount,
           args.cluster,
         ],
@@ -598,7 +610,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(4),
           DEFAULT_OPERATOR_IDS[10],
-          await DataGenerator.shares(2, 4, 10),
+          await DataGenerator.shares(2, 4, DEFAULT_OPERATOR_IDS[10]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -622,7 +634,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[10],
-          await DataGenerator.shares(1, 1, 10),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[10]),
           minDepositAmount * 2n,
           {
             validatorCount: 0,
@@ -640,7 +652,13 @@ describe('Register Validator Tests', () => {
     const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(
       ssvNetwork.write.registerValidator(
-        [DataGenerator.publicKey(2), DEFAULT_OPERATOR_IDS[10], await DataGenerator.shares(1, 2, 10), 0, args.cluster],
+        [
+          DataGenerator.publicKey(2),
+          DEFAULT_OPERATOR_IDS[10],
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[10]),
+          0,
+          args.cluster,
+        ],
         { account: owners[1].account },
       ),
       [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_10],
@@ -656,7 +674,7 @@ describe('Register Validator Tests', () => {
         [
           [DataGenerator.publicKey(12)],
           operatorIds,
-          [await DataGenerator.shares(1, 10, operatorIds.length)],
+          [await DataGenerator.shares(1, 10, operatorIds)],
           minDepositAmount,
           {
             validatorCount: 0,
@@ -704,7 +722,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[13],
-          await DataGenerator.shares(1, 1, 13),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[13]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -727,7 +745,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[13],
-          await DataGenerator.shares(1, 1, 13),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[13]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -749,7 +767,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[13],
-          await DataGenerator.shares(1, 2, 13),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[13]),
           minDepositAmount,
           args.cluster,
         ],
@@ -766,7 +784,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[13],
-          await DataGenerator.shares(1, 1, 13),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[13]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -788,7 +806,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[13],
-          await DataGenerator.shares(1, 2, 13),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[13]),
           minDepositAmount,
           args.cluster,
         ],
@@ -803,7 +821,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(4),
           DEFAULT_OPERATOR_IDS[13],
-          await DataGenerator.shares(2, 4, 13),
+          await DataGenerator.shares(2, 4, DEFAULT_OPERATOR_IDS[13]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -827,7 +845,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[13],
-          await DataGenerator.shares(1, 1, 13),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[13]),
           minDepositAmount * 2n,
           {
             validatorCount: 0,
@@ -845,7 +863,13 @@ describe('Register Validator Tests', () => {
     const args = eventsByName.ValidatorAdded[0].args;
     await trackGas(
       ssvNetwork.write.registerValidator(
-        [DataGenerator.publicKey(2), DEFAULT_OPERATOR_IDS[13], await DataGenerator.shares(1, 2, 13), 0, args.cluster],
+        [
+          DataGenerator.publicKey(2),
+          DEFAULT_OPERATOR_IDS[13],
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[13]),
+          0,
+          args.cluster,
+        ],
         { account: owners[1].account },
       ),
       [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_13],
@@ -861,7 +885,7 @@ describe('Register Validator Tests', () => {
         [
           [DataGenerator.publicKey(12)],
           operatorIds,
-          [await DataGenerator.shares(1, 11, operatorIds.length)],
+          [await DataGenerator.shares(1, 11, operatorIds)],
           minDepositAmount,
           {
             validatorCount: 0,
@@ -916,7 +940,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(6, 2, 4),
+          await DataGenerator.shares(6, 2, DEFAULT_OPERATOR_IDS[4]),
           '1000000000000000',
           clusterData,
         ],
@@ -943,7 +967,7 @@ describe('Register Validator Tests', () => {
       [
         DataGenerator.publicKey(2),
         DEFAULT_OPERATOR_IDS[4],
-        await DataGenerator.shares(1, 2, 4),
+        await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[4]),
         minDepositAmount,
         {
           validatorCount: 0,
@@ -961,7 +985,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(3),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 3, 4),
+          await DataGenerator.shares(1, 3, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           {
             validatorCount: 2,
@@ -984,7 +1008,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(3),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 3, 4),
+          await DataGenerator.shares(1, 3, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           {
             validatorCount: 2,
@@ -1005,7 +1029,7 @@ describe('Register Validator Tests', () => {
       ssvNetwork.write.registerValidator([
         DataGenerator.publicKey(2),
         [1, 2, 3, 25],
-        await DataGenerator.shares(1, 2, 4),
+        await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[4]),
         minDepositAmount,
         {
           validatorCount: 0,
@@ -1024,7 +1048,7 @@ describe('Register Validator Tests', () => {
       ssvNetwork.write.registerValidator([
         DataGenerator.publicKey(4),
         DEFAULT_OPERATOR_IDS[4],
-        await DataGenerator.shares(0, 4, 4),
+        await DataGenerator.shares(0, 4, DEFAULT_OPERATOR_IDS[4]),
         minDepositAmount,
         {
           validatorCount: 0,
@@ -1042,7 +1066,7 @@ describe('Register Validator Tests', () => {
       ssvNetwork.write.registerValidator([
         DataGenerator.publicKey(1),
         [3, 2, 1, 4],
-        await DataGenerator.shares(0, 1, 4),
+        await DataGenerator.shares(0, 1, DEFAULT_OPERATOR_IDS[4]),
         minDepositAmount,
         {
           validatorCount: 0,
@@ -1060,7 +1084,7 @@ describe('Register Validator Tests', () => {
       ssvNetwork.write.registerValidator([
         DataGenerator.publicKey(1),
         [3, 6, 12, 12],
-        await DataGenerator.shares(0, 1, 4),
+        await DataGenerator.shares(0, 1, DEFAULT_OPERATOR_IDS[4]),
         minDepositAmount,
         {
           validatorCount: 0,
@@ -1079,7 +1103,7 @@ describe('Register Validator Tests', () => {
       ssvNetwork.write.registerValidator([
         DataGenerator.publicKey(1),
         DEFAULT_OPERATOR_IDS[4],
-        await DataGenerator.shares(0, 1, 4),
+        await DataGenerator.shares(0, 1, DEFAULT_OPERATOR_IDS[4]),
         CONFIG.minimalOperatorFee,
         {
           validatorCount: 0,
@@ -1102,7 +1126,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 1, 4),
+          await DataGenerator.shares(1, 1, DEFAULT_OPERATOR_IDS[4]),
           depositAmount,
           {
             validatorCount: 0,
@@ -1127,7 +1151,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(2),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(1, 2, 4),
+          await DataGenerator.shares(1, 2, DEFAULT_OPERATOR_IDS[4]),
           CONFIG.minimalOperatorFee,
           cluster1.cluster,
         ],
@@ -1144,7 +1168,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           DEFAULT_OPERATOR_IDS[4],
-          await DataGenerator.shares(6, 1, 4),
+          await DataGenerator.shares(6, 1, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -1166,7 +1190,7 @@ describe('Register Validator Tests', () => {
         [
           DataGenerator.publicKey(1),
           [1, 2, 5, 6],
-          await DataGenerator.shares(6, 1, 4),
+          await DataGenerator.shares(6, 1, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount,
           {
             validatorCount: 0,
@@ -1186,7 +1210,7 @@ describe('Register Validator Tests', () => {
       ssvNetwork.write.registerValidator([
         '0x',
         [1, 2, 3, 4],
-        await DataGenerator.shares(0, 4, 4),
+        await DataGenerator.shares(0, 4, DEFAULT_OPERATOR_IDS[4]),
         minDepositAmount,
         {
           validatorCount: 0,
@@ -1222,7 +1246,9 @@ describe('Register Validator Tests', () => {
 
   it('Bulk register 10 validators with different pks/shares lenght reverts "PublicKeysSharesLengthMismatch"', async () => {
     const pks = Array.from({ length: 10 }, (_, index) => DataGenerator.publicKey(index + 1));
-    const shares = await Promise.all(Array.from({ length: 8 }, (_, index) => DataGenerator.shares(1, index, 4)));
+    const shares = await Promise.all(
+      Array.from({ length: 8 }, (_, index) => DataGenerator.shares(1, index, DEFAULT_OPERATOR_IDS[4])),
+    );
 
     await expect(
       ssvNetwork.write.bulkRegisterValidator(
@@ -1246,54 +1272,16 @@ describe('Register Validator Tests', () => {
 
   it('Bulk register 10 validators with wrong operators length reverts "InvalidOperatorIdsLength"', async () => {
     const pks = Array.from({ length: 10 }, (_, index) => DataGenerator.publicKey(index + 1));
-    const shares = await Promise.all(Array.from({ length: 10 }, (_, index) => DataGenerator.shares(1, index, 4)));
-
-    await expect(
-      ssvNetwork.write.bulkRegisterValidator([pks, [1, 2, 3, 4, 5], shares, minDepositAmount, {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0n,
-        active: true,
-      }], { account: owners[1].account },),
-    ).to.be.rejectedWith('InvalidOperatorIdsLength');
-  });
-
-  it('Bulk register 10 validators with empty operators list reverts "InvalidOperatorIdsLength"', async () => {
-    const pks = Array.from({ length: 10 }, (_, index) => DataGenerator.publicKey(index + 1));
-    const shares = await Promise.all(Array.from({ length: 10 }, (_, index) => DataGenerator.shares(1, index, 4)));
-
-    await expect(
-      ssvNetwork.write.bulkRegisterValidator([pks, [], shares, minDepositAmount, {
-        validatorCount: 0,
-        networkFeeIndex: 0,
-        index: 0,
-        balance: 0n,
-        active: true,
-      }], { account: owners[1].account },),
-    ).to.be.rejectedWith('InvalidOperatorIdsLength');
-  });
-
-  it('Register whitelisted validator in 1 operator with 4 operators emits "ValidatorAdded"', async () => {
-    const result = await trackGas(
-      ssvNetwork.write.registerOperator([DataGenerator.publicKey(20), CONFIG.minimalOperatorFee], {
-        account: owners[1].account,
-      }),
+    const shares = await Promise.all(
+      Array.from({ length: 10 }, (_, index) => DataGenerator.shares(1, index, DEFAULT_OPERATOR_IDS[4])),
     );
-    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
-    await ssvNetwork.write.setOperatorWhitelist([operatorId, owners[3].account.address], {
-      account: owners[1].account,
-    });
-
-    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount], { account: owners[3].account });
-
-    await assertEvent(
-      ssvNetwork.write.registerValidator(
+    await expect(
+      ssvNetwork.write.bulkRegisterValidator(
         [
-          DataGenerator.publicKey(1),
-          [1, 2, 3, operatorId],
-          await DataGenerator.shares(3, 1, 4),
+          pks,
+          [1, 2, 3, 4, 5],
+          shares,
           minDepositAmount,
           {
             validatorCount: 0,
@@ -1303,45 +1291,35 @@ describe('Register Validator Tests', () => {
             active: true,
           },
         ],
-        { account: owners[3].account },
+        { account: owners[1].account },
       ),
-      [
-        {
-          contract: ssvNetwork,
-          eventName: 'ValidatorAdded',
-        },
-      ],
-    );
+    ).to.be.rejectedWith('InvalidOperatorIdsLength');
   });
 
-  it('Register a non whitelisted validator reverts "CallerNotWhitelisted"', async () => {
-    const result = await trackGas(
-      ssvNetwork.write.registerOperator([DataGenerator.publicKey(22), CONFIG.minimalOperatorFee], {
-        account: owners[1].account,
-      }),
+  it('Bulk register 10 validators with empty operators list reverts "InvalidOperatorIdsLength"', async () => {
+    const pks = Array.from({ length: 10 }, (_, index) => DataGenerator.publicKey(index + 1));
+    const shares = await Promise.all(
+      Array.from({ length: 10 }, (_, index) => DataGenerator.shares(1, index, DEFAULT_OPERATOR_IDS[4])),
     );
-    const { operatorId } = result.eventsByName.OperatorAdded[0].args;
 
-    await ssvNetwork.write.setOperatorWhitelist([operatorId, owners[3].account.address], {
-      account: owners[1].account,
-    });
-
-    await ssvToken.write.approve([ssvNetwork.address, minDepositAmount]);
     await expect(
-      ssvNetwork.write.registerValidator([
-        DataGenerator.publicKey(1),
-        [1, 2, 3, operatorId],
-        await DataGenerator.shares(0, 1, 4),
-        minDepositAmount,
-        {
-          validatorCount: 0,
-          networkFeeIndex: 0,
-          index: 0,
-          balance: 0,
-          active: true,
-        },
-      ]),
-    ).to.be.rejectedWith('CallerNotWhitelisted');
+      ssvNetwork.write.bulkRegisterValidator(
+        [
+          pks,
+          [],
+          shares,
+          minDepositAmount,
+          {
+            validatorCount: 0,
+            networkFeeIndex: 0,
+            index: 0,
+            balance: 0n,
+            active: true,
+          },
+        ],
+        { account: owners[1].account },
+      ),
+    ).to.be.rejectedWith('InvalidOperatorIdsLength');
   });
 
   it('Retrieve an existing validator', async () => {

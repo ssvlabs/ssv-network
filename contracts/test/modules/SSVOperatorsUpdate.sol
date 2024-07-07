@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import "../../interfaces/ISSVOperators.sol";
 import "../../libraries/Types.sol";
@@ -23,7 +23,11 @@ contract SSVOperatorsUpdate is ISSVOperators {
     /* Operator External Functions */
     /*******************************/
 
-    function registerOperator(bytes calldata publicKey, uint256 fee) external override returns (uint64 id) {
+    function registerOperator(
+        bytes calldata publicKey,
+        uint256 fee,
+        bool setPrivate
+    ) external override returns (uint64 id) {
         if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
@@ -39,11 +43,15 @@ contract SSVOperatorsUpdate is ISSVOperators {
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             validatorCount: 0,
             fee: fee.shrink(),
-            whitelisted: false
+            whitelisted: setPrivate
         });
         s.operatorsPKs[hashedPk] = id;
 
+        uint64[] memory operatorIds = new uint64[](1);
+        operatorIds[0] = id;
+
         emit OperatorAdded(id, msg.sender, publicKey, fee);
+        emit OperatorPrivacyStatusUpdated(operatorIds, setPrivate);
     }
 
     function removeOperator(uint64 operatorId) external override {
@@ -71,24 +79,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
         emit OperatorRemoved(operatorId);
     }
 
-    function setOperatorWhitelist(uint64 operatorId, address whitelisted) external {
-        SSVStorage.load().operators[operatorId].checkOwner();
-
-        StorageData storage s = SSVStorage.load();
-
-        if (whitelisted == address(0)) {
-            s.operators[operatorId].whitelisted = false;
-        } else {
-            s.operators[operatorId].whitelisted = true;
-        }
-
-        s.operatorsWhitelist[operatorId] = whitelisted;
-        emit OperatorWhitelistUpdated(operatorId, whitelisted);
-    }
-
-    function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
-        if (operatorId == 0 && fee == 0) revert NoFeeDeclared();
-    }
+    function declareOperatorFee(uint64 operatorId, uint256 fee) external override {}
 
     function executeOperatorFee(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
@@ -139,6 +130,16 @@ contract SSVOperatorsUpdate is ISSVOperators {
         if (s.operatorFeeChangeRequests[operatorId].approvalBeginTime != 0)
             delete s.operatorFeeChangeRequests[operatorId];
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
+    }
+
+    function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
+        OperatorLib.updatePrivacyStatus(operatorIds, true, SSVStorage.load());
+        emit OperatorPrivacyStatusUpdated(operatorIds, true);
+    }
+
+    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external override {
+        OperatorLib.updatePrivacyStatus(operatorIds, false, SSVStorage.load());
+        emit OperatorPrivacyStatusUpdated(operatorIds, false);
     }
 
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {

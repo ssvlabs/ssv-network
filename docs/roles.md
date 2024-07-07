@@ -1,6 +1,6 @@
 # SSV Network
 
-### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | Roles | [Publish](publish.md)
+### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | Roles | [Publish](publish.md) | [Operator owners](operators.md)
 
 ## Contract owner
 
@@ -27,7 +27,12 @@ The contract owner can perform operational actions over the contract and protoco
 Only the owner of an operator can execute these functions:
 
 - `SSVNetwork.removeOperator` - Removes an existing operator
-- `SSVNetwork.setOperatorWhitelist` - Sets the whitelist address for an operator
+- `SSVNetwork.setOperatorsWhitelists` - Sets a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
+- `SSVNetwork.removeOperatorsWhitelists` - Removes a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
+- `SSVNetwork.setOperatorsWhitelistingContract` - Sets a whitelisting contract for a list of operators
+- `SSVNetwork.removeOperatorsWhitelistingContract` - Removes the whitelisting contract set for a list of operators
+- `SSVNetwork.setOperatorsPrivateUnchecked` - Set the list of operators as private without checking for any whitelisting address
+- `SSVNetwork.setOperatorsPublicUnchecked` - Set the list of operators as public without removing any whitelisting address
 - `SSVNetwork.declareOperatorFee` - Declares the operator's fee change
 - `SSVNetwork.executeOperatorFee` - Executes the operator's fee change
 - `SSVNetwork.cancelDeclaredOperatorFee` - Cancels the declared operator's fee

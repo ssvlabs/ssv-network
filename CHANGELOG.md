@@ -5,11 +5,15 @@ All notable changes to SSV Network contracts will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
-### [v1.1.1] 2024-04-12
-- [7b61d4f](https://github.com/bloxapp/ssv-network/commit/7b61d4f) - [Fix] Revert when passing an empty public keys list.
+### [v1.2.0] 2024-07-01
+- [b7cfe2f] (https://github.com/ssvlabs/ssv-network/commit/11b4e67) - Support for mulitple whitelist addresses for operators (see [docs/operators.md](docs/operators.md)).
+- [b7cfe2f] (https://github.com/ssvlabs/ssv-network/commit/11b4e67) - Support for external whitelisting contracts (see [docs/operators.md](docs/operators.md)).
+- [11b4e67] (https://github.com/ssvlabs/ssv-network/commit/11b4e67) - Set the privacy status when registering an operator (see [docs/operators.md](docs/operators.md)).
+- [add2434] (https://github.com/ssvlabs/ssv-network/commit/add2434) - [Fix] Check MINIMAL_OPERATOR_FEE in reduceOperatorFee function.
 
 ## [Released]
+### [v1.1.1] 2024-04-17
+- [3c12e52](https://github.com/ssvlabs/ssv-network/commit/3c12e52) - [Fix] Revert when passing an empty public keys list.
 
 ### [v1.1.0] 2024-01-08
 - [c80dc3b](https://github.com/bloxapp/ssv-network/commit/c80dc3b) - [Feature] Bulk exit of validators.

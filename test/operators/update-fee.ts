@@ -152,10 +152,10 @@ describe('Operator Fee Tests', () => {
     expect(await ssvViews.read.getMaximumOperatorFee()).to.equal(CONFIG.maximumOperatorFee);
   });
 
-  it('Declare fee of operator I do not own reverts "CallerNotOwner"', async () => {
+  it('Declare fee of operator I do not own reverts "CallerNotOwnerWithData"', async () => {
     await expect(
       ssvNetwork.write.declareOperatorFee([1, initialFee + initialFee / 10n], { account: owners[1].account }),
-    ).to.be.rejectedWith('CallerNotOwner');
+    ).to.be.rejectedWith('CallerNotOwnerWithData');
   });
 
   it('Declare fee with a wrong Publickey reverts "OperatorDoesNotExist"', async () => {
@@ -193,7 +193,7 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Declare fee after registering an operator with zero fee reverts "FeeIncreaseNotAllowed"', async () => {
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(2), 0], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(2), 0, false], {
       account: owners[2].account,
     });
 
@@ -218,7 +218,7 @@ describe('Operator Fee Tests', () => {
     const maxOperatorFee = 8e14;
     await ssvNetwork.write.updateMaximumOperatorFee([maxOperatorFee]);
 
-    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(10), maxOperatorFee], {
+    await ssvNetwork.write.registerOperator([DataGenerator.publicKey(10), maxOperatorFee, false], {
       account: owners[3].account,
     });
 
@@ -255,23 +255,23 @@ describe('Operator Fee Tests', () => {
     ).to.be.rejectedWith('NoFeeDeclared');
   });
 
-  it('Cancel declared fee of an operator I do not own reverts "CallerNotOwner"', async () => {
+  it('Cancel declared fee of an operator I do not own reverts "CallerNotOwnerWithData"', async () => {
     await ssvNetwork.write.declareOperatorFee([1, initialFee + initialFee / 10n], {
       account: owners[2].account,
     });
 
     await expect(ssvNetwork.write.cancelDeclaredOperatorFee([1], { account: owners[1].account })).to.be.rejectedWith(
-      'CallerNotOwner',
+      'CallerNotOwnerWithData',
     );
   });
 
-  it('Execute declared fee of an operator I do not own reverts "CallerNotOwner"', async () => {
+  it('Execute declared fee of an operator I do not own reverts "CallerNotOwnerWithData"', async () => {
     await ssvNetwork.write.declareOperatorFee([1, initialFee + initialFee / 10n], {
       account: owners[2].account,
     });
 
     await expect(ssvNetwork.write.executeOperatorFee([1], { account: owners[1].account })).to.be.rejectedWith(
-      'CallerNotOwner',
+      'CallerNotOwnerWithData',
     );
   });
 
@@ -326,6 +326,12 @@ describe('Operator Fee Tests', () => {
     await trackGas(ssvNetwork.write.reduceOperatorFee([1, initialFee / 2n], { account: owners[2].account }), [
       GasGroup.REDUCE_OPERATOR_FEE,
     ]);
+  });
+
+  it('Reduce fee with a fee thats too low reverts "FeeTooLow"', async () => {
+    await expect(ssvNetwork.write.reduceOperatorFee([1, 10e6], { account: owners[2].account })).to.be.rejectedWith(
+      'FeeTooLow',
+    );
   });
 
   it('Reduce fee with an increased value reverts "FeeIncreaseNotAllowed"', async () => {
@@ -447,21 +453,21 @@ describe('Operator Fee Tests', () => {
   });
 
   it('Increase fee from an address thats not the DAO reverts "caller is not the owner"', async () => {
-    await expect(ssvNetwork.write.updateOperatorFeeIncreaseLimit([1000],{ account: owners[1].account })).to.be.rejectedWith(
-      'Ownable: caller is not the owner',
-    );
+    await expect(
+      ssvNetwork.write.updateOperatorFeeIncreaseLimit([1000], { account: owners[1].account }),
+    ).to.be.rejectedWith('Ownable: caller is not the owner');
   });
 
   it('Update the declare fee period from an address thats not the DAO reverts "caller is not the owner"', async () => {
-    await expect(ssvNetwork.write.updateDeclareOperatorFeePeriod([1200],{ account: owners[1].account })).to.be.rejectedWith(
-      'Ownable: caller is not the owner',
-    );
+    await expect(
+      ssvNetwork.write.updateDeclareOperatorFeePeriod([1200], { account: owners[1].account }),
+    ).to.be.rejectedWith('Ownable: caller is not the owner');
   });
 
   it('Update the execute fee period from an address thats not the DAO reverts "caller is not the owner"', async () => {
-    await expect(ssvNetwork.write.updateExecuteOperatorFeePeriod([1200],{ account: owners[1].account })).to.be.rejectedWith(
-      'Ownable: caller is not the owner',
-    );
+    await expect(
+      ssvNetwork.write.updateExecuteOperatorFeePeriod([1200], { account: owners[1].account }),
+    ).to.be.rejectedWith('Ownable: caller is not the owner');
   });
 
   it('DAO declared fee without a pending request reverts "NoFeeDeclared"', async () => {

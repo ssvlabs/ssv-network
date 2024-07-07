@@ -293,15 +293,14 @@ describe('Balance Tests', () => {
     const newNetworkFee = networkFee * 2n;
     await ssvNetwork.write.updateNetworkFee([newNetworkFee]);
 
-    const newBurnPerBlock = (CONFIG.minimalOperatorFee * 4n) + newNetworkFee;
+    const newBurnPerBlock = CONFIG.minimalOperatorFee * 4n + newNetworkFee;
     await mine(1);
-
 
     expect(
       await ssvViews.read.getBalance([owners[4].account.address, cluster1.operatorIds, cluster1.cluster]),
-    ).to.equal(minDepositAmount - (burnPerBlock * 2n) - newBurnPerBlock);
+    ).to.equal(minDepositAmount - burnPerBlock * 2n - newBurnPerBlock);
     expect((await ssvViews.read.getNetworkEarnings()) - initNetworkFeeBalance).to.equal(
-      (networkFee * 4n) + (newNetworkFee * 2n),
+      networkFee * 4n + newNetworkFee * 2n,
     );
 
     const minDep2 = minDepositAmount * 2n;
@@ -313,7 +312,6 @@ describe('Balance Tests', () => {
       balance: 0n,
       active: true,
     });
-
 
     await mine(2);
 
@@ -327,10 +325,10 @@ describe('Balance Tests', () => {
     expect(await ssvViews.read.getOperatorEarnings([5])).to.equal(CONFIG.minimalOperatorFee * 2n);
     expect(
       await ssvViews.read.getBalance([owners[4].account.address, cluster1.operatorIds, cluster1.cluster]),
-    ).to.equal(minDepositAmount - (burnPerBlock * 2n) - (newBurnPerBlock * 5n));
+    ).to.equal(minDepositAmount - burnPerBlock * 2n - newBurnPerBlock * 5n);
     expect(
       await ssvViews.read.getBalance([owners[4].account.address, cluster2.args.operatorIds, cluster2.args.cluster]),
-    ).to.equal(minDep2 - (newBurnPerBlock * 2n));
+    ).to.equal(minDep2 - newBurnPerBlock * 2n);
 
     // cold cluster + cluster1 * networkFee (4) + (cold cluster + cluster1 * newNetworkFee (5 + 5)) + cluster2 * newNetworkFee (2)
     expect((await ssvViews.read.getNetworkEarnings()) - initNetworkFeeBalance).to.equal(
@@ -363,20 +361,6 @@ describe('Balance Tests', () => {
     );
   });
 
-  it('Check operator earnings and cluster balance when reducing operator fee"', async () => {
-    const newFee = CONFIG.minimalOperatorFee / 2n;
-    await ssvNetwork.write.reduceOperatorFee([1, newFee]);
-
-    await mine(2);
-
-    expect(await ssvViews.read.getOperatorEarnings([1])).to.equal(
-      CONFIG.minimalOperatorFee * 4n + (CONFIG.minimalOperatorFee + newFee * 2n),
-    );
-    expect(
-      await ssvViews.read.getBalance([owners[4].account.address, cluster1.operatorIds, cluster1.cluster]),
-    ).to.equal(minDepositAmount - burnPerBlock - (CONFIG.minimalOperatorFee * 3n + networkFee) * 2n - newFee * 2n);
-  });
-
   it('Check cluster balance after withdraw and deposit', async () => {
     await mine(1);
     expect(
@@ -390,8 +374,8 @@ describe('Balance Tests', () => {
       ssvNetwork.write.registerValidator(
         [
           DataGenerator.publicKey(3),
-          [1, 2, 3, 4],
-          await DataGenerator.shares(4, 3, 4),
+          DEFAULT_OPERATOR_IDS[4],
+          await DataGenerator.shares(4, 3, DEFAULT_OPERATOR_IDS[4]),
           minDepositAmount * 2n,
           cluster1.cluster,
         ],
@@ -539,5 +523,54 @@ describe('Balance Tests', () => {
     expect(await ssvViews.read.getBalance([owners[2].account.address, removed.operatorIds, removed.cluster])).to.equal(
       clusterDeposit - burnPerBlock * 10n * 3n - newBurnPerBlock * 10n * 3n,
     );
+  });
+});
+
+describe('Balance Tests (reduce fee)', () => {
+  beforeEach(async () => {
+    // Initialize contract
+    const metadata = await initializeContract();
+    ssvNetwork = metadata.ssvNetwork;
+    ssvViews = metadata.ssvNetworkViews;
+    ssvToken = metadata.ssvToken;
+
+    // Register operators
+    await registerOperators(0, 14, CONFIG.minimalOperatorFee * 2n);
+
+    networkFee = CONFIG.minimalOperatorFee;
+    burnPerBlock = CONFIG.minimalOperatorFee * 2n * 4n + networkFee;
+    minDepositAmount = BigInt(CONFIG.minimalBlocksBeforeLiquidation) * burnPerBlock;
+
+    // Set network fee
+    await ssvNetwork.write.updateNetworkFee([networkFee]);
+
+    // Register validators
+    // cold register
+    await coldRegisterValidator();
+
+    cluster1 = (
+      await bulkRegisterValidators(4, 1, DEFAULT_OPERATOR_IDS[4], minDepositAmount, {
+        validatorCount: 0,
+        networkFeeIndex: 0,
+        index: 0,
+        balance: 0n,
+        active: true,
+      })
+    ).args;
+  });
+
+  it('Check operator earnings and cluster balance when reducing operator fee"', async () => {
+    const prevOperatorFee = CONFIG.minimalOperatorFee * 2n;
+    const newFee = CONFIG.minimalOperatorFee;
+    await ssvNetwork.write.reduceOperatorFee([1, newFee]);
+
+    await mine(2);
+
+    expect(await ssvViews.read.getOperatorEarnings([1])).to.equal(
+      prevOperatorFee * 4n + (prevOperatorFee + newFee * 2n),
+    );
+    expect(
+      await ssvViews.read.getBalance([owners[4].account.address, cluster1.operatorIds, cluster1.cluster]),
+    ).to.equal(minDepositAmount - burnPerBlock - (prevOperatorFee * 3n + networkFee) * 2n - newFee * 2n);
   });
 });
