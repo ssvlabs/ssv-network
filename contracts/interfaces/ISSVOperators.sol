@@ -86,4 +86,12 @@ interface ISSVOperators is ISSVNetworkCore {
      * @param toPrivate Flag that indicates if the operators are being set to private (true) or public (false).
      */
     event OperatorPrivacyStatusUpdated(uint64[] operatorIds, bool toPrivate);
+
+    // legacy events
+    /**
+     * @dev Emitted when the whitelist of an operator is updated.
+     * @param operatorId operator's ID.
+     * @param whitelisted operator's new whitelisted address.
+     */
+    event OperatorWhitelistUpdated(uint64 indexed operatorId, address whitelisted);
 }
