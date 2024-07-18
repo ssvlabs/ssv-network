@@ -883,6 +883,25 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "operatorId",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "whitelisted",
+        "type": "address"
+      }
+    ],
+    "name": "OperatorWhitelistUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
         "internalType": "uint64[]",
         "name": "operatorIds",
