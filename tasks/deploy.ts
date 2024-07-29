@@ -62,6 +62,23 @@ task('deploy:main-impl', 'Deploys SSVNetwork / SSVNetworkViews implementation co
   });
 
 /**
+@title Hardhat task to deploy a basic whitelisting contract implementation.
+The deployment process involves running a subtask that handles the actual deployment.
+@returns {void} This function doesn't return anything. If the deployment process encounters an error, 
+it will be printed to the console, and the process will exit with a non-zero status code.
+@example
+// Deploy BasicWhitelisting contract with the default deployer account
+npx hardhat --network holesky_testnet deploy:whitelisting-contract
+@remarks
+The deployer account used will be the first one returned by ethers.getSigners().
+Therefore, it should be appropriately configured in your Hardhat network configuration.
+This task uses the "deploy:impl" subtask for the actual deployment, specifying 'BasicWhitelisting' as the contract name.
+*/
+task('deploy:whitelisting-contract', 'Deploys a basic whitelisting contract').setAction(async (_, hre) => {
+  await hre.run('deploy:impl', { contract: 'BasicWhitelisting' });
+});
+
+/**
 @title Hardhat subtask to deploy an SSV module contract.
 The module parameter specifies the name of the SSV module to be deployed.
 The name must be one of the pre-specified values in the SSVModules object.
