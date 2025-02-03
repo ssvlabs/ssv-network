@@ -54,7 +54,10 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_KEY,
+    apiKey: {
+      apiKey: `${process.env.ETHERSCAN_KEY}`,
+      mekong: 'empty',
+    },
     customChains: [
       {
         network: 'holesky',
@@ -62,6 +65,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: 'https://api-holesky.etherscan.io/api',
           browserURL: 'https://holesky.etherscan.io',
+        },
+      },
+      {
+        network: 'mekong',
+        chainId: 7078815900,
+        urls: {
+          apiURL: 'https://explorer-api.mekong.ethpandaops.io/api',
+          browserURL: 'https://explorer.mekong.ethpandaops.io',
         },
       },
     ],
@@ -73,7 +84,7 @@ const config: HardhatUserConfig = {
     strict: false,
   },
   sourcify: {
-    enabled: false
+    enabled: false,
   },
   abiExporter: {
     path: './abis',
@@ -96,6 +107,10 @@ if (process.env.HOLESKY_ETH_NODE_URL && process.env.HOLESKY_OWNER_PRIVATE_KEY) {
   //@ts-ignore
   config.networks = {
     ...config.networks,
+    mekong: {
+      ...sharedConfig,
+      ssvToken: '0xa13014Afa3b0DFfd2773Bb7BF2467F2A06ea223B',
+    } as SSVNetworkConfig,
     holesky_development: {
       ...sharedConfig,
       ssvToken: '0x68A8DDD7a59A900E0657e9f8bbE02B70c947f25F',
