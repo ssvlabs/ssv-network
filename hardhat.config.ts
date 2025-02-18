@@ -25,13 +25,7 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: '0.8.4',
-      },
-      {
-        version: '0.8.18',
-      },
-      {
-        version: '0.8.24',
+        version: '0.8.20',
         settings: {
           optimizer: {
             enabled: true,
@@ -55,7 +49,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       'holesky': process.env.ETHERSCAN_KEY,
-      'kurtosis': 'x',
+      'kurtosis': 'empty',
     },
     customChains: [
       {
