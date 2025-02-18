@@ -55,7 +55,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       'holesky': process.env.ETHERSCAN_KEY,
-      'devnet': 'x',
+      'kurtosis': 'x',
     },
     customChains: [
       {
@@ -67,7 +67,7 @@ const config: HardhatUserConfig = {
         },
       },
       {
-        network: 'devnet',
+        network: 'kurtosis',
         chainId: 3151908,
         urls: {
           apiURL: `${process.env.BLOCKSCOUT_URL}/api`,
@@ -148,7 +148,7 @@ if (process.env.FORK_TESTING_ENABLED) {
 
 if (process.env.DEVNET_ETH_NODE_URL) {
   config.networks = {
-    devnet: {
+    kurtosis: {
       chainId: 3151908,
       url: `${process.env.DEVNET_ETH_NODE_URL}`,
       accounts: [
