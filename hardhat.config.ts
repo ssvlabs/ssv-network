@@ -30,10 +30,10 @@ const config: HardhatUserConfig = {
       {
         version: '0.8.24',
         settings: {
-          // optimizer: {
-          //   enabled: true,
-          //   runs: 10000,
-          // },
+           optimizer: {
+             enabled: true,
+             runs: 10000
+           },
           evmVersion: 'cancun',
         },
       },
