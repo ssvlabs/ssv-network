@@ -49,9 +49,9 @@
     "hardhat": "^2.22.4",
     "hardhat-abi-exporter": "^2.10.1",
     "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-storage-layout": "^0.1.7",
     "solidity-coverage": "^0.8.12",
     "ssv-keys": "github:bloxapp/ssv-keys#v1.0.4",
     "ssv-scanner": "^1.0.4"
-
   }
 }
