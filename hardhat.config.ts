@@ -10,6 +10,8 @@ import 'hardhat-abi-exporter';
 import 'hardhat-contract-sizer';
 import 'solidity-coverage';
 
+import 'hardhat-storage-layout';
+
 import './tasks/deploy';
 import './tasks/update-module';
 import './tasks/upgrade';
@@ -26,9 +28,25 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         version: '0.8.4',
+        settings: {
+          // Include storage layout output
+          outputSelection: {
+            "*": {
+              "*": ["storageLayout"]
+            }
+          }
+        }
       },
     {
-      version: '0.8.18'
+      version: '0.8.18',
+      settings: {
+        // Include storage layout output
+        outputSelection: {
+          "*": {
+            "*": ["storageLayout"]
+          }
+        }
+      }
     },
     {
         version: '0.8.24',
@@ -37,6 +55,11 @@ const config: HardhatUserConfig = {
              enabled: true,
              runs: 10000
            },
+           outputSelection: {
+            "*": {
+              "*": ["storageLayout"]
+            }
+          },
           evmVersion: 'cancun',
         },
       },
