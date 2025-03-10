@@ -55,7 +55,7 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-      apiKey: `${process.env.ETHERSCAN_KEY}`,
+      mainnet: `${process.env.ETHERSCAN_KEY}`,
       mekong: 'empty',
     },
     customChains: [
