@@ -107,10 +107,6 @@ if (process.env.HOLESKY_ETH_NODE_URL && process.env.HOLESKY_OWNER_PRIVATE_KEY) {
   //@ts-ignore
   config.networks = {
     ...config.networks,
-    mekong: {
-      ...sharedConfig,
-      ssvToken: '0xa13014Afa3b0DFfd2773Bb7BF2467F2A06ea223B',
-    } as SSVNetworkConfig,
     holesky_development: {
       ...sharedConfig,
       ssvToken: '0x68A8DDD7a59A900E0657e9f8bbE02B70c947f25F',
@@ -118,6 +114,14 @@ if (process.env.HOLESKY_ETH_NODE_URL && process.env.HOLESKY_OWNER_PRIVATE_KEY) {
     holesky_testnet: {
       ...sharedConfig,
       ssvToken: '0xad45A78180961079BFaeEe349704F411dfF947C6',
+    } as SSVNetworkConfig,
+    hoodi_development: {
+      ...sharedConfig,
+      ssvToken: '0x7118C9B049E834B2351C1c9a0ECEE12610A1a29E',
+    } as SSVNetworkConfig,
+    hoodi_testnet: {
+      ...sharedConfig,
+      ssvToken: '0x9F5d4Ec84fC4785788aB44F9de973cF34F7A038e',
     } as SSVNetworkConfig,
   };
 }
