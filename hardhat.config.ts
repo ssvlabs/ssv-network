@@ -54,25 +54,14 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: {
-      mainnet: `${process.env.ETHERSCAN_KEY}`,
-      mekong: 'empty',
-    },
+    apiKey: `${process.env.ETHERSCAN_KEY}`,
     customChains: [
       {
-        network: 'holesky',
-        chainId: 17000,
+        network: 'hoodi',
+        chainId: 560048,
         urls: {
-          apiURL: 'https://api-holesky.etherscan.io/api',
-          browserURL: 'https://holesky.etherscan.io',
-        },
-      },
-      {
-        network: 'mekong',
-        chainId: 7078815900,
-        urls: {
-          apiURL: 'https://explorer-api.mekong.ethpandaops.io/api',
-          browserURL: 'https://explorer.mekong.ethpandaops.io',
+          apiURL: 'https://api-hoodi.etherscan.io/api',
+          browserURL: 'https://hoodi.etherscan.io',
         },
       },
     ],
@@ -97,26 +86,24 @@ const config: HardhatUserConfig = {
   },
 };
 
-if (process.env.HOLESKY_ETH_NODE_URL && process.env.HOLESKY_OWNER_PRIVATE_KEY) {
+if (process.env.HOODI_ETH_NODE_URL && process.env.HOODI_OWNER_PRIVATE_KEY) {
   const sharedConfig = {
-    url: `${process.env.HOLESKY_ETH_NODE_URL}${process.env.NODE_PROVIDER_KEY}`,
-    accounts: [`0x${process.env.HOLESKY_OWNER_PRIVATE_KEY}`],
+    url: `${process.env.HOODI_ETH_NODE_URL}${process.env.NODE_PROVIDER_KEY}`,
+    accounts: [`0x${process.env.HOODI_OWNER_PRIVATE_KEY}`],
     gasPrice: +(process.env.GAS_PRICE || ''),
     gas: +(process.env.GAS || ''),
   };
   //@ts-ignore
   config.networks = {
     ...config.networks,
-    mekong: {
+    hoodi_development: {
       ...sharedConfig,
-      ssvToken: '0xa13014Afa3b0DFfd2773Bb7BF2467F2A06ea223B',
-    } as SSVNetworkConfig,
-    holesky_development: {
-      ...sharedConfig,
+      chainId: 560048,
       ssvToken: '0x68A8DDD7a59A900E0657e9f8bbE02B70c947f25F',
     } as SSVNetworkConfig,
-    holesky_testnet: {
+    hoodi_testnet: {
       ...sharedConfig,
+      chainId: 560048,
       ssvToken: '0xad45A78180961079BFaeEe349704F411dfF947C6',
     } as SSVNetworkConfig,
   };

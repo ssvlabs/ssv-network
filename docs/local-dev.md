@@ -33,12 +33,12 @@ In [hardhat.config.ts](../hardhat.config.ts) you can find specific configs for d
 For example, in `.env` file you can set:
 
 ```
-HOLESKY_ETH_NODE_URL="https://holesky.infura.io/v3/..."
+HOODI_ETH_NODE_URL="https://hoodi.infura.io/v3/..."
 NODE_PROVIDER_KEY="abcd1234..."
-HOLESKY_OWNER_PRIVATE_KEY="d79d.."
+HOODI_OWNER_PRIVATE_KEY="d79d.."
 ```
 
-That means Hardhat will pick `config.networks.holesky` section in `hardhat.config.ts` to set the network parameters.
+That means Hardhat will pick `config.networks.hoodi` section in `hardhat.config.ts` to set the network parameters.
 
 ### Start the local node
 
@@ -54,7 +54,7 @@ For more details about it and how to use MainNet forking you can find [here](htt
 
 The inital deployment process involves the deployment of all main modules (SSVClusters, SSVOperators, SSVDAO and SSVViews), SSVNetwork and SSVNetworkViews contracts.
 
-Note: The SSV token address used when deploying to live networks (holesky, mainnet) is set in the hardhat config file. To deploy the contracts to a custom network defined in the hardhat config file, leave `SSVTOKEN_ADDRESS` empty in the `.env` file. You can set a specific SSV token address for custom networks too, if needed.
+Note: The SSV token address used when deploying to live networks (hoodi, mainnet) is set in the hardhat config file. To deploy the contracts to a custom network defined in the hardhat config file, leave `SSVTOKEN_ADDRESS` empty in the `.env` file. You can set a specific SSV token address for custom networks too, if needed.
 
 To run the deployment, execute:
 
@@ -121,7 +121,7 @@ contracts/SSVNetwork.sol:SSVNetwork at 0x2279B7...
 for verification on the block explorer. Waiting for verification result...
 
 Successfully verified contract SSVNetwork on Etherscan.
-https://holesky.etherscan.io/address/0x227...#code
+https://hoodi.etherscan.io/address/0x227...#code
 ```
 
 After this action, you can go to the proxy contract in Etherscan and start interacting with it.
