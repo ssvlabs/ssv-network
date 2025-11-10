@@ -3,13 +3,14 @@ import { NetworkUserConfig } from 'hardhat/types';
 
 import 'dotenv/config';
 
-import '@nomicfoundation/hardhat-toolbox-viem';
 import '@nomicfoundation/hardhat-chai-matchers';
 import '@openzeppelin/hardhat-upgrades';
 
 import 'hardhat-abi-exporter';
 import 'hardhat-contract-sizer';
 import 'solidity-coverage';
+
+import 'hardhat-storage-layout';
 
 import './tasks/deploy';
 import './tasks/update-module';
@@ -27,16 +28,37 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         version: '0.8.4',
+        settings: {
+          // Include storage layout output
+          outputSelection: {
+            "*": {
+              "*": ["storageLayout"]
+            }
+          }
+        }
       },
-      {
-        version: '0.8.18',
-      },
-      {
+    {
+      version: '0.8.18',
+      settings: {
+        // Include storage layout output
+        outputSelection: {
+          "*": {
+            "*": ["storageLayout"]
+          }
+        }
+      }
+    },
+    {
         version: '0.8.24',
         settings: {
-          optimizer: {
-            enabled: true,
-            runs: 10000,
+           optimizer: {
+             enabled: true,
+             runs: 10000
+           },
+           outputSelection: {
+            "*": {
+              "*": ["storageLayout"]
+            }
           },
           evmVersion: 'cancun',
         },
@@ -54,7 +76,10 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_KEY,
+    apiKey: {
+      'holesky': process.env.ETHERSCAN_KEY,
+      'kurtosis': 'empty',
+    },
     customChains: [
       {
         network: 'holesky',
@@ -64,6 +89,14 @@ const config: HardhatUserConfig = {
           browserURL: 'https://holesky.etherscan.io',
         },
       },
+      {
+        network: 'kurtosis',
+        chainId: 3151908,
+        urls: {
+          apiURL: `${process.env.BLOCKSCOUT_URL}/api`,
+          browserURL: process.env.BLOCKSCOUT_URL,
+        },
+      }
     ],
   },
   contractSizer: {
@@ -85,6 +118,7 @@ const config: HardhatUserConfig = {
     only: ['contracts/SSVNetwork.sol', 'contracts/SSVNetworkViews.sol'],
   },
 };
+
 
 if (process.env.HOLESKY_ETH_NODE_URL && process.env.HOLESKY_OWNER_PRIVATE_KEY) {
   const sharedConfig = {
@@ -132,6 +166,20 @@ if (process.env.FORK_TESTING_ENABLED) {
         blockNumber: 19621100,
       },
     },
+  };
+}
+
+if (process.env.DEVNET_ETH_NODE_URL) {
+  config.networks = {
+    kurtosis: {
+      chainId: 3151908,
+      url: `${process.env.DEVNET_ETH_NODE_URL}`,
+      accounts: [
+        "39725efee3fb28614de3bacaffe4cc4bd8c436257e2c8bb887c4b5c4be45e76d",
+      ],
+      gasPrice: +(process.env.GAS_PRICE || ''),
+      gas: +(process.env.GAS || ''),
+    } as NetworkUserConfig,
   };
 }
 
