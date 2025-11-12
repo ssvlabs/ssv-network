@@ -37,7 +37,7 @@ contract SSVDAO is ISSVDAO {
         sp.daoBalance = networkBalance - shrunkAmount;
         sp.daoIndexBlockNumber = uint32(block.number);
 
-        CoreLib.transferBalance(msg.sender, amount);
+        CoreLib.transferTokenBalance(msg.sender, amount);
 
         emit NetworkEarningsWithdrawn(amount, msg.sender);
     }

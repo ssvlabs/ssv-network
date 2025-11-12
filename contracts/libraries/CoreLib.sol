@@ -10,12 +10,19 @@ library CoreLib {
         return "v1.2.0";
     }
 
-    function transferBalance(address to, uint256 amount) internal {
+    function transferBalance(address payable to, uint256 amount) internal {
+        (bool success, ) = to.call{value: amount}("");
+        if(!success){
+            revert ISSVNetworkCore.ETHTransferFailed();
+        }
+    }
+
+    function transferTokenBalance(address to, uint256 amount) internal {
         if (!SSVStorage.load().token.transfer(to, amount)) {
             revert ISSVNetworkCore.TokenTransferFailed();
         }
     }
-
+    
     function deposit(uint256 amount) internal {
         if (!SSVStorage.load().token.transferFrom(msg.sender, address(this), amount)) {
             revert ISSVNetworkCore.TokenTransferFailed();

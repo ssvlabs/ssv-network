@@ -177,7 +177,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
     }
 
     function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        CoreLib.transferBalance(msg.sender, amount);
+        CoreLib.transferTokenBalance(msg.sender, amount);
         emit OperatorWithdrawn(msg.sender, operatorId, amount);
     }
 }

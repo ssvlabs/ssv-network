@@ -208,7 +208,7 @@ contract SSVNetwork is
         bytes calldata sharesData,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -218,7 +218,7 @@ contract SSVNetwork is
         bytes[] calldata sharesData,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -242,7 +242,7 @@ contract SSVNetwork is
         address clusterOwner,
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
-    ) external {
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -250,7 +250,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -259,7 +259,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -267,7 +267,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 

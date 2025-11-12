@@ -47,7 +47,8 @@ contract SSVOperators is ISSVOperators {
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             validatorCount: 0,
             fee: fee.shrink(),
-            whitelisted: setPrivate
+            whitelisted: setPrivate,
+            version: 1
         });
         s.operatorsPKs[hashedPk] = id;
 
@@ -83,34 +84,7 @@ contract SSVOperators is ISSVOperators {
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
-        StorageData storage s = SSVStorage.load();
-        s.operators[operatorId].checkOwner();
-
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
-        if (fee > sp.operatorMaxFee) revert FeeTooHigh();
-
-        uint64 operatorFee = s.operators[operatorId].fee;
-        uint64 shrunkFee = fee.shrink();
-
-        if (operatorFee == shrunkFee) {
-            revert SameFeeChangeNotAllowed();
-        } else if (shrunkFee != 0 && operatorFee == 0) {
-            revert FeeIncreaseNotAllowed();
-        }
-
-        // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
-
-        if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
-
-        s.operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
-            shrunkFee,
-            uint64(block.timestamp) + sp.declareOperatorFeePeriod,
-            uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod
-        );
-        emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
+        _declareOperatorFee(operatorId, fee);
     }
 
     function executeOperatorFee(uint64 operatorId) external override {
@@ -186,7 +160,44 @@ contract SSVOperators is ISSVOperators {
     function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _withdrawOperatorEarnings(operatorId, 0);
     }
+    
+    function migrateToEth(uint64 operatorId, uint256 fee) external {
+        _withdrawOperatorEarnings(operatorId, 0);
+        _declareOperatorFee(operatorId, fee);
+    }
 
+    function _declareOperatorFee(uint64 operatorId, uint256 fee) internal virtual {
+        StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].checkOwner();
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+        if (fee > sp.operatorMaxFee) revert FeeTooHigh();
+
+        uint64 operatorFee = s.operators[operatorId].fee;
+        uint64 shrunkFee = fee.shrink();
+
+        if (operatorFee == shrunkFee) {
+            revert SameFeeChangeNotAllowed();
+        } else if (shrunkFee != 0 && operatorFee == 0) {
+            revert FeeIncreaseNotAllowed();
+        }
+
+        // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
+        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
+
+        if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
+
+        s.operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
+            shrunkFee,
+            uint64(block.timestamp) + sp.declareOperatorFeePeriod,
+            uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod,
+            1
+        );
+        emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee, 1);
+    }
+    
     // private functions
     function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount) private {
         StorageData storage s = SSVStorage.load();
@@ -210,11 +221,18 @@ contract SSVOperators is ISSVOperators {
 
         s.operators[operatorId] = operator;
 
-        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        s.operators[operatorId].version == 0
+            ? _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand())
+            : _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
     }
 
     function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        CoreLib.transferBalance(msg.sender, amount);
+        CoreLib.transferBalance(payable(msg.sender), amount);
+        emit OperatorWithdrawn(msg.sender, operatorId, amount);
+    }
+
+    function _transferOperatorTokenBalanceUnsafe(uint64 operatorId, uint256 amount) private {
+        CoreLib.transferTokenBalance(msg.sender, amount);
         emit OperatorWithdrawn(msg.sender, operatorId, amount);
     }
 }

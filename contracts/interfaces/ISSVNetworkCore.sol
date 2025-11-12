@@ -26,6 +26,8 @@ interface ISSVNetworkCore {
         address owner;
         /// @dev private flag for this operator
         bool whitelisted;
+        /// @dev Operator struct version 0, version 0 fee = SSV, version 1 fee = eth.
+        uint8 version;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
     }
@@ -38,6 +40,8 @@ interface ISSVNetworkCore {
         uint64 approvalBeginTime;
         /// @dev The time when the approval period for the fee change ends
         uint64 approvalEndTime;
+        
+        uint8 version;
     }
 
     /// @notice Represents a cluster of validators
@@ -78,6 +82,7 @@ interface ISSVNetworkCore {
     error NewBlockPeriodIsBelowMinimum(); // 0x6e6c9cac
     error ExceedValidatorLimitWithData(uint64 operatorId); // 0x8ddf7de4
     error TokenTransferFailed(); // 0x045c4b02
+    error ETHTransferFailed(); // 0xb12d13eb
     error SameFeeChangeNotAllowed(); // 0xc81272f8
     error FeeIncreaseNotAllowed(); // 0x410a2b6c
     error NotAuthorized(); // 0xea8e4eb5

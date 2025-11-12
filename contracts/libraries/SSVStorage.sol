@@ -20,6 +20,8 @@ struct StorageData {
     mapping(bytes32 => bytes32) validatorPKs;
     /// @notice Maps each cluster's bytes32 identifier to its hashed representation of ISSVNetworkCore.Cluster
     mapping(bytes32 => bytes32) clusters;
+    /// @notice Maps each cluster's bytes32 identifier to its hashed representation of ISSVNetworkCore.Cluster ETH balance
+    mapping(bytes32 => bytes32) ethClusters;
     /// @notice Maps each operator's public key to its corresponding ID
     mapping(bytes32 => uint64) operatorsPKs;
     /// @notice Maps each SSVModules' module to its corresponding contract address
