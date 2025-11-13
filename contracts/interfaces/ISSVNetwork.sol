@@ -26,8 +26,6 @@ interface ISSVNetwork {
         uint64 operatorMaxFeeIncrease_
     ) external;
 
-    function initializeV2(ISSVClusters ethClusters_) external;
-
     function getVersion() external pure returns (string memory version);
 
     function setFeeRecipientAddress(address feeRecipientAddress) external;

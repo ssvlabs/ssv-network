@@ -70,14 +70,6 @@ contract SSVNetwork is
         );
     }
 
-    function initializeV2(ISSVClusters ethClusters_) external initializer onlyProxy {
-        StorageData storage s = SSVStorage.load();
-        // Only set if not already set (idempotent)
-        if (s.ssvContracts[SSVModules.ETH_CLUSTERS] == address(0)) {
-            s.ssvContracts[SSVModules.ETH_CLUSTERS] = address(ethClusters_);
-        }
-    }
-
     function __SSVNetwork_init_unchained(
         IERC20 token_,
         ISSVOperators ssvOperators_,
