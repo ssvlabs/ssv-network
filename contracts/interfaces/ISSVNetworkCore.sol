@@ -40,7 +40,7 @@ interface ISSVNetworkCore {
         uint64 approvalBeginTime;
         /// @dev The time when the approval period for the fee change ends
         uint64 approvalEndTime;
-        
+
         uint8 version;
     }
 
@@ -89,6 +89,7 @@ interface ISSVNetworkCore {
     error NotAuthorized(); // 0xea8e4eb5
     error OperatorsListNotUnique(); // 0xa5a1ff5d
     error OperatorAlreadyExists(); // 0x289c9494
+    error IncorrectOperatorVersion(uint8 operatorVersion); // 0xf222e863
     error TargetModuleDoesNotExistWithData(uint8 moduleId); // 0x208bb85d
     error MaxValueExceeded(); // 0x91aa3017
     error FeeTooHigh(); // 0xcd4e6167

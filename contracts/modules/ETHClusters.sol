@@ -28,6 +28,8 @@ contract ETHClusters is ISSVClusters {
 
         ValidatorLib.validateOperatorsLength(operatorIds);
 
+        OperatorLib.ensureOperatorVersion(operatorIds, ClusterLib._CLUSTER_VERSION_ETH, s);
+
         ValidatorLib.registerPublicKey(publicKey, operatorIds, s);
 
         bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
@@ -56,6 +58,8 @@ contract ETHClusters is ISSVClusters {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         ValidatorLib.validateOperatorsLength(operatorIds);
+
+        OperatorLib.ensureOperatorVersion(operatorIds, ClusterLib._CLUSTER_VERSION_ETH, s);
 
         for (uint i; i < validatorsLength; ++i) {
             ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
@@ -369,6 +373,8 @@ contract ETHClusters is ISSVClusters {
         if (cluster.active) revert ClusterAlreadyEnabled();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
+        
+        OperatorLib.ensureOperatorVersion(operatorIds, ClusterLib._CLUSTER_VERSION_ETH, s);
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
