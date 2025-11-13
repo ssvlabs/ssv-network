@@ -107,8 +107,13 @@ contract ETHClusters is ISSVClusters {
         }
 
         --cluster.validatorCount;
-
-        s.ethClusters[hashedCluster] = cluster.hashClusterData();
+        if (version == ClusterLib._CLUSTER_VERSION_ETH) {
+            s.ethClusters[hashedCluster] = cluster.hashClusterData();
+        } else if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+            s.clusters[hashedCluster] = cluster.hashClusterData();
+        } else {
+            revert IncorrectClusterVersion();
+        }
 
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
@@ -156,7 +161,13 @@ contract ETHClusters is ISSVClusters {
 
         cluster.validatorCount -= validatorsRemoved;
 
-        s.ethClusters[hashedCluster] = cluster.hashClusterData();
+        if (version == ClusterLib._CLUSTER_VERSION_ETH) {
+            s.ethClusters[hashedCluster] = cluster.hashClusterData();
+        } else if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+            s.clusters[hashedCluster] = cluster.hashClusterData();
+        } else {
+            revert IncorrectClusterVersion();
+        }
 
         for (uint i; i < validatorsLength; ++i) {
             emit ValidatorRemoved(msg.sender, operatorIds, publicKeys[i], cluster);
@@ -169,93 +180,13 @@ contract ETHClusters is ISSVClusters {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external payable override {
-        StorageData storage s = SSVStorage.load();
-
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        cluster.validateClusterIsNotLiquidated();
-
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
-            operatorIds,
-            false,
-            cluster.validatorCount,
-            s,
-            sp
-        );
-
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
-
-        uint256 balanceLiquidatable;
-
-        if (
-            clusterOwner != msg.sender &&
-            !cluster.isLiquidatable(
-                burnRate,
-                sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
-            )
-        ) {
-            revert ClusterNotLiquidatable();
-        }
-
-        sp.updateDAO(false, cluster.validatorCount);
-
-        if (cluster.balance != 0) {
-            balanceLiquidatable = cluster.balance;
-            cluster.balance = 0;
-        }
-        cluster.index = 0;
-        cluster.networkFeeIndex = 0;
-        cluster.active = false;
-
-        s.ethClusters[hashedCluster] = cluster.hashClusterData();
-
-        if (balanceLiquidatable != 0) {
-            CoreLib.transferBalance(payable(msg.sender), balanceLiquidatable);
-        }
-
+        _liquidate(clusterOwner, operatorIds, cluster);
         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
     }
 
     /// @inheritdoc ISSVClusters
     function reactivate(uint64[] calldata operatorIds, uint256, Cluster memory cluster) external payable override {
-        StorageData storage s = SSVStorage.load();
-
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
-        if (cluster.active) revert ClusterAlreadyEnabled();
-
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
-            operatorIds,
-            true,
-            cluster.validatorCount,
-            s,
-            sp
-        );
-
-        cluster.balance += msg.value;
-        cluster.active = true;
-        cluster.index = clusterIndex;
-        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
-
-        sp.updateDAO(true, cluster.validatorCount);
-
-        if (
-            cluster.isLiquidatable(
-                burnRate,
-                sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
-            )
-        ) {
-            revert InsufficientBalance();
-        }
-
-        s.ethClusters[hashedCluster] = cluster.hashClusterData();
-
+        _reactivate(operatorIds, cluster);
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
     }
 
@@ -267,16 +198,18 @@ contract ETHClusters is ISSVClusters {
         Cluster memory cluster
     ) external payable override {
         StorageData storage s = SSVStorage.load();
-        
-        ensureMigrated(cluster, clusterOwner, operatorIds, s);
 
-        (bytes32 hashedCluster,) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        cluster.balance += msg.value;
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
+        if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+            _liquidate(clusterOwner, operatorIds, cluster);
+            emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
 
-        s.ethClusters[hashedCluster] = cluster.hashClusterData();
-
-        // CoreLib.deposit(amount);
-
+            _reactivate(operatorIds, cluster);
+            emit ClusterReactivated(msg.sender, operatorIds, cluster);
+        } else {
+            cluster.balance += msg.value;
+            s.ethClusters[hashedCluster] = cluster.hashClusterData();
+        }
         emit ClusterDeposited(clusterOwner, operatorIds, amount, cluster);
     }
 
@@ -325,8 +258,19 @@ contract ETHClusters is ISSVClusters {
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
-        CoreLib.transferBalance(payable(msg.sender), amount);
-
+        if (version == ClusterLib._CLUSTER_VERSION_ETH) {
+            s.ethClusters[hashedCluster] = cluster.hashClusterData();
+            if (amount != 0) {
+                CoreLib.transferBalance(payable(msg.sender), amount);
+            }
+        } else if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+            s.clusters[hashedCluster] = cluster.hashClusterData();
+            if (amount != 0) {
+                CoreLib.transferTokenBalance(msg.sender, amount);
+            }
+        } else {
+            revert IncorrectClusterVersion();
+        }
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
     }
 
@@ -361,19 +305,97 @@ contract ETHClusters is ISSVClusters {
         }
     }
 
-    function ensureMigrated(
-        ISSVNetworkCore.Cluster memory cluster,
-        address clusterOwner,
-        uint64[] memory operatorIds,
-        StorageData storage s
-    ) internal {
-        bytes32 hashedCluster = keccak256(abi.encodePacked(clusterOwner, operatorIds));
-        bytes32 legacyClusterData = s.clusters[hashedCluster];
-        if (cluster.active && legacyClusterData != bytes32(0)) {
-            address ssvClusterAddr = SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS];
-            ISSVClusters(ssvClusterAddr).liquidate(clusterOwner, operatorIds, cluster);
-            delete s.clusters[hashedCluster];
-            //TODO: Do we want to delete the cluster?
+    function _liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) internal virtual {
+        StorageData storage s = SSVStorage.load();
+
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
+        cluster.validateClusterIsNotLiquidated();
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+            operatorIds,
+            false,
+            cluster.validatorCount,
+            s,
+            sp
+        );
+
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
+
+        uint256 balanceLiquidatable;
+
+        if (
+            clusterOwner != msg.sender &&
+            !cluster.isLiquidatable(
+                burnRate,
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
+            )
+        ) {
+            revert ClusterNotLiquidatable();
         }
+
+        sp.updateDAO(false, cluster.validatorCount);
+
+        if (cluster.balance != 0) {
+            balanceLiquidatable = cluster.balance;
+            cluster.balance = 0;
+        }
+        cluster.index = 0;
+        cluster.networkFeeIndex = 0;
+        cluster.active = false;
+
+        if (version == ClusterLib._CLUSTER_VERSION_ETH) {
+            s.ethClusters[hashedCluster] = cluster.hashClusterData();
+            if (balanceLiquidatable != 0) {
+                CoreLib.transferBalance(payable(msg.sender), balanceLiquidatable);
+            }
+        } else if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+            s.clusters[hashedCluster] = cluster.hashClusterData();
+            if (balanceLiquidatable != 0) {
+                CoreLib.transferTokenBalance(msg.sender, balanceLiquidatable);
+            }
+        } else {
+            revert IncorrectClusterVersion();
+        }
+    }
+
+    function _reactivate(uint64[] calldata operatorIds, Cluster memory cluster) internal virtual {
+        StorageData storage s = SSVStorage.load();
+
+        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        if (cluster.active) revert ClusterAlreadyEnabled();
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+            operatorIds,
+            true,
+            cluster.validatorCount,
+            s,
+            sp
+        );
+
+        cluster.balance += msg.value;
+        cluster.active = true;
+        cluster.index = clusterIndex;
+        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
+
+        sp.updateDAO(true, cluster.validatorCount);
+
+        if (
+            cluster.isLiquidatable(
+                burnRate,
+                sp.networkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
+            )
+        ) {
+            revert InsufficientBalance();
+        }
+
+        s.ethClusters[hashedCluster] = cluster.hashClusterData();
     }
 }

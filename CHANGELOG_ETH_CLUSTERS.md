@@ -15,7 +15,23 @@ This feature introduces support for ETH-based clusters alongside the existing SS
 - Supports all cluster operations (register, remove, liquidate, reactivate, deposit, withdraw, exit) using native ETH
 - Uses `msg.value` for ETH deposits instead of SSV token transfers
 - Stores cluster data in `ethClusters` mapping (version 1) instead of `clusters` mapping (version 0)
-- Includes `ensureMigrated` function to help migrate existing SSV clusters to ETH clusters
+- **Version-aware operations**: All functions now handle both ETH clusters (version 1) and SSV clusters (version 0)
+- **Refactored internal functions**:
+  - Extracted `_liquidate()` internal function that handles both ETH and SSV cluster liquidation
+  - Extracted `_reactivate()` internal function for cluster reactivation
+  - Both functions use version-based storage selection and balance transfers
+- **Updated `removeValidator()` and `removeValidators()`**:
+  - Added version checking to determine correct storage mapping (`ethClusters` vs `clusters`)
+  - Validates cluster version before updating storage
+- **Updated `deposit()`**:
+  - Automatically migrates SSV clusters to ETH clusters by liquidating and reactivating
+  - If cluster version is SSV (version 0), performs liquidation and reactivation to migrate
+  - If cluster version is ETH (version 1), simply adds balance
+- **Updated `withdraw()`**:
+  - Version-aware withdrawal that handles both ETH and SSV clusters
+  - ETH clusters use `CoreLib.transferBalance()` for ETH transfers
+  - SSV clusters use `CoreLib.transferTokenBalance()` for SSV token transfers
+- **Removed `ensureMigrated()` function**: Migration logic now integrated into `deposit()`
 - All functions marked as `payable` to accept ETH transfers
 
 ### Storage Changes
@@ -44,6 +60,10 @@ This feature introduces support for ETH-based clusters alongside the existing SS
   - Version 0: Uses `s.clusters[hashedCluster]` (SSV token clusters)
   - Version 1: Uses `s.ethClusters[hashedCluster]` (ETH clusters)
   - Conditional logic added to select appropriate storage mapping based on version
+- **New validation function `validateClusterVersion()`**:
+  - Validates that cluster version matches expected version
+  - Reverts with `IncorrectClusterVersion` error if versions don't match
+  - Integrated into `validateHashedCluster()` to ensure version consistency
 
 ### Interface Changes
 
@@ -64,6 +84,7 @@ This feature introduces support for ETH-based clusters alongside the existing SS
 - **Added `version` field to `OperatorFeeChangeRequest` struct**:
   - `uint8 version` - Fee change request version
 - **New error**: `ETHTransferFailed()` - Reverts when ETH transfer fails
+- **New error**: `IncorrectClusterVersion()` - Reverts when cluster version doesn't match expected version (error code: 0xf6749746)
 
 #### ISSVOperators (`contracts/interfaces/ISSVOperators.sol`)
 - **Updated `OperatorFeeDeclared` event**:
@@ -128,9 +149,12 @@ This feature introduces support for ETH-based clusters alongside the existing SS
   - Operators with version 1 use ETH fees
 
 ### Migration Path
-- `ETHClusters.deposit()` includes `ensureMigrated()` check
-- Automatically liquidates existing SSV cluster if active ETH cluster detected
-- Allows seamless transition from SSV to ETH clusters
+- `ETHClusters.deposit()` automatically migrates SSV clusters to ETH clusters
+- When depositing to an SSV cluster (version 0), the function:
+  1. Liquidates the existing SSV cluster (transfers SSV token balance to liquidator)
+  2. Reactivates it as an ETH cluster (version 1)
+  3. Stores the cluster in `ethClusters` mapping
+- Allows seamless transition from SSV to ETH clusters without manual intervention
 
 ### Backward Compatibility
 - Existing SSV clusters (version 0) continue to function unchanged
@@ -141,10 +165,16 @@ This feature introduces support for ETH-based clusters alongside the existing SS
 ## Files Modified
 
 1. `contracts/modules/ETHClusters.sol` (new file, 391 lines)
+   - **Latest updates**: Refactored to support both ETH and SSV clusters with version-aware operations
+   - Added `_liquidate()` and `_reactivate()` internal functions
+   - Updated `removeValidator()`, `removeValidators()`, `deposit()`, and `withdraw()` for version handling
+   - Removed `ensureMigrated()` function
 2. `contracts/interfaces/ISSVClusters.sol` (191 lines changed)
 3. `contracts/interfaces/ISSVNetworkCore.sol` (5 lines added)
+   - **Latest updates**: Added `IncorrectClusterVersion` error
 4. `contracts/interfaces/ISSVOperators.sol` (1 line changed)
 5. `contracts/libraries/ClusterLib.sol` (13 lines changed)
+   - **Latest updates**: Added `validateClusterVersion()` function and integrated version validation
 6. `contracts/libraries/CoreLib.sol` (11 lines changed)
 7. `contracts/libraries/SSVStorage.sol` (2 lines added)
 8. `contracts/modules/SSVClusters.sol` (44 lines changed)

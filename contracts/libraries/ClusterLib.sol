@@ -55,6 +55,10 @@ library ClusterLib {
         if (!cluster.active) revert ISSVNetworkCore.ClusterIsLiquidated();
     }
 
+    function validateClusterVersion(uint8 clusterVersion, uint8 expectedVersion) internal pure {
+        if (clusterVersion != expectedVersion) revert ISSVNetworkCore.IncorrectClusterVersion();
+    }
+
     function validateHashedCluster(
         ISSVNetworkCore.Cluster memory cluster,
         address owner,
@@ -119,6 +123,7 @@ library ClusterLib {
             revert ISSVNetworkCore.IncorrectClusterState();
         } else {
             validateClusterIsNotLiquidated(cluster);
+            validateClusterVersion(detectedVersion, _CLUSTER_VERSION_ETH);
         }
 
         return hashedCluster;
