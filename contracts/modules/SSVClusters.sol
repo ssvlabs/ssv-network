@@ -29,7 +29,7 @@ contract SSVClusters is ISSVClusters {
 
         ValidatorLib.registerPublicKey(publicKey, operatorIds, s);
 
-        (bytes32 hashedCluster,) = cluster.validateClusterOnRegistration(operatorIds, s);
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += amount;
 
@@ -62,7 +62,7 @@ contract SSVClusters is ISSVClusters {
         for (uint i; i < validatorsLength; ++i) {
             ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
         }
-        (bytes32 hashedCluster,) = cluster.validateClusterOnRegistration(operatorIds, s);
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += amount;
 
@@ -87,7 +87,7 @@ contract SSVClusters is ISSVClusters {
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster,) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
@@ -130,7 +130,7 @@ contract SSVClusters is ISSVClusters {
         }
         StorageData storage s = SSVStorage.load();
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster,) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator;
