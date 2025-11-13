@@ -48,7 +48,7 @@ contract SSVOperators is ISSVOperators {
             validatorCount: 0,
             fee: fee.shrink(),
             whitelisted: setPrivate,
-            version: 1
+            version: CoreLib.VERSION_ETH
         });
         s.operatorsPKs[hashedPk] = id;
 
@@ -193,7 +193,7 @@ contract SSVOperators is ISSVOperators {
             shrunkFee,
             uint64(block.timestamp) + sp.declareOperatorFeePeriod,
             uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod,
-            1
+            CoreLib.VERSION_ETH
         );
         emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
@@ -221,7 +221,7 @@ contract SSVOperators is ISSVOperators {
 
         s.operators[operatorId] = operator;
 
-        if (s.operators[operatorId].version == 0) {
+        if (s.operators[operatorId].version == CoreLib.VERSION_SSV) {
             _transferOperatorTokenBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
         } else {
             _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());

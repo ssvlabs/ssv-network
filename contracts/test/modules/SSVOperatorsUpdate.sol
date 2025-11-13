@@ -43,7 +43,8 @@ contract SSVOperatorsUpdate is ISSVOperators {
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             validatorCount: 0,
             fee: fee.shrink(),
-            whitelisted: setPrivate
+            whitelisted: setPrivate,
+            version: 1
         });
         s.operatorsPKs[hashedPk] = id;
 

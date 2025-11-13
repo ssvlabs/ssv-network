@@ -6,6 +6,10 @@ import "./SSVStorage.sol";
 library CoreLib {
     event ModuleUpgraded(SSVModules indexed moduleId, address moduleAddress);
 
+    uint8 internal constant VERSION_SSV = 0;
+    uint8 internal constant VERSION_ETH = 1;
+    uint8 internal constant VERSION_UNDEFINED = type(uint8).max;
+
     function getVersion() internal pure returns (string memory) {
         return "v1.2.0";
     }

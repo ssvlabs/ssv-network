@@ -6,23 +6,12 @@ import {StorageData} from "./SSVStorage.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
+import "./CoreLib.sol";
 import {Types64} from "./Types.sol";
 
 library ClusterLib {
     using Types64 for uint64;
     using ProtocolLib for StorageProtocol;
-
-    uint8 internal constant _CLUSTER_VERSION_SSV = 0;
-    uint8 internal constant _CLUSTER_VERSION_ETH = 1;
-    uint8 internal constant _CLUSTER_VERSION_UNDEFINED = type(uint8).max;
-
-    function clusterVersionSSV() internal pure returns (uint8) {
-        return _CLUSTER_VERSION_SSV;
-    }
-
-    function clusterVersionETH() internal pure returns (uint8) {
-        return _CLUSTER_VERSION_ETH;
-    }
 
     function updateBalance(
         ISSVNetworkCore.Cluster memory cluster,
@@ -123,7 +112,7 @@ library ClusterLib {
             revert ISSVNetworkCore.IncorrectClusterState();
         } else {
             validateClusterIsNotLiquidated(cluster);
-            validateClusterVersion(detectedVersion, _CLUSTER_VERSION_ETH);
+            validateClusterVersion(detectedVersion, CoreLib.VERSION_ETH);
         }
 
         return hashedCluster;
@@ -170,12 +159,12 @@ library ClusterLib {
     ) internal view returns (bytes32 clusterData, uint8 version) {
         clusterData = s.clusters[hashedCluster];
         if (clusterData != bytes32(0)) {
-            return (clusterData, _CLUSTER_VERSION_SSV);
+            return (clusterData, CoreLib.VERSION_SSV);
         }
 
         clusterData = s.ethClusters[hashedCluster];
         if (clusterData != bytes32(0)) {
-            return (clusterData, _CLUSTER_VERSION_ETH);
+            return (clusterData, CoreLib.VERSION_ETH);
         }
 
         revert ISSVNetworkCore.ClusterDoesNotExists();

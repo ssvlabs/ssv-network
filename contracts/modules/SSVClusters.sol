@@ -28,7 +28,7 @@ contract SSVClusters is ISSVClusters {
 
         ValidatorLib.validateOperatorsLength(operatorIds);
 
-        OperatorLib.ensureOperatorVersion(operatorIds, ClusterLib._CLUSTER_VERSION_ETH, s);
+        OperatorLib.ensureOperatorVersion(operatorIds, CoreLib.VERSION_ETH, s);
 
         ValidatorLib.registerPublicKey(publicKey, operatorIds, s);
 
@@ -59,7 +59,7 @@ contract SSVClusters is ISSVClusters {
 
         ValidatorLib.validateOperatorsLength(operatorIds);
 
-        OperatorLib.ensureOperatorVersion(operatorIds, ClusterLib._CLUSTER_VERSION_ETH, s);
+        OperatorLib.ensureOperatorVersion(operatorIds, CoreLib.VERSION_ETH, s);
 
         for (uint i; i < validatorsLength; ++i) {
             ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
@@ -111,9 +111,9 @@ contract SSVClusters is ISSVClusters {
         }
 
         --cluster.validatorCount;
-        if (version == ClusterLib._CLUSTER_VERSION_ETH) {
+        if (version == CoreLib.VERSION_ETH) {
             s.ethClusters[hashedCluster] = cluster.hashClusterData();
-        } else if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+        } else if (version == CoreLib.VERSION_SSV) {
             s.clusters[hashedCluster] = cluster.hashClusterData();
         } else {
             revert IncorrectClusterVersion();
@@ -165,9 +165,9 @@ contract SSVClusters is ISSVClusters {
 
         cluster.validatorCount -= validatorsRemoved;
 
-        if (version == ClusterLib._CLUSTER_VERSION_ETH) {
+        if (version == CoreLib.VERSION_ETH) {
             s.ethClusters[hashedCluster] = cluster.hashClusterData();
-        } else if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+        } else if (version == CoreLib.VERSION_SSV) {
             s.clusters[hashedCluster] = cluster.hashClusterData();
         } else {
             revert IncorrectClusterVersion();
@@ -204,7 +204,7 @@ contract SSVClusters is ISSVClusters {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+        if (version == CoreLib.VERSION_SSV) {
             _liquidate(clusterOwner, operatorIds, cluster);
             emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
 
@@ -262,12 +262,12 @@ contract SSVClusters is ISSVClusters {
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
-        if (version == ClusterLib._CLUSTER_VERSION_ETH) {
+        if (version == CoreLib.VERSION_ETH) {
             s.ethClusters[hashedCluster] = cluster.hashClusterData();
             if (amount != 0) {
                 CoreLib.transferBalance(payable(msg.sender), amount);
             }
-        } else if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+        } else if (version == CoreLib.VERSION_SSV) {
             s.clusters[hashedCluster] = cluster.hashClusterData();
             if (amount != 0) {
                 CoreLib.transferTokenBalance(msg.sender, amount);
@@ -351,12 +351,12 @@ contract SSVClusters is ISSVClusters {
         cluster.networkFeeIndex = 0;
         cluster.active = false;
 
-        if (version == ClusterLib._CLUSTER_VERSION_ETH) {
+        if (version == CoreLib.VERSION_ETH) {
             s.ethClusters[hashedCluster] = cluster.hashClusterData();
             if (balanceLiquidatable != 0) {
                 CoreLib.transferBalance(payable(msg.sender), balanceLiquidatable);
             }
-        } else if (version == ClusterLib._CLUSTER_VERSION_SSV) {
+        } else if (version == CoreLib.VERSION_SSV) {
             s.clusters[hashedCluster] = cluster.hashClusterData();
             if (balanceLiquidatable != 0) {
                 CoreLib.transferTokenBalance(msg.sender, balanceLiquidatable);
@@ -374,7 +374,7 @@ contract SSVClusters is ISSVClusters {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
         
-        OperatorLib.ensureOperatorVersion(operatorIds, ClusterLib._CLUSTER_VERSION_ETH, s);
+        OperatorLib.ensureOperatorVersion(operatorIds, CoreLib.VERSION_ETH, s);
 
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
