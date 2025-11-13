@@ -201,7 +201,7 @@ contract SSVNetworkUpgrade is
         bytes calldata shares,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
@@ -221,7 +221,7 @@ contract SSVNetworkUpgrade is
         bytes[] calldata shares,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
@@ -267,7 +267,11 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function liquidate(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
+    function liquidate(
+        address owner,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
@@ -283,7 +287,7 @@ contract SSVNetworkUpgrade is
         uint64[] calldata operatorIds,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
@@ -300,7 +304,7 @@ contract SSVNetworkUpgrade is
         uint64[] calldata operatorIds,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
@@ -317,7 +321,7 @@ contract SSVNetworkUpgrade is
         uint64[] calldata operatorIds,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(

@@ -70,6 +70,14 @@ contract SSVNetwork is
         );
     }
 
+    function initializeV2(ISSVClusters ethClusters_) external initializer onlyProxy {
+        StorageData storage s = SSVStorage.load();
+        // Only set if not already set (idempotent)
+        if (s.ssvContracts[SSVModules.ETH_CLUSTERS] == address(0)) {
+            s.ssvContracts[SSVModules.ETH_CLUSTERS] = address(ethClusters_);
+        }
+    }
+
     function __SSVNetwork_init_unchained(
         IERC20 token_,
         ISSVOperators ssvOperators_,
@@ -209,7 +217,7 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function bulkRegisterValidator(
@@ -219,7 +227,7 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function removeValidator(
@@ -227,7 +235,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function bulkRemoveValidator(
@@ -235,7 +243,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function liquidate(
@@ -243,7 +251,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function reactivate(
@@ -251,7 +259,7 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function deposit(
@@ -260,7 +268,7 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function withdraw(
@@ -268,15 +276,15 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.ETH_CLUSTERS]);
     }
 
     function updateNetworkFee(uint256 fee) external override onlyOwner {

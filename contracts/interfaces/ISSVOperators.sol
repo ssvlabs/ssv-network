@@ -67,7 +67,7 @@ interface ISSVOperators is ISSVNetworkCore {
      */
     event OperatorRemoved(uint64 indexed operatorId);
 
-    event OperatorFeeDeclared(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee, uint8 version);
+    event OperatorFeeDeclared(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 
     event OperatorFeeDeclarationCancelled(address indexed owner, uint64 indexed operatorId);
     /**

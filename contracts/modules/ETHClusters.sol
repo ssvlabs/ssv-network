@@ -30,15 +30,11 @@ contract ETHClusters is ISSVClusters {
 
         ValidatorLib.registerPublicKey(publicKey, operatorIds, s);
 
-        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, 1, s);
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += msg.value;
 
-        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, 1, 1, s, sp);
-
-        // if (amount != 0) {
-        //     CoreLib.deposit(amount);
-        // }
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, 1, s, sp);
 
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
     }
@@ -64,15 +60,11 @@ contract ETHClusters is ISSVClusters {
         for (uint i; i < validatorsLength; ++i) {
             ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
         }
-        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, 1, s);
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += msg.value;
 
-        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), 1, s, sp);
-
-        // if (amount != 0) {
-        //     CoreLib.deposit(amount);
-        // }
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
 
         for (uint i; i < validatorsLength; ++i) {
             bytes memory pk = publicKeys[i];
@@ -90,7 +82,7 @@ contract ETHClusters is ISSVClusters {
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, 1, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
@@ -134,7 +126,7 @@ contract ETHClusters is ISSVClusters {
         }
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, 1, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator;
@@ -179,7 +171,7 @@ contract ETHClusters is ISSVClusters {
     ) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, 1, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -231,7 +223,7 @@ contract ETHClusters is ISSVClusters {
     function reactivate(uint64[] calldata operatorIds, uint256, Cluster memory cluster) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, 1, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         if (cluster.active) revert ClusterAlreadyEnabled();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -264,10 +256,6 @@ contract ETHClusters is ISSVClusters {
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
-        // if (amount > 0) {
-        //     CoreLib.deposit(amount);
-        // }
-
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
     }
 
@@ -282,7 +270,7 @@ contract ETHClusters is ISSVClusters {
         
         ensureMigrated(cluster, clusterOwner, operatorIds, s);
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, 1, s);
+        (bytes32 hashedCluster,) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         cluster.balance += msg.value;
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
@@ -296,7 +284,7 @@ contract ETHClusters is ISSVClusters {
     function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, 1, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();

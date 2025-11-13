@@ -29,11 +29,11 @@ contract SSVClusters is ISSVClusters {
 
         ValidatorLib.registerPublicKey(publicKey, operatorIds, s);
 
-        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, 0, s);
+        (bytes32 hashedCluster,) = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += amount;
 
-        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, 1, 0, s, sp);
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, 1, s, sp);
 
         if (amount != 0) {
             CoreLib.deposit(amount);
@@ -62,11 +62,11 @@ contract SSVClusters is ISSVClusters {
         for (uint i; i < validatorsLength; ++i) {
             ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
         }
-        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, 0, s);
+        (bytes32 hashedCluster,) = cluster.validateClusterOnRegistration(operatorIds, s);
 
         cluster.balance += amount;
 
-        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), 0, s, sp);
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
 
         if (amount != 0) {
             CoreLib.deposit(amount);
@@ -87,7 +87,7 @@ contract SSVClusters is ISSVClusters {
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, 0, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
@@ -130,7 +130,7 @@ contract SSVClusters is ISSVClusters {
         }
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, 0, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator;
@@ -174,7 +174,7 @@ contract SSVClusters is ISSVClusters {
     ) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, 0, s);
+        (bytes32 hashedCluster,) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -229,7 +229,7 @@ contract SSVClusters is ISSVClusters {
     ) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, 0, s);
+        (bytes32 hashedCluster,) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         if (cluster.active) revert ClusterAlreadyEnabled();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -277,7 +277,7 @@ contract SSVClusters is ISSVClusters {
     ) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, 0, s);
+        (bytes32 hashedCluster,) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
 
         cluster.balance += amount;
 
@@ -291,7 +291,7 @@ contract SSVClusters is ISSVClusters {
     function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, 0, s);
+        (bytes32 hashedCluster,) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();

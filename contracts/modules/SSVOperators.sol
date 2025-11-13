@@ -78,7 +78,7 @@ contract SSVOperators is ISSVOperators {
         delete s.operatorsWhitelist[operatorId];
 
         if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
+            _withdrawOperatorEarnings(operatorId, 0);
         }
         emit OperatorRemoved(operatorId);
     }
@@ -195,7 +195,7 @@ contract SSVOperators is ISSVOperators {
             uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod,
             1
         );
-        emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee, 1);
+        emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
     
     // private functions
@@ -221,9 +221,11 @@ contract SSVOperators is ISSVOperators {
 
         s.operators[operatorId] = operator;
 
-        s.operators[operatorId].version == 0
-            ? _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand())
-            : _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        if (s.operators[operatorId].version == 0) {
+            _transferOperatorTokenBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        } else {
+            _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        }
     }
 
     function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {

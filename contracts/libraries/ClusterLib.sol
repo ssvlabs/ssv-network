@@ -12,6 +12,18 @@ library ClusterLib {
     using Types64 for uint64;
     using ProtocolLib for StorageProtocol;
 
+    uint8 internal constant _CLUSTER_VERSION_SSV = 0;
+    uint8 internal constant _CLUSTER_VERSION_ETH = 1;
+    uint8 internal constant _CLUSTER_VERSION_UNDEFINED = type(uint8).max;
+
+    function clusterVersionSSV() internal pure returns (uint8) {
+        return _CLUSTER_VERSION_SSV;
+    }
+
+    function clusterVersionETH() internal pure returns (uint8) {
+        return _CLUSTER_VERSION_ETH;
+    }
+
     function updateBalance(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 newIndex,
@@ -47,18 +59,19 @@ library ClusterLib {
         ISSVNetworkCore.Cluster memory cluster,
         address owner,
         uint64[] memory operatorIds,
-        uint8 version,
         StorageData storage s
-    ) internal view returns (bytes32 hashedCluster) {
+    ) internal view returns (bytes32 hashedCluster, uint8 version) {
         hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
         bytes32 hashedClusterData = hashClusterData(cluster);
 
-        bytes32 clusterData = version == 0 ? s.clusters[hashedCluster] : s.ethClusters[hashedCluster];
+        (bytes32 clusterData, uint8 detectedVersion) = getClusterData(hashedCluster, s);
         if (clusterData == bytes32(0)) {
             revert ISSVNetworkCore.ClusterDoesNotExists();
         } else if (clusterData != hashedClusterData) {
             revert ISSVNetworkCore.IncorrectClusterState();
         }
+
+        return (hashedCluster, detectedVersion);
     }
 
     function updateClusterData(
@@ -87,12 +100,11 @@ library ClusterLib {
     function validateClusterOnRegistration(
         ISSVNetworkCore.Cluster memory cluster,
         uint64[] memory operatorIds,
-        uint8 version,
         StorageData storage s
     ) internal view returns (bytes32 hashedCluster) {
         hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
 
-        bytes32 clusterData = version == 0 ? s.clusters[hashedCluster] : s.ethClusters[hashedCluster];
+        (bytes32 clusterData, uint8 detectedVersion) = getClusterData(hashedCluster, s);
         if (clusterData == bytes32(0)) {
             if (
                 cluster.validatorCount != 0 ||
@@ -108,6 +120,8 @@ library ClusterLib {
         } else {
             validateClusterIsNotLiquidated(cluster);
         }
+
+        return hashedCluster;
     }
 
     function updateClusterOnRegistration(
@@ -115,7 +129,6 @@ library ClusterLib {
         uint64[] memory operatorIds,
         bytes32 hashedCluster,
         uint32 validatorCountDelta,
-        uint8 version,
         StorageData storage s,
         StorageProtocol storage sp
     ) internal {
@@ -143,11 +156,24 @@ library ClusterLib {
         ) {
             revert ISSVNetworkCore.InsufficientBalance();
         }
-
-        if (version == 0) {
-            s.clusters[hashedCluster] = hashClusterData(cluster);
-        } else if (version == 1) {
             s.ethClusters[hashedCluster] = hashClusterData(cluster);
+
+    }
+
+    function getClusterData(
+        bytes32 hashedCluster,
+        StorageData storage s
+    ) internal view returns (bytes32 clusterData, uint8 version) {
+        clusterData = s.clusters[hashedCluster];
+        if (clusterData != bytes32(0)) {
+            return (clusterData, _CLUSTER_VERSION_SSV);
         }
+
+        clusterData = s.ethClusters[hashedCluster];
+        if (clusterData != bytes32(0)) {
+            return (clusterData, _CLUSTER_VERSION_ETH);
+        }
+
+        revert ISSVNetworkCore.ClusterDoesNotExists();
     }
 }
