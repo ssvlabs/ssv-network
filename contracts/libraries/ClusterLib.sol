@@ -162,7 +162,6 @@ library ClusterLib {
             revert ISSVNetworkCore.InsufficientBalance();
         }
             s.ethClusters[hashedCluster] = hashClusterData(cluster);
-
     }
 
     function getClusterData(
