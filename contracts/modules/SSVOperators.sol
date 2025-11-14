@@ -106,6 +106,9 @@ contract SSVOperators is ISSVOperators {
 
         operator.updateSnapshot();
         operator.fee = feeChangeRequest.fee;
+        if (operator.version == CoreLib.VERSION_SSV) {
+            operator.version = CoreLib.VERSION_ETH;
+        }
         s.operators[operatorId] = operator;
 
         delete s.operatorFeeChangeRequests[operatorId];
@@ -136,6 +139,9 @@ contract SSVOperators is ISSVOperators {
 
         operator.updateSnapshot();
         operator.fee = shrunkAmount;
+        if (operator.version == CoreLib.VERSION_SSV) {
+            operator.version = CoreLib.VERSION_ETH;
+        }
         s.operators[operatorId] = operator;
 
         delete s.operatorFeeChangeRequests[operatorId];
@@ -160,7 +166,7 @@ contract SSVOperators is ISSVOperators {
     function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _withdrawOperatorEarnings(operatorId, 0);
     }
-    
+
     function migrateToEth(uint64 operatorId, uint256 fee) external {
         _withdrawOperatorEarnings(operatorId, 0);
         _declareOperatorFee(operatorId, fee);
@@ -197,7 +203,7 @@ contract SSVOperators is ISSVOperators {
         );
         emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
-    
+
     // private functions
     function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount) private {
         StorageData storage s = SSVStorage.load();
@@ -221,10 +227,10 @@ contract SSVOperators is ISSVOperators {
 
         s.operators[operatorId] = operator;
 
-        if (s.operators[operatorId].version == CoreLib.VERSION_SSV) {
-            _transferOperatorTokenBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
-        } else {
+        if (s.operators[operatorId].version == CoreLib.VERSION_ETH) {
             _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        } else {
+            _transferOperatorTokenBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
         }
     }
 
