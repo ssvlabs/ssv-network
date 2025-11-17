@@ -287,6 +287,10 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
+    function withdrawNetworkEarningsETH(uint256 amount) external override onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }

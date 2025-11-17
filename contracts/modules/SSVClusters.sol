@@ -107,7 +107,7 @@ contract SSVClusters is ISSVClusters {
 
             cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
-            sp.updateDAO(false, 1);
+            sp.updateDAO(false, 1, version);
         }
 
         --cluster.validatorCount;
@@ -160,7 +160,7 @@ contract SSVClusters is ISSVClusters {
 
             cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
-            sp.updateDAO(false, validatorsRemoved);
+            sp.updateDAO(false, validatorsRemoved, version);
         }
 
         cluster.validatorCount -= validatorsRemoved;
@@ -341,7 +341,7 @@ contract SSVClusters is ISSVClusters {
             revert ClusterNotLiquidatable();
         }
 
-        sp.updateDAO(false, cluster.validatorCount);
+        sp.updateDAO(false, cluster.validatorCount, version);
 
         if (cluster.balance != 0) {
             balanceLiquidatable = cluster.balance;
@@ -389,7 +389,7 @@ contract SSVClusters is ISSVClusters {
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
 
-        sp.updateDAO(true, cluster.validatorCount);
+        sp.updateDAO(true, cluster.validatorCount, CoreLib.VERSION_ETH);
 
         if (
             cluster.isLiquidatable(

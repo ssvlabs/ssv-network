@@ -79,6 +79,7 @@ interface ISSVNetworkCore {
     error ClusterDoesNotExists(); // 0x185e2b16
     error IncorrectClusterState(); // 0x12e04c87
     error IncorrectClusterVersion(); // 0xf6749746
+    error IncorrectDAOVersion(uint8 daoVersion); // 0x13bb6c4f
     error UnsortedOperatorsList(); // 0xdd020e25
     error NewBlockPeriodIsBelowMinimum(); // 0x6e6c9cac
     error ExceedValidatorLimitWithData(uint64 operatorId); // 0x8ddf7de4

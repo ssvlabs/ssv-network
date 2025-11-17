@@ -277,7 +277,11 @@ contract SSVViews is ISSVViews {
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
-        return SSVStorageProtocol.load().networkTotalEarnings().expand();
+        return getNetworkEarningsByVersion(CoreLib.VERSION_ETH);
+    }
+
+    function getNetworkEarningsByVersion(uint8 version) public view override returns (uint256) {
+        return SSVStorageProtocol.load().networkTotalEarnings(version).expand();
     }
 
     function getOperatorFeeIncreaseLimit() external view override returns (uint64) {

@@ -30,6 +30,10 @@ struct StorageProtocol {
     uint64 operatorMaxFeeIncrease;
     /// @notice The maximum value in operator fee that is allowed (SSV)
     uint64 operatorMaxFee;
+    /// @notice The count of ETH-based validators governed by the DAO
+    uint32 daoEthValidatorCount;
+    /// @notice The current balance of the DAO denominated in ETH
+    uint64 daoEthBalance;
 }
 
 library SSVStorageProtocol {

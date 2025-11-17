@@ -8,9 +8,13 @@ interface ISSVDAO is ISSVNetworkCore {
     /// @param fee The new network fee (SSV) to be set
     function updateNetworkFee(uint256 fee) external;
 
-    /// @notice Withdraws network earnings
+    /// @notice Withdraws legacy SSV-denominated network earnings
     /// @param amount The amount (SSV) to be withdrawn
     function withdrawNetworkEarnings(uint256 amount) external;
+
+    /// @notice Withdraws native ETH-denominated network earnings
+    /// @param amount The amount (ETH) to be withdrawn
+    function withdrawNetworkEarningsETH(uint256 amount) external;
 
     /// @notice Updates the limit on the percentage increase in operator fees
     /// @param percentage The new percentage limit
@@ -55,10 +59,11 @@ interface ISSVDAO is ISSVNetworkCore {
 
     /**
      * @dev Emitted when transfer fees are withdrawn.
-     * @param value The amount of tokens withdrawn.
+     * @param value The amount withdrawn.
      * @param recipient The recipient address.
+     * @param version The withdrawn asset version.
      */
-    event NetworkEarningsWithdrawn(uint256 value, address recipient);
+    event NetworkEarningsWithdrawn(uint256 value, address recipient, uint8 version);
 
     event OperatorMaximumFeeUpdated(uint64 maxFee);
 }

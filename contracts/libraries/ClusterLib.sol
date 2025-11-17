@@ -135,7 +135,7 @@ library ClusterLib {
 
         updateClusterData(cluster, clusterIndex, sp.currentNetworkFeeIndex());
 
-        sp.updateDAO(true, validatorCountDelta);
+        sp.updateDAO(true, validatorCountDelta, CoreLib.VERSION_ETH);
 
         cluster.validatorCount += validatorCountDelta;
 
