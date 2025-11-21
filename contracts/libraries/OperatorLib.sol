@@ -13,19 +13,33 @@ library OperatorLib {
     using Types64 for uint64;
 
     function updateSnapshot(ISSVNetworkCore.Operator memory operator) internal view {
-        uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
+        uint32 currentBlock = uint32(block.number);
+        uint64 blockDiffFee = (currentBlock - operator.snapshot.block) * operator.fee;
 
         operator.snapshot.index += blockDiffFee;
         operator.snapshot.balance += blockDiffFee * operator.validatorCount;
-        operator.snapshot.block = uint32(block.number);
+        operator.snapshot.block = currentBlock;
+
+        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+
+        operator.ethSnapshot.index += blockDiffEthFee;
+        operator.ethSnapshot.balance += blockDiffEthFee * operator.validatorCount;
+        operator.ethSnapshot.block = currentBlock;
     }
 
     function updateSnapshotSt(ISSVNetworkCore.Operator storage operator) internal {
-        uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
+        uint32 currentBlock = uint32(block.number);
+        uint64 blockDiffFee = (currentBlock - operator.snapshot.block) * operator.fee;
 
         operator.snapshot.index += blockDiffFee;
         operator.snapshot.balance += blockDiffFee * operator.validatorCount;
-        operator.snapshot.block = uint32(block.number);
+        operator.snapshot.block = currentBlock;
+
+        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+
+        operator.ethSnapshot.index += blockDiffEthFee;
+        operator.ethSnapshot.balance += blockDiffEthFee * operator.validatorCount;
+        operator.ethSnapshot.block = currentBlock;
     }
 
     function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {

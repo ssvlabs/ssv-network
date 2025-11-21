@@ -12,6 +12,7 @@ import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
 contract SSVOperators is ISSVOperators {
     uint64 private constant MINIMAL_OPERATOR_FEE = 1_000_000_000;
+    uint64 private constant MINIMAL_OPERATOR_ETH_FEE = 1_000_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
 
     using Types256 for uint256;
@@ -28,7 +29,7 @@ contract SSVOperators is ISSVOperators {
         uint256 fee,
         bool setPrivate
     ) external override returns (uint64 id) {
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
+        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
         if (fee > SSVStorageProtocol.load().operatorMaxFee) {
@@ -45,8 +46,10 @@ contract SSVOperators is ISSVOperators {
         s.operators[id] = Operator({
             owner: msg.sender,
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
+            ethSnapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             validatorCount: 0,
-            fee: fee.shrink(),
+            fee: 0,
+            ethFee: fee.shrink(),
             whitelisted: setPrivate,
             version: CoreLib.VERSION_ETH
         });
@@ -67,18 +70,29 @@ contract SSVOperators is ISSVOperators {
 
         operator.updateSnapshot();
         uint64 currentBalance = operator.snapshot.balance;
+        uint64 currentEthBalance = operator.ethSnapshot.balance;
 
         operator.snapshot.block = 0;
         operator.snapshot.balance = 0;
+
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.balance = 0;
+
         operator.validatorCount = 0;
+        
         operator.fee = 0;
+        operator.ethFee = 0;
 
         s.operators[operatorId] = operator;
 
         delete s.operatorsWhitelist[operatorId];
+        ///TODO: Shall we delete the operator from s.operators or we don't want to break the id counter?
 
+        if (currentEthBalance > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, currentEthBalance);
+        }
         if (currentBalance > 0) {
-            _withdrawOperatorEarnings(operatorId, 0);
+            _transferOperatorTokenBalanceUnsafe(operatorId, currentBalance);
         }
         emit OperatorRemoved(operatorId);
     }

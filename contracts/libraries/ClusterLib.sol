@@ -150,23 +150,23 @@ library ClusterLib {
         ) {
             revert ISSVNetworkCore.InsufficientBalance();
         }
-            s.ethClusters[hashedCluster] = hashClusterData(cluster);
+        s.ethClusters[hashedCluster] = hashClusterData(cluster);
     }
 
     function getClusterData(
         bytes32 hashedCluster,
         StorageData storage s
     ) internal view returns (bytes32 clusterData, uint8 version) {
-        clusterData = s.clusters[hashedCluster];
-        if (clusterData != bytes32(0)) {
-            return (clusterData, CoreLib.VERSION_SSV);
-        }
-
         clusterData = s.ethClusters[hashedCluster];
         if (clusterData != bytes32(0)) {
             return (clusterData, CoreLib.VERSION_ETH);
         }
 
+        clusterData = s.clusters[hashedCluster];
+        if (clusterData != bytes32(0)) {
+            return (clusterData, CoreLib.VERSION_SSV);
+        }
+        
         revert ISSVNetworkCore.ClusterDoesNotExists();
     }
 }

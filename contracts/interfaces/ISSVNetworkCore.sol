@@ -26,10 +26,15 @@ interface ISSVNetworkCore {
         address owner;
         /// @dev private flag for this operator
         bool whitelisted;
-        /// @dev Operator struct version 0, version 0 fee = SSV, version 1 fee = eth.
-        uint8 version;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
+
+        /// @dev Operator struct version 0, version 0 fee = SSV, version 1 fee = eth.
+        uint8 version;
+        /// @dev The fee charged by the operator in eth, set to zero for private operators and cannot be increased once set
+        uint64 ethFee;
+        /// @dev The state snapshot of the operator for eth
+        Snapshot ethSnapshot;
     }
 
     /// @notice Represents a request to change an operator's fee
@@ -40,7 +45,7 @@ interface ISSVNetworkCore {
         uint64 approvalBeginTime;
         /// @dev The time when the approval period for the fee change ends
         uint64 approvalEndTime;
-
+        /// @dev Operator struct version 0, version 0 fee = SSV, version 1 fee = eth.
         uint8 version;
     }
 
