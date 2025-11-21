@@ -21,6 +21,12 @@ library CoreLib {
         }
     }
 
+    function validateVersion(uint8 version) internal pure {
+        if (version != VERSION_ETH && version != VERSION_SSV) {
+            revert ISSVNetworkCore.IncorrectOperatorVersion(version);
+        }
+    }
+
     function transferTokenBalance(address to, uint256 amount) internal {
         if (!SSVStorage.load().token.transfer(to, amount)) {
             revert ISSVNetworkCore.TokenTransferFailed();

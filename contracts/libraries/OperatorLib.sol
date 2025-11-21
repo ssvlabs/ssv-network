@@ -19,7 +19,10 @@ library OperatorLib {
         operator.snapshot.index += blockDiffFee;
         operator.snapshot.balance += blockDiffFee * operator.validatorCount;
         operator.snapshot.block = currentBlock;
+    }
 
+    function updateETHSnapshot(ISSVNetworkCore.Operator memory operator) internal view {
+        uint32 currentBlock = uint32(block.number);
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
         operator.ethSnapshot.index += blockDiffEthFee;
@@ -34,12 +37,25 @@ library OperatorLib {
         operator.snapshot.index += blockDiffFee;
         operator.snapshot.balance += blockDiffFee * operator.validatorCount;
         operator.snapshot.block = currentBlock;
+    }
 
+    function updateETHSnapshotSt(ISSVNetworkCore.Operator storage operator) internal {
+        uint32 currentBlock = uint32(block.number);
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
         operator.ethSnapshot.index += blockDiffEthFee;
         operator.ethSnapshot.balance += blockDiffEthFee * operator.validatorCount;
         operator.ethSnapshot.block = currentBlock;
+    }
+
+    function updateSnapshots(ISSVNetworkCore.Operator memory operator) internal view {
+        updateSnapshot(operator);
+        updateETHSnapshot(operator);
+    }
+
+    function updateSnapshotsSt(ISSVNetworkCore.Operator storage operator) internal {
+        updateSnapshotSt(operator);
+        updateETHSnapshotSt(operator);
     }
 
     function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
@@ -71,7 +87,7 @@ library OperatorLib {
             }
             ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
 
-            if (operator.snapshot.block == 0) {
+            if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
                 revert ISSVNetworkCore.OperatorDoesNotExist();
             }
 
@@ -105,7 +121,7 @@ library OperatorLib {
                 }
             }
 
-            updateSnapshot(operator);
+            updateSnapshots(operator);
             if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
                 revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
             }
@@ -132,7 +148,7 @@ library OperatorLib {
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
             if (operator.snapshot.block != 0) {
-                updateSnapshotSt(operator);
+                updateSnapshotsSt(operator);
                 if (!increaseValidatorCount) {
                     operator.validatorCount -= deltaValidatorCount;
                 } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {

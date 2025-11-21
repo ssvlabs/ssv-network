@@ -170,6 +170,10 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
+    function declareOperatorEthFee(uint64 operatorId, uint256 fee) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+    }
+
     function executeOperatorFee(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
@@ -187,6 +191,14 @@ contract SSVNetwork is
     }
 
     function withdrawAllOperatorEarnings(uint64 operatorId) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+    }
+
+    function withdrawOperatorETHEarnings(uint64 operatorId, uint256 amount) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+    }
+
+    function withdrawAllOperatorETHEarnings(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 

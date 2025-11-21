@@ -19,6 +19,11 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @param fee The fee to be declared (SSV)
     function declareOperatorFee(uint64 operatorId, uint256 fee) external;
 
+    /// @notice Declares the operator's fee in ETH
+    /// @param operatorId The ID of the operator
+    /// @param fee The fee to be declared (ETH)
+    function declareOperatorEthFee(uint64 operatorId, uint256 fee) external;
+
     /// @notice Executes the operator's fee
     /// @param operatorId The ID of the operator
     function executeOperatorFee(uint64 operatorId) external;
@@ -37,9 +42,18 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @param tokenAmount The amount of tokens to withdraw (SSV)
     function withdrawOperatorEarnings(uint64 operatorId, uint256 tokenAmount) external;
 
+    /// @notice Withdraws operator earnings in ETH
+    /// @param operatorId The ID of the operator
+    /// @param amount The amount of ETH to withdraw
+    function withdrawOperatorETHEarnings(uint64 operatorId, uint256 amount) external;
+
     /// @notice Withdraws all operator earnings
     /// @param operatorId The ID of the operator
     function withdrawAllOperatorEarnings(uint64 operatorId) external;
+
+    /// @notice Withdraws all operator earnings in ETH
+    /// @param operatorId The ID of the operator
+    function withdrawAllOperatorETHEarnings(uint64 operatorId) external;
 
     /// @notice Set the list of operators as private without checking for any whitelisting address
     /// @notice The operators are considered private when registering validators

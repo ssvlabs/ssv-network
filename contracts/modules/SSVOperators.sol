@@ -68,7 +68,7 @@ contract SSVOperators is ISSVOperators {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        operator.updateSnapshot();
+        operator.updateSnapshots();
         uint64 currentBalance = operator.snapshot.balance;
         uint64 currentEthBalance = operator.ethSnapshot.balance;
 
@@ -79,7 +79,7 @@ contract SSVOperators is ISSVOperators {
         operator.ethSnapshot.balance = 0;
 
         operator.validatorCount = 0;
-        
+
         operator.fee = 0;
         operator.ethFee = 0;
 
@@ -98,7 +98,11 @@ contract SSVOperators is ISSVOperators {
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
-        _declareOperatorFee(operatorId, fee);
+        _declareOperatorFee(operatorId, fee, CoreLib.VERSION_SSV);
+    }
+
+    function declareOperatorEthFee(uint64 operatorId, uint256 fee) external override {
+        _declareOperatorFee(operatorId, fee, CoreLib.VERSION_ETH);
     }
 
     function executeOperatorFee(uint64 operatorId) external override {
@@ -118,10 +122,18 @@ contract SSVOperators is ISSVOperators {
 
         if (feeChangeRequest.fee.expand() > SSVStorageProtocol.load().operatorMaxFee) revert FeeTooHigh();
 
-        operator.updateSnapshot();
-        operator.fee = feeChangeRequest.fee;
-        if (operator.version == CoreLib.VERSION_SSV) {
-            operator.version = CoreLib.VERSION_ETH;
+        if (operator.version != feeChangeRequest.version) {
+            revert IncorrectOperatorVersion(feeChangeRequest.version);
+        }
+
+        if (feeChangeRequest.version == CoreLib.VERSION_ETH) {
+            operator.updateETHSnapshot();
+            operator.ethFee = feeChangeRequest.fee;
+        } else if (feeChangeRequest.version == CoreLib.VERSION_SSV) {
+            operator.updateSnapshot();
+            operator.fee = feeChangeRequest.fee;
+        } else {
+            revert IncorrectOperatorVersion(feeChangeRequest.version);
         }
         s.operators[operatorId] = operator;
 
@@ -145,21 +157,28 @@ contract SSVOperators is ISSVOperators {
         StorageData storage s = SSVStorage.load();
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
+        if (operator.version == CoreLib.VERSION_ETH) {
+            if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+            uint64 shrunkAmount = fee.shrink();
+            if (shrunkAmount >= operator.ethFee) revert FeeIncreaseNotAllowed();
 
-        uint64 shrunkAmount = fee.shrink();
-        if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
+            operator.updateETHSnapshot();
+            operator.ethFee = shrunkAmount;
+            s.operators[operatorId] = operator;
+        } else if (operator.version == CoreLib.VERSION_SSV) {
+            if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
 
-        operator.updateSnapshot();
-        operator.fee = shrunkAmount;
-        if (operator.version == CoreLib.VERSION_SSV) {
-            operator.version = CoreLib.VERSION_ETH;
+            uint64 shrunkAmount = fee.shrink();
+            if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
+
+            operator.updateSnapshot();
+            operator.fee = shrunkAmount;
+            s.operators[operatorId] = operator;
+        } else {
+            revert IncorrectOperatorVersion(operator.version);
         }
-        s.operators[operatorId] = operator;
-
         delete s.operatorFeeChangeRequests[operatorId];
-
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
@@ -174,74 +193,114 @@ contract SSVOperators is ISSVOperators {
     }
 
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
-        _withdrawOperatorEarnings(operatorId, amount);
+        _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_SSV);
     }
 
     function withdrawAllOperatorEarnings(uint64 operatorId) external override {
-        _withdrawOperatorEarnings(operatorId, 0);
+        _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_SSV);
+    }
+
+    function withdrawOperatorETHEarnings(uint64 operatorId, uint256 amount) external override {
+        _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_ETH);
+    }
+
+    function withdrawAllOperatorETHEarnings(uint64 operatorId) external override {
+        _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_ETH);
     }
 
     function migrateToEth(uint64 operatorId, uint256 fee) external {
-        _withdrawOperatorEarnings(operatorId, 0);
-        _declareOperatorFee(operatorId, fee);
+        StorageData storage s = SSVStorage.load();
+        Operator storage operator = s.operators[operatorId];
+        operator.checkOwner();
+
+        if (operator.version != CoreLib.VERSION_SSV) {
+            revert IncorrectOperatorVersion(operator.version);
+        }
+        operator.version = CoreLib.VERSION_ETH;
+
+        _declareOperatorFee(operatorId, fee, operator.version);
+
+        operator.fee = 0;
+        if (operator.ethSnapshot.block == 0) {
+            operator.ethSnapshot.block = uint32(block.number);
+        }
     }
 
-    function _declareOperatorFee(uint64 operatorId, uint256 fee) internal virtual {
+    function _declareOperatorFee(uint64 operatorId, uint256 fee, uint8 version) internal virtual {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
+        CoreLib.validateVersion(version);
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE && version == CoreLib.VERSION_SSV) revert FeeTooLow();
+        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE && version == CoreLib.VERSION_ETH) revert FeeTooLow();
         if (fee > sp.operatorMaxFee) revert FeeTooHigh();
 
-        uint64 operatorFee = s.operators[operatorId].fee;
+        uint64 operatorFee = version == CoreLib.VERSION_ETH
+            ? s.operators[operatorId].ethFee
+            : s.operators[operatorId].fee;
+
         uint64 shrunkFee = fee.shrink();
+
+        bool allowInitialEthFee = version == CoreLib.VERSION_ETH && s.operators[operatorId].ethSnapshot.block == 0;
 
         if (operatorFee == shrunkFee) {
             revert SameFeeChangeNotAllowed();
-        } else if (shrunkFee != 0 && operatorFee == 0) {
+        } else if (shrunkFee != 0 && operatorFee == 0 && !allowInitialEthFee) {
             revert FeeIncreaseNotAllowed();
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
+        if (!allowInitialEthFee) {
+            uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
 
-        if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
+            if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
+        }
 
         s.operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
             shrunkFee,
             uint64(block.timestamp) + sp.declareOperatorFeePeriod,
             uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod,
-            CoreLib.VERSION_ETH
+            version
         );
         emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
 
     // private functions
-    function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount) private {
+    function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount, uint8 version) private {
         StorageData storage s = SSVStorage.load();
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
+        CoreLib.validateVersion(version);
 
-        operator.updateSnapshot();
+        if (version == CoreLib.VERSION_ETH) {
+            operator.updateETHSnapshot();
+        } else {
+            operator.updateSnapshot();
+        }
 
         uint64 shrunkWithdrawn;
         uint64 shrunkAmount = amount.shrink();
 
-        if (amount == 0 && operator.snapshot.balance > 0) {
-            shrunkWithdrawn = operator.snapshot.balance;
-        } else if (amount > 0 && operator.snapshot.balance >= shrunkAmount) {
+        bool isEth = version == CoreLib.VERSION_ETH;
+        Snapshot memory snapshot = isEth ? operator.ethSnapshot : operator.snapshot;
+        if (amount == 0 && snapshot.balance > 0) {
+            shrunkWithdrawn = snapshot.balance;
+        } else if (amount > 0 && snapshot.balance >= shrunkAmount) {
             shrunkWithdrawn = shrunkAmount;
         } else {
             revert InsufficientBalance();
         }
 
-        operator.snapshot.balance -= shrunkWithdrawn;
-
+        snapshot.balance -= shrunkWithdrawn;
+        if (isEth) {
+            operator.ethSnapshot = snapshot;
+        } else {
+            operator.snapshot = snapshot;
+        }
         s.operators[operatorId] = operator;
-
-        if (s.operators[operatorId].version == CoreLib.VERSION_ETH) {
+        if (isEth) {
             _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
         } else {
             _transferOperatorTokenBalanceUnsafe(operatorId, shrunkWithdrawn.expand());

@@ -82,6 +82,8 @@ contract SSVOperatorsUpdate is ISSVOperators {
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {}
 
+    function declareOperatorEthFee(uint64 operatorId, uint256 fee) external override {}
+
     function executeOperatorFee(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
         Operator memory operator = s.operators[operatorId];
@@ -149,6 +151,14 @@ contract SSVOperatorsUpdate is ISSVOperators {
 
     function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _withdrawOperatorEarnings(operatorId, 0);
+    }
+
+    function withdrawOperatorETHEarnings(uint64 operatorId, uint256 amount) external override {
+        revert IncorrectOperatorVersion(CoreLib.VERSION_ETH);
+    }
+
+    function withdrawAllOperatorETHEarnings(uint64 operatorId) external override {
+        revert IncorrectOperatorVersion(CoreLib.VERSION_ETH);
     }
 
     // private functions
