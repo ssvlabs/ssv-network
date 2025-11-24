@@ -6,6 +6,7 @@ import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingC
 import {StorageData} from "./SSVStorage.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
 import {Types64} from "./Types.sol";
+import "./CoreLib.sol";
 
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
@@ -86,9 +87,15 @@ library OperatorLib {
                 }
             }
             ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
+            uint8 operatorVersion = operator.version;
+            bool isEth = operatorVersion == CoreLib.VERSION_ETH;
 
-            if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
+            if (isEth && operator.ethSnapshot.block == 0) {
                 revert ISSVNetworkCore.OperatorDoesNotExist();
+            } else if (!isEth && operator.snapshot.block == 0) {
+                revert ISSVNetworkCore.OperatorDoesNotExist();
+            } else if (operatorVersion != CoreLib.VERSION_ETH && operatorVersion != CoreLib.VERSION_SSV) {
+                revert ISSVNetworkCore.IncorrectOperatorVersion(operatorVersion);
             }
 
             // check if the pending operator is whitelisted (must be backward compatible)
@@ -121,13 +128,17 @@ library OperatorLib {
                 }
             }
 
-            updateSnapshots(operator);
+            if (isEth) {
+                updateETHSnapshot(operator);
+            } else {
+                updateSnapshot(operator);
+            }
             if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
                 revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
             }
 
-            cumulativeFee += operator.fee;
-            cumulativeIndex += operator.snapshot.index;
+            cumulativeFee += isEth ? operator.ethFee : operator.fee;
+            cumulativeIndex += isEth ? operator.ethSnapshot.index : operator.snapshot.index;
 
             s.operators[operatorId] = operator;
         }
@@ -146,18 +157,25 @@ library OperatorLib {
             uint64 operatorId = operatorIds[i];
 
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+            uint8 operatorVersion = operator.version;
+            bool isEth = operatorVersion == CoreLib.VERSION_ETH;
 
-            if (operator.snapshot.block != 0) {
-                updateSnapshotsSt(operator);
-                if (!increaseValidatorCount) {
-                    operator.validatorCount -= deltaValidatorCount;
-                } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-                }
-
-                cumulativeFee += operator.fee;
+            if (isEth) {
+                if (operator.ethSnapshot.block == 0) revert ISSVNetworkCore.OperatorDoesNotExist();
+                updateETHSnapshotSt(operator);
+            } else {
+                if (operator.snapshot.block == 0) revert ISSVNetworkCore.OperatorDoesNotExist();
+                updateSnapshotSt(operator);
             }
-            cumulativeIndex += operator.snapshot.index;
+
+            if (!increaseValidatorCount) {
+                operator.validatorCount -= deltaValidatorCount;
+            } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+            }
+
+            cumulativeFee += isEth ? operator.ethFee : operator.fee;
+            cumulativeIndex += isEth ? operator.ethSnapshot.index : operator.snapshot.index;
         }
     }
 

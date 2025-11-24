@@ -239,6 +239,11 @@ contract SSVViews is ISSVViews {
     function getOperatorEarnings(uint64 id) external view override returns (uint256) {
         Operator memory operator = SSVStorage.load().operators[id];
 
+        if (operator.version == CoreLib.VERSION_ETH) {
+            operator.updateETHSnapshot();
+            return operator.ethSnapshot.balance.expand();
+        }
+
         operator.updateSnapshot();
         return operator.snapshot.balance.expand();
     }
@@ -248,7 +253,7 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
@@ -256,10 +261,24 @@ contract SSVViews is ISSVViews {
             uint256 operatorsLength = operatorIds.length;
             for (uint256 i; i < operatorsLength; ++i) {
                 Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
-                clusterIndex +=
-                    operator.snapshot.index +
-                    (uint64(block.number) - operator.snapshot.block) *
-                    operator.fee;
+
+                if (operator.version != version) {
+                    revert IncorrectOperatorVersion(operator.version);
+                }
+
+                if (version == CoreLib.VERSION_ETH) {
+                    operator.updateETHSnapshot();
+                    clusterIndex +=
+                        operator.ethSnapshot.index +
+                        (uint64(block.number) - operator.ethSnapshot.block) *
+                        operator.ethFee;
+                } else {
+                    operator.updateSnapshot();
+                    clusterIndex +=
+                        operator.snapshot.index +
+                        (uint64(block.number) - operator.snapshot.block) *
+                        operator.fee;
+                }
             }
         }
 
