@@ -213,17 +213,26 @@ contract SSVOperators is ISSVOperators {
         Operator storage operator = s.operators[operatorId];
         operator.checkOwner();
 
-        if (operator.version != CoreLib.VERSION_SSV) {
+        if (operator.version == CoreLib.VERSION_ETH) {
             revert IncorrectOperatorVersion(operator.version);
         }
-        operator.version = CoreLib.VERSION_ETH;
 
-        _declareOperatorFee(operatorId, fee, operator.version);
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
+        if (fee > sp.operatorMaxFee) revert FeeTooHigh();
+
+        operator.updateSnapshot();
+
+        uint64 shrunkFee = fee.shrink();
 
         operator.fee = 0;
-        if (operator.ethSnapshot.block == 0) {
-            operator.ethSnapshot.block = uint32(block.number);
-        }
+        operator.ethFee = shrunkFee;
+        operator.version = CoreLib.VERSION_ETH;
+        operator.ethSnapshot.block = uint32(block.number);
+
+        delete s.operatorFeeChangeRequests[operatorId];
+
+        emit OperatorMigratedToEth(msg.sender, operatorId, block.number, fee);
     }
 
     function _declareOperatorFee(uint64 operatorId, uint256 fee, uint8 version) internal virtual {

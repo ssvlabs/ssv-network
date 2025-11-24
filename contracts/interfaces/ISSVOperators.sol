@@ -93,6 +93,7 @@ interface ISSVOperators is ISSVNetworkCore {
     event OperatorFeeExecuted(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
     event OperatorWithdrawn(address indexed owner, uint64 indexed operatorId, uint256 value);
     event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress);
+    event OperatorMigratedToEth(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 ethFee);
 
     /**
      * @dev Emitted when the operators changed its privacy status
