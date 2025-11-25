@@ -46,7 +46,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
             fee: 0,
             ethFee: fee.shrink(),
             whitelisted: setPrivate,
-            version: 1
+            version: CoreLib.VERSION_ETH
         });
         s.operatorsPKs[hashedPk] = id;
 
