@@ -41,8 +41,10 @@ contract SSVOperatorsUpdate is ISSVOperators {
         s.operators[id] = Operator({
             owner: msg.sender,
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
+            ethSnapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             validatorCount: 0,
-            fee: fee.shrink(),
+            fee: 0,
+            ethFee: fee.shrink(),
             whitelisted: setPrivate,
             version: 1
         });

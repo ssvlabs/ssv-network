@@ -382,6 +382,13 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function withdrawNetworkEarningsETH(uint256 amount) external override onlyOwner {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("withdrawNetworkEarningsETH(uint256)", amount)
+        );
+    }
+
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external override onlyOwner {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
