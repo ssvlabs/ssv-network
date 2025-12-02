@@ -289,7 +289,7 @@ contract SSVClusters is ISSVClusters {
         uint64[] calldata operatorIds, 
         uint256, // depricated amount param stays for backward compatability
         Cluster memory cluster
-    ) external override {
+    ) external payable override {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -332,20 +332,19 @@ contract SSVClusters is ISSVClusters {
     function deposit(
         address clusterOwner,
         uint64[] calldata operatorIds,
-        uint256 amount,
+        uint256, // depricated amount param stays for backward compatability
         Cluster memory cluster
-    ) external override {
+    ) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
 
-        cluster.balance += amount;
+        cluster.balance += msg.value;
 
-        s.clusters[hashedCluster] = cluster.hashClusterData();
+        s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
-        CoreLib.deposit(amount);
-
-        emit ClusterDeposited(clusterOwner, operatorIds, amount, cluster);
+        emit ClusterDeposited(clusterOwner, operatorIds, msg.value, cluster);
     }
 
     function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
