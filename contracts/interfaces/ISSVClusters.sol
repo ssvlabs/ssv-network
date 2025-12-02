@@ -91,7 +91,7 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param operatorIds Array of IDs of operators managing the cluster
     /// @param tokenAmount Amount of SSV tokens to be withdrawn
     /// @param cluster Cluster where the withdrawal will be made
-    function withdraw(uint64[] memory operatorIds, uint256 tokenAmount, Cluster memory cluster) external;
+    function withdraw(uint64[] memory operatorIds, uint256 tokenAmount, Cluster memory cluster) external payable;
 
     /// @notice Fires the exit event for a validator
     /// @param publicKey The public key of the validator to be exited
