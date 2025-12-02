@@ -79,7 +79,7 @@ contract SSVClusters is ISSVClusters {
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
@@ -105,7 +105,13 @@ contract SSVClusters is ISSVClusters {
 
         --cluster.validatorCount;
 
-        s.clusters[hashedCluster] = cluster.hashClusterData();
+        if (version == CoreLib.VERSION_ETH) {
+            s.ethClusters[hashedCluster] = cluster.hashClusterData();
+        } else if (version == CoreLib.VERSION_SSV) {
+            s.clusters[hashedCluster] = cluster.hashClusterData();
+        } else {
+            revert IncorrectClusterVersion();
+        }
 
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
@@ -122,7 +128,7 @@ contract SSVClusters is ISSVClusters {
         }
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator;
@@ -152,8 +158,14 @@ contract SSVClusters is ISSVClusters {
 
         cluster.validatorCount -= validatorsRemoved;
 
-        s.clusters[hashedCluster] = cluster.hashClusterData();
-
+        if (version == CoreLib.VERSION_ETH) {
+            s.ethClusters[hashedCluster] = cluster.hashClusterData();
+        } else if (version == CoreLib.VERSION_SSV) {
+            s.clusters[hashedCluster] = cluster.hashClusterData();
+        } else {
+            revert IncorrectClusterVersion();
+        }
+        
         for (uint i; i < validatorsLength; ++i) {
             emit ValidatorRemoved(msg.sender, operatorIds, publicKeys[i], cluster);
         }

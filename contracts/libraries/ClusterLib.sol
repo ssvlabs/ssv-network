@@ -7,6 +7,7 @@ import {StorageProtocol} from "./SSVStorageProtocol.sol";
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
 import {Types64} from "./Types.sol";
+import "./CoreLib.sol";
 
 library ClusterLib {
     using Types64 for uint64;
@@ -48,11 +49,11 @@ library ClusterLib {
         address owner,
         uint64[] memory operatorIds,
         StorageData storage s
-    ) internal view returns (bytes32 hashedCluster) {
+    ) internal view returns (bytes32 hashedCluster, uint8 version) {
         hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
         bytes32 hashedClusterData = hashClusterData(cluster);
+        (bytes32 clusterData, uint8 detectedVersion) = getClusterData(hashedCluster, s);
 
-        bytes32 clusterData = s.clusters[hashedCluster];
         if (clusterData == bytes32(0)) {
             revert ISSVNetworkCore.ClusterDoesNotExists();
         } else if (clusterData != hashedClusterData) {
@@ -142,5 +143,26 @@ library ClusterLib {
         }
 
         s.ethClusters[hashedCluster] = hashClusterData(cluster);
+    }
+
+    function validateClusterVersion(uint8 clusterVersion, uint8 expectedVersion) internal pure {
+        if (clusterVersion != expectedVersion) revert ISSVNetworkCore.IncorrectClusterVersion();
+    }
+
+    function getClusterData(
+        bytes32 hashedCluster,
+        StorageData storage s
+    ) internal view returns (bytes32 clusterData, uint8 version) {
+        clusterData = s.ethClusters[hashedCluster];
+        if (clusterData != bytes32(0)) {
+            return (clusterData, CoreLib.VERSION_ETH);
+        }
+
+        clusterData = s.clusters[hashedCluster];
+        if (clusterData != bytes32(0)) {
+            return (clusterData, CoreLib.VERSION_SSV);
+        }
+
+        revert ISSVNetworkCore.ClusterDoesNotExists();
     }
 }
