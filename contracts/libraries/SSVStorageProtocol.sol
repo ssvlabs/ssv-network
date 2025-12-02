@@ -39,11 +39,11 @@ struct StorageProtocol {
     /// @notice The block number when the DAO index was last updated for eth
     uint32 ethDaoIndexBlockNumber;
     /// @notice The current network fee value for eth clusters
-    uint256 ethNetworkFee;
+    uint64 ethNetworkFee;
     /// @notice The current network fee index value for eth clusters
-    uint256 ethNetworkFeeIndex;
+    uint64 ethNetworkFeeIndex;
     /// @notice The current balance of the DAO for eth clusters
-    uint256 ethDaoBalance;
+    uint64 ethDaoBalance;
 }
 
 library SSVStorageProtocol {

@@ -20,12 +20,6 @@ library CoreLib {
         }
     }
 
-    function deposit(uint256 amount) internal {
-        if (!SSVStorage.load().token.transferFrom(msg.sender, address(this), amount)) {
-            revert ISSVNetworkCore.TokenTransferFailed();
-        }
-    }
-
     /**
      * @dev Returns true if `account` is a contract.
      *

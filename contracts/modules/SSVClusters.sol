@@ -19,9 +19,9 @@ contract SSVClusters is ISSVClusters {
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
-        uint256 amount,
+        uint256, // depricated amount param stays for backward compatability
         Cluster memory cluster
-    ) external override {
+    ) external payable override {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
@@ -31,13 +31,9 @@ contract SSVClusters is ISSVClusters {
 
         bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
-        cluster.balance += amount;
+        cluster.balance += msg.value;
 
         cluster.updateClusterOnRegistration(operatorIds, hashedCluster, 1, s, sp);
-
-        if (amount != 0) {
-            CoreLib.deposit(amount);
-        }
 
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
     }
@@ -46,9 +42,9 @@ contract SSVClusters is ISSVClusters {
         bytes[] memory publicKeys,
         uint64[] memory operatorIds,
         bytes[] calldata sharesData,
-        uint256 amount,
+        uint256, // depricated amount param stays for backward compatability
         Cluster memory cluster
-    ) external override {
+    ) external payable override {
         uint256 validatorsLength = publicKeys.length;
 
         if (validatorsLength == 0) revert EmptyPublicKeysList();
@@ -64,13 +60,9 @@ contract SSVClusters is ISSVClusters {
         }
         bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
 
-        cluster.balance += amount;
+        cluster.balance += msg.value;
 
         cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
-
-        if (amount != 0) {
-            CoreLib.deposit(amount);
-        }
 
         for (uint i; i < validatorsLength; ++i) {
             bytes memory pk = publicKeys[i];

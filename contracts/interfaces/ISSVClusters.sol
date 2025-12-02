@@ -16,7 +16,7 @@ interface ISSVClusters is ISSVNetworkCore {
         bytes calldata sharesData,
         uint256 amount,
         Cluster memory cluster
-    ) external;
+    ) external payable;
 
     /// @notice Registers new validators on the SSV Network
     /// @param publicKeys The public keys of the new validators
@@ -30,7 +30,7 @@ interface ISSVClusters is ISSVNetworkCore {
         bytes[] calldata sharesData,
         uint256 amount,
         Cluster memory cluster
-    ) external;
+    ) external payable;
 
     /// @notice Removes an existing validator from the SSV Network
     /// @param publicKey The public key of the validator to be removed

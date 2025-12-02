@@ -90,7 +90,7 @@ library ClusterLib {
     ) internal view returns (bytes32 hashedCluster) {
         hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
 
-        bytes32 clusterData = s.clusters[hashedCluster];
+        bytes32 clusterData = s.ethClusters[hashedCluster];
         if (clusterData == bytes32(0)) {
             if (
                 cluster.validatorCount != 0 ||
@@ -141,6 +141,6 @@ library ClusterLib {
             revert ISSVNetworkCore.InsufficientBalance();
         }
 
-        s.clusters[hashedCluster] = hashClusterData(cluster);
+        s.ethClusters[hashedCluster] = hashClusterData(cluster);
     }
 }
