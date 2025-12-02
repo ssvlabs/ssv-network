@@ -14,7 +14,7 @@
     "ordering": "warn",
     "mark-callable-contracts": "off",
     "max-line-length": [
-      "error",
+      "warn",
       120
     ],
     "compiler-version": "off",

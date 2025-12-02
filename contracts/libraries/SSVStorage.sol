@@ -38,6 +38,9 @@ struct StorageData {
     /// @notice that are whitelisted for that address using bitmaps
     /// @dev The nested mapping's key represents a uint256 slot to handle more than 256 operators per address
     mapping(address => mapping(uint256 => uint256)) addressWhitelistedForOperators;
+
+    /// @notice Maps each cluster's bytes32 identifier to its hashed representation of ISSVNetworkCore.Cluster for eth
+    mapping(bytes32 => bytes32) ethClusters;
 }
 
 library SSVStorage {
