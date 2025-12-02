@@ -285,10 +285,15 @@ contract SSVClusters is ISSVClusters {
         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
     }
 
-    function reactivate(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
+    function reactivate(
+        uint64[] calldata operatorIds, 
+        uint256, // depricated amount param stays for backward compatability
+        Cluster memory cluster
+    ) external override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
         if (cluster.active) revert ClusterAlreadyEnabled();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -301,7 +306,7 @@ contract SSVClusters is ISSVClusters {
             sp
         );
 
-        cluster.balance += amount;
+        cluster.balance += msg.value;
         cluster.active = true;
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
@@ -311,7 +316,7 @@ contract SSVClusters is ISSVClusters {
         if (
             cluster.isLiquidatable(
                 burnRate,
-                sp.networkFee,
+                sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,
                 sp.minimumLiquidationCollateral
             )
@@ -319,11 +324,7 @@ contract SSVClusters is ISSVClusters {
             revert InsufficientBalance();
         }
 
-        s.clusters[hashedCluster] = cluster.hashClusterData();
-
-        if (amount > 0) {
-            CoreLib.deposit(amount);
-        }
+        s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
     }
