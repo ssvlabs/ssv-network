@@ -57,7 +57,13 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @param owner The owner of the cluster
     /// @param operatorIds Array of IDs of operators managing the cluster
     /// @param cluster Cluster to be liquidated
-    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external;
+    function liquidate(address owner, uint64[] memory operatorIds, Cluster memory cluster) external payable;
+
+    /// @notice Liquidates a cluster
+    /// @param owner The owner of the cluster
+    /// @param operatorIds Array of IDs of operators managing the cluster
+    /// @param cluster Cluster to be liquidated
+    function liquidateSSV(address owner, uint64[] memory operatorIds, Cluster memory cluster) external;
 
     /// @notice Reactivates a cluster
     /// @param operatorIds Array of IDs of operators managing the cluster

@@ -52,13 +52,15 @@ library ClusterLib {
     ) internal view returns (bytes32 hashedCluster, uint8 version) {
         hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
         bytes32 hashedClusterData = hashClusterData(cluster);
-        (bytes32 clusterData, uint8 detectedVersion) = getClusterData(hashedCluster, s);
 
+        (bytes32 clusterData, uint8 detectedVersion) = getClusterData(hashedCluster, s);
         if (clusterData == bytes32(0)) {
             revert ISSVNetworkCore.ClusterDoesNotExists();
         } else if (clusterData != hashedClusterData) {
             revert ISSVNetworkCore.IncorrectClusterState();
         }
+
+        return (hashedCluster, detectedVersion);
     }
 
     function updateClusterData(

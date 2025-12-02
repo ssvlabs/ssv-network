@@ -80,6 +80,7 @@ contract SSVClusters is ISSVClusters {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
@@ -129,6 +130,7 @@ contract SSVClusters is ISSVClusters {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         bytes32 hashedValidator;
@@ -165,16 +167,77 @@ contract SSVClusters is ISSVClusters {
         } else {
             revert IncorrectClusterVersion();
         }
-        
+
         for (uint i; i < validatorsLength; ++i) {
             emit ValidatorRemoved(msg.sender, operatorIds, publicKeys[i], cluster);
         }
     }
 
-    function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
+    function liquidate(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
+        cluster.validateClusterIsNotLiquidated();
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+            operatorIds,
+            false,
+            cluster.validatorCount,
+            s,
+            sp
+        );
+
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
+
+        uint256 balanceLiquidatable;
+
+        if (
+            clusterOwner != msg.sender &&
+            !cluster.isLiquidatable(
+                burnRate,
+                sp.ethNetworkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
+            )
+        ) {
+            revert ClusterNotLiquidatable();
+        }
+
+        sp.updateDAO(false, cluster.validatorCount);
+
+        if (cluster.balance != 0) {
+            balanceLiquidatable = cluster.balance;
+            cluster.balance = 0;
+        }
+        cluster.index = 0;
+        cluster.networkFeeIndex = 0;
+        cluster.active = false;
+
+        s.ethClusters[hashedCluster] = cluster.hashClusterData();
+
+        if (balanceLiquidatable != 0) {
+            CoreLib.transferBalance(msg.sender, balanceLiquidatable);
+        }
+
+        emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
+    }
+
+    function liquidateSSV(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external override {
+        StorageData storage s = SSVStorage.load();
+
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -203,7 +266,7 @@ contract SSVClusters is ISSVClusters {
             revert ClusterNotLiquidatable();
         }
 
-        sp.updateDAO(false, cluster.validatorCount);
+        sp.updateDAOSSV(false, cluster.validatorCount);
 
         if (cluster.balance != 0) {
             balanceLiquidatable = cluster.balance;
@@ -216,7 +279,7 @@ contract SSVClusters is ISSVClusters {
         s.clusters[hashedCluster] = cluster.hashClusterData();
 
         if (balanceLiquidatable != 0) {
-            CoreLib.transferBalance(msg.sender, balanceLiquidatable);
+            CoreLib.transferTokenBalance(msg.sender, balanceLiquidatable);
         }
 
         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);

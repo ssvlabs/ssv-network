@@ -13,8 +13,14 @@ library CoreLib {
     function getVersion() internal pure returns (string memory) {
         return "v1.2.0";
     }
-
+    //TODO: Add reentrancy modifier here
     function transferBalance(address to, uint256 amount) internal {
+        (bool success, ) = payable(to).call{value: amount}("");
+        if(!success){
+            revert ISSVNetworkCore.ETHTransferFailed();
+        }
+    }
+    function transferTokenBalance(address to, uint256 amount) internal {
         if (!SSVStorage.load().token.transfer(to, amount)) {
             revert ISSVNetworkCore.TokenTransferFailed();
         }

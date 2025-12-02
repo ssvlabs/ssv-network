@@ -96,6 +96,7 @@ interface ISSVNetworkCore {
     error InvalidWhitelistAddressesLength(); // 0xcbb362dc
     error ZeroAddressNotAllowed(); // 0x8579befe
     error IncorrectClusterVersion(); // 0xf6749746
+    error ETHTransferFailed(); // 0xb12d13eb
 
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
