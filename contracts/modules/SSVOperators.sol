@@ -114,13 +114,31 @@ contract SSVOperators is ISSVOperators, ReentrancyGuard {
         emit OperatorRemoved(operatorId);
     }
 
+    function migrateOperatorToETH(uint64 operatorId, uint256 ethFee) external override {
+        StorageData storage s = SSVStorage.load();
+        Operator memory operator = s.operators[operatorId];
+        operator.checkOwner();
+
+        if (operator.version != CoreLib.VERSION_SSV) {
+            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
+        }
+
+        if (ethFee != 0 && ethFee < MINIMAL_OPERATOR_ETH_FEE) revert ISSVNetworkCore.FeeTooLow();
+        uint64 shrunkFee = ethFee.shrink();
+        if (shrunkFee > SSVStorageProtocol.load().operatorMaxFee) revert ISSVNetworkCore.FeeTooHigh();
+
+        operator.version = CoreLib.VERSION_ETH;
+        operator.ethFee = shrunkFee;
+        operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
+
+        s.operators[operatorId] = operator;
+        delete s.operatorFeeChangeRequests[operatorId];
+    }
+
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
-        if (
-            s.operators[operatorId].version != CoreLib.VERSION_ETH &&
-            s.operators[operatorId].version != CoreLib.VERSION_SSV
-        ) {
+        if (s.operators[operatorId].version != CoreLib.VERSION_ETH) {
             revert ISSVNetworkCore.IncorrectOperatorVersion(s.operators[operatorId].version);
         }
 
@@ -168,19 +186,8 @@ contract SSVOperators is ISSVOperators, ReentrancyGuard {
 
         if (feeChangeRequest.fee.expand() > SSVStorageProtocol.load().operatorMaxFee) revert FeeTooHigh();
 
-        if (operator.version == CoreLib.VERSION_ETH) {
-            operator.updateSnapshot();
-            operator.ethFee = feeChangeRequest.fee;
-        } else if (operator.version == CoreLib.VERSION_SSV) {
-            operator.updateSnapshotSSV();
-            operator.version = CoreLib.VERSION_ETH;
-            operator.ethFee = feeChangeRequest.fee;
-            operator.ethValidatorCount = 0;
-            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
-            operator.fee = 0;
-        } else {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
-        }
+        operator.updateSnapshot();
+        operator.ethFee = feeChangeRequest.fee;
         s.operators[operatorId] = operator;
 
         delete s.operatorFeeChangeRequests[operatorId];

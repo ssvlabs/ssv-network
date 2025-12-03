@@ -111,6 +111,32 @@ contract SSVOperatorsUpdate is ISSVOperators, ReentrancyGuard {
         emit OperatorRemoved(operatorId);
     }
 
+    function migrateOperatorToETH(uint64 operatorId, uint256 ethFee) external override {
+        StorageData storage s = SSVStorage.load();
+        Operator memory operator = s.operators[operatorId];
+        operator.checkOwner();
+
+        if (operator.version != CoreLib.VERSION_SSV) {
+            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
+        }
+
+        if (ethFee != 0 && ethFee < MINIMAL_OPERATOR_FEE) revert ISSVNetworkCore.FeeTooLow();
+        uint64 shrunkFee = ethFee.shrink();
+        if (shrunkFee > SSVStorageProtocol.load().operatorMaxFee) revert ISSVNetworkCore.FeeTooHigh();
+
+        operator.version = CoreLib.VERSION_ETH;
+        operator.ethFee = shrunkFee;
+        if (operator.ethSnapshot.block == 0) {
+            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
+        }
+        if (operator.ethValidatorCount == 0) {
+            operator.ethValidatorCount = operator.validatorCount;
+        }
+
+        s.operators[operatorId] = operator;
+        delete s.operatorFeeChangeRequests[operatorId];
+    }
+
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         StorageData storage s = SSVStorage.load();
         Operator storage operator = s.operators[operatorId];

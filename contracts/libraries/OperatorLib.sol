@@ -13,6 +13,8 @@ import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 library OperatorLib {
     using Types64 for uint64;
 
+    uint64 internal constant DEFAULT_OPERATOR_ETH_FEE = 1_000_000_000;
+
     function updateSnapshot(ISSVNetworkCore.Operator memory operator) internal view {
         uint32 currentBlock = uint32(block.number);
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
