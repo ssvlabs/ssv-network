@@ -126,6 +126,14 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return networkEarnings The earnings associated with the network (SSV)
     function getNetworkEarnings() external view returns (uint256 networkEarnings);
 
+    /// @notice Gets the legacy network fee (SSV pre-migration)
+    /// @return networkFee The fee associated with the network (SSV)
+    function getNetworkFeeSSV() external view returns (uint256 networkFee);
+
+    /// @notice Gets the legacy network earnings (SSV pre-migration)
+    /// @return networkEarnings The earnings associated with the network (SSV)
+    function getNetworkEarningsSSV() external view returns (uint256 networkEarnings);
+
     /// @notice Gets the operator fee increase limit
     /// @return The maximum limit of operator fee increase
     function getOperatorFeeIncreaseLimit() external view returns (uint64);

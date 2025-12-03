@@ -389,10 +389,24 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function updateNetworkFeeSSV(uint256 fee) external override onlyOwner {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateNetworkFeeSSV(uint256)", fee)
+        );
+    }
+
     function withdrawNetworkEarnings(uint256 amount) external override onlyOwner {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
             abi.encodeWithSignature("withdrawNetworkEarnings(uint256)", amount)
+        );
+    }
+
+    function withdrawNetworkSSVEarnings(uint256 amount) external override onlyOwner {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("withdrawNetworkSSVEarnings(uint256)", amount)
         );
     }
 

@@ -4,13 +4,21 @@ pragma solidity ^0.8.20;
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
 
 interface ISSVDAO is ISSVNetworkCore {
-    /// @notice Updates the network fee
-    /// @param fee The new network fee (SSV) to be set
+    /// @notice Updates the network fee (ETH post-migration)
+    /// @param fee The new network fee (ETH) to be set
     function updateNetworkFee(uint256 fee) external;
 
-    /// @notice Withdraws network earnings
-    /// @param amount The amount (SSV) to be withdrawn
+    /// @notice Updates the legacy network fee (SSV pre-migration)
+    /// @param fee The new network fee (SSV) to be set
+    function updateNetworkFeeSSV(uint256 fee) external;
+
+    /// @notice Withdraws network earnings (ETH post-migration)
+    /// @param amount The amount (ETH) to be withdrawn
     function withdrawNetworkEarnings(uint256 amount) external;
+
+    /// @notice Withdraws legacy network earnings (SSV pre-migration)
+    /// @param amount The amount (SSV) to be withdrawn
+    function withdrawNetworkSSVEarnings(uint256 amount) external;
 
     /// @notice Updates the limit on the percentage increase in operator fees
     /// @param percentage The new percentage limit

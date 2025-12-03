@@ -273,11 +273,19 @@ contract SSVViews is ISSVViews {
     /*******************************/
 
     function getNetworkFee() external view override returns (uint256) {
+        return SSVStorageProtocol.load().ethNetworkFee.expand();
+    }
+
+    function getNetworkFeeSSV() external view override returns (uint256) {
         return SSVStorageProtocol.load().networkFee.expand();
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
         return SSVStorageProtocol.load().networkTotalEarnings().expand();
+    }
+
+    function getNetworkEarningsSSV() external view override returns (uint256) {
+        return SSVStorageProtocol.load().networkTotalEarningsSSV().expand();
     }
 
     function getOperatorFeeIncreaseLimit() external view override returns (uint64) {
@@ -305,7 +313,7 @@ contract SSVViews is ISSVViews {
     }
 
     function getNetworkValidatorsCount() external view override returns (uint32) {
-        return SSVStorageProtocol.load().daoValidatorCount;
+        return SSVStorageProtocol.load().ethDaoValidatorCount;
     }
 
     function getVersion() external pure override returns (string memory) {
