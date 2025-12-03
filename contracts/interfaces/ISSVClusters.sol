@@ -49,6 +49,11 @@ interface ISSVClusters is ISSVNetworkCore {
         Cluster memory cluster
     ) external;
 
+    /// @notice Migrates an SSV cluster to ETH, returning any SSV balance and accepting ETH top-up
+    /// @param operatorIds Array of operator IDs in the cluster
+    /// @param cluster Cluster data to migrate
+    function migrateClusterToETH(uint64[] calldata operatorIds, Cluster memory cluster) external payable;
+
     /**************************/
     /* Cluster External Functions */
     /**************************/

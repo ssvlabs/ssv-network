@@ -60,20 +60,6 @@ library OperatorLib {
         if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwnerWithData(msg.sender, operator.owner);
     }
 
-    function ensureOperatorVersion(
-        uint64[] memory operatorIds,
-        uint8 expectedVersion,
-        StorageData storage s
-    ) internal view {
-        for (uint256 i; i < operatorIds.length; ++i) {
-            uint64 operatorId = operatorIds[i];
-            uint8 operatorVersion = s.operators[operatorId].version;
-            if (operatorVersion != expectedVersion && s.operators[operatorId].fee != 0) {
-                revert ISSVNetworkCore.IncorrectOperatorVersion(operatorVersion);
-            }
-        }
-    }
-
     function updateClusterOperatorsOnRegistration(
         uint64[] memory operatorIds,
         uint32 deltaValidatorCount,

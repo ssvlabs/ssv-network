@@ -209,17 +209,17 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function withdrawOperatorSSVEarnings(uint64 operatorId, uint256 amount) external override {
+    function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
-            abi.encodeWithSignature("withdrawOperatorSSVEarnings(uint64,uint256)", operatorId, amount)
+            abi.encodeWithSignature("withdrawOperatorEarningsSSV(uint64,uint256)", operatorId, amount)
         );
     }
 
-    function withdrawAllOperatorSSVEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
-            abi.encodeWithSignature("withdrawAllOperatorSSVEarnings(uint64)", operatorId)
+            abi.encodeWithSignature("withdrawAllOperatorEarningsSSV(uint64)", operatorId)
         );
     }
 

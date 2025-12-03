@@ -251,11 +251,11 @@ contract SSVOperatorsUpdate is ISSVOperators, ReentrancyGuard {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_ETH);
     }
 
-    function withdrawOperatorSSVEarnings(uint64 operatorId, uint256 amount) external override nonReentrant {
+    function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_SSV);
     }
 
-    function withdrawAllOperatorSSVEarnings(uint64 operatorId) external override nonReentrant {
+    function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_SSV);
     }
 
@@ -264,9 +264,6 @@ contract SSVOperatorsUpdate is ISSVOperators, ReentrancyGuard {
         StorageData storage s = SSVStorage.load();
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
-        uint64[] memory operatorIds = new uint64[](1);
-        operatorIds[0] = operatorId;
-        OperatorLib.ensureOperatorVersion(operatorIds, expectedVersion, s);
 
         if (expectedVersion == CoreLib.VERSION_ETH) {
             operator.updateSnapshot();

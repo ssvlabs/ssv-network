@@ -76,7 +76,7 @@ A versioning system has been introduced to distinguish between:
 - Added `removeOperatorSSV()` - For removing legacy SSV token-based operators
 - Added `migrateOperatorToETH(uint256 ethFee)` - For migrating legacy SSV operators to ETH using a provided ETH fee (validated against limits)
 - Updated `withdrawOperatorEarnings()` and `withdrawAllOperatorEarnings()` to handle ETH withdrawals
-- Added `withdrawOperatorSSVEarnings()` and `withdrawAllOperatorSSVEarnings()` - For legacy SSV token withdrawals
+- Added `withdrawOperatorEarningsSSV()` and `withdrawAllOperatorEarningsSSV()` - For legacy SSV token withdrawals
 - Updated function documentation to clarify ETH vs SSV token operations
 
 **Purpose:** Provides separate functions for ETH and SSV token operations, ensuring clear separation and backward compatibility.
@@ -198,7 +198,6 @@ A versioning system has been introduced to distinguish between:
 - Added `updateSnapshotStSVV()` - Updates SSV token-based operator snapshot (storage version)
 - Added `updateSnapshots()` - Updates both ETH and SSV snapshots (memory)
 - Added `updateSnapshotsSt()` - Updates both ETH and SSV snapshots (storage)
-- Added `ensureOperatorVersion()` - Validates operator version matches expected version
 - Modified `updateClusterOperatorsOnRegistration()` to handle both ETH and SSV token operators
 - Modified `updateClusterOperators()` to handle both ETH and SSV token operators
 - Updated operator validation logic to check version and use appropriate snapshot/fee fields

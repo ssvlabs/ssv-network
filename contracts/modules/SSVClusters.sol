@@ -430,4 +430,71 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
             emit ValidatorExited(msg.sender, operatorIds, publicKeys[i]);
         }
     }
+
+    function migrateClusterToETH(uint64[] calldata operatorIds, Cluster memory cluster) external payable override {
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
+        cluster.validateClusterIsNotLiquidated();
+
+        uint256 ssvBalance = cluster.balance;
+        // migrate operators to ETH defaults if needed
+        uint64[] memory opIds = operatorIds;
+        for (uint256 i; i < opIds.length; ++i) {
+            ISSVNetworkCore.Operator storage operator = s.operators[opIds[i]];
+            if (operator.version != CoreLib.VERSION_ETH) {
+                if (operator.fee != 0) {
+                    if (operator.ethFee == 0) {
+                        operator.ethFee = DEFAULT_OPERATOR_ETH_FEE;
+                    }
+                    if (operator.ethSnapshot.block == 0) {
+                        operator.ethSnapshot = ISSVNetworkCore.Snapshot({
+                            block: uint32(block.number),
+                            index: 0,
+                            balance: 0
+                        });
+                    }
+                }
+                operator.version = CoreLib.VERSION_ETH;
+            }
+        }
+
+        // compute cluster data using ETH fields
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+            operatorIds,
+            true,
+            cluster.validatorCount,
+            CoreLib.VERSION_ETH,
+            s,
+            sp
+        );
+
+        cluster.balance += msg.value;
+        cluster.active = true;
+        cluster.index = clusterIndex;
+        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
+
+        sp.updateDAO(true, cluster.validatorCount);
+
+        if (
+            cluster.isLiquidatable(
+                burnRate,
+                sp.ethNetworkFee,
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
+            )
+        ) {
+            revert ISSVNetworkCore.InsufficientBalance();
+        }
+
+        s.ethClusters[hashedCluster] = cluster.hashClusterData();
+
+        if (ssvBalance != 0) {
+            CoreLib.transferTokenBalance(msg.sender, ssvBalance);
+        }
+
+        emit ClusterReactivated(msg.sender, operatorIds, cluster);
+    }
 }
