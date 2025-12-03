@@ -110,12 +110,45 @@ contract SSVOperatorsUpdate is ISSVOperators {
         emit OperatorRemoved(operatorId);
     }
 
-    function declareOperatorFee(uint64 operatorId, uint256 fee) external override {}
+    function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
+        StorageData storage s = SSVStorage.load();
+        Operator storage operator = s.operators[operatorId];
+        operator.checkOwner();
+        if (operator.version != CoreLib.VERSION_ETH && operator.version != CoreLib.VERSION_SSV) {
+            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
+        }
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+        if (fee > sp.operatorMaxFee) revert FeeTooHigh();
+
+        uint64 operatorFee = operator.fee;
+        uint64 shrunkFee = fee.shrink();
+
+        if (operatorFee == shrunkFee) {
+            revert SameFeeChangeNotAllowed();
+        } else if (shrunkFee != 0 && operatorFee == 0) {
+            revert FeeIncreaseNotAllowed();
+        }
+
+        // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
+        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
+
+        if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
+
+        s.operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
+            shrunkFee,
+            uint64(block.timestamp) + sp.declareOperatorFeePeriod,
+            uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod
+        );
+        emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
+    }
 
     function executeOperatorFee(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        Operator storage operator = s.operators[operatorId];
+        if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwnerWithData(msg.sender, operator.owner);
 
         OperatorFeeChangeRequest memory feeChangeRequest = s.operatorFeeChangeRequests[operatorId];
 
@@ -127,9 +160,19 @@ contract SSVOperatorsUpdate is ISSVOperators {
             revert ApprovalNotWithinTimeframe();
         }
 
-        operator.updateSnapshot();
-        operator.fee = feeChangeRequest.fee;
-        s.operators[operatorId] = operator;
+        if (operator.version == CoreLib.VERSION_ETH) {
+            operator.updateSnapshotSt();
+            operator.ethFee = feeChangeRequest.fee;
+        } else if (operator.version == CoreLib.VERSION_SSV) {
+            operator.updateSnapshotStSVV();
+            operator.version = CoreLib.VERSION_ETH;
+            operator.ethFee = feeChangeRequest.fee;
+            operator.ethValidatorCount = 0;
+            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
+            operator.fee = 0;
+        } else {
+            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
+        }
 
         delete s.operatorFeeChangeRequests[operatorId];
 
