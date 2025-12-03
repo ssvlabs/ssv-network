@@ -9,8 +9,9 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract SSVClusters is ISSVClusters {
+contract SSVClusters is ISSVClusters, ReentrancyGuard {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
@@ -76,7 +77,7 @@ contract SSVClusters is ISSVClusters {
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external override {
+    ) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -121,7 +122,7 @@ contract SSVClusters is ISSVClusters {
         bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external override {
+    ) external override nonReentrant {
         uint256 validatorsLength = publicKeys.length;
 
         if (validatorsLength == 0) {
@@ -177,7 +178,7 @@ contract SSVClusters is ISSVClusters {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external override {
+    ) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -233,7 +234,7 @@ contract SSVClusters is ISSVClusters {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external override {
+    ) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -351,7 +352,7 @@ contract SSVClusters is ISSVClusters {
         uint64[] calldata operatorIds,
         uint256 amount,
         Cluster memory cluster
-    ) external override {
+    ) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);

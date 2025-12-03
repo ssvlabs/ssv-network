@@ -7,10 +7,11 @@ import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SSVOperators is ISSVOperators {
+contract SSVOperators is ISSVOperators, ReentrancyGuard {
     uint64 private constant MINIMAL_OPERATOR_FEE = 1_000_000_000;
     uint64 private constant MINIMAL_OPERATOR_ETH_FEE = 1_000_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
@@ -63,7 +64,7 @@ contract SSVOperators is ISSVOperators {
         emit OperatorPrivacyStatusUpdated(operatorIds, setPrivate);
     }
 
-    function removeOperator(uint64 operatorId) external override {
+    function removeOperator(uint64 operatorId) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         Operator memory operator = s.operators[operatorId];
@@ -88,7 +89,7 @@ contract SSVOperators is ISSVOperators {
         emit OperatorRemoved(operatorId);
     }
 
-    function removeOperatorSSV(uint64 operatorId) external override {
+    function removeOperatorSSV(uint64 operatorId) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         Operator memory operator = s.operators[operatorId];
@@ -227,19 +228,19 @@ contract SSVOperators is ISSVOperators {
         emit OperatorPrivacyStatusUpdated(operatorIds, false);
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_ETH);
     }
 
-    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_ETH);
     }
 
-    function withdrawOperatorSSVEarnings(uint64 operatorId, uint256 amount) external override {
+    function withdrawOperatorSSVEarnings(uint64 operatorId, uint256 amount) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_SSV);
     }
 
-    function withdrawAllOperatorSSVEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorSSVEarnings(uint64 operatorId) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_SSV);
     }
 
