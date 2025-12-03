@@ -133,6 +133,10 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
+    function removeOperatorSSV(uint64 operatorId) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+    }
+
     function setOperatorsWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses
@@ -242,7 +246,15 @@ contract SSVNetwork is
         address clusterOwner,
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
-    ) external {
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+    function liquidateSSV(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 

@@ -132,6 +132,13 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function removeOperatorSSV(uint64 operatorId) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("removeOperatorSSV(uint64)", operatorId)
+        );
+    }
+
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
@@ -267,11 +274,29 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function liquidate(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external {
+    function liquidate(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster)
+        external
+        override
+    {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
                 "liquidate(address,uint64[],(uint32,uint64,uint64,bool,uint256))",
+                owner,
+                operatorIds,
+                cluster
+            )
+        );
+    }
+
+    function liquidateSSV(address owner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster)
+        external
+        override
+    {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "liquidateSSV(address,uint64[],(uint32,uint64,uint64,bool,uint256))",
                 owner,
                 operatorIds,
                 cluster

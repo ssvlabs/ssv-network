@@ -177,7 +177,7 @@ contract SSVClusters is ISSVClusters {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external payable override {
+    ) external override {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -351,7 +351,7 @@ contract SSVClusters is ISSVClusters {
         uint64[] calldata operatorIds,
         uint256 amount,
         Cluster memory cluster
-    ) external payable override {
+    ) external override {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);

@@ -4,15 +4,19 @@ pragma solidity ^0.8.20;
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
 
 interface ISSVOperators is ISSVNetworkCore {
-    /// @notice Registers a new operator
+    /// @notice Registers a new operator (ETH version post-migration)
     /// @param publicKey The public key of the operator
-    /// @param fee The operator's fee (SSV)
+    /// @param fee The operator's fee (ETH)
     /// @param setPrivate Flag indicating whether the operator should be set as private or not
     function registerOperator(bytes calldata publicKey, uint256 fee, bool setPrivate) external returns (uint64);
 
-    /// @notice Removes an existing operator
+    /// @notice Removes an existing ETH operator
     /// @param operatorId The ID of the operator to be removed
     function removeOperator(uint64 operatorId) external;
+
+    /// @notice Removes an existing legacy SSV operator (backward compatibility)
+    /// @param operatorId The ID of the operator to be removed
+    function removeOperatorSSV(uint64 operatorId) external;
 
     /// @notice Declares the operator's fee
     /// @param operatorId The ID of the operator
