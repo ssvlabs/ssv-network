@@ -8,6 +8,7 @@ import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
+import {VUNITS_PRECISION} from "../libraries/SSVStorageEB.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 
@@ -176,7 +177,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
 
         if (!cluster.active) {
             return false;
@@ -186,16 +188,20 @@ contract SSVViews is ISSVViews {
         uint64 burnRate;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
             burnRate += operator.fee;
         }
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
+        cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+        cluster.index = clusterIndex;
+        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
+
         return
-            cluster.isLiquidatable(
+            cluster.isLiquidatableWithEB(
+                hashedCluster,
                 burnRate,
                 sp.networkFee,
                 sp.minimumBlocksBeforeLiquidation,
@@ -217,18 +223,26 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view returns (uint256) {
-        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
 
         uint64 aggregateFee;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             if (operator.owner != address(0)) {
                 aggregateFee += operator.fee;
             }
         }
 
-        uint64 burnRate = (aggregateFee + SSVStorageProtocol.load().networkFee) * cluster.validatorCount;
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        uint64 vUnits = ClusterLib.getVUnits(hashedCluster, cluster.validatorCount);
+        uint128 totalFee = uint128(aggregateFee) + uint128(sp.networkFee);
+        uint128 units = vUnits;
+        uint128 burnRateUnits = (totalFee * units) / VUNITS_PRECISION;
+        uint64 burnRate = uint64(burnRateUnits);
+
         return burnRate.expand();
     }
 
@@ -248,14 +262,15 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        bytes32 hashedCluster = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
         {
             uint256 operatorsLength = operatorIds.length;
             for (uint256 i; i < operatorsLength; ++i) {
-                Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+                Operator memory operator = s.operators[operatorIds[i]];
                 clusterIndex +=
                     operator.snapshot.index +
                     (uint64(block.number) - operator.snapshot.block) *
@@ -263,7 +278,8 @@ contract SSVViews is ISSVViews {
             }
         }
 
-        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndex());
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
         return cluster.balance;
     }

@@ -6,6 +6,7 @@ import {Types64, Types256} from "../libraries/Types.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
 
 contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
@@ -74,5 +75,24 @@ contract SSVDAO is ISSVDAO {
     function updateMaximumOperatorFee(uint64 maxFee) external override {
         SSVStorageProtocol.load().operatorMaxFee = maxFee;
         emit OperatorMaximumFeeUpdated(maxFee);
+    }
+
+    function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
+        StorageEB storage seb = SSVStorageEB.load();
+
+        // Enforce monotonicity - new block must be greater than last
+        if (blockNum <= seb.latestCommittedBlock) {
+            revert StaleBlockNumber();
+        }
+
+        // Ensure block is not in the future
+        if (blockNum > block.number) {
+            revert FutureBlockNumber();
+        }
+
+        seb.ebRoots[blockNum] = merkleRoot;
+        seb.latestCommittedBlock = blockNum;
+
+        emit RootCommitted(merkleRoot, blockNum, block.timestamp);
     }
 }

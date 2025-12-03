@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "../interfaces/ISSVNetworkCore.sol";
 import {Types256} from "./Types.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
+import {VUNITS_PRECISION} from "./SSVStorageEB.sol";
 
 library ProtocolLib {
     using Types256 for uint256;
@@ -32,15 +33,28 @@ library ProtocolLib {
     }
 
     function networkTotalEarnings(StorageProtocol storage sp) internal view returns (uint64) {
-        return sp.daoBalance + (uint64(block.number) - sp.daoIndexBlockNumber) * sp.networkFee * sp.daoValidatorCount;
+        uint128 units = sp.daoTotalVUnits;
+        uint128 idx = uint64(block.number) - sp.daoIndexBlockNumber;
+        uint128 fee = sp.networkFee;
+
+        uint128 earningsUnits = (idx * fee * units) / VUNITS_PRECISION;
+        return sp.daoBalance + uint64(earningsUnits);
     }
 
-    function updateDAO(StorageProtocol storage sp, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
+    function updateDAO(
+        StorageProtocol storage sp,
+        bool increaseValidatorCount,
+        uint32 deltaValidatorCount
+    ) internal {
         updateDAOEarnings(sp);
         if (!increaseValidatorCount) {
             sp.daoValidatorCount -= deltaValidatorCount;
-        } else if ((sp.daoValidatorCount += deltaValidatorCount) > type(uint32).max) {
-            revert ISSVNetworkCore.MaxValueExceeded();
+            sp.daoTotalVUnits -= deltaValidatorCount;
+        } else {
+            if ((sp.daoValidatorCount += deltaValidatorCount) > type(uint32).max) {
+                revert ISSVNetworkCore.MaxValueExceeded();
+            }
+            sp.daoTotalVUnits += deltaValidatorCount;
         }
     }
 }

@@ -96,6 +96,16 @@ interface ISSVNetworkCore {
     error InvalidWhitelistAddressesLength(); // 0xcbb362dc
     error ZeroAddressNotAllowed(); // 0x8579befe
 
+    // EB oracle-specific errors
+    error StaleBlockNumber();
+    error FutureBlockNumber();
+    error RootNotFound();
+    error UpdateTooFrequent();
+    error StaleUpdate();
+    error InvalidProof();
+    error EBExceedsMaximum();
+    error NotAuthorizedOracle();
+
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
     error IncorrectValidatorState(); // 0x2feda3c1

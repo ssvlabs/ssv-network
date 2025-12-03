@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "../interfaces/ISSVNetworkCore.sol";
 import {StorageData} from "./SSVStorage.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB, VUNITS_PRECISION} from "./SSVStorageEB.sol";
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
 import {Types64} from "./Types.sol";
@@ -142,5 +143,54 @@ library ClusterLib {
         }
 
         s.clusters[hashedCluster] = hashClusterData(cluster);
+    }
+
+    function getVUnits(bytes32 clusterId, uint32 validatorCount) internal view returns (uint64) {
+        StorageEB storage seb = SSVStorageEB.load();
+        uint64 vUnits = seb.clusterEB[clusterId].vUnits;
+
+        if (vUnits == 0) {
+            return uint64(validatorCount);
+        }
+
+        return vUnits;
+    }
+
+    function updateBalanceWithEB(
+        ISSVNetworkCore.Cluster memory cluster,
+        bytes32 clusterId,
+        uint64 newIndex,
+        uint64 currentNetworkFeeIndex
+    ) internal view {
+        uint64 vUnits = getVUnits(clusterId, cluster.validatorCount);
+        uint128 units = vUnits;
+        uint128 idxNet = currentNetworkFeeIndex - cluster.networkFeeIndex;
+        uint128 idxOp = newIndex - cluster.index;
+
+        uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
+        uint128 usageUnits = (idxOp * units) / VUNITS_PRECISION + networkFeeUnits;
+
+        uint64 usage = uint64(usageUnits);
+        cluster.balance = usage.expand() > cluster.balance ? 0 : cluster.balance - usage.expand();
+    }
+
+    function isLiquidatableWithEB(
+        ISSVNetworkCore.Cluster memory cluster,
+        bytes32 clusterId,
+        uint64 burnRate,
+        uint64 networkFee,
+        uint64 minimumBlocksBeforeLiquidation,
+        uint64 minimumLiquidationCollateral
+    ) internal view returns (bool liquidatable) {
+        if (cluster.validatorCount == 0) return false;
+        if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
+
+        uint64 vUnits = getVUnits(clusterId, cluster.validatorCount);
+        uint128 units = vUnits;
+        uint128 rate = burnRate + networkFee;
+        uint128 thresholdUnits = (uint128(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
+
+        uint64 liquidationThreshold = uint64(thresholdUnits);
+        return cluster.balance < liquidationThreshold.expand();
     }
 }

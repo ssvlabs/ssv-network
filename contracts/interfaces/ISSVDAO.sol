@@ -36,6 +36,11 @@ interface ISSVDAO is ISSVNetworkCore {
     /// @param maxFee The new maximum fee (SSV)
     function updateMaximumOperatorFee(uint64 maxFee) external;
 
+    /// @notice Commit Merkle root of all cluster EBs
+    /// @param merkleRoot Root of Merkle tree containing all cluster EBs
+    /// @param blockNum Block number when oracle computed this data (must be finalized and strictly increasing)
+    function commitRoot(bytes32 merkleRoot, uint64 blockNum) external;
+
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
 
     event DeclareOperatorFeePeriodUpdated(uint64 value);
@@ -61,4 +66,10 @@ interface ISSVDAO is ISSVNetworkCore {
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
     event OperatorMaximumFeeUpdated(uint64 maxFee);
+
+    /// @notice Emitted when an EB Merkle root is committed for a given block
+    /// @param merkleRoot The committed Merkle root
+    /// @param blockNum The block number the root corresponds to
+    /// @param timestamp The timestamp of the commit transaction
+    event RootCommitted(bytes32 indexed merkleRoot, uint64 indexed blockNum, uint256 timestamp);
 }
