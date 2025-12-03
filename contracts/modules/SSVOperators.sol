@@ -203,13 +203,13 @@ contract SSVOperators is ISSVOperators {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
 
         uint64 shrunkAmount = fee.shrink();
         if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
 
         operator.updateSnapshot();
-        operator.fee = shrunkAmount;
+        operator.ethFee = shrunkAmount;
         s.operators[operatorId] = operator;
 
         delete s.operatorFeeChangeRequests[operatorId];
