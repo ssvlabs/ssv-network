@@ -223,6 +223,21 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function migrateClusterToETH(uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster)
+        external
+        payable
+        override
+    {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "migrateClusterToETH(uint64[],(uint32,uint64,uint64,bool,uint256))",
+                operatorIds,
+                cluster
+            )
+        );
+    }
+
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
