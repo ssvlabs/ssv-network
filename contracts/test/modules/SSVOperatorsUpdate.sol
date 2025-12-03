@@ -128,9 +128,8 @@ contract SSVOperatorsUpdate is ISSVOperators, ReentrancyGuard {
         operator.ethFee = shrunkFee;
         if (operator.ethSnapshot.block == 0) {
             operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
-        }
-        if (operator.ethValidatorCount == 0) {
-            operator.ethValidatorCount = operator.validatorCount;
+        } else {
+            operator.updateSnapshot();
         }
 
         s.operators[operatorId] = operator;

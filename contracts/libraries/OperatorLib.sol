@@ -60,6 +60,25 @@ library OperatorLib {
         if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwnerWithData(msg.sender, operator.owner);
     }
 
+    function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
+        if (operator.version != CoreLib.VERSION_ETH) {
+            if (operator.fee != 0) {
+                if (operator.ethFee == 0) {
+                    operator.ethFee = DEFAULT_OPERATOR_ETH_FEE;
+                }
+                if (operator.ethSnapshot.block == 0) {
+                    operator.ethSnapshot = ISSVNetworkCore.Snapshot({
+                        block: uint32(block.number),
+                        index: 0,
+                        balance: 0
+                    });
+                }
+            } else {
+                operator.version = CoreLib.VERSION_ETH;
+            }
+        }
+    }
+
     function updateClusterOperatorsOnRegistration(
         uint64[] memory operatorIds,
         uint32 deltaValidatorCount,
@@ -83,13 +102,12 @@ library OperatorLib {
                 }
             }
             ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
-
-            if (operator.version == CoreLib.VERSION_ETH && operator.ethSnapshot.block == 0) {
-                revert ISSVNetworkCore.OperatorDoesNotExist();
-            } else if (operator.version != CoreLib.VERSION_ETH && operator.snapshot.block == 0) {
-                revert ISSVNetworkCore.OperatorDoesNotExist();
-            } else if (operator.version != CoreLib.VERSION_ETH && operator.version != CoreLib.VERSION_SSV) {
-                revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
+            if (operator.version != CoreLib.VERSION_ETH) {
+                ensureETHDefaults(s.operators[operatorId]);
+                operator.ethFee = s.operators[operatorId].ethFee;
+                operator.ethSnapshot = s.operators[operatorId].ethSnapshot;
+                operator.ethValidatorCount = s.operators[operatorId].ethValidatorCount;
+                operator.version = s.operators[operatorId].version;
             }
 
             // check if the pending operator is whitelisted (must be backward compatible)
@@ -122,21 +140,12 @@ library OperatorLib {
                 }
             }
 
-            if (operator.version == CoreLib.VERSION_ETH) {
-                updateSnapshot(operator);
-                if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-                }
-                cumulativeFee += operator.ethFee;
-                cumulativeIndex += operator.ethSnapshot.index;
-            } else {
-                updateSnapshotSSV(operator);
-                if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-                }
-                cumulativeFee += operator.fee;
-                cumulativeIndex += operator.snapshot.index;
+            updateSnapshot(operator);
+            if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
             }
+            cumulativeFee += operator.ethFee;
+            cumulativeIndex += operator.ethSnapshot.index;
 
             s.operators[operatorId] = operator;
         }
@@ -156,33 +165,21 @@ library OperatorLib {
 
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
-            if (operator.version == CoreLib.VERSION_ETH) {
-                if (operator.ethSnapshot.block != 0) {
-                    updateSnapshotSt(operator);
-                    if (!increaseValidatorCount) {
-                        operator.ethValidatorCount -= deltaValidatorCount;
-                    } else if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                        revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-                    }
-
-                    cumulativeFee += operator.ethFee;
-                }
-                cumulativeIndex += operator.ethSnapshot.index;
-            } else if (operator.version == CoreLib.VERSION_SSV) {
-                if (operator.snapshot.block != 0) {
-                    updateSnapshotSt(operator);
-                    if (!increaseValidatorCount) {
-                        operator.validatorCount -= deltaValidatorCount;
-                    } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                        revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-                    }
-
-                    cumulativeFee += operator.fee;
-                }
-                cumulativeIndex += operator.snapshot.index;
-            } else {
-                revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
+            if (operator.version != CoreLib.VERSION_ETH) {
+                ensureETHDefaults(operator);
             }
+
+            if (operator.ethSnapshot.block != 0) {
+                updateSnapshotSt(operator);
+                if (!increaseValidatorCount) {
+                    operator.ethValidatorCount -= deltaValidatorCount;
+                } else if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                }
+
+                cumulativeFee += operator.ethFee;
+            }
+            cumulativeIndex += operator.ethSnapshot.index;
         }
     }
 

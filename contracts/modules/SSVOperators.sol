@@ -129,8 +129,11 @@ contract SSVOperators is ISSVOperators, ReentrancyGuard {
 
         operator.version = CoreLib.VERSION_ETH;
         operator.ethFee = shrunkFee;
-        operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
-
+        if (operator.ethSnapshot.block == 0) {
+            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
+        } else {
+            operator.updateSnapshot();
+        }
         s.operators[operatorId] = operator;
         delete s.operatorFeeChangeRequests[operatorId];
     }

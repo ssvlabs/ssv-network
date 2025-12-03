@@ -444,21 +444,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
         uint64[] memory opIds = operatorIds;
         for (uint256 i; i < opIds.length; ++i) {
             ISSVNetworkCore.Operator storage operator = s.operators[opIds[i]];
-            if (operator.version != CoreLib.VERSION_ETH) {
-                if (operator.fee != 0) {
-                    if (operator.ethFee == 0) {
-                        operator.ethFee = DEFAULT_OPERATOR_ETH_FEE;
-                    }
-                    if (operator.ethSnapshot.block == 0) {
-                        operator.ethSnapshot = ISSVNetworkCore.Snapshot({
-                            block: uint32(block.number),
-                            index: 0,
-                            balance: 0
-                        });
-                    }
-                }
-                operator.version = CoreLib.VERSION_ETH;
-            }
+            operator.ensureETHDefaults();
         }
 
         // compute cluster data using ETH fields
@@ -466,7 +452,6 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
             operatorIds,
             true,
             cluster.validatorCount,
-            CoreLib.VERSION_ETH,
             s,
             sp
         );
