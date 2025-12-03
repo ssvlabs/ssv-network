@@ -228,37 +228,68 @@ contract SSVOperators is ISSVOperators {
     }
 
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
-        _withdrawOperatorEarnings(operatorId, amount);
+        _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_ETH);
     }
 
     function withdrawAllOperatorEarnings(uint64 operatorId) external override {
-        _withdrawOperatorEarnings(operatorId, 0);
+        _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_ETH);
+    }
+
+    function withdrawOperatorSSVEarnings(uint64 operatorId, uint256 amount) external override {
+        _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_SSV);
+    }
+
+    function withdrawAllOperatorSSVEarnings(uint64 operatorId) external override {
+        _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_SSV);
     }
 
     // private functions
-    function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount) private {
+    function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount, uint8 version) private {
         StorageData storage s = SSVStorage.load();
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
+        uint64[] memory operatorIds = new uint64[](1);
+        operatorIds[0] = operatorId;
+        OperatorLib.ensureOperatorVersion(operatorIds, version, s);
 
-        operator.updateSnapshot();
+        if (version == CoreLib.VERSION_ETH) {
+            operator.updateSnapshot();
+        } else {
+            operator.updateSnapshotSSV();
+        }
 
         uint64 shrunkWithdrawn;
         uint64 shrunkAmount = amount.shrink();
 
-        if (amount == 0 && operator.snapshot.balance > 0) {
-            shrunkWithdrawn = operator.snapshot.balance;
-        } else if (amount > 0 && operator.snapshot.balance >= shrunkAmount) {
-            shrunkWithdrawn = shrunkAmount;
+        if (version == CoreLib.VERSION_ETH) {
+            if (amount == 0 && operator.ethSnapshot.balance > 0) {
+                shrunkWithdrawn = operator.ethSnapshot.balance;
+            } else if (amount > 0 && operator.ethSnapshot.balance >= shrunkAmount) {
+                shrunkWithdrawn = shrunkAmount;
+            } else {
+                revert InsufficientBalance();
+            }
+            operator.ethSnapshot.balance -= shrunkWithdrawn;
+        } else if (version == CoreLib.VERSION_SSV) {
+            if (amount == 0 && operator.snapshot.balance > 0) {
+                shrunkWithdrawn = operator.snapshot.balance;
+            } else if (amount > 0 && operator.snapshot.balance >= shrunkAmount) {
+                shrunkWithdrawn = shrunkAmount;
+            } else {
+                revert InsufficientBalance();
+            }
+            operator.snapshot.balance -= shrunkWithdrawn;
         } else {
-            revert InsufficientBalance();
+            revert ISSVNetworkCore.IncorrectOperatorVersion(version);
         }
-
-        operator.snapshot.balance -= shrunkWithdrawn;
 
         s.operators[operatorId] = operator;
 
-        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        if (version == CoreLib.VERSION_ETH) {
+            _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        } else {
+            _transferOperatorTokenBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+        }
     }
 
     function _resetOperatorState(Operator memory operator) private pure returns (Operator memory) {
