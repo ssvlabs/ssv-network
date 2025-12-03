@@ -12,6 +12,7 @@ import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
 contract SSVOperators is ISSVOperators {
     uint64 private constant MINIMAL_OPERATOR_FEE = 1_000_000_000;
+    uint64 private constant MINIMAL_OPERATOR_ETH_FEE = 1_000_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
 
     using Types256 for uint256;
@@ -28,7 +29,7 @@ contract SSVOperators is ISSVOperators {
         uint256 fee,
         bool setPrivate
     ) external override returns (uint64 id) {
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
+        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
         if (fee > SSVStorageProtocol.load().operatorMaxFee) {
@@ -43,11 +44,15 @@ contract SSVOperators is ISSVOperators {
         s.lastOperatorId.increment();
         id = uint64(s.lastOperatorId.current());
         s.operators[id] = Operator({
+            validatorCount: 0,
+            fee: 0,
             owner: msg.sender,
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
-            validatorCount: 0,
-            fee: fee.shrink(),
-            whitelisted: setPrivate
+            whitelisted: setPrivate,
+            version: CoreLib.VERSION_ETH,
+            ethValidatorCount: 0,
+            ethFee: fee.shrink(),
+            ethSnapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0})
         });
         s.operatorsPKs[hashedPk] = id;
 
@@ -214,7 +219,12 @@ contract SSVOperators is ISSVOperators {
     }
 
     function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        CoreLib.transferBalance(msg.sender, amount);
+        CoreLib.transferBalance(payable(msg.sender), amount);
+        emit OperatorWithdrawn(msg.sender, operatorId, amount);
+    }
+
+    function _transferOperatorTokenBalanceUnsafe(uint64 operatorId, uint256 amount) private {
+        CoreLib.transferTokenBalance(msg.sender, amount);
         emit OperatorWithdrawn(msg.sender, operatorId, amount);
     }
 }
