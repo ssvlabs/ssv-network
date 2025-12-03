@@ -6,6 +6,7 @@ import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingC
 import {StorageData} from "./SSVStorage.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
 import {Types64} from "./Types.sol";
+import "./CoreLib.sol";
 
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
@@ -13,6 +14,21 @@ library OperatorLib {
     using Types64 for uint64;
 
     function updateSnapshot(ISSVNetworkCore.Operator memory operator) internal view {
+        uint32 currentBlock = uint32(block.number);
+        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+        operator.ethSnapshot.index += blockDiffEthFee;
+        operator.ethSnapshot.balance += blockDiffEthFee * operator.ethValidatorCount;
+        operator.ethSnapshot.block = currentBlock;
+    }
+
+    function updateSnapshotSt(ISSVNetworkCore.Operator storage operator) internal {
+        uint32 currentBlock = uint32(block.number);
+        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+        operator.ethSnapshot.index += blockDiffEthFee;
+        operator.ethSnapshot.balance += blockDiffEthFee * operator.ethValidatorCount;
+        operator.ethSnapshot.block = currentBlock;
+    }
+    function updateSnapshotSSV(ISSVNetworkCore.Operator memory operator) internal view {
         uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
 
         operator.snapshot.index += blockDiffFee;
@@ -20,17 +36,40 @@ library OperatorLib {
         operator.snapshot.block = uint32(block.number);
     }
 
-    function updateSnapshotSt(ISSVNetworkCore.Operator storage operator) internal {
+    function updateSnapshotStSVV(ISSVNetworkCore.Operator storage operator) internal {
         uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
 
         operator.snapshot.index += blockDiffFee;
         operator.snapshot.balance += blockDiffFee * operator.validatorCount;
         operator.snapshot.block = uint32(block.number);
+    }
+    function updateSnapshots(ISSVNetworkCore.Operator memory operator) internal view {
+        updateSnapshot(operator);
+        updateSnapshotSSV(operator);
+    }
+
+    function updateSnapshotsSt(ISSVNetworkCore.Operator storage operator) internal {
+        updateSnapshotSt(operator);
+        updateSnapshotStSVV(operator);
     }
 
     function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
         if (operator.snapshot.block == 0) revert ISSVNetworkCore.OperatorDoesNotExist();
         if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwnerWithData(msg.sender, operator.owner);
+    }
+
+    function ensureOperatorVersion(
+        uint64[] memory operatorIds,
+        uint8 expectedVersion,
+        StorageData storage s
+    ) internal view {
+        for (uint256 i; i < operatorIds.length; ++i) {
+            uint64 operatorId = operatorIds[i];
+            uint8 operatorVersion = s.operators[operatorId].version;
+            if (operatorVersion != expectedVersion && s.operators[operatorId].fee != 0) {
+                revert ISSVNetworkCore.IncorrectOperatorVersion(operatorVersion);
+            }
+        }
     }
 
     function updateClusterOperatorsOnRegistration(
@@ -57,8 +96,12 @@ library OperatorLib {
             }
             ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
 
-            if (operator.snapshot.block == 0) {
+            if (operator.version == CoreLib.VERSION_ETH && operator.ethSnapshot.block == 0) {
                 revert ISSVNetworkCore.OperatorDoesNotExist();
+            } else if (operator.version != CoreLib.VERSION_ETH && operator.snapshot.block == 0) {
+                revert ISSVNetworkCore.OperatorDoesNotExist();
+            } else if (operator.version != CoreLib.VERSION_ETH && operator.version != CoreLib.VERSION_SSV) {
+                revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
             }
 
             // check if the pending operator is whitelisted (must be backward compatible)
@@ -91,13 +134,21 @@ library OperatorLib {
                 }
             }
 
-            updateSnapshot(operator);
-            if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+            if (operator.version == CoreLib.VERSION_ETH) {
+                updateSnapshot(operator);
+                if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                }
+                cumulativeFee += operator.ethFee;
+                cumulativeIndex += operator.ethSnapshot.index;
+            } else {
+                updateSnapshotSSV(operator);
+                if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                }
+                cumulativeFee += operator.fee;
+                cumulativeIndex += operator.snapshot.index;
             }
-
-            cumulativeFee += operator.fee;
-            cumulativeIndex += operator.snapshot.index;
 
             s.operators[operatorId] = operator;
         }
@@ -117,17 +168,33 @@ library OperatorLib {
 
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
-            if (operator.snapshot.block != 0) {
-                updateSnapshotSt(operator);
-                if (!increaseValidatorCount) {
-                    operator.validatorCount -= deltaValidatorCount;
-                } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-                }
+            if (operator.version == CoreLib.VERSION_ETH) {
+                if (operator.ethSnapshot.block != 0) {
+                    updateSnapshotSt(operator);
+                    if (!increaseValidatorCount) {
+                        operator.ethValidatorCount -= deltaValidatorCount;
+                    } else if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                        revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                    }
 
-                cumulativeFee += operator.fee;
+                    cumulativeFee += operator.ethFee;
+                }
+                cumulativeIndex += operator.ethSnapshot.index;
+            } else if (operator.version == CoreLib.VERSION_SSV) {
+                if (operator.snapshot.block != 0) {
+                    updateSnapshotSt(operator);
+                    if (!increaseValidatorCount) {
+                        operator.validatorCount -= deltaValidatorCount;
+                    } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                        revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                    }
+
+                    cumulativeFee += operator.fee;
+                }
+                cumulativeIndex += operator.snapshot.index;
+            } else {
+                revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
             }
-            cumulativeIndex += operator.snapshot.index;
         }
     }
 

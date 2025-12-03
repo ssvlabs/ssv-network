@@ -28,6 +28,14 @@ interface ISSVNetworkCore {
         bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
+        /// @dev Operator struct version 0, version 0 fee = SSV, version 1 fee = eth.
+        uint8 version;
+        /// @dev The number of validators associated with this operator in eth
+        uint32 ethValidatorCount;
+        /// @dev The fee charged by the operator in eth, set to zero for private operators and cannot be increased once set
+        uint64 ethFee;
+        /// @dev The state snapshot of the operator for eth
+        Snapshot ethSnapshot;
     }
 
     /// @notice Represents a request to change an operator's fee
@@ -95,6 +103,7 @@ interface ISSVNetworkCore {
     error InvalidWhitelistingContract(address contractAddress); // 0x886e6a03
     error InvalidWhitelistAddressesLength(); // 0xcbb362dc
     error ZeroAddressNotAllowed(); // 0x8579befe
+    error IncorrectOperatorVersion(uint8 operatorVersion); // 0xf222e863
     error IncorrectClusterVersion(); // 0xf6749746
     error ETHTransferFailed(); // 0xb12d13eb
 
