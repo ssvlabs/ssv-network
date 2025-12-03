@@ -63,10 +63,11 @@ library ClusterLib {
 
     function updateClusterData(
         ISSVNetworkCore.Cluster memory cluster,
+        bytes32 clusterId,
         uint64 clusterIndex,
         uint64 currentNetworkFeeIndex
-    ) internal pure {
-        updateBalance(cluster, clusterIndex, currentNetworkFeeIndex);
+    ) internal view {
+        updateBalanceWithEB(cluster, clusterId, clusterIndex, currentNetworkFeeIndex);
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = currentNetworkFeeIndex;
     }
@@ -124,15 +125,16 @@ library ClusterLib {
             sp
         );
 
-        updateClusterData(cluster, clusterIndex, sp.currentNetworkFeeIndex());
+        updateClusterData(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
         sp.updateDAO(true, validatorCountDelta);
 
         cluster.validatorCount += validatorCountDelta;
 
         if (
-            isLiquidatable(
+            isLiquidatableWithEB(
                 cluster,
+                hashedCluster,
                 burnRate,
                 sp.networkFee,
                 sp.minimumBlocksBeforeLiquidation,
@@ -150,7 +152,10 @@ library ClusterLib {
         uint64 vUnits = seb.clusterEB[clusterId].vUnits;
 
         if (vUnits == 0) {
-            return uint64(validatorCount);
+            // Before any EB is set for this cluster, approximate EB as 32 ETH per validator.
+            // To preserve legacy accounting, we treat each validator as 1 logical vUnit (32 ETH),
+            // scaled by VUNITS_PRECISION for fixed-point arithmetic.
+            return uint64(validatorCount) * VUNITS_PRECISION;
         }
 
         return vUnits;

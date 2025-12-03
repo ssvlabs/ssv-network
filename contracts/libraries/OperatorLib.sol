@@ -5,6 +5,7 @@ import "../interfaces/ISSVNetworkCore.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {StorageData} from "./SSVStorage.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB, VUNITS_PRECISION} from "./SSVStorageEB.sol";
 import {Types64} from "./Types.sol";
 
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
@@ -12,19 +13,52 @@ import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 library OperatorLib {
     using Types64 for uint64;
 
-    function updateSnapshot(ISSVNetworkCore.Operator memory operator) internal view {
+    function updateSnapshot(
+        ISSVNetworkCore.Operator memory operator,
+        uint64 operatorId,
+        StorageEB storage seb
+    ) internal view {
         uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
 
+        // Accounting model:
+        // - After EB is set for this operator: earnings are proportional to total EB:
+        //     earnings_per_block = fee * (totalEB / 32 ether)
+        //   where seb.operatorVUnits[operatorId] stores (totalEB / 32 ether) * VUNITS_PRECISION.
+        // - Before any EB is set (operatorVUnits == 0 but validatorCount > 0):
+        //   approximate totalEB ≈ validatorCount * 32 ether and preserve legacy behavior by
+        //   treating each validator as 1 logical vUnit scaled by VUNITS_PRECISION.
+        uint64 vUnits = seb.operatorVUnits[operatorId];
+        if (vUnits == 0 && operator.validatorCount > 0) {
+            vUnits = operator.validatorCount * VUNITS_PRECISION;
+        }
+
         operator.snapshot.index += blockDiffFee;
-        operator.snapshot.balance += blockDiffFee * operator.validatorCount;
+        if (vUnits != 0 && blockDiffFee != 0) {
+            uint128 units = vUnits;
+            uint128 delta = (uint128(blockDiffFee) * units) / VUNITS_PRECISION;
+            operator.snapshot.balance += uint64(delta);
+        }
         operator.snapshot.block = uint32(block.number);
     }
 
-    function updateSnapshotSt(ISSVNetworkCore.Operator storage operator) internal {
+    function updateSnapshotSt(
+        ISSVNetworkCore.Operator storage operator,
+        uint64 operatorId,
+        StorageEB storage seb
+    ) internal {
         uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
 
+        uint64 vUnits = seb.operatorVUnits[operatorId];
+        if (vUnits == 0 && operator.validatorCount > 0) {
+            vUnits = operator.validatorCount * VUNITS_PRECISION;
+        }
+
         operator.snapshot.index += blockDiffFee;
-        operator.snapshot.balance += blockDiffFee * operator.validatorCount;
+        if (vUnits != 0 && blockDiffFee != 0) {
+            uint128 units = vUnits;
+            uint128 delta = (uint128(blockDiffFee) * units) / VUNITS_PRECISION;
+            operator.snapshot.balance += uint64(delta);
+        }
         operator.snapshot.block = uint32(block.number);
     }
 
@@ -40,6 +74,7 @@ library OperatorLib {
         StorageProtocol storage sp
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
         uint256 operatorsLength = operatorIds.length;
+        StorageEB storage seb = SSVStorageEB.load();
 
         uint256 blockIndex;
         uint256 lastBlockIndex = ~uint256(0); // Use an invalid block index as the initial value
@@ -91,7 +126,7 @@ library OperatorLib {
                 }
             }
 
-            updateSnapshot(operator);
+            updateSnapshot(operator, operatorId, seb);
             if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
                 revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
             }
@@ -111,6 +146,7 @@ library OperatorLib {
         StorageProtocol storage sp
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
         uint256 operatorsLength = operatorIds.length;
+        StorageEB storage seb = SSVStorageEB.load();
 
         for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
@@ -118,7 +154,7 @@ library OperatorLib {
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
             if (operator.snapshot.block != 0) {
-                updateSnapshotSt(operator);
+                updateSnapshotSt(operator, operatorId, seb);
                 if (!increaseValidatorCount) {
                     operator.validatorCount -= deltaValidatorCount;
                 } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {

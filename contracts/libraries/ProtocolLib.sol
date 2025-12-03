@@ -47,14 +47,15 @@ library ProtocolLib {
         uint32 deltaValidatorCount
     ) internal {
         updateDAOEarnings(sp);
+        uint64 deltaVUnits = uint64(deltaValidatorCount) * VUNITS_PRECISION;
         if (!increaseValidatorCount) {
             sp.daoValidatorCount -= deltaValidatorCount;
-            sp.daoTotalVUnits -= deltaValidatorCount;
+            sp.daoTotalVUnits -= deltaVUnits;
         } else {
             if ((sp.daoValidatorCount += deltaValidatorCount) > type(uint32).max) {
                 revert ISSVNetworkCore.MaxValueExceeded();
             }
-            sp.daoTotalVUnits += deltaValidatorCount;
+            sp.daoTotalVUnits += deltaVUnits;
         }
     }
 }

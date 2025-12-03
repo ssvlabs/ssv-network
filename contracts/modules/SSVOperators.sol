@@ -5,6 +5,7 @@ import {ISSVOperators} from "../interfaces/ISSVOperators.sol";
 import {Types64, Types256} from "../libraries/Types.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 
@@ -64,7 +65,8 @@ contract SSVOperators is ISSVOperators {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        operator.updateSnapshot();
+        StorageEB storage seb = SSVStorageEB.load();
+        operator.updateSnapshot(operatorId, seb);
         uint64 currentBalance = operator.snapshot.balance;
 
         operator.snapshot.block = 0;
@@ -130,7 +132,8 @@ contract SSVOperators is ISSVOperators {
 
         if (feeChangeRequest.fee.expand() > SSVStorageProtocol.load().operatorMaxFee) revert FeeTooHigh();
 
-        operator.updateSnapshot();
+        StorageEB storage seb = SSVStorageEB.load();
+        operator.updateSnapshot(operatorId, seb);
         operator.fee = feeChangeRequest.fee;
         s.operators[operatorId] = operator;
 
@@ -160,7 +163,8 @@ contract SSVOperators is ISSVOperators {
         uint64 shrunkAmount = fee.shrink();
         if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
 
-        operator.updateSnapshot();
+        StorageEB storage seb = SSVStorageEB.load();
+        operator.updateSnapshot(operatorId, seb);
         operator.fee = shrunkAmount;
         s.operators[operatorId] = operator;
 
@@ -193,7 +197,8 @@ contract SSVOperators is ISSVOperators {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        operator.updateSnapshot();
+        StorageEB storage seb = SSVStorageEB.load();
+        operator.updateSnapshot(operatorId, seb);
 
         uint64 shrunkWithdrawn;
         uint64 shrunkAmount = amount.shrink();
