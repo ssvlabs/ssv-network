@@ -104,10 +104,7 @@ library OperatorLib {
             ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
             if (operator.version != CoreLib.VERSION_ETH) {
                 ensureETHDefaults(s.operators[operatorId]);
-                operator.ethFee = s.operators[operatorId].ethFee;
-                operator.ethSnapshot = s.operators[operatorId].ethSnapshot;
-                operator.ethValidatorCount = s.operators[operatorId].ethValidatorCount;
-                operator.version = s.operators[operatorId].version;
+                operator = s.operators[operatorId];
             }
 
             // check if the pending operator is whitelisted (must be backward compatible)
