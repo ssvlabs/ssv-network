@@ -269,6 +269,7 @@ A versioning system has been introduced to distinguish between:
   - Validates cluster version
   - Uses `CoreLib.transferBalance()` for ETH withdrawals
   - Stores in appropriate mapping based on version
+- Added `ClusterMigratedToETH` event and emit during `migrateClusterToETH()` instead of reactivation/liquidation events
 
 **Purpose:** Implements ETH-based cluster operations while maintaining SSV token cluster support. All ETH operations are protected with reentrancy guards.
 

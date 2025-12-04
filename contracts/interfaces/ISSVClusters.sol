@@ -142,6 +142,22 @@ interface ISSVClusters is ISSVNetworkCore {
     event ClusterReactivated(address indexed owner, uint64[] operatorIds, Cluster cluster);
 
     /**
+     * @dev Emitted when a legacy SSV cluster is migrated to ETH.
+     * @param owner The owner of the migrated cluster.
+     * @param operatorIds The operator IDs managing the cluster.
+     * @param ethDeposited The amount of ETH supplied during migration.
+     * @param ssvRefunded The amount of SSV tokens refunded to the owner.
+     * @param cluster The migrated cluster data (ETH version).
+     */
+    event ClusterMigratedToETH(
+        address indexed owner,
+        uint64[] operatorIds,
+        uint256 ethDeposited,
+        uint256 ssvRefunded,
+        Cluster cluster
+    );
+
+    /**
      * @dev Emitted when tokens are withdrawn from a cluster.
      * @param owner The owner of the cluster.
      * @param operatorIds The operator IDs managing the cluster.

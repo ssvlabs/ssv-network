@@ -480,6 +480,6 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
             CoreLib.transferTokenBalance(msg.sender, ssvBalance);
         }
 
-        emit ClusterReactivated(msg.sender, operatorIds, cluster);
+        emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, cluster);
     }
 }
