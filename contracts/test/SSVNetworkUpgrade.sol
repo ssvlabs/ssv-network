@@ -20,10 +20,12 @@ import {SSVModules} from "../libraries/SSVStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 contract SSVNetworkUpgrade is
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
+    ReentrancyGuardUpgradeable,
     ISSVNetworkT,
     ISSVOperators,
     ISSVClusters,
@@ -51,6 +53,7 @@ contract SSVNetworkUpgrade is
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
+        __ReentrancyGuard_init_unchained();
         __SSVNetwork_init_unchained(
             token_,
             ssvOperators_,

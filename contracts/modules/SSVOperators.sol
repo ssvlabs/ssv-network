@@ -7,11 +7,11 @@ import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SSVOperators is ISSVOperators, ReentrancyGuard {
+contract SSVOperators is ISSVOperators, ReentrancyGuardUpgradeable {
     uint64 private constant MINIMAL_OPERATOR_FEE = 1_000_000_000;
     uint64 private constant MINIMAL_OPERATOR_ETH_FEE = 1_000_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
