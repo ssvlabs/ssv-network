@@ -235,11 +235,9 @@ A versioning system has been introduced to distinguish between:
   - Removed `CoreLib.deposit()` call
   - Stores in `ethClusters` mapping
 - Modified `removeValidator()`:
-  - Added `nonReentrant` modifier
   - Validates cluster version (must be ETH)
   - Stores in appropriate mapping based on version
 - Modified `bulkRemoveValidator()`:
-  - Added `nonReentrant` modifier
   - Validates cluster version (must be ETH)
   - Stores in appropriate mapping based on version
 - Modified `liquidate()`:
@@ -467,8 +465,6 @@ A versioning system has been introduced to distinguish between:
 
 All functions that handle ETH transfers or withdrawals are protected with the `nonReentrant` modifier:
 
-- `SSVClusters.removeValidator()`
-- `SSVClusters.bulkRemoveValidator()`
 - `SSVClusters.liquidate()`
 - `SSVClusters.liquidateSSV()`
 - `SSVClusters.withdraw()`

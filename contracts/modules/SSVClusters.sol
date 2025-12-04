@@ -77,7 +77,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external override nonReentrant {
+    ) external override {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -107,13 +107,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
 
         --cluster.validatorCount;
 
-        if (version == CoreLib.VERSION_ETH) {
-            s.ethClusters[hashedCluster] = cluster.hashClusterData();
-        } else if (version == CoreLib.VERSION_SSV) {
-            s.clusters[hashedCluster] = cluster.hashClusterData();
-        } else {
-            revert IncorrectClusterVersion();
-        }
+        s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
         emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
     }
@@ -122,7 +116,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
         bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external override nonReentrant {
+    ) external override {
         uint256 validatorsLength = publicKeys.length;
 
         if (validatorsLength == 0) {
@@ -161,13 +155,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
 
         cluster.validatorCount -= validatorsRemoved;
 
-        if (version == CoreLib.VERSION_ETH) {
-            s.ethClusters[hashedCluster] = cluster.hashClusterData();
-        } else if (version == CoreLib.VERSION_SSV) {
-            s.clusters[hashedCluster] = cluster.hashClusterData();
-        } else {
-            revert IncorrectClusterVersion();
-        }
+        s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
         for (uint i; i < validatorsLength; ++i) {
             emit ValidatorRemoved(msg.sender, operatorIds, publicKeys[i], cluster);
