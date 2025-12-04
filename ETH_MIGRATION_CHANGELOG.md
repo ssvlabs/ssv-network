@@ -268,6 +268,7 @@ A versioning system has been introduced to distinguish between:
   - Uses `CoreLib.transferBalance()` for ETH withdrawals
   - Stores in appropriate mapping based on version
 - Added `ClusterMigratedToETH` event and emit during `migrateClusterToETH()` instead of reactivation/liquidation events
+- `migrateClusterToETH()` now decrements SSV DAO validator count and increments ETH DAO validator count to avoid double-counting during migration
 
 **Purpose:** Implements ETH-based cluster operations while maintaining SSV token cluster support. All ETH operations are protected with reentrancy guards.
 

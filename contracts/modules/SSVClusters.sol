@@ -448,7 +448,8 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
         cluster.active = true;
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
-
+        
+        sp.updateDAOSSV(false, cluster.validatorCount);
         sp.updateDAO(true, cluster.validatorCount);
 
         if (
