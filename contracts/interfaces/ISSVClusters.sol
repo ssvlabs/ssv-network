@@ -4,6 +4,13 @@ pragma solidity ^0.8.20;
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
 
 interface ISSVClusters is ISSVNetworkCore {
+    struct UpdateCtx {
+        bytes32 clusterId;
+        uint64 blockNum;
+        uint256 effectiveBalance;
+        bytes32[] merkleProof;
+    }
+
     /// @notice Registers a new validator on the SSV Network
     /// @param publicKey The public key of the new validator
     /// @param operatorIds Array of IDs of operators managing this validator
