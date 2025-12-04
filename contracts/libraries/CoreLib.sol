@@ -11,7 +11,7 @@ library CoreLib {
     uint8 internal constant VERSION_UNDEFINED = type(uint8).max;
 
     function getVersion() internal pure returns (string memory) {
-        return "v1.2.0";
+        return "v1.3.0";
     }
     //TODO: Add reentrancy modifier here
     function transferBalance(address to, uint256 amount) internal {

@@ -106,6 +106,13 @@ A versioning system has been introduced to distinguish between:
 - Added `getNetworkFeeSSV()` - Returns legacy SSV token network fee
 - Added `getNetworkEarningsSSV()` - Returns legacy SSV token network earnings
 - Updated documentation to clarify SSV vs ETH return values
+- Added `getClusterVersion()` - Returns cluster version (ETH or SSV) by owner/operator IDs
+- Added `getOperatorFeeSSV()` - Returns legacy SSV operator fee
+- Added `getOperatorByIdSSV()` and updated `getOperatorById()` to return ETH fields
+- Added `isLiquidatableSSV()` - View to check liquidation for legacy SSV clusters
+- Added `getOperatorEarningsSSV()` - Returns legacy SSV operator earnings
+- Added `getBurnRateSSV()` - Returns burn rate for legacy SSV clusters
+- Added `getBalanceSSV()` - Returns cluster balance for legacy SSV clusters
 
 **Purpose:** Provides view functions for both ETH and SSV token network metrics.
 

@@ -15,6 +15,11 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return fee The fee associated with the operator (SSV). If the operator does not exist, the returned value is 0.
     function getOperatorFee(uint64 operatorId) external view returns (uint256 fee);
 
+    /// @notice Gets the legacy SSV operator fee
+    /// @param operatorId The ID of the operator
+    /// @return fee The fee associated with the operator (SSV). If the operator does not exist, the returned value is 0.
+    function getOperatorFeeSSV(uint64 operatorId) external view returns (uint256 fee);
+
     /// @notice Gets the declared operator fee
     /// @param operatorId The ID of the operator
     /// @return isFeeDeclared A boolean indicating if the fee is declared
@@ -28,12 +33,34 @@ interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets operator details by ID
     /// @param operatorId The ID of the operator
     /// @return owner The owner of the operator
-    /// @return fee The fee associated with the operator (SSV)
-    /// @return validatorCount The count of validators associated with the operator
+    /// @return ethFee The fee associated with the operator (ETH)
+    /// @return ethValidatorCount The count of validators associated with the operator (ETH)
     /// @return whitelistedAddress The whitelisted address of the operator. It can be and EOA or generic contract (legacy) or a whitelisting contract
     /// @return isPrivate A boolean indicating if the operator is private (uses whitelisting contract or SSV Whitelisting module)
-    /// @return active A boolean indicating if the operator is active
+    /// @return active A boolean indicating if the operator is active (ETH snapshot initialized)
     function getOperatorById(
+        uint64 operatorId
+    )
+        external
+        view
+        returns (
+            address owner,
+            uint256 ethFee,
+            uint32 ethValidatorCount,
+            address whitelistedAddress,
+            bool isPrivate,
+            bool active
+        );
+
+    /// @notice Gets legacy SSV operator details by ID
+    /// @param operatorId The ID of the operator
+    /// @return owner The owner of the operator
+    /// @return fee The fee associated with the operator (SSV)
+    /// @return validatorCount The count of validators associated with the operator (SSV)
+    /// @return whitelistedAddress The whitelisted address of the operator. It can be and EOA or generic contract (legacy) or a whitelisting contract
+    /// @return isPrivate A boolean indicating if the operator is private (uses whitelisting contract or SSV Whitelisting module)
+    /// @return active A boolean indicating if the operator is active (SSV snapshot initialized)
+    function getOperatorByIdSSV(
         uint64 operatorId
     )
         external
@@ -83,6 +110,16 @@ interface ISSVViews is ISSVNetworkCore {
         Cluster memory cluster
     ) external view returns (bool isLiquidatable);
 
+    /// @notice Checks if the legacy SSV cluster can be liquidated
+    /// @param owner The owner address of the cluster
+    /// @param operatorIds The IDs of the operators in the cluster
+    /// @return isLiquidatable A boolean indicating if the cluster can be liquidated
+    function isLiquidatableSSV(
+        address owner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (bool isLiquidatable);
+
     /// @notice Checks if the cluster is liquidated
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
@@ -103,10 +140,25 @@ interface ISSVViews is ISSVNetworkCore {
         Cluster memory cluster
     ) external view returns (uint256 burnRate);
 
+    /// @notice Gets the burn rate of the legacy SSV cluster
+    /// @param owner The owner address of the cluster
+    /// @param operatorIds The IDs of the operators in the cluster
+    /// @return burnRate The burn rate of the cluster (SSV)
+    function getBurnRateSSV(
+        address owner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint256 burnRate);
+
     /// @notice Gets operator earnings
     /// @param operatorId The ID of the operator
     /// @return earnings The earnings associated with the operator (SSV)
     function getOperatorEarnings(uint64 operatorId) external view returns (uint256 earnings);
+
+    /// @notice Gets legacy SSV operator earnings
+    /// @param operatorId The ID of the operator
+    /// @return earnings The earnings associated with the operator (SSV)
+    function getOperatorEarningsSSV(uint64 operatorId) external view returns (uint256 earnings);
 
     /// @notice Gets the balance of the cluster
     /// @param owner The owner address of the cluster
@@ -117,6 +169,22 @@ interface ISSVViews is ISSVNetworkCore {
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external view returns (uint256 balance);
+
+    /// @notice Gets the balance of the legacy SSV cluster
+    /// @param owner The owner address of the cluster
+    /// @param operatorIds The IDs of the operators in the cluster
+    /// @return balance The balance of the cluster (SSV)
+    function getBalanceSSV(
+        address owner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint256 balance);
+
+    /// @notice Gets the version of a cluster (ETH or SSV)
+    /// @param owner The owner address of the cluster
+    /// @param operatorIds The IDs of the operators in the cluster
+    /// @return version The cluster version (see CoreLib.VERSION_* constants)
+    function getClusterVersion(address owner, uint64[] calldata operatorIds) external view returns (uint8 version);
 
     /// @notice Gets the network fee
     /// @return networkFee The fee associated with the network (SSV)
