@@ -51,6 +51,10 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorFee(operatorId);
     }
 
+    function getOperatorFeeSSV(uint64 operatorId) external view override returns (uint256) {
+        return ssvNetwork.getOperatorFeeSSV(operatorId);
+    }
+
     function getOperatorDeclaredFee(uint64 operatorId) external view override returns (bool, uint256, uint64, uint64) {
         return ssvNetwork.getOperatorDeclaredFee(operatorId);
     }
@@ -59,6 +63,12 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         uint64 operatorId
     ) external view override returns (address, uint256, uint32, address, bool, bool) {
         return ssvNetwork.getOperatorById(operatorId);
+    }
+
+    function getOperatorByIdSSV(
+        uint64 operatorId
+    ) external view override returns (address, uint256, uint32, address, bool, bool) {
+        return ssvNetwork.getOperatorByIdSSV(operatorId);
     }
 
     function getWhitelistedOperators(
@@ -92,6 +102,14 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.isLiquidatable(clusterOwner, operatorIds, cluster);
     }
 
+    function isLiquidatableSSV(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view override returns (bool) {
+        return ssvNetwork.isLiquidatableSSV(clusterOwner, operatorIds, cluster);
+    }
+
     function isLiquidated(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -104,8 +122,16 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view returns (uint256) {
+    ) external view override returns (uint256) {
         return ssvNetwork.getBurnRate(clusterOwner, operatorIds, cluster);
+    }
+
+    function getBurnRateSSV(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view override returns (uint256) {
+        return ssvNetwork.getBurnRateSSV(clusterOwner, operatorIds, cluster);
     }
 
     /***********************************/
@@ -116,12 +142,24 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorEarnings(id);
     }
 
+    function getOperatorEarningsSSV(uint64 id) external view override returns (uint256) {
+        return ssvNetwork.getOperatorEarningsSSV(id);
+    }
+
     function getBalance(
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
         return ssvNetwork.getBalance(clusterOwner, operatorIds, cluster);
+    }
+
+    function getBalanceSSV(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view override returns (uint256) {
+        return ssvNetwork.getBalanceSSV(clusterOwner, operatorIds, cluster);
     }
 
     /*******************************/
@@ -170,6 +208,10 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
 
     function getNetworkValidatorsCount() external view override returns (uint32) {
         return ssvNetwork.getNetworkValidatorsCount();
+    }
+
+    function getClusterVersion(address owner, uint64[] calldata operatorIds) external view override returns (uint8) {
+        return ssvNetwork.getClusterVersion(owner, operatorIds);
     }
 
     function getVersion() external view override returns (string memory) {
