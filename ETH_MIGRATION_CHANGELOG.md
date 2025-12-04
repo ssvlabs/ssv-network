@@ -73,7 +73,6 @@ A versioning system has been introduced to distinguish between:
 
 **Changes:**
 - Updated `registerOperator()` documentation to indicate ETH version (post-migration)
-- Added `removeOperatorSSV()` - For removing legacy SSV token-based operators
 - Added `migrateOperatorToETH(uint256 ethFee)` - For migrating legacy SSV operators to ETH using a provided ETH fee (validated against limits); `ensureETHDefaults()` now applies ETH defaults (fee/snapshot/validator count) during cluster migration without flipping version
 - Updated `withdrawOperatorEarnings()` and `withdrawAllOperatorEarnings()` to handle ETH withdrawals
 - Added `withdrawOperatorEarningsSSV()` and `withdrawAllOperatorEarningsSSV()` - For legacy SSV token withdrawals
@@ -277,8 +276,8 @@ A versioning system has been introduced to distinguish between:
 #### `contracts/modules/SSVOperators.sol`
 
 **Changes:**
- - Added `ReentrancyGuard` inheritance
- - Added constant: `MINIMAL_OPERATOR_ETH_FEE = 1_000_000_000`
+- Added `ReentrancyGuard` inheritance
+- Added constant: `MINIMAL_OPERATOR_ETH_FEE = 1_000_000_000`
  - Added constant: `DEFAULT_OPERATOR_ETH_FEE = 1_000_000_000`
 - Modified `registerOperator()`:
   - Creates operators with `VERSION_ETH`
@@ -286,15 +285,9 @@ A versioning system has been introduced to distinguish between:
   - Sets legacy `fee` and `validatorCount` to 0
 - Modified `removeOperator()`:
   - Added `nonReentrant` modifier
-  - Validates operator version (must be ETH)
-  - Uses `ethSnapshot` for balance calculation
-  - Uses `CoreLib.transferBalance()` for ETH transfers
+  - Handles both ETH and SSV snapshots for balance calculation
+  - Uses `CoreLib.transferBalance()` for ETH transfers and `CoreLib.transferTokenBalance()` for SSV earnings
   - Resets operator state via `_resetOperatorState()`
-- Added `removeOperatorSSV()`:
-  - New function for removing SSV token-based operators
-  - Validates operator version (must be SSV)
-  - Uses `snapshot` for balance calculation
-  - Uses `CoreLib.transferTokenBalance()` for SSV token transfers
  - Added `migrateOperatorToETH(uint256 ethFee)`:
   - Migrates legacy SSV operators to ETH by setting the provided ETH fee (validated against min/max) and switching to ETH version
   - Clears pending fee change requests
@@ -315,7 +308,9 @@ A versioning system has been introduced to distinguish between:
   - Calls `_withdrawOperatorEarnings()` with `VERSION_ETH`
 - Modified `withdrawAllOperatorEarnings()`:
   - Added `nonReentrant` modifier
-  - Calls `_withdrawOperatorEarnings()` with `VERSION_ETH`
+  - Withdraws both ETH and legacy SSV balances (if any) for ETH-version operators
+- Added `withdrawAllVersionOperatorEarnings()`:
+  - Withdraws all earnings (ETH and SSV) in a single call regardless of operator version
 - Added `withdrawOperatorSSVEarnings()`:
   - New function for withdrawing SSV token earnings
   - Added `nonReentrant` modifier
@@ -323,7 +318,7 @@ A versioning system has been introduced to distinguish between:
 - Added `withdrawAllOperatorSSVEarnings()`:
   - New function for withdrawing all SSV token earnings
   - Added `nonReentrant` modifier
-  - Calls `_withdrawOperatorEarnings()` with `VERSION_SSV`
+  - Withdraws both SSV and any residual ETH balances for SSV-version operators
 - Modified `_withdrawOperatorEarnings()`:
   - Now accepts `version` parameter
   - Uses appropriate snapshot and transfer function based on version
@@ -376,7 +371,6 @@ A versioning system has been introduced to distinguish between:
 
 **Changes:**
 - Added `liquidateSSV()` function - Delegates to clusters module for SSV token liquidation
-- Added `removeOperatorSSV()` function - Delegates to operators module for SSV token operator removal
 - Added `updateNetworkFeeSSV()` function - Delegates to DAO module for SSV token network fee updates
 - Added `withdrawNetworkSSVEarnings()` function - Delegates to DAO module for SSV token network earnings withdrawal
 - Added `withdrawOperatorSSVEarnings()` function - Delegates to operators module for SSV token operator earnings withdrawal
@@ -443,7 +437,6 @@ A versioning system has been introduced to distinguish between:
 1. **Continue Operations:** Existing SSV token operators continue to function normally
 2. **Earnings:** Withdraw using `withdrawOperatorSSVEarnings()` - Receives SSV tokens
 3. **Migration:** When executing a fee change, SSV operators automatically migrate to ETH version
-4. **Removal:** Use `removeOperatorSSV()` to remove SSV token operators
 
 ### For New Clusters (Post-Migration)
 
@@ -470,9 +463,9 @@ All functions that handle ETH transfers or withdrawals are protected with the `n
 - `SSVClusters.liquidateSSV()`
 - `SSVClusters.withdraw()`
 - `SSVOperators.removeOperator()`
-- `SSVOperators.removeOperatorSSV()`
 - `SSVOperators.withdrawOperatorEarnings()`
 - `SSVOperators.withdrawAllOperatorEarnings()`
+- `SSVOperators.withdrawAllVersionOperatorEarnings()`
 - `SSVOperators.withdrawOperatorSSVEarnings()`
 - `SSVOperators.withdrawAllOperatorSSVEarnings()`
 - `SSVDAO.withdrawNetworkEarnings()`

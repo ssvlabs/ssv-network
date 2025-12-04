@@ -64,49 +64,21 @@ contract SSVOperatorsUpdate is ISSVOperators, ReentrancyGuard {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        if (operator.version != CoreLib.VERSION_ETH) {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
-        }
-
-        operator.updateSnapshot();
-        uint64 currentBalance = operator.ethSnapshot.balance;
+        operator.updateSnapshots();
+        uint64 currentBalanceETH = operator.ethSnapshot.balance;
+        uint64 currentBalanceSSV = operator.snapshot.balance;
 
         operator = _resetOperatorState(operator);
 
         s.operators[operatorId] = operator;
 
-        if (s.operatorsWhitelist[operatorId] != address(0)) {
-            delete s.operatorsWhitelist[operatorId];
+        delete s.operatorsWhitelist[operatorId];
+
+        if (currentBalanceETH > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, currentBalanceETH.expand());
         }
-
-        if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
-        }
-        emit OperatorRemoved(operatorId);
-    }
-
-    function removeOperatorSSV(uint64 operatorId) external override nonReentrant {
-        StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
-
-        if (operator.version != CoreLib.VERSION_SSV) {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
-        }
-
-        operator.updateSnapshotSSV();
-        uint64 currentBalance = operator.snapshot.balance;
-
-        operator = _resetOperatorState(operator);
-
-        s.operators[operatorId] = operator;
-
-        if (s.operatorsWhitelist[operatorId] != address(0)) {
-            delete s.operatorsWhitelist[operatorId];
-        }
-
-        if (currentBalance > 0) {
-            _transferOperatorTokenBalanceUnsafe(operatorId, currentBalance.expand());
+        if (currentBalanceSSV > 0) {
+            _transferOperatorTokenBalanceUnsafe(operatorId, currentBalanceSSV.expand());
         }
         emit OperatorRemoved(operatorId);
     }
@@ -248,6 +220,29 @@ contract SSVOperatorsUpdate is ISSVOperators, ReentrancyGuard {
 
     function withdrawAllOperatorEarnings(uint64 operatorId) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_ETH);
+    }
+
+    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override nonReentrant {
+        StorageData storage s = SSVStorage.load();
+        Operator memory operator = s.operators[operatorId];
+        operator.checkOwner();
+
+        operator.updateSnapshots();
+
+        uint64 ethBalance = operator.ethSnapshot.balance;
+        uint64 ssvBalance = operator.snapshot.balance;
+
+        operator.ethSnapshot.balance = 0;
+        operator.snapshot.balance = 0;
+
+        s.operators[operatorId] = operator;
+
+        if (ethBalance > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, ethBalance.expand());
+        }
+        if (ssvBalance > 0) {
+            _transferOperatorTokenBalanceUnsafe(operatorId, ssvBalance.expand());
+        }
     }
 
     function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override nonReentrant {

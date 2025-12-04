@@ -14,10 +14,6 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @param operatorId The ID of the operator to be removed
     function removeOperator(uint64 operatorId) external;
 
-    /// @notice Removes an existing legacy SSV operator (backward compatibility)
-    /// @param operatorId The ID of the operator to be removed
-    function removeOperatorSSV(uint64 operatorId) external;
-
     /// @notice Migrates a legacy SSV operator to ETH with a default ETH fee
     /// @param operatorId The ID of the operator to migrate
     /// @param ethFee The ETH fee to set on migration (optional; if zero and operator has no ETH fee, a default is used)
@@ -49,6 +45,10 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @notice Withdraws all operator earnings in ETH (post-migration)
     /// @param operatorId The ID of the operator
     function withdrawAllOperatorEarnings(uint64 operatorId) external;
+
+    /// @notice Withdraws all operator earnings (both ETH and legacy SSV) in a single call
+    /// @param operatorId The ID of the operator
+    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external;
 
     /// @notice Withdraws operator earnings in SSV (legacy pre-migration)
     /// @param operatorId The ID of the operator

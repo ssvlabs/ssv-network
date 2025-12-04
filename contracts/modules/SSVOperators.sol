@@ -70,12 +70,9 @@ contract SSVOperators is ISSVOperators, ReentrancyGuard {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        if (operator.version != CoreLib.VERSION_ETH) {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
-        }
-
-        operator.updateSnapshot();
-        uint64 currentBalance = operator.ethSnapshot.balance;
+        operator.updateSnapshots();
+        uint64 currentBalanceETH = operator.ethSnapshot.balance;
+        uint64 currentBalanceSSV = operator.snapshot.balance;
 
         operator = _resetOperatorState(operator);
 
@@ -83,59 +80,13 @@ contract SSVOperators is ISSVOperators, ReentrancyGuard {
 
         delete s.operatorsWhitelist[operatorId];
 
-        if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
+        if (currentBalanceETH > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, currentBalanceETH.expand());
+        }
+        if (currentBalanceSSV > 0) {
+            _transferOperatorTokenBalanceUnsafe(operatorId, currentBalanceSSV.expand());
         }
         emit OperatorRemoved(operatorId);
-    }
-
-    function removeOperatorSSV(uint64 operatorId) external override nonReentrant {
-        StorageData storage s = SSVStorage.load();
-
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
-
-        if (operator.version != CoreLib.VERSION_SSV) {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
-        }
-
-        operator.updateSnapshotSSV();
-        uint64 currentBalance = operator.snapshot.balance;
-
-        operator = _resetOperatorState(operator);
-
-        s.operators[operatorId] = operator;
-
-        delete s.operatorsWhitelist[operatorId];
-
-        if (currentBalance > 0) {
-            _transferOperatorTokenBalanceUnsafe(operatorId, currentBalance.expand());
-        }
-        emit OperatorRemoved(operatorId);
-    }
-
-    function migrateOperatorToETH(uint64 operatorId, uint256 ethFee) external override {
-        StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
-
-        if (operator.version != CoreLib.VERSION_SSV) {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
-        }
-
-        if (ethFee != 0 && ethFee < MINIMAL_OPERATOR_ETH_FEE) revert ISSVNetworkCore.FeeTooLow();
-        uint64 shrunkFee = ethFee.shrink();
-        if (shrunkFee > SSVStorageProtocol.load().operatorMaxFee) revert ISSVNetworkCore.FeeTooHigh();
-
-        operator.version = CoreLib.VERSION_ETH;
-        operator.ethFee = shrunkFee;
-        if (operator.ethSnapshot.block == 0) {
-            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
-        } else {
-            operator.updateSnapshot();
-        }
-        s.operators[operatorId] = operator;
-        delete s.operatorFeeChangeRequests[operatorId];
     }
 
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
@@ -246,12 +197,59 @@ contract SSVOperators is ISSVOperators, ReentrancyGuard {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_ETH);
     }
 
+    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override nonReentrant {
+        StorageData storage s = SSVStorage.load();
+        Operator memory operator = s.operators[operatorId];
+        operator.checkOwner();
+
+        operator.updateSnapshots();
+
+        uint64 ethBalance = operator.ethSnapshot.balance;
+        uint64 ssvBalance = operator.snapshot.balance;
+
+        operator.ethSnapshot.balance = 0;
+        operator.snapshot.balance = 0;
+
+        s.operators[operatorId] = operator;
+
+        if (ethBalance > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, ethBalance.expand());
+        }
+        if (ssvBalance > 0) {
+            _transferOperatorTokenBalanceUnsafe(operatorId, ssvBalance.expand());
+        }
+    }
+
     function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_SSV);
     }
 
     function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_SSV);
+    }
+    
+    function migrateOperatorToETH(uint64 operatorId, uint256 ethFee) external override {
+        StorageData storage s = SSVStorage.load();
+        Operator memory operator = s.operators[operatorId];
+        operator.checkOwner();
+
+        if (operator.version != CoreLib.VERSION_SSV) {
+            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
+        }
+
+        if (ethFee != 0 && ethFee < MINIMAL_OPERATOR_ETH_FEE) revert ISSVNetworkCore.FeeTooLow();
+        uint64 shrunkFee = ethFee.shrink();
+        if (shrunkFee > SSVStorageProtocol.load().operatorMaxFee) revert ISSVNetworkCore.FeeTooHigh();
+
+        operator.version = CoreLib.VERSION_ETH;
+        operator.ethFee = shrunkFee;
+        if (operator.ethSnapshot.block == 0) {
+            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
+        } else {
+            operator.updateSnapshot();
+        }
+        s.operators[operatorId] = operator;
+        delete s.operatorFeeChangeRequests[operatorId];
     }
 
     // private functions

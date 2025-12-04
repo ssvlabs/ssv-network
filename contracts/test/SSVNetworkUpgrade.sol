@@ -132,13 +132,6 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function removeOperatorSSV(uint64 operatorId) external override {
-        _delegateCall(
-            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
-            abi.encodeWithSignature("removeOperatorSSV(uint64)", operatorId)
-        );
-    }
-
     function migrateOperatorToETH(uint64 operatorId, uint256 ethFee) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
@@ -206,6 +199,13 @@ contract SSVNetworkUpgrade is
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
             abi.encodeWithSignature("withdrawAllOperatorEarnings(uint64)", operatorId)
+        );
+    }
+
+    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
+            abi.encodeWithSignature("withdrawAllVersionOperatorEarnings(uint64)", operatorId)
         );
     }
 
