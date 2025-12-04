@@ -155,6 +155,17 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return validatorsCount The total number of validators in the network
     function getNetworkValidatorsCount() external view returns (uint32 validatorsCount);
 
+    function getOracleTimingConfig(
+        uint64 referenceEpoch
+    ) external view returns (uint64 startEpoch, uint64 epochInterval);
+
+
+    function getTargetEpoch(
+        uint64 round,
+        uint64 startEpoch,
+        uint64 epochInterval
+    ) external view returns (uint64);
+
     /// @notice Gets the version of the contract
     /// @return The version of the contract
     function getVersion() external view returns (string memory);

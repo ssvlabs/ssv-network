@@ -95,6 +95,7 @@ interface ISSVNetworkCore {
     error InvalidWhitelistingContract(address contractAddress); // 0x886e6a03
     error InvalidWhitelistAddressesLength(); // 0xcbb362dc
     error ZeroAddressNotAllowed(); // 0x8579befe
+    error EpochOverflow();
 
     // EB oracle-specific errors
     error StaleBlockNumber();
@@ -105,6 +106,7 @@ interface ISSVNetworkCore {
     error InvalidProof();
     error EBExceedsMaximum();
     error NotAuthorizedOracle();
+    error ZeroInterval();
 
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e

@@ -41,6 +41,13 @@ interface ISSVDAO is ISSVNetworkCore {
     /// @param blockNum Block number when oracle computed this data (must be finalized and strictly increasing)
     function commitRoot(bytes32 merkleRoot, uint64 blockNum) external;
 
+    function setOracleTimingConfig(
+        uint64 firstStartEpoch,
+        uint64 firstInterval,
+        uint64 secondStartEpoch,
+        uint64 secondInterval
+    ) external;
+
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
 
     event DeclareOperatorFeePeriodUpdated(uint64 value);
