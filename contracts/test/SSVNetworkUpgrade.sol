@@ -132,10 +132,10 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function migrateOperatorToETH(uint64 operatorId, uint256 ethFee) external override {
+    function migrateOperatorToETH(uint64 operatorId) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS],
-            abi.encodeWithSignature("migrateOperatorToETH(uint64,uint256)", operatorId, ethFee)
+            abi.encodeWithSignature("migrateOperatorToETH(uint64)", operatorId)
         );
     }
 

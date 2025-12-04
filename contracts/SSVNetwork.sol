@@ -133,7 +133,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function migrateOperatorToETH(uint64 operatorId, uint256 ethFee) external override {
+    function migrateOperatorToETH(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 

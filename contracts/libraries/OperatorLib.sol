@@ -55,6 +55,10 @@ library OperatorLib {
         updateSnapshotStSVV(operator);
     }
 
+    function defaultOperatorEthFee() internal pure returns (uint64) {
+        return DEFAULT_OPERATOR_ETH_FEE;
+    }
+
     function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
         if (operator.snapshot.block == 0) revert ISSVNetworkCore.OperatorDoesNotExist();
         if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwnerWithData(msg.sender, operator.owner);

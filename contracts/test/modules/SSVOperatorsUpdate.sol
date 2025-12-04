@@ -83,7 +83,7 @@ contract SSVOperatorsUpdate is ISSVOperators, ReentrancyGuard {
         emit OperatorRemoved(operatorId);
     }
 
-    function migrateOperatorToETH(uint64 operatorId, uint256 ethFee) external override {
+    function migrateOperatorToETH(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
@@ -92,12 +92,11 @@ contract SSVOperatorsUpdate is ISSVOperators, ReentrancyGuard {
             revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
         }
 
-        if (ethFee != 0 && ethFee < MINIMAL_OPERATOR_FEE) revert ISSVNetworkCore.FeeTooLow();
-        uint64 shrunkFee = ethFee.shrink();
-        if (shrunkFee > SSVStorageProtocol.load().operatorMaxFee) revert ISSVNetworkCore.FeeTooHigh();
+        uint64 targetFee = operator.ethFee == 0 ? OperatorLib.defaultOperatorEthFee() : operator.ethFee;
+        if (targetFee > SSVStorageProtocol.load().operatorMaxFee) revert ISSVNetworkCore.FeeTooHigh();
 
         operator.version = CoreLib.VERSION_ETH;
-        operator.ethFee = shrunkFee;
+        operator.ethFee = targetFee;
         if (operator.ethSnapshot.block == 0) {
             operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
         } else {

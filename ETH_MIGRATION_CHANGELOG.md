@@ -73,7 +73,7 @@ A versioning system has been introduced to distinguish between:
 
 **Changes:**
 - Updated `registerOperator()` documentation to indicate ETH version (post-migration)
-- Added `migrateOperatorToETH(uint256 ethFee)` - For migrating legacy SSV operators to ETH using a provided ETH fee (validated against limits); `ensureETHDefaults()` now applies ETH defaults (fee/snapshot/validator count) during cluster migration without flipping version
+- Added `migrateOperatorToETH()` - For migrating legacy SSV operators to ETH using a default ETH fee; `ensureETHDefaults()` now applies ETH defaults (fee/snapshot/validator count) during cluster migration without flipping version
 - Updated `withdrawOperatorEarnings()` and `withdrawAllOperatorEarnings()` to handle ETH withdrawals
 - Added `withdrawOperatorEarningsSSV()` and `withdrawAllOperatorEarningsSSV()` - For legacy SSV token withdrawals
 - Updated function documentation to clarify ETH vs SSV token operations
@@ -295,8 +295,8 @@ A versioning system has been introduced to distinguish between:
   - Handles both ETH and SSV snapshots for balance calculation
   - Uses `CoreLib.transferBalance()` for ETH transfers and `CoreLib.transferTokenBalance()` for SSV earnings
   - Resets operator state via `_resetOperatorState()`
- - Added `migrateOperatorToETH(uint256 ethFee)`:
-  - Migrates legacy SSV operators to ETH by setting the provided ETH fee (validated against min/max) and switching to ETH version
+ - Added `migrateOperatorToETH()`:
+  - Migrates legacy SSV operators to ETH by setting a default ETH fee (validated against max) and switching to ETH version
   - Clears pending fee change requests
  - Added `ensureETHDefaults()` in `OperatorLib` to initialize ETH fee/snapshot/validator count when clusters migrate and operators are still legacy (without flipping version)
 - Modified `declareOperatorFee()`:
