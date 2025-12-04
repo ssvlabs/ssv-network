@@ -164,6 +164,21 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getNetworkValidatorsCount();
     }
 
+    function getOracleTimingConfig(
+        uint64 referenceEpoch
+    ) external view returns (uint64 startEpoch, uint64 epochInterval) {
+        return ssvNetwork.getOracleTimingConfig(referenceEpoch);
+    }
+
+
+    function getTargetEpoch(
+        uint64 round,
+        uint64 startEpoch,
+        uint64 epochInterval
+    ) external view returns (uint64) {
+        return ssvNetwork.getTargetEpoch(round, startEpoch, epochInterval);
+    }
+
     function getVersion() external view override returns (string memory) {
         return ssvNetwork.getVersion();
     }

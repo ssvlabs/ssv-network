@@ -289,6 +289,31 @@ contract SSVViews is ISSVViews {
     /* DAO External View Functions */
     /*******************************/
 
+    function getTargetEpoch(
+        uint64 round,
+        uint64 startEpoch,
+        uint64 epochInterval
+    ) external view returns (uint64) {
+        uint256 result = uint256(startEpoch) + uint256(round) * uint256(epochInterval);
+
+        if (result > type(uint64).max) {
+            revert EpochOverflow();
+        }
+
+        return uint64(result);
+    }
+
+    function getOracleTimingConfig(
+        uint64 referenceEpoch
+    ) external view returns (uint64 startEpoch, uint64 epochInterval) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (referenceEpoch >= sp.oracleSecondStartEpoch) {
+            return (sp.oracleSecondStartEpoch, sp.oracleSecondEpochInterval);
+        }
+        return (sp.oracleFirstStartEpoch, sp.oracleFirstEpochInterval);
+    }
+
     function getNetworkFee() external view override returns (uint256) {
         return SSVStorageProtocol.load().networkFee.expand();
     }
