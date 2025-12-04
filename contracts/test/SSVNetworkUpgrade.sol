@@ -399,6 +399,53 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function updateClusterBalance(
+        uint64 blockNum,
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster,
+        uint256 effectiveBalance,
+        bytes32[] calldata merkleProof
+    ) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
+            abi.encodeWithSignature(
+                "updateClusterBalance(uint64,address,uint64[],(uint32,uint64,uint64,bool,uint256),uint256,bytes32[])",
+                blockNum,
+                clusterOwner,
+                operatorIds,
+                cluster,
+                effectiveBalance,
+                merkleProof
+            )
+        );
+    }
+
+    function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("commitRoot(bytes32,uint64)", merkleRoot, blockNum)
+        );
+    }
+
+    function setOracleTimingConfig(
+        uint64 firstStartEpoch,
+        uint64 firstInterval,
+        uint64 secondStartEpoch,
+        uint64 secondInterval
+    ) external onlyOwner {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature(
+                "setOracleTimingConfig(uint64,uint64,uint64,uint64)",
+                firstStartEpoch,
+                firstInterval,
+                secondStartEpoch,
+                secondInterval
+            )
+        );
+    }
+
     function _delegateCall(address ssvModule, bytes memory callMessage) internal returns (bytes memory) {
         /// @custom:oz-upgrades-unsafe-allow delegatecall
         (bool success, bytes memory result) = ssvModule.delegatecall(callMessage);

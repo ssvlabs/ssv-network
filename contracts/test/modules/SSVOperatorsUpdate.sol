@@ -7,6 +7,7 @@ import "../../libraries/SSVStorage.sol";
 import "../../libraries/SSVStorageProtocol.sol";
 import "../../libraries/OperatorLib.sol";
 import "../../libraries/CoreLib.sol";
+import "../../libraries/SSVStorageEB.sol";
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 
@@ -59,7 +60,8 @@ contract SSVOperatorsUpdate is ISSVOperators {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        operator.updateSnapshot();
+        StorageEB storage seb = SSVStorageEB.load();
+        operator.updateSnapshot(operatorId, seb);
         uint64 currentBalance = operator.snapshot.balance;
 
         operator.snapshot.block = 0;
@@ -96,7 +98,9 @@ contract SSVOperatorsUpdate is ISSVOperators {
             revert ApprovalNotWithinTimeframe();
         }
 
-        operator.updateSnapshot();
+        StorageEB storage seb = SSVStorageEB.load();
+        operator.updateSnapshot(operatorId, seb);
+        uint64 currentBalance = operator.snapshot.balance;
         operator.fee = feeChangeRequest.fee;
         s.operators[operatorId] = operator;
 
@@ -123,7 +127,9 @@ contract SSVOperatorsUpdate is ISSVOperators {
         uint64 shrunkAmount = fee.shrink();
         if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
 
-        operator.updateSnapshot();
+        StorageEB storage seb = SSVStorageEB.load();
+        operator.updateSnapshot(operatorId, seb);
+
         operator.fee = shrunkAmount;
         s.operators[operatorId] = operator;
 
@@ -156,7 +162,8 @@ contract SSVOperatorsUpdate is ISSVOperators {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        operator.updateSnapshot();
+        StorageEB storage seb = SSVStorageEB.load();
+        operator.updateSnapshot(operatorId, seb);
 
         uint64 shrunkWithdrawn;
         uint64 shrunkAmount = amount.shrink();
