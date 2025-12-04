@@ -32,6 +32,14 @@ struct StorageProtocol {
     uint64 operatorMaxFee;
     /// @notice The current total vUnits of the DAO
     uint64 daoTotalVUnits;
+    /// @notice First-phase oracle start epoch (firstStartEpoch)
+    uint64 oracleFirstStartEpoch;
+    /// @notice First-phase oracle interval in epochs (firstInterval), must be > 0
+    uint64 oracleFirstEpochInterval;
+    /// @notice Second-phase oracle start epoch (secondStartEpoch)
+    uint64 oracleSecondStartEpoch;
+    /// @notice Second-phase oracle interval in epochs (secondInterval), must be > 0
+    uint64 oracleSecondEpochInterval;
 }
 
 library SSVStorageProtocol {
