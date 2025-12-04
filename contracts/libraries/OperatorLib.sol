@@ -165,18 +165,51 @@ library OperatorLib {
             if (operator.version != CoreLib.VERSION_ETH) {
                 ensureETHDefaults(operator);
             }
-
+            
             if (operator.ethSnapshot.block != 0) {
-                updateSnapshotSt(operator);
+            updateSnapshotSt(operator);
+            if (!increaseValidatorCount) {
+                operator.ethValidatorCount -= deltaValidatorCount;
+            } else if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+            }
+
+            cumulativeFee += operator.ethFee;
+            }
+            cumulativeIndex += operator.ethSnapshot.index;
+        }
+    }
+
+    function updateClusterOperatorsSSV(
+        uint64[] memory operatorIds,
+        bool increaseValidatorCount,
+        uint32 deltaValidatorCount,
+        StorageData storage s,
+        StorageProtocol storage sp
+    ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
+        uint256 operatorsLength = operatorIds.length;
+
+        for (uint256 i; i < operatorsLength; ++i) {
+            uint64 operatorId = operatorIds[i];
+
+            ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+            if (operator.version != CoreLib.VERSION_SSV) {
+                revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
+            }
+
+            if (operator.snapshot.block != 0) {
+                updateSnapshotStSVV(operator);
                 if (!increaseValidatorCount) {
-                    operator.ethValidatorCount -= deltaValidatorCount;
-                } else if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                    operator.validatorCount -= deltaValidatorCount;
+                } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
                     revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
                 }
 
-                cumulativeFee += operator.ethFee;
+                cumulativeFee += operator.fee;
             }
-            cumulativeIndex += operator.ethSnapshot.index;
+
+            cumulativeIndex += operator.snapshot.index;
         }
     }
 

@@ -243,7 +243,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsSSV(
             operatorIds,
             false,
             cluster.validatorCount,
@@ -251,7 +251,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
             sp
         );
 
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndexSSV());
 
         uint256 balanceLiquidatable;
 

@@ -199,7 +199,7 @@ A versioning system has been introduced to distinguish between:
 - Added `updateSnapshots()` - Updates both ETH and SSV snapshots (memory)
 - Added `updateSnapshotsSt()` - Updates both ETH and SSV snapshots (storage)
 - Modified `updateClusterOperatorsOnRegistration()` to handle both ETH and SSV token operators
-- Modified `updateClusterOperators()` to handle both ETH and SSV token operators
+- Split cluster updates into `updateClusterOperators()` (ETH) and `updateClusterOperatorsSSV()` (legacy SSV) for explicit version handling
 - Updated operator validation logic to check version and use appropriate snapshot/fee fields
 
 **Purpose:** Enables dual snapshot tracking for operators, allowing them to earn from both ETH and SSV token validators independently.
@@ -251,6 +251,7 @@ A versioning system has been introduced to distinguish between:
 - Added `liquidateSSV()`:
   - New function for liquidating SSV token-based clusters
   - Validates cluster version (must be SSV)
+  - Uses `updateClusterOperatorsSSV()` and `currentNetworkFeeIndexSSV()` for SSV accounting
   - Uses `networkFee` and `CoreLib.transferTokenBalance()`
   - Stores in `clusters` mapping
 - Modified `reactivate()`:
