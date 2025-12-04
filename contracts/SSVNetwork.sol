@@ -326,6 +326,15 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
+    function setOracleTimingConfig(
+        uint64 firstStartEpoch,
+        uint64 firstInterval,
+        uint64 secondStartEpoch,
+        uint64 secondInterval
+    ) external onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
     function getVersion() external pure override returns (string memory version) {
         return CoreLib.getVersion();
     }

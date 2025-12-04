@@ -95,4 +95,22 @@ contract SSVDAO is ISSVDAO {
 
         emit RootCommitted(merkleRoot, blockNum, block.timestamp);
     }
+
+    function setOracleTimingConfig(
+        uint64 firstStartEpoch,
+        uint64 firstInterval,
+        uint64 secondStartEpoch,
+        uint64 secondInterval
+    ) external {
+        if (firstInterval == 0 || secondInterval == 0) {
+            revert ZeroInterval();
+        }
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        sp.oracleFirstStartEpoch = firstStartEpoch;
+        sp.oracleFirstEpochInterval = firstInterval;
+        sp.oracleSecondStartEpoch = secondStartEpoch;
+        sp.oracleSecondEpochInterval = secondInterval;
+    }
 }
