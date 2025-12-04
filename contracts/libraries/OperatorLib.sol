@@ -62,16 +62,12 @@ library OperatorLib {
 
     function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
         if (operator.version != CoreLib.VERSION_ETH) {
+            if (operator.ethSnapshot.block == 0) {
+                operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
+            }
             if (operator.fee != 0) {
                 if (operator.ethFee == 0) {
                     operator.ethFee = DEFAULT_OPERATOR_ETH_FEE;
-                }
-                if (operator.ethSnapshot.block == 0) {
-                    operator.ethSnapshot = ISSVNetworkCore.Snapshot({
-                        block: uint32(block.number),
-                        index: 0,
-                        balance: 0
-                    });
                 }
             } else {
                 operator.version = CoreLib.VERSION_ETH;
@@ -165,16 +161,16 @@ library OperatorLib {
             if (operator.version != CoreLib.VERSION_ETH) {
                 ensureETHDefaults(operator);
             }
-            
-            if (operator.ethSnapshot.block != 0) {
-            updateSnapshotSt(operator);
-            if (!increaseValidatorCount) {
-                operator.ethValidatorCount -= deltaValidatorCount;
-            } else if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-            }
 
-            cumulativeFee += operator.ethFee;
+            if (operator.ethSnapshot.block != 0) {
+                updateSnapshotSt(operator);
+                if (!increaseValidatorCount) {
+                    operator.ethValidatorCount -= deltaValidatorCount;
+                } else if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                }
+
+                cumulativeFee += operator.ethFee;
             }
             cumulativeIndex += operator.ethSnapshot.index;
         }
