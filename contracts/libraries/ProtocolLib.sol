@@ -70,7 +70,7 @@ library ProtocolLib {
     }
 
     function updateDAOSSV(StorageProtocol storage sp, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
-        updateDAOEarnings(sp);
+        updateDAOEarningsSSV(sp);
         if (!increaseValidatorCount) {
             sp.daoValidatorCount -= deltaValidatorCount;
         } else if ((sp.daoValidatorCount += deltaValidatorCount) > type(uint32).max) {

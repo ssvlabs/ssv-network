@@ -9,9 +9,8 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract SSVClusters is ISSVClusters, ReentrancyGuard {
+contract SSVClusters is ISSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
@@ -166,7 +165,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external override nonReentrant {
+    ) external override {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -222,7 +221,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external override nonReentrant {
+    ) external override {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -340,7 +339,7 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
         uint64[] calldata operatorIds,
         uint256 amount,
         Cluster memory cluster
-    ) external override nonReentrant {
+    ) external override {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -357,10 +356,10 @@ contract SSVClusters is ISSVClusters, ReentrancyGuard {
                 for (uint256 i; i < operatorsLength; ++i) {
                     Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
                     clusterIndex +=
-                        operator.snapshot.index +
-                        (uint64(block.number) - operator.snapshot.block) *
-                        operator.fee;
-                    burnRate += operator.fee;
+                        operator.ethSnapshot.index +
+                        (uint64(block.number) - operator.ethSnapshot.block) *
+                        operator.ethFee;
+                    burnRate += operator.ethFee;
                 }
             }
 

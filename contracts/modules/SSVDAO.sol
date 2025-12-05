@@ -6,9 +6,8 @@ import {Types64, Types256} from "../libraries/Types.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract SSVDAO is ISSVDAO, ReentrancyGuard {
+contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
     using Types256 for uint256;
 
@@ -32,7 +31,7 @@ contract SSVDAO is ISSVDAO, ReentrancyGuard {
         emit NetworkFeeUpdated(previousFee.expand(), fee);
     }
 
-    function withdrawNetworkEarnings(uint256 amount) external override nonReentrant {
+    function withdrawNetworkEarnings(uint256 amount) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint64 shrunkAmount = amount.shrink();
@@ -51,7 +50,7 @@ contract SSVDAO is ISSVDAO, ReentrancyGuard {
         emit NetworkEarningsWithdrawn(amount, msg.sender);
     }
 
-    function withdrawNetworkSSVEarnings(uint256 amount) external override nonReentrant {
+    function withdrawNetworkSSVEarnings(uint256 amount) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint64 shrunkAmount = amount.shrink();

@@ -136,7 +136,7 @@ library ClusterLib {
             isLiquidatable(
                 cluster,
                 burnRate,
-                sp.networkFee,
+                sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,
                 sp.minimumLiquidationCollateral
             )
