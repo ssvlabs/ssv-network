@@ -12,7 +12,7 @@ interface ISSVViews is ISSVNetworkCore {
 
     /// @notice Gets the operator fee
     /// @param operatorId The ID of the operator
-    /// @return fee The fee associated with the operator (SSV). If the operator does not exist, the returned value is 0.
+    /// @return fee The fee associated with the operator (ETH). If the operator does not exist, the returned value is 0.
     function getOperatorFee(uint64 operatorId) external view returns (uint256 fee);
 
     /// @notice Gets the legacy SSV operator fee
@@ -152,7 +152,7 @@ interface ISSVViews is ISSVNetworkCore {
 
     /// @notice Gets operator earnings
     /// @param operatorId The ID of the operator
-    /// @return earnings The earnings associated with the operator (SSV)
+    /// @return earnings The earnings associated with the operator (ETH)
     function getOperatorEarnings(uint64 operatorId) external view returns (uint256 earnings);
 
     /// @notice Gets legacy SSV operator earnings
@@ -163,7 +163,7 @@ interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets the balance of the cluster
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
-    /// @return balance The balance of the cluster (SSV)
+    /// @return balance The balance of the cluster (ETH)
     function getBalance(
         address owner,
         uint64[] memory operatorIds,
@@ -187,11 +187,11 @@ interface ISSVViews is ISSVNetworkCore {
     function getClusterVersion(address owner, uint64[] calldata operatorIds) external view returns (uint8 version);
 
     /// @notice Gets the network fee
-    /// @return networkFee The fee associated with the network (SSV)
+    /// @return networkFee The fee associated with the network (ETH)
     function getNetworkFee() external view returns (uint256 networkFee);
 
     /// @notice Gets the network earnings
-    /// @return networkEarnings The earnings associated with the network (SSV)
+    /// @return networkEarnings The earnings associated with the network (ETH)
     function getNetworkEarnings() external view returns (uint256 networkEarnings);
 
     /// @notice Gets the legacy network fee (SSV pre-migration)
