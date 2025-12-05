@@ -64,7 +64,7 @@ interface ISSVOperators is ISSVNetworkCore {
     function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external;
 
     /// @notice Set the list of operators as public without removing any whitelisting address
-    /// @notice The operators still keep its adresses whitelisted (external contract or EOAs/generic contracts)
+    /// @notice The operators still keep its addresses whitelisted (external contract or EOAs/generic contracts)
     /// @notice The operators are considered public when registering validators
     /// @param operatorIds The operator IDs to set as public
     function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external;
