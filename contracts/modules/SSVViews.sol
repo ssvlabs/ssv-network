@@ -353,7 +353,7 @@ contract SSVViews is ISSVViews {
             }
         }
 
-        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndexSSV());
+        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndex());
 
         return cluster.balance;
     }
@@ -378,7 +378,7 @@ contract SSVViews is ISSVViews {
             }
         }
 
-        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndex());
+        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndexSSV());
 
         return cluster.balance;
     }
