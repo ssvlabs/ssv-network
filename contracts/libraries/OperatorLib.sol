@@ -165,6 +165,7 @@ library OperatorLib {
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
             if (operator.version != CoreLib.VERSION_ETH) {
+                updateSnapshotStSVV(operator);
                 ensureETHDefaults(operator);
             }
 

@@ -427,12 +427,6 @@ contract SSVClusters is ISSVClusters {
         cluster.validateClusterIsNotLiquidated();
 
         uint256 ssvBalance = cluster.balance;
-        // migrate operators to ETH defaults if needed
-        uint64[] memory opIds = operatorIds;
-        for (uint256 i; i < opIds.length; ++i) {
-            ISSVNetworkCore.Operator storage operator = s.operators[opIds[i]];
-            operator.ensureETHDefaults();
-        }
 
         // compute cluster data using ETH fields
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
@@ -443,7 +437,7 @@ contract SSVClusters is ISSVClusters {
             sp
         );
 
-        cluster.balance += msg.value;
+        cluster.balance = msg.value;
         cluster.active = true;
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
