@@ -166,7 +166,9 @@ library OperatorLib {
 
             if (operator.version != CoreLib.VERSION_ETH) {
                 updateSnapshotStSVV(operator);
-                operator.validatorCount -= deltaValidatorCount;
+                if (increaseValidatorCount) {
+                    operator.validatorCount -= deltaValidatorCount;
+                }
                 ensureETHDefaults(operator);
             }
 
