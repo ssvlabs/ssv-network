@@ -105,7 +105,6 @@ library OperatorLib {
             }
             ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
             if (operator.version != CoreLib.VERSION_ETH) {
-                updateSnapshotStSVV(s.operators[operatorId]);
                 ensureETHDefaults(s.operators[operatorId]);
                 operator = s.operators[operatorId];
             }
@@ -167,6 +166,7 @@ library OperatorLib {
 
             if (operator.version != CoreLib.VERSION_ETH) {
                 updateSnapshotStSVV(operator);
+                operator.validatorCount -= deltaValidatorCount;
                 ensureETHDefaults(operator);
             }
 
