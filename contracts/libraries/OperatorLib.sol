@@ -60,7 +60,9 @@ library OperatorLib {
     }
 
     function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
-        if (operator.snapshot.block == 0) revert ISSVNetworkCore.OperatorDoesNotExist();
+        if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
+            revert ISSVNetworkCore.OperatorDoesNotExist();
+        }
         if (operator.owner != msg.sender) revert ISSVNetworkCore.CallerNotOwnerWithData(msg.sender, operator.owner);
     }
 
