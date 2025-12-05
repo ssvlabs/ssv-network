@@ -53,7 +53,7 @@ contract SSVNetworkUpgrade is
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable_init_unchained();
-        __ReentrancyGuard_init_unchained();
+        __ReentrancyGuard_init();
         __SSVNetwork_init_unchained(
             token_,
             ssvOperators_,
