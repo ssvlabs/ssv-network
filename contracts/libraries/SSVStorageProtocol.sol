@@ -31,7 +31,7 @@ struct StorageProtocol {
     /// @notice The maximum value in operator fee that is allowed (SSV)
     uint64 operatorMaxFee;
 
-    //ETH 
+    // ETH 
     /// @notice The block number when the network fee index was last updated for eth
     uint32 ethNetworkFeeIndexBlockNumber;
     /// @notice The count of validators governed by the DAO for eth clusters
@@ -44,6 +44,20 @@ struct StorageProtocol {
     uint64 ethNetworkFeeIndex;
     /// @notice The current balance of the DAO for eth clusters
     uint64 ethDaoBalance;
+
+    // EB
+    /// @notice The current total SSV vUnits
+    uint64 daoTotalVUnits;
+    /// @notice The current total ETH vUnits
+    uint64 daoTotalEthVUnits;
+    /// @notice First-phase oracle start epoch (firstStartEpoch)
+    uint64 oracleFirstStartEpoch;
+    /// @notice First-phase oracle interval in epochs (firstInterval), must be > 0
+    uint64 oracleFirstEpochInterval;
+    /// @notice Second-phase oracle start epoch (secondStartEpoch)
+    uint64 oracleSecondStartEpoch;
+    /// @notice Second-phase oracle interval in epochs (secondInterval), must be > 0
+    uint64 oracleSecondEpochInterval;
 }
 
 library SSVStorageProtocol {
