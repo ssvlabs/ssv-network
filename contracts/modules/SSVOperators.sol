@@ -69,7 +69,7 @@ contract SSVOperators is ISSVOperators {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        operator.updateSnapshots();
+        operator.updateSnapshots(operatorId);
         uint64 currentBalanceETH = operator.ethSnapshot.balance;
         uint64 currentBalanceSSV = operator.snapshot.balance;
 
@@ -139,7 +139,7 @@ contract SSVOperators is ISSVOperators {
 
         if (feeChangeRequest.fee.expand() > SSVStorageProtocol.load().operatorMaxFee) revert FeeTooHigh();
 
-        operator.updateSnapshot();
+        operator.updateSnapshot(operatorId);
         operator.ethFee = feeChangeRequest.fee;
         s.operators[operatorId] = operator;
 
@@ -173,7 +173,7 @@ contract SSVOperators is ISSVOperators {
         uint64 shrunkAmount = fee.shrink();
         if (shrunkAmount >= operator.ethFee) revert FeeIncreaseNotAllowed();
 
-        operator.updateSnapshot();
+        operator.updateSnapshot(operatorId);
         operator.ethFee = shrunkAmount;
         s.operators[operatorId] = operator;
 
@@ -205,7 +205,7 @@ contract SSVOperators is ISSVOperators {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        operator.updateSnapshots();
+        operator.updateSnapshots(operatorId);
 
         uint64 ethBalance = operator.ethSnapshot.balance;
         uint64 ssvBalance = operator.snapshot.balance;
@@ -245,7 +245,7 @@ contract SSVOperators is ISSVOperators {
         if (operator.ethSnapshot.block == 0) {
             operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
         } else {
-            operator.updateSnapshot();
+            operator.updateSnapshot(operatorId);
         }
         s.operators[operatorId] = operator;
         delete s.operatorFeeChangeRequests[operatorId];
@@ -258,9 +258,9 @@ contract SSVOperators is ISSVOperators {
         operator.checkOwner();
 
         if (version == CoreLib.VERSION_ETH) {
-            operator.updateSnapshot();
+            operator.updateSnapshot(operatorId);
         } else {
-            operator.updateSnapshotSSV();
+            operator.updateSnapshotSSV(operatorId);
         }
 
         uint64 shrunkWithdrawn;
