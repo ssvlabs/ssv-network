@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
+import {ClusterLib} from "../libraries/ClusterLib.sol";
 
 interface ISSVClusters is ISSVNetworkCore {
     struct UpdateCtx {
@@ -193,6 +194,7 @@ interface ISSVClusters is ISSVNetworkCore {
     event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
     event ClusterBalanceUpdated(
+        ISSVNetworkCore.Cluster,
         bytes32 indexed clusterId,
         uint64 indexed blockNum,
         uint256 effectiveBalance,
