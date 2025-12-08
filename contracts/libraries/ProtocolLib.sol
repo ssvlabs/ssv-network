@@ -84,4 +84,24 @@ library ProtocolLib {
             revert ISSVNetworkCore.MaxValueExceeded();
         }
     }
+
+    function updateDAOVUnits(StorageProtocol storage sp, uint64 oldVUnits, uint64 newVUnits) internal {
+        updateDAOEarningsSSV(sp);  // Settle SSV earnings first
+
+        if (newVUnits > oldVUnits) {
+            sp.daoTotalVUnits += newVUnits - oldVUnits;
+        } else {
+            sp.daoTotalVUnits -= oldVUnits - newVUnits;
+        }
+    }
+
+    function updateDAOEthVUnits(StorageProtocol storage sp, uint64 oldVUnits, uint64 newVUnits) internal {
+        updateDAOEarnings(sp);  // Settle ETH earnings first
+
+        if (newVUnits > oldVUnits) {
+            sp.daoTotalEthVUnits += newVUnits - oldVUnits;
+        } else {
+            sp.daoTotalEthVUnits -= oldVUnits - newVUnits;
+        }
+    }
 }
