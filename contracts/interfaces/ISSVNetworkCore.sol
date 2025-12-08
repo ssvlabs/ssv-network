@@ -107,6 +107,17 @@ interface ISSVNetworkCore {
     error IncorrectClusterVersion(); // 0xf6749746
     error ETHTransferFailed(); // 0xb12d13eb
 
+    // EB oracle-specific errors
+    error StaleBlockNumber();
+    error FutureBlockNumber();
+    error RootNotFound();
+    error UpdateTooFrequent();
+    error StaleUpdate();
+    error InvalidProof();
+    error EBExceedsMaximum();
+    error NotAuthorizedOracle();
+    error ZeroInterval();
+
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
     error IncorrectValidatorState(); // 0x2feda3c1

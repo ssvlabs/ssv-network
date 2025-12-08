@@ -298,11 +298,21 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
-    function migrateClusterToETH(uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster)
-        external
-        payable
-        override
-    {
+    function updateClusterBalance(
+        uint64 blockNum,
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster,
+        uint256 effectiveBalance,
+        bytes32[] calldata merkleProof
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+    function migrateClusterToETH(
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -351,6 +361,19 @@ contract SSVNetwork is
     }
 
     function updateMaximumOperatorFee(uint64 maxFee) external override onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function setOracleTimingConfig(
+        uint64 firstStartEpoch,
+        uint64 firstInterval,
+        uint64 secondStartEpoch,
+        uint64 secondInterval
+    ) external onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 

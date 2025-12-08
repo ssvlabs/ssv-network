@@ -9,11 +9,15 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB, ClusterEBSnapshot, VUNITS_PRECISION, MAX_EB_PER_VALIDATOR} from "../libraries/SSVStorageEB.sol";
+import {Types64} from "../libraries/Types.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract SSVClusters is ISSVClusters {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
+    using Types64 for uint64;
 
     function registerValidator(
         bytes calldata publicKey,
@@ -34,6 +38,21 @@ contract SSVClusters is ISSVClusters {
         cluster.balance += msg.value;
 
         cluster.updateClusterOnRegistration(operatorIds, hashedCluster, 1, s, sp);
+
+        {
+            StorageEB storage seb = SSVStorageEB.load();
+            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            if (ebSnapshot.vUnits > 0) {
+                uint64 deltaClusterVUnits = VUNITS_PRECISION;
+                ebSnapshot.vUnits += deltaClusterVUnits;
+
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ++i) {
+                    uint64 operatorId = operatorIds[i];
+                    seb.operatorEthVUnits[operatorId] += deltaClusterVUnits;
+                }
+            }
+        }
 
         emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
     }
@@ -63,6 +82,21 @@ contract SSVClusters is ISSVClusters {
         cluster.balance += msg.value;
 
         cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
+
+        {
+            StorageEB storage seb = SSVStorageEB.load();
+            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            if (ebSnapshot.vUnits > 0) {
+                uint64 deltaClusterVUnits = uint64(validatorsLength) * VUNITS_PRECISION;
+                ebSnapshot.vUnits += deltaClusterVUnits;
+
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ++i) {
+                    uint64 operatorId = operatorIds[i];
+                    seb.operatorEthVUnits[operatorId] += deltaClusterVUnits;
+                }
+            }
+        }
 
         for (uint i; i < validatorsLength; ++i) {
             bytes memory pk = publicKeys[i];
@@ -105,6 +139,21 @@ contract SSVClusters is ISSVClusters {
         }
 
         --cluster.validatorCount;
+
+        {
+            StorageEB storage seb = SSVStorageEB.load();
+            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            if (ebSnapshot.vUnits > 0) {
+                uint64 deltaClusterVUnits = VUNITS_PRECISION;
+                ebSnapshot.vUnits -= deltaClusterVUnits;
+
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ++i) {
+                    uint64 operatorId = operatorIds[i];
+                    seb.operatorEthVUnits[operatorId] -= deltaClusterVUnits;
+                }
+            }
+        }
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
@@ -154,6 +203,21 @@ contract SSVClusters is ISSVClusters {
 
         cluster.validatorCount -= validatorsRemoved;
 
+        {
+            StorageEB storage seb = SSVStorageEB.load();
+            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            if (ebSnapshot.vUnits > 0) {
+                uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
+                ebSnapshot.vUnits -= deltaClusterVUnits;
+
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ++i) {
+                    uint64 operatorId = operatorIds[i];
+                    seb.operatorEthVUnits[operatorId] -= deltaClusterVUnits;
+                }
+            }
+        }
+
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
         for (uint i; i < validatorsLength; ++i) {
@@ -161,11 +225,7 @@ contract SSVClusters is ISSVClusters {
         }
     }
 
-    function liquidate(
-        address clusterOwner,
-        uint64[] calldata operatorIds,
-        Cluster memory cluster
-    ) external override {
+    function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -182,13 +242,17 @@ contract SSVClusters is ISSVClusters {
             sp
         );
 
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
-
+        // TODO refactor next 3 lines to ClusterLib.updateClusterDataWithEB
+        cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+        cluster.index = clusterIndex;
+        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
+        
         uint256 balanceLiquidatable;
 
         if (
             clusterOwner != msg.sender &&
-            !cluster.isLiquidatable(
+            !cluster.isLiquidatableWithEB(
+                hashedCluster,
                 burnRate,
                 sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,
@@ -199,6 +263,46 @@ contract SSVClusters is ISSVClusters {
         }
 
         sp.updateDAO(false, cluster.validatorCount);
+
+        // EB accounting on liquidation:
+        // - Remove this cluster's EB units from DAO totals (beyond the baseline 1 vUnit per validator
+        //   already handled by updateDAO).
+        // - Remove this cluster's EB contribution from each operator's operatorVUnits.
+        // - Reset the cluster's EB snapshot vUnits to zero so future EB-aware helpers fall back
+        //   to validatorCount until a new EB is reported.
+        {
+            StorageEB storage seb = SSVStorageEB.load();
+            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            uint64 vUnitsCluster = ebSnapshot.vUnits;
+            if (vUnitsCluster > 0) {
+                // Adjust DAO total vUnits so that the net effect of liquidation is to remove
+                // the full cluster EB units vUnitsCluster from daoTotalVUnits.
+                uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+                if (vUnitsCluster != baselineVUnits) {
+                    bool moreThanBaseline = vUnitsCluster > baselineVUnits;
+                    uint64 delta = moreThanBaseline
+                        ? vUnitsCluster - baselineVUnits
+                        : baselineVUnits - vUnitsCluster;
+                    if (delta != 0) {
+                        if (moreThanBaseline) {
+                            sp.daoTotalEthVUnits -= delta;
+                        } else {
+                            sp.daoTotalEthVUnits += delta;
+                        }
+                    }
+                }
+
+                // Remove this cluster's EB units from each operator in the cluster.
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ++i) {
+                    uint64 operatorId = operatorIds[i];
+                    seb.operatorEthVUnits[operatorId] -= vUnitsCluster;
+                }
+
+                // Reset cluster EB units to zero (root metadata is kept for staleness checks).
+                ebSnapshot.vUnits = 0;
+            }
+        }
 
         if (cluster.balance != 0) {
             balanceLiquidatable = cluster.balance;
@@ -238,13 +342,17 @@ contract SSVClusters is ISSVClusters {
             sp
         );
 
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndexSSV());
+        // TODO refactor next 3 lines to ClusterLib.updateClusterDataWithEB
+        cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+        cluster.index = clusterIndex;
+        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
 
         uint256 balanceLiquidatable;
 
         if (
             clusterOwner != msg.sender &&
-            !cluster.isLiquidatable(
+            !cluster.isLiquidatableWithEB(
+                hashedCluster,
                 burnRate,
                 sp.networkFee,
                 sp.minimumBlocksBeforeLiquidation,
@@ -255,6 +363,46 @@ contract SSVClusters is ISSVClusters {
         }
 
         sp.updateDAOSSV(false, cluster.validatorCount);
+
+        // EB accounting on liquidation:
+        // - Remove this cluster's EB units from DAO totals (beyond the baseline 1 vUnit per validator
+        //   already handled by updateDAO).
+        // - Remove this cluster's EB contribution from each operator's operatorVUnits.
+        // - Reset the cluster's EB snapshot vUnits to zero so future EB-aware helpers fall back
+        //   to validatorCount until a new EB is reported.
+        {
+            StorageEB storage seb = SSVStorageEB.load();
+            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            uint64 vUnitsCluster = ebSnapshot.vUnits;
+            if (vUnitsCluster > 0) {
+                // Adjust DAO total vUnits so that the net effect of liquidation is to remove
+                // the full cluster EB units vUnitsCluster from daoTotalVUnits.
+                uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+                if (vUnitsCluster != baselineVUnits) {
+                    bool moreThanBaseline = vUnitsCluster > baselineVUnits;
+                    uint64 delta = moreThanBaseline
+                        ? vUnitsCluster - baselineVUnits
+                        : baselineVUnits - vUnitsCluster;
+                    if (delta != 0) {
+                        if (moreThanBaseline) {
+                            sp.daoTotalVUnits -= delta;
+                        } else {
+                            sp.daoTotalVUnits += delta;
+                        }
+                    }
+                }
+
+                // Remove this cluster's EB units from each operator in the cluster.
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ++i) {
+                    uint64 operatorId = operatorIds[i];
+                    seb.operatorVUnits[operatorId] -= vUnitsCluster;
+                }
+
+                // Reset cluster EB units to zero (root metadata is kept for staleness checks).
+                ebSnapshot.vUnits = 0;
+            }
+        }
 
         if (cluster.balance != 0) {
             balanceLiquidatable = cluster.balance;
@@ -302,7 +450,8 @@ contract SSVClusters is ISSVClusters {
         sp.updateDAO(true, cluster.validatorCount);
 
         if (
-            cluster.isLiquidatable(
+            cluster.isLiquidatableWithEB(
+                hashedCluster,
                 burnRate,
                 sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,
@@ -335,11 +484,7 @@ contract SSVClusters is ISSVClusters {
         emit ClusterDeposited(clusterOwner, operatorIds, msg.value, cluster);
     }
 
-    function withdraw(
-        uint64[] calldata operatorIds,
-        uint256 amount,
-        Cluster memory cluster
-    ) external override {
+    function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -363,7 +508,10 @@ contract SSVClusters is ISSVClusters {
                 }
             }
 
-            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+            // TODO refactor next 3 lines to ClusterLib.updateClusterDataWithEB
+            cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+            cluster.index = clusterIndex;
+            cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
         }
         if (cluster.balance < amount) revert InsufficientBalance();
 
@@ -372,7 +520,8 @@ contract SSVClusters is ISSVClusters {
         if (
             cluster.active &&
             cluster.validatorCount != 0 &&
-            cluster.isLiquidatable(
+            cluster.isLiquidatableWithEB(
+                hashedCluster,
                 burnRate,
                 sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,
@@ -441,7 +590,7 @@ contract SSVClusters is ISSVClusters {
         cluster.active = true;
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
-        
+
         sp.updateDAOSSV(false, cluster.validatorCount);
         sp.updateDAO(true, cluster.validatorCount);
 
@@ -463,5 +612,196 @@ contract SSVClusters is ISSVClusters {
         }
 
         emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, cluster);
+    }
+
+    function updateClusterBalance(
+        uint64 blockNum,
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster,
+        uint256 effectiveBalance,
+        bytes32[] calldata merkleProof
+    ) external override {
+        UpdateCtx memory ctx;
+        (ctx.clusterId, ctx.version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        ctx.blockNum = blockNum;
+        ctx.effectiveBalance = effectiveBalance;
+        ctx.merkleProof = merkleProof;
+
+        _updateClusterBalanceInternal(operatorIds, cluster, ctx);
+    }
+
+    function _updateClusterBalanceInternal(
+        uint64[] calldata operatorIds,
+        Cluster memory cluster,
+        UpdateCtx memory ctx
+    ) internal {
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        bytes32 clusterId = ctx.clusterId;
+
+        _verifyEBRoots(ctx, seb);
+        _verifyEBUpdateFrequency(clusterId, seb);
+        _verifyEBStaleness(ctx, clusterId, seb);
+        _verifyMerkleProof(ctx, seb);
+        _verifyEBMaximum(ctx, cluster);
+
+        uint64 oldVUnits = seb.clusterEB[clusterId].vUnits;
+        if (oldVUnits == 0) {
+            oldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+        }
+
+        uint64 newVUnits = uint64((ctx.effectiveBalance * VUNITS_PRECISION) / 32 ether);
+
+        if (cluster.active) {
+            _applyClusterFeeUpdates(operatorIds, cluster, oldVUnits, newVUnits, ctx.version, s, sp);
+        }
+
+        _updateOperatorVUnits(operatorIds, seb, clusterId, newVUnits, ctx.version);
+
+        _updateEBSnapshot(seb, clusterId, ctx.blockNum, newVUnits);
+
+        if (ctx.version == CoreLib.VERSION_ETH) {
+            s.ethClusters[clusterId] = cluster.hashClusterData();
+        } else {
+            s.clusters[clusterId] = cluster.hashClusterData();
+        }
+
+        emit ClusterBalanceUpdated(clusterId, ctx.blockNum, ctx.effectiveBalance, newVUnits);
+    }
+
+    function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {
+        if (seb.ebRoots[ctx.blockNum] == bytes32(0)) revert RootNotFound();
+    }
+
+    function _verifyEBUpdateFrequency(bytes32 clusterId, StorageEB storage seb) internal view {
+        ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
+        if (
+            ebSnapshot.lastUpdateBlock != 0 && block.number < ebSnapshot.lastUpdateBlock + seb.minBlocksBetweenUpdates
+        ) {
+            revert UpdateTooFrequent();
+        }
+    }
+
+    function _verifyEBStaleness(UpdateCtx memory ctx, bytes32 clusterId, StorageEB storage seb) internal view {
+        ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
+        if (ebSnapshot.lastRootBlockNum != 0 && ctx.blockNum <= ebSnapshot.lastRootBlockNum) {
+            revert StaleUpdate();
+        }
+    }
+
+    function _verifyMerkleProof(UpdateCtx memory ctx, StorageEB storage seb) internal view {
+        bytes32 root = seb.ebRoots[ctx.blockNum];
+
+        if (!MerkleProof.verify(ctx.merkleProof, root, keccak256(abi.encode(ctx.clusterId, ctx.effectiveBalance)))) {
+            revert InvalidProof();
+        }
+    }
+
+    function _verifyEBMaximum(UpdateCtx memory ctx, Cluster memory cluster) internal pure {
+        if (ctx.effectiveBalance > uint256(cluster.validatorCount) * MAX_EB_PER_VALIDATOR) {
+            revert EBExceedsMaximum();
+        }
+    }
+
+    function _applyClusterFeeUpdates(
+        uint64[] calldata operatorIds,
+        Cluster memory cluster,
+        uint64 oldVUnits,
+        uint64 newVUnits,
+        uint8 version,
+        StorageData storage s,
+        StorageProtocol storage sp
+    ) internal {
+        uint64 clusterIndex;
+        uint64 currentNetworkFeeIndex;
+
+        if (version == CoreLib.VERSION_ETH) {
+            // ETH path: use ethSnapshot, ethFee, ethNetworkFeeIndex
+            (clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp);
+            currentNetworkFeeIndex = sp.currentNetworkFeeIndex(); // ETH network fee index
+        } else {
+            // SSV path: use snapshot, fee, networkFeeIndex
+            (clusterIndex, ) = OperatorLib.updateClusterOperatorsSSV(operatorIds, false, 0, s, sp);
+            currentNetworkFeeIndex = sp.currentNetworkFeeIndexSSV();
+        }
+
+        uint128 units = oldVUnits;
+        uint128 idxNet = currentNetworkFeeIndex - cluster.networkFeeIndex;
+        uint128 idxOp = clusterIndex - cluster.index;
+
+        uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
+        uint128 operatorFeeUnits = (idxOp * units) / VUNITS_PRECISION;
+        uint64 totalFees = uint64(networkFeeUnits) + uint64(operatorFeeUnits);
+
+        cluster.index = clusterIndex;
+        cluster.networkFeeIndex = currentNetworkFeeIndex;
+
+        if (cluster.balance >= totalFees.expand()) {
+            cluster.balance -= totalFees.expand();
+        } else {
+            cluster.balance = 0;
+        }
+
+        // Update DAO vUnits (version-aware)
+        if (newVUnits != oldVUnits) {
+            if (version == CoreLib.VERSION_ETH) {
+                sp.updateDAOEarnings();
+
+                if (newVUnits > oldVUnits) {
+                    sp.daoTotalEthVUnits += newVUnits - oldVUnits;
+                } else {
+                    sp.daoTotalEthVUnits -= oldVUnits - newVUnits;
+                }
+            } else {
+                sp.updateDAOEarningsSSV();
+
+                if (newVUnits > oldVUnits) {
+                    sp.daoTotalVUnits += newVUnits - oldVUnits;
+                } else {
+                    sp.daoTotalVUnits -= oldVUnits - newVUnits;
+                }
+            }
+        }
+    }
+
+    function _updateOperatorVUnits(
+        uint64[] calldata operatorIds,
+        StorageEB storage seb,
+        bytes32 clusterId,
+        uint64 newVUnits,
+        uint8 version
+    ) internal {
+        uint64 storedVUnits = seb.clusterEB[clusterId].vUnits;
+
+        if (newVUnits != storedVUnits) {
+            bool deltaPositive = newVUnits > storedVUnits;
+            uint64 deltaAbs = deltaPositive ? newVUnits - storedVUnits : storedVUnits - newVUnits;
+
+            if (deltaAbs != 0) {
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ++i) {
+                    uint64 operatorId = operatorIds[i];
+                    if (version == CoreLib.VERSION_ETH) {
+                        // ETH clusters use operatorEthVUnits
+                        if (deltaPositive) seb.operatorEthVUnits[operatorId] += deltaAbs;
+                        else seb.operatorEthVUnits[operatorId] -= deltaAbs;
+                    } else {
+                        // SSV clusters use operatorVUnits
+                        if (deltaPositive) seb.operatorVUnits[operatorId] += deltaAbs;
+                        else seb.operatorVUnits[operatorId] -= deltaAbs;
+                    }
+                }
+            }
+        }
+    }
+
+    function _updateEBSnapshot(StorageEB storage seb, bytes32 clusterId, uint64 blockNum, uint64 newVUnits) internal {
+        ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
+        ebSnapshot.vUnits = newVUnits;
+        ebSnapshot.lastRootBlockNum = blockNum;
+        ebSnapshot.lastUpdateBlock = uint64(block.number);
     }
 }

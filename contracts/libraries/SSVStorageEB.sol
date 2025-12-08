@@ -18,6 +18,8 @@ struct StorageEB {
     mapping(bytes32 => ClusterEBSnapshot) clusterEB;
     /// @notice Maps operator ID to vUnits
     mapping(uint64 => uint64) operatorVUnits;
+    /// @notice Maps operator ID to ETH vUnits
+    mapping(uint64 => uint64) operatorEthVUnits;
     /// @notice Latest block number where EB was committed
     uint64 latestCommittedBlock;
     /// @notice Minimum blocks between updates

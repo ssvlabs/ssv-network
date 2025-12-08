@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "../interfaces/ISSVNetworkCore.sol";
 import {StorageData} from "./SSVStorage.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB, VUNITS_PRECISION} from "./SSVStorageEB.sol";
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
 import {Types64} from "./Types.sol";
@@ -38,6 +39,26 @@ library ClusterLib {
 
             return cluster.balance < liquidationThreshold.expand();
         }
+    }
+
+    function isLiquidatableWithEB(
+        ISSVNetworkCore.Cluster memory cluster,
+        bytes32 clusterId,
+        uint64 burnRate,
+        uint64 networkFee,
+        uint64 minimumBlocksBeforeLiquidation,
+        uint64 minimumLiquidationCollateral
+    ) internal view returns (bool liquidatable) {
+        if (cluster.validatorCount == 0) return false;
+        if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
+
+        uint64 vUnits = getVUnits(clusterId, cluster.validatorCount);
+        uint128 units = vUnits;
+        uint128 rate = burnRate + networkFee;
+        uint128 thresholdUnits = (uint128(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
+
+        uint64 liquidationThreshold = uint64(thresholdUnits);
+        return cluster.balance < liquidationThreshold.expand();
     }
 
     function validateClusterIsNotLiquidated(ISSVNetworkCore.Cluster memory cluster) internal pure {
@@ -145,6 +166,38 @@ library ClusterLib {
         }
 
         s.ethClusters[hashedCluster] = hashClusterData(cluster);
+    }
+
+    function getVUnits(bytes32 clusterId, uint32 validatorCount) internal view returns (uint64) {
+        StorageEB storage seb = SSVStorageEB.load();
+        uint64 vUnits = seb.clusterEB[clusterId].vUnits;
+
+        if (vUnits == 0) {
+            // Before any EB is set for this cluster, approximate EB as 32 ETH per validator.
+            // To preserve legacy accounting, we treat each validator as 1 logical vUnit (32 ETH),
+            // scaled by VUNITS_PRECISION for fixed-point arithmetic.
+            return uint64(validatorCount) * VUNITS_PRECISION;
+        }
+
+        return vUnits;
+    }
+
+    function updateBalanceWithEB(
+        ISSVNetworkCore.Cluster memory cluster,
+        bytes32 clusterId,
+        uint64 newIndex,
+        uint64 currentNetworkFeeIndex
+    ) internal view {
+        uint64 vUnits = getVUnits(clusterId, cluster.validatorCount);
+        uint128 units = vUnits;
+        uint128 idxNet = currentNetworkFeeIndex - cluster.networkFeeIndex;
+        uint128 idxOp = newIndex - cluster.index;
+
+        uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
+        uint128 usageUnits = (idxOp * units) / VUNITS_PRECISION + networkFeeUnits;
+
+        uint64 usage = uint64(usageUnits);
+        cluster.balance = usage.expand() > cluster.balance ? 0 : cluster.balance - usage.expand();
     }
 
     function validateClusterVersion(uint8 clusterVersion, uint8 expectedVersion) internal pure {
