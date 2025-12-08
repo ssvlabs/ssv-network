@@ -623,7 +623,9 @@ contract SSVClusters is ISSVClusters {
         bytes32[] calldata merkleProof
     ) external override {
         UpdateCtx memory ctx;
-        (ctx.clusterId, ctx.version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+
+        (ctx.clusterId, ctx.version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ctx.blockNum = blockNum;
         ctx.effectiveBalance = effectiveBalance;
         ctx.merkleProof = merkleProof;
@@ -683,14 +685,15 @@ contract SSVClusters is ISSVClusters {
     }
 
     function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {
-        if (seb.ebRoots[ctx.blockNum] == bytes32(0)) revert RootNotFound();
+        if (seb.ebRoots[ctx.blockNum] == bytes32(0)) {
+            revert RootNotFound();
+        }
     }
 
     function _verifyEBUpdateFrequency(bytes32 clusterId, StorageEB storage seb) internal view {
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
-        if (
-            ebSnapshot.lastUpdateBlock != 0 && block.number < ebSnapshot.lastUpdateBlock + seb.minBlocksBetweenUpdates
-        ) {
+        if (ebSnapshot.lastUpdateBlock != 0 &&
+            block.number < ebSnapshot.lastUpdateBlock + seb.minBlocksBetweenUpdates) {
             revert UpdateTooFrequent();
         }
     }
@@ -758,21 +761,9 @@ contract SSVClusters is ISSVClusters {
         // Update DAO vUnits (version-aware)
         if (newVUnits != oldVUnits) {
             if (version == CoreLib.VERSION_ETH) {
-                sp.updateDAOEarnings();
-
-                if (newVUnits > oldVUnits) {
-                    sp.daoTotalEthVUnits += newVUnits - oldVUnits;
-                } else {
-                    sp.daoTotalEthVUnits -= oldVUnits - newVUnits;
-                }
+                sp.updateDAOEthVUnits(oldVUnits, newVUnits);
             } else {
-                sp.updateDAOEarningsSSV();
-
-                if (newVUnits > oldVUnits) {
-                    sp.daoTotalVUnits += newVUnits - oldVUnits;
-                } else {
-                    sp.daoTotalVUnits -= oldVUnits - newVUnits;
-                }
+                sp.updateDAOVUnits(oldVUnits, newVUnits);
             }
         }
     }
