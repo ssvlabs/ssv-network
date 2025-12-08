@@ -56,7 +56,7 @@ contract SSVNetwork is
         uint64 operatorMaxFeeIncrease_
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
-        __Ownable_init_unchained();
+        __Ownable2Step_init();
         __ReentrancyGuard_init();
         __SSVNetwork_init_unchained(
             token_,

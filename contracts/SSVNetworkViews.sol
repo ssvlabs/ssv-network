@@ -31,7 +31,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
 
     function initialize(ISSVViews ssvNetwork_) external initializer onlyProxy {
         __UUPSUpgradeable_init();
-        __Ownable_init_unchained();
+        __Ownable2Step_init();
         ssvNetwork = ssvNetwork_;
     }
 
