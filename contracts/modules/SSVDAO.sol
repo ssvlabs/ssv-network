@@ -120,7 +120,7 @@ contract SSVDAO is ISSVDAO {
 
         // block and root combined to keep block-root proposal tied together
         bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, merkleRoot));
-        seb.rootCommitments[merkleRoot]+=1;
+        seb.rootCommitments[commitmentKey]+=1;
 
         uint256 votes = seb.rootCommitments[commitmentKey];
 
