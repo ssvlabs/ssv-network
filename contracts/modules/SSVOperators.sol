@@ -247,8 +247,11 @@ contract SSVOperators is ISSVOperators {
         } else {
             operator.updateSnapshot(operatorId);
         }
+
         s.operators[operatorId] = operator;
         delete s.operatorFeeChangeRequests[operatorId];
+
+        emit OperatorMigratedToETH(operatorId, operator.owner, operator.ethFee);
     }
 
     // private functions
