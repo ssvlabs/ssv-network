@@ -13,7 +13,7 @@ library CoreLib {
     function getVersion() internal pure returns (string memory) {
         return "v1.3.0";
     }
-    //TODO: Add reentrancy modifier here
+    
     function transferBalance(address to, uint256 amount) internal {
         (bool success, ) = payable(to).call{value: amount}("");
         if(!success){
