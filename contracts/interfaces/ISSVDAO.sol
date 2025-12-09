@@ -88,4 +88,6 @@ interface ISSVDAO is ISSVNetworkCore {
     /// @param blockNum The block number the root corresponds to
     /// @param timestamp The timestamp of the commit transaction
     event RootCommitted(bytes32 indexed merkleRoot, uint64 indexed blockNum, uint256 timestamp);
+
+    event RootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum, uint256 timestamp);
 }

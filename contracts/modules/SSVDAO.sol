@@ -15,6 +15,7 @@ contract SSVDAO is ISSVDAO {
     using ProtocolLib for StorageProtocol;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
+    uint256 private constant ROOT_COMMITS_THRESHOLD = 3;
 
     function updateNetworkFee(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -117,10 +118,23 @@ contract SSVDAO is ISSVDAO {
             revert FutureBlockNumber();
         }
 
-        seb.ebRoots[blockNum] = merkleRoot;
-        seb.latestCommittedBlock = blockNum;
+        // block and root combined to keep block-root proposal tied together
+        bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, merkleRoot));
+        seb.rootCommitments[merkleRoot]+=1;
 
-        emit RootCommitted(merkleRoot, blockNum, block.timestamp);
+        uint256 votes = seb.rootCommitments[commitmentKey];
+
+        if (votes >= ROOT_COMMITS_THRESHOLD) {
+            seb.ebRoots[blockNum] = merkleRoot;
+            seb.latestCommittedBlock = blockNum;
+
+            delete seb.rootCommitments[commitmentKey];
+
+            emit RootCommitted(merkleRoot, blockNum, block.timestamp);
+            return;
+        }
+
+        emit RootProposed(merkleRoot, blockNum, block.timestamp);
     }
 
     function setOracleTimingConfig(
