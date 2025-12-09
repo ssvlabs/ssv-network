@@ -130,11 +130,11 @@ contract SSVDAO is ISSVDAO {
 
             delete seb.rootCommitments[commitmentKey];
 
-            emit RootCommitted(merkleRoot, blockNum, block.timestamp);
+            emit RootCommitted(merkleRoot, blockNum);
             return;
         }
 
-        emit RootProposed(merkleRoot, blockNum, block.timestamp);
+        emit RootProposed(merkleRoot, blockNum);
     }
 
     function setOracleTimingConfig(

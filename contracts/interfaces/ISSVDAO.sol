@@ -86,8 +86,7 @@ interface ISSVDAO is ISSVNetworkCore {
     /// @notice Emitted when an EB Merkle root is committed for a given block
     /// @param merkleRoot The committed Merkle root
     /// @param blockNum The block number the root corresponds to
-    /// @param timestamp The timestamp of the commit transaction
-    event RootCommitted(bytes32 indexed merkleRoot, uint64 indexed blockNum, uint256 timestamp);
+    event RootCommitted(bytes32 indexed merkleRoot, uint64 indexed blockNum);
 
-    event RootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum, uint256 timestamp);
+    event RootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum);
 }
