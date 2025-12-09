@@ -194,11 +194,11 @@ interface ISSVClusters is ISSVNetworkCore {
     event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
     event ClusterBalanceUpdated(
-        ISSVNetworkCore.Cluster,
         bytes32 indexed clusterId,
         uint64 indexed blockNum,
         uint256 effectiveBalance,
-        uint64 vUnits
+        uint64 vUnits,
+        ISSVNetworkCore.Cluster cluster
     );
 
     /**

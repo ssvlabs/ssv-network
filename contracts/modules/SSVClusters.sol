@@ -671,17 +671,17 @@ contract SSVClusters is ISSVClusters {
             s.clusters[clusterId] = cluster.hashClusterData();
         }
 
-        _emitClusterBalanceUpdated(cluster, clusterId, ctx.blockNum, ctx.effectiveBalance, newVUnits);
+        _emitClusterBalanceUpdated(clusterId, ctx.blockNum, ctx.effectiveBalance, newVUnits, cluster);
     }
 
     function _emitClusterBalanceUpdated(
-        Cluster memory cluster,
         bytes32 clusterId,
         uint64 blockNum,
         uint256 eb,
-        uint64 newVUnits
+        uint64 newVUnits,
+        Cluster memory cluster
     ) internal {
-        emit ClusterBalanceUpdated(cluster, clusterId, blockNum, eb, newVUnits);
+        emit ClusterBalanceUpdated(clusterId, blockNum, eb, newVUnits, cluster);
     }
 
     function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {
