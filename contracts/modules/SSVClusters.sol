@@ -626,6 +626,7 @@ contract SSVClusters is ISSVClusters {
         StorageData storage s = SSVStorage.load();
 
         (ctx.clusterId, ctx.version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
+        ctx.clusterOwner = clusterOwner;
         ctx.blockNum = blockNum;
         ctx.effectiveBalance = effectiveBalance;
         ctx.merkleProof = merkleProof;
@@ -671,17 +672,25 @@ contract SSVClusters is ISSVClusters {
             s.clusters[clusterId] = cluster.hashClusterData();
         }
 
-        _emitClusterBalanceUpdated(clusterId, ctx.blockNum, ctx.effectiveBalance, newVUnits, cluster);
+        _emitClusterBalanceUpdated(
+            ctx.clusterOwner,
+            operatorIds,
+            ctx.blockNum,
+            ctx.effectiveBalance,
+            newVUnits,
+            cluster
+        );
     }
 
     function _emitClusterBalanceUpdated(
-        bytes32 clusterId,
+        address clusterOwner,
+        uint64[] calldata operatorIds,
         uint64 blockNum,
         uint256 eb,
         uint64 newVUnits,
         Cluster memory cluster
     ) internal {
-        emit ClusterBalanceUpdated(clusterId, blockNum, eb, newVUnits, cluster);
+        emit ClusterBalanceUpdated(clusterOwner, operatorIds, blockNum, eb, newVUnits, cluster);
     }
 
     function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {

@@ -6,6 +6,7 @@ import {ClusterLib} from "../libraries/ClusterLib.sol";
 
 interface ISSVClusters is ISSVNetworkCore {
     struct UpdateCtx {
+        address clusterOwner;
         bytes32 clusterId;
         uint64 blockNum;
         uint256 effectiveBalance;
@@ -194,7 +195,8 @@ interface ISSVClusters is ISSVNetworkCore {
     event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 
     event ClusterBalanceUpdated(
-        bytes32 indexed clusterId,
+        address indexed owner,
+        uint64[] operatorIds,
         uint64 indexed blockNum,
         uint256 effectiveBalance,
         uint64 vUnits,
