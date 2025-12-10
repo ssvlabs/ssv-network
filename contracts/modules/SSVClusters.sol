@@ -666,6 +666,8 @@ contract SSVClusters is ISSVClusters {
 
         _updateEBSnapshot(seb, clusterId, ctx.blockNum, newVUnits);
 
+        _liquidateAfterEBUpdateIfNeeded(cluster, clusterId, ctx.clusterOwner, operatorIds, ctx.version);
+
         if (ctx.version == CoreLib.VERSION_ETH) {
             s.ethClusters[clusterId] = cluster.hashClusterData();
         } else {
@@ -813,5 +815,120 @@ contract SSVClusters is ISSVClusters {
         ebSnapshot.vUnits = newVUnits;
         ebSnapshot.lastRootBlockNum = blockNum;
         ebSnapshot.lastUpdateBlock = uint64(block.number);
+    }
+
+    function _liquidateAfterEBUpdateIfNeeded(
+        Cluster memory cluster,
+        bytes32 clusterId,
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        uint8 version
+    ) internal {
+        if (!cluster.active || cluster.validatorCount == 0) return;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        uint64 burnRate;
+        uint256 n = operatorIds.length;
+        for (uint256 i; i < n; ++i) {
+            Operator storage op = s.operators[operatorIds[i]];
+            burnRate += (version == CoreLib.VERSION_ETH) ? op.ethFee : op.fee;
+        }
+
+        uint64 networkFee = (version == CoreLib.VERSION_ETH)
+            ? sp.ethNetworkFee
+            : sp.networkFee;
+
+        bool liq = cluster.isLiquidatableWithEB(
+            clusterId,
+            burnRate,
+            networkFee,
+            sp.minimumBlocksBeforeLiquidation,
+            sp.minimumLiquidationCollateral
+        );
+
+        if (!liq) return;
+
+        _performLiquidation(
+            clusterOwner,
+            clusterId,
+            operatorIds,
+            cluster,
+            version
+        );
+    }
+
+    function _performLiquidation(
+        address clusterOwner,
+        bytes32 clusterId,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster,
+        uint8 version
+    ) internal {
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        if (version == CoreLib.VERSION_ETH) {
+            sp.updateDAO(false, cluster.validatorCount);
+        } else {
+            sp.updateDAOSSV(false, cluster.validatorCount);
+        }
+
+        ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
+        uint64 vUnitsCluster = ebSnapshot.vUnits;
+        if (vUnitsCluster > 0) {
+            uint64 baselineVUnits =
+                uint64(cluster.validatorCount) * VUNITS_PRECISION;
+
+            if (vUnitsCluster != baselineVUnits) {
+                bool moreThanBaseline = vUnitsCluster > baselineVUnits;
+                uint64 delta = moreThanBaseline
+                    ? vUnitsCluster - baselineVUnits
+                    : baselineVUnits - vUnitsCluster;
+
+                if (delta != 0) {
+                    if (version == CoreLib.VERSION_ETH) {
+                        if (moreThanBaseline) sp.daoTotalEthVUnits -= delta;
+                        else sp.daoTotalEthVUnits += delta;
+                    } else {
+                        if (moreThanBaseline) sp.daoTotalVUnits -= delta;
+                        else sp.daoTotalVUnits += delta;
+                    }
+                }
+            }
+
+            uint256 n = operatorIds.length;
+            for (uint256 i; i < n; ++i) {
+                uint64 opId = operatorIds[i];
+                if (version == CoreLib.VERSION_ETH)
+                    seb.operatorEthVUnits[opId] -= vUnitsCluster;
+                else
+                    seb.operatorVUnits[opId] -= vUnitsCluster;
+            }
+
+            ebSnapshot.vUnits = 0;
+        }
+
+        uint256 payout = cluster.balance;
+        cluster.balance = 0;
+        cluster.active = false;
+        cluster.index = 0;
+        cluster.networkFeeIndex = 0;
+
+        if (version == CoreLib.VERSION_ETH)
+            s.ethClusters[clusterId] = cluster.hashClusterData();
+        else
+            s.clusters[clusterId] = cluster.hashClusterData();
+
+        if (payout > 0) {
+            if (version == CoreLib.VERSION_ETH)
+                CoreLib.transferBalance(clusterOwner, payout);
+            else
+                CoreLib.transferTokenBalance(clusterOwner, payout);
+        }
+
+        emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
     }
 }
