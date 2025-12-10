@@ -337,7 +337,8 @@ contract SSVViews is ISSVViews {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view override returns (uint256) {
+    ) external view override returns (uint256 balance, uint256 effectiveBalance) {
+
         cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         cluster.validateClusterIsNotLiquidated();
 
@@ -354,8 +355,17 @@ contract SSVViews is ISSVViews {
         }
 
         cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndex());
+        balance = cluster.balance;
 
-        return cluster.balance;
+        bytes32 clusterId = keccak256(abi.encodePacked(clusterOwner, operatorIds));
+        StorageEB storage seb = SSVStorageEB.load();
+        uint64 vUnits = seb.clusterEB[clusterId].vUnits;
+
+        if (vUnits == 0) {
+            vUnits = cluster.validatorCount * VUNITS_PRECISION;
+        }
+
+        effectiveBalance = (uint256(vUnits) * 32 ether) / VUNITS_PRECISION;
     }
 
     function getBalanceSSV(
