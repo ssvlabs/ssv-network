@@ -22,12 +22,17 @@ library ValidatorLib {
         }
     }
 
-    function registerPublicKey(bytes memory publicKey, uint64[] memory operatorIds, StorageData storage s) internal {
+    function registerPublicKey(
+        bytes memory publicKey,
+        uint64[] memory operatorIds,
+        address owner,
+        StorageData storage s
+    ) internal {
         if (publicKey.length != PUBLIC_KEY_LENGTH) {
             revert ISSVNetworkCore.InvalidPublicKeyLength();
         }
 
-        bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
+        bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, owner));
 
         if (s.validatorPKs[hashedPk] != bytes32(0)) {
             revert ISSVNetworkCore.ValidatorAlreadyExistsWithData(publicKey);

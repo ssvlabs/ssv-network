@@ -9,7 +9,13 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
-import {SSVStorageEB, StorageEB, ClusterEBSnapshot, VUNITS_PRECISION, MAX_EB_PER_VALIDATOR} from "../libraries/SSVStorageEB.sol";
+import {
+    SSVStorageEB,
+    StorageEB,
+    ClusterEBSnapshot,
+    VUNITS_PRECISION,
+    MAX_EB_PER_VALIDATOR
+} from "../libraries/SSVStorageEB.sol";
 import {Types64} from "../libraries/Types.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
@@ -32,7 +38,7 @@ contract SSVClusters is ISSVClusters {
         bytes[] memory shares = new bytes[](1);
         shares[0] = sharesData;
 
-        _bulkRegisterValidator(publicKeys, operatorIds, shares, cluster);
+        _bulkRegisterValidator(msg.sender, msg.value, publicKeys, operatorIds, shares, cluster);
     }
 
     function bulkRegisterValidator(
@@ -42,10 +48,8 @@ contract SSVClusters is ISSVClusters {
         uint256, // deprecated amount param stays for backward compatability
         Cluster memory cluster
     ) external payable override {
-        _bulkRegisterValidator(publicKeys, operatorIds, sharesData, cluster);
+        _bulkRegisterValidator(msg.sender, msg.value, publicKeys, operatorIds, sharesData, cluster);
     }
-
-
 
     function removeValidator(
         bytes calldata publicKey,
@@ -55,7 +59,7 @@ contract SSVClusters is ISSVClusters {
         bytes[] memory publicKeys = new bytes[](1);
         publicKeys[0] = publicKey;
 
-        _bulkRemoveValidator(publicKeys, operatorIds, cluster, true);
+        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster, true);
     }
 
     function bulkRemoveValidator(
@@ -63,7 +67,7 @@ contract SSVClusters is ISSVClusters {
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external override {
-        _bulkRemoveValidator(publicKeys, operatorIds, cluster, false);
+        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster, false);
     }
 
     function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
@@ -87,7 +91,7 @@ contract SSVClusters is ISSVClusters {
         cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
-        
+
         uint256 balanceLiquidatable;
 
         if (
@@ -121,9 +125,7 @@ contract SSVClusters is ISSVClusters {
                 uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
                 if (vUnitsCluster != baselineVUnits) {
                     bool moreThanBaseline = vUnitsCluster > baselineVUnits;
-                    uint64 delta = moreThanBaseline
-                        ? vUnitsCluster - baselineVUnits
-                        : baselineVUnits - vUnitsCluster;
+                    uint64 delta = moreThanBaseline ? vUnitsCluster - baselineVUnits : baselineVUnits - vUnitsCluster;
                     if (delta != 0) {
                         if (moreThanBaseline) {
                             sp.daoTotalEthVUnits -= delta;
@@ -221,9 +223,7 @@ contract SSVClusters is ISSVClusters {
                 uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
                 if (vUnitsCluster != baselineVUnits) {
                     bool moreThanBaseline = vUnitsCluster > baselineVUnits;
-                    uint64 delta = moreThanBaseline
-                        ? vUnitsCluster - baselineVUnits
-                        : baselineVUnits - vUnitsCluster;
+                    uint64 delta = moreThanBaseline ? vUnitsCluster - baselineVUnits : baselineVUnits - vUnitsCluster;
                     if (delta != 0) {
                         if (moreThanBaseline) {
                             sp.daoTotalVUnits -= delta;
@@ -476,11 +476,13 @@ contract SSVClusters is ISSVClusters {
     }
 
     function _bulkRegisterValidator(
+        address owner,
+        uint256 value,
         bytes[] memory publicKeys,
         uint64[] memory operatorIds,
         bytes[] memory sharesData,
         Cluster memory cluster
-    ) internal {
+    ) internal virtual {
         uint256 validatorsLength = publicKeys.length;
 
         if (validatorsLength == 0) revert EmptyPublicKeysList();
@@ -492,11 +494,11 @@ contract SSVClusters is ISSVClusters {
         ValidatorLib.validateOperatorsLength(operatorIds);
 
         for (uint i; i < validatorsLength; ++i) {
-            ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
+            ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, owner, s);
         }
-        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(owner, operatorIds, s);
 
-        cluster.balance += msg.value;
+        cluster.balance += value;
 
         cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
 
@@ -519,16 +521,17 @@ contract SSVClusters is ISSVClusters {
             bytes memory pk = publicKeys[i];
             bytes memory sh = sharesData[i];
 
-            emit ValidatorAdded(msg.sender, operatorIds, pk, sh, cluster);
+            emit ValidatorAdded(owner, operatorIds, pk, sh, cluster);
         }
     }
-    
+
     function _bulkRemoveValidator(
+        address owner,
         bytes[] memory publicKeys,
         uint64[] memory operatorIds,
         Cluster memory cluster,
         bool revertIfValidatorMissing
-    ) internal {
+    ) internal virtual {
         uint256 validatorsLength = publicKeys.length;
 
         if (validatorsLength == 0) {
@@ -536,14 +539,14 @@ contract SSVClusters is ISSVClusters {
         }
         StorageData storage s = SSVStorage.load();
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(owner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         uint32 validatorsRemoved;
 
         for (uint i; i < validatorsLength; ++i) {
-            bytes32 hashedValidator = keccak256(abi.encodePacked(publicKeys[i], msg.sender));
+            bytes32 hashedValidator = keccak256(abi.encodePacked(publicKeys[i], owner));
             bytes32 validatorData = s.validatorPKs[hashedValidator];
 
             if (revertIfValidatorMissing && validatorData == bytes32(0)) {
@@ -586,7 +589,7 @@ contract SSVClusters is ISSVClusters {
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
         for (uint i; i < validatorsLength; ++i) {
-            emit ValidatorRemoved(msg.sender, operatorIds, publicKeys[i], cluster);
+            emit ValidatorRemoved(owner, operatorIds, publicKeys[i], cluster);
         }
     }
 
@@ -659,8 +662,9 @@ contract SSVClusters is ISSVClusters {
 
     function _verifyEBUpdateFrequency(bytes32 clusterId, StorageEB storage seb) internal view {
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
-        if (ebSnapshot.lastUpdateBlock != 0 &&
-            block.number < ebSnapshot.lastUpdateBlock + seb.minBlocksBetweenUpdates) {
+        if (
+            ebSnapshot.lastUpdateBlock != 0 && block.number < ebSnapshot.lastUpdateBlock + seb.minBlocksBetweenUpdates
+        ) {
             revert UpdateTooFrequent();
         }
     }
@@ -792,9 +796,7 @@ contract SSVClusters is ISSVClusters {
             burnRate += (version == CoreLib.VERSION_ETH) ? op.ethFee : op.fee;
         }
 
-        uint64 networkFee = (version == CoreLib.VERSION_ETH)
-            ? sp.ethNetworkFee
-            : sp.networkFee;
+        uint64 networkFee = (version == CoreLib.VERSION_ETH) ? sp.ethNetworkFee : sp.networkFee;
 
         bool liq = cluster.isLiquidatableWithEB(
             clusterId,
@@ -806,13 +808,7 @@ contract SSVClusters is ISSVClusters {
 
         if (!liq) return;
 
-        _performLiquidation(
-            clusterOwner,
-            clusterId,
-            operatorIds,
-            cluster,
-            version
-        );
+        _performLiquidation(clusterOwner, clusterId, operatorIds, cluster, version);
     }
 
     function _performLiquidation(
@@ -835,14 +831,11 @@ contract SSVClusters is ISSVClusters {
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
         uint64 vUnitsCluster = ebSnapshot.vUnits;
         if (vUnitsCluster > 0) {
-            uint64 baselineVUnits =
-                uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
 
             if (vUnitsCluster != baselineVUnits) {
                 bool moreThanBaseline = vUnitsCluster > baselineVUnits;
-                uint64 delta = moreThanBaseline
-                    ? vUnitsCluster - baselineVUnits
-                    : baselineVUnits - vUnitsCluster;
+                uint64 delta = moreThanBaseline ? vUnitsCluster - baselineVUnits : baselineVUnits - vUnitsCluster;
 
                 if (delta != 0) {
                     if (version == CoreLib.VERSION_ETH) {
@@ -858,10 +851,8 @@ contract SSVClusters is ISSVClusters {
             uint256 n = operatorIds.length;
             for (uint256 i; i < n; ++i) {
                 uint64 opId = operatorIds[i];
-                if (version == CoreLib.VERSION_ETH)
-                    seb.operatorEthVUnits[opId] -= vUnitsCluster;
-                else
-                    seb.operatorVUnits[opId] -= vUnitsCluster;
+                if (version == CoreLib.VERSION_ETH) seb.operatorEthVUnits[opId] -= vUnitsCluster;
+                else seb.operatorVUnits[opId] -= vUnitsCluster;
             }
 
             ebSnapshot.vUnits = 0;
@@ -873,16 +864,12 @@ contract SSVClusters is ISSVClusters {
         cluster.index = 0;
         cluster.networkFeeIndex = 0;
 
-        if (version == CoreLib.VERSION_ETH)
-            s.ethClusters[clusterId] = cluster.hashClusterData();
-        else
-            s.clusters[clusterId] = cluster.hashClusterData();
+        if (version == CoreLib.VERSION_ETH) s.ethClusters[clusterId] = cluster.hashClusterData();
+        else s.clusters[clusterId] = cluster.hashClusterData();
 
         if (payout > 0) {
-            if (version == CoreLib.VERSION_ETH)
-                CoreLib.transferBalance(clusterOwner, payout);
-            else
-                CoreLib.transferTokenBalance(clusterOwner, payout);
+            if (version == CoreLib.VERSION_ETH) CoreLib.transferBalance(clusterOwner, payout);
+            else CoreLib.transferTokenBalance(clusterOwner, payout);
         }
 
         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
