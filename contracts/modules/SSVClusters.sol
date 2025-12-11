@@ -87,10 +87,7 @@ contract SSVClusters is ISSVClusters {
             sp
         );
 
-        // TODO refactor next 3 lines to ClusterLib.updateClusterDataWithEB
-        cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
-        cluster.index = clusterIndex;
-        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
+        _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
         if (
             clusterOwner != msg.sender &&
@@ -129,10 +126,7 @@ contract SSVClusters is ISSVClusters {
             sp
         );
 
-        // TODO refactor next 3 lines to ClusterLib.updateClusterDataWithEB
-        cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
-        cluster.index = clusterIndex;
-        cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
+        _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
         if (
             clusterOwner != msg.sender &&
@@ -238,9 +232,7 @@ contract SSVClusters is ISSVClusters {
             }
 
             // TODO refactor next 3 lines to ClusterLib.updateClusterDataWithEB
-            cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
-            cluster.index = clusterIndex;
-            cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
+            _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
         }
         if (cluster.balance < amount) revert InsufficientBalance();
 
@@ -529,6 +521,17 @@ contract SSVClusters is ISSVClusters {
             newVUnits,
             cluster
         );
+    }
+
+    function _updateClusterDataWithEB(
+        Cluster memory cluster,
+        bytes32 clusterId,
+        uint64 clusterIndex,
+        uint64 networkFeeIndex
+    ) internal view {
+        cluster.updateBalanceWithEB(clusterId, clusterIndex, networkFeeIndex);
+        cluster.index = clusterIndex;
+        cluster.networkFeeIndex = networkFeeIndex;
     }
 
     function _emitClusterBalanceUpdated(
