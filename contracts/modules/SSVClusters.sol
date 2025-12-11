@@ -92,8 +92,6 @@ contract SSVClusters is ISSVClusters {
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
 
-        uint256 balanceLiquidatable;
-
         if (
             clusterOwner != msg.sender &&
             !cluster.isLiquidatableWithEB(
@@ -107,61 +105,7 @@ contract SSVClusters is ISSVClusters {
             revert ClusterNotLiquidatable();
         }
 
-        sp.updateDAO(false, cluster.validatorCount);
-
-        // EB accounting on liquidation:
-        // - Remove this cluster's EB units from DAO totals (beyond the baseline 1 vUnit per validator
-        //   already handled by updateDAO).
-        // - Remove this cluster's EB contribution from each operator's operatorVUnits.
-        // - Reset the cluster's EB snapshot vUnits to zero so future EB-aware helpers fall back
-        //   to validatorCount until a new EB is reported.
-        {
-            StorageEB storage seb = SSVStorageEB.load();
-            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
-            uint64 vUnitsCluster = ebSnapshot.vUnits;
-            if (vUnitsCluster > 0) {
-                // Adjust DAO total vUnits so that the net effect of liquidation is to remove
-                // the full cluster EB units vUnitsCluster from daoTotalVUnits.
-                uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-                if (vUnitsCluster != baselineVUnits) {
-                    bool moreThanBaseline = vUnitsCluster > baselineVUnits;
-                    uint64 delta = moreThanBaseline ? vUnitsCluster - baselineVUnits : baselineVUnits - vUnitsCluster;
-                    if (delta != 0) {
-                        if (moreThanBaseline) {
-                            sp.daoTotalEthVUnits -= delta;
-                        } else {
-                            sp.daoTotalEthVUnits += delta;
-                        }
-                    }
-                }
-
-                // Remove this cluster's EB units from each operator in the cluster.
-                uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ++i) {
-                    uint64 operatorId = operatorIds[i];
-                    seb.operatorEthVUnits[operatorId] -= vUnitsCluster;
-                }
-
-                // Reset cluster EB units to zero (root metadata is kept for staleness checks).
-                ebSnapshot.vUnits = 0;
-            }
-        }
-
-        if (cluster.balance != 0) {
-            balanceLiquidatable = cluster.balance;
-            cluster.balance = 0;
-        }
-        cluster.index = 0;
-        cluster.networkFeeIndex = 0;
-        cluster.active = false;
-
-        s.ethClusters[hashedCluster] = cluster.hashClusterData();
-
-        if (balanceLiquidatable != 0) {
-            CoreLib.transferBalance(msg.sender, balanceLiquidatable);
-        }
-
-        emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
+        _executeLiquidation(clusterOwner, msg.sender, hashedCluster, operatorIds, cluster, CoreLib.VERSION_ETH, true);
     }
 
     function liquidateSSV(
@@ -190,8 +134,6 @@ contract SSVClusters is ISSVClusters {
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
 
-        uint256 balanceLiquidatable;
-
         if (
             clusterOwner != msg.sender &&
             !cluster.isLiquidatableWithEB(
@@ -205,61 +147,7 @@ contract SSVClusters is ISSVClusters {
             revert ClusterNotLiquidatable();
         }
 
-        sp.updateDAOSSV(false, cluster.validatorCount);
-
-        // EB accounting on liquidation:
-        // - Remove this cluster's EB units from DAO totals (beyond the baseline 1 vUnit per validator
-        //   already handled by updateDAO).
-        // - Remove this cluster's EB contribution from each operator's operatorVUnits.
-        // - Reset the cluster's EB snapshot vUnits to zero so future EB-aware helpers fall back
-        //   to validatorCount until a new EB is reported.
-        {
-            StorageEB storage seb = SSVStorageEB.load();
-            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
-            uint64 vUnitsCluster = ebSnapshot.vUnits;
-            if (vUnitsCluster > 0) {
-                // Adjust DAO total vUnits so that the net effect of liquidation is to remove
-                // the full cluster EB units vUnitsCluster from daoTotalVUnits.
-                uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-                if (vUnitsCluster != baselineVUnits) {
-                    bool moreThanBaseline = vUnitsCluster > baselineVUnits;
-                    uint64 delta = moreThanBaseline ? vUnitsCluster - baselineVUnits : baselineVUnits - vUnitsCluster;
-                    if (delta != 0) {
-                        if (moreThanBaseline) {
-                            sp.daoTotalVUnits -= delta;
-                        } else {
-                            sp.daoTotalVUnits += delta;
-                        }
-                    }
-                }
-
-                // Remove this cluster's EB units from each operator in the cluster.
-                uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ++i) {
-                    uint64 operatorId = operatorIds[i];
-                    seb.operatorVUnits[operatorId] -= vUnitsCluster;
-                }
-
-                // Reset cluster EB units to zero (root metadata is kept for staleness checks).
-                ebSnapshot.vUnits = 0;
-            }
-        }
-
-        if (cluster.balance != 0) {
-            balanceLiquidatable = cluster.balance;
-            cluster.balance = 0;
-        }
-        cluster.index = 0;
-        cluster.networkFeeIndex = 0;
-        cluster.active = false;
-
-        s.clusters[hashedCluster] = cluster.hashClusterData();
-
-        if (balanceLiquidatable != 0) {
-            CoreLib.transferTokenBalance(msg.sender, balanceLiquidatable);
-        }
-
-        emit ClusterLiquidated(clusterOwner, operatorIds, cluster); // TODO add event to diverge the SSV from ETH clusters
+        _executeLiquidation(clusterOwner, msg.sender, hashedCluster, operatorIds, cluster, CoreLib.VERSION_SSV, true);
     }
 
     function reactivate(
@@ -808,15 +696,17 @@ contract SSVClusters is ISSVClusters {
 
         if (!liq) return;
 
-        _performLiquidation(clusterOwner, clusterId, operatorIds, cluster, version);
+        _executeLiquidation(clusterOwner, clusterOwner, clusterId, operatorIds, cluster, version, false);
     }
 
-    function _performLiquidation(
+    function _executeLiquidation(
         address clusterOwner,
+        address liquidator,
         bytes32 clusterId,
         uint64[] calldata operatorIds,
         Cluster memory cluster,
-        uint8 version
+        uint8 version,
+        bool payLiquidator
     ) internal {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -868,8 +758,8 @@ contract SSVClusters is ISSVClusters {
         else s.clusters[clusterId] = cluster.hashClusterData();
 
         if (payout > 0) {
-            if (version == CoreLib.VERSION_ETH) CoreLib.transferBalance(clusterOwner, payout);
-            else CoreLib.transferTokenBalance(clusterOwner, payout);
+            if (version == CoreLib.VERSION_ETH) CoreLib.transferBalance(liquidator, payout);
+            else CoreLib.transferTokenBalance(liquidator, payout);
         }
 
         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
