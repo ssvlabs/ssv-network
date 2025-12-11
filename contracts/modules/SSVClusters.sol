@@ -26,35 +26,13 @@ contract SSVClusters is ISSVClusters {
         uint256, // deprecated amount param stays for backward compatability
         Cluster memory cluster
     ) external payable override {
-        StorageData storage s = SSVStorage.load();
-        StorageProtocol storage sp = SSVStorageProtocol.load();
+        bytes[] memory publicKeys = new bytes[](1);
+        publicKeys[0] = publicKey;
 
-        ValidatorLib.validateOperatorsLength(operatorIds);
+        bytes[] memory shares = new bytes[](1);
+        shares[0] = sharesData;
 
-        ValidatorLib.registerPublicKey(publicKey, operatorIds, s);
-
-        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
-
-        cluster.balance += msg.value;
-
-        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, 1, s, sp);
-
-        {
-            StorageEB storage seb = SSVStorageEB.load();
-            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
-            if (ebSnapshot.vUnits > 0) {
-                uint64 deltaClusterVUnits = VUNITS_PRECISION;
-                ebSnapshot.vUnits += deltaClusterVUnits;
-
-                uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ++i) {
-                    uint64 operatorId = operatorIds[i];
-                    seb.operatorEthVUnits[operatorId] += deltaClusterVUnits;
-                }
-            }
-        }
-
-        emit ValidatorAdded(msg.sender, operatorIds, publicKey, sharesData, cluster);
+        _bulkRegisterValidator(publicKeys, operatorIds, shares, cluster);
     }
 
     function bulkRegisterValidator(
@@ -64,100 +42,20 @@ contract SSVClusters is ISSVClusters {
         uint256, // deprecated amount param stays for backward compatability
         Cluster memory cluster
     ) external payable override {
-        uint256 validatorsLength = publicKeys.length;
-
-        if (validatorsLength == 0) revert EmptyPublicKeysList();
-        if (validatorsLength != sharesData.length) revert PublicKeysSharesLengthMismatch();
-
-        StorageData storage s = SSVStorage.load();
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        ValidatorLib.validateOperatorsLength(operatorIds);
-
-        for (uint i; i < validatorsLength; ++i) {
-            ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
-        }
-        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
-
-        cluster.balance += msg.value;
-
-        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
-
-        {
-            StorageEB storage seb = SSVStorageEB.load();
-            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
-            if (ebSnapshot.vUnits > 0) {
-                uint64 deltaClusterVUnits = uint64(validatorsLength) * VUNITS_PRECISION;
-                ebSnapshot.vUnits += deltaClusterVUnits;
-
-                uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ++i) {
-                    uint64 operatorId = operatorIds[i];
-                    seb.operatorEthVUnits[operatorId] += deltaClusterVUnits;
-                }
-            }
-        }
-
-        for (uint i; i < validatorsLength; ++i) {
-            bytes memory pk = publicKeys[i];
-            bytes memory sh = sharesData[i];
-
-            emit ValidatorAdded(msg.sender, operatorIds, pk, sh, cluster);
-        }
+        _bulkRegisterValidator(publicKeys, operatorIds, sharesData, cluster);
     }
+
+
 
     function removeValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external override {
-        StorageData storage s = SSVStorage.load();
+        bytes[] memory publicKeys = new bytes[](1);
+        publicKeys[0] = publicKey;
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
-        bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
-
-        bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, msg.sender));
-        bytes32 validatorData = s.validatorPKs[hashedValidator];
-
-        if (validatorData == bytes32(0)) {
-            revert ISSVNetworkCore.ValidatorDoesNotExist();
-        }
-
-        if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds))
-            revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKey);
-
-        delete s.validatorPKs[hashedValidator];
-
-        if (cluster.active) {
-            StorageProtocol storage sp = SSVStorageProtocol.load();
-            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 1, s, sp);
-
-            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
-
-            sp.updateDAO(false, 1);
-        }
-
-        --cluster.validatorCount;
-
-        {
-            StorageEB storage seb = SSVStorageEB.load();
-            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
-            if (ebSnapshot.vUnits > 0) {
-                uint64 deltaClusterVUnits = VUNITS_PRECISION;
-                ebSnapshot.vUnits -= deltaClusterVUnits;
-
-                uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ++i) {
-                    uint64 operatorId = operatorIds[i];
-                    seb.operatorEthVUnits[operatorId] -= deltaClusterVUnits;
-                }
-            }
-        }
-
-        s.ethClusters[hashedCluster] = cluster.hashClusterData();
-
-        emit ValidatorRemoved(msg.sender, operatorIds, publicKey, cluster);
+        _bulkRemoveValidator(publicKeys, operatorIds, cluster, true);
     }
 
     function bulkRemoveValidator(
@@ -165,64 +63,7 @@ contract SSVClusters is ISSVClusters {
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external override {
-        uint256 validatorsLength = publicKeys.length;
-
-        if (validatorsLength == 0) {
-            revert ISSVNetworkCore.ValidatorDoesNotExist();
-        }
-        StorageData storage s = SSVStorage.load();
-
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
-        bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
-
-        bytes32 hashedValidator;
-        bytes32 validatorData;
-
-        uint32 validatorsRemoved;
-
-        for (uint i; i < validatorsLength; ++i) {
-            hashedValidator = keccak256(abi.encodePacked(publicKeys[i], msg.sender));
-            validatorData = s.validatorPKs[hashedValidator];
-
-            if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds))
-                revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKeys[i]);
-
-            delete s.validatorPKs[hashedValidator];
-            validatorsRemoved++;
-        }
-
-        if (cluster.active) {
-            StorageProtocol storage sp = SSVStorageProtocol.load();
-            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, validatorsRemoved, s, sp);
-
-            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
-
-            sp.updateDAO(false, validatorsRemoved);
-        }
-
-        cluster.validatorCount -= validatorsRemoved;
-
-        {
-            StorageEB storage seb = SSVStorageEB.load();
-            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
-            if (ebSnapshot.vUnits > 0) {
-                uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
-                ebSnapshot.vUnits -= deltaClusterVUnits;
-
-                uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ++i) {
-                    uint64 operatorId = operatorIds[i];
-                    seb.operatorEthVUnits[operatorId] -= deltaClusterVUnits;
-                }
-            }
-        }
-
-        s.ethClusters[hashedCluster] = cluster.hashClusterData();
-
-        for (uint i; i < validatorsLength; ++i) {
-            emit ValidatorRemoved(msg.sender, operatorIds, publicKeys[i], cluster);
-        }
+        _bulkRemoveValidator(publicKeys, operatorIds, cluster, false);
     }
 
     function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
@@ -632,6 +473,121 @@ contract SSVClusters is ISSVClusters {
         ctx.merkleProof = merkleProof;
 
         _updateClusterBalanceInternal(operatorIds, cluster, ctx);
+    }
+
+    function _bulkRegisterValidator(
+        bytes[] memory publicKeys,
+        uint64[] memory operatorIds,
+        bytes[] memory sharesData,
+        Cluster memory cluster
+    ) internal {
+        uint256 validatorsLength = publicKeys.length;
+
+        if (validatorsLength == 0) revert EmptyPublicKeysList();
+        if (validatorsLength != sharesData.length) revert PublicKeysSharesLengthMismatch();
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        ValidatorLib.validateOperatorsLength(operatorIds);
+
+        for (uint i; i < validatorsLength; ++i) {
+            ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, s);
+        }
+        bytes32 hashedCluster = cluster.validateClusterOnRegistration(operatorIds, s);
+
+        cluster.balance += msg.value;
+
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
+
+        {
+            StorageEB storage seb = SSVStorageEB.load();
+            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            if (ebSnapshot.vUnits > 0) {
+                uint64 deltaClusterVUnits = uint64(validatorsLength) * VUNITS_PRECISION;
+                ebSnapshot.vUnits += deltaClusterVUnits;
+
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ++i) {
+                    uint64 operatorId = operatorIds[i];
+                    seb.operatorEthVUnits[operatorId] += deltaClusterVUnits;
+                }
+            }
+        }
+
+        for (uint i; i < validatorsLength; ++i) {
+            bytes memory pk = publicKeys[i];
+            bytes memory sh = sharesData[i];
+
+            emit ValidatorAdded(msg.sender, operatorIds, pk, sh, cluster);
+        }
+    }
+    
+    function _bulkRemoveValidator(
+        bytes[] memory publicKeys,
+        uint64[] memory operatorIds,
+        Cluster memory cluster,
+        bool revertIfValidatorMissing
+    ) internal {
+        uint256 validatorsLength = publicKeys.length;
+
+        if (validatorsLength == 0) {
+            revert ISSVNetworkCore.ValidatorDoesNotExist();
+        }
+        StorageData storage s = SSVStorage.load();
+
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
+        bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
+
+        uint32 validatorsRemoved;
+
+        for (uint i; i < validatorsLength; ++i) {
+            bytes32 hashedValidator = keccak256(abi.encodePacked(publicKeys[i], msg.sender));
+            bytes32 validatorData = s.validatorPKs[hashedValidator];
+
+            if (revertIfValidatorMissing && validatorData == bytes32(0)) {
+                revert ISSVNetworkCore.ValidatorDoesNotExist();
+            }
+
+            if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds))
+                revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKeys[i]);
+
+            delete s.validatorPKs[hashedValidator];
+            validatorsRemoved++;
+        }
+
+        if (cluster.active) {
+            StorageProtocol storage sp = SSVStorageProtocol.load();
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, validatorsRemoved, s, sp);
+
+            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+
+            sp.updateDAO(false, validatorsRemoved);
+        }
+
+        cluster.validatorCount -= validatorsRemoved;
+
+        {
+            StorageEB storage seb = SSVStorageEB.load();
+            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            if (ebSnapshot.vUnits > 0) {
+                uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
+                ebSnapshot.vUnits -= deltaClusterVUnits;
+
+                uint256 operatorsLength = operatorIds.length;
+                for (uint256 i; i < operatorsLength; ++i) {
+                    uint64 operatorId = operatorIds[i];
+                    seb.operatorEthVUnits[operatorId] -= deltaClusterVUnits;
+                }
+            }
+        }
+
+        s.ethClusters[hashedCluster] = cluster.hashClusterData();
+
+        for (uint i; i < validatorsLength; ++i) {
+            emit ValidatorRemoved(msg.sender, operatorIds, publicKeys[i], cluster);
+        }
     }
 
     function _updateClusterBalanceInternal(
