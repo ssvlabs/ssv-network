@@ -102,7 +102,7 @@ contract SSVClusters is ISSVClusters {
             revert ClusterNotLiquidatable();
         }
 
-        _executeLiquidation(clusterOwner, msg.sender, hashedCluster, operatorIds, cluster, CoreLib.VERSION_ETH, true);
+        _executeLiquidation(clusterOwner, msg.sender, hashedCluster, operatorIds, cluster, CoreLib.VERSION_ETH);
     }
 
     function liquidateSSV(
@@ -141,7 +141,7 @@ contract SSVClusters is ISSVClusters {
             revert ClusterNotLiquidatable();
         }
 
-        _executeLiquidation(clusterOwner, msg.sender, hashedCluster, operatorIds, cluster, CoreLib.VERSION_SSV, true);
+        _executeLiquidation(clusterOwner, msg.sender, hashedCluster, operatorIds, cluster, CoreLib.VERSION_SSV);
     }
 
     function reactivate(
@@ -699,7 +699,7 @@ contract SSVClusters is ISSVClusters {
 
         if (!liq) return;
 
-        _executeLiquidation(clusterOwner, clusterOwner, clusterId, operatorIds, cluster, version, false);
+        _executeLiquidation(clusterOwner, msg.sender, clusterId, operatorIds, cluster, version);
     }
 
     function _executeLiquidation(
