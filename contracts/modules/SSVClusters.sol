@@ -708,8 +708,7 @@ contract SSVClusters is ISSVClusters {
         bytes32 clusterId,
         uint64[] calldata operatorIds,
         Cluster memory cluster,
-        uint8 version,
-        bool payLiquidator
+        uint8 version
     ) internal {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
