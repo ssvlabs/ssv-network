@@ -610,8 +610,15 @@ contract SSVClusters is ISSVClusters {
         if (ssvBalance != 0) {
             CoreLib.transferTokenBalance(msg.sender, ssvBalance);
         }
+        StorageEB storage seb = SSVStorageEB.load();
+        ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+        uint64 vUnits = ebSnapshot.vUnits;
+        if (vUnits == 0) {
+            vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+        }
+        uint256 clusterEB = (uint256(vUnits) * 32 ether) / VUNITS_PRECISION;
 
-        emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, cluster);
+        emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, clusterEB, cluster);
     }
 
     function updateClusterBalance(

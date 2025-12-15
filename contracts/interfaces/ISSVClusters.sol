@@ -166,6 +166,7 @@ interface ISSVClusters is ISSVNetworkCore {
      * @param operatorIds The operator IDs managing the cluster.
      * @param ethDeposited The amount of ETH supplied during migration.
      * @param ssvRefunded The amount of SSV tokens refunded to the owner.
+     * @param clusterEB Cluster effective balance in wei (derived from EB oracle or fallback).
      * @param cluster The migrated cluster data (ETH version).
      */
     event ClusterMigratedToETH(
@@ -173,6 +174,7 @@ interface ISSVClusters is ISSVNetworkCore {
         uint64[] operatorIds,
         uint256 ethDeposited,
         uint256 ssvRefunded,
+        uint256 clusterEB,
         Cluster cluster
     );
 
