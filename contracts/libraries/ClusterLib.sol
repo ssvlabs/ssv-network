@@ -109,10 +109,11 @@ library ClusterLib {
 
     function validateClusterOnRegistration(
         ISSVNetworkCore.Cluster memory cluster,
+        address owner,
         uint64[] memory operatorIds,
         StorageData storage s
     ) internal view returns (bytes32 hashedCluster) {
-        hashedCluster = keccak256(abi.encodePacked(msg.sender, operatorIds));
+        hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
 
         bytes32 clusterData = s.ethClusters[hashedCluster];
         if (clusterData == bytes32(0)) {
