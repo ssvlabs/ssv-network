@@ -110,7 +110,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
         StorageData storage s = SSVStorage.load();
         Operator storage operator = s.operators[operatorId];
         operator.checkOwner();
-        if (operator.version != CoreLib.VERSION_ETH && operator.version != CoreLib.VERSION_SSV) {
+        if (operator.version != CoreLib.VERSION_ETH) {
             revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
         }
 
