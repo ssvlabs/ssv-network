@@ -14,7 +14,7 @@ async function main() {
 
   console.log(`Deploying SSVNetwork proxy on ${targetNetwork}`);
 
-  const { address: implAddress } = await deployContract(ethers, "SSSVNetwork");
+  const { address: implAddress } = await deployContract(ethers, "SSVNetwork");
   saveImplementation(targetNetwork, "SSVNetwork", implAddress);
 
   const Factory = await ethers.getContractFactory("SSVNetwork");
