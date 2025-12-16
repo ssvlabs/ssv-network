@@ -536,7 +536,7 @@ contract SSVClusters is ISSVClusters {
             ctx.clusterOwner,
             operatorIds,
             ctx.blockNum,
-            ctx.effectiveBalance,
+            ctx.effectiveBalance * 1 ether,
             newVUnits,
             cluster
         );
