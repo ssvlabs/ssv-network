@@ -14,10 +14,6 @@ interface ISSVOperators is ISSVNetworkCore {
     /// @param operatorId The ID of the operator to be removed
     function removeOperator(uint64 operatorId) external;
 
-    /// @notice Migrates a legacy SSV operator to ETH with a default ETH fee
-    /// @param operatorId The ID of the operator to migrate
-    function migrateOperatorToETH(uint64 operatorId) external;
-
     /// @notice Declares the operator's fee
     /// @param operatorId The ID of the operator
     /// @param fee The fee to be declared (SSV)
@@ -83,14 +79,6 @@ interface ISSVOperators is ISSVNetworkCore {
      * @param operatorId operator's ID.
      */
     event OperatorRemoved(uint64 indexed operatorId);
-
-    /**
-     * @dev Emitted when a legacy SSV operator is migrated to ETH.
-     * @param operatorId operator's ID.
-     * @param owner Operator's ethereum address.
-     * @param ethFee The new ETH-denominated fee (shrunk).
-     */
-    event OperatorMigratedToETH(uint64 indexed operatorId, address indexed owner, uint64 ethFee);
 
     event OperatorFeeDeclared(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 

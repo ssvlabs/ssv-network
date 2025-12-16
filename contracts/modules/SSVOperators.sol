@@ -49,7 +49,6 @@ contract SSVOperators is ISSVOperators {
             owner: msg.sender,
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
             whitelisted: setPrivate,
-            version: CoreLib.VERSION_ETH,
             ethValidatorCount: 0,
             ethFee: fee.shrink(),
             ethSnapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0})
@@ -91,21 +90,21 @@ contract SSVOperators is ISSVOperators {
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
-        if (s.operators[operatorId].version != CoreLib.VERSION_ETH) {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(s.operators[operatorId].version);
-        }
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
         if (fee > sp.operatorMaxFee) revert FeeTooHigh();
-
+        if (s.operators[operatorId].ethSnapshot.block == 0) {
+            s.operators[operatorId].ensureETHDefaults();
+        }
+        uint64 operatorSSVFee = s.operators[operatorId].fee;
         uint64 operatorFee = s.operators[operatorId].ethFee;
         uint64 shrunkFee = fee.shrink();
 
         if (operatorFee == shrunkFee) {
             revert SameFeeChangeNotAllowed();
-        } else if (shrunkFee != 0 && operatorFee == 0) {
+        } else if (shrunkFee != 0 && operatorFee == 0 && operatorSSVFee == 0) {
             revert FeeIncreaseNotAllowed();
         }
 
@@ -163,10 +162,6 @@ contract SSVOperators is ISSVOperators {
         StorageData storage s = SSVStorage.load();
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
-
-        if (operator.version != CoreLib.VERSION_ETH) {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
-        }
 
         if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
 
@@ -229,29 +224,6 @@ contract SSVOperators is ISSVOperators {
 
     function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_SSV);
-    }
-    
-    function migrateOperatorToETH(uint64 operatorId) external override {
-        StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
-
-        if (operator.version != CoreLib.VERSION_SSV) {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
-        }
-
-        operator.version = CoreLib.VERSION_ETH;
-        operator.ethFee = OperatorLib.defaultOperatorEthFee();
-        if (operator.ethSnapshot.block == 0) {
-            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
-        } else {
-            operator.updateSnapshot(operatorId);
-        }
-
-        s.operators[operatorId] = operator;
-        delete s.operatorFeeChangeRequests[operatorId];
-
-        emit OperatorMigratedToETH(operatorId, operator.owner, operator.ethFee);
     }
 
     // private functions
