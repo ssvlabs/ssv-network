@@ -201,7 +201,8 @@ library OperatorLib {
         bool increaseValidatorCount,
         uint32 deltaValidatorCount,
         StorageData storage s,
-        StorageProtocol storage sp
+        StorageProtocol storage sp,
+        bool isClusterLiquidated
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
         uint256 operatorsLength = operatorIds.length;
 
@@ -212,7 +213,7 @@ library OperatorLib {
 
             if (operator.ethSnapshot.block == 0) {
                 updateSnapshotStSSV(operator, operatorId);
-                if (increaseValidatorCount) {
+                if (increaseValidatorCount && !isClusterLiquidated) {
                     operator.validatorCount -= deltaValidatorCount;
                 }
                 ensureETHDefaults(operator);
