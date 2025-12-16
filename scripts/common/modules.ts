@@ -4,4 +4,4 @@ export enum SSVModules {
     SSVDAO = 2,
     SSVViews = 3,
     SSVOperatorsWhitelist = 4
-  }
+}
