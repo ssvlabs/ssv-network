@@ -11,8 +11,6 @@ import "../libraries/CoreLib.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
 contract SSVOperators is ISSVOperators {
-    uint64 private constant MINIMAL_OPERATOR_FEE = 1_000_000_000;
-    uint64 private constant MINIMAL_OPERATOR_ETH_FEE = 1_000_000_000;
     uint64 private constant PRECISION_FACTOR = 10_000;
 
     using Types256 for uint256;
@@ -29,7 +27,7 @@ contract SSVOperators is ISSVOperators {
         uint256 fee,
         bool setPrivate
     ) external override returns (uint64 id) {
-        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) {
+        if (fee != 0 && fee < OperatorLib.MINIMAL_OPERATOR_ETH_FEE) {
             revert ISSVNetworkCore.FeeTooLow();
         }
         if (fee > SSVStorageProtocol.load().operatorMaxFee) {
@@ -93,7 +91,7 @@ contract SSVOperators is ISSVOperators {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
+        if (fee != 0 && fee < OperatorLib.MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
         if (fee > sp.operatorMaxFee) revert FeeTooHigh();
         if (s.operators[operatorId].ethSnapshot.block == 0) {
             s.operators[operatorId].ensureETHDefaults();
@@ -163,7 +161,7 @@ contract SSVOperators is ISSVOperators {
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
+        if (fee != 0 && fee < OperatorLib.MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
 
         uint64 shrunkAmount = fee.shrink();
         if (shrunkAmount >= operator.ethFee) revert FeeIncreaseNotAllowed();

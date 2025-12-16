@@ -14,7 +14,7 @@ library OperatorLib {
     using Types64 for uint64;
     using Types256 for uint256;
 
-    uint256 internal constant DEFAULT_OPERATOR_ETH_FEE = 10_000_000;
+    uint256 internal constant MINIMAL_OPERATOR_ETH_FEE = 10_000_000;
 
     function updateSnapshotStSSV(
         ISSVNetworkCore.Operator storage operator,
@@ -111,7 +111,7 @@ library OperatorLib {
     }
 
     function defaultOperatorEthFee() internal pure returns (uint64) {
-        return DEFAULT_OPERATOR_ETH_FEE.shrink();
+        return MINIMAL_OPERATOR_ETH_FEE.shrink();
     }
 
     function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
