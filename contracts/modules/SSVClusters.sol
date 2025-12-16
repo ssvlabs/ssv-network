@@ -497,6 +497,9 @@ contract SSVClusters is ISSVClusters {
         Cluster memory cluster,
         UpdateCtx memory ctx
     ) internal {
+        // convert gwei input to eth
+        uint256 ebInEth = ctx.effectiveBalance / (1 gwei);
+
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
         StorageEB storage seb = SSVStorageEB.load();
@@ -514,7 +517,7 @@ contract SSVClusters is ISSVClusters {
             oldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
 
-        uint64 newVUnits = uint64((ctx.effectiveBalance * VUNITS_PRECISION) / 32 ether);
+        uint64 newVUnits = uint64((ctx.effectiveBalance * VUNITS_PRECISION) / (DEFAULT_EB_PER_VALIDATOR / 1 ether));
 
         if (cluster.active) {
             _applyClusterFeeUpdates(operatorIds, cluster, oldVUnits, newVUnits, ctx.version, s, sp);
@@ -595,9 +598,9 @@ contract SSVClusters is ISSVClusters {
     }
 
     function _verifyEBLimits(UpdateCtx memory ctx, Cluster memory cluster) internal pure {
-        if (ctx.effectiveBalance > uint256(cluster.validatorCount) * MAX_EB_PER_VALIDATOR) {
+        if (ctx.effectiveBalance > uint256(cluster.validatorCount) * (MAX_EB_PER_VALIDATOR / 1 ether)) {
             revert EBExceedsMaximum();
-        } else if (ctx.effectiveBalance < uint256(cluster.validatorCount) * (DEFAULT_EB_PER_VALIDATOR / 1 ether * (1 gwei))) {
+        } else if (ctx.effectiveBalance < uint256(cluster.validatorCount) * (DEFAULT_EB_PER_VALIDATOR / 1 ether)) {
             revert EBBelowMinimum();
         }
     }
@@ -616,7 +619,7 @@ contract SSVClusters is ISSVClusters {
 
         if (version == CoreLib.VERSION_ETH) {
             // ETH path: use ethSnapshot, ethFee, ethNetworkFeeIndex
-            (clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp, false);
+            (clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp);
             currentNetworkFeeIndex = sp.currentNetworkFeeIndex(); // ETH network fee index
         } else {
             // SSV path: use snapshot, fee, networkFeeIndex
