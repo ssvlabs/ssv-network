@@ -485,9 +485,6 @@ contract SSVClusters is ISSVClusters {
         Cluster memory cluster,
         UpdateCtx memory ctx
     ) internal {
-        // convert gwei input to eth
-        uint256 ebInEth = ctx.effectiveBalance / (1 gwei);
-
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
         StorageEB storage seb = SSVStorageEB.load();
@@ -498,14 +495,16 @@ contract SSVClusters is ISSVClusters {
         _verifyEBUpdateFrequency(clusterId, seb);
         _verifyEBStaleness(ctx, clusterId, seb);
         _verifyMerkleProof(ctx, seb);
-        _verifyEBMaximum(ebInEth, cluster);
+
+        // effective balance in gwei
+        _verifyEBMaximum(ctx.effectiveBalance, cluster);
 
         uint64 oldVUnits = seb.clusterEB[clusterId].vUnits;
         if (oldVUnits == 0) {
             oldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
 
-        uint64 newVUnits = uint64((ebInEth * VUNITS_PRECISION) / (DEFAULT_EB_PER_VALIDATOR / 1 ether));
+        uint64 newVUnits = uint64((ctx.effectiveBalance * uint256(VUNITS_PRECISION)) / (DEFAULT_EB_PER_VALIDATOR / 1 ether * (1 gwei)));
 
         if (cluster.active) {
             _applyClusterFeeUpdates(operatorIds, cluster, oldVUnits, newVUnits, ctx.version, s, sp);
@@ -527,7 +526,7 @@ contract SSVClusters is ISSVClusters {
             ctx.clusterOwner,
             operatorIds,
             ctx.blockNum,
-            ebInEth * 1 ether,
+            ctx.effectiveBalance * 1 gwei,
             newVUnits,
             cluster
         );
@@ -585,8 +584,8 @@ contract SSVClusters is ISSVClusters {
         }
     }
 
-    function _verifyEBMaximum(uint256 ebInEth, Cluster memory cluster) internal pure {
-        if (ebInEth > uint256(cluster.validatorCount) * (MAX_EB_PER_VALIDATOR / 1 ether)) {
+    function _verifyEBMaximum(uint256 ebInGwei, Cluster memory cluster) internal pure {
+        if (ebInGwei > uint256(cluster.validatorCount) * (MAX_EB_PER_VALIDATOR / 1 ether * (1 gwei))) {
             revert EBExceedsMaximum();
         }
     }
