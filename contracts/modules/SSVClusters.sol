@@ -296,7 +296,7 @@ contract SSVClusters is ISSVClusters {
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
-        bool isLiquidated = !cluster.active; // A liquidated SSV cluster already had its SSV counts removed
+        cluster.validateClusterIsNotLiquidated();
 
         uint256 ssvBalance = cluster.balance;
 
@@ -306,8 +306,7 @@ contract SSVClusters is ISSVClusters {
             true,
             cluster.validatorCount,
             s,
-            sp,
-            isLiquidated
+            sp, false
         );
 
         cluster.balance = msg.value;
@@ -497,9 +496,6 @@ contract SSVClusters is ISSVClusters {
         Cluster memory cluster,
         UpdateCtx memory ctx
     ) internal {
-        // convert gwei input to eth
-        uint256 ebInEth = ctx.effectiveBalance / (1 gwei);
-
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
         StorageEB storage seb = SSVStorageEB.load();
@@ -619,7 +615,7 @@ contract SSVClusters is ISSVClusters {
 
         if (version == CoreLib.VERSION_ETH) {
             // ETH path: use ethSnapshot, ethFee, ethNetworkFeeIndex
-            (clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp);
+            (clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp, false);
             currentNetworkFeeIndex = sp.currentNetworkFeeIndex(); // ETH network fee index
         } else {
             // SSV path: use snapshot, fee, networkFeeIndex
