@@ -84,7 +84,8 @@ contract SSVClusters is ISSVClusters {
             false,
             cluster.validatorCount,
             s,
-            sp
+            sp,
+            false
         );
 
         _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
@@ -162,7 +163,8 @@ contract SSVClusters is ISSVClusters {
             true,
             cluster.validatorCount,
             s,
-            sp
+            sp,
+            false
         );
 
         cluster.balance += msg.value;
@@ -294,7 +296,7 @@ contract SSVClusters is ISSVClusters {
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
-        cluster.validateClusterIsNotLiquidated();
+        bool isLiquidated = !cluster.active; // A liquidated SSV cluster already had its SSV counts removed
 
         uint256 ssvBalance = cluster.balance;
 
@@ -304,7 +306,8 @@ contract SSVClusters is ISSVClusters {
             true,
             cluster.validatorCount,
             s,
-            sp
+            sp,
+            isLiquidated
         );
 
         cluster.balance = msg.value;
@@ -312,7 +315,9 @@ contract SSVClusters is ISSVClusters {
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
 
-        sp.updateDAOSSV(false, cluster.validatorCount);
+        if (!isLiquidated) {
+            sp.updateDAOSSV(false, cluster.validatorCount);
+        }
         sp.updateDAO(true, cluster.validatorCount);
 
         if (
@@ -449,7 +454,14 @@ contract SSVClusters is ISSVClusters {
 
         if (cluster.active) {
             StorageProtocol storage sp = SSVStorageProtocol.load();
-            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, validatorsRemoved, s, sp);
+            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
+                operatorIds,
+                false,
+                validatorsRemoved,
+                s,
+                sp,
+                false
+            );
 
             cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
 
@@ -602,7 +614,7 @@ contract SSVClusters is ISSVClusters {
 
         if (version == CoreLib.VERSION_ETH) {
             // ETH path: use ethSnapshot, ethFee, ethNetworkFeeIndex
-            (clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp);
+            (clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp, false);
             currentNetworkFeeIndex = sp.currentNetworkFeeIndex(); // ETH network fee index
         } else {
             // SSV path: use snapshot, fee, networkFeeIndex
