@@ -495,7 +495,7 @@ contract SSVClusters is ISSVClusters {
         _verifyEBUpdateFrequency(clusterId, seb);
         _verifyEBStaleness(ctx, clusterId, seb);
         _verifyMerkleProof(ctx, seb);
-        _verifyEBMaximum(ctx, cluster);
+        _verifyEBLimits(ctx, cluster);
 
         uint64 oldVUnits = seb.clusterEB[clusterId].vUnits;
         if (oldVUnits == 0) {
@@ -582,9 +582,11 @@ contract SSVClusters is ISSVClusters {
         }
     }
 
-    function _verifyEBMaximum(UpdateCtx memory ctx, Cluster memory cluster) internal pure {
+    function _verifyEBLimits(UpdateCtx memory ctx, Cluster memory cluster) internal pure {
         if (ctx.effectiveBalance > uint256(cluster.validatorCount) * MAX_EB_PER_VALIDATOR) {
             revert EBExceedsMaximum();
+        } else if (ctx.effectiveBalance < uint256(cluster.validatorCount) * (DEFAULT_EB_PER_VALIDATOR / 1 ether * (1 gwei))) {
+            revert EBBelowMinimum();
         }
     }
 
