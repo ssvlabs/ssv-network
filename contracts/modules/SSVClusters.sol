@@ -296,7 +296,7 @@ contract SSVClusters is ISSVClusters {
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
-        cluster.validateClusterIsNotLiquidated();
+        bool isLiquidated = !cluster.active; // A liquidated SSV cluster already had its SSV counts removed
 
         uint256 ssvBalance = cluster.balance;
 
@@ -306,7 +306,8 @@ contract SSVClusters is ISSVClusters {
             true,
             cluster.validatorCount,
             s,
-            sp, false
+            sp,
+            isLiquidated
         );
 
         cluster.balance = msg.value;
