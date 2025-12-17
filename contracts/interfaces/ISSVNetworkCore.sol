@@ -117,6 +117,7 @@ interface ISSVNetworkCore {
     error EBExceedsMaximum();
     error NotAuthorizedOracle();
     error ZeroInterval();
+    error EBBelowMinimum();
 
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
