@@ -6,7 +6,6 @@ import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingC
 import {StorageData} from "./SSVStorage.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
 import {Types64, Types256} from "./Types.sol";
-import "./CoreLib.sol";
 import "./SSVStorageEB.sol";
 
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
@@ -15,7 +14,7 @@ library OperatorLib {
     using Types64 for uint64;
     using Types256 for uint256;
 
-    uint256 internal constant DEFAULT_OPERATOR_ETH_FEE = 10_000_000;
+    uint256 internal constant MINIMAL_OPERATOR_ETH_FEE = 10_000_000;
 
     function updateSnapshotStSSV(
         ISSVNetworkCore.Operator storage operator,
@@ -112,7 +111,7 @@ library OperatorLib {
     }
 
     function defaultOperatorEthFee() internal pure returns (uint64) {
-        return DEFAULT_OPERATOR_ETH_FEE.shrink();
+        return MINIMAL_OPERATOR_ETH_FEE.shrink();
     }
 
     function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
@@ -123,17 +122,11 @@ library OperatorLib {
     }
 
     function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
-        if (operator.version != CoreLib.VERSION_ETH) {
-            if (operator.ethSnapshot.block == 0) {
-                operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
-            }
-            if (operator.fee != 0) {
-                if (operator.ethFee == 0) {
-                    operator.ethFee = defaultOperatorEthFee();
-                }
-            } else {
-                operator.version = CoreLib.VERSION_ETH;
-            }
+        if (operator.ethSnapshot.block == 0) {
+            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
+        }
+        if (operator.ethFee == 0 && operator.fee != 0) {
+            operator.ethFee = defaultOperatorEthFee();
         }
     }
 
@@ -159,11 +152,8 @@ library OperatorLib {
                     revert ISSVNetworkCore.OperatorsListNotUnique();
                 }
             }
+            ensureETHDefaults(s.operators[operatorId]);
             ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
-            if (operator.version != CoreLib.VERSION_ETH) {
-                ensureETHDefaults(s.operators[operatorId]);
-                operator = s.operators[operatorId];
-            }
 
             // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
@@ -220,7 +210,7 @@ library OperatorLib {
 
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
-            if (operator.version != CoreLib.VERSION_ETH) {
+            if (operator.ethSnapshot.block == 0) {
                 updateSnapshotStSSV(operator, operatorId);
                 if (increaseValidatorCount) {
                     operator.validatorCount -= deltaValidatorCount;
@@ -255,10 +245,6 @@ library OperatorLib {
             uint64 operatorId = operatorIds[i];
 
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
-
-            if (operator.version != CoreLib.VERSION_SSV) {
-                revert ISSVNetworkCore.IncorrectOperatorVersion(operator.version);
-            }
 
             if (operator.snapshot.block != 0) {
                 updateSnapshotStSSV(operator, operatorId);
