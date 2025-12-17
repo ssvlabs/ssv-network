@@ -9,7 +9,7 @@ interface ISSVClusters is ISSVNetworkCore {
         address clusterOwner;
         bytes32 clusterId;
         uint64 blockNum;
-        uint256 effectiveBalance;
+        uint32 effectiveBalance;
         bytes32[] merkleProof;
         uint8 version;
     }
