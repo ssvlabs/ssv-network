@@ -352,7 +352,7 @@ contract SSVClusters is ISSVClusters {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster,
-        uint256 effectiveBalance,
+        uint32 effectiveBalance,
         bytes32[] calldata merkleProof
     ) external override {
         UpdateCtx memory ctx;
@@ -514,7 +514,7 @@ contract SSVClusters is ISSVClusters {
             oldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
 
-        uint64 newVUnits = uint64((ctx.effectiveBalance * VUNITS_PRECISION) / 32 ether);
+        uint64 newVUnits = uint64((ctx.effectiveBalance * VUNITS_PRECISION) / (DEFAULT_EB_PER_VALIDATOR / 1 ether));
 
         if (cluster.active) {
             _applyClusterFeeUpdates(operatorIds, cluster, oldVUnits, newVUnits, ctx.version, s, sp);
@@ -536,7 +536,7 @@ contract SSVClusters is ISSVClusters {
             ctx.clusterOwner,
             operatorIds,
             ctx.blockNum,
-            ctx.effectiveBalance,
+            ctx.effectiveBalance * 1 ether,
             newVUnits,
             cluster
         );
@@ -595,9 +595,9 @@ contract SSVClusters is ISSVClusters {
     }
 
     function _verifyEBLimits(UpdateCtx memory ctx, Cluster memory cluster) internal pure {
-        if (ctx.effectiveBalance > uint256(cluster.validatorCount) * MAX_EB_PER_VALIDATOR) {
+        if (ctx.effectiveBalance > uint256(cluster.validatorCount) * (MAX_EB_PER_VALIDATOR / 1 ether)) {
             revert EBExceedsMaximum();
-        } else if (ctx.effectiveBalance < uint256(cluster.validatorCount) * (DEFAULT_EB_PER_VALIDATOR / 1 ether * (1 gwei))) {
+        } else if (ctx.effectiveBalance < uint256(cluster.validatorCount) * (DEFAULT_EB_PER_VALIDATOR / 1 ether)) {
             revert EBBelowMinimum();
         }
     }
