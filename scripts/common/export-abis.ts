@@ -8,6 +8,8 @@ async function main() {
   const buildInfoDir = path.join(artifactsPath, "build-info");
   const abisDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "abis");
 
+  const skippedFolders = ["test", "deprecated", "upgrades", "libraries", "interfaces"];
+
   if (fs.existsSync(abisDir)) {
     fs.rmSync(abisDir, { recursive: true });
   }
@@ -29,6 +31,12 @@ async function main() {
     const contracts = buildInfo.output.contracts;
 
     for (const fileName of Object.keys(contracts)) {
+      const shouldSkipFolder = skippedFolders.some(folder => fileName.includes(`/${folder}/`));
+
+      const isOpenZeppelin = fileName.includes("@openzeppelin/contracts");
+
+      if (shouldSkipFolder || isOpenZeppelin) continue;
+
       for (const contractName of Object.keys(contracts[fileName])) {
         const c = contracts[fileName][contractName];
 
