@@ -123,7 +123,7 @@ interface ISSVClusters is ISSVNetworkCore {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster,
-        uint256 effectiveBalance,
+        uint32 effectiveBalance,
         bytes32[] calldata merkleProof
     ) external;
 
