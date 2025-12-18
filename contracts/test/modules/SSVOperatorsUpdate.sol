@@ -46,7 +46,6 @@ contract SSVOperatorsUpdate is ISSVOperators {
             whitelisted: setPrivate,
             ethValidatorCount: 0,
             ethFee: 0,
-            version: 0,
             ethSnapshot: ISSVNetworkCore.Snapshot({block: 0, index: 0, balance: 0})
         });
         s.operatorsPKs[hashedPk] = id;
