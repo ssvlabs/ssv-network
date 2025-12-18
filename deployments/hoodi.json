@@ -1,0 +1,57 @@
+{
+  "SSVOperators": {
+    "latest": "0x5190e341597c06f2DB55AEDec93e22363C89c816",
+    "implementations": [
+      "0x5190e341597c06f2DB55AEDec93e22363C89c816"
+    ]
+  },
+  "SSVClusters": {
+    "latest": "0x13794bc7da06F1b98470f89fBB41D952f2272a84",
+    "implementations": [
+      "0x13794bc7da06F1b98470f89fBB41D952f2272a84"
+    ]
+  },
+  "SSVDAO": {
+    "latest": "0xf8D3e7BC2c25408087Fa9f421117E84827B1dbe7",
+    "implementations": [
+      "0xAe658cF38BeA1830e248bBd4aD64C796E3c0023e",
+      "0xf8D3e7BC2c25408087Fa9f421117E84827B1dbe7"
+    ]
+  },
+  "SSVViews": {
+    "latest": "0xDbD9fDE6Eb70CAdEc10AC4354e1BcEf652dB125c",
+    "implementations": [
+      "0xDbD9fDE6Eb70CAdEc10AC4354e1BcEf652dB125c"
+    ]
+  },
+  "SSVOperatorsWhitelist": {
+    "latest": "0xb406EE0968B987CBca5649d88577f0CEdEc572Be",
+    "implementations": [
+      "0xb406EE0968B987CBca5649d88577f0CEdEc572Be"
+    ]
+  },
+  "SSVNetwork": {
+    "latest": "0x2C41c6D0BDe0089d38F57A5D22154Bd6D1E2e001",
+    "implementations": [
+      "0x2C41c6D0BDe0089d38F57A5D22154Bd6D1E2e001"
+    ]
+  },
+  "SSVNetworkProxy": {
+    "latest": "0xB889847720A1c614b319bDf24722afB67d766BCD",
+    "implementations": [
+      "0xB889847720A1c614b319bDf24722afB67d766BCD"
+    ]
+  },
+  "SSVNetworkViews": {
+    "latest": "0x1Cf190a3842ed6B63f2C702a1FC4CB0700b237D6",
+    "implementations": [
+      "0x1Cf190a3842ed6B63f2C702a1FC4CB0700b237D6"
+    ]
+  },
+  "SSVNetworkViewsProxy": {
+    "latest": "0xbF429878D8792B8524bA306BB15051Eb2A2e312D",
+    "implementations": [
+      "0xbF429878D8792B8524bA306BB15051Eb2A2e312D"
+    ]
+  }
+}
