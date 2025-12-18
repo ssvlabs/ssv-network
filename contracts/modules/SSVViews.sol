@@ -338,59 +338,63 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256 balance, uint256 effectiveBalance) {
-
-        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        if (version != CoreLib.VERSION_ETH) {
+            return (0, 0);
+        }
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
-        {
-            uint256 operatorsLength = operatorIds.length;
-            for (uint256 i; i < operatorsLength; ++i) {
-                Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
-                clusterIndex +=
-                    operator.ethSnapshot.index +
-                    (uint64(block.number) - operator.ethSnapshot.block) *
-                    operator.ethFee;
-            }
+        uint256 operatorsLength = operatorIds.length;
+        for (uint256 i; i < operatorsLength; ++i) {
+            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            clusterIndex += operator.ethSnapshot.index + (uint64(block.number) - operator.ethSnapshot.block) * operator.ethFee;
         }
 
-        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndex());
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
         balance = cluster.balance;
 
-        bytes32 clusterId = keccak256(abi.encodePacked(clusterOwner, operatorIds));
         StorageEB storage seb = SSVStorageEB.load();
-        uint64 vUnits = seb.clusterEB[clusterId].vUnits;
+        uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
 
         if (vUnits == 0) {
             vUnits = cluster.validatorCount * VUNITS_PRECISION;
         }
 
-        effectiveBalance = (uint256(vUnits) * 32 ether) / VUNITS_PRECISION;
+        effectiveBalance = (uint256(vUnits) * DEFAULT_EB_PER_VALIDATOR) / VUNITS_PRECISION;
     }
 
     function getBalanceSSV(
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view override returns (uint256) {
-        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+    ) external view override returns (uint256 balance, uint256 effectiveBalance) {
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        if (version != CoreLib.VERSION_SSV) {
+            return (0, 0);
+        }
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
-        {
-            uint256 operatorsLength = operatorIds.length;
-            for (uint256 i; i < operatorsLength; ++i) {
-                Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
-                clusterIndex +=
-                    operator.snapshot.index +
-                    (uint64(block.number) - operator.snapshot.block) *
-                    operator.fee;
-            }
+        uint256 operatorsLength = operatorIds.length;
+        for (uint256 i; i < operatorsLength; ++i) {
+            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
         }
 
-        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndexSSV());
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndexSSV());
+        balance = cluster.balance;
 
-        return cluster.balance;
+        StorageEB storage seb = SSVStorageEB.load();
+        uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
+
+        if (vUnits == 0) {
+            vUnits = cluster.validatorCount * VUNITS_PRECISION;
+        }
+
+        effectiveBalance = (uint256(vUnits) * DEFAULT_EB_PER_VALIDATOR) / VUNITS_PRECISION;
     }
 
     function getClusterVersion(address clusterOwner, uint64[] calldata operatorIds) external view override returns (uint8) {
