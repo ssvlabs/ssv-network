@@ -1,8 +1,8 @@
 export enum SSVModules {
-  SSV_OPERATORS = 0,
-  SSV_CLUSTERS = 1,
-  SSV_DAO = 2,
-  SSV_VIEWS = 3,
-  SSV_OPERATORS_WHITELIST = 4,
-  SSV_STAKING = 5,
+  SSVOperators = 0,
+  SSVClusters = 1,
+  SSVDAO = 2,
+  SSVViews = 3,
+  SSVOperatorsWhitelist = 4,
+  SSVStaking = 5,
 }
