@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {ISSVViews} from "../interfaces/ISSVViews.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
+import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
 import {Types64} from "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
@@ -10,8 +11,7 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
-import {SSVStorageStaking, StorageStaking} from "../libraries/SSVStorageStaking.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -473,18 +473,19 @@ contract SSVViews is ISSVViews {
 
     function totalStaked() external view override returns (uint256) {
         address cssv = SSVStorageStaking.load().cssv;
-        return cssv == address(0) ? 0 : IERC20(cssv).totalSupply();
+        return cssv == address(0) ? 0 : ICSSVToken(cssv).totalSupply();
     }
 
     function stakedBalanceOf(address user) external view override returns (uint256) {
         address cssv = SSVStorageStaking.load().cssv;
-        return cssv == address(0) ? 0 : IERC20(cssv).balanceOf(user);
+        return cssv == address(0) ? 0 : ICSSVToken(cssv).balanceOf(user);
     }
 
     function pendingUnstake(address user) external view override returns (uint256 amount, uint256 unlockTime) {
         StorageStaking storage s = SSVStorageStaking.load();
-        amount = s.pendingUnstakeAmount[user];
-        unlockTime = s.pendingUnstakeUnlockTime[user];
+        UnstakeRequest memory request = s.withdrawals[user];
+        amount = request.amount;
+        unlockTime = request.unlockTime;
     }
 
     function accEthPerShare() external view override returns (uint256) {
@@ -499,7 +500,7 @@ contract SSVViews is ISSVViews {
         StorageStaking storage s = SSVStorageStaking.load();
         uint256 idx = _previewAccEthPerShare(s);
         address cssv = s.cssv;
-        uint256 bal = cssv == address(0) ? 0 : IERC20(cssv).balanceOf(user);
+        uint256 bal = cssv == address(0) ? 0 : ICSSVToken(cssv).balanceOf(user);
         uint256 delta = idx - s.userIndex[user];
         uint256 pending = (bal * delta) / PRECISION;
         return s.accrued[user] + pending;
@@ -512,7 +513,7 @@ contract SSVViews is ISSVViews {
         uint256 idx = s.accEthPerShare;
         uint64 previous = s.stakingEthPoolBalance;
 
-        uint256 totalStaked_ = s.cssv == address(0) ? 0 : IERC20(s.cssv).totalSupply();
+        uint256 totalStaked_ = s.cssv == address(0) ? 0 : ICSSVToken(s.cssv).totalSupply();
 
         if (current <= previous || totalStaked_ == 0) {
             return idx;

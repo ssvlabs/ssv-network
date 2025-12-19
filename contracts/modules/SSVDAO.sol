@@ -33,25 +33,6 @@ contract SSVDAO is ISSVDAO {
         emit NetworkFeeUpdated(previousFee.expand(), fee);
     }
 
-    function withdrawNetworkEarnings(uint256 amount) external override {
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        uint64 shrunkAmount = amount.shrink();
-
-        uint64 networkBalance = sp.networkTotalEarnings();
-
-        if (shrunkAmount > networkBalance) {
-            revert InsufficientBalance();
-        }
-
-        sp.ethDaoBalance = networkBalance - shrunkAmount;
-        sp.ethDaoIndexBlockNumber = uint32(block.number);
-
-        CoreLib.transferBalance(msg.sender, amount);
-
-        emit NetworkEarningsWithdrawn(amount, msg.sender);
-    }
-
     function withdrawNetworkSSVEarnings(uint256 amount) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 

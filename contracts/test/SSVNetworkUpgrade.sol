@@ -427,13 +427,6 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function withdrawNetworkEarnings(uint256 amount) external override onlyOwner nonReentrant {
-        _delegateCall(
-            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
-            abi.encodeWithSignature("withdrawNetworkEarnings(uint256)", amount)
-        );
-    }
-
     function withdrawNetworkSSVEarnings(uint256 amount) external override onlyOwner nonReentrant {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],

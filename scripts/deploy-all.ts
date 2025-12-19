@@ -1,5 +1,5 @@
 import hre from "hardhat";
-import { parseArg, getEthers, getDeployer, deployContract, deployProxy, attachModule } from "./common/helpers.ts";
+import { parseArg, getEthers, getDeployer, deployContract, deployProxy, attachModule, upgradeProxy } from "./common/helpers.ts";
 import { saveImplementation } from "./common/address-book.js";
 
 async function main() {
@@ -18,7 +18,7 @@ async function main() {
     throw new Error("Missing SSVToken address in config");
   }
 
-  const moduleNames = ["SSVOperators", "SSVClusters", "SSVDAO", "SSVViews", "SSVOperatorsWhitelist"];
+  const moduleNames = ["SSVOperators", "SSVClusters", "SSVDAO", "SSVViews", "SSVOperatorsWhitelist", "SSVStaking"];
   const moduleAddresses: { [key: string]: string } = {};
   for (const mod of moduleNames) {
     const { address } = await deployContract(ethers, mod);
@@ -57,6 +57,31 @@ async function main() {
 
   const { address: viewsProxyAddr } = await deployProxy(ethers, deployer, viewsImplAddr, viewsInitData);
   saveImplementation(targetNetwork, "SSVNetworkViewsProxy", viewsProxyAddr);
+
+  // --- Start Staking Deployment & Upgrade ---
+
+  // 1. Deploy cSSVToken (passing SSVNetworkProxy address)
+  const { address: cssvTokenAddr } = await deployContract(ethers, "CSSVToken", [networkProxyAddr]);
+  saveImplementation(targetNetwork, "CSSVToken", cssvTokenAddr);
+
+  // 2. SSVStaking implementation was deployed in the loop above
+
+  // 3. Attach SSVStaking module to SSVNetwork
+  await attachModule(ethers, networkProxyAddr, "SSVStaking", moduleAddresses["SSVStaking"]);
+
+  // 4. Deploy and Upgrade SSVNetwork with initialization
+  const { address: upgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
+  saveImplementation(targetNetwork, "SSVNetworkSSVStakingUpgrade", upgradeImplAddr);
+
+  await upgradeProxy(
+    ethers,
+    deployer,
+    networkProxyAddr,
+    upgradeImplAddr,
+    "SSVNetworkSSVStakingUpgrade",
+    "initializeSSVStaking",
+    [cssvTokenAddr]
+  );
 }
 
 main().catch(err => {

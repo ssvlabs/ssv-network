@@ -12,10 +12,6 @@ interface ISSVDAO is ISSVNetworkCore {
     /// @param fee The new network fee (SSV) to be set
     function updateNetworkFeeSSV(uint256 fee) external;
 
-    /// @notice Withdraws network earnings (ETH post-migration)
-    /// @param amount The amount (ETH) to be withdrawn
-    function withdrawNetworkEarnings(uint256 amount) external;
-
     /// @notice Withdraws legacy network earnings (SSV pre-migration)
     /// @param amount The amount (SSV) to be withdrawn
     function withdrawNetworkSSVEarnings(uint256 amount) external;
