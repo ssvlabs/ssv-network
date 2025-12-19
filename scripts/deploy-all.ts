@@ -58,20 +58,15 @@ async function main() {
   const { address: viewsProxyAddr } = await deployProxy(ethers, deployer, viewsImplAddr, viewsInitData);
   saveImplementation(targetNetwork, "SSVNetworkViewsProxy", viewsProxyAddr);
 
-  // --- Start Staking Deployment & Upgrade ---
-
-  // 1. Deploy cSSVToken (passing SSVNetworkProxy address)
   const { address: cssvTokenAddr } = await deployContract(ethers, "CSSVToken", [networkProxyAddr]);
   saveImplementation(targetNetwork, "CSSVToken", cssvTokenAddr);
 
-  // 2. SSVStaking implementation was deployed in the loop above
-
-  // 3. Attach SSVStaking module to SSVNetwork
   await attachModule(ethers, networkProxyAddr, "SSVStaking", moduleAddresses["SSVStaking"]);
 
-  // 4. Deploy and Upgrade SSVNetwork with initialization
   const { address: upgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
   saveImplementation(targetNetwork, "SSVNetworkSSVStakingUpgrade", upgradeImplAddr);
+
+  const cooldown = 7n * 24n * 60n * 60n;
 
   await upgradeProxy(
     ethers,
@@ -79,8 +74,8 @@ async function main() {
     networkProxyAddr,
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
-    "initializeSSVStaking",
-    [cssvTokenAddr, 7 * 24 * 60 * 60]
+    "initializeSSVStaking(address,uint64)",
+    [cssvTokenAddr, cooldown]
   );
 }
 
