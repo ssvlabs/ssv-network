@@ -74,6 +74,21 @@
   },
   {
     "inputs": [],
+    "name": "CooldownActive",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CooldownNotFinished",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "EBBelowMinimum",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "EBExceedsMaximum",
     "type": "error"
   },
@@ -198,6 +213,11 @@
   },
   {
     "inputs": [],
+    "name": "InvalidToken",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidWhitelistAddressesLength",
     "type": "error"
   },
@@ -239,6 +259,21 @@
   },
   {
     "inputs": [],
+    "name": "NotCSSV",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NothingToClaim",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NothingToWithdraw",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "OperatorAlreadyExists",
     "type": "error"
   },
@@ -265,6 +300,11 @@
   {
     "inputs": [],
     "name": "SameFeeChangeNotAllowed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakeTooLow",
     "type": "error"
   },
   {
@@ -305,6 +345,11 @@
   },
   {
     "inputs": [],
+    "name": "UnstakeAmountExceedsBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "UpdateTooFrequent",
     "type": "error"
   },
@@ -331,7 +376,17 @@
   },
   {
     "inputs": [],
+    "name": "ZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ZeroAddressNotAllowed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroAmount",
     "type": "error"
   },
   {

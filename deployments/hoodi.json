@@ -1,0 +1,74 @@
+{
+  "SSVOperators": {
+    "latest": "0xe22F5770cb6d3065507d050243d685D7f0614b90",
+    "implementations": [
+      "0xe22F5770cb6d3065507d050243d685D7f0614b90"
+    ]
+  },
+  "SSVClusters": {
+    "latest": "0xB6fa4c1d58fc28d301Cef1bdeC69fCd970b8fde4",
+    "implementations": [
+      "0xB6fa4c1d58fc28d301Cef1bdeC69fCd970b8fde4"
+    ]
+  },
+  "SSVDAO": {
+    "latest": "0x6FE135d181Ed62DA8cbcE8D87dC28A3Fb939D9b6",
+    "implementations": [
+      "0x6FE135d181Ed62DA8cbcE8D87dC28A3Fb939D9b6"
+    ]
+  },
+  "SSVViews": {
+    "latest": "0xc25ad8Ebf84E08797b3076bb861C35056D3728e9",
+    "implementations": [
+      "0xc25ad8Ebf84E08797b3076bb861C35056D3728e9"
+    ]
+  },
+  "SSVOperatorsWhitelist": {
+    "latest": "0x1B02139E5cFb21fF030e7c9A1e2175e0Ee757889",
+    "implementations": [
+      "0x1B02139E5cFb21fF030e7c9A1e2175e0Ee757889"
+    ]
+  },
+  "SSVStaking": {
+    "latest": "0x03aAd03E41705489443dC13C47EDA18677A0E1B5",
+    "implementations": [
+      "0x03aAd03E41705489443dC13C47EDA18677A0E1B5"
+    ]
+  },
+  "SSVNetwork": {
+    "latest": "0xa17f6468b3A8E2975C7523E5402015bD4Be730F6",
+    "implementations": [
+      "0xa17f6468b3A8E2975C7523E5402015bD4Be730F6"
+    ]
+  },
+  "SSVNetworkProxy": {
+    "latest": "0xB2f6671Ca7F4B7319FD9e76E6656283578Bf8ED9",
+    "implementations": [
+      "0xB2f6671Ca7F4B7319FD9e76E6656283578Bf8ED9"
+    ]
+  },
+  "SSVNetworkViews": {
+    "latest": "0x982A01AaffAf4c2C190B16aF2BF19e3f0E5c00B9",
+    "implementations": [
+      "0x982A01AaffAf4c2C190B16aF2BF19e3f0E5c00B9"
+    ]
+  },
+  "SSVNetworkViewsProxy": {
+    "latest": "0x5888116f5863CA1A311F51ab79a03fBd34Ac6487",
+    "implementations": [
+      "0x5888116f5863CA1A311F51ab79a03fBd34Ac6487"
+    ]
+  },
+  "CSSVToken": {
+    "latest": "0xBAa655574b5caa6dDc8DB18C2a479a3d6dDD8e45",
+    "implementations": [
+      "0xBAa655574b5caa6dDc8DB18C2a479a3d6dDD8e45"
+    ]
+  },
+  "SSVNetworkSSVStakingUpgrade": {
+    "latest": "0xD63cF83e24c3de7C24C8dA3ABC02221Af6417Ca2",
+    "implementations": [
+      "0xD63cF83e24c3de7C24C8dA3ABC02221Af6417Ca2"
+    ]
+  }
+}
