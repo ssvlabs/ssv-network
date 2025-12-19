@@ -52,6 +52,8 @@ interface ISSVDAO is ISSVNetworkCore {
         uint64 secondStartEpoch,
         uint64 secondInterval
     ) external;
+
+    function setUnstakeCooldownDuration(uint64 duration) external;
     
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
 
@@ -85,4 +87,7 @@ interface ISSVDAO is ISSVNetworkCore {
     event RootCommitted(bytes32 indexed merkleRoot, uint64 indexed blockNum);
 
     event RootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum);
+
+    event CooldownDurationUpdated(uint64 newCooldownDuration);
+
 }

@@ -20,12 +20,6 @@ contract SSVStaking is ISSVStaking {
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint64 private constant PRECISION = 1e18;
 
-    uint64 public immutable cooldownDuration;
-
-    constructor() {
-        cooldownDuration = 7 days;
-    }
-
     function syncFees() external {
         _syncFees(SSVStorageStaking.load());
     }
@@ -36,8 +30,6 @@ contract SSVStaking is ISSVStaking {
         if (amount < MINIMAL_STAKING_AMOUNT) revert StakeTooLow();
 
         StorageStaking storage s = SSVStorageStaking.load();
-        address cssv = s.cssv;
-        if (cssv == address(0)) revert CSSVNotSet();
 
         // 2. Update global and user states before balance change
         _syncFees(s);
@@ -49,7 +41,7 @@ contract SSVStaking is ISSVStaking {
         }
 
         // 4. Mint cSSV receipt tokens 1:1
-        ICSSVToken(cssv).mint(msg.sender, amount);
+        ICSSVToken(s.cssv).mint(msg.sender, amount);
 
         emit Staked(msg.sender, amount);
     }
@@ -59,7 +51,7 @@ contract SSVStaking is ISSVStaking {
 
         StorageStaking storage s = SSVStorageStaking.load();
         address cssv = s.cssv;
-        if (cssv == address(0)) revert CSSVNotSet();
+
         // Ensure user doesn't have an existing pending request
         if (s.withdrawals[msg.sender].amount != 0) revert CooldownActive();
 
@@ -74,7 +66,7 @@ contract SSVStaking is ISSVStaking {
         ICSSVToken(cssv).burn(msg.sender, amount);
 
         // 4. Record pending withdrawal and set cooldown
-        uint64 unlockTime = uint64(block.timestamp + cooldownDuration);
+        uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
         s.withdrawals[msg.sender] = UnstakeRequest({
             amount: uint192(amount),
             unlockTime: unlockTime
@@ -170,7 +162,7 @@ contract SSVStaking is ISSVStaking {
         uint64 newFeesShrunk = current - previous;
         uint256 newFeesWei;
 
-        uint256 totalStaked = s.cssv == address(0) ? 0 : ICSSVToken(s.cssv).totalSupply();
+        uint256 totalStaked = ICSSVToken(s.cssv).totalSupply();
         if (totalStaked != 0) {
             newFeesWei = newFeesShrunk.expand();
             s.accEthPerShare += uint128((newFeesWei * PRECISION) / totalStaked);
@@ -187,7 +179,7 @@ contract SSVStaking is ISSVStaking {
         uint256 idx = s.accEthPerShare;
         uint64 previous = s.stakingEthPoolBalance;
 
-        uint256 totalStaked = s.cssv == address(0) ? 0 : ICSSVToken(s.cssv).totalSupply();
+        uint256 totalStaked = ICSSVToken(s.cssv).totalSupply();
 
         if (current <= previous || totalStaked == 0) {
             return idx;
@@ -199,8 +191,7 @@ contract SSVStaking is ISSVStaking {
     }
 
     function _settle(address user, StorageStaking storage s) internal {
-        address cssv = s.cssv;
-        uint256 bal = cssv == address(0) ? 0 : ICSSVToken(cssv).balanceOf(user);
+        uint256 bal = ICSSVToken(s.cssv).balanceOf(user);
         _settleWithBalance(user, bal, s);
     }
 

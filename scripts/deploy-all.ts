@@ -80,7 +80,7 @@ async function main() {
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
     "initializeSSVStaking",
-    [cssvTokenAddr]
+    [cssvTokenAddr, 7 * 24 * 60 * 60]
   );
 }
 

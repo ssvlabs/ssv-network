@@ -120,7 +120,6 @@ interface ISSVNetworkCore {
 
     // SSV Staking-specific errors
     error NotCSSV();
-    error CSSVNotSet();
     error ZeroAddress();
     error ZeroAmount();
     error InvalidToken();

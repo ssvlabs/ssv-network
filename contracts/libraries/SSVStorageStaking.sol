@@ -11,6 +11,8 @@ struct UnstakeRequest {
 struct StorageStaking {
     /// @notice Address of the cSSV token used as the staking receipt token
     address cssv;
+    /// @notice Cooldown duration for unstaking
+    uint64 cooldownDuration;
     /// @notice Total ETH-denominated rewards (shrunk) allocated to the staking pool
     uint64 stakingEthPoolBalance;
     /// @notice Global accumulated ETH rewards per cSSV token (scaled by PRECISION)

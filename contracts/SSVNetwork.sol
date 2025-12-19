@@ -8,18 +8,17 @@ import "./interfaces/ISSVOperators.sol";
 import "./interfaces/ISSVOperatorsWhitelist.sol";
 import "./interfaces/ISSVDAO.sol";
 import "./interfaces/ISSVViews.sol";
+import "./interfaces/ISSVStaking.sol";
 
 import "./interfaces/external/ISSVWhitelistingContract.sol";
 
-import "./libraries/Types.sol";
-import "./libraries/CoreLib.sol";
-import "./libraries/SSVStorage.sol";
-import "./libraries/SSVStorageProtocol.sol";
+import {Types256} from "./libraries/Types.sol";
+import {CoreLib} from "./libraries/CoreLib.sol";
+import {StorageProtocol, SSVStorageProtocol} from "./libraries/SSVStorageProtocol.sol";
+import {StorageData, SSVModules} from "./libraries/SSVStorage.sol";
+import {SSVStorageStaking, StorageStaking} from "./libraries/SSVStorageStaking.sol";
 
 import "./SSVProxy.sol";
-
-import {SSVModules} from "./libraries/SSVStorage.sol";
-import {SSVStorageStaking, StorageStaking} from "./libraries/SSVStorageStaking.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -35,6 +34,7 @@ contract SSVNetwork is
     ISSVOperatorsWhitelist,
     ISSVClusters,
     ISSVDAO,
+    ISSVStaking,
     SSVProxy
 {
     using Types256 for uint256;
@@ -400,6 +400,10 @@ contract SSVNetwork is
         uint64 secondStartEpoch,
         uint64 secondInterval
     ) external onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function setUnstakeCooldownDuration(uint64 duration) external onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 

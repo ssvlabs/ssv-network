@@ -7,6 +7,7 @@ import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
+import {SSVStorageStaking} from "../libraries/SSVStorageStaking.sol";
 
 contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
@@ -134,5 +135,10 @@ contract SSVDAO is ISSVDAO {
         sp.oracleFirstEpochInterval = firstInterval;
         sp.oracleSecondStartEpoch = secondStartEpoch;
         sp.oracleSecondEpochInterval = secondInterval;
+    }
+
+    function setUnstakeCooldownDuration(uint64 duration) external override {
+        SSVStorageStaking.load().cooldownDuration = duration;
+        emit CooldownDurationUpdated(duration);
     }
 }

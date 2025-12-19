@@ -467,18 +467,16 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().ethDaoValidatorCount;
     }
 
-    function cooldownDuration() external pure override returns (uint256) {
-        return 7 days; // TODO get the stored value
+    function cooldownDuration() external view override returns (uint256) {
+        return SSVStorageStaking.load().cooldownDuration;
     }
 
     function totalStaked() external view override returns (uint256) {
-        address cssv = SSVStorageStaking.load().cssv;
-        return cssv == address(0) ? 0 : ICSSVToken(cssv).totalSupply();
+        return ICSSVToken(SSVStorageStaking.load().cssv).totalSupply();
     }
 
     function stakedBalanceOf(address user) external view override returns (uint256) {
-        address cssv = SSVStorageStaking.load().cssv;
-        return cssv == address(0) ? 0 : ICSSVToken(cssv).balanceOf(user);
+        return ICSSVToken(SSVStorageStaking.load().cssv).balanceOf(user);
     }
 
     function pendingUnstake(address user) external view override returns (uint256 amount, uint256 unlockTime) {
@@ -499,8 +497,7 @@ contract SSVViews is ISSVViews {
     function previewClaimableEth(address user) external view override returns (uint256) {
         StorageStaking storage s = SSVStorageStaking.load();
         uint256 idx = _previewAccEthPerShare(s);
-        address cssv = s.cssv;
-        uint256 bal = cssv == address(0) ? 0 : ICSSVToken(cssv).balanceOf(user);
+        uint256 bal = ICSSVToken(s.cssv).balanceOf(user);
         uint256 delta = idx - s.userIndex[user];
         uint256 pending = (bal * delta) / PRECISION;
         return s.accrued[user] + pending;
@@ -513,7 +510,7 @@ contract SSVViews is ISSVViews {
         uint256 idx = s.accEthPerShare;
         uint64 previous = s.stakingEthPoolBalance;
 
-        uint256 totalStaked_ = s.cssv == address(0) ? 0 : ICSSVToken(s.cssv).totalSupply();
+        uint256 totalStaked_ = ICSSVToken(s.cssv).totalSupply();
 
         if (current <= previous || totalStaked_ == 0) {
             return idx;
