@@ -10,6 +10,8 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorageStaking, StorageStaking} from "../libraries/SSVStorageStaking.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -17,6 +19,8 @@ contract SSVViews is ISSVViews {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
+
+    uint256 private constant PRECISION = 1e18;
 
     /*************************************/
     /* Validator External View Functions */
@@ -457,6 +461,62 @@ contract SSVViews is ISSVViews {
 
     function getNetworkValidatorsCount() external view override returns (uint32) {
         return SSVStorageProtocol.load().ethDaoValidatorCount;
+    }
+
+    function cooldownDuration() external pure override returns (uint256) {
+        return 7 days; // TODO get the stored value
+    }
+
+    function totalStaked() external view override returns (uint256) {
+        address cssv = SSVStorageStaking.load().cssv;
+        return cssv == address(0) ? 0 : IERC20(cssv).totalSupply();
+    }
+
+    function stakedBalanceOf(address user) external view override returns (uint256) {
+        address cssv = SSVStorageStaking.load().cssv;
+        return cssv == address(0) ? 0 : IERC20(cssv).balanceOf(user);
+    }
+
+    function pendingUnstake(address user) external view override returns (uint256 amount, uint256 unlockTime) {
+        StorageStaking storage s = SSVStorageStaking.load();
+        amount = s.pendingUnstakeAmount[user];
+        unlockTime = s.pendingUnstakeUnlockTime[user];
+    }
+
+    function accEthPerShare() external view override returns (uint256) {
+        return SSVStorageStaking.load().accEthPerShare;
+    }
+
+    function stakingEthPoolBalance() external view override returns (uint64) {
+        return SSVStorageStaking.load().stakingEthPoolBalance;
+    }
+
+    function previewClaimableEth(address user) external view override returns (uint256) {
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint256 idx = _previewAccEthPerShare(s);
+        address cssv = s.cssv;
+        uint256 bal = cssv == address(0) ? 0 : IERC20(cssv).balanceOf(user);
+        uint256 delta = idx - s.userIndex[user];
+        uint256 pending = (bal * delta) / PRECISION;
+        return s.accrued[user] + pending;
+    }
+
+    function _previewAccEthPerShare(StorageStaking storage s) internal view returns (uint256) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64 current = sp.networkTotalEarnings();
+
+        uint256 idx = s.accEthPerShare;
+        uint64 previous = s.stakingEthPoolBalance;
+
+        uint256 totalStaked_ = s.cssv == address(0) ? 0 : IERC20(s.cssv).totalSupply();
+
+        if (current <= previous || totalStaked_ == 0) {
+            return idx;
+        }
+
+        uint64 newFeesShrunk = current - previous;
+        uint256 newFeesWei = newFeesShrunk.expand();
+        return idx + (newFeesWei * PRECISION) / totalStaked_;
     }
 
     function getVersion() external pure override returns (string memory) {

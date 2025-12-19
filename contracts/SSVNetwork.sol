@@ -19,6 +19,7 @@ import "./libraries/SSVStorageProtocol.sol";
 import "./SSVProxy.sol";
 
 import {SSVModules} from "./libraries/SSVStorage.sol";
+import {SSVStorageStaking, StorageStaking} from "./libraries/SSVStorageStaking.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -211,6 +212,39 @@ contract SSVNetwork is
 
     function setFeeRecipientAddress(address recipientAddress) external override {
         emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
+    }
+
+    /*******************************/
+    /* Staking External Functions */
+    /*******************************/
+
+    function syncFees() external nonReentrant {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function stake(uint256 amount) external nonReentrant {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function requestUnstake(uint256 amount) external nonReentrant {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function withdrawUnlocked() external nonReentrant {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function claimEthRewards() external nonReentrant {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function rescueERC20(address token, address to, uint256 amount) external onlyOwner nonReentrant {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function onCSSVTransfer(address from, address to) external nonReentrant {
+        if (msg.sender != SSVStorageStaking.load().cssv) revert NotCSSV();
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
     /*******************************/

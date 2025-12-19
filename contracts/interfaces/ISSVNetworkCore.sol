@@ -122,6 +122,8 @@ interface ISSVNetworkCore {
     error ZeroInterval();
     error EBBelowMinimum();
 
+    error NotCSSV();
+
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
     error IncorrectValidatorState(); // 0x2feda3c1
