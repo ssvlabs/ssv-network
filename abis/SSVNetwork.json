@@ -79,6 +79,11 @@
   },
   {
     "inputs": [],
+    "name": "EBBelowMinimum",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "EBExceedsMaximum",
     "type": "error"
   },
@@ -402,12 +407,6 @@
         "internalType": "uint256",
         "name": "effectiveBalance",
         "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "vUnits",
-        "type": "uint64"
       },
       {
         "components": [
@@ -1013,31 +1012,6 @@
       }
     ],
     "name": "OperatorMaximumFeeUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint64",
-        "name": "operatorId",
-        "type": "uint64"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "ethFee",
-        "type": "uint64"
-      }
-    ],
-    "name": "OperatorMigratedToETH",
     "type": "event"
   },
   {
@@ -1886,19 +1860,6 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "operatorId",
-        "type": "uint64"
-      }
-    ],
-    "name": "migrateOperatorToETH",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "owner",
     "outputs": [
@@ -2361,9 +2322,9 @@
         "type": "tuple"
       },
       {
-        "internalType": "uint256",
+        "internalType": "uint32",
         "name": "effectiveBalance",
-        "type": "uint256"
+        "type": "uint32"
       },
       {
         "internalType": "bytes32[]",

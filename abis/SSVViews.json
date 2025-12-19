@@ -74,6 +74,11 @@
   },
   {
     "inputs": [],
+    "name": "EBBelowMinimum",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "EBExceedsMaximum",
     "type": "error"
   },
@@ -392,9 +397,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
+        "internalType": "uint32",
         "name": "effectiveBalance",
-        "type": "uint256"
+        "type": "uint32"
       }
     ],
     "stateMutability": "view",
@@ -453,9 +458,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
+        "internalType": "uint32",
         "name": "effectiveBalance",
-        "type": "uint256"
+        "type": "uint32"
       }
     ],
     "stateMutability": "view",
