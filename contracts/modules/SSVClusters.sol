@@ -561,7 +561,7 @@ contract SSVClusters is ISSVClusters {
         uint64 newVUnits,
         Cluster memory cluster
     ) internal {
-        emit ClusterBalanceUpdated(clusterOwner, operatorIds, blockNum, eb, newVUnits, cluster);
+        emit ClusterBalanceUpdated(clusterOwner, operatorIds, blockNum, eb, cluster);
     }
 
     function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {

@@ -333,7 +333,7 @@ contract SSVNetwork is
         address clusterOwner,
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster,
-        uint256 effectiveBalance,
+        uint32 effectiveBalance,
         bytes32[] calldata merkleProof
     ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);

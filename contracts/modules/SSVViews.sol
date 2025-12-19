@@ -341,7 +341,7 @@ contract SSVViews is ISSVViews {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view override returns (uint256 balance, uint256 effectiveBalance) {
+    ) external view override returns (uint256 balance, uint32 effectiveBalance) {
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         if (version != CoreLib.VERSION_ETH) {
             return (0, 0);
@@ -366,14 +366,16 @@ contract SSVViews is ISSVViews {
             vUnits = cluster.validatorCount * VUNITS_PRECISION;
         }
 
-        effectiveBalance = (uint256(vUnits) * DEFAULT_EB_PER_VALIDATOR) / VUNITS_PRECISION;
+        effectiveBalance = uint32(
+            (uint256(vUnits) * DEFAULT_EB_PER_VALIDATOR) / VUNITS_PRECISION
+        );
     }
 
     function getBalanceSSV(
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view override returns (uint256 balance, uint256 effectiveBalance) {
+    ) external view override returns (uint256 balance, uint32 effectiveBalance) {
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         if (version != CoreLib.VERSION_SSV) {
             return (0, 0);
@@ -398,7 +400,9 @@ contract SSVViews is ISSVViews {
             vUnits = cluster.validatorCount * VUNITS_PRECISION;
         }
 
-        effectiveBalance = (uint256(vUnits) * DEFAULT_EB_PER_VALIDATOR) / VUNITS_PRECISION;
+        effectiveBalance = uint32(
+            (uint256(vUnits) * DEFAULT_EB_PER_VALIDATOR) / VUNITS_PRECISION
+        );
     }
 
     function getClusterVersion(address clusterOwner, uint64[] calldata operatorIds) external view override returns (uint8) {

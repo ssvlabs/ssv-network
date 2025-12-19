@@ -28,10 +28,6 @@ interface ISSVNetworkCore {
         bool whitelisted;
         /// @dev The state snapshot of the operator
         Snapshot snapshot;
-
-        /// @dev Operator struct version 0, version 0 fee = SSV, version 1 fee = eth.
-        /// TODO unused, remove on next fresh deployment
-        uint8 version;
         
         /// @dev The number of validators associated with this operator in eth
         uint32 ethValidatorCount;
