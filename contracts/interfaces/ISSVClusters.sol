@@ -200,7 +200,7 @@ interface ISSVClusters is ISSVNetworkCore {
         address indexed owner,
         uint64[] operatorIds,
         uint64 indexed blockNum,
-        uint256 effectiveBalance,
+        uint32 effectiveBalance,
         ISSVNetworkCore.Cluster cluster
     );
 

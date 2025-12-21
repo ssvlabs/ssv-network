@@ -557,7 +557,7 @@ contract SSVClusters is ISSVClusters {
         address clusterOwner,
         uint64[] calldata operatorIds,
         uint64 blockNum,
-        uint256 eb,
+        uint32 eb,
         uint64 newVUnits,
         Cluster memory cluster
     ) internal {
