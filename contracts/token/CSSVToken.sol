@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 interface ISSVStaking {
-    function onCSSVTransfer(address from, address to) external;
+    function onCSSVTransfer(address from, address to, uint256 amount) external;
 }
 
 contract CSSVToken is ERC20 {
@@ -25,7 +25,7 @@ contract CSSVToken is ERC20 {
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
         if (from != to && from != address(0) && to != address(0) && msg.sender != ssvStaking && amount > 0) {
-            ISSVStaking(ssvStaking).onCSSVTransfer(from, to);
+            ISSVStaking(ssvStaking).onCSSVTransfer(from, to, amount);
         }
         super._beforeTokenTransfer(from, to, amount);
     }

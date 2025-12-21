@@ -24,8 +24,10 @@ struct StorageEB {
     uint64 latestCommittedBlock;
     /// @notice Minimum blocks between updates
     uint32 minBlocksBetweenUpdates;
-    /// @notice TEMP counts root commitments for oracle logic simulation (root commitment is encoded root and block)
+    /// @notice Counts root commitments (accumulated weight) per commitment key (encoded root and block)
     mapping(bytes32 => uint256) rootCommitments;
+    /// @notice Tracks if an oracle ID has voted for a specific commitment key
+    mapping(bytes32 => mapping(uint32 => bool)) hasVoted;
 }
 
 library SSVStorageEB {

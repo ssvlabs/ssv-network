@@ -242,7 +242,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
-    function onCSSVTransfer(address from, address to) external nonReentrant {
+    function onCSSVTransfer(address from, address to, uint256 amount) external nonReentrant {
         if (msg.sender != SSVStorageStaking.load().cssv) revert NotCSSV();
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
@@ -404,6 +404,14 @@ contract SSVNetwork is
     }
 
     function setUnstakeCooldownDuration(uint64 duration) external onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function replaceOracle(uint32 oracleId, address newOracle) external override onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function setQuorumBps(uint16 quorum) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 

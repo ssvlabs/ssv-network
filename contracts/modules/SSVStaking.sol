@@ -8,7 +8,7 @@ import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
 import {SSVStorage} from "../libraries/SSVStorage.sol";
-import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
+import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import "../libraries/Types.sol";
 
@@ -40,7 +40,10 @@ contract SSVStaking is ISSVStaking {
             revert TokenTransferFailed();
         }
 
-        // 4. Mint cSSV receipt tokens 1:1
+        // 4. Update delegations (before minting cSSV to reflect the new weight)
+        _createDelegation(msg.sender, amount, s);
+
+        // 5. Mint cSSV receipt tokens 1:1
         ICSSVToken(s.cssv).mint(msg.sender, amount);
 
         emit Staked(msg.sender, amount);
@@ -62,15 +65,15 @@ contract SSVStaking is ISSVStaking {
         _settleWithBalance(msg.sender, bal, s);
         if (amount > bal) revert UnstakeAmountExceedsBalance();
 
-        // 3. Burn cSSV tokens immediately
+        // 3. Update delegations (remove weight proportional to amount)
+        _removeDelegation(msg.sender, amount, bal, s);
+
+        // 4. Burn cSSV tokens immediately
         ICSSVToken(cssv).burn(msg.sender, amount);
 
-        // 4. Record pending withdrawal and set cooldown
+        // 5. Record pending withdrawal and set cooldown
         uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
-        s.withdrawals[msg.sender] = UnstakeRequest({
-            amount: uint192(amount),
-            unlockTime: unlockTime
-        });
+        s.withdrawals[msg.sender] = UnstakeRequest({amount: uint192(amount), unlockTime: unlockTime});
 
         emit UnstakeRequested(msg.sender, amount, unlockTime);
     }
@@ -128,7 +131,8 @@ contract SSVStaking is ISSVStaking {
 
     function rescueERC20(address token, address to, uint256 amount) external {
         if (token == address(0) || to == address(0)) revert ZeroAddress();
-        if (token == address(SSVStorage.load().token) || token == address(SSVStorageStaking.load().cssv)) revert InvalidToken();
+        if (token == address(SSVStorage.load().token) || token == address(SSVStorageStaking.load().cssv))
+            revert InvalidToken();
         if (amount == 0) revert ZeroAmount();
 
         if (!IERC20(token).transfer(to, amount)) {
@@ -138,12 +142,14 @@ contract SSVStaking is ISSVStaking {
         emit ERC20Rescued(token, to, amount);
     }
 
-    function onCSSVTransfer(address from, address to) external {
+    function onCSSVTransfer(address from, address to, uint256 amount) external {
         StorageStaking storage s = SSVStorageStaking.load();
 
         _syncFees(s);
         _settle(from, s);
         _settle(to, s);
+
+        _transferDelegation(from, to, amount, s);
     }
 
     function _syncFees(StorageStaking storage s) internal {

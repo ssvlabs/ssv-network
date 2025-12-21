@@ -129,6 +129,9 @@ interface ISSVNetworkCore {
     error NothingToWithdraw();
     error UnstakeAmountExceedsBalance();
     error StakeTooLow();
+    error NotOracle();
+    error AlreadyVoted();
+    error OracleAlreadyAssigned();
 
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e

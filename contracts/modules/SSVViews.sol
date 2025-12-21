@@ -11,7 +11,7 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
-import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
+import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -501,6 +501,27 @@ contract SSVViews is ISSVViews {
         uint256 delta = idx - s.userIndex[user];
         uint256 pending = (bal * delta) / PRECISION;
         return s.accrued[user] + pending;
+    }
+
+    function getOracle(uint32 oracleId) external view override returns (address) {
+        return SSVStorageStaking.load().oracles[oracleId];
+    }
+
+    function getOracleWeight(uint32 oracleId) external view override returns (uint256) {
+        return SSVStorageStaking.load().oracleWeights[oracleId];
+    }
+
+    function getDefaultOracleIds() external view override returns (uint32[4] memory) {
+        return SSVStorageStaking.load().defaultOracleIds;
+    }
+
+    function getUserDelegation(address user) external view override returns (uint32[4] memory oracleIds, uint256[4] memory amounts) {
+        Delegation storage d = SSVStorageStaking.load().userDelegations[user];
+        return (d.oracleIds, d.amounts);
+    }
+
+    function getQuorumBps() external view override returns (uint16) {
+        return SSVStorageStaking.load().quorumBps;
     }
 
     function _previewAccEthPerShare(StorageStaking storage s) internal view returns (uint256) {

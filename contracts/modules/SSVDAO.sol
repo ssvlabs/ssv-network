@@ -7,7 +7,8 @@ import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
-import {SSVStorageStaking} from "../libraries/SSVStorageStaking.sol";
+import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
+import {SSVStorageStaking, StorageStaking} from "../libraries/SSVStorageStaking.sol";
 
 contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
@@ -16,7 +17,6 @@ contract SSVDAO is ISSVDAO {
     using ProtocolLib for StorageProtocol;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
-    uint256 private constant ROOT_COMMITS_THRESHOLD = 3;
 
     function updateNetworkFee(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -89,6 +89,10 @@ contract SSVDAO is ISSVDAO {
 
     function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
         StorageEB storage seb = SSVStorageEB.load();
+        StorageStaking storage s = SSVStorageStaking.load();
+
+        uint32 oracleId = s.oracleIdOf[msg.sender];
+        if (oracleId == 0) revert NotOracle();
 
         // Enforce monotonicity - new block must be greater than last
         if (blockNum <= seb.latestCommittedBlock) {
@@ -102,21 +106,62 @@ contract SSVDAO is ISSVDAO {
 
         // block and root combined to keep block-root proposal tied together
         bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, merkleRoot));
-        seb.rootCommitments[commitmentKey]+=1;
+        
+        if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
+        seb.hasVoted[commitmentKey][oracleId] = true;
 
-        uint256 votes = seb.rootCommitments[commitmentKey];
+        uint256 weight = s.oracleWeights[oracleId];
+        seb.rootCommitments[commitmentKey] += weight;
 
-        if (votes >= ROOT_COMMITS_THRESHOLD) {
+        uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];
+        uint256 totalSupply = ICSSVToken(s.cssv).totalSupply();
+
+        uint256 threshold = (totalSupply * s.quorumBps) / 10000;
+
+        if (accumulatedWeight >= threshold) {
             seb.ebRoots[blockNum] = merkleRoot;
             seb.latestCommittedBlock = blockNum;
 
             delete seb.rootCommitments[commitmentKey];
+            // Do not delete hasVoted to prevent re-voting if same key is somehow reused 
 
             emit RootCommitted(merkleRoot, blockNum);
             return;
         }
 
-        emit RootProposed(merkleRoot, blockNum);
+        emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold);
+    }
+
+    function replaceOracle(uint32 oracleId, address newOracle) external override {
+        StorageStaking storage s = SSVStorageStaking.load();
+        if (oracleId == 0) revert ZeroAmount(); // reuse error for invalid id
+        if (newOracle == address(0)) revert ZeroAddress();
+
+        address oldOracle = s.oracles[oracleId];
+        if (oldOracle == newOracle) {
+            emit OracleReplaced(oracleId, oldOracle, newOracle);
+            return;
+        }
+
+        // Clear reverse mapping for old oracle if existed
+        if (oldOracle != address(0)) {
+            s.oracleIdOf[oldOracle] = 0;
+        }
+
+        // Ensure newOracle is not already assigned to another ID
+        uint32 existing = s.oracleIdOf[newOracle];
+        if (existing != 0 && existing != oracleId) revert OracleAlreadyAssigned();
+
+        s.oracles[oracleId] = newOracle;
+        s.oracleIdOf[newOracle] = oracleId;
+
+        emit OracleReplaced(oracleId, oldOracle, newOracle);
+    }
+
+    function setQuorumBps(uint16 quorum) external override {
+        if (quorum > 10000) revert("Invalid quorum");
+        SSVStorageStaking.load().quorumBps = quorum;
+        emit QuorumUpdated(quorum);
     }
 
     function setOracleTimingConfig(

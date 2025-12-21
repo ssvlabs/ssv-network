@@ -8,6 +8,13 @@ struct UnstakeRequest {
     uint64 unlockTime;
 }
 
+struct Delegation {
+    /// @notice Oracle IDs delegated to (up to 4). Stable across replacements.
+    uint32[4] oracleIds;
+    /// @notice Amount of cSSV delegated to each oracle ID
+    uint256[4] amounts;
+}
+
 struct StorageStaking {
     /// @notice Address of the cSSV token used as the staking receipt token
     address cssv;
@@ -25,6 +32,19 @@ struct StorageStaking {
 
     /// @notice Pending unstake request for each user
     mapping(address => UnstakeRequest) withdrawals;
+
+    /// @notice Oracle registry: stable ID => oracle address
+    mapping(uint32 => address) oracles;
+    /// @notice Reverse lookup: oracle address => oracle ID (0 if not registered)
+    mapping(address => uint32) oracleIdOf;
+    /// @notice Aggregated weight (in cSSV amount) for each oracle ID
+    mapping(uint32 => uint256) oracleWeights;
+    /// @notice Per-user delegation data
+    mapping(address => Delegation) userDelegations;
+    /// @notice Default oracle IDs to use for new delegations (equal split)
+    uint32[4] defaultOracleIds;
+    /// @notice Quorum threshold in basis points (e.g. 7000 = 70%)
+    uint16 quorumBps;
 }
 
 library SSVStorageStaking {

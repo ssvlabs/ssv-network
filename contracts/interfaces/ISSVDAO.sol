@@ -54,6 +54,13 @@ interface ISSVDAO is ISSVNetworkCore {
     ) external;
 
     function setUnstakeCooldownDuration(uint64 duration) external;
+
+    /// @notice Replace oracle address at a stable oracle ID
+    /// @param oracleId Stable oracle ID to update
+    /// @param newOracle New oracle address
+    function replaceOracle(uint32 oracleId, address newOracle) external;
+    
+    function setQuorum(uint16 quorum) external;
     
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
 
@@ -87,7 +94,9 @@ interface ISSVDAO is ISSVNetworkCore {
     event RootCommitted(bytes32 indexed merkleRoot, uint64 indexed blockNum);
 
     event RootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum);
+    event WeightedRootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum, uint256 accumulatedWeight, uint256 quorum);
 
     event CooldownDurationUpdated(uint64 newCooldownDuration);
-
+    event OracleReplaced(uint32 indexed oracleId, address indexed oldOracle, address indexed newOracle);
+    event QuorumUpdated(uint16 newQuorum);
 }
