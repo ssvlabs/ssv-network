@@ -29,5 +29,5 @@ verify address network:
     npx hardhat verify --network "{{network}}" "{{address}}"
 
 abis:
-  npx hardhat compile
+  npx hardhat compile --force
   npx tsx scripts/common/export-abis.ts
