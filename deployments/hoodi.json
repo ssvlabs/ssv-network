@@ -6,9 +6,11 @@
     ]
   },
   "SSVClusters": {
-    "latest": "0xB6fa4c1d58fc28d301Cef1bdeC69fCd970b8fde4",
+    "latest": "0x6053DA95E4D2D4B8161e639e1E2Cf216fFB8498B",
     "implementations": [
-      "0xB6fa4c1d58fc28d301Cef1bdeC69fCd970b8fde4"
+      "0xB6fa4c1d58fc28d301Cef1bdeC69fCd970b8fde4",
+      "0x72aD1f0C90864E98d98Efac6280d3a519284b8a9",
+      "0x6053DA95E4D2D4B8161e639e1E2Cf216fFB8498B"
     ]
   },
   "SSVDAO": {
@@ -18,9 +20,10 @@
     ]
   },
   "SSVViews": {
-    "latest": "0xc25ad8Ebf84E08797b3076bb861C35056D3728e9",
+    "latest": "0x5DeA200cDB46FBB9b5773e2A54Bc9648b0452d90",
     "implementations": [
-      "0xc25ad8Ebf84E08797b3076bb861C35056D3728e9"
+      "0xc25ad8Ebf84E08797b3076bb861C35056D3728e9",
+      "0x5DeA200cDB46FBB9b5773e2A54Bc9648b0452d90"
     ]
   },
   "SSVOperatorsWhitelist": {
@@ -36,9 +39,10 @@
     ]
   },
   "SSVNetwork": {
-    "latest": "0xa17f6468b3A8E2975C7523E5402015bD4Be730F6",
+    "latest": "0xAA11BCa2160A4518AE0611caf9AC01C7979118Eb",
     "implementations": [
-      "0xa17f6468b3A8E2975C7523E5402015bD4Be730F6"
+      "0xa17f6468b3A8E2975C7523E5402015bD4Be730F6",
+      "0xAA11BCa2160A4518AE0611caf9AC01C7979118Eb"
     ]
   },
   "SSVNetworkProxy": {
@@ -48,9 +52,10 @@
     ]
   },
   "SSVNetworkViews": {
-    "latest": "0x982A01AaffAf4c2C190B16aF2BF19e3f0E5c00B9",
+    "latest": "0x8C4EC723eEFFd755659695447091ADF8E6f35c76",
     "implementations": [
-      "0x982A01AaffAf4c2C190B16aF2BF19e3f0E5c00B9"
+      "0x982A01AaffAf4c2C190B16aF2BF19e3f0E5c00B9",
+      "0x8C4EC723eEFFd755659695447091ADF8E6f35c76"
     ]
   },
   "SSVNetworkViewsProxy": {
