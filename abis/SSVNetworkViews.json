@@ -577,12 +577,12 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "balance",
         "type": "uint256"
       },
       {
         "internalType": "uint32",
-        "name": "",
+        "name": "effectiveBalance",
         "type": "uint32"
       }
     ],
@@ -638,12 +638,12 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "balance",
         "type": "uint256"
       },
       {
         "internalType": "uint32",
-        "name": "",
+        "name": "effectiveBalance",
         "type": "uint32"
       }
     ],

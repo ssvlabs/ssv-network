@@ -454,9 +454,9 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
+        "internalType": "uint32",
         "name": "effectiveBalance",
-        "type": "uint256"
+        "type": "uint32"
       },
       {
         "components": [
