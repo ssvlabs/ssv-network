@@ -398,65 +398,25 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "newCooldownDuration",
-        "type": "uint64"
-      }
-    ],
-    "name": "CooldownDurationUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
+        "indexed": true,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
       {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "value",
-        "type": "uint64"
-      }
-    ],
-    "name": "DeclareOperatorFeePeriodUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "value",
-        "type": "uint64"
-      }
-    ],
-    "name": "ExecuteOperatorFeePeriodUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "value",
-        "type": "uint64"
-      }
-    ],
-    "name": "LiquidationThresholdPeriodUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "value",
+        "name": "amount",
         "type": "uint256"
       }
     ],
-    "name": "MinimumLiquidationCollateralUpdated",
+    "name": "ERC20Rescued",
     "type": "event"
   },
   {
@@ -465,209 +425,153 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "value",
+        "name": "newFeesWei",
         "type": "uint256"
       },
       {
         "indexed": false,
+        "internalType": "uint256",
+        "name": "accEthPerShare",
+        "type": "uint256"
+      }
+    ],
+    "name": "FeesSynced",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "address",
-        "name": "recipient",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "RewardsClaimed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "pending",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "accrued",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "userIndex",
+        "type": "uint256"
+      }
+    ],
+    "name": "RewardsSettled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Staked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "unlockTime",
+        "type": "uint256"
+      }
+    ],
+    "name": "UnstakeRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "UnstakedWithdrawn",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "claimEthRewards",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
         "type": "address"
       }
     ],
-    "name": "NetworkEarningsWithdrawn",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "oldFee",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newFee",
-        "type": "uint256"
-      }
-    ],
-    "name": "NetworkFeeUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "value",
-        "type": "uint64"
-      }
-    ],
-    "name": "OperatorFeeIncreaseLimitUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "maxFee",
-        "type": "uint64"
-      }
-    ],
-    "name": "OperatorMaximumFeeUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "merkleRoot",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint64",
-        "name": "blockNum",
-        "type": "uint64"
-      }
-    ],
-    "name": "RootCommitted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "merkleRoot",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint64",
-        "name": "blockNum",
-        "type": "uint64"
-      }
-    ],
-    "name": "RootProposed",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "merkleRoot",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint64",
-        "name": "blockNum",
-        "type": "uint64"
-      }
-    ],
-    "name": "commitRoot",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "firstStartEpoch",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "firstInterval",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "secondStartEpoch",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "secondInterval",
-        "type": "uint64"
-      }
-    ],
-    "name": "setOracleTimingConfig",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "duration",
-        "type": "uint64"
-      }
-    ],
-    "name": "setUnstakeCooldownDuration",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "timeInSeconds",
-        "type": "uint64"
-      }
-    ],
-    "name": "updateDeclareOperatorFeePeriod",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "timeInSeconds",
-        "type": "uint64"
-      }
-    ],
-    "name": "updateExecuteOperatorFeePeriod",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "blocks",
-        "type": "uint64"
-      }
-    ],
-    "name": "updateLiquidationThresholdPeriod",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "maxFee",
-        "type": "uint64"
-      }
-    ],
-    "name": "updateMaximumOperatorFee",
+    "name": "onCSSVTransfer",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -680,7 +584,7 @@
         "type": "uint256"
       }
     ],
-    "name": "updateMinimumLiquidationCollateral",
+    "name": "requestUnstake",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -688,38 +592,22 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
         "internalType": "uint256",
-        "name": "fee",
+        "name": "amount",
         "type": "uint256"
       }
     ],
-    "name": "updateNetworkFee",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "fee",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateNetworkFeeSSV",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "percentage",
-        "type": "uint64"
-      }
-    ],
-    "name": "updateOperatorFeeIncreaseLimit",
+    "name": "rescueERC20",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -732,7 +620,21 @@
         "type": "uint256"
       }
     ],
-    "name": "withdrawNetworkSSVEarnings",
+    "name": "stake",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "syncFees",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawUnlocked",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

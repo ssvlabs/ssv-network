@@ -7,6 +7,7 @@ import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
+import {SSVStorageStaking} from "../libraries/SSVStorageStaking.sol";
 
 contract SSVDAO is ISSVDAO {
     using Types64 for uint64;
@@ -31,25 +32,6 @@ contract SSVDAO is ISSVDAO {
 
         sp.updateNetworkFeeSSV(fee);
         emit NetworkFeeUpdated(previousFee.expand(), fee);
-    }
-
-    function withdrawNetworkEarnings(uint256 amount) external override {
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        uint64 shrunkAmount = amount.shrink();
-
-        uint64 networkBalance = sp.networkTotalEarnings();
-
-        if (shrunkAmount > networkBalance) {
-            revert InsufficientBalance();
-        }
-
-        sp.ethDaoBalance = networkBalance - shrunkAmount;
-        sp.ethDaoIndexBlockNumber = uint32(block.number);
-
-        CoreLib.transferBalance(msg.sender, amount);
-
-        emit NetworkEarningsWithdrawn(amount, msg.sender);
     }
 
     function withdrawNetworkSSVEarnings(uint256 amount) external override {
@@ -153,5 +135,10 @@ contract SSVDAO is ISSVDAO {
         sp.oracleFirstEpochInterval = firstInterval;
         sp.oracleSecondStartEpoch = secondStartEpoch;
         sp.oracleSecondEpochInterval = secondInterval;
+    }
+
+    function setUnstakeCooldownDuration(uint64 duration) external override {
+        SSVStorageStaking.load().cooldownDuration = duration;
+        emit CooldownDurationUpdated(duration);
     }
 }

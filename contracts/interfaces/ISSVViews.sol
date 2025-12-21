@@ -231,6 +231,20 @@ interface ISSVViews is ISSVNetworkCore {
     /// @return validatorsCount The total number of validators in the network
     function getNetworkValidatorsCount() external view returns (uint32 validatorsCount);
 
+    function cooldownDuration() external view returns (uint256);
+
+    function totalStaked() external view returns (uint256);
+
+    function stakedBalanceOf(address user) external view returns (uint256);
+
+    function pendingUnstake(address user) external view returns (uint256 amount, uint256 unlockTime);
+
+    function accEthPerShare() external view returns (uint256);
+
+    function stakingEthPoolBalance() external view returns (uint64);
+
+    function previewClaimableEth(address user) external view returns (uint256);
+
     /// @notice Gets the version of the contract
     /// @return The version of the contract
     function getVersion() external view returns (string memory);

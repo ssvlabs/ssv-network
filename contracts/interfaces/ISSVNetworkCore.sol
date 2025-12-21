@@ -118,6 +118,18 @@ interface ISSVNetworkCore {
     error ZeroInterval();
     error EBBelowMinimum();
 
+    // SSV Staking-specific errors
+    error NotCSSV();
+    error ZeroAddress();
+    error ZeroAmount();
+    error InvalidToken();
+    error CooldownActive();
+    error CooldownNotFinished();
+    error NothingToClaim();
+    error NothingToWithdraw();
+    error UnstakeAmountExceedsBalance();
+    error StakeTooLow();
+
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
     error IncorrectValidatorState(); // 0x2feda3c1

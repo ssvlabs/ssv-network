@@ -77,10 +77,17 @@ export async function upgradeProxy(
   params: any[] = []
 ): Promise<void> {
   const factory = await ethers.getContractFactory(contractName);
-  const proxy = await ethers.getContractAt(contractName, proxyAddress, deployer);
+  const proxy = await ethers.getContractAt("SSVNetwork", proxyAddress, deployer);
 
   if (initFunction) {
-    const initData = factory.interface.encodeFunctionData(initFunction, params);
+    let fragment;
+    if (initFunction.includes("(")) {
+      fragment = factory.interface.getFunction(initFunction);
+    } else {
+      fragment = factory.interface.getFunction(initFunction);
+    }
+    const initData = factory.interface.encodeFunctionData(fragment, params);
+
     const tx = await proxy.upgradeToAndCall(implAddress, initData);
     await tx.wait();
     console.log("Upgrade with init done");
@@ -89,5 +96,6 @@ export async function upgradeProxy(
     await tx.wait();
     console.log("Upgrade done");
   }
+
   console.log(`Proxy now uses: ${implAddress}`);
 }

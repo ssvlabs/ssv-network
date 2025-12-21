@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {ISSVViews} from "../interfaces/ISSVViews.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
+import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
 import {Types64} from "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
@@ -10,6 +11,7 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -17,6 +19,8 @@ contract SSVViews is ISSVViews {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
+
+    uint256 private constant PRECISION = 1e18;
 
     /*************************************/
     /* Validator External View Functions */
@@ -461,6 +465,60 @@ contract SSVViews is ISSVViews {
 
     function getNetworkValidatorsCount() external view override returns (uint32) {
         return SSVStorageProtocol.load().ethDaoValidatorCount;
+    }
+
+    function cooldownDuration() external view override returns (uint256) {
+        return SSVStorageStaking.load().cooldownDuration;
+    }
+
+    function totalStaked() external view override returns (uint256) {
+        return ICSSVToken(SSVStorageStaking.load().cssv).totalSupply();
+    }
+
+    function stakedBalanceOf(address user) external view override returns (uint256) {
+        return ICSSVToken(SSVStorageStaking.load().cssv).balanceOf(user);
+    }
+
+    function pendingUnstake(address user) external view override returns (uint256 amount, uint256 unlockTime) {
+        StorageStaking storage s = SSVStorageStaking.load();
+        UnstakeRequest memory request = s.withdrawals[user];
+        amount = request.amount;
+        unlockTime = request.unlockTime;
+    }
+
+    function accEthPerShare() external view override returns (uint256) {
+        return SSVStorageStaking.load().accEthPerShare;
+    }
+
+    function stakingEthPoolBalance() external view override returns (uint64) {
+        return SSVStorageStaking.load().stakingEthPoolBalance;
+    }
+
+    function previewClaimableEth(address user) external view override returns (uint256) {
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint256 idx = _previewAccEthPerShare(s);
+        uint256 bal = ICSSVToken(s.cssv).balanceOf(user);
+        uint256 delta = idx - s.userIndex[user];
+        uint256 pending = (bal * delta) / PRECISION;
+        return s.accrued[user] + pending;
+    }
+
+    function _previewAccEthPerShare(StorageStaking storage s) internal view returns (uint256) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64 current = sp.networkTotalEarnings();
+
+        uint256 idx = s.accEthPerShare;
+        uint64 previous = s.stakingEthPoolBalance;
+
+        uint256 totalStaked_ = ICSSVToken(s.cssv).totalSupply();
+
+        if (current <= previous || totalStaked_ == 0) {
+            return idx;
+        }
+
+        uint64 newFeesShrunk = current - previous;
+        uint256 newFeesWei = newFeesShrunk.expand();
+        return idx + (newFeesWei * PRECISION) / totalStaked_;
     }
 
     function getVersion() external pure override returns (string memory) {

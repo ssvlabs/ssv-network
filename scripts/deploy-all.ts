@@ -1,5 +1,5 @@
 import hre from "hardhat";
-import { parseArg, getEthers, getDeployer, deployContract, deployProxy, attachModule } from "./common/helpers.ts";
+import { parseArg, getEthers, getDeployer, deployContract, deployProxy, attachModule, upgradeProxy } from "./common/helpers.ts";
 import { saveImplementation } from "./common/address-book.js";
 
 async function main() {
@@ -18,7 +18,7 @@ async function main() {
     throw new Error("Missing SSVToken address in config");
   }
 
-  const moduleNames = ["SSVOperators", "SSVClusters", "SSVDAO", "SSVViews", "SSVOperatorsWhitelist"];
+  const moduleNames = ["SSVOperators", "SSVClusters", "SSVDAO", "SSVViews", "SSVOperatorsWhitelist", "SSVStaking"];
   const moduleAddresses: { [key: string]: string } = {};
   for (const mod of moduleNames) {
     const { address } = await deployContract(ethers, mod);
@@ -57,6 +57,26 @@ async function main() {
 
   const { address: viewsProxyAddr } = await deployProxy(ethers, deployer, viewsImplAddr, viewsInitData);
   saveImplementation(targetNetwork, "SSVNetworkViewsProxy", viewsProxyAddr);
+
+  const { address: cssvTokenAddr } = await deployContract(ethers, "CSSVToken", [networkProxyAddr]);
+  saveImplementation(targetNetwork, "CSSVToken", cssvTokenAddr);
+
+  await attachModule(ethers, networkProxyAddr, "SSVStaking", moduleAddresses["SSVStaking"]);
+
+  const { address: upgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
+  saveImplementation(targetNetwork, "SSVNetworkSSVStakingUpgrade", upgradeImplAddr);
+
+  const cooldown = 7n * 24n * 60n * 60n;
+
+  await upgradeProxy(
+    ethers,
+    deployer,
+    networkProxyAddr,
+    upgradeImplAddr,
+    "SSVNetworkSSVStakingUpgrade",
+    "initializeSSVStaking(address,uint64)",
+    [cssvTokenAddr, cooldown]
+  );
 }
 
 main().catch(err => {

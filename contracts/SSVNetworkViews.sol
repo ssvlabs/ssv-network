@@ -214,6 +214,34 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getClusterVersion(owner, operatorIds);
     }
 
+    function cooldownDuration() external view override returns (uint256) {
+        return ssvNetwork.cooldownDuration();
+    }
+
+    function totalStaked() external view override returns (uint256) {
+        return ssvNetwork.totalStaked();
+    }
+
+    function stakedBalanceOf(address user) external view override returns (uint256) {
+        return ssvNetwork.stakedBalanceOf(user);
+    }
+
+    function pendingUnstake(address user) external view override returns (uint256 amount, uint256 unlockTime) {
+        return ssvNetwork.pendingUnstake(user);
+    }
+
+    function accEthPerShare() external view override returns (uint256) {
+        return ssvNetwork.accEthPerShare();
+    }
+
+    function stakingEthPoolBalance() external view override returns (uint64) {
+        return ssvNetwork.stakingEthPoolBalance();
+    }
+
+    function previewClaimableEth(address user) external view override returns (uint256) {
+        return ssvNetwork.previewClaimableEth(user);
+    }
+
     function getVersion() external view override returns (string memory) {
         return ssvNetwork.getVersion();
     }
