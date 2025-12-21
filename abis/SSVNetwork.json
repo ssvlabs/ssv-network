@@ -634,9 +634,9 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "clusterEB",
-        "type": "uint256"
+        "internalType": "uint32",
+        "name": "effectiveBalance",
+        "type": "uint32"
       },
       {
         "components": [
