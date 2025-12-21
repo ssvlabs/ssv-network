@@ -342,9 +342,9 @@ contract SSVClusters is ISSVClusters {
         if (vUnits == 0) {
             vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
-        uint256 clusterEB = (uint256(vUnits) * 32 ether) / VUNITS_PRECISION;
+        uint32 effectiveBalance = uint32((uint256(vUnits) * 32 ether) / VUNITS_PRECISION);
 
-        emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, clusterEB, cluster);
+        emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, effectiveBalance, cluster);
     }
 
     function updateClusterBalance(
