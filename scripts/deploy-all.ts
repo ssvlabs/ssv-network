@@ -6,6 +6,11 @@ async function main() {
   const targetNetwork = parseArg("network");
   const ethers = await getEthers(targetNetwork);
   const deployer = await getDeployer(ethers);
+  const quorumBps = Number(process.env.QUORUM_BPS ?? "6700");
+
+  if (!Number.isInteger(quorumBps) || quorumBps <= 0 || quorumBps > 10000) {
+    throw new Error("Invalid QUORUM_BPS value");
+  }
 
   console.log(`Deploying all on ${targetNetwork}`);
 
@@ -48,6 +53,11 @@ async function main() {
   saveImplementation(targetNetwork, "SSVNetworkProxy", networkProxyAddr);
 
   await attachModule(ethers, networkProxyAddr, "SSVOperatorsWhitelist", moduleAddresses["SSVOperatorsWhitelist"]);
+
+  const ssvNetwork = networkFactory.attach(networkProxyAddr).connect(deployer);
+  const quorumTx = await ssvNetwork.setQuorumBps(quorumBps);
+  await quorumTx.wait();
+  console.log(`Default quorumBps set to ${quorumBps}`);
 
   const { address: viewsImplAddr } = await deployContract(ethers, "SSVNetworkViews");
   saveImplementation(targetNetwork, "SSVNetworkViews", viewsImplAddr);

@@ -35,6 +35,7 @@ describe('Deployment tests', () => {
     expect(await ssvViews.read.getMinimumLiquidationCollateral()).to.equal(CONFIG.minimumLiquidationCollateral);
     expect(await ssvViews.read.getValidatorsPerOperatorLimit()).to.equal(CONFIG.validatorsPerOperatorLimit);
     expect(await ssvViews.read.getOperatorFeeIncreaseLimit()).to.equal(CONFIG.operatorMaxFeeIncrease);
+    expect(await ssvViews.read.getQuorumBps()).to.equal(CONFIG.quorumBps);
   });
 
   it('Upgrade SSVNetwork contract. Check new function execution', async () => {

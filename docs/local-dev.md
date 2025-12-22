@@ -26,6 +26,7 @@ Copy [.env.example](../.env.example) to `.env` and edit to suit.
 - `EXECUTE_OPERATOR_FEE_PERIOD` The period in which an operator fee change can be executed (seconds)
 - `VALIDATORS_PER_OPERATOR_LIMIT` The number of validators an operator can manage
 - `MINIMUM_LIQUIDATION_COLLATERAL` The lowest number in wei a cluster can have before its liquidatable
+- `QUORUM_BPS` Oracle quorum threshold in basis points (0-10000). Example: 6700 = 67%
 
 #### Network configuration
 

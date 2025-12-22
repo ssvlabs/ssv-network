@@ -11,6 +11,11 @@ async function main() {
   const daoModAddress = parseArg("dao-mod");
   const viewsModAddress = parseArg("views-mod");
   const ssvTokenAddress = parseArg("ssv-token");
+  const quorumBps = Number(process.env.QUORUM_BPS ?? "6700");
+
+  if (!Number.isInteger(quorumBps) || quorumBps <= 0 || quorumBps > 10000) {
+    throw new Error("Invalid QUORUM_BPS value");
+  }
 
   console.log(`Deploying SSVNetwork proxy on ${targetNetwork}`);
 
@@ -34,6 +39,11 @@ async function main() {
 
   const { address: proxyAddress } = await deployProxy(ethers, deployer, implAddress, initData);
   saveImplementation(targetNetwork, "SSVNetworkProxy", proxyAddress);
+
+  const ssvNetwork = Factory.attach(proxyAddress);
+  const tx = await ssvNetwork.connect(deployer).setQuorumBps(quorumBps);
+  await tx.wait();
+  console.log(`Default quorumBps set to ${quorumBps}`);
 }
 
 main().catch(err => {

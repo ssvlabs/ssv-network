@@ -30,6 +30,7 @@ export const CONFIG: SSVConfig = {
   minimumLiquidationCollateral: 200000000,
   validatorsPerOperatorLimit: 500,
   maximumOperatorFee: BigInt(76528650000000),
+  quorumBps: 6700,
 };
 
 export const DEFAULT_OPERATOR_IDS = {
@@ -149,6 +150,7 @@ export const initializeContract = async function () {
   const ssvNetworkViews = await hre.viem.getContractAt('SSVNetworkViews', ssvNetworkViewsAddress as Address);
 
   await ssvNetwork.write.updateMaximumOperatorFee([CONFIG.maximumOperatorFee as bigint]);
+  await ssvNetwork.write.setQuorumBps([CONFIG.quorumBps], { account: owners[0].account });
 
   ssvNetwork.write.updateModule([4, await ssvWhitelistMod.address]);
 

@@ -20,6 +20,7 @@ export type SSVConfig = {
   minimumLiquidationCollateral: number,
   validatorsPerOperatorLimit: number,
   maximumOperatorFee: BigInt,
+  quorumBps: number,
 };
 
 export type Cluster = {
