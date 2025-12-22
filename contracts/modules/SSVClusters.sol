@@ -589,7 +589,7 @@ contract SSVClusters is ISSVClusters {
     function _verifyMerkleProof(UpdateCtx memory ctx, StorageEB storage seb) internal view {
         bytes32 root = seb.ebRoots[ctx.blockNum];
 
-        if (!MerkleProof.verify(ctx.merkleProof, root, keccak256(abi.encode(ctx.clusterId, ctx.effectiveBalance)))) {
+        if (!MerkleProof.verify(ctx.merkleProof, root, keccak256(abi.encodePacked(keccak256(abi.encode(ctx.clusterId, ctx.effectiveBalance)))))) {
             revert InvalidProof();
         }
     }
