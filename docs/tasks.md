@@ -65,6 +65,8 @@ When deploying to live networks like Holesky or Mainnet, please double check the
 - DECLARE_OPERATOR_FEE_PERIOD
 - EXECUTE_OPERATOR_FEE_PERIOD
 - OPERATOR_MAX_FEE_INCREASE
+- QUORUM_BPS
+- DEFAULT_ORACLE_IDS
 
 ## Upgrade process
 

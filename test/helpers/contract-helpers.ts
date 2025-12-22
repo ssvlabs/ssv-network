@@ -30,6 +30,8 @@ export const CONFIG: SSVConfig = {
   minimumLiquidationCollateral: 200000000,
   validatorsPerOperatorLimit: 500,
   maximumOperatorFee: BigInt(76528650000000),
+  quorumBps: 6700,
+  defaultOracleIds: [1, 2, 3, 4],
 };
 
 export const DEFAULT_OPERATOR_IDS = {
@@ -129,6 +131,8 @@ export const initializeContract = async function () {
       CONFIG.declareOperatorFeePeriod,
       CONFIG.executeOperatorFeePeriod,
       CONFIG.operatorMaxFeeIncrease,
+      CONFIG.defaultOracleIds,
+      CONFIG.quorumBps,
     ],
     {
       kind: 'uups',
