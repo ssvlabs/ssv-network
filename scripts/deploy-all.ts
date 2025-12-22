@@ -55,14 +55,16 @@ async function main() {
     moduleAddresses["SSVClusters"],
     moduleAddresses["SSVDAO"],
     moduleAddresses["SSVViews"],
-    process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
-    process.env.MINIMUM_LIQUIDATION_COLLATERAL,
-    process.env.VALIDATORS_PER_OPERATOR_LIMIT,
-    process.env.DECLARE_OPERATOR_FEE_PERIOD,
-    process.env.EXECUTE_OPERATOR_FEE_PERIOD,
-    process.env.OPERATOR_MAX_FEE_INCREASE,
-    defaultOracleIds,
-    quorumBps,
+    {
+      minimumBlocksBeforeLiquidation: process.env.MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+      minimumLiquidationCollateral: process.env.MINIMUM_LIQUIDATION_COLLATERAL,
+      validatorsPerOperatorLimit: process.env.VALIDATORS_PER_OPERATOR_LIMIT,
+      declareOperatorFeePeriod: process.env.DECLARE_OPERATOR_FEE_PERIOD,
+      executeOperatorFeePeriod: process.env.EXECUTE_OPERATOR_FEE_PERIOD,
+      operatorMaxFeeIncrease: process.env.OPERATOR_MAX_FEE_INCREASE,
+      defaultOracleIds,
+      quorumBps,
+    },
   ]);
 
   const { address: networkProxyAddr } = await deployProxy(ethers, deployer, networkImplAddr, networkInitData);

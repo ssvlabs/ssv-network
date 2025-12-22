@@ -9,7 +9,6 @@ import "./interfaces/ISSVOperatorsWhitelist.sol";
 import "./interfaces/ISSVDAO.sol";
 import "./interfaces/ISSVViews.sol";
 import "./interfaces/ISSVStaking.sol";
-
 import "./interfaces/external/ISSVWhitelistingContract.sol";
 
 import {Types256} from "./libraries/Types.sol";
@@ -49,14 +48,7 @@ contract SSVNetwork is
         ISSVClusters ssvClusters_,
         ISSVDAO ssvDAO_,
         ISSVViews ssvViews_,
-        uint64 minimumBlocksBeforeLiquidation_,
-        uint256 minimumLiquidationCollateral_,
-        uint32 validatorsPerOperatorLimit_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 operatorMaxFeeIncrease_,
-        uint32[4] calldata defaultOracleIds_,
-        uint16 quorumBps_
+        NetworkInitParams calldata params
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable2Step_init();
@@ -67,14 +59,7 @@ contract SSVNetwork is
             ssvClusters_,
             ssvDAO_,
             ssvViews_,
-            minimumBlocksBeforeLiquidation_,
-            minimumLiquidationCollateral_,
-            validatorsPerOperatorLimit_,
-            declareOperatorFeePeriod_,
-            executeOperatorFeePeriod_,
-            operatorMaxFeeIncrease_,
-            defaultOracleIds_,
-            quorumBps_
+            params
         );
     }
 
@@ -84,14 +69,7 @@ contract SSVNetwork is
         ISSVClusters ssvClusters_,
         ISSVDAO ssvDAO_,
         ISSVViews ssvViews_,
-        uint64 minimumBlocksBeforeLiquidation_,
-        uint256 minimumLiquidationCollateral_,
-        uint32 validatorsPerOperatorLimit_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 operatorMaxFeeIncrease_,
-        uint32[4] calldata defaultOracleIds_,
-        uint16 quorumBps_
+        NetworkInitParams calldata params
     ) internal onlyInitializing {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -101,14 +79,14 @@ contract SSVNetwork is
         s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
         s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
         s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
-        sp.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        sp.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        sp.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
-        sp.declareOperatorFeePeriod = declareOperatorFeePeriod_;
-        sp.executeOperatorFeePeriod = executeOperatorFeePeriod_;
-        sp.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
-        ss.defaultOracleIds = defaultOracleIds_;
-        ss.quorumBps = quorumBps_;
+        sp.minimumBlocksBeforeLiquidation = params.minimumBlocksBeforeLiquidation;
+        sp.minimumLiquidationCollateral = params.minimumLiquidationCollateral.shrink();
+        sp.validatorsPerOperatorLimit = params.validatorsPerOperatorLimit;
+        sp.declareOperatorFeePeriod = params.declareOperatorFeePeriod;
+        sp.executeOperatorFeePeriod = params.executeOperatorFeePeriod;
+        sp.operatorMaxFeeIncrease = params.operatorMaxFeeIncrease;
+        ss.defaultOracleIds = params.defaultOracleIds;
+        ss.quorumBps = params.quorumBps;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
