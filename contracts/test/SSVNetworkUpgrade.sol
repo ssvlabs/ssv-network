@@ -479,6 +479,20 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function replaceOracle(uint32 oracleId, address newOracle) external override onlyOwner {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("replaceOracle(uint32,address)", oracleId, newOracle)
+        );
+    }
+
+    function setQuorumBps(uint16 quorum) external override onlyOwner {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("setQuorumBps(uint16)", quorum)
+        );
+    }
+
     function _delegateCall(address ssvModule, bytes memory callMessage) internal returns (bytes memory) {
         /// @custom:oz-upgrades-unsafe-allow delegatecall
         (bool success, bytes memory result) = ssvModule.delegatecall(callMessage);
