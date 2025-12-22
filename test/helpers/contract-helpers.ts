@@ -31,6 +31,7 @@ export const CONFIG: SSVConfig = {
   validatorsPerOperatorLimit: 500,
   maximumOperatorFee: BigInt(76528650000000),
   quorumBps: 6700,
+  defaultOracleIds: [1, 2, 3, 4],
 };
 
 export const DEFAULT_OPERATOR_IDS = {
@@ -130,6 +131,8 @@ export const initializeContract = async function () {
       CONFIG.declareOperatorFeePeriod,
       CONFIG.executeOperatorFeePeriod,
       CONFIG.operatorMaxFeeIncrease,
+      CONFIG.defaultOracleIds,
+      CONFIG.quorumBps,
     ],
     {
       kind: 'uups',
@@ -150,7 +153,6 @@ export const initializeContract = async function () {
   const ssvNetworkViews = await hre.viem.getContractAt('SSVNetworkViews', ssvNetworkViewsAddress as Address);
 
   await ssvNetwork.write.updateMaximumOperatorFee([CONFIG.maximumOperatorFee as bigint]);
-  await ssvNetwork.write.setQuorumBps([CONFIG.quorumBps], { account: owners[0].account });
 
   ssvNetwork.write.updateModule([4, await ssvWhitelistMod.address]);
 

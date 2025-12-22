@@ -27,6 +27,7 @@ Copy [.env.example](../.env.example) to `.env` and edit to suit.
 - `VALIDATORS_PER_OPERATOR_LIMIT` The number of validators an operator can manage
 - `MINIMUM_LIQUIDATION_COLLATERAL` The lowest number in wei a cluster can have before its liquidatable
 - `QUORUM_BPS` Oracle quorum threshold in basis points (0-10000). Example: 6700 = 67%
+- `DEFAULT_ORACLE_IDS` Comma-separated list of 4 oracle IDs used for default delegation. Example: 1,2,3,4
 
 #### Network configuration
 

@@ -54,7 +54,9 @@ contract SSVNetwork is
         uint32 validatorsPerOperatorLimit_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 operatorMaxFeeIncrease_
+        uint64 operatorMaxFeeIncrease_,
+        uint32[4] calldata defaultOracleIds_,
+        uint16 quorumBps_
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable2Step_init();
@@ -70,7 +72,9 @@ contract SSVNetwork is
             validatorsPerOperatorLimit_,
             declareOperatorFeePeriod_,
             executeOperatorFeePeriod_,
-            operatorMaxFeeIncrease_
+            operatorMaxFeeIncrease_,
+            defaultOracleIds_,
+            quorumBps_
         );
     }
 
@@ -85,10 +89,13 @@ contract SSVNetwork is
         uint32 validatorsPerOperatorLimit_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 operatorMaxFeeIncrease_
+        uint64 operatorMaxFeeIncrease_,
+        uint32[4] calldata defaultOracleIds_,
+        uint16 quorumBps_
     ) internal onlyInitializing {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageStaking storage ss = SSVStorageStaking.load();
         s.token = token_;
         s.ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
         s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
@@ -100,6 +107,8 @@ contract SSVNetwork is
         sp.declareOperatorFeePeriod = declareOperatorFeePeriod_;
         sp.executeOperatorFeePeriod = executeOperatorFeePeriod_;
         sp.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
+        ss.defaultOracleIds = defaultOracleIds_;
+        ss.quorumBps = quorumBps_;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor

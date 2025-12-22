@@ -21,6 +21,7 @@ export type SSVConfig = {
   validatorsPerOperatorLimit: number,
   maximumOperatorFee: BigInt,
   quorumBps: number,
+  defaultOracleIds: [number, number, number, number],
 };
 
 export type Cluster = {

@@ -60,7 +60,7 @@ interface ISSVDAO is ISSVNetworkCore {
     /// @param newOracle New oracle address
     function replaceOracle(uint32 oracleId, address newOracle) external;
     
-    function setQuorum(uint16 quorum) external;
+    function setQuorumBps(uint16 quorum) external;
     
     event OperatorFeeIncreaseLimitUpdated(uint64 value);
 

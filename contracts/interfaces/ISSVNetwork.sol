@@ -23,7 +23,9 @@ interface ISSVNetwork {
         uint32 validatorsPerOperatorLimit_,
         uint64 declareOperatorFeePeriod_,
         uint64 executeOperatorFeePeriod_,
-        uint64 operatorMaxFeeIncrease_
+        uint64 operatorMaxFeeIncrease_,
+        uint32[4] calldata defaultOracleIds_,
+        uint16 quorumBps_
     ) external;
 
     function getVersion() external pure returns (string memory version);
