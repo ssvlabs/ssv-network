@@ -284,19 +284,31 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(
+            clusterOwner,
+            operatorIds,
+            SSVStorage.load()
+        );
 
-        uint64 aggregateFee;
-        uint256 operatorsLength = operatorIds.length;
-        for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
-            if (operator.owner != address(0)) {
-                aggregateFee += operator.ethFee;
+        uint64 operatorsFee;
+        uint256 len = operatorIds.length;
+        for (uint256 i; i < len; ++i) {
+            Operator memory op = SSVStorage.load().operators[operatorIds[i]];
+            if (op.owner != address(0)) {
+                operatorsFee += op.ethFee;
             }
         }
 
-        uint64 burnRate = (aggregateFee + SSVStorageProtocol.load().ethNetworkFee) * cluster.validatorCount;
-        return burnRate.expand();
+        uint64 networkFee = SSVStorageProtocol.load().ethNetworkFee;
+
+        uint64 vUnits = SSVStorageEB.load().clusterEB[hashedCluster].vUnits;
+        if (vUnits == 0) {
+            vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+        }
+
+        uint256 units = uint256(vUnits) / VUNITS_PRECISION;
+
+        return (networkFee + operatorsFee).expand() * units;
     }
 
     function getBurnRateSSV(
