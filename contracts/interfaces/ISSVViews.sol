@@ -245,6 +245,12 @@ interface ISSVViews is ISSVNetworkCore {
 
     function previewClaimableEth(address user) external view returns (uint256);
 
+    function getOracle(uint32 oracleId) external view returns (address);
+    function getOracleWeight(uint32 oracleId) external view returns (uint256);
+    function getDefaultOracleIds() external view returns (uint32[4] memory);
+    function getUserDelegation(address user) external view returns (uint32[4] memory oracleIds, uint256[4] memory amounts);
+    function getQuorumBps() external view returns (uint16);
+
     /// @notice Gets the version of the contract
     /// @return The version of the contract
     function getVersion() external view returns (string memory);

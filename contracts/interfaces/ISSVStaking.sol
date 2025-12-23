@@ -32,7 +32,8 @@ interface ISSVStaking is ISSVNetworkCore {
     /// @dev Updates reward indexes for both sender and receiver to prevent reward theft/loss
     /// @param from The sender address
     /// @param to The recipient address
-    function onCSSVTransfer(address from, address to) external;
+    /// @param amount The amount of cSSV being transferred
+    function onCSSVTransfer(address from, address to, uint256 amount) external;
 
     /**
      * @dev Emitted when SSV tokens are staked.
@@ -86,4 +87,6 @@ interface ISSVStaking is ISSVNetworkCore {
      * @param amount The amount of tokens rescued.
      */
     event ERC20Rescued(address indexed token, address indexed to, uint256 amount);
+
+    event DelegationUpdated(address indexed user, uint32[4] oracleIds, uint256[4] amounts);
 }

@@ -242,6 +242,26 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.previewClaimableEth(user);
     }
 
+    function getOracle(uint32 oracleId) external view override returns (address) {
+        return ssvNetwork.getOracle(oracleId);
+    }
+
+    function getOracleWeight(uint32 oracleId) external view override returns (uint256) {
+        return ssvNetwork.getOracleWeight(oracleId);
+    }
+
+    function getDefaultOracleIds() external view override returns (uint32[4] memory) {
+        return ssvNetwork.getDefaultOracleIds();
+    }
+
+    function getUserDelegation(address user) external view override returns (uint32[4] memory oracleIds, uint256[4] memory amounts) {
+        return ssvNetwork.getUserDelegation(user);
+    }
+
+    function getQuorumBps() external view override returns (uint16) {
+        return ssvNetwork.getQuorumBps();
+    }
+
     function getVersion() external view override returns (string memory) {
         return ssvNetwork.getVersion();
     }

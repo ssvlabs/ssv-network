@@ -35,6 +35,8 @@ describe('Deployment tests', () => {
     expect(await ssvViews.read.getMinimumLiquidationCollateral()).to.equal(CONFIG.minimumLiquidationCollateral);
     expect(await ssvViews.read.getValidatorsPerOperatorLimit()).to.equal(CONFIG.validatorsPerOperatorLimit);
     expect(await ssvViews.read.getOperatorFeeIncreaseLimit()).to.equal(CONFIG.operatorMaxFeeIncrease);
+    expect(await ssvViews.read.getQuorumBps()).to.equal(CONFIG.quorumBps);
+    expect(await ssvViews.read.getDefaultOracleIds()).to.deep.equal(CONFIG.defaultOracleIds);
   });
 
   it('Upgrade SSVNetwork contract. Check new function execution', async () => {
@@ -98,12 +100,16 @@ describe('Deployment tests', () => {
           '0x6471F70b932390f527c6403773D082A0Db8e8A9F',
           '0x6471F70b932390f527c6403773D082A0Db8e8A9F',
           '0x6471F70b932390f527c6403773D082A0Db8e8A9F',
-          2000000n,
-          2000000n,
-          2000000,
-          2000000n,
-          2000000n,
-          2000n,
+          {
+            minimumBlocksBeforeLiquidation: 2000000n,
+            minimumLiquidationCollateral: 2000000n,
+            validatorsPerOperatorLimit: 2000000,
+            declareOperatorFeePeriod: 2000000n,
+            executeOperatorFeePeriod: 2000000n,
+            operatorMaxFeeIncrease: 2000n,
+            defaultOracleIds: [1, 2, 3, 4],
+            quorumBps: CONFIG.quorumBps,
+          },
         ],
         { account: owners[1].account },
       ),

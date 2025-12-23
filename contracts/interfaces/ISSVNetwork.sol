@@ -12,18 +12,24 @@ import {SSVModules} from "../libraries/SSVStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ISSVNetwork {
+    struct NetworkInitParams {
+        uint64 minimumBlocksBeforeLiquidation;
+        uint256 minimumLiquidationCollateral;
+        uint32 validatorsPerOperatorLimit;
+        uint64 declareOperatorFeePeriod;
+        uint64 executeOperatorFeePeriod;
+        uint64 operatorMaxFeeIncrease;
+        uint32[4] defaultOracleIds;
+        uint16 quorumBps;
+    }
+
     function initialize(
         IERC20 token_,
         ISSVOperators ssvOperators_,
         ISSVClusters ssvClusters_,
         ISSVDAO ssvDAO_,
         ISSVViews ssvViews_,
-        uint64 minimumBlocksBeforeLiquidation_,
-        uint256 minimumLiquidationCollateral_,
-        uint32 validatorsPerOperatorLimit_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 operatorMaxFeeIncrease_
+        NetworkInitParams calldata params
     ) external;
 
     function getVersion() external pure returns (string memory version);

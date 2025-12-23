@@ -30,6 +30,8 @@ export const CONFIG: SSVConfig = {
   minimumLiquidationCollateral: 200000000,
   validatorsPerOperatorLimit: 500,
   maximumOperatorFee: BigInt(76528650000000),
+  quorumBps: 6700,
+  defaultOracleIds: [1, 2, 3, 4],
 };
 
 export const DEFAULT_OPERATOR_IDS = {
@@ -123,12 +125,16 @@ export const initializeContract = async function () {
       ssvClustersMod.address,
       ssvDAOMod.address,
       ssvViewsMod.address,
-      CONFIG.minimalBlocksBeforeLiquidation,
-      CONFIG.minimumLiquidationCollateral,
-      CONFIG.validatorsPerOperatorLimit,
-      CONFIG.declareOperatorFeePeriod,
-      CONFIG.executeOperatorFeePeriod,
-      CONFIG.operatorMaxFeeIncrease,
+      {
+        minimumBlocksBeforeLiquidation: CONFIG.minimalBlocksBeforeLiquidation,
+        minimumLiquidationCollateral: CONFIG.minimumLiquidationCollateral,
+        validatorsPerOperatorLimit: CONFIG.validatorsPerOperatorLimit,
+        declareOperatorFeePeriod: CONFIG.declareOperatorFeePeriod,
+        executeOperatorFeePeriod: CONFIG.executeOperatorFeePeriod,
+        operatorMaxFeeIncrease: CONFIG.operatorMaxFeeIncrease,
+        defaultOracleIds: CONFIG.defaultOracleIds,
+        quorumBps: CONFIG.quorumBps,
+      },
     ],
     {
       kind: 'uups',
