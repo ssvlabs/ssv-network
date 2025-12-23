@@ -99,7 +99,6 @@ interface ISSVDAO is ISSVNetworkCore {
 
     event WeightedRootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum, uint256 accumulatedWeight, uint256 quorum);
 
-    event CooldownDurationUpdated(uint64 newCooldownDuration);
     event OracleReplaced(uint32 indexed oracleId, address indexed oldOracle, address indexed newOracle);
     event QuorumUpdated(uint16 newQuorum);
 }
