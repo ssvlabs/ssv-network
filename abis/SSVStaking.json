@@ -12,6 +12,11 @@
   },
   {
     "inputs": [],
+    "name": "AlreadyVoted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ApprovalNotWithinTimeframe",
     "type": "error"
   },
@@ -264,6 +269,11 @@
   },
   {
     "inputs": [],
+    "name": "NotOracle",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NothingToClaim",
     "type": "error"
   },
@@ -285,6 +295,11 @@
   {
     "inputs": [],
     "name": "OperatorsListNotUnique",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OracleAlreadyAssigned",
     "type": "error"
   },
   {
@@ -393,6 +408,31 @@
     "inputs": [],
     "name": "ZeroInterval",
     "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32[4]",
+        "name": "oracleIds",
+        "type": "uint32[4]"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256[4]",
+        "name": "amounts",
+        "type": "uint256[4]"
+      }
+    ],
+    "name": "DelegationUpdated",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -569,6 +609,11 @@
         "internalType": "address",
         "name": "to",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       }
     ],
     "name": "onCSSVTransfer",
