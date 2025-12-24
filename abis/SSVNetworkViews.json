@@ -17,6 +17,11 @@
   },
   {
     "inputs": [],
+    "name": "AlreadyVoted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ApprovalNotWithinTimeframe",
     "type": "error"
   },
@@ -269,6 +274,11 @@
   },
   {
     "inputs": [],
+    "name": "NotOracle",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NothingToClaim",
     "type": "error"
   },
@@ -290,6 +300,11 @@
   {
     "inputs": [],
     "name": "OperatorsListNotUnique",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OracleAlreadyAssigned",
     "type": "error"
   },
   {
@@ -579,11 +594,6 @@
         "internalType": "uint256",
         "name": "balance",
         "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "effectiveBalance",
-        "type": "uint32"
       }
     ],
     "stateMutability": "view",
@@ -640,11 +650,6 @@
         "internalType": "uint256",
         "name": "balance",
         "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "effectiveBalance",
-        "type": "uint32"
       }
     ],
     "stateMutability": "view",
@@ -781,6 +786,75 @@
         "internalType": "uint8",
         "name": "",
         "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getDefaultOracleIds",
+    "outputs": [
+      {
+        "internalType": "uint32[4]",
+        "name": "",
+        "type": "uint32[4]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "clusterOwner",
+        "type": "address"
+      },
+      {
+        "internalType": "uint64[]",
+        "name": "operatorIds",
+        "type": "uint64[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "validatorCount",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "networkFeeIndex",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "index",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bool",
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "balance",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct ISSVNetworkCore.Cluster",
+        "name": "cluster",
+        "type": "tuple"
+      }
+    ],
+    "name": "getEffectiveBalance",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "effectiveBalance",
+        "type": "uint32"
       }
     ],
     "stateMutability": "view",
@@ -1114,6 +1188,81 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "oracleId",
+        "type": "uint32"
+      }
+    ],
+    "name": "getOracle",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "oracleId",
+        "type": "uint32"
+      }
+    ],
+    "name": "getOracleWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getQuorumBps",
+    "outputs": [
+      {
+        "internalType": "uint16",
+        "name": "",
+        "type": "uint16"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "getUserDelegation",
+    "outputs": [
+      {
+        "internalType": "uint32[4]",
+        "name": "oracleIds",
+        "type": "uint32[4]"
+      },
+      {
+        "internalType": "uint256[4]",
+        "name": "amounts",
+        "type": "uint256[4]"
       }
     ],
     "stateMutability": "view",

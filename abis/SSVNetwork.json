@@ -17,6 +17,11 @@
   },
   {
     "inputs": [],
+    "name": "AlreadyVoted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ApprovalNotWithinTimeframe",
     "type": "error"
   },
@@ -269,6 +274,11 @@
   },
   {
     "inputs": [],
+    "name": "NotOracle",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NothingToClaim",
     "type": "error"
   },
@@ -290,6 +300,11 @@
   {
     "inputs": [],
     "name": "OperatorsListNotUnique",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OracleAlreadyAssigned",
     "type": "error"
   },
   {
@@ -817,6 +832,31 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32[4]",
+        "name": "oracleIds",
+        "type": "uint32[4]"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256[4]",
+        "name": "amounts",
+        "type": "uint256[4]"
+      }
+    ],
+    "name": "DelegationUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "token",
         "type": "address"
       },
@@ -1259,6 +1299,31 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "uint32",
+        "name": "oracleId",
+        "type": "uint32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldOracle",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOracle",
+        "type": "address"
+      }
+    ],
+    "name": "OracleReplaced",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "previousOwner",
         "type": "address"
@@ -1290,6 +1355,19 @@
       }
     ],
     "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "newQuorum",
+        "type": "uint16"
+      }
+    ],
+    "name": "QuorumUpdated",
     "type": "event"
   },
   {
@@ -1601,6 +1679,37 @@
       }
     ],
     "name": "ValidatorRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "merkleRoot",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "blockNum",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "accumulatedWeight",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "quorum",
+        "type": "uint256"
+      }
+    ],
+    "name": "WeightedRootProposed",
     "type": "event"
   },
   {
@@ -1925,34 +2034,51 @@
         "type": "address"
       },
       {
-        "internalType": "uint64",
-        "name": "minimumBlocksBeforeLiquidation_",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint256",
-        "name": "minimumLiquidationCollateral_",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "validatorsPerOperatorLimit_",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint64",
-        "name": "declareOperatorFeePeriod_",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "executeOperatorFeePeriod_",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "operatorMaxFeeIncrease_",
-        "type": "uint64"
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "minimumBlocksBeforeLiquidation",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint256",
+            "name": "minimumLiquidationCollateral",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint32",
+            "name": "validatorsPerOperatorLimit",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "declareOperatorFeePeriod",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "executeOperatorFeePeriod",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "operatorMaxFeeIncrease",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint32[4]",
+            "name": "defaultOracleIds",
+            "type": "uint32[4]"
+          },
+          {
+            "internalType": "uint16",
+            "name": "quorumBps",
+            "type": "uint16"
+          }
+        ],
+        "internalType": "struct ISSVNetwork.NetworkInitParams",
+        "name": "params",
+        "type": "tuple"
       }
     ],
     "name": "initialize",
@@ -2116,6 +2242,11 @@
         "internalType": "address",
         "name": "to",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       }
     ],
     "name": "onCSSVTransfer",
@@ -2423,6 +2554,24 @@
   {
     "inputs": [
       {
+        "internalType": "uint32",
+        "name": "oracleId",
+        "type": "uint32"
+      },
+      {
+        "internalType": "address",
+        "name": "newOracle",
+        "type": "address"
+      }
+    ],
+    "name": "replaceOracle",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
@@ -2555,6 +2704,19 @@
       }
     ],
     "name": "setOracleTimingConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "quorum",
+        "type": "uint16"
+      }
+    ],
+    "name": "setQuorumBps",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

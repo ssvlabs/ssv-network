@@ -12,6 +12,11 @@
   },
   {
     "inputs": [],
+    "name": "AlreadyVoted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ApprovalNotWithinTimeframe",
     "type": "error"
   },
@@ -264,6 +269,11 @@
   },
   {
     "inputs": [],
+    "name": "NotOracle",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NothingToClaim",
     "type": "error"
   },
@@ -285,6 +295,11 @@
   {
     "inputs": [],
     "name": "OperatorsListNotUnique",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OracleAlreadyAssigned",
     "type": "error"
   },
   {
