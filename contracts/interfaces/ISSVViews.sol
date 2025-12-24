@@ -180,6 +180,16 @@ interface ISSVViews is ISSVNetworkCore {
         Cluster memory cluster
     ) external view returns (uint256 balance);
 
+    /// @notice Gets the effective balance of the cluster
+    /// @param owner The owner address of the cluster
+    /// @param operatorIds The IDs of the operators in the cluster
+    /// @return effectiveBalance The effective balance of the cluster
+    function getEffectiveBalance(
+        address owner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint32 effectiveBalance);
+
     /// @notice Gets the version of a cluster (ETH or SSV)
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster

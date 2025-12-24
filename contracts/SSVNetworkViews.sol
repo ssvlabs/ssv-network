@@ -150,7 +150,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view override returns (uint256 balance, uint32 effectiveBalance) {
+    ) external view override returns (uint256 balance) {
         return ssvNetwork.getBalance(clusterOwner, operatorIds, cluster);
     }
 
@@ -158,8 +158,16 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view override returns (uint256 balance, uint32 effectiveBalance) {
+    ) external view override returns (uint256 balance) {
         return ssvNetwork.getBalanceSSV(clusterOwner, operatorIds, cluster);
+    }
+
+    function getEffectiveBalance(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint32 effectiveBalance) {
+        return ssvNetwork.getEffectiveBalance(clusterOwner, operatorIds, cluster);
     }
 
     /*******************************/
