@@ -353,10 +353,10 @@ contract SSVViews is ISSVViews {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view override returns (uint256 balance, uint32 effectiveBalance) {
+    ) external view override returns (uint256 balance) {
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         if (version != CoreLib.VERSION_ETH) {
-            return (0, 0);
+            return 0;
         }
         cluster.validateClusterIsNotLiquidated();
 
@@ -370,27 +370,16 @@ contract SSVViews is ISSVViews {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
         balance = cluster.balance;
-
-        StorageEB storage seb = SSVStorageEB.load();
-        uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
-
-        if (vUnits == 0) {
-            vUnits = cluster.validatorCount * VUNITS_PRECISION;
-        }
-
-        effectiveBalance = uint32(
-            (uint256(vUnits) * DEFAULT_EB_PER_VALIDATOR) / VUNITS_PRECISION
-        );
     }
 
     function getBalanceSSV(
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view override returns (uint256 balance, uint32 effectiveBalance) {
+    ) external view override returns (uint256 balance) {
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         if (version != CoreLib.VERSION_SSV) {
-            return (0, 0);
+            return 0;
         }
         cluster.validateClusterIsNotLiquidated();
 
@@ -404,6 +393,15 @@ contract SSVViews is ISSVViews {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndexSSV());
         balance = cluster.balance;
+    }
+
+    function getEffectiveBalance(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint32 effectiveBalance) {
+        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        cluster.validateClusterIsNotLiquidated();
 
         StorageEB storage seb = SSVStorageEB.load();
         uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
@@ -412,8 +410,8 @@ contract SSVViews is ISSVViews {
             vUnits = cluster.validatorCount * VUNITS_PRECISION;
         }
 
-        effectiveBalance = uint32(
-            (uint256(vUnits) * DEFAULT_EB_PER_VALIDATOR) / VUNITS_PRECISION
+        return uint32(
+            (uint256(vUnits) * (DEFAULT_EB_PER_VALIDATOR / 1 ether)) / VUNITS_PRECISION
         );
     }
 
