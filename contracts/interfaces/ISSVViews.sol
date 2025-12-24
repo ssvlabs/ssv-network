@@ -168,7 +168,7 @@ interface ISSVViews is ISSVNetworkCore {
         address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external view returns (uint256 balance, uint32 effectiveBalance);
+    ) external view returns (uint256 balance);
 
     /// @notice Gets the balance of the legacy SSV cluster
     /// @param owner The owner address of the cluster
@@ -178,7 +178,7 @@ interface ISSVViews is ISSVNetworkCore {
         address owner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view returns (uint256 balance, uint32 effectiveBalance);
+    ) external view returns (uint256 balance);
 
     /// @notice Gets the version of a cluster (ETH or SSV)
     /// @param owner The owner address of the cluster
