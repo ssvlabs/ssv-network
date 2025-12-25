@@ -1,5 +1,6 @@
 node_modules
 .env
+.idea
 
 # Hardhat files
 /cache
@@ -8,6 +9,7 @@ node_modules
 # TypeChain files
 /typechain
 /typechain-types
+types
 
 # solidity-coverage files
 /coverage
@@ -16,4 +18,3 @@ node_modules
 .DS_Store
 .history
 .dccache
-abis
