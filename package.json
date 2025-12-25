@@ -3,6 +3,7 @@
   "version": "1.2.0",
   "description": "Solidity smart contracts for the SSV Network",
   "author": "SSV.Network",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/bloxapp/ssv-network.git"
@@ -38,18 +39,22 @@
     "size-contracts": "npx hardhat size-contracts"
   },
   "devDependencies": {
-    "@nomicfoundation/edr": "^0.3.4",
-    "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
-    "@nomicfoundation/hardhat-ethers": "^3.0.5",
-    "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
+    "@nomicfoundation/hardhat-ethers": "^4.0.3",
+    "@nomicfoundation/hardhat-ethers-chai-matchers": "^3.0.2",
+    "@nomicfoundation/hardhat-ignition": "^3.0.6",
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.2",
+    "@nomicfoundation/hardhat-verify": "^3.0.8",
     "@openzeppelin/contracts": "^4.9.6",
     "@openzeppelin/contracts-upgradeable": "^4.9.6",
-    "@openzeppelin/hardhat-upgrades": "^3.0.5",
-    "dotenv": "^16.4.5",
-    "hardhat": "^2.22.4",
-    "hardhat-abi-exporter": "^2.10.1",
-    "hardhat-contract-sizer": "^2.10.0",
-    "solidity-coverage": "^0.8.12",
-    "ssv-keys": "github:bloxapp/ssv-keys#v1.0.4"
+    "@types/chai": "^4.3.20",
+    "@types/chai-as-promised": "^8.0.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.19.2",
+    "chai": "^5.3.3",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.16.0",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
+    "hardhat": "^3.1.0",
+    "mocha": "^11.7.5"
   }
 }
