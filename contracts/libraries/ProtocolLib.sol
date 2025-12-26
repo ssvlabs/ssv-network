@@ -29,7 +29,7 @@ library ProtocolLib {
     }
 
     function updateNetworkFeeSSV(StorageProtocol storage sp, uint256 fee) internal {
-        updateDAOEarnings(sp);
+        updateDAOEarningsSSV(sp);
 
         sp.networkFeeIndex = currentNetworkFeeIndexSSV(sp);
         sp.networkFeeIndexBlockNumber = uint32(block.number);
