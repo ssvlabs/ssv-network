@@ -73,7 +73,7 @@ contract SSVClusters is ISSVClusters {
     function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
         StorageData storage s = SSVStorage.load();
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
         cluster.validateClusterIsNotLiquidated();
 
@@ -113,7 +113,7 @@ contract SSVClusters is ISSVClusters {
     ) external override {
         StorageData storage s = SSVStorage.load();
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
         cluster.validateClusterIsNotLiquidated();
 
@@ -199,7 +199,7 @@ contract SSVClusters is ISSVClusters {
     ) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
 
         cluster.balance += msg.value;
@@ -537,7 +537,6 @@ contract SSVClusters is ISSVClusters {
             operatorIds,
             ctx.blockNum,
             ctx.effectiveBalance,
-            newVUnits,
             cluster
         );
     }
@@ -558,7 +557,6 @@ contract SSVClusters is ISSVClusters {
         uint64[] calldata operatorIds,
         uint64 blockNum,
         uint32 eb,
-        uint64 newVUnits,
         Cluster memory cluster
     ) internal {
         emit ClusterBalanceUpdated(clusterOwner, operatorIds, blockNum, eb, cluster);
