@@ -17,6 +17,7 @@ contract SSVDAO is ISSVDAO {
     using ProtocolLib for StorageProtocol;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
+    uint256 private constant ROOT_COMMITS_THRESHOLD = 1;
 
     function updateNetworkFee(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -89,10 +90,6 @@ contract SSVDAO is ISSVDAO {
 
     function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
         StorageEB storage seb = SSVStorageEB.load();
-        StorageStaking storage s = SSVStorageStaking.load();
-
-        uint32 oracleId = s.oracleIdOf[msg.sender];
-        if (oracleId == 0) revert NotOracle();
 
         // Enforce monotonicity - new block must be greater than last
         if (blockNum <= seb.latestCommittedBlock) {
@@ -106,30 +103,21 @@ contract SSVDAO is ISSVDAO {
 
         // block and root combined to keep block-root proposal tied together
         bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, merkleRoot));
-        
-        if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
-        seb.hasVoted[commitmentKey][oracleId] = true;
+        seb.rootCommitments[commitmentKey]+=1;
 
-        uint256 weight = s.oracleWeights[oracleId];
-        seb.rootCommitments[commitmentKey] += weight;
+        uint256 votes = seb.rootCommitments[commitmentKey];
 
-        uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];
-        uint256 totalSupply = ICSSVToken(s.cssv).totalSupply();
-
-        uint256 threshold = (totalSupply * s.quorumBps) / 10000;
-
-        if (accumulatedWeight >= threshold) {
+        if (votes >= ROOT_COMMITS_THRESHOLD) {
             seb.ebRoots[blockNum] = merkleRoot;
             seb.latestCommittedBlock = blockNum;
 
             delete seb.rootCommitments[commitmentKey];
-            // Do not delete hasVoted to prevent re-voting if same key is somehow reused 
 
             emit RootCommitted(merkleRoot, blockNum);
             return;
         }
 
-        emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold);
+        emit RootProposed(merkleRoot, blockNum);
     }
 
     function replaceOracle(uint32 oracleId, address newOracle) external override {
