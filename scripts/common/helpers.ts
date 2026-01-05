@@ -17,7 +17,6 @@ export async function getEthers(targetNetwork: string): Promise<HardhatEthersHel
 
 export async function getDeployer(ethers: HardhatEthersHelpers): Promise<Signer> {
   const [deployer] = await ethers.getSigners();
-  console.log(`Deployer: ${deployer.address}`);
   return deployer;
 }
 
@@ -26,11 +25,12 @@ export async function deployContract(
   contractName: string,
   args: any[] = []
 ): Promise<{ contract: any; address: string }> {
+  const network = await ethers.provider.getNetwork()
   const factory = await ethers.getContractFactory(contractName);
   const contract = await factory.deploy(...args);
   await contract.waitForDeployment();
   const address = await contract.getAddress();
-  console.log(`${contractName} at: ${address}`);
+  if (network.name != "hardhat") console.log(`${contractName} at: ${address}`);
   return { contract, address };
 }
 
@@ -40,12 +40,13 @@ export async function deployProxy(
   implAddress: string,
   initData: string
 ): Promise<{ proxy: any; address: string }> {
+  const network = await ethers.provider.getNetwork()
   const proxyArtifact = await artifacts.readArtifact("ERC1967Proxy");
   const proxyFactory = new ContractFactory(proxyArtifact.abi, proxyArtifact.bytecode, deployer);
   const proxy = await proxyFactory.deploy(implAddress, initData);
   await proxy.waitForDeployment();
   const address = await proxy.getAddress();
-  console.log(`Proxy at: ${address}`);
+  if (network.name != "hardhat") console.log(`Proxy at: ${address}`);
   return { proxy, address };
 }
 
@@ -55,16 +56,17 @@ export async function attachModule(
   moduleName: string,
   moduleAddress: string
 ): Promise<void> {
+  const network = await ethers.provider.getNetwork()
   const moduleEnumKey = moduleName as keyof typeof SSVModules;
   if (SSVModules[moduleEnumKey] === undefined) {
     throw new Error(`Invalid module: ${moduleName}`);
   }
   const networkFactory = await ethers.getContractFactory("SSVNetwork");
   const ssvNetwork = networkFactory.attach(proxyAddress);
-  console.log(`Attaching ${moduleName} (${moduleAddress})...`);
+  if (network.name != "hardhat") console.log(`Attaching ${moduleName} (${moduleAddress})...`);
   const tx = await ssvNetwork.updateModule(SSVModules[moduleEnumKey], moduleAddress);
   await tx.wait();
-  console.log(`Attached ${moduleName} at ${moduleAddress}`);
+  if (network.name != "hardhat") console.log(`Attached ${moduleName} at ${moduleAddress}`);
 }
 
 export async function upgradeProxy(
@@ -76,6 +78,7 @@ export async function upgradeProxy(
   initFunction?: string,
   params: any[] = []
 ): Promise<void> {
+  const network = await ethers.provider.getNetwork()
   const factory = await ethers.getContractFactory(contractName);
   const proxy = await ethers.getContractAt("SSVNetwork", proxyAddress, deployer);
 
@@ -90,12 +93,12 @@ export async function upgradeProxy(
 
     const tx = await proxy.upgradeToAndCall(implAddress, initData);
     await tx.wait();
-    console.log("Upgrade with init done");
+    if (network.name != "hardhat") console.log("Upgrade with init done");
   } else {
     const tx = await proxy.upgradeTo(implAddress);
     await tx.wait();
-    console.log("Upgrade done");
+    if (network.name != "hardhat") console.log("Upgrade done");
   }
 
-  console.log(`Proxy now uses: ${implAddress}`);
+  if (network.name != "hardhat") console.log(`Proxy now uses: ${implAddress}`);
 }
