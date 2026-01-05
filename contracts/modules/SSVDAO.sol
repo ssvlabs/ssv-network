@@ -17,7 +17,7 @@ contract SSVDAO is ISSVDAO {
     using ProtocolLib for StorageProtocol;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
-    uint256 private constant ROOT_COMMITS_THRESHOLD = 1;
+    uint256 private constant ROOT_COMMITS_THRESHOLD = 3;
 
     function updateNetworkFee(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
