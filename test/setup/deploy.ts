@@ -1,4 +1,12 @@
-export async function deployToken(connection: any) {
+import type { NetworkConnection } from "hardhat/types/network";
+import { Contract } from "ethers";
+import { SSVModules } from '../common/types.ts';
+import { SSV_MODULE_CONTRACTS } from '../common/constants.ts';
+import { getHarnessName } from '../common/helpers.ts';
+
+export async function deployToken(
+  connection: NetworkConnection<"generic">
+): Promise<Contract> {
   const { ethers } = connection;
   const [deployer] = await ethers.getSigners();
 
@@ -9,8 +17,19 @@ export async function deployToken(connection: any) {
 }
 
 export async function deployModule(
-  connection: any,
-  moduleName: string
-) {
-  return connection.ethers.deployContract(moduleName);
+  connection: NetworkConnection<"generic">,
+  module: SSVModules
+): Promise<Contract> {
+  return connection.ethers.deployContract(
+    SSV_MODULE_CONTRACTS[module]
+  );
+}
+
+export async function deployHarnessModule(
+  connection: NetworkConnection<"generic">,
+  module: SSVModules
+): Promise<Contract> {
+  return connection.ethers.deployContract(
+    getHarnessName(module)
+  );
 }
