@@ -4,7 +4,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makePublicKey } from "../../common/helpers.ts";
+import { makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -15,32 +15,6 @@ const createCluster = (): ClusterType => ({
   ...EMPTY_CLUSTER,
   active: true,
 });
-
-const parseClusterFromEvent = (contract: any, receipt: any, eventName: string): ClusterType => {
-  for (const log of receipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = contract.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-
-    if (parsed?.name === eventName) {
-      const clusterTuple = parsed.args[parsed.args.length - 1];
-      const [validatorCount, networkFeeIndex, index, active, balance] = clusterTuple;
-
-      return {
-        validatorCount: BigInt(validatorCount),
-        networkFeeIndex: BigInt(networkFeeIndex),
-        index: BigInt(index),
-        active,
-        balance: BigInt(balance),
-      };
-    }
-  }
-
-  throw new Error(`Event ${eventName} not found`);
-};
 
 describe("SSVClusters function `updateClusterBalance()`", async () => {
   let connection: NetworkConnection<"generic">;

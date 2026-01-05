@@ -82,6 +82,32 @@ const EVENT_ABI = [
   'event ValidatorRemoved(address indexed owner, uint64[] operatorIds, bytes publicKey, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
 ] as const;
 
+export function parseClusterFromEvent(contract: any, receipt: any, eventName: string): Cluster {
+  for (const log of receipt.logs ?? []) {
+    let parsed;
+    try {
+      parsed = contract.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+
+    if (parsed?.name === eventName) {
+      const clusterTuple = parsed.args[parsed.args.length - 1];
+      const [validatorCount, networkFeeIndex, index, active, balance] = clusterTuple;
+
+      return {
+        validatorCount: BigInt(validatorCount),
+        networkFeeIndex: BigInt(networkFeeIndex),
+        index: BigInt(index),
+        active,
+        balance: BigInt(balance),
+      };
+    }
+  }
+
+  throw new Error(`Event ${eventName} not found`);
+}
+
 export async function getCurrentClusterState(
   connection: NetworkConnection<"generic">,
   networkContract: SSVNetwork,
