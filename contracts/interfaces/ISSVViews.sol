@@ -261,6 +261,11 @@ interface ISSVViews is ISSVNetworkCore {
     function getUserDelegation(address user) external view returns (uint32[4] memory oracleIds, uint256[4] memory amounts);
     function getQuorumBps() external view returns (uint16);
 
+    /// @notice Gets the committed merkle root for a specific block
+    /// @param blockNum The block number to query
+    /// @return merkleRoot The committed merkle root, or bytes32(0) if not committed
+    function getCommittedRoot(uint64 blockNum) external view returns (bytes32 merkleRoot);
+
     /// @notice Gets the version of the contract
     /// @return The version of the contract
     function getVersion() external view returns (string memory);
