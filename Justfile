@@ -4,6 +4,13 @@ build:
 clean:
     npx hardhat clean
 
+test:
+    npx hardhat test
+
+coverage:
+    npx hardhat test --coverage
+    genhtml coverage/lcov.info -o coverage/html
+
 sizes:
     npx hardhat compile --force
     npx tsx ./scripts/contract-sizes.ts
