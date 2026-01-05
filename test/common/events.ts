@@ -4,6 +4,7 @@ export const Events = {
   CLUSTER_LIQUIDATED: "ClusterLiquidated",
   CLUSTER_REACTIVATED: "ClusterReactivated",
   CLUSTER_DEPOSITED: "ClusterDeposited",
+  CLUSTER_WITHDRAWN: "ClusterWithdrawn",
   OPERATOR_ADDED: "OperatorAdded",
   OPERATOR_PRIVACY_STATUS_UPDATED: "OperatorPrivacyStatusUpdated",
   OPERATOR_REMOVED: "OperatorRemoved",
