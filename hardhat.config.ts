@@ -29,6 +29,7 @@ export default defineConfig({
     ],
   },
   networks: {
+    hardhat: {
     hoodi: {
       type: "http",
       chainType: "l1",
