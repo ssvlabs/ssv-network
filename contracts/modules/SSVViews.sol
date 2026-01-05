@@ -12,6 +12,7 @@ import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
+import {SSVStorageEB} from "../libraries/SSVStorageEB.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -532,6 +533,10 @@ contract SSVViews is ISSVViews {
 
     function getQuorumBps() external view override returns (uint16) {
         return SSVStorageStaking.load().quorumBps;
+    }
+
+    function getCommittedRoot(uint64 blockNum) external view override returns (bytes32) {
+        return SSVStorageEB.load().ebRoots[blockNum];
     }
 
     function _previewAccEthPerShare(StorageStaking storage s) internal view returns (uint256) {

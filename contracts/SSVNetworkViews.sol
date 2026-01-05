@@ -270,6 +270,10 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getQuorumBps();
     }
 
+    function getCommittedRoot(uint64 blockNum) external view override returns (bytes32) {
+        return ssvNetwork.getCommittedRoot(blockNum);
+    }
+
     function getVersion() external view override returns (string memory) {
         return ssvNetwork.getVersion();
     }
