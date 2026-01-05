@@ -25,4 +25,5 @@ export const Errors = {
   INVALID_WHITELIST_ADDRESSES_LENGTH: "InvalidWhitelistAddressesLength",
   ZERO_ADDRESS_NOT_ALLOWED: "ZeroAddressNotAllowed",
   INVALID_WHITELISTING_CONTRACT: "InvalidWhitelistingContract",
+  ROOT_NOT_FOUND: "RootNotFound",
 } as const;
