@@ -11,6 +11,7 @@ export const Errors = {
   CLUSTER_IS_LIQUIDATED: "ClusterIsLiquidated",
   CLUSTER_DOES_NOT_EXISTS: "ClusterDoesNotExists",
   CLUSTER_NOT_LIQUIDATABLE: "ClusterNotLiquidatable",
+  CLUSTER_ALREADY_ENABLED: "ClusterAlreadyEnabled",
   INCORRECT_CLUSTER_VERSION: "IncorrectClusterVersion",
   INCORRECT_CLUSTER_STATE: "IncorrectClusterState",
   CALLER_NOT_WHITELISTED: "CallerNotWhitelistedWithData",
