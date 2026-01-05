@@ -30,6 +30,9 @@ export default defineConfig({
   },
   networks: {
     hardhat: {
+      type: 'edr-simulated',
+      allowUnlimitedContractSize: true
+    },
     hoodi: {
       type: "http",
       chainType: "l1",
