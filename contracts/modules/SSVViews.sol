@@ -316,7 +316,12 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+
+        // todo double check
+        if (version != CoreLib.VERSION_SSV) {
+            return 0;
+        }
 
         uint64 aggregateFee;
         uint256 operatorsLength = operatorIds.length;
