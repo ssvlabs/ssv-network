@@ -70,7 +70,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
     )).to.be.revertedWithCustomError(clusters, Errors.INVALID_PUBLIC_KEYS_LENGTH);
   });
 
-  it("Is reverter with 'PublicKeysSharesLengthMismatch' if there is a mismatch between public keys and shares", async function () {
+  it("Is reverted with 'PublicKeysSharesLengthMismatch' if there is a mismatch between public keys and shares", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
     await expect(clusters.bulkRegisterValidator(

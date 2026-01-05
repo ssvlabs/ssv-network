@@ -1,6 +1,6 @@
-import { ethers } from 'ethers';
-import { SSVModules } from './types.ts';
-import type {Cluster } from './types.ts';
+import { ethers } from "ethers";
+import { SSVModules } from "./types.ts";
+import type { Cluster } from "./types.ts";
 
 export const EMPTY_CLUSTER: Cluster = {
   validatorCount: 0n,
@@ -25,7 +25,7 @@ export const DEFAULT_ETH_EB_PER_VALIDATOR: bigint = 32n;
 export const CLUSTER_VERSION_SSV = 0n;
 export const CLUSTER_VERSION_ETH = 1n;
 export const MINIMAL_OPERATOR_ETH_FEE = 10_000_000n;
-export const VUNITS_PRECISION: bigint = 10_000n
+export const VUNITS_PRECISION: bigint = 10_000n;
 export const MAXIMUM_OPERATORS_FEE = 76528650000000n;
 export const NETWORK_FEE = 382640000000n;
 export const MINIMUM_BLOCKS_BEFORE_LIQUIDATION = 214800n;

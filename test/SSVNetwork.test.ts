@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import { getTestConnection } from "./setup/connection.js";
-import { fullNetworkFixture } from "./setup/fixtures.js";
+import { getTestConnection } from "./setup/connection.ts";
+import { fullNetworkFixture } from "./setup/fixtures.ts";
 
 async function deployFullNetwork() {
   const { connection } = await getTestConnection();
