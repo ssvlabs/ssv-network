@@ -66,6 +66,32 @@ export async function ssvClustersHarnessFixture(
   };
 }
 
+export async function ssvOperatorsHarnessFixture(
+  connection: NetworkConnection<"generic">,
+  operatorMaxFee = MAXIMUM_OPERATORS_FEE,
+  declarePeriod = 0n,
+  executePeriod = 1_000n,
+  maxFeeIncrease = OPERATOR_MAX_FEE_INCREASE
+): Promise<{ operators: Contract; }> {
+  const operators = await deployHarnessModule(connection, SSVModules.SSVOperators);
+  await operators.waitForDeployment();
+
+  await operators.mockSetOperatorMaxFee(Number(operatorMaxFee));
+  await operators.mockSetFeePeriods(Number(declarePeriod), Number(executePeriod));
+  await operators.mockSetOperatorMaxFeeIncrease(Number(maxFeeIncrease));
+
+  return { operators };
+}
+
+export async function ssvDAOHarnessFixture(
+  connection: NetworkConnection<"generic">
+): Promise<{ dao: Contract; }> {
+  const dao = await deployHarnessModule(connection, SSVModules.SSVDAO);
+  await dao.waitForDeployment();
+
+  return { dao };
+}
+
 const QUORUM_BPS = 7500;
 const DEFAULT_ORACLE_IDS = [1, 2, 3, 4];
 

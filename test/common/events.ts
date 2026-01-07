@@ -31,4 +31,12 @@ export const Events = {
   STAKED: "Staked",
   UNSTAKE_REQUESTED: "UnstakeRequested",
   UNSTAKE_WITHDRAWN: "UnstakedWithdrawn",
+  NETWORK_FEE_UPDATED: "NetworkFeeUpdated",
+  NETWORK_EARNINGS_WITHDRAWN: "NetworkEarningsWithdrawn",
+  ROOT_COMMITTED: "RootCommitted",
+  ROOT_PROPOSED: "RootProposed",
+  WEIGHTED_ROOT_PROPOSED: "WeightedRootProposed",
+  COOLDOWN_DURATION_UPDATED: "CooldownDurationUpdated",
+  ORACLE_REPLACED: "OracleReplaced",
+  QUORUM_UPDATED: "QuorumUpdated",
 } as const;
