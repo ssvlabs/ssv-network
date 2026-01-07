@@ -7,12 +7,14 @@ import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../../libraries/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../../libraries/SSVStorageEB.sol";
 import {Types256} from "../../libraries/Types.sol";
+import "../../libraries/ClusterLib.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
 contract SSVClustersHarness is SSVClusters {
     using Counters for Counters.Counter;
     using Types256 for uint256;
+    using ClusterLib for Cluster;
 
     function mockOperator(
         bytes calldata publicKey,
@@ -118,6 +120,25 @@ contract SSVClustersHarness is SSVClusters {
     function mockMinimumLiquidationCollateral(uint64 collateral) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.minimumLiquidationCollateral = collateral;
+    }
+
+    function mockRegisterSSVValidator(
+        bytes calldata publicKey,
+        uint64[] calldata operatorIds,
+        address owner,
+        Cluster memory cluster
+    ) external returns (bytes32 hashedCluster) {
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
+
+        s.clusters[hashedCluster] = cluster.hashClusterData();
+
+        sp.daoValidatorCount += uint32(cluster.validatorCount);
+
+        bytes32 hashedValidator = keccak256(abi.encodePacked(publicKey, owner));
+        s.validatorPKs[hashedValidator] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01));
     }
 
     function mockSetClusterVUnits(bytes32 clusterId, uint64 vUnits) external {
