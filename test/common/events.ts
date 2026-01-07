@@ -1,6 +1,12 @@
 export const Events = {
   VALIDATOR_ADDED: "ValidatorAdded",
   VALIDATOR_REMOVED: "ValidatorRemoved",
+  VALIDATOR_EXITED: "ValidatorExited",
+  CLUSTER_LIQUIDATED: "ClusterLiquidated",
+  CLUSTER_REACTIVATED: "ClusterReactivated",
+  CLUSTER_DEPOSITED: "ClusterDeposited",
+  CLUSTER_WITHDRAWN: "ClusterWithdrawn",
+  CLUSTER_MIGRATED_TO_ETH: "ClusterMigratedToETH",
   OPERATOR_ADDED: "OperatorAdded",
   OPERATOR_PRIVACY_STATUS_UPDATED: "OperatorPrivacyStatusUpdated",
   OPERATOR_REMOVED: "OperatorRemoved",
