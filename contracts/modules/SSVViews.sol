@@ -12,6 +12,7 @@ import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
+import {SSVStorageEB} from "../libraries/SSVStorageEB.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -462,6 +463,10 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().operatorMaxFee;
     }
 
+    function getMaximumOperatorFeeSSV() external view override returns (uint64) {
+        return SSVStorageProtocol.load().operatorMaxFeeSSV;
+    }
+
     function getOperatorFeePeriods() external view override returns (uint64, uint64) {
         return (SSVStorageProtocol.load().declareOperatorFeePeriod, SSVStorageProtocol.load().executeOperatorFeePeriod);
     }
@@ -470,8 +475,16 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().minimumBlocksBeforeLiquidation;
     }
 
+    function getLiquidationThresholdPeriodSSV() external view override returns (uint64) {
+        return SSVStorageProtocol.load().minimumBlocksBeforeLiquidationSSV;
+    }
+
     function getMinimumLiquidationCollateral() external view override returns (uint256) {
         return SSVStorageProtocol.load().minimumLiquidationCollateral.expand();
+    }
+
+    function getMinimumLiquidationCollateralSSV() external view override returns (uint256) {
+        return SSVStorageProtocol.load().minimumLiquidationCollateralSSV.expand();
     }
 
     function getValidatorsPerOperatorLimit() external view override returns (uint32) {
@@ -537,6 +550,10 @@ contract SSVViews is ISSVViews {
 
     function getQuorumBps() external view override returns (uint16) {
         return SSVStorageStaking.load().quorumBps;
+    }
+
+    function getCommittedRoot(uint64 blockNum) external view override returns (bytes32) {
+        return SSVStorageEB.load().ebRoots[blockNum];
     }
 
     function _previewAccEthPerShare(StorageStaking storage s) internal view returns (uint256) {

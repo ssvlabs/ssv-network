@@ -219,6 +219,7 @@ interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets the operator maximum fee for operators that use SSV token
     /// @return The maximum fee value (SSV)
     function getMaximumOperatorFee() external view returns (uint64);
+    function getMaximumOperatorFeeSSV() external view returns (uint64);
 
     /// @notice Gets the periods of operator fee declaration and execution
     /// @return The period for declaring operator fee
@@ -228,10 +229,12 @@ interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets the liquidation threshold period
     /// @return blocks The number of blocks for the liquidation threshold period
     function getLiquidationThresholdPeriod() external view returns (uint64 blocks);
+    function getLiquidationThresholdPeriodSSV() external view returns (uint64 blocks);
 
     /// @notice Gets the minimum liquidation collateral
     /// @return amount The minimum amount of collateral for liquidation (SSV)
     function getMinimumLiquidationCollateral() external view returns (uint256 amount);
+    function getMinimumLiquidationCollateralSSV() external view returns (uint256 amount);
 
     /// @notice Gets the maximum limit of validators per operator
     /// @return validators The maximum number of validators per operator
@@ -260,6 +263,11 @@ interface ISSVViews is ISSVNetworkCore {
     function getDefaultOracleIds() external view returns (uint32[4] memory);
     function getUserDelegation(address user) external view returns (uint32[4] memory oracleIds, uint256[4] memory amounts);
     function getQuorumBps() external view returns (uint16);
+
+    /// @notice Gets the committed merkle root for a specific block
+    /// @param blockNum The block number to query
+    /// @return merkleRoot The committed merkle root, or bytes32(0) if not committed
+    function getCommittedRoot(uint64 blockNum) external view returns (bytes32 merkleRoot);
 
     /// @notice Gets the version of the contract
     /// @return The version of the contract
