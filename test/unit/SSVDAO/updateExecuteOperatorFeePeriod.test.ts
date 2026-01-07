@@ -23,7 +23,7 @@ describe("SSVDAO function `updateExecuteOperatorFeePeriod()`", async () => {
   it("Updates the execute operator fee period and emits event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const newPeriod = 604800n; // 1 week in seconds
+    const newPeriod = 604800n;
 
     const tx = await dao.updateExecuteOperatorFeePeriod(newPeriod);
 
@@ -35,7 +35,7 @@ describe("SSVDAO function `updateExecuteOperatorFeePeriod()`", async () => {
   it("Stores the new execute operator fee period in storage", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const newPeriod = 86400n; // 1 day in seconds
+    const newPeriod = 86400n;
 
     await dao.updateExecuteOperatorFeePeriod(newPeriod);
 
@@ -74,4 +74,3 @@ describe("SSVDAO function `updateExecuteOperatorFeePeriod()`", async () => {
     expect(storedPeriod).to.equal(secondPeriod);
   });
 });
-

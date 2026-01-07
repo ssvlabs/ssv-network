@@ -27,29 +27,23 @@ describe("SSVDAO function `commitRoot()`", async () => {
   const deployDAOWithOraclesFixture = async () => {
     const { dao } = await ssvDAOHarnessFixture(connection);
 
-    // Deploy a mock cSSV token for total supply
     const mockCSSV = await connection.ethers.deployContract("MockToken", []);
     await mockCSSV.waitForDeployment();
 
-    // Mint some tokens to simulate total supply
     const totalSupply = ethers.parseEther("1000");
     await mockCSSV.mint(owner.address, totalSupply);
 
-    // Set the cSSV token
     await dao.mockSetCSSVToken(await mockCSSV.getAddress());
 
-    // Set up oracles with IDs 1, 2, 3
     await dao.mockSetOracle(1, oracle1.address);
     await dao.mockSetOracle(2, oracle2.address);
     await dao.mockSetOracle(3, oracle3.address);
 
-    // Set oracle weights (each has 400 tokens worth of weight = 40% each)
     const oracleWeight = ethers.parseEther("400");
     await dao.mockSetOracleWeight(1, oracleWeight);
     await dao.mockSetOracleWeight(2, oracleWeight);
     await dao.mockSetOracleWeight(3, oracleWeight);
 
-    // Set quorum to 75% (7500 bps)
     await dao.mockSetQuorumBps(7500);
 
     return { dao, mockCSSV, totalSupply };
@@ -68,7 +62,6 @@ describe("SSVDAO function `commitRoot()`", async () => {
   it("Is reverted with 'StaleBlockNumber' when block number is not greater than last committed", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
 
-    // Set a previous committed block
     await dao.mockSetLatestCommittedBlock(100);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
@@ -97,10 +90,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const currentBlock = await connection.ethers.provider.getBlockNumber();
 
-    // First vote
     await dao.connect(oracle1).commitRoot(merkleRoot, currentBlock);
 
-    // Second vote should fail
     await expect(dao.connect(oracle1).commitRoot(merkleRoot, currentBlock))
       .to.be.revertedWithCustomError(dao, Errors.ALREADY_VOTED);
   });
@@ -126,21 +117,17 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const currentBlock = await connection.ethers.provider.getBlockNumber();
 
-    // Oracle 1 votes (40% - not enough for 75% quorum)
     await dao.connect(oracle1).commitRoot(merkleRoot, currentBlock);
 
-    // Oracle 2 votes (now 80% - enough for 75% quorum)
     const tx = await dao.connect(oracle2).commitRoot(merkleRoot, currentBlock);
 
     await expect(tx)
       .to.emit(dao, Events.ROOT_COMMITTED)
       .withArgs(merkleRoot, currentBlock);
 
-    // Verify root is stored
     const storedRoot = await dao.getEBRoot(currentBlock);
     expect(storedRoot).to.equal(merkleRoot);
 
-    // Verify latest committed block is updated
     const latestBlock = await dao.getLatestCommittedBlock();
     expect(latestBlock).to.equal(currentBlock);
   });
@@ -152,22 +139,17 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const currentBlock = await connection.ethers.provider.getBlockNumber();
     const oracleWeight = ethers.parseEther("400");
 
-    // First oracle votes
     await dao.connect(oracle1).commitRoot(merkleRoot, currentBlock);
 
-    // Check accumulated weight
     const commitmentKey = ethers.keccak256(
       ethers.solidityPacked(["uint64", "bytes32"], [currentBlock, merkleRoot])
     );
     const weight1 = await dao.getRootCommitmentWeight(commitmentKey);
     expect(weight1).to.equal(oracleWeight);
 
-    // Second oracle votes
     await dao.connect(oracle2).commitRoot(merkleRoot, currentBlock);
 
-    // After quorum is reached, rootCommitments is deleted, so it should be 0
     const weight2 = await dao.getRootCommitmentWeight(commitmentKey);
     expect(weight2).to.equal(0n);
   });
 });
-

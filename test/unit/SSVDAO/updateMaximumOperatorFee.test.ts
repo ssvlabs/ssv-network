@@ -124,4 +124,3 @@ describe("SSVDAO function `updateMaximumOperatorFeeSSV()`", async () => {
       .withArgs(0n);
   });
 });
-

@@ -40,7 +40,6 @@ describe("SSVDAO function `updateMinimumLiquidationCollateral()`", async () => {
 
     await dao.updateMinimumLiquidationCollateral(newCollateral);
 
-    // The collateral is shrunk when stored
     const storedCollateral = await dao.getMinimumLiquidationCollateral();
     expect(storedCollateral).to.equal(newCollateral / 10_000_000n);
   });
@@ -107,7 +106,6 @@ describe("SSVDAO function `updateMinimumLiquidationCollateralSSV()`", async () =
 
     await dao.updateMinimumLiquidationCollateralSSV(newCollateral);
 
-    // The collateral is shrunk when stored
     const storedCollateral = await dao.getMinimumLiquidationCollateralSSV();
     expect(storedCollateral).to.equal(newCollateral / 10_000_000n);
   });
@@ -123,4 +121,3 @@ describe("SSVDAO function `updateMinimumLiquidationCollateralSSV()`", async () =
       .withArgs(0n);
   });
 });
-

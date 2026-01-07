@@ -31,7 +31,6 @@ export const Events = {
   STAKED: "Staked",
   UNSTAKE_REQUESTED: "UnstakeRequested",
   UNSTAKE_WITHDRAWN: "UnstakedWithdrawn",
-  // DAO events
   NETWORK_FEE_UPDATED: "NetworkFeeUpdated",
   NETWORK_EARNINGS_WITHDRAWN: "NetworkEarningsWithdrawn",
   ROOT_COMMITTED: "RootCommitted",

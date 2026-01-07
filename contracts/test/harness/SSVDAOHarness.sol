@@ -9,7 +9,6 @@ import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SSVDAOHarness is SSVDAO {
-    // Protocol storage mock setters
     function mockSetNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethNetworkFee = fee;
@@ -104,7 +103,6 @@ contract SSVDAOHarness is SSVDAO {
         sp.executeOperatorFeePeriod = period;
     }
 
-    // Staking storage mock setters
     function mockSetCSSVToken(address cssvToken) external {
         StorageStaking storage s = SSVStorageStaking.load();
         s.cssv = cssvToken;
@@ -133,7 +131,6 @@ contract SSVDAOHarness is SSVDAO {
         s.cooldownDuration = duration;
     }
 
-    // EB storage mock setters
     function mockSetLatestCommittedBlock(uint64 blockNum) external {
         StorageEB storage seb = SSVStorageEB.load();
         seb.latestCommittedBlock = blockNum;
@@ -144,12 +141,10 @@ contract SSVDAOHarness is SSVDAO {
         seb.ebRoots[blockNum] = root;
     }
 
-    // Token mock
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
     }
 
-    // Getters for verification
     function getNetworkFee() external view returns (uint64) {
         return SSVStorageProtocol.load().ethNetworkFee;
     }

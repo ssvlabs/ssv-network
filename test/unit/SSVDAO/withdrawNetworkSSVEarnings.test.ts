@@ -22,18 +22,14 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
   const deployDAOWithTokenFixture = async () => {
     const { dao } = await ssvDAOHarnessFixture(connection);
 
-    // Deploy a mock token
     const mockToken = await connection.ethers.deployContract("MockToken", []);
     await mockToken.waitForDeployment();
 
-    // Set the token in storage
     await dao.mockSetToken(await mockToken.getAddress());
 
-    // Set some DAO balance
     const daoBalance = 1000n;
     await dao.mockSetDaoBalance(daoBalance);
 
-    // Mint tokens to the DAO contract (to simulate earnings)
     await mockToken.mint(await dao.getAddress(), daoBalance * 10_000_000n);
 
     return { dao, mockToken, daoBalance };
@@ -42,10 +38,8 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
   it("Is reverted with 'InsufficientBalance' when trying to withdraw more than available", async function () {
     const { dao } = await ssvDAOHarnessFixture(connection);
 
-    // Set a small DAO balance
     await dao.mockSetDaoBalance(100n);
 
-    // Try to withdraw more than available
     const withdrawAmount = 200n * 10_000_000n;
 
     await expect(dao.withdrawNetworkSSVEarnings(withdrawAmount))
@@ -55,7 +49,7 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
   it("Withdraws network SSV earnings and emits NetworkEarningsWithdrawn event", async function () {
     const { dao, mockToken, daoBalance } = await networkHelpers.loadFixture(deployDAOWithTokenFixture);
 
-    const withdrawAmount = 500n * 10_000_000n; // Expanded amount
+    const withdrawAmount = 500n * 10_000_000n;
 
     const tx = await dao.withdrawNetworkSSVEarnings(withdrawAmount);
 
@@ -90,4 +84,3 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
     expect(newBalance).to.equal(0n);
   });
 });
-

@@ -40,7 +40,6 @@ export const Errors = {
   COOLDOWN_ACTIVE: "CooldownActive",
   UNSTAKE_AMOUNT_EXCEEDS_BALANCE: "UnstakeAmountExceedsBalance",
   ROOT_NOT_FOUND: "RootNotFound",
-  // DAO errors
   NOT_ORACLE: "NotOracle",
   STALE_BLOCK_NUMBER: "StaleBlockNumber",
   FUTURE_BLOCK_NUMBER: "FutureBlockNumber",

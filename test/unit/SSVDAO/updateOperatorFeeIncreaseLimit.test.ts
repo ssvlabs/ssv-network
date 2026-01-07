@@ -23,7 +23,7 @@ describe("SSVDAO function `updateOperatorFeeIncreaseLimit()`", async () => {
   it("Updates the operator fee increase limit and emits event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const newLimit = 1000n; // 10%
+    const newLimit = 1000n;
 
     const tx = await dao.updateOperatorFeeIncreaseLimit(newLimit);
 
@@ -35,7 +35,7 @@ describe("SSVDAO function `updateOperatorFeeIncreaseLimit()`", async () => {
   it("Stores the new operator fee increase limit in storage", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const newLimit = 1500n; // 15%
+    const newLimit = 1500n;
 
     await dao.updateOperatorFeeIncreaseLimit(newLimit);
 
@@ -60,7 +60,7 @@ describe("SSVDAO function `updateOperatorFeeIncreaseLimit()`", async () => {
   it("Can set high operator fee increase limit", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const highLimit = 10000n; // 100%
+    const highLimit = 10000n;
 
     const tx = await dao.updateOperatorFeeIncreaseLimit(highLimit);
 
@@ -72,4 +72,3 @@ describe("SSVDAO function `updateOperatorFeeIncreaseLimit()`", async () => {
     expect(storedLimit).to.equal(highLimit);
   });
 });
-

@@ -28,7 +28,6 @@ describe("SSVDAO function `replaceOracle()`", async () => {
   it("Replaces an oracle and emits OracleReplaced event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    // Set up existing oracle
     await dao.mockSetOracle(1, oldOracle.address);
 
     const tx = await dao.replaceOracle(1, newOracle.address);
@@ -56,11 +55,9 @@ describe("SSVDAO function `replaceOracle()`", async () => {
 
     await dao.replaceOracle(1, newOracle.address);
 
-    // Old oracle should no longer have an ID
     const oldOracleId = await dao.getOracleId(oldOracle.address);
     expect(oldOracleId).to.equal(0);
 
-    // New oracle should have the ID
     const newOracleId = await dao.getOracleId(newOracle.address);
     expect(newOracleId).to.equal(1);
   });
@@ -82,11 +79,9 @@ describe("SSVDAO function `replaceOracle()`", async () => {
   it("Is reverted with 'OracleAlreadyAssigned' when new oracle is already assigned to another ID", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    // Set up two oracles
     await dao.mockSetOracle(1, oldOracle.address);
     await dao.mockSetOracle(2, otherOracle.address);
 
-    // Try to replace oracle 1 with otherOracle (which is already assigned to ID 2)
     await expect(dao.replaceOracle(1, otherOracle.address))
       .to.be.revertedWithCustomError(dao, Errors.ORACLE_ALREADY_ASSIGNED);
   });
@@ -102,7 +97,6 @@ describe("SSVDAO function `replaceOracle()`", async () => {
       .to.emit(dao, Events.ORACLE_REPLACED)
       .withArgs(1, oldOracle.address, oldOracle.address);
 
-    // Oracle should still be in storage
     const storedOracle = await dao.getOracleAddress(1);
     expect(storedOracle).to.equal(oldOracle.address);
   });
@@ -110,7 +104,6 @@ describe("SSVDAO function `replaceOracle()`", async () => {
   it("Can replace an oracle with ID that had no previous address", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    // Don't set up any oracle, just replace (effectively adding)
     const tx = await dao.replaceOracle(1, newOracle.address);
 
     await expect(tx)
@@ -121,4 +114,3 @@ describe("SSVDAO function `replaceOracle()`", async () => {
     expect(storedOracle).to.equal(newOracle.address);
   });
 });
-

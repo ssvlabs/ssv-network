@@ -24,7 +24,7 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
   it("Sets quorum basis points and emits QuorumUpdated event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const newQuorum = 7500n; // 75%
+    const newQuorum = 7500n;
 
     const tx = await dao.setQuorumBps(newQuorum);
 
@@ -36,7 +36,7 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
   it("Stores the new quorum in storage", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const newQuorum = 6000n; // 60%
+    const newQuorum = 6000n;
 
     await dao.setQuorumBps(newQuorum);
 
@@ -99,4 +99,3 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
     expect(storedQuorum).to.equal(secondQuorum);
   });
 });
-

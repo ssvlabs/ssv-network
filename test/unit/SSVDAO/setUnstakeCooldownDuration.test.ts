@@ -23,7 +23,7 @@ describe("SSVDAO function `setUnstakeCooldownDuration()`", async () => {
   it("Sets unstake cooldown duration and emits CooldownDurationUpdated event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const newDuration = 604800n; // 1 week in seconds
+    const newDuration = 604800n;
 
     const tx = await dao.setUnstakeCooldownDuration(newDuration);
 
@@ -35,7 +35,7 @@ describe("SSVDAO function `setUnstakeCooldownDuration()`", async () => {
   it("Stores the new cooldown duration in storage", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const newDuration = 86400n; // 1 day in seconds
+    const newDuration = 86400n;
 
     await dao.setUnstakeCooldownDuration(newDuration);
 
@@ -60,7 +60,7 @@ describe("SSVDAO function `setUnstakeCooldownDuration()`", async () => {
   it("Can set high cooldown duration", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const highDuration = 2592000n; // 30 days in seconds
+    const highDuration = 2592000n;
 
     const tx = await dao.setUnstakeCooldownDuration(highDuration);
 
@@ -89,4 +89,3 @@ describe("SSVDAO function `setUnstakeCooldownDuration()`", async () => {
     expect(storedDuration).to.equal(secondDuration);
   });
 });
-

@@ -40,7 +40,6 @@ describe("SSVDAO function `updateNetworkFeeSSV()`", async () => {
 
     await dao.updateNetworkFeeSSV(newFee);
 
-    // The fee is shrunk when stored
     const storedFee = await dao.getNetworkFeeSSV();
     expect(storedFee).to.equal(newFee / 10_000_000n);
   });
@@ -75,4 +74,3 @@ describe("SSVDAO function `updateNetworkFeeSSV()`", async () => {
     expect(storedFee).to.equal(0n);
   });
 });
-

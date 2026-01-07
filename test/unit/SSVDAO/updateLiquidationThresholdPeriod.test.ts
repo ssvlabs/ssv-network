@@ -131,4 +131,3 @@ describe("SSVDAO function `updateLiquidationThresholdPeriodSSV()`", async () => 
       .to.be.revertedWithCustomError(dao, Errors.NEW_BLOCK_PERIOD_IS_BELOW_MINIMUM);
   });
 });
-

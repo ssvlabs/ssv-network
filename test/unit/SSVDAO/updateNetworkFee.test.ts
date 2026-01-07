@@ -24,7 +24,7 @@ describe("SSVDAO function `updateNetworkFee()`", async () => {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
     const initialFee = 0n;
-    const newFee = 1_000_000_000n; // 1 gwei
+    const newFee = 1_000_000_000n;
 
     const tx = await dao.updateNetworkFee(newFee);
 
@@ -36,11 +36,10 @@ describe("SSVDAO function `updateNetworkFee()`", async () => {
   it("Stores the new network fee in storage", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    const newFee = 2_000_000_000n; // 2 gwei
+    const newFee = 2_000_000_000n;
 
     await dao.updateNetworkFee(newFee);
 
-    // The fee is shrunk when stored (divided by DEDUCTED_DIGITS = 10_000_000)
     const storedFee = await dao.getNetworkFee();
     expect(storedFee).to.equal(newFee / 10_000_000n);
   });
@@ -75,4 +74,3 @@ describe("SSVDAO function `updateNetworkFee()`", async () => {
     expect(storedFee).to.equal(0n);
   });
 });
-
