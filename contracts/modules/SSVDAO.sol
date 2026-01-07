@@ -149,7 +149,7 @@ contract SSVDAO is ISSVDAO {
             return;
         }
 
-        emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold);
+        emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold, oracleId, msg.sender);
     }
 
     function replaceOracle(uint32 oracleId, address newOracle) external override {
