@@ -83,6 +83,15 @@ export async function ssvOperatorsHarnessFixture(
   return { operators };
 }
 
+export async function ssvDAOHarnessFixture(
+  connection: NetworkConnection<"generic">
+): Promise<{ dao: Contract; }> {
+  const dao = await deployHarnessModule(connection, SSVModules.SSVDAO);
+  await dao.waitForDeployment();
+
+  return { dao };
+}
+
 const QUORUM_BPS = 7500;
 const DEFAULT_ORACLE_IDS = [1, 2, 3, 4];
 

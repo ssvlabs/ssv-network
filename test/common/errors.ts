@@ -30,9 +30,6 @@ export const Errors = {
   ZERO_ADDRESS_NOT_ALLOWED: "ZeroAddressNotAllowed",
   INVALID_WHITELISTING_CONTRACT: "InvalidWhitelistingContract",
   SAME_FEE_CHANGE_NOW_ALLOWED: "SameFeeChangeNotAllowed",
-  FEE_EXCEEDS_INCREASE_LIMIT: "FeeExceedsIncreaseLimit",
-  FEE_INCREASE_NOT_ALLOWED: "FeeIncreaseNotAllowed",
-  NO_FEE_DECLARED: "NoFeeDeclared",
   APPROVAL_NOT_WITHIN_TIMEFRAME: "ApprovalNotWithinTimeframe",
   OWNABLE_CALLER_NOT_OWNER: "Ownable: caller is not the owner",
   NEW_BLOCK_PERIOD_IS_BELOW_MINIMUM: "NewBlockPeriodIsBelowMinimum",
@@ -43,4 +40,12 @@ export const Errors = {
   COOLDOWN_ACTIVE: "CooldownActive",
   UNSTAKE_AMOUNT_EXCEEDS_BALANCE: "UnstakeAmountExceedsBalance",
   ROOT_NOT_FOUND: "RootNotFound",
+  // DAO errors
+  NOT_ORACLE: "NotOracle",
+  STALE_BLOCK_NUMBER: "StaleBlockNumber",
+  FUTURE_BLOCK_NUMBER: "FutureBlockNumber",
+  ALREADY_VOTED: "AlreadyVoted",
+  ZERO_ADDRESS: "ZeroAddress",
+  ORACLE_ALREADY_ASSIGNED: "OracleAlreadyAssigned",
+  INVALID_QUORUM: "Invalid quorum",
 } as const;
