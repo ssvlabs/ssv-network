@@ -213,10 +213,12 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
-    function requestUnstake(uint256 amount) external nonReentrant {
+    // todo reentrant
+    function requestUnstake(uint256 amount) nonReentrant external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
+    // todo reentrant
     function withdrawUnlocked() external nonReentrant {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
@@ -229,7 +231,8 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
-    function onCSSVTransfer(address from, address to, uint256 amount) external nonReentrant {
+    // todo reentrant
+    function onCSSVTransfer(address from, address to, uint256 amount) external {
         if (msg.sender != SSVStorageStaking.load().cssv) revert NotCSSV();
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
