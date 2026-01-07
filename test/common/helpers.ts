@@ -1,12 +1,31 @@
-import { MINIMAL_OPERATOR_ETH_FEE, SSV_MODULE_CONTRACTS, VUNITS_PRECISION } from './constants.ts';
-import type { BigNumberish } from 'ethers';
+import {
+  DEFAULT_ETH_REGISTER_VALUE,
+  DEFAULT_SHARES,
+  EMPTY_CLUSTER,
+  MINIMAL_OPERATOR_ETH_FEE,
+  SSV_MODULE_CONTRACTS,
+  VUNITS_PRECISION,
+} from './constants.ts';
 import type { NetworkConnection } from 'hardhat/types/network';
-import type { Cluster, Operator, OperatorTuple } from './types.ts';
-import type { ClusterTuple, SSVModules } from './types.ts';
-import type { SSVNetwork, SSVNetworkViews, SSVViews } from '../../types/ethers-contracts/index.js';
+import type { Cluster, ClusterTuple, OperatorTuple, SSVModules } from './types.ts';
+import type { SSVNetwork, SSVNetworkViews } from '../../types/ethers-contracts/index.js';
+import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 
 export function makePublicKey(seed: number): string {
   return `0x${seed.toString(16).padStart(96, "0")}`;
+}
+
+export function makeArrayOfKeysAndShares(initialSeed: number, amount: number): { keys: string[], shares: string[] } {
+  let keys: string[] = [];
+  let shares: string[] = [];
+  for (let i = initialSeed; i < amount; i++) {
+    keys.push(`0x${i.toString(16).padStart(96, "0")}`)
+    shares.push("0x1234");
+  }
+  return {
+    keys,
+    shares
+  };
 }
 
 export function makeOperatorKey(seed: number): string {
@@ -71,6 +90,65 @@ export async function calculateInitialBurnRate(
   const units: bigint = vUnits / VUNITS_PRECISION;
 
   return (networkFee + operatorsFee) * units;
+}
+
+export async function registerDefaultCluster(
+  connection: any,
+  network: SSVNetwork,
+  operatorOwner: HardhatEthersSigner,
+  clusterOwner: HardhatEthersSigner
+): Promise<{
+  cluster: Cluster,
+  validatorKey: string,
+  operatorIds: number[]
+}> {
+  const validatorKey = makePublicKey(1);
+  const operatorIds = await registerOperators(network, operatorOwner, 4);
+  await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+  await network.connect(clusterOwner).registerValidator(
+    validatorKey,
+    operatorIds,
+    DEFAULT_SHARES,
+    0,
+    EMPTY_CLUSTER,
+    { value: DEFAULT_ETH_REGISTER_VALUE })
+
+  const cluster = await getCurrentClusterState(
+    connection,
+    network,
+    clusterOwner.address,
+    operatorIds
+  );
+
+  return {
+    cluster, validatorKey, operatorIds
+  }
+}
+
+export async function addValidatorsToCluster(
+  connection: any,
+  network: SSVNetwork,
+  keys: string[],
+  shares: string[],
+  clusterOwner: HardhatEthersSigner,
+  operatorIds: number[],
+  cluster: Cluster
+): Promise<Cluster> {
+  await network.connect(clusterOwner).bulkRegisterValidator(
+    keys,
+    operatorIds,
+    shares,
+    0,
+    cluster,
+    { value: DEFAULT_ETH_REGISTER_VALUE }
+  )
+
+  return await getCurrentClusterState(
+    connection,
+    network,
+    clusterOwner.address,
+    operatorIds
+  );
 }
 
 const EVENT_ABI = [

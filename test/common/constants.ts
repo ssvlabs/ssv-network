@@ -19,6 +19,7 @@ export const SSV_MODULE_CONTRACTS: Record<SSVModules, string> = {
   [SSVModules.SSVStaking]: "SSVStaking",
 };
 
+// todo make and object to simplify imports in other files (Constants.NAME_OF_VALUE...)
 export const DEFAULT_SHARES = "0x1234";
 export const DEFAULT_ETH_REGISTER_VALUE: bigint = ethers.parseEther("10");
 export const DEFAULT_ETH_EB_PER_VALIDATOR: bigint = 32n;
@@ -35,3 +36,7 @@ export const DECLARE_OPERATOR_FEE_PERIOD = 604800n;
 export const EXECUTE_OPERATOR_FEE_PERIOD = 604800n;
 export const OPERATOR_MAX_FEE_INCREASE = 1000n;
 export const PRECISION_FACTOR = 10000n;
+export const MINIMAL_LIQUIDATION_THRESHOLD = 100_800n;
+export const STAKE_AMOUNT = ethers.parseEther("10");
+export const DEFAULT_ORACLES_IDS = [1n, 2n, 3n, 4n];
+export const DEFAULT_UNSTAKE_COOLDOWN = 604800n;

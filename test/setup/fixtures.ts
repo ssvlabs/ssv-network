@@ -10,7 +10,7 @@ import {
   attachModule,
   upgradeProxy,
 } from "../../scripts/common/helpers.ts";
-import { SSVNetwork, SSVNetworkViews } from '../../types/ethers-contracts/index.js';
+import { CSSVToken, SSVNetwork, SSVNetworkViews, SSVToken } from '../../types/ethers-contracts/index.js';
 import {
   DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
@@ -85,8 +85,8 @@ export async function ssvNetworkFullFixture(
 ): Promise<{
   network: SSVNetwork;
   views: SSVNetworkViews;
-  cssvToken: Contract;
-  ssvToken: Contract;
+  cssvToken: CSSVToken;
+  ssvToken: SSVToken;
   modules: { [key: string]: string };
 }> {
   const deployer = await getDeployer(connection.ethers);
