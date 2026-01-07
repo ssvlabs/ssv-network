@@ -135,8 +135,8 @@ contract SSVClusters is ISSVClusters {
                 hashedCluster,
                 burnRate,
                 sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
+                sp.minimumBlocksBeforeLiquidationSSV,
+                sp.minimumLiquidationCollateralSSV
             )
         ) {
             revert ClusterNotLiquidatable();
