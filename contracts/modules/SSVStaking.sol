@@ -25,53 +25,54 @@ contract SSVStaking is ISSVStaking {
     }
 
     function stake(uint256 amount) external {
-        // 1. Validation
-        if (amount == 0) revert ZeroAmount();
-        if (amount < MINIMAL_STAKING_AMOUNT) revert StakeTooLow();
+        if (amount == 0) {
+            revert ZeroAmount();
+        }
+        if (amount < MINIMAL_STAKING_AMOUNT) {
+            revert StakeTooLow();
+        }
 
         StorageStaking storage s = SSVStorageStaking.load();
 
-        // 2. Update global and user states before balance change
         _syncFees(s);
         _settle(msg.sender, s);
 
-        // 3. Transfer SSV from user to this contract
+        // todo maybe use safeTransfer here?
         if (!SSVStorage.load().token.transferFrom(msg.sender, address(this), amount)) {
             revert TokenTransferFailed();
         }
 
-        // 4. Update delegations (before minting cSSV to reflect the new weight)
         _createDelegation(msg.sender, amount, s);
 
-        // 5. Mint cSSV receipt tokens 1:1
         ICSSVToken(s.cssv).mint(msg.sender, amount);
 
         emit Staked(msg.sender, amount);
     }
 
     function requestUnstake(uint256 amount) external {
-        if (amount == 0) revert ZeroAmount();
+        if (amount == 0) {
+            revert ZeroAmount();
+        }
 
         StorageStaking storage s = SSVStorageStaking.load();
+        // todo maybe use immutable
         address cssv = s.cssv;
 
-        // Ensure user doesn't have an existing pending request
-        if (s.withdrawals[msg.sender].amount != 0) revert CooldownActive();
+        if (s.withdrawals[msg.sender].amount != 0) {
+            revert CooldownActive();
+        }
 
-        // 1. Sync global state
         _syncFees(s);
-        // 2. Settle user rewards using current balance (before burn)
+
         uint256 bal = ICSSVToken(cssv).balanceOf(msg.sender);
         _settleWithBalance(msg.sender, bal, s);
         if (amount > bal) revert UnstakeAmountExceedsBalance();
 
-        // 3. Update delegations (remove weight proportional to amount)
         _removeDelegation(msg.sender, amount, bal, s);
 
-        // 4. Burn cSSV tokens immediately
         ICSSVToken(cssv).burn(msg.sender, amount);
 
-        // 5. Record pending withdrawal and set cooldown
+        // todo maybe use blocks here
         uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
         s.withdrawals[msg.sender] = UnstakeRequest({amount: uint192(amount), unlockTime: unlockTime});
 
@@ -84,13 +85,10 @@ contract SSVStaking is ISSVStaking {
         uint256 amount = request.amount;
         if (amount == 0) revert NothingToWithdraw();
 
-        // Verify cooldown period has passed
         if (block.timestamp < request.unlockTime) revert CooldownNotFinished();
 
-        // Clear pending state
         delete s.withdrawals[msg.sender];
 
-        // Transfer underlying SSV back to user
         if (!SSVStorage.load().token.transfer(msg.sender, amount)) {
             revert TokenTransferFailed();
         }
@@ -100,40 +98,45 @@ contract SSVStaking is ISSVStaking {
 
     function claimEthRewards() external {
         StorageStaking storage s = SSVStorageStaking.load();
-        // Update state to calculate latest rewards
+
         _syncFees(s);
         _settle(msg.sender, s);
 
         uint256 claimable = s.accrued[msg.sender];
         if (claimable == 0) revert NothingToClaim();
 
-        // Round down to precision supported by protocol storage
         uint256 payout = claimable - (claimable % DEDUCTED_DIGITS);
-        if (payout == 0) revert NothingToClaim();
+        if (payout == 0) {
+            revert NothingToClaim();
+        }
 
         uint64 payoutShrunk = payout.shrink();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        // Ensure sufficient balance in both staking pool and protocol DAO
-        if (payoutShrunk > s.stakingEthPoolBalance) revert InsufficientBalance();
-        if (payoutShrunk > sp.ethDaoBalance) revert InsufficientBalance();
+        if (payoutShrunk > s.stakingEthPoolBalance) {
+            revert InsufficientBalance();
+        }
+        if (payoutShrunk > sp.ethDaoBalance) {
+            revert InsufficientBalance();
+        }
 
-        // Deduct from user accrual and global pools
         s.accrued[msg.sender] = claimable - payout;
         s.stakingEthPoolBalance -= payoutShrunk;
         sp.ethDaoBalance -= payoutShrunk;
 
-        // Transfer ETH to user
         CoreLib.transferBalance(msg.sender, payout);
         emit RewardsClaimed(msg.sender, payout);
     }
 
     function rescueERC20(address token, address to, uint256 amount) external {
         if (token == address(0) || to == address(0)) revert ZeroAddress();
-        if (token == address(SSVStorage.load().token) || token == address(SSVStorageStaking.load().cssv))
+        if (token == address(SSVStorage.load().token) || token == address(SSVStorageStaking.load().cssv)) {
             revert InvalidToken();
-        if (amount == 0) revert ZeroAmount();
+        }
+        if (amount == 0) {
+            revert ZeroAmount();
+        }
 
         if (!IERC20(token).transfer(to, amount)) {
             revert TokenTransferFailed();
@@ -221,13 +224,12 @@ contract SSVStaking is ISSVStaking {
         if (amount == 0) return;
         Delegation storage d = s.userDelegations[user];
 
-        // Initialize delegation slots with defaults if user has none
         if (d.oracleIds[0] == 0) {
             d.oracleIds = s.defaultOracleIds;
         }
 
         uint32[4] memory oracleIds = d.oracleIds;
-        // Count active oracle slots
+
         uint256 active;
         for (uint256 i; i < 4; ++i) {
             if (oracleIds[i] != 0) active++;
@@ -281,7 +283,6 @@ contract SSVStaking is ISSVStaking {
             }
         }
 
-        // Adjust rounding remainder to ensure total removed equals amount
         if (removed < amount && oracleIds[idxWithMax] != 0) {
             uint256 remainder = amount - removed;
             d.amounts[idxWithMax] -= remainder;
