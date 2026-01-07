@@ -9,34 +9,6 @@ import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER } from "../..
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
 
-type ClusterType = typeof EMPTY_CLUSTER;
-
-const parseClusterFromEvent = (contract: any, receipt: any, eventName: string): ClusterType => {
-  for (const log of receipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = contract.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-
-    if (parsed?.name === eventName) {
-      const clusterTuple = parsed.args[parsed.args.length - 1];
-      const [validatorCount, networkFeeIndex, index, active, balance] = clusterTuple;
-
-      return {
-        validatorCount: BigInt(validatorCount),
-        networkFeeIndex: BigInt(networkFeeIndex),
-        index: BigInt(index),
-        active,
-        balance: BigInt(balance),
-      };
-    }
-  }
-
-  throw new Error(`Event ${eventName} not found`);
-};
-
 describe("SSVClusters function `migrateClusterToETH()`", async () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
@@ -52,6 +24,35 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
     return ssvClustersHarnessFixture(connection);
   };
+
+  it("Migrates an existing SSV cluster to ETH and emits the expected event", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const ssvCluster = {
+      validatorCount: 1n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      balance: 0n,
+      active: true,
+    };
+
+    const publicKey = makePublicKey(1);
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+    const migrateTx = await clusters.migrateClusterToETH(
+      operatorIds,
+      ssvCluster,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await migrateTx.wait();
+    const clusterAfterMigration = parseClusterFromEvent(clusters, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
+
+    await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
+    expect(clusterAfterMigration.active).to.equal(true);
+    expect(clusterAfterMigration.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+    expect(clusterAfterMigration.validatorCount).to.equal(ssvCluster.validatorCount);
+  });
 
   it("Is reverted with 'IncorrectClusterVersion' when migrating an ETH cluster", async function () {
     const { clusters, operatorIds } =
