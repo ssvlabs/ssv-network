@@ -369,7 +369,17 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
+    // todo check
+    function updateLiquidationThresholdPeriodSSV(uint64 blocks) external onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
     function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    // todo check
+    function updateMinimumLiquidationCollateralSSV(uint256 amount) external onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
@@ -377,16 +387,12 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
+    // todo check
+    function updateMaximumOperatorFeeSSV(uint64 maxFee) external onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function setOracleTimingConfig(
-        uint64 firstStartEpoch,
-        uint64 firstInterval,
-        uint64 secondStartEpoch,
-        uint64 secondInterval
-    ) external onlyOwner {
+    function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 

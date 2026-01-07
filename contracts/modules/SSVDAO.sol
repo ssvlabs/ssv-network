@@ -78,9 +78,23 @@ contract SSVDAO is ISSVDAO {
         emit LiquidationThresholdPeriodUpdated(blocks);
     }
 
+    function updateLiquidationThresholdPeriodSSV(uint64 blocks) external {
+        if (blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
+            revert NewBlockPeriodIsBelowMinimum();
+        }
+
+        SSVStorageProtocol.load().minimumBlocksBeforeLiquidationSSV = blocks;
+        emit LiquidationThresholdPeriodSSVUpdated(blocks);
+    }
+
     function updateMinimumLiquidationCollateral(uint256 amount) external override {
         SSVStorageProtocol.load().minimumLiquidationCollateral = amount.shrink();
         emit MinimumLiquidationCollateralUpdated(amount);
+    }
+
+    function updateMinimumLiquidationCollateralSSV(uint256 amount) external {
+        SSVStorageProtocol.load().minimumLiquidationCollateralSSV = amount.shrink();
+        emit MinimumLiquidationCollateralSSVUpdated(amount);
     }
 
     function updateMaximumOperatorFee(uint64 maxFee) external override {
@@ -88,8 +102,17 @@ contract SSVDAO is ISSVDAO {
         emit OperatorMaximumFeeUpdated(maxFee);
     }
 
+    function updateMaximumOperatorFeeSSV(uint64 maxFee) external {
+        SSVStorageProtocol.load().operatorMaxFeeSSV = maxFee;
+        emit OperatorMaximumFeeSSVUpdated(maxFee);
+    }
+
     function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
         StorageEB storage seb = SSVStorageEB.load();
+        StorageStaking storage s = SSVStorageStaking.load();
+
+        uint32 oracleId = s.oracleIdOf[msg.sender];
+        if (oracleId == 0) revert NotOracle();
 
         // Enforce monotonicity - new block must be greater than last
         if (blockNum <= seb.latestCommittedBlock) {
@@ -103,21 +126,30 @@ contract SSVDAO is ISSVDAO {
 
         // block and root combined to keep block-root proposal tied together
         bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, merkleRoot));
-        seb.rootCommitments[commitmentKey]+=1;
 
-        uint256 votes = seb.rootCommitments[commitmentKey];
+        if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
+        seb.hasVoted[commitmentKey][oracleId] = true;
 
-        if (votes >= ROOT_COMMITS_THRESHOLD) {
+        uint256 weight = s.oracleWeights[oracleId];
+        seb.rootCommitments[commitmentKey] += weight;
+
+        uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];
+        uint256 totalSupply = ICSSVToken(s.cssv).totalSupply();
+
+        uint256 threshold = (totalSupply * s.quorumBps) / 10000;
+
+        if (accumulatedWeight >= threshold) {
             seb.ebRoots[blockNum] = merkleRoot;
             seb.latestCommittedBlock = blockNum;
 
             delete seb.rootCommitments[commitmentKey];
+            // Do not delete hasVoted to prevent re-voting if same key is somehow reused
 
             emit RootCommitted(merkleRoot, blockNum);
             return;
         }
 
-        emit RootProposed(merkleRoot, blockNum);
+        emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold);
     }
 
     function replaceOracle(uint32 oracleId, address newOracle) external override {
@@ -150,24 +182,6 @@ contract SSVDAO is ISSVDAO {
         if (quorum > 10000) revert("Invalid quorum");
         SSVStorageStaking.load().quorumBps = quorum;
         emit QuorumUpdated(quorum);
-    }
-
-    function setOracleTimingConfig(
-        uint64 firstStartEpoch,
-        uint64 firstInterval,
-        uint64 secondStartEpoch,
-        uint64 secondInterval
-    ) external {
-        if (firstInterval == 0 || secondInterval == 0) {
-            revert ZeroInterval();
-        }
-
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        sp.oracleFirstStartEpoch = firstStartEpoch;
-        sp.oracleFirstEpochInterval = firstInterval;
-        sp.oracleSecondStartEpoch = secondStartEpoch;
-        sp.oracleSecondEpochInterval = secondInterval;
     }
 
     function setUnstakeCooldownDuration(uint64 duration) external override {
