@@ -32,6 +32,7 @@ export const Events = {
   UNSTAKE_REQUESTED: "UnstakeRequested",
   UNSTAKE_WITHDRAWN: "UnstakedWithdrawn",
   NETWORK_FEE_UPDATED: "NetworkFeeUpdated",
+  NETWORK_FEE_UPDATED_SSV: "NetworkFeeUpdatedSSV",
   NETWORK_EARNINGS_WITHDRAWN: "NetworkEarningsWithdrawn",
   ROOT_COMMITTED: "RootCommitted",
   ROOT_PROPOSED: "RootProposed",

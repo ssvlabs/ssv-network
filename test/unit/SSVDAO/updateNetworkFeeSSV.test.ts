@@ -29,7 +29,7 @@ describe("SSVDAO function `updateNetworkFeeSSV()`", async () => {
     const tx = await dao.updateNetworkFeeSSV(newFee);
 
     await expect(tx)
-      .to.emit(dao, Events.NETWORK_FEE_UPDATED)
+      .to.emit(dao, Events.NETWORK_FEE_UPDATED_SSV)
       .withArgs(initialFee, newFee);
   });
 
@@ -54,7 +54,7 @@ describe("SSVDAO function `updateNetworkFeeSSV()`", async () => {
     const tx = await dao.updateNetworkFeeSSV(secondFee);
 
     await expect(tx)
-      .to.emit(dao, Events.NETWORK_FEE_UPDATED)
+      .to.emit(dao, Events.NETWORK_FEE_UPDATED_SSV)
       .withArgs(firstFee, secondFee);
   });
 
@@ -67,7 +67,7 @@ describe("SSVDAO function `updateNetworkFeeSSV()`", async () => {
     const tx = await dao.updateNetworkFeeSSV(0n);
 
     await expect(tx)
-      .to.emit(dao, Events.NETWORK_FEE_UPDATED)
+      .to.emit(dao, Events.NETWORK_FEE_UPDATED_SSV)
       .withArgs(firstFee, 0n);
 
     const storedFee = await dao.getNetworkFeeSSV();

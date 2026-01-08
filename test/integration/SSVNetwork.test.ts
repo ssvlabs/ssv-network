@@ -1850,7 +1850,7 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
-  describe("Function 'bulkRemoveValidators()'", async function(){
+  describe("Function 'bulkRemoveValidator()'", async function(){
     it("Removes validators and emits correct event", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);

@@ -73,6 +73,7 @@ interface ISSVDAO is ISSVNetworkCore {
      * @param newFee The new fee
      */
     event NetworkFeeUpdated(uint256 oldFee, uint256 newFee);
+    event NetworkFeeUpdatedSSV(uint256 oldFee, uint256 newFee);
 
     /**
      * @dev Emitted when transfer fees are withdrawn.
