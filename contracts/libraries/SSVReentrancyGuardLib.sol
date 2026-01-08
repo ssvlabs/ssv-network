@@ -12,16 +12,9 @@ library SSVReentrancyGuardLib {
      */
     error ReentrancyGuardReentrantCall();
 
-    /**
-     * @dev Returns true if the reentrancy guard is currently set to "entered", which indicates there is a
-     * `nonReentrant` function in the call stack.
-     */
-    function _reentrancyGuardEntered() internal view returns (bool) {
-        return SSVStorageReentrancy.load().status == ENTERED;
-    }
-
     function _nonReentrantBefore() internal {
         StorageReentrancy storage s = SSVStorageReentrancy.load();
+        if (s.status == ENTERED) revert ReentrancyGuardReentrantCall();
         s.status = ENTERED;
     }
 
