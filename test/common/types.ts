@@ -1,4 +1,4 @@
-import hre from 'hardhat';
+import hre from "hardhat";
 
 export interface Cluster {
   validatorCount: bigint;
@@ -14,7 +14,7 @@ export interface Operator {
   ethValidatorCount: bigint;
   whitelistedAddress: string;
   isPrivate: boolean;
-  isActive: boolean
+  isActive: boolean;
 }
 
 export type ClusterTuple = readonly [
