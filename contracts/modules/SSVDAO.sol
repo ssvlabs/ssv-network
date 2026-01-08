@@ -9,8 +9,9 @@ import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtoc
 import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
 import {SSVStorageStaking, StorageStaking} from "../libraries/SSVStorageStaking.sol";
+import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
-contract SSVDAO is ISSVDAO {
+contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     using Types64 for uint64;
     using Types256 for uint256;
 
@@ -35,7 +36,7 @@ contract SSVDAO is ISSVDAO {
         emit NetworkFeeUpdated(previousFee.expand(), fee);
     }
 
-    function withdrawNetworkSSVEarnings(uint256 amount) external override {
+    function withdrawNetworkSSVEarnings(uint256 amount) external override nonReentrant {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint64 shrunkAmount = amount.shrink();

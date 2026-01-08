@@ -18,8 +18,9 @@ import {
 } from "../libraries/SSVStorageEB.sol";
 import {Types64} from "../libraries/Types.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
-contract SSVClusters is ISSVClusters {
+contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
@@ -70,7 +71,7 @@ contract SSVClusters is ISSVClusters {
         _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster, false);
     }
 
-    function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
+    function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
@@ -110,7 +111,7 @@ contract SSVClusters is ISSVClusters {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external override {
+    ) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
@@ -209,7 +210,7 @@ contract SSVClusters is ISSVClusters {
         emit ClusterDeposited(clusterOwner, operatorIds, msg.value, cluster);
     }
 
-    function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
+    function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
