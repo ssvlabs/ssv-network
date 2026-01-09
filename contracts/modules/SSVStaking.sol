@@ -10,9 +10,10 @@ import {ProtocolLib} from "../libraries/ProtocolLib.sol";
 import {SSVStorage} from "../libraries/SSVStorage.sol";
 import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 import "../libraries/Types.sol";
 
-contract SSVStaking is ISSVStaking {
+contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     using ProtocolLib for StorageProtocol;
     using Types64 for uint64;
     using Types256 for uint256;
@@ -20,11 +21,11 @@ contract SSVStaking is ISSVStaking {
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint64 private constant PRECISION = 1e18;
 
-    function syncFees() external {
+    function syncFees() external nonReentrant {
         _syncFees(SSVStorageStaking.load());
     }
 
-    function stake(uint256 amount) external {
+    function stake(uint256 amount) external nonReentrant {
         if (amount == 0) {
             revert ZeroAmount();
         }
@@ -49,7 +50,7 @@ contract SSVStaking is ISSVStaking {
         emit Staked(msg.sender, amount);
     }
 
-    function requestUnstake(uint256 amount) external {
+    function requestUnstake(uint256 amount) external nonReentrant {
         if (amount == 0) {
             revert ZeroAmount();
         }
@@ -79,7 +80,7 @@ contract SSVStaking is ISSVStaking {
         emit UnstakeRequested(msg.sender, amount, unlockTime);
     }
 
-    function withdrawUnlocked() external {
+    function withdrawUnlocked() external nonReentrant {
         StorageStaking storage s = SSVStorageStaking.load();
         UnstakeRequest memory request = s.withdrawals[msg.sender];
         uint256 amount = request.amount;
@@ -96,7 +97,7 @@ contract SSVStaking is ISSVStaking {
         emit UnstakedWithdrawn(msg.sender, amount);
     }
 
-    function claimEthRewards() external {
+    function claimEthRewards() external nonReentrant {
         StorageStaking storage s = SSVStorageStaking.load();
 
         _syncFees(s);
@@ -129,7 +130,7 @@ contract SSVStaking is ISSVStaking {
         emit RewardsClaimed(msg.sender, payout);
     }
 
-    function rescueERC20(address token, address to, uint256 amount) external {
+    function rescueERC20(address token, address to, uint256 amount) external nonReentrant {
         if (token == address(0) || to == address(0)) revert ZeroAddress();
         if (token == address(SSVStorage.load().token) || token == address(SSVStorageStaking.load().cssv)) {
             revert InvalidToken();

@@ -22,12 +22,10 @@ import "./SSVProxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 contract SSVNetwork is
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
-    ReentrancyGuardUpgradeable,
     ISSVNetwork,
     ISSVOperators,
     ISSVOperatorsWhitelist,
@@ -52,7 +50,6 @@ contract SSVNetwork is
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
         __Ownable2Step_init();
-        __ReentrancyGuard_init();
         __SSVNetwork_init_unchained(
             token_,
             ssvOperators_,
@@ -120,7 +117,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function removeOperator(uint64 operatorId) external override nonReentrant {
+    function removeOperator(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
@@ -173,23 +170,23 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override nonReentrant {
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function withdrawAllOperatorEarnings(uint64 operatorId) external override nonReentrant {
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override nonReentrant {
+    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override nonReentrant {
+    function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override nonReentrant {
+    function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
@@ -205,29 +202,27 @@ contract SSVNetwork is
     /* Staking External Functions */
     /*******************************/
 
-    function syncFees() external nonReentrant {
+    function syncFees() external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
-    function stake(uint256 amount) external nonReentrant {
+    function stake(uint256 amount) external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
-    // todo reentrant
-    function requestUnstake(uint256 amount) nonReentrant external {
+    function requestUnstake(uint256 amount) external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
-    // todo reentrant
-    function withdrawUnlocked() external nonReentrant {
+    function withdrawUnlocked() external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
-    function claimEthRewards() external nonReentrant {
+    function claimEthRewards() external {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
-    function rescueERC20(address token, address to, uint256 amount) external onlyOwner nonReentrant {
+    function rescueERC20(address token, address to, uint256 amount) external onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
@@ -281,7 +276,7 @@ contract SSVNetwork is
         address clusterOwner,
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override nonReentrant {
+    ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -289,7 +284,7 @@ contract SSVNetwork is
         address clusterOwner,
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override nonReentrant {
+    ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -314,7 +309,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override nonReentrant {
+    ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -352,7 +347,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function withdrawNetworkSSVEarnings(uint256 amount) external override onlyOwner nonReentrant {
+    function withdrawNetworkSSVEarnings(uint256 amount) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
