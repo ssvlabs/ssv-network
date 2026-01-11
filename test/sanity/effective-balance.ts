@@ -1,10 +1,11 @@
-import { ethers } from 'hardhat';
+import hre from 'hardhat';
 import { expect } from 'chai';
 
 describe('Effective Balance Roundtrip Tests', () => {
   let testContract: any;
 
   before(async () => {
+    const { ethers } = await hre.network.connect();
     const factory = await ethers.getContractFactory('EffectiveBalanceTest');
     testContract = await factory.deploy();
     await testContract.waitForDeployment();
