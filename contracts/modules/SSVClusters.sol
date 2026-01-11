@@ -18,6 +18,7 @@ import {
 } from "../libraries/SSVStorageEB.sol";
 import {Types64} from "../libraries/Types.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract SSVClusters is ISSVClusters {
     using ClusterLib for Cluster;
@@ -514,11 +515,10 @@ contract SSVClusters is ISSVClusters {
             oldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
 
-        // Ceiling division to prevent precision loss on roundtrip read
-        uint64 newVUnits = uint64(
-            (ctx.effectiveBalance * VUNITS_PRECISION + (DEFAULT_EB_PER_VALIDATOR / 1 ether) - 1) /
-                (DEFAULT_EB_PER_VALIDATOR / 1 ether)
-        );
+        uint64 newVUnits = uint64(Math.ceilDiv(
+            ctx.effectiveBalance * VUNITS_PRECISION,
+            DEFAULT_EB_PER_VALIDATOR / 1 ether
+        ));
 
         if (cluster.active) {
             _applyClusterFeeUpdates(operatorIds, cluster, oldVUnits, newVUnits, ctx.version, s, sp);
