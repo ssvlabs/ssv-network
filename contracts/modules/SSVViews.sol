@@ -12,7 +12,7 @@ import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
-import {SSVStorageEB} from "../libraries/SSVStorageEB.sol";
+import {SSVStorageEB, vUnitsToEB} from "../libraries/SSVStorageEB.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -411,9 +411,7 @@ contract SSVViews is ISSVViews {
             vUnits = cluster.validatorCount * VUNITS_PRECISION;
         }
 
-        return uint32(
-            (uint256(vUnits) * (DEFAULT_EB_PER_VALIDATOR / 1 ether)) / VUNITS_PRECISION
-        );
+        return vUnitsToEB(vUnits);
     }
 
     function getClusterVersion(address clusterOwner, uint64[] calldata operatorIds) external view override returns (uint8) {

@@ -11,74 +11,28 @@ describe('Effective Balance Roundtrip Tests', () => {
     await testContract.waitForDeployment();
   });
 
-  describe('Ceiling division fix', () => {
-    // Test cases: values that would lose precision with floor division
+  describe('Roundtrip conversion', () => {
     const testCases = [
-      { effectiveBalance: 515, description: '515 ETH (loses 1 ETH with old formula)' },
-      { effectiveBalance: 32, description: '32 ETH (1 validator, exact)' },
-      { effectiveBalance: 64, description: '64 ETH (2 validators, exact)' },
-      { effectiveBalance: 33, description: '33 ETH (1 validator + 1)' },
-      { effectiveBalance: 63, description: '63 ETH (2 validators - 1)' },
-      { effectiveBalance: 100, description: '100 ETH' },
-      { effectiveBalance: 1000, description: '1000 ETH' },
-      { effectiveBalance: 2048, description: '2048 ETH (max per validator)' },
-      { effectiveBalance: 0, description: '0 ETH (edge case)' },
-      { effectiveBalance: 1, description: '1 ETH (minimum)' },
-      { effectiveBalance: 31, description: '31 ETH (below 1 validator)' },
+      { effectiveBalance: 0, expectedVUnits: 0n, description: '0 ETH (edge case)' },
+      { effectiveBalance: 1, expectedVUnits: 313n, description: '1 ETH (minimum)' },
+      { effectiveBalance: 31, expectedVUnits: 9688n, description: '31 ETH (below 1 validator)' },
+      { effectiveBalance: 32, expectedVUnits: 10000n, description: '32 ETH (1 validator, exact)' },
+      { effectiveBalance: 33, expectedVUnits: 10313n, description: '33 ETH (ceiling)' },
+      { effectiveBalance: 63, expectedVUnits: 19688n, description: '63 ETH' },
+      { effectiveBalance: 64, expectedVUnits: 20000n, description: '64 ETH (2 validators, exact)' },
+      { effectiveBalance: 100, expectedVUnits: 31250n, description: '100 ETH' },
+      { effectiveBalance: 515, expectedVUnits: 160938n, description: '515 ETH (ceiling)' },
+      { effectiveBalance: 1000, expectedVUnits: 312500n, description: '1000 ETH' },
+      { effectiveBalance: 2048, expectedVUnits: 640000n, description: '2048 ETH (max per validator)' },
     ];
 
-    for (const { effectiveBalance, description } of testCases) {
-      it(`Roundtrip preserves value: ${description}`, async () => {
-        const [result, success] = await testContract.testRoundtrip(effectiveBalance);
+    for (const { effectiveBalance, expectedVUnits, description } of testCases) {
+      it(`${description}`, async () => {
+        const [vUnits, result, success] = await testContract.testRoundtrip(effectiveBalance);
         expect(success).to.be.true;
-        expect(Number(result)).to.equal(effectiveBalance);
+        expect(result).to.equal(effectiveBalance);
+        expect(vUnits).to.equal(expectedVUnits);
       });
     }
-  });
-
-  describe('Old formula (floor division) demonstrates precision loss', () => {
-    it('515 ETH loses 1 ETH with old formula', async () => {
-      const [result, success] = await testContract.testRoundtripOld(515);
-      expect(success).to.be.false; // Old formula fails
-      expect(Number(result)).to.equal(514); // Lost 1 ETH
-    });
-
-    it('33 ETH loses 1 ETH with old formula', async () => {
-      const [result, success] = await testContract.testRoundtripOld(33);
-      expect(success).to.be.false;
-      expect(Number(result)).to.equal(32);
-    });
-  });
-
-  describe('Conversion functions', () => {
-    it('effectiveBalanceToVUnits: 32 ETH = 10000 vUnits', async () => {
-      const vUnits = await testContract.effectiveBalanceToVUnits(32);
-      expect(vUnits).to.equal(10000n);
-    });
-
-    it('effectiveBalanceToVUnits: 64 ETH = 20000 vUnits', async () => {
-      const vUnits = await testContract.effectiveBalanceToVUnits(64);
-      expect(vUnits).to.equal(20000n);
-    });
-
-    it('vUnitsToEffectiveBalance: 10000 vUnits = 32 ETH', async () => {
-      const eb = await testContract.vUnitsToEffectiveBalance(10000);
-      expect(Number(eb)).to.equal(32);
-    });
-
-    it('vUnitsToEffectiveBalance: 20000 vUnits = 64 ETH', async () => {
-      const eb = await testContract.vUnitsToEffectiveBalance(20000);
-      expect(Number(eb)).to.equal(64);
-    });
-
-    it('Ceiling division rounds up correctly for 515 ETH', async () => {
-      // With ceiling: (515 * 10000 + 31) / 32 = 160938
-      const vUnits = await testContract.effectiveBalanceToVUnits(515);
-      expect(vUnits).to.equal(160938n);
-
-      // Read back: (160938 * 32) / 10000 = 515
-      const eb = await testContract.vUnitsToEffectiveBalance(vUnits);
-      expect(Number(eb)).to.equal(515);
-    });
   });
 });
