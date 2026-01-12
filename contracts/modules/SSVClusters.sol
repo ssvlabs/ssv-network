@@ -333,7 +333,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         }
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
-
+        delete s.clusters[hashedCluster];
         if (ssvBalance != 0) {
             CoreLib.transferTokenBalance(msg.sender, ssvBalance);
         }
