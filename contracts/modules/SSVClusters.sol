@@ -128,7 +128,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             sp
         );
 
-        _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+        _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndexSSV());
 
         if (
             clusterOwner != msg.sender &&

@@ -1,0 +1,16 @@
+[profile.default]
+src = "contracts"
+out = "out"
+libs = ["node_modules", "lib"]
+auto_detect_solc = true
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+
+remappings = [
+    "forge-std/=lib/forge-std/src/",
+    "@openzeppelin/=node_modules/@openzeppelin/"
+]
+
+[rpc_endpoints]
+hoodi = "https://hoodi.infura.io/v3/fbee2c3c78dc4b3b866a608b72b459c2"
