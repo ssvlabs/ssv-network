@@ -40,6 +40,8 @@ describe("SSVClusters function `liquidate()`", async () => {
 
     const publicKey = makePublicKey(1);
 
+    await clusters.mockCurrentNetworkFeeIndex(1000n);
+
     const registerTx = await clusters.registerValidator(
       publicKey,
       operatorIds,
@@ -50,6 +52,8 @@ describe("SSVClusters function `liquidate()`", async () => {
     );
     const registerReceipt = await registerTx.wait();
     const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    await clusters.mockCurrentNetworkFeeIndex(2000n);
 
     const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister);
     const liquidateReceipt = await liquidateTx.wait();
@@ -66,6 +70,8 @@ describe("SSVClusters function `liquidate()`", async () => {
 
     const publicKey = makePublicKey(1);
 
+    await clusters.mockCurrentNetworkFeeIndex(1000n);
+
     const registerTx = await clusters.registerValidator(
       publicKey,
       operatorIds,
@@ -77,7 +83,7 @@ describe("SSVClusters function `liquidate()`", async () => {
     const registerReceipt = await registerTx.wait();
     const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
 
-    // Make cluster liquidatable by increasing the minimum liquidation collateral above its balance
+    await clusters.mockCurrentNetworkFeeIndex(2000n);
     await clusters.mockMinimumLiquidationCollateral(DEFAULT_ETH_REGISTER_VALUE + 1n);
 
     const liquidateTx = await clusters.connect(otherAccount).liquidate(

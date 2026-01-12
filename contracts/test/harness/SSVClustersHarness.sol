@@ -138,6 +138,21 @@ contract SSVClustersHarness is SSVClusters {
         sp.networkFee = fee;
     }
 
+    function mockCurrentNetworkFeeIndexSSV(uint64 index) external {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        sp.networkFeeIndex = index;
+        sp.networkFeeIndexBlockNumber = uint32(block.number);
+    }
+
+    function getCurrentNetworkFeeIndexSSV() external view returns (uint64) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        return sp.networkFeeIndex + uint64(block.number - sp.networkFeeIndexBlockNumber) * sp.networkFee;
+    }
+
+    function getNetworkFeeIndexSSV() external view returns (uint64) {
+        return SSVStorageProtocol.load().networkFeeIndex;
+    }
+
     function mockOperatorSSVFee(uint64 operatorId, uint64 fee) external {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].fee = fee;

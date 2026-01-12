@@ -54,9 +54,11 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
       await networkHelpers.loadFixture(deploySSVClustersFixture);
 
     const publicKey = makePublicKey(1);
-    const cluster = createSSVCluster();
+    const cluster = createSSVCluster({ networkFeeIndex: 1000n });
 
     await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockCurrentNetworkFeeIndex(100n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(2000n);
 
     const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
 
@@ -68,9 +70,11 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
       await networkHelpers.loadFixture(deploySSVClustersFixture);
 
     const publicKey = makePublicKey(1);
-    const cluster = createSSVCluster({ balance: 1n });
+    const cluster = createSSVCluster({ networkFeeIndex: 500000n, balance: 1n });
 
     await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockCurrentNetworkFeeIndex(1000n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(600000n);
     await clusters.mockMinimumLiquidationCollateralSSV(1000n);
 
     const liquidateTx = await clusters.connect(otherAccount).liquidateSSV(
