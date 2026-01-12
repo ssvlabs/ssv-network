@@ -266,8 +266,8 @@ contract SSVViews is ISSVViews {
             cluster.isLiquidatable(
                 burnRate,
                 sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
+                sp.minimumBlocksBeforeLiquidationSSV,
+                sp.minimumLiquidationCollateralSSV
             );
     }
 
