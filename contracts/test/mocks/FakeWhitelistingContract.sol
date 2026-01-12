@@ -32,13 +32,13 @@ contract FakeWhitelistingContract is ERC165 {
         uint64[] memory _operatorIds,
         bytes calldata _sharesData,
         uint256 _amount,
-        Cluster memory _cluserData
+        Cluster memory _clusterData
     ) external {
         publicKey = _publicKey;
         operatorIds = _operatorIds;
         sharesData = _sharesData;
         amount = _amount;
-        clusterData = _cluserData;
+        clusterData = _clusterData;
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {

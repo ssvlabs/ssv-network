@@ -19,9 +19,9 @@ contract GenericWhitelistContract {
         uint64[] memory _operatorIds,
         bytes calldata _sharesData,
         uint256 _amount,
-        ISSVNetworkCore.Cluster memory _cluserData
+        ISSVNetworkCore.Cluster memory _clusterData
     ) external {
         ssvToken.approve(address(ssvContract), _amount);
-        ssvContract.registerValidator(_publicKey, _operatorIds, _sharesData, _amount, _cluserData);
+        ssvContract.registerValidator(_publicKey, _operatorIds, _sharesData, _amount, _clusterData);
     }
 }

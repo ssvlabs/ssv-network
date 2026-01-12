@@ -18,8 +18,8 @@ contract AttackerContract {
         uint64[] memory _operatorIds,
         bytes calldata _sharesData,
         uint256 _amount,
-        ISSVNetworkCore.Cluster memory _cluserData
+        ISSVNetworkCore.Cluster memory _clusterData
     ) external {
-        ISSVClusters(ssvContract).registerValidator(_publicKey, _operatorIds, _sharesData, _amount, _cluserData);
+        ISSVClusters(ssvContract).registerValidator(_publicKey, _operatorIds, _sharesData, _amount, _clusterData);
     }
 }
