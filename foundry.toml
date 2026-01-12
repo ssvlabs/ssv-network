@@ -13,4 +13,4 @@ remappings = [
 ]
 
 [rpc_endpoints]
-hoodi = "https://hoodi.infura.io/v3/fbee2c3c78dc4b3b866a608b72b459c2"
+hoodi = "https://hoodi.infura.io/v3/{INFURA_KEY}"
