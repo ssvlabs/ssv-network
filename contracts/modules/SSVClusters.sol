@@ -60,7 +60,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         bytes[] memory publicKeys = new bytes[](1);
         publicKeys[0] = publicKey;
 
-        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster, true);
+        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster);
     }
 
     function bulkRemoveValidator(
@@ -68,7 +68,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external override {
-        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster, false);
+        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster);
     }
 
     function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override nonReentrant {
@@ -422,8 +422,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         address owner,
         bytes[] memory publicKeys,
         uint64[] memory operatorIds,
-        Cluster memory cluster,
-        bool revertIfValidatorMissing
+        Cluster memory cluster
     ) internal virtual {
         uint256 validatorsLength = publicKeys.length;
 
@@ -441,10 +440,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         for (uint i; i < validatorsLength; ++i) {
             bytes32 hashedValidator = keccak256(abi.encodePacked(publicKeys[i], owner));
             bytes32 validatorData = s.validatorPKs[hashedValidator];
-
-            if (revertIfValidatorMissing && validatorData == bytes32(0)) {
-                revert ISSVNetworkCore.ValidatorDoesNotExist();
-            }
 
             if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds))
                 revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKeys[i]);

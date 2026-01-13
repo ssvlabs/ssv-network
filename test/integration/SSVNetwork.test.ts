@@ -1833,7 +1833,7 @@ describe("SSVNetwork full integration tests", () => {
       const incorrectValidator: string = validatorKey + "11";
 
       await expect(network.connect(clusterOwner).removeValidator(incorrectValidator, operatorIds, cluster))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
     });
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
@@ -1846,7 +1846,7 @@ describe("SSVNetwork full integration tests", () => {
       const updatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       await expect(network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, updatedCluster))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
     });
   });
 

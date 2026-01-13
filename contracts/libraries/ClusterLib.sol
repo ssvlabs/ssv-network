@@ -162,8 +162,9 @@ library ClusterLib {
         cluster.validatorCount += validatorCountDelta;
 
         if (
-            isLiquidatable(
+            isLiquidatableWithEB(
                 cluster,
+                hashedCluster,
                 burnRate,
                 sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,

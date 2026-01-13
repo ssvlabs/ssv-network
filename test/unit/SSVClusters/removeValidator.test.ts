@@ -80,7 +80,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
       nonExistingKey,
       operatorIds,
       clusterAfterRegister
-    )).to.be.revertedWithCustomError(clusters, Errors.VALIDATOR_DOES_NOT_EXIST);
+    )).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_VALIDATOR_STATE);
   });
 
   it("Is reverted with 'IncorrectClusterState' when provided cluster data is stale or mismatched", async function () {
@@ -146,6 +146,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       clusterAfterRemove
-    )).to.be.revertedWithCustomError(clusters, Errors.VALIDATOR_DOES_NOT_EXIST);
+    )).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_VALIDATOR_STATE);
   });
 });
