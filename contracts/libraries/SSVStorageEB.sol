@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-
 uint32 constant VUNITS_PRECISION = 10_000;
 uint256 constant MAX_EB_PER_VALIDATOR = 2048 ether;
 uint256 constant DEFAULT_EB_PER_VALIDATOR = 32 ether;
@@ -30,23 +28,6 @@ struct StorageEB {
     mapping(bytes32 => uint256) rootCommitments;
     /// @notice Tracks if an oracle ID has voted for a specific commitment key
     mapping(bytes32 => mapping(uint32 => bool)) hasVoted;
-}
-
-/// @notice Convert effective balance to vUnits using ceiling division (write path)
-/// @param effectiveBalance The effective balance in ETH
-/// @return vUnits value with VUNITS_PRECISION scaling
-function ebToVUnits(uint32 effectiveBalance) pure returns (uint64) {
-    return uint64(Math.ceilDiv(
-        uint256(effectiveBalance) * VUNITS_PRECISION,
-        DEFAULT_EB_PER_VALIDATOR / 1 ether
-    ));
-}
-
-/// @notice Convert vUnits to effective balance using floor division (read path)
-/// @param vUnits The vUnits value with VUNITS_PRECISION scaling
-/// @return effectiveBalance in ETH
-function vUnitsToEB(uint64 vUnits) pure returns (uint32) {
-    return uint32((uint256(vUnits) * (DEFAULT_EB_PER_VALIDATOR / 1 ether)) / VUNITS_PRECISION);
 }
 
 library SSVStorageEB {

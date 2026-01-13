@@ -14,9 +14,7 @@ import {
     StorageEB,
     ClusterEBSnapshot,
     VUNITS_PRECISION,
-    MAX_EB_PER_VALIDATOR,
-    ebToVUnits,
-    vUnitsToEB
+    MAX_EB_PER_VALIDATOR
 } from "../libraries/SSVStorageEB.sol";
 import {Types64} from "../libraries/Types.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
@@ -344,7 +342,7 @@ contract SSVClusters is ISSVClusters {
         if (vUnits == 0) {
             vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
-        uint32 effectiveBalance = vUnitsToEB(vUnits);
+        uint32 effectiveBalance = ClusterLib.vUnitsToEB(vUnits);
 
         emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, effectiveBalance, cluster);
     }
@@ -516,7 +514,7 @@ contract SSVClusters is ISSVClusters {
             oldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
 
-        uint64 newVUnits = ebToVUnits(ctx.effectiveBalance);
+        uint64 newVUnits = ClusterLib.ebToVUnits(ctx.effectiveBalance);
 
         if (cluster.active) {
             _applyClusterFeeUpdates(operatorIds, cluster, oldVUnits, newVUnits, ctx.version, s, sp);
