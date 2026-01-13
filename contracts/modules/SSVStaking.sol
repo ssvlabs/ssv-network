@@ -12,11 +12,15 @@ import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 import "../libraries/Types.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     using ProtocolLib for StorageProtocol;
     using Types64 for uint64;
     using Types256 for uint256;
+    using EnumerableMap for EnumerableMap.UintToUintMap;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint64 private constant PRECISION = 1e18;
@@ -59,36 +63,75 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         // todo maybe use immutable
         address cssv = s.cssv;
 
-        if (s.withdrawals[msg.sender].amount != 0) {
-            revert CooldownActive();
-        }
-
         _syncFees(s);
 
         uint256 bal = ICSSVToken(cssv).balanceOf(msg.sender);
         _settleWithBalance(msg.sender, bal, s);
-        if (amount > bal) revert UnstakeAmountExceedsBalance();
+
+        uint256 totalRequested = calculateTotalRequestedBalance(s) + amount;
+
+        if (totalRequested > bal) {
+            revert UnstakeAmountExceedsBalance();
+        }
+
+        EnumerableMap.UintToUintMap storage requests = s.withdrawalRequests[msg.sender];
+        bool wasEmpty = requests.length() == 0;
+
+        uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
+        requests.set(amount, unlockTime);
+
+        if (wasEmpty && requests.length() > 0) {
+            s.requestors.add(msg.sender);
+        }
 
         _removeDelegation(msg.sender, amount, bal, s);
 
         ICSSVToken(cssv).burn(msg.sender, amount);
 
-        // todo maybe use blocks here
-        uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
-        s.withdrawals[msg.sender] = UnstakeRequest({amount: uint192(amount), unlockTime: unlockTime});
-
         emit UnstakeRequested(msg.sender, amount, unlockTime);
+    }
+
+    function calculateTotalRequestedBalance(StorageStaking storage s) internal view returns (uint256) {
+        uint256 total = 0;
+        EnumerableMap.UintToUintMap storage requests = s.withdrawalRequests[msg.sender];
+        for (uint256 j = 0; j < requests.length(); j++) {
+            (uint256 amount, ) = requests.at(j);
+            total += amount;
+        }
+        return total;
+    }
+
+    function calculateTotalUnfrozenBalance(StorageStaking storage s) internal returns (uint256) {
+        uint256 total = 0;
+        EnumerableMap.UintToUintMap storage requests = s.withdrawalRequests[msg.sender];
+
+        uint256[] memory keysToRemove = new uint256[](requests.length());
+        uint256 removeCount = 0;
+
+        for (uint256 j = 0; j < requests.length(); j++) {
+            (uint256 amount, uint256 timestamp) = requests.at(j);
+            if (timestamp <= block.timestamp) {
+                total += amount;
+                keysToRemove[removeCount] = amount;
+                removeCount++;
+            }
+        }
+
+        for (uint256 k = 0; k < removeCount; k++) {
+            requests.remove(keysToRemove[k]);
+        }
+
+        if (requests.length() == 0) {
+            s.requestors.remove(msg.sender);
+        }
+
+        return total;
     }
 
     function withdrawUnlocked() external nonReentrant {
         StorageStaking storage s = SSVStorageStaking.load();
-        UnstakeRequest memory request = s.withdrawals[msg.sender];
-        uint256 amount = request.amount;
+        uint256 amount = calculateTotalUnfrozenBalance(s);
         if (amount == 0) revert NothingToWithdraw();
-
-        if (block.timestamp < request.unlockTime) revert CooldownNotFinished();
-
-        delete s.withdrawals[msg.sender];
 
         if (!SSVStorage.load().token.transfer(msg.sender, amount)) {
             revert TokenTransferFailed();

@@ -12,6 +12,7 @@ import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
+import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -19,6 +20,7 @@ contract SSVViews is ISSVViews {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
+    using EnumerableMap for EnumerableMap.UintToUintMap;
 
     uint256 private constant PRECISION = 1e18;
 
@@ -504,11 +506,17 @@ contract SSVViews is ISSVViews {
         return ICSSVToken(SSVStorageStaking.load().cssv).balanceOf(user);
     }
 
-    function pendingUnstake(address user) external view override returns (uint256 amount, uint256 unlockTime) {
+    function pendingUnstake(address user) external view override returns (uint256[] memory amounts, uint256[] memory unlockTimes) {
         StorageStaking storage s = SSVStorageStaking.load();
-        UnstakeRequest memory request = s.withdrawals[user];
-        amount = request.amount;
-        unlockTime = request.unlockTime;
+        EnumerableMap.UintToUintMap storage requests = s.withdrawalRequests[user];
+        uint256 len = requests.length();
+        amounts = new uint256[](len);
+        unlockTimes = new uint256[](len);
+        for (uint256 j = 0; j < len; j++) {
+            (uint256 amt, uint256 ts) = requests.at(j);
+            amounts[j] = amt;
+            unlockTimes[j] = ts;
+        }
     }
 
     function accEthPerShare() external view override returns (uint256) {
