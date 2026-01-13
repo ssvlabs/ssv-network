@@ -18,10 +18,11 @@ struct StorageProtocol {
     uint64 networkFeeIndex;
     /// @notice The current balance of the DAO
     uint64 daoBalance;
-    /// @notice The minimum number of blocks before a liquidation event can be triggered
-    uint64 minimumBlocksBeforeLiquidation;
-    /// @notice The minimum collateral required for liquidation
-    uint64 minimumLiquidationCollateral;
+    // todo double check separation
+    /// @notice The minimum number of blocks before a liquidation event can be triggered for SSV cluster
+    uint64 minimumBlocksBeforeLiquidationSSV;
+    /// @notice The minimum collateral required for liquidation of SSV clusters
+    uint64 minimumLiquidationCollateralSSV;
     /// @notice The period in which an operator can declare a fee change
     uint64 declareOperatorFeePeriod;
     /// @notice The period in which an operator fee change can be executed
@@ -29,7 +30,8 @@ struct StorageProtocol {
     /// @notice The maximum increase in operator fee that is allowed (percentage)
     uint64 operatorMaxFeeIncrease;
     /// @notice The maximum value in operator fee that is allowed (SSV)
-    uint64 operatorMaxFee;
+    // todo ssv-eth separated
+    uint64 operatorMaxFeeSSV;
 
     // ETH 
     /// @notice The block number when the network fee index was last updated for eth
@@ -44,6 +46,14 @@ struct StorageProtocol {
     uint64 ethNetworkFeeIndex;
     /// @notice The current balance of the DAO for eth clusters
     uint64 ethDaoBalance;
+    // todo double check
+    /// @notice The minimum collateral required for liquidation
+    uint64 minimumLiquidationCollateral;
+    /// @notice The minimum number of blocks before a liquidation event can be triggered
+    uint64 minimumBlocksBeforeLiquidation;
+    /// @notice The maximum value in operator fee that is allowed (ETH)
+    // todo ssv-eth separated
+    uint64 operatorMaxFee;
 
     // EB
     /// @notice The current total SSV vUnits

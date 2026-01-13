@@ -7,10 +7,11 @@ import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
+import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SSVOperators is ISSVOperators {
+contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
     uint64 private constant PRECISION_FACTOR = 10_000;
 
     using Types256 for uint256;
@@ -60,7 +61,7 @@ contract SSVOperators is ISSVOperators {
         emit OperatorPrivacyStatusUpdated(operatorIds, setPrivate);
     }
 
-    function removeOperator(uint64 operatorId) external override {
+    function removeOperator(uint64 operatorId) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         Operator memory operator = s.operators[operatorId];
@@ -107,7 +108,8 @@ contract SSVOperators is ISSVOperators {
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
+        // todo double check -1, prevision needed for min fee
+        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease) + PRECISION_FACTOR - 1) / PRECISION_FACTOR;
 
         if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 
@@ -185,15 +187,15 @@ contract SSVOperators is ISSVOperators {
         emit OperatorPrivacyStatusUpdated(operatorIds, false);
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_ETH);
     }
 
-    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_ETH);
     }
 
-    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override {
+    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
         Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
@@ -216,11 +218,11 @@ contract SSVOperators is ISSVOperators {
         }
     }
 
-    function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override {
+    function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_SSV);
     }
 
-    function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override {
+    function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_SSV);
     }
 

@@ -116,6 +116,13 @@ library ClusterLib {
         hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
 
         bytes32 clusterData = s.ethClusters[hashedCluster];
+        bytes32 clusterDataSSV = s.clusters[hashedCluster];
+
+        // todo owner can override ssv cluster here, refactor this check
+        if (clusterData == bytes32(0) && clusterDataSSV!= bytes32(0)) {
+            revert ISSVNetworkCore.IncorrectClusterVersion();
+        }
+
         if (clusterData == bytes32(0)) {
             if (
                 cluster.validatorCount != 0 ||
@@ -155,8 +162,9 @@ library ClusterLib {
         cluster.validatorCount += validatorCountDelta;
 
         if (
-            isLiquidatable(
+            isLiquidatableWithEB(
                 cluster,
+                hashedCluster,
                 burnRate,
                 sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,

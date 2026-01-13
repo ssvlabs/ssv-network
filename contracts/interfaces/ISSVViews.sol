@@ -219,6 +219,7 @@ interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets the operator maximum fee for operators that use SSV token
     /// @return The maximum fee value (SSV)
     function getMaximumOperatorFee() external view returns (uint64);
+    function getMaximumOperatorFeeSSV() external view returns (uint64);
 
     /// @notice Gets the periods of operator fee declaration and execution
     /// @return The period for declaring operator fee
@@ -228,10 +229,12 @@ interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets the liquidation threshold period
     /// @return blocks The number of blocks for the liquidation threshold period
     function getLiquidationThresholdPeriod() external view returns (uint64 blocks);
+    function getLiquidationThresholdPeriodSSV() external view returns (uint64 blocks);
 
     /// @notice Gets the minimum liquidation collateral
     /// @return amount The minimum amount of collateral for liquidation (SSV)
     function getMinimumLiquidationCollateral() external view returns (uint256 amount);
+    function getMinimumLiquidationCollateralSSV() external view returns (uint256 amount);
 
     /// @notice Gets the maximum limit of validators per operator
     /// @return validators The maximum number of validators per operator

@@ -265,8 +265,8 @@ contract SSVViews is ISSVViews {
             cluster.isLiquidatable(
                 burnRate,
                 sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
+                sp.minimumBlocksBeforeLiquidationSSV,
+                sp.minimumLiquidationCollateralSSV
             );
     }
 
@@ -316,7 +316,12 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+
+        // todo double check
+        if (version != CoreLib.VERSION_SSV) {
+            return 0;
+        }
 
         uint64 aggregateFee;
         uint256 operatorsLength = operatorIds.length;
@@ -455,6 +460,10 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().operatorMaxFee;
     }
 
+    function getMaximumOperatorFeeSSV() external view override returns (uint64) {
+        return SSVStorageProtocol.load().operatorMaxFeeSSV;
+    }
+
     function getOperatorFeePeriods() external view override returns (uint64, uint64) {
         return (SSVStorageProtocol.load().declareOperatorFeePeriod, SSVStorageProtocol.load().executeOperatorFeePeriod);
     }
@@ -463,8 +472,16 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().minimumBlocksBeforeLiquidation;
     }
 
+    function getLiquidationThresholdPeriodSSV() external view override returns (uint64) {
+        return SSVStorageProtocol.load().minimumBlocksBeforeLiquidationSSV;
+    }
+
     function getMinimumLiquidationCollateral() external view override returns (uint256) {
         return SSVStorageProtocol.load().minimumLiquidationCollateral.expand();
+    }
+
+    function getMinimumLiquidationCollateralSSV() external view override returns (uint256) {
+        return SSVStorageProtocol.load().minimumLiquidationCollateralSSV.expand();
     }
 
     function getValidatorsPerOperatorLimit() external view override returns (uint32) {

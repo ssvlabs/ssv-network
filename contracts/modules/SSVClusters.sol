@@ -18,8 +18,9 @@ import {
 } from "../libraries/SSVStorageEB.sol";
 import {Types64} from "../libraries/Types.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
-contract SSVClusters is ISSVClusters {
+contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
@@ -59,7 +60,7 @@ contract SSVClusters is ISSVClusters {
         bytes[] memory publicKeys = new bytes[](1);
         publicKeys[0] = publicKey;
 
-        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster, true);
+        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster);
     }
 
     function bulkRemoveValidator(
@@ -67,13 +68,13 @@ contract SSVClusters is ISSVClusters {
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external override {
-        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster, false);
+        _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster);
     }
 
-    function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override {
+    function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
         cluster.validateClusterIsNotLiquidated();
 
@@ -110,10 +111,10 @@ contract SSVClusters is ISSVClusters {
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external override {
+    ) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
         cluster.validateClusterIsNotLiquidated();
 
@@ -127,7 +128,7 @@ contract SSVClusters is ISSVClusters {
             sp
         );
 
-        _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+        _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndexSSV());
 
         if (
             clusterOwner != msg.sender &&
@@ -135,8 +136,8 @@ contract SSVClusters is ISSVClusters {
                 hashedCluster,
                 burnRate,
                 sp.networkFee,
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
+                sp.minimumBlocksBeforeLiquidationSSV,
+                sp.minimumLiquidationCollateralSSV
             )
         ) {
             revert ClusterNotLiquidatable();
@@ -199,7 +200,7 @@ contract SSVClusters is ISSVClusters {
     ) external payable override {
         StorageData storage s = SSVStorage.load();
 
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
 
         cluster.balance += msg.value;
@@ -209,7 +210,7 @@ contract SSVClusters is ISSVClusters {
         emit ClusterDeposited(clusterOwner, operatorIds, msg.value, cluster);
     }
 
-    function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override {
+    function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -332,7 +333,7 @@ contract SSVClusters is ISSVClusters {
         }
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
-
+        delete s.clusters[hashedCluster];
         if (ssvBalance != 0) {
             CoreLib.transferTokenBalance(msg.sender, ssvBalance);
         }
@@ -421,8 +422,7 @@ contract SSVClusters is ISSVClusters {
         address owner,
         bytes[] memory publicKeys,
         uint64[] memory operatorIds,
-        Cluster memory cluster,
-        bool revertIfValidatorMissing
+        Cluster memory cluster
     ) internal virtual {
         uint256 validatorsLength = publicKeys.length;
 
@@ -440,10 +440,6 @@ contract SSVClusters is ISSVClusters {
         for (uint i; i < validatorsLength; ++i) {
             bytes32 hashedValidator = keccak256(abi.encodePacked(publicKeys[i], owner));
             bytes32 validatorData = s.validatorPKs[hashedValidator];
-
-            if (revertIfValidatorMissing && validatorData == bytes32(0)) {
-                revert ISSVNetworkCore.ValidatorDoesNotExist();
-            }
 
             if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds))
                 revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKeys[i]);
@@ -537,7 +533,6 @@ contract SSVClusters is ISSVClusters {
             operatorIds,
             ctx.blockNum,
             ctx.effectiveBalance,
-            newVUnits,
             cluster
         );
     }
@@ -558,7 +553,6 @@ contract SSVClusters is ISSVClusters {
         uint64[] calldata operatorIds,
         uint64 blockNum,
         uint32 eb,
-        uint64 newVUnits,
         Cluster memory cluster
     ) internal {
         emit ClusterBalanceUpdated(clusterOwner, operatorIds, blockNum, eb, cluster);
