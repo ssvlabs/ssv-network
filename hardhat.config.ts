@@ -21,7 +21,7 @@ export default defineConfig({
           viaIR: true,
           optimizer: {
             enabled: true,
-            runs: 1000,
+            runs: 1,
           },
           evmVersion: 'cancun',
         },
@@ -31,7 +31,9 @@ export default defineConfig({
   networks: {
     hardhat: {
       type: 'edr-simulated',
-      allowUnlimitedContractSize: true
+      allowUnlimitedContractSize: true,
+      blockGasLimit: 100_000_000,
+
     },
     hoodi: {
       type: "http",
