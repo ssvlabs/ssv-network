@@ -119,4 +119,22 @@ describe("SSVStaking function `stake()`", async () => {
     const balanceAfter = await ssvToken.balanceOf(stakingAddress);
     expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
   });
+
+  it("Stores delegation data in storage", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const [oracleIds, amounts] = await staking.getUserDelegation(staker.address);
+
+    expect(oracleIds[0]).to.equal(1);
+    expect(oracleIds[1]).to.equal(2);
+    expect(oracleIds[2]).to.equal(3);
+    expect(oracleIds[3]).to.equal(4);
+
+    const totalDelegated = amounts[0] + amounts[1] + amounts[2] + amounts[3];
+    expect(totalDelegated).to.equal(STAKE_AMOUNT);
+  });
 });

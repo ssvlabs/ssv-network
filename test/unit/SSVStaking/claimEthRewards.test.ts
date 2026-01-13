@@ -131,4 +131,19 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
 
     await expect(tx).to.emit(staking, Events.FEES_SYNCED);
   });
+
+  it("Stores updated accrued balance in storage after claiming", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeAndAccrueRewards);
+
+    const accruedBefore = connection.ethers.parseEther("0.1");
+    await staking.mockSetUserAccrued(staker.address, accruedBefore);
+    await staking.mockSetStakingEthPoolBalance(10_000_000_000n);
+    await staking.mockSetEthDaoBalance(10_000_000_000n);
+
+    await staking.claimEthRewards();
+
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.be.lessThan(accruedBefore);
+    expect(accruedAfter).to.be.greaterThanOrEqual(0n);
+  });
 });

@@ -105,26 +105,21 @@ export async function ssvStakingHarnessFixture(
 
   const [deployer] = await connection.ethers.getSigners();
 
-  // Deploy mock SSV token using MockToken
   const ssvToken = await connection.ethers.deployContract("MockToken");
   await ssvToken.waitForDeployment();
 
-  // Mint tokens to deployer
   await ssvToken.mint(deployer.address, connection.ethers.parseEther("1000000"));
 
-  // Deploy cSSV token
   const cssvToken = await connection.ethers.deployContract(
     "CSSVToken",
     [await staking.getAddress()]
   );
   await cssvToken.waitForDeployment();
 
-  // Set up the staking contract
   await staking.mockSetToken(await ssvToken.getAddress());
   await staking.mockSetCSSVToken(await cssvToken.getAddress());
   await staking.mockSetCooldownDuration(cooldownDuration);
 
-  // Set default oracle IDs
   await staking.mockSetDefaultOracleIds([1, 2, 3, 4]);
 
   return {

@@ -94,4 +94,19 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
 
     expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
   });
+
+  it("Clears withdrawal request from storage after withdrawal", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
+
+    const [amountBefore, unlockTimeBefore] = await staking.getWithdrawal(staker.address);
+    expect(amountBefore).to.equal(STAKE_AMOUNT);
+    expect(unlockTimeBefore).to.be.greaterThan(0n);
+
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+    await staking.withdrawUnlocked();
+
+    const [amountAfter, unlockTimeAfter] = await staking.getWithdrawal(staker.address);
+    expect(amountAfter).to.equal(0n);
+    expect(unlockTimeAfter).to.equal(0n);
+  });
 });

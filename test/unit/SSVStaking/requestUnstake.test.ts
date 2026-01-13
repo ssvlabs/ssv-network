@@ -109,4 +109,20 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const [amount] = await staking.getWithdrawal(staker.address);
     expect(amount).to.equal(STAKE_AMOUNT);
   });
+
+  it("Stores withdrawal request in storage", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeFirst);
+
+    const unstakeAmount = STAKE_AMOUNT / 2n;
+    await staking.requestUnstake(unstakeAmount);
+
+    const [storedAmount, storedUnlockTime] = await staking.getWithdrawal(staker.address);
+
+    expect(storedAmount).to.equal(unstakeAmount);
+    expect(storedUnlockTime).to.be.greaterThan(0n);
+
+    const latestBlock = await connection.ethers.provider.getBlock("latest");
+    const expectedUnlockTime = BigInt(latestBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+    expect(storedUnlockTime).to.equal(expectedUnlockTime);
+  });
 });

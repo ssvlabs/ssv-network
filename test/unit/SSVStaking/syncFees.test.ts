@@ -127,4 +127,39 @@ describe("SSVStaking function `syncFees()`", async () => {
     const accAfterSecond = await staking.getAccEthPerShare();
     expect(accAfterSecond).to.be.greaterThan(accAfterFirst);
   });
+
+  it("Stores updated pool balance in storage", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const newFees = 5_000_000_000n;
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(newFees);
+
+    await staking.syncFees();
+
+    const storedPoolBalance = await staking.getStakingEthPoolBalance();
+    expect(storedPoolBalance).to.equal(newFees);
+  });
+
+  it("Stores updated accEthPerShare in storage", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const accBefore = await staking.getAccEthPerShare();
+
+    const newFees = 1_000_000_000n;
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(newFees);
+    await staking.syncFees();
+
+    const accAfter = await staking.getAccEthPerShare();
+    expect(accAfter).to.be.greaterThan(accBefore);
+  });
 });
