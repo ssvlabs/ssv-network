@@ -8,7 +8,7 @@ async function main() {
   const buildInfoDir = path.join(artifactsPath, "build-info");
   const abisDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "abis");
 
-  const skippedFolders = ["test", "deprecated", "upgrades", "libraries", "interfaces"];
+  const skippedFolders = ["test", "deprecated", "upgrades", "libraries", "interfaces", "lib"];
 
   if (fs.existsSync(abisDir)) {
     fs.rmSync(abisDir, { recursive: true });
