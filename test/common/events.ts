@@ -40,4 +40,9 @@ export const Events = {
   COOLDOWN_DURATION_UPDATED: "CooldownDurationUpdated",
   ORACLE_REPLACED: "OracleReplaced",
   QUORUM_UPDATED: "QuorumUpdated",
+  FEES_SYNCED: "FeesSynced",
+  REWARDS_SETTLED: "RewardsSettled",
+  REWARDS_CLAIMED: "RewardsClaimed",
+  ERC20_RESCUED: "ERC20Rescued",
+  DELEGATION_UPDATED: "DelegationUpdated",
 } as const;

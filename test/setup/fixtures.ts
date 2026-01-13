@@ -92,6 +92,48 @@ export async function ssvDAOHarnessFixture(
   return { dao };
 }
 
+export async function ssvStakingHarnessFixture(
+  connection: NetworkConnection<"generic">,
+  cooldownDuration = 604800n // 7 days in seconds
+): Promise<{
+  staking: Contract;
+  ssvToken: Contract;
+  cssvToken: Contract;
+}> {
+  const staking = await deployHarnessModule(connection, SSVModules.SSVStaking);
+  await staking.waitForDeployment();
+
+  const [deployer] = await connection.ethers.getSigners();
+
+  // Deploy mock SSV token using MockToken
+  const ssvToken = await connection.ethers.deployContract("MockToken");
+  await ssvToken.waitForDeployment();
+
+  // Mint tokens to deployer
+  await ssvToken.mint(deployer.address, connection.ethers.parseEther("1000000"));
+
+  // Deploy cSSV token
+  const cssvToken = await connection.ethers.deployContract(
+    "CSSVToken",
+    [await staking.getAddress()]
+  );
+  await cssvToken.waitForDeployment();
+
+  // Set up the staking contract
+  await staking.mockSetToken(await ssvToken.getAddress());
+  await staking.mockSetCSSVToken(await cssvToken.getAddress());
+  await staking.mockSetCooldownDuration(cooldownDuration);
+
+  // Set default oracle IDs
+  await staking.mockSetDefaultOracleIds([1, 2, 3, 4]);
+
+  return {
+    staking,
+    ssvToken,
+    cssvToken,
+  };
+}
+
 const QUORUM_BPS = 7500;
 const DEFAULT_ORACLE_IDS = [1, 2, 3, 4];
 
