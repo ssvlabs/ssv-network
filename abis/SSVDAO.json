@@ -309,6 +309,11 @@
   },
   {
     "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "RootNotFound",
     "type": "error"
   },
@@ -698,6 +703,18 @@
         "internalType": "uint256",
         "name": "quorum",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "oracleId",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "oracle",
+        "type": "address"
       }
     ],
     "name": "WeightedRootProposed",
@@ -735,37 +752,6 @@
       }
     ],
     "name": "replaceOracle",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "firstStartEpoch",
-        "type": "uint64"
-      },
-      {
-        "internalType": "address",
-        "name": "newOracle",
-        "type": "address"
-      }
-    ],
-    "name": "replaceOracle",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint16",
-        "name": "quorum",
-        "type": "uint16"
-      }
-    ],
-    "name": "setQuorumBps",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
