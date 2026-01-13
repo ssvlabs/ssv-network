@@ -9,14 +9,16 @@ import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtoc
 import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
 import {SSVStorageStaking, StorageStaking} from "../libraries/SSVStorageStaking.sol";
+import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
-contract SSVDAO is ISSVDAO {
+contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     using Types64 for uint64;
     using Types256 for uint256;
 
     using ProtocolLib for StorageProtocol;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
+    uint256 private constant ROOT_COMMITS_THRESHOLD = 3;
 
     function updateNetworkFee(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -31,10 +33,10 @@ contract SSVDAO is ISSVDAO {
         uint64 previousFee = sp.networkFee;
 
         sp.updateNetworkFeeSSV(fee);
-        emit NetworkFeeUpdated(previousFee.expand(), fee);
+        emit NetworkFeeUpdatedSSV(previousFee.expand(), fee);
     }
 
-    function withdrawNetworkSSVEarnings(uint256 amount) external override {
+    function withdrawNetworkSSVEarnings(uint256 amount) external override nonReentrant {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint64 shrunkAmount = amount.shrink();
@@ -77,14 +79,33 @@ contract SSVDAO is ISSVDAO {
         emit LiquidationThresholdPeriodUpdated(blocks);
     }
 
+    function updateLiquidationThresholdPeriodSSV(uint64 blocks) external {
+        if (blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
+            revert NewBlockPeriodIsBelowMinimum();
+        }
+
+        SSVStorageProtocol.load().minimumBlocksBeforeLiquidationSSV = blocks;
+        emit LiquidationThresholdPeriodSSVUpdated(blocks);
+    }
+
     function updateMinimumLiquidationCollateral(uint256 amount) external override {
         SSVStorageProtocol.load().minimumLiquidationCollateral = amount.shrink();
         emit MinimumLiquidationCollateralUpdated(amount);
     }
 
+    function updateMinimumLiquidationCollateralSSV(uint256 amount) external {
+        SSVStorageProtocol.load().minimumLiquidationCollateralSSV = amount.shrink();
+        emit MinimumLiquidationCollateralSSVUpdated(amount);
+    }
+
     function updateMaximumOperatorFee(uint64 maxFee) external override {
         SSVStorageProtocol.load().operatorMaxFee = maxFee;
         emit OperatorMaximumFeeUpdated(maxFee);
+    }
+
+    function updateMaximumOperatorFeeSSV(uint64 maxFee) external {
+        SSVStorageProtocol.load().operatorMaxFeeSSV = maxFee;
+        emit OperatorMaximumFeeSSVUpdated(maxFee);
     }
 
     function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
@@ -106,7 +127,7 @@ contract SSVDAO is ISSVDAO {
 
         // block and root combined to keep block-root proposal tied together
         bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, merkleRoot));
-        
+
         if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
         seb.hasVoted[commitmentKey][oracleId] = true;
 
@@ -123,13 +144,13 @@ contract SSVDAO is ISSVDAO {
             seb.latestCommittedBlock = blockNum;
 
             delete seb.rootCommitments[commitmentKey];
-            // Do not delete hasVoted to prevent re-voting if same key is somehow reused 
+            // Do not delete hasVoted to prevent re-voting if same key is somehow reused
 
             emit RootCommitted(merkleRoot, blockNum);
             return;
         }
 
-        emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold);
+        emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold, oracleId, msg.sender);
     }
 
     function replaceOracle(uint32 oracleId, address newOracle) external override {
@@ -162,24 +183,6 @@ contract SSVDAO is ISSVDAO {
         if (quorum > 10000) revert("Invalid quorum");
         SSVStorageStaking.load().quorumBps = quorum;
         emit QuorumUpdated(quorum);
-    }
-
-    function setOracleTimingConfig(
-        uint64 firstStartEpoch,
-        uint64 firstInterval,
-        uint64 secondStartEpoch,
-        uint64 secondInterval
-    ) external {
-        if (firstInterval == 0 || secondInterval == 0) {
-            revert ZeroInterval();
-        }
-
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-
-        sp.oracleFirstStartEpoch = firstStartEpoch;
-        sp.oracleFirstEpochInterval = firstInterval;
-        sp.oracleSecondStartEpoch = secondStartEpoch;
-        sp.oracleSecondEpochInterval = secondInterval;
     }
 
     function setUnstakeCooldownDuration(uint64 duration) external override {

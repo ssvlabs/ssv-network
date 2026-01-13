@@ -45,14 +45,6 @@ interface ISSVDAO is ISSVNetworkCore {
     /// @param blockNum Block number when oracle computed this data (must be finalized and strictly increasing)
     function commitRoot(bytes32 merkleRoot, uint64 blockNum) external;
 
-    
-    function setOracleTimingConfig(
-        uint64 firstStartEpoch,
-        uint64 firstInterval,
-        uint64 secondStartEpoch,
-        uint64 secondInterval
-    ) external;
-
     function setUnstakeCooldownDuration(uint64 duration) external;
 
     /// @notice Replace oracle address at a stable oracle ID
@@ -68,9 +60,12 @@ interface ISSVDAO is ISSVNetworkCore {
 
     event ExecuteOperatorFeePeriodUpdated(uint64 value);
 
+    // todo check
     event LiquidationThresholdPeriodUpdated(uint64 value);
+    event LiquidationThresholdPeriodSSVUpdated(uint64 value);
 
     event MinimumLiquidationCollateralUpdated(uint256 value);
+    event MinimumLiquidationCollateralSSVUpdated(uint256 value);
 
     /**
      * @dev Emitted when the network fee is updated.
@@ -78,6 +73,7 @@ interface ISSVDAO is ISSVNetworkCore {
      * @param newFee The new fee
      */
     event NetworkFeeUpdated(uint256 oldFee, uint256 newFee);
+    event NetworkFeeUpdatedSSV(uint256 oldFee, uint256 newFee);
 
     /**
      * @dev Emitted when transfer fees are withdrawn.
@@ -87,6 +83,8 @@ interface ISSVDAO is ISSVNetworkCore {
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
     event OperatorMaximumFeeUpdated(uint64 maxFee);
+    // todo check
+    event OperatorMaximumFeeSSVUpdated(uint64 maxFee);
 
     /// @notice Emitted when an EB Merkle root is committed for a given block
     /// @param merkleRoot The committed Merkle root
@@ -97,7 +95,7 @@ interface ISSVDAO is ISSVNetworkCore {
 
     event CooldownDurationUpdated(uint64 newCooldownDuration);
 
-    event WeightedRootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum, uint256 accumulatedWeight, uint256 quorum);
+    event WeightedRootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum, uint256 accumulatedWeight, uint256 quorum, uint32 oracleId, address oracle);
 
     event OracleReplaced(uint32 indexed oracleId, address indexed oldOracle, address indexed newOracle);
     event QuorumUpdated(uint16 newQuorum);
