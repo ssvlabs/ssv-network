@@ -1765,18 +1765,6 @@
         "internalType": "uint256",
         "name": "quorum",
         "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint32",
-        "name": "oracleId",
-        "type": "uint32"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "oracle",
-        "type": "address"
       }
     ],
     "name": "WeightedRootProposed",
@@ -2746,6 +2734,19 @@
       }
     ],
     "name": "setOperatorsWhitelists",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "quorum",
+        "type": "uint16"
+      }
+    ],
+    "name": "setQuorumBps",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
