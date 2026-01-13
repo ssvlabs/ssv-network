@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "../interfaces/ISSVNetworkCore.sol";
 import {StorageData} from "./SSVStorage.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
-import {SSVStorageEB, StorageEB, VUNITS_PRECISION} from "./SSVStorageEB.sol";
+import {DEFAULT_EB_PER_VALIDATOR, SSVStorageEB, StorageEB, VUNITS_PRECISION} from "./SSVStorageEB.sol";
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
 import {Types64} from "./Types.sol";
@@ -228,5 +228,22 @@ library ClusterLib {
         }
 
         revert ISSVNetworkCore.ClusterDoesNotExists();
+    }
+
+    /// @notice Convert effective balance to vUnits using ceiling division (write path)
+    /// @param effectiveBalance The effective balance in ETH
+    /// @return vUnits value with VUNITS_PRECISION scaling
+    function ebToVUnits(uint32 effectiveBalance) internal pure returns (uint64) {
+        uint256 vUnits = uint256(effectiveBalance) * VUNITS_PRECISION;
+        uint256 vUnitsPerValidator = DEFAULT_EB_PER_VALIDATOR / 1 ether;
+        
+        return uint64(vUnits == 0 ? 0 : (vUnits - 1) / vUnitsPerValidator + 1);
+    }
+
+    /// @notice Convert vUnits to effective balance using floor division (read path)
+    /// @param vUnits The vUnits value with VUNITS_PRECISION scaling
+    /// @return effectiveBalance in ETH
+    function vUnitsToEB(uint64 vUnits) internal pure returns (uint32) {
+        return uint32((uint256(vUnits) * (DEFAULT_EB_PER_VALIDATOR / 1 ether)) / VUNITS_PRECISION);
     }
 }

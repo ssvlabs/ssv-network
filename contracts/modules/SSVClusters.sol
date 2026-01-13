@@ -343,7 +343,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         if (vUnits == 0) {
             vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
-        uint32 effectiveBalance = uint32((uint256(vUnits) * 32 ether) / VUNITS_PRECISION);
+        uint32 effectiveBalance = ClusterLib.vUnitsToEB(vUnits);
 
         emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, effectiveBalance, cluster);
     }
@@ -510,7 +510,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             oldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
 
-        uint64 newVUnits = uint64((ctx.effectiveBalance * VUNITS_PRECISION) / (DEFAULT_EB_PER_VALIDATOR / 1 ether));
+        uint64 newVUnits = ClusterLib.ebToVUnits(ctx.effectiveBalance);
 
         if (cluster.active) {
             _applyClusterFeeUpdates(operatorIds, cluster, oldVUnits, newVUnits, ctx.version, s, sp);
