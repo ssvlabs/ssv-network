@@ -508,14 +508,13 @@ contract SSVViews is ISSVViews {
 
     function pendingUnstake(address user) external view override returns (uint256[] memory amounts, uint256[] memory unlockTimes) {
         StorageStaking storage s = SSVStorageStaking.load();
-        EnumerableMap.UintToUintMap storage requests = s.withdrawalRequests[user];
-        uint256 len = requests.length();
+        UnstakeRequest[] storage requests = s.withdrawalRequests[user];
+        uint256 len = requests.length;
         amounts = new uint256[](len);
         unlockTimes = new uint256[](len);
         for (uint256 j = 0; j < len; j++) {
-            (uint256 amt, uint256 ts) = requests.at(j);
-            amounts[j] = amt;
-            unlockTimes[j] = ts;
+            amounts[j] = requests[j].amount;
+            unlockTimes[j] = requests[j].unlockTime;
         }
     }
 

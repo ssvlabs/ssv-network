@@ -12,15 +12,11 @@ import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 import "../libraries/Types.sol";
-import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     using ProtocolLib for StorageProtocol;
     using Types64 for uint64;
     using Types256 for uint256;
-    using EnumerableMap for EnumerableMap.UintToUintMap;
-    using EnumerableSet for EnumerableSet.AddressSet;
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint64 private constant PRECISION = 1e18;
@@ -74,15 +70,10 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
             revert UnstakeAmountExceedsBalance();
         }
 
-        EnumerableMap.UintToUintMap storage requests = s.withdrawalRequests[msg.sender];
-        bool wasEmpty = requests.length() == 0;
+        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
 
         uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
-        requests.set(amount, unlockTime);
-
-        if (wasEmpty && requests.length() > 0) {
-            s.requestors.add(msg.sender);
-        }
+        requests.push(UnstakeRequest({amount: uint192(amount), unlockTime: unlockTime}));
 
         _removeDelegation(msg.sender, amount, bal, s);
 
@@ -93,36 +84,31 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
 
     function calculateTotalRequestedBalance(StorageStaking storage s) internal view returns (uint256) {
         uint256 total = 0;
-        EnumerableMap.UintToUintMap storage requests = s.withdrawalRequests[msg.sender];
-        for (uint256 j = 0; j < requests.length(); j++) {
-            (uint256 amount, ) = requests.at(j);
-            total += amount;
+        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
+        for (uint256 j = 0; j < requests.length; j++) {
+            total += requests[j].amount;
         }
         return total;
     }
 
     function calculateTotalUnfrozenBalance(StorageStaking storage s) internal returns (uint256) {
         uint256 total = 0;
-        EnumerableMap.UintToUintMap storage requests = s.withdrawalRequests[msg.sender];
+        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
 
-        uint256[] memory keysToRemove = new uint256[](requests.length());
+        uint256[] memory indicesToRemove = new uint256[](requests.length);
         uint256 removeCount = 0;
 
-        for (uint256 j = 0; j < requests.length(); j++) {
-            (uint256 amount, uint256 timestamp) = requests.at(j);
-            if (timestamp <= block.timestamp) {
-                total += amount;
-                keysToRemove[removeCount] = amount;
-                removeCount++;
+        for (uint256 j = 0; j < requests.length; j++) {
+            if (requests[j].unlockTime <= block.timestamp) {
+                total += requests[j].amount;
+                indicesToRemove[removeCount++] = j;
             }
         }
 
-        for (uint256 k = 0; k < removeCount; k++) {
-            requests.remove(keysToRemove[k]);
-        }
-
-        if (requests.length() == 0) {
-            s.requestors.remove(msg.sender);
+        for (uint256 k = removeCount; k > 0; k--) {
+            uint256 idx = indicesToRemove[k - 1];
+            requests[idx] = requests[requests.length - 1];
+            requests.pop();
         }
 
         return total;

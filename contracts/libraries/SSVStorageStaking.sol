@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
-import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
 struct UnstakeRequest {
     /// @notice Amount of cSSV burned and pending to be withdrawn as SSV
     uint192 amount;
@@ -34,6 +31,7 @@ struct StorageStaking {
     mapping(address => uint256) accrued;
 
     /// @notice Pending unstake request for each user
+    // todo deprecate
     mapping(address => UnstakeRequest) withdrawals;
 
     /// @notice Oracle registry: stable ID => oracle address
@@ -49,9 +47,7 @@ struct StorageStaking {
     /// @notice Quorum threshold in basis points (e.g. 7000 = 70%)
     uint16 quorumBps;
     /// @notice The mapping of address to their unstake requests
-    mapping(address => EnumerableMap.UintToUintMap) withdrawalRequests;
-    /// @notice: Tracks all users with active withdrawal requests for easier looping
-    EnumerableSet.AddressSet requestors;
+    mapping(address => UnstakeRequest[]) withdrawalRequests;
 }
 
 library SSVStorageStaking {
