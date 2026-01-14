@@ -12,7 +12,6 @@ import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
-import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -20,7 +19,6 @@ contract SSVViews is ISSVViews {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
-    using EnumerableMap for EnumerableMap.UintToUintMap;
 
     uint256 private constant PRECISION = 1e18;
 
