@@ -7,6 +7,7 @@ import { makeOperatorKey } from "../../common/helpers.ts";
 import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVOperators function `cancelDeclaredOperatorFee()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -22,10 +23,21 @@ describe("SSVOperators function `cancelDeclaredOperatorFee()`", async () => {
   it("Cancels declared fee and emits expected event", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
-    await operators.declareOperatorFee(1, 20_000_000);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+    await trackGas(
+      operators.declareOperatorFee(1, 20_000_000),
+      [GasGroup.DECLARE_OPERATOR_FEE]
+    );
 
-    await expect(operators.cancelDeclaredOperatorFee(1)).to.emit(
+    await expect(
+      trackGas(
+        operators.cancelDeclaredOperatorFee(1),
+        [GasGroup.CANCEL_OPERATOR_FEE]
+      )
+    ).to.emit(
       operators,
       Events.OPERATOR_FEE_DECLARATION_CANCELLED
     );
@@ -39,7 +51,10 @@ describe("SSVOperators function `cancelDeclaredOperatorFee()`", async () => {
   it("Is reverted with 'NoFeeDeclared' when canceling without a declaration", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.cancelDeclaredOperatorFee(1)).to.be.revertedWithCustomError(
       operators,

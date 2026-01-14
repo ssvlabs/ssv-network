@@ -5,6 +5,7 @@ import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey } from "../../common/helpers.ts";
 import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 const SHRINK_FACTOR = 10_000_000n;
 
@@ -28,7 +29,10 @@ describe("SSVOperators reentrancy guard", async () => {
     );
     await attacker.waitForDeployment();
 
-    await attacker.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      attacker.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     const operatorId = await attacker.operatorId();
 
@@ -39,7 +43,10 @@ describe("SSVOperators reentrancy guard", async () => {
     const reenterAmount = 1n * SHRINK_FACTOR;
 
     await attacker.setReenterAmount(reenterAmount);
-    await attacker.triggerWithdraw(withdrawAmount);
+    await trackGas(
+      attacker.triggerWithdraw(withdrawAmount),
+      [GasGroup.WITHDRAW_OPERATOR_BALANCE]
+    );
 
     expect(await attacker.reentered()).to.equal(true);
     expect(await attacker.reenterSucceeded()).to.equal(false);

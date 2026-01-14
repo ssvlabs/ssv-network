@@ -7,6 +7,7 @@ import { makeOperatorKey } from "../../common/helpers.ts";
 import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVOperators function `reduceOperatorFee()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -23,9 +24,17 @@ describe("SSVOperators function `reduceOperatorFee()`", async () => {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
     const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE * 2n);
-    await operators.registerOperator(makeOperatorKey(1), initialFee, false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), initialFee, false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
-    await expect(operators.reduceOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE))).to.emit(
+    await expect(
+      trackGas(
+        operators.reduceOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE)),
+        [GasGroup.REDUCE_OPERATOR_FEE]
+      )
+    ).to.emit(
       operators,
       Events.OPERATOR_FEE_EXECUTED
     );
@@ -35,7 +44,10 @@ describe("SSVOperators function `reduceOperatorFee()`", async () => {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
     const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE * 2n);
-    await operators.registerOperator(makeOperatorKey(1), initialFee, false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), initialFee, false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.reduceOperatorFee(1, initialFee)).to.be.revertedWithCustomError(
       operators,

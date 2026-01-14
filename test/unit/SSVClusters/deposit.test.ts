@@ -8,6 +8,7 @@ import { makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 type ClusterType = typeof EMPTY_CLUSTER;
 
@@ -35,15 +36,17 @@ describe("SSVClusters function `deposit()`", async () => {
   };
 
   const registerCluster = async (clusters: any, operatorIds: bigint[]) => {
-    const registerTx = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      0,
-      createCluster(),
-      { value: DEFAULT_ETH_REGISTER_VALUE }
+    const receipt = await trackGas(
+      clusters.registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        createCluster(),
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ),
+      [GasGroup.REGISTER_VALIDATOR_NEW_STATE]
     );
-    const receipt = await registerTx.wait();
     return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
   };
 
@@ -55,17 +58,19 @@ describe("SSVClusters function `deposit()`", async () => {
 
     const depositAmount = 1n;
 
-    const depositTx = await clusters.deposit(
-      clusterOwner.address,
-      operatorIds,
-      0,
-      clusterBeforeDeposit,
-      { value: depositAmount }
+    const depositReceipt = await trackGas(
+      clusters.deposit(
+        clusterOwner.address,
+        operatorIds,
+        0,
+        clusterBeforeDeposit,
+        { value: depositAmount }
+      ),
+      [GasGroup.DEPOSIT]
     );
-    const depositReceipt = await depositTx.wait();
     const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
 
-    await expect(depositTx).to.emit(clusters, Events.CLUSTER_DEPOSITED);
+    expect(depositReceipt.eventsByName[Events.CLUSTER_DEPOSITED]).to.have.lengthOf(1);
     expect(clusterAfterDeposit.balance).to.equal(clusterBeforeDeposit.balance + depositAmount);
   });
 
@@ -76,17 +81,19 @@ describe("SSVClusters function `deposit()`", async () => {
     const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
 
     const depositAmount = 2n;
-    const depositTx = await clusters.connect(otherAccount).deposit(
-      clusterOwner.address,
-      operatorIds,
-      0,
-      clusterBeforeDeposit,
-      { value: depositAmount }
+    const depositReceipt = await trackGas(
+      clusters.connect(otherAccount).deposit(
+        clusterOwner.address,
+        operatorIds,
+        0,
+        clusterBeforeDeposit,
+        { value: depositAmount }
+      ),
+      [GasGroup.DEPOSIT]
     );
-    const depositReceipt = await depositTx.wait();
     const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
 
-    await expect(depositTx).to.emit(clusters, Events.CLUSTER_DEPOSITED);
+    expect(depositReceipt.eventsByName[Events.CLUSTER_DEPOSITED]).to.have.lengthOf(1);
     expect(clusterAfterDeposit.balance).to.equal(clusterBeforeDeposit.balance + depositAmount);
   });
 

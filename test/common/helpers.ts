@@ -161,6 +161,20 @@ const EVENT_ABI = [
 ] as const;
 
 export function parseClusterFromEvent(contract: any, receipt: any, eventName: string): Cluster {
+  if (receipt.eventsByName?.[eventName]?.length > 0) {
+    const parsed = receipt.eventsByName[eventName][0];
+    const clusterTuple = parsed.args[parsed.args.length - 1];
+    const [validatorCount, networkFeeIndex, index, active, balance] = clusterTuple;
+
+    return {
+      validatorCount: BigInt(validatorCount),
+      networkFeeIndex: BigInt(networkFeeIndex),
+      index: BigInt(index),
+      active,
+      balance: BigInt(balance),
+    };
+  }
+
   for (const log of receipt.logs ?? []) {
     let parsed;
     try {

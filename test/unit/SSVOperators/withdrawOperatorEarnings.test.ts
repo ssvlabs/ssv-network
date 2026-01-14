@@ -7,6 +7,7 @@ import { makeOperatorKey } from "../../common/helpers.ts";
 import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 const SHRINK_FACTOR = 10_000_000n;
 
@@ -31,12 +32,20 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const [owner] = await connection.ethers.getSigners();
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
     await seedOperatorWithETHBalance(operators, 1, 5n);
 
     const amount = 2n * SHRINK_FACTOR;
 
-    await expect(operators.withdrawOperatorEarnings(1, amount))
+    await expect(
+      trackGas(
+        operators.withdrawOperatorEarnings(1, amount),
+        [GasGroup.WITHDRAW_OPERATOR_BALANCE]
+      )
+    )
       .to.emit(operators, Events.OPERATOR_WITHDRAWN)
       .withArgs(owner.address, 1, amount);
 
@@ -48,12 +57,20 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const [owner] = await connection.ethers.getSigners();
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
     await seedOperatorWithETHBalance(operators, 1, 4n);
 
     const expectedAmount = 4n * SHRINK_FACTOR;
 
-    await expect(operators.withdrawAllOperatorEarnings(1))
+    await expect(
+      trackGas(
+        operators.withdrawAllOperatorEarnings(1),
+        [GasGroup.WITHDRAW_OPERATOR_BALANCE]
+      )
+    )
       .to.emit(operators, Events.OPERATOR_WITHDRAWN)
       .withArgs(owner.address, 1, expectedAmount);
 
@@ -64,7 +81,10 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
   it("Is reverted with 'InsufficientBalance' when withdrawing more than ETH snapshot balance", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.withdrawOperatorEarnings(1, SHRINK_FACTOR)).to.be.revertedWithCustomError(
       operators,
@@ -76,7 +96,10 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const [, other] = await connection.ethers.getSigners();
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
     await seedOperatorWithETHBalance(operators, 1, 1n);
 
     await expect(operators.connect(other).withdrawOperatorEarnings(1, SHRINK_FACTOR)).to.be.revertedWithCustomError(
@@ -89,7 +112,10 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const [, other] = await connection.ethers.getSigners();
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
     await seedOperatorWithETHBalance(operators, 1, 1n);
 
     await expect(operators.connect(other).withdrawAllOperatorEarnings(1)).to.be.revertedWithCustomError(

@@ -34,6 +34,7 @@ import { Errors } from '../common/errors.js';
 import { deployContract } from '../../scripts/common/helpers.js';
 import { ContractTransactionResponse } from 'ethers';
 import * as net from 'node:net';
+import { trackGasFromReceipt, GasGroup } from '../helpers/gas-usage.ts';
 
 describe("SSVNetwork full integration tests", () => {
   let connection: NetworkConnection<"generic">;
@@ -94,7 +95,11 @@ describe("SSVNetwork full integration tests", () => {
 
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
 
-      await expect(await network.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true))
+      const tx = await network.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_OPERATOR]);
+
+      await expect(tx)
         .to.emit(network, Events.OPERATOR_ADDED).withArgs(expectedId, operatorOwner.address, operatorKey, MINIMAL_OPERATOR_ETH_FEE)
         .and.to.emit(network, Events.OPERATOR_PRIVACY_STATUS_UPDATED).withArgs([expectedId], true);
 
@@ -160,10 +165,15 @@ describe("SSVNetwork full integration tests", () => {
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
       await network.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
 
-      expect(await network.removeOperator(expectedId))
+      const tx = await network.removeOperator(expectedId);
+
+      expect(tx)
         .to.emit(network, Events.OPERATOR_REMOVED)
         .withArgs(expectedId)
-
+        
+        const receipt = await tx.wait();
+        await trackGasFromReceipt(receipt, [GasGroup.REMOVE_OPERATOR]);
+  
       const operator: OperatorTuple = await views.getOperatorById(expectedId)
 
       // todo check how to make typed, maybe cast to object like cluster
@@ -572,7 +582,8 @@ describe("SSVNetwork full integration tests", () => {
       const newFee: bigint = MINIMAL_OPERATOR_ETH_FEE * 2n;
 
       const tx: ContractTransactionResponse = await network.declareOperatorFee(operatorIds[0], newFee)
-      await tx.wait();
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.DECLARE_OPERATOR_FEE]);
       const block = await tx.getBlock();
 
       const expectedBegin = BigInt(block!.timestamp) + DECLARE_OPERATOR_FEE_PERIOD;
@@ -677,7 +688,11 @@ describe("SSVNetwork full integration tests", () => {
       const operatorIds = await registerOperators(network, operatorOwner, 1);
       await network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE * 2n)
 
-      await expect(await network.cancelDeclaredOperatorFee(operatorIds[0]))
+      const tx = await network.cancelDeclaredOperatorFee(operatorIds[0]);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.CANCEL_OPERATOR_FEE]);
+
+      await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_DECLARATION_CANCELLED)
         .withArgs(operatorOwner, operatorIds[0]);
 
@@ -729,7 +744,11 @@ describe("SSVNetwork full integration tests", () => {
       await connection.networkHelpers.time.increase(EXECUTE_OPERATOR_FEE_PERIOD + 1n);
       await connection.networkHelpers.mine();
 
-      await(expect(network.executeOperatorFee(operatorIds[0])))
+      const tx = await network.executeOperatorFee(operatorIds[0]);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.EXECUTE_OPERATOR_FEE]);
+
+      await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_EXECUTED);
 
       expect(await views.getOperatorFee(operatorIds[0])).to.be.equal(MINIMAL_OPERATOR_ETH_FEE * 2n);
@@ -845,7 +864,11 @@ describe("SSVNetwork full integration tests", () => {
       const operatorId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
       await network.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE * 2n, true);
 
-      await expect(await network.reduceOperatorFee(operatorId, MINIMAL_OPERATOR_ETH_FEE))
+      const tx = await network.reduceOperatorFee(operatorId, MINIMAL_OPERATOR_ETH_FEE);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REDUCE_OPERATOR_FEE]);
+
+      await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_EXECUTED);
 
       expect(await views.getOperatorFee(operatorId))
@@ -923,12 +946,16 @@ describe("SSVNetwork full integration tests", () => {
 
       expect(expectedEarnings).to.be.equal(earnings);
 
-      await expect(await network.withdrawOperatorEarnings(operatorIds[0], earnings))
+      const tx = await network.withdrawOperatorEarnings(operatorIds[0], earnings);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.WITHDRAW_OPERATOR_BALANCE]);
+
+      await expect(tx)
         .to.emit(network, Events.OPERATOR_WITHDRAWN)
         .withArgs(operatorOwner.address, operatorIds[0], earnings);
 
       expect(await views.getOperatorEarnings(operatorIds[0]))
-        .to.be.equal(MINIMAL_OPERATOR_ETH_FEE); // 1 block passed
+        .to.be.equal(MINIMAL_OPERATOR_ETH_FEE);
     });
 
     it("Is reverted with 'OperatorDoesNotExist' if operator is not registered", async function() {
@@ -1253,14 +1280,18 @@ describe("SSVNetwork full integration tests", () => {
         const operatorIds = await registerOperators(network, operatorOwner, 4);
         await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
 
-        await expect(await network.connect(clusterOwner).registerValidator(
+        const tx = await network.connect(clusterOwner).registerValidator(
           validatorKey,
           operatorIds,
           DEFAULT_SHARES,
           0,
           EMPTY_CLUSTER,
           { value: DEFAULT_ETH_REGISTER_VALUE }
-        )).to.emit(network, Events.VALIDATOR_ADDED);
+        );
+        const receipt = await tx.wait();
+        await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+
+        await expect(tx).to.emit(network, Events.VALIDATOR_ADDED);
 
       const expectedCluster = await getCurrentClusterState(
         connection,
@@ -1784,7 +1815,11 @@ describe("SSVNetwork full integration tests", () => {
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, operatorOwner, clusterOwner);
 
-      await expect(network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, cluster))
+      const tx = await network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, cluster);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REMOVE_VALIDATOR]);
+
+      await expect(tx)
         .to.emit(network, Events.VALIDATOR_REMOVED);
 
       const clusterAfter = await getCurrentClusterState(
@@ -1940,7 +1975,11 @@ describe("SSVNetwork full integration tests", () => {
       await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
       await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
 
-      await expect(await network.connect(randomUser).stake(STAKE_AMOUNT))
+      const tx = await network.connect(randomUser).stake(STAKE_AMOUNT);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.STAKE_SSV]);
+
+      await expect(tx)
         .to.emit(network, Events.STAKED)
         .withArgs(randomUser.address, STAKE_AMOUNT);
 
@@ -1984,7 +2023,8 @@ describe("SSVNetwork full integration tests", () => {
       await network.connect(randomUser).stake(STAKE_AMOUNT)
 
       const tx = await network.connect(randomUser).requestUnstake(STAKE_AMOUNT);
-      await tx.wait();
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REQUEST_UNSTAKE]);
       const block = await tx.getBlock();
 
       await expect(tx)
@@ -2065,7 +2105,11 @@ describe("SSVNetwork full integration tests", () => {
       await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
       await networkHelpers.mine();
 
-      await expect(network.connect(randomUser).withdrawUnlocked())
+      const tx = await network.connect(randomUser).withdrawUnlocked();
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.WITHDRAW_UNSTAKE]);
+
+      await expect(tx)
         .to.emit(network, Events.UNSTAKE_WITHDRAWN)
         .withArgs(randomUser.address, STAKE_AMOUNT);
 

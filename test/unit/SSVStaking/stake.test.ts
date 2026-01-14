@@ -7,6 +7,7 @@ import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { STAKE_AMOUNT } from "../../common/constants.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `stake()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -27,7 +28,10 @@ describe("SSVStaking function `stake()`", async () => {
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
 
-    const tx = await staking.stake(STAKE_AMOUNT);
+    const tx = await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     await expect(tx)
       .to.emit(staking, Events.STAKED)
@@ -42,7 +46,10 @@ describe("SSVStaking function `stake()`", async () => {
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const userIndex = await staking.getUserIndex(staker.address);
     const accEthPerShare = await staking.getAccEthPerShare();
@@ -55,7 +62,10 @@ describe("SSVStaking function `stake()`", async () => {
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
 
-    const tx = await staking.stake(STAKE_AMOUNT);
+    const tx = await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     await expect(tx).to.emit(staking, Events.DELEGATION_UPDATED);
 
@@ -99,8 +109,14 @@ describe("SSVStaking function `stake()`", async () => {
 
     await ssvToken.approve(await staking.getAddress(), firstStake + secondStake);
 
-    await staking.stake(firstStake);
-    await staking.stake(secondStake);
+    await trackGas(
+      staking.stake(firstStake),
+      [GasGroup.STAKE_SSV]
+    );
+    await trackGas(
+      staking.stake(secondStake),
+      [GasGroup.STAKE_SSV]
+    );
 
     const cssvBalance = await cssvToken.balanceOf(staker.address);
     expect(cssvBalance).to.equal(firstStake + secondStake);
@@ -114,7 +130,10 @@ describe("SSVStaking function `stake()`", async () => {
     const balanceBefore = await ssvToken.balanceOf(stakingAddress);
 
     await ssvToken.approve(stakingAddress, STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const balanceAfter = await ssvToken.balanceOf(stakingAddress);
     expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);

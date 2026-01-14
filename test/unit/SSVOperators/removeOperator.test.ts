@@ -8,6 +8,7 @@ import { makeOperatorKey } from "../../common/helpers.ts";
 import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVOperators function `removeOperator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -27,9 +28,17 @@ describe("SSVOperators function `removeOperator()`", async () => {
   it("Removes operator successfully and emits expected event", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
-    await expect(operators.removeOperator(1)).to.emit(operators, Events.OPERATOR_REMOVED).withArgs(1n);
+    await expect(
+      trackGas(
+        operators.removeOperator(1),
+        [GasGroup.REMOVE_OPERATOR]
+      )
+    ).to.emit(operators, Events.OPERATOR_REMOVED).withArgs(1n);
 
     const operatorData = await operators.getOperator(1);
     expect(operatorData.ethFee).to.equal(0n);
@@ -39,7 +48,10 @@ describe("SSVOperators function `removeOperator()`", async () => {
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to remove operator", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.connect(other).removeOperator(1)).to.be.revertedWithCustomError(
       operators,
