@@ -47,4 +47,10 @@ export const Errors = {
   ZERO_ADDRESS: "ZeroAddress",
   ORACLE_ALREADY_ASSIGNED: "OracleAlreadyAssigned",
   INVALID_QUORUM: "Invalid quorum",
+  NOT_CSSV: "NotCSSV",
+  INVALID_TOKEN: "InvalidToken",
+  COOLDOWN_NOT_FINISHED: "CooldownNotFinished",
+  NOTHING_TO_CLAIM: "NothingToClaim",
+  NOTHING_TO_WITHDRAW: "NothingToWithdraw",
+  TOKEN_TRANSFER_FAILED: "TokenTransferFailed",
 } as const;
