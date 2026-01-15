@@ -1323,6 +1323,76 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.equal(0);
     });
 
+    it("Registers a validator into an existing ETH cluster", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const existingCluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds
+      );
+
+      const tx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(2),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        existingCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_EXISTING_ETH_CLUSTER]);
+    });
+
+    it("Registers a validator into a prefunded ETH cluster with zero additional deposit", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
+      );
+
+      const existingCluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds
+      );
+
+      const tx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(2),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        existingCluster,
+        { value: 0 }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT]);
+    });
+
     it("Is reverted with 'InvalidOperatorIdsLength' if the amount of operators is not the allowed one", async function () {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
