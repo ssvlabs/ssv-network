@@ -111,11 +111,11 @@ describe("SSVStaking function `stake()`", async () => {
 
     await trackGas(
       staking.stake(firstStake),
-      [GasGroup.STAKE_SSV]
+      [GasGroup.INITIAL_STAKE_SSV]
     );
     await trackGas(
       staking.stake(secondStake),
-      [GasGroup.STAKE_SSV]
+      [GasGroup.POST_INITIAL_STAKE_SSV]
     );
 
     const cssvBalance = await cssvToken.balanceOf(staker.address);
