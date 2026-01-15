@@ -123,8 +123,6 @@ interface ISSVNetworkCore {
     error ZeroAddress();
     error ZeroAmount();
     error InvalidToken();
-    error CooldownActive();
-    error CooldownNotFinished();
     error NothingToClaim();
     error NothingToWithdraw();
     error UnstakeAmountExceedsBalance();
