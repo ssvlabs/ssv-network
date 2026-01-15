@@ -273,10 +273,12 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
     }
 
     function _resetOperatorState(Operator memory operator) private pure returns (Operator memory) {
-        operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: 0, index: 0, balance: 0});
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.balance = 0;
         operator.ethValidatorCount = 0;
         operator.ethFee = 0;
-        operator.snapshot = ISSVNetworkCore.Snapshot({block: 0, index: 0, balance: 0});
+        operator.snapshot.block = 0;
+        operator.snapshot.balance = 0;
         operator.validatorCount = 0;
         operator.fee = 0;
         return operator;

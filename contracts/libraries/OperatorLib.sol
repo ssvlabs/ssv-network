@@ -123,7 +123,8 @@ library OperatorLib {
 
     function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
         if (operator.ethSnapshot.block == 0) {
-            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
+            operator.ethSnapshot.block = uint32(block.number);
+            operator.ethSnapshot.balance = 0;
         }
         if (operator.ethFee == 0 && operator.fee != 0) {
             operator.ethFee = defaultOperatorEthFee();
