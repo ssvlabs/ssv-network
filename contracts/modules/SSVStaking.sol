@@ -20,6 +20,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint64 private constant PRECISION = 1e18;
+    uint256 private constant MAX_PENDING_REQUESTS = 10;
 
     function syncFees() external nonReentrant {
         _syncFees(SSVStorageStaking.load());
@@ -69,6 +70,10 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         }
 
         UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
+
+        if (requests.length == MAX_PENDING_REQUESTS) {
+            revert MaxRequestsAmountReached();
+        }
 
         uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
         requests.push(UnstakeRequest({amount: uint192(amount), unlockTime: unlockTime}));
