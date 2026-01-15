@@ -25,15 +25,13 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
-  OPERATOR_MAX_FEE_INCREASE,
-  PRECISION_FACTOR, STAKE_AMOUNT,
+  OPERATOR_MAX_FEE_INCREASE, STAKE_AMOUNT,
 } from '../common/constants.ts';
 import { Events } from '../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../common/errors.js';
 import { deployContract } from '../../scripts/common/helpers.js';
 import { ContractTransactionResponse } from 'ethers';
-import * as net from 'node:net';
 
 describe("SSVNetwork full integration tests", () => {
   let connection: NetworkConnection<"generic">;
