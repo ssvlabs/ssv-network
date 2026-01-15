@@ -5,6 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `setUnstakeCooldownDuration()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -26,6 +27,8 @@ describe("SSVDAO function `setUnstakeCooldownDuration()`", async () => {
     const newDuration = 604800n;
 
     const tx = await dao.setUnstakeCooldownDuration(newDuration);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.SET_UNSTAKE_COOLDOWN]);
 
     await expect(tx)
       .to.emit(dao, Events.COOLDOWN_DURATION_UPDATED)

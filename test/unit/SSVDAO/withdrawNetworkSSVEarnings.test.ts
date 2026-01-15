@@ -6,6 +6,7 @@ import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -52,6 +53,8 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
     const withdrawAmount = 500n * 10_000_000n;
 
     const tx = await dao.withdrawNetworkSSVEarnings(withdrawAmount);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.WITHDRAW_NETWORK_SSV_EARNINGS]);
 
     await expect(tx)
       .to.emit(dao, Events.NETWORK_EARNINGS_WITHDRAWN)

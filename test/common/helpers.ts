@@ -15,6 +15,18 @@ export function makePublicKey(seed: number): string {
   return `0x${seed.toString(16).padStart(96, "0")}`;
 }
 
+export function makePublicKeys(count: number, start = 1): string[] {
+  return Array.from({ length: count }, (_, i) => makePublicKey(start + i));
+}
+
+export function createCluster(overrides: Partial<Cluster> = {}): Cluster {
+  return {
+    ...EMPTY_CLUSTER,
+    active: true,
+    ...overrides,
+  };
+}
+
 export function makeArrayOfKeysAndShares(initialSeed: number, amount: number): { keys: string[], shares: string[] } {
   let keys: string[] = [];
   let shares: string[] = [];

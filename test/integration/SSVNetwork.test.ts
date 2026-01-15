@@ -219,6 +219,18 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getWhitelistedOperators([expectedId], clusterOwner)).to.be.deep.equal([1n]); //true
     });
 
+    it("Whitelists multiple operators for multiple addresses", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 10);
+      const whitelistAddresses = Array(10).fill(clusterOwner.address);
+
+      const tx = await network.setOperatorsWhitelists(operatorIds, whitelistAddresses);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.SET_MULTIPLE_OPERATOR_WHITELIST_10_10]);
+    });
+
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
@@ -310,6 +322,20 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getWhitelistedOperators([expectedId], clusterOwner)).to.be.deep.equal([]); //false
     });
 
+    it("Removes multiple operators for multiple addresses", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 10);
+      const whitelistAddresses = Array(10).fill(clusterOwner.address);
+
+      await network.setOperatorsWhitelists(operatorIds, whitelistAddresses);
+
+      const tx = await network.removeOperatorsWhitelists(operatorIds, whitelistAddresses);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REMOVE_MULTIPLE_OPERATOR_WHITELIST_10_10]);
+    });
+
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
@@ -392,7 +418,11 @@ describe("SSVNetwork full integration tests", () => {
       const { contract: whiteListingContract, address: contractAddress } =
         await deployContract(connection.ethers, "BasicWhitelisting");
 
-      expect(await network.setOperatorsWhitelistingContract(operatorIds, whiteListingContract))
+      const tx = await network.setOperatorsWhitelistingContract(operatorIds, whiteListingContract);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.SET_OPERATOR_WHITELISTING_CONTRACT]);
+
+      expect(tx)
         .to.emit(network, Events.OPERATORS_WHITELISTING_CONTRACT_UPDATED)
         .withArgs(operatorIds, contractAddress);
 
@@ -402,6 +432,42 @@ describe("SSVNetwork full integration tests", () => {
 
       expect(await views.isAddressWhitelistedInWhitelistingContract(clusterOwner, operatorIds[0], contractAddress))
         .to.be.equal(true);
+    });
+
+    it("Updates whitelisting contract for operators", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 3);
+      const { contract: firstContract, address: firstAddress } =
+        await deployContract(connection.ethers, "BasicWhitelisting");
+      const { contract: secondContract, address: secondAddress } =
+        await deployContract(connection.ethers, "BasicWhitelisting");
+
+      await network.setOperatorsWhitelistingContract(operatorIds, firstContract);
+
+      const tx = await network.setOperatorsWhitelistingContract(operatorIds, secondContract);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.UPDATE_OPERATOR_WHITELISTING_CONTRACT]);
+
+      await expect(tx)
+        .to.emit(network, Events.OPERATORS_WHITELISTING_CONTRACT_UPDATED)
+        .withArgs(operatorIds, secondAddress);
+
+      expect(firstAddress).to.not.equal(secondAddress);
+    });
+
+    it("Registers whitelisting contract for 10 operators", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 10);
+      const { contract: whiteListingContract } =
+        await deployContract(connection.ethers, "BasicWhitelisting");
+
+      const tx = await network.setOperatorsWhitelistingContract(operatorIds, whiteListingContract);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.SET_OPERATOR_WHITELISTING_CONTRACT_10]);
     });
 
     it("Is reverted with 'InvalidWhitelistingContract' if the contract does not support required interface", async function() {
@@ -458,9 +524,27 @@ describe("SSVNetwork full integration tests", () => {
         await deployContract(connection.ethers, "BasicWhitelisting");
       await network.setOperatorsWhitelistingContract(operatorIds, whiteListingContract);
 
-      expect(await network.removeOperatorsWhitelistingContract(operatorIds))
+      const tx = await network.removeOperatorsWhitelistingContract(operatorIds);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REMOVE_OPERATOR_WHITELISTING_CONTRACT]);
+
+      expect(tx)
         .to.emit(network, Events.OPERATORS_WHITELISTING_CONTRACT_UPDATED)
         .withArgs(operatorIds, connection.ethers.ZeroAddress);
+    });
+
+    it("Removes whitelisting contract for 10 operators", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const operatorIds = await registerOperators(network, operatorOwner, 10);
+      const { contract: whiteListingContract } =
+        await deployContract(connection.ethers, "BasicWhitelisting");
+
+      await network.setOperatorsWhitelistingContract(operatorIds, whiteListingContract);
+
+      const tx = await network.removeOperatorsWhitelistingContract(operatorIds);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REMOVE_OPERATOR_WHITELISTING_CONTRACT_10]);
     });
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function(){
@@ -818,7 +902,11 @@ describe("SSVNetwork full integration tests", () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(await network.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
+      const tx = await network.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_MAX_FEE]);
+
+      await expect(tx)
         .to.emit(network, Events.OPERATOR_MAXIMUM_FEE_UPDATED);
 
       expect(await views.getMaximumOperatorFee())
@@ -1107,7 +1195,11 @@ describe("SSVNetwork full integration tests", () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+      const tx = await network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_FEE_INCREASE_LIMIT]);
+
+      await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_INCREASE_LIMIT_UPDATED)
         .withArgs(OPERATOR_MAX_FEE_INCREASE + 1n);
 
@@ -1128,7 +1220,11 @@ describe("SSVNetwork full integration tests", () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.updateDeclareOperatorFeePeriod(DECLARE_OPERATOR_FEE_PERIOD + 1n))
+      const tx = await network.updateDeclareOperatorFeePeriod(DECLARE_OPERATOR_FEE_PERIOD + 1n);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_DECLARE_OPERATOR_FEE_PERIOD]);
+
+      await expect(tx)
         .to.emit(network, Events.DECLARE_OPERATOR_FEE_PERIOD_UPDATED)
         .withArgs(DECLARE_OPERATOR_FEE_PERIOD + 1n);
 
@@ -1150,7 +1246,11 @@ describe("SSVNetwork full integration tests", () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.updateExecuteOperatorFeePeriod(EXECUTE_OPERATOR_FEE_PERIOD + 1n))
+      const tx = await network.updateExecuteOperatorFeePeriod(EXECUTE_OPERATOR_FEE_PERIOD + 1n);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_EXECUTE_OPERATOR_FEE_PERIOD]);
+
+      await expect(tx)
         .to.emit(network, Events.EXECUTE_OPERATOR_FEE_PERIOD_UPDATED)
         .withArgs(EXECUTE_OPERATOR_FEE_PERIOD + 1n);
 
@@ -1172,7 +1272,11 @@ describe("SSVNetwork full integration tests", () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.updateLiquidationThresholdPeriod(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n))
+      const tx = await network.updateLiquidationThresholdPeriod(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.CHANGE_LIQUIDATION_THRESHOLD_PERIOD]);
+
+      await expect(tx)
         .to.emit(network, Events.LIQUIDATION_THRESHOLD_PERIOD_UPDATED)
         .withArgs(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n);
 
@@ -1232,7 +1336,11 @@ describe("SSVNetwork full integration tests", () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n))
+      const tx = await network.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.CHANGE_MINIMUM_COLLATERAL]);
+
+      await expect(tx)
         .to.emit(network, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED)
         .withArgs(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n);
 
@@ -1321,6 +1429,128 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.equal(0);
       expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
         .to.be.equal(0);
+    });
+
+    it("Registers a validator for a new ETH cluster using whitelisting contract", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      const { contract: whitelistingContract, address: whitelistingContractAddress } =
+        await deployContract(connection.ethers, "BasicWhitelisting");
+
+      await whitelistingContract.addWhitelistedAddress(clusterOwner.address);
+      await network.setOperatorsWhitelistingContract(operatorIds, whitelistingContractAddress);
+
+      const tx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_4_WHITELISTING_CONTRACT_4]);
+    });
+
+    it("Registers a validator for a new ETH cluster with one whitelisted operator", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await network.setOperatorsPublicUnchecked([operatorIds[1], operatorIds[2], operatorIds[3]]);
+      await network.setOperatorsWhitelists([operatorIds[0]], [clusterOwner.address]);
+
+      const tx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_1_WHITELISTED_4]);
+    });
+
+    it("Registers a validator for a new ETH cluster with four whitelisted operators", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await network.setOperatorsWhitelists(operatorIds, [clusterOwner.address]);
+
+      const tx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_4_WHITELISTED_4]);
+    });
+
+    it("Registers a validator into an existing ETH cluster with four whitelisted operators", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await network.setOperatorsWhitelists(operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const existingCluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds
+      );
+
+      const tx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(2),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        existingCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_4_WHITELISTED_4]);
+    });
+
+    it("Registers a validator for a new ETH cluster with one whitelisting contract operator", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await network.setOperatorsPublicUnchecked([operatorIds[1], operatorIds[2], operatorIds[3]]);
+
+      const { contract: whitelistingContract } =
+        await deployContract(connection.ethers, "BasicWhitelisting");
+
+      await whitelistingContract.addWhitelistedAddress(clusterOwner.address);
+      await network.setOperatorsWhitelistingContract([operatorIds[0]], whitelistingContract);
+
+      const tx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_1_WHITELISTING_CONTRACT_4]);
     });
 
     it("Registers a validator into an existing ETH cluster", async function () {
@@ -1637,6 +1867,49 @@ describe("SSVNetwork full integration tests", () => {
         expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
           .to.be.equal(0);
       }
+    });
+
+    it("Registers bulk of validators into an existing cluster with one whitelisting contract operator", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await network.setOperatorsPublicUnchecked([operatorIds[1], operatorIds[2], operatorIds[3]]);
+
+      const { contract: whitelistingContract } =
+        await deployContract(connection.ethers, "BasicWhitelisting");
+      await whitelistingContract.addWhitelistedAddress(clusterOwner.address);
+      await network.setOperatorsWhitelistingContract([operatorIds[0]], whitelistingContract);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const existingCluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds
+      );
+
+      const keys = Array.from({ length: 10 }, (_, i) => makePublicKey(i + 2));
+      const shares = Array(10).fill(DEFAULT_SHARES);
+
+      const tx = await network.connect(clusterOwner).bulkRegisterValidator(
+        keys,
+        operatorIds,
+        shares,
+        0,
+        existingCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.BULK_REGISTER_10_VALIDATOR_1_WHITELISTING_CONTRACT_EXISTING_CLUSTER_4]);
     });
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the amount of operators is not the allowed one", async function(){

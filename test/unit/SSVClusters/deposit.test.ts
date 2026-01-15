@@ -4,19 +4,11 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER } from "../../common/constants.ts";
+import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
-
-type ClusterType = typeof EMPTY_CLUSTER;
-
-const createCluster = (overrides: Partial<ClusterType> = {}): ClusterType => ({
-  ...EMPTY_CLUSTER,
-  active: true,
-  ...overrides,
-});
 
 describe("SSVClusters function `deposit()`", async () => {
   let connection: NetworkConnection<"generic">;

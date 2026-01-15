@@ -108,6 +108,11 @@ contract SSVClustersHarness is SSVClusters {
         return SSVStorageEB.load().operatorEthVUnits[operatorId];
     }
 
+    function mockSetEBRoot(uint64 blockNum, bytes32 root) external {
+        StorageEB storage seb = SSVStorageEB.load();
+        seb.ebRoots[blockNum] = root;
+    }
+
     function mockEthNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethNetworkFee = fee;
