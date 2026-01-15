@@ -1992,7 +1992,7 @@ describe("SSVNetwork full integration tests", () => {
         .withArgs(randomUser.address, STAKE_AMOUNT, BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN)
 
       expect(await views.pendingUnstake(randomUser.address))
-        .to.be.deep.equal([STAKE_AMOUNT, BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]);
+        .to.be.deep.equal([[STAKE_AMOUNT], [BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]]);
 
       expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(0);
       expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(0);
@@ -2015,7 +2015,39 @@ describe("SSVNetwork full integration tests", () => {
         .withArgs(randomUser.address, STAKE_AMOUNT / 2n, BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN)
 
       expect(await views.pendingUnstake(randomUser.address))
-        .to.be.deep.equal([STAKE_AMOUNT / 2n, BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]);
+        .to.be.deep.equal([[STAKE_AMOUNT / 2n], [BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]]);
+
+      const secondTx = await network.connect(randomUser).requestUnstake(STAKE_AMOUNT / 2n);
+      await secondTx.wait();
+      const secondBlock = await secondTx.getBlock();
+
+      await expect(secondTx)
+        .to.emit(network, Events.UNSTAKE_REQUESTED)
+        .withArgs(randomUser.address, STAKE_AMOUNT / 2n, BigInt(secondBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN);
+
+      expect(await views.pendingUnstake(randomUser.address))
+        .to.be.deep.equal([
+        [STAKE_AMOUNT / 2n, STAKE_AMOUNT / 2n],
+        [BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN, BigInt(secondBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]
+      ]);
+    });
+
+    it("Is reverted with 'MaxRequestsAmountReached' if more than 10 pending requests", async function() {
+      const { network, ssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
+
+      const smallAmount = STAKE_AMOUNT / 11n;
+
+      for (let i = 0; i < 10; i++) {
+        await network.connect(randomUser).requestUnstake(smallAmount);
+      }
+
+      await expect(network.connect(randomUser).requestUnstake(smallAmount))
+        .to.be.revertedWithCustomError(network, Errors.MAX_REQUESTS_AMOUNT_REACHED);
     });
 
     it("Is reverted with 'ZeroAmount' if caller is trying to request 0 SSV", async function() {
@@ -2024,19 +2056,6 @@ describe("SSVNetwork full integration tests", () => {
 
       await expect(network.requestUnstake(0))
         .to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
-    });
-
-    it("Is reverted with 'CooldownActive' if another request did not finish yet", async function() {
-      const { network, ssvToken } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
-      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
-      await network.connect(randomUser).stake(STAKE_AMOUNT)
-      await network.connect(randomUser).requestUnstake(STAKE_AMOUNT);
-
-      await expect(network.connect(randomUser).requestUnstake(STAKE_AMOUNT))
-        .to.be.revertedWithCustomError(network, Errors.COOLDOWN_ACTIVE);
     });
 
     it("Is reverted with 'UnstakeAmountExceedsBalance' if caller is trying to request more SSV than they staked", async function(){

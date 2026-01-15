@@ -47,4 +47,5 @@ export const Errors = {
   ZERO_ADDRESS: "ZeroAddress",
   ORACLE_ALREADY_ASSIGNED: "OracleAlreadyAssigned",
   INVALID_QUORUM: "Invalid quorum",
+  MAX_REQUESTS_AMOUNT_REACHED: "MaxRequestsAmountReached",
 } as const;
