@@ -20,6 +20,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint64 private constant PRECISION = 1e18;
+    uint256 private constant MAX_PENDING_REQUESTS = 10;
 
     function syncFees() external nonReentrant {
         _syncFees(SSVStorageStaking.load());
@@ -59,36 +60,52 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         // todo maybe use immutable
         address cssv = s.cssv;
 
-        if (s.withdrawals[msg.sender].amount != 0) {
-            revert CooldownActive();
-        }
-
         _syncFees(s);
 
         uint256 bal = ICSSVToken(cssv).balanceOf(msg.sender);
         _settleWithBalance(msg.sender, bal, s);
-        if (amount > bal) revert UnstakeAmountExceedsBalance();
+
+        if (amount > bal) {
+            revert UnstakeAmountExceedsBalance();
+        }
+
+        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
+
+        if (requests.length == MAX_PENDING_REQUESTS) {
+            revert MaxRequestsAmountReached();
+        }
+
+        uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
+        requests.push(UnstakeRequest({amount: uint192(amount), unlockTime: unlockTime}));
 
         _removeDelegation(msg.sender, amount, bal, s);
 
         ICSSVToken(cssv).burn(msg.sender, amount);
 
-        // todo maybe use blocks here
-        uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
-        s.withdrawals[msg.sender] = UnstakeRequest({amount: uint192(amount), unlockTime: unlockTime});
-
         emit UnstakeRequested(msg.sender, amount, unlockTime);
+    }
+
+    function calculateTotalUnfrozenBalance(StorageStaking storage s) internal returns (uint256) {
+        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
+        uint256 total = 0;
+        uint256 i = 0;
+
+        while (i < requests.length) {
+            if (requests[i].unlockTime <= block.timestamp) {
+                total += requests[i].amount;
+                requests[i] = requests[requests.length - 1];
+                requests.pop();
+            } else {
+                i++;
+            }
+        }
+        return total;
     }
 
     function withdrawUnlocked() external nonReentrant {
         StorageStaking storage s = SSVStorageStaking.load();
-        UnstakeRequest memory request = s.withdrawals[msg.sender];
-        uint256 amount = request.amount;
+        uint256 amount = calculateTotalUnfrozenBalance(s);
         if (amount == 0) revert NothingToWithdraw();
-
-        if (block.timestamp < request.unlockTime) revert CooldownNotFinished();
-
-        delete s.withdrawals[msg.sender];
 
         if (!SSVStorage.load().token.transfer(msg.sender, amount)) {
             revert TokenTransferFailed();
