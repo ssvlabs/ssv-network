@@ -64,9 +64,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         uint256 bal = ICSSVToken(cssv).balanceOf(msg.sender);
         _settleWithBalance(msg.sender, bal, s);
 
-        uint256 totalRequested = calculateTotalRequestedBalance(s) + amount;
-
-        if (totalRequested > bal) {
+        if (amount > bal) {
             revert UnstakeAmountExceedsBalance();
         }
 
