@@ -66,6 +66,53 @@ export async function ssvClustersHarnessFixture(
   };
 }
 
+export async function ssvValidatorsHarnessFixture(
+  connection: NetworkConnection<"generic">,
+  operatorCount = 4,
+  operatorFee = 0n
+): Promise<{
+  validators: Contract;
+  operatorIds: bigint[];
+}> {
+  const validators = await deployHarnessModule(
+    connection,
+    SSVModules.SSVValidators
+  );
+  await validators.waitForDeployment();
+
+  await validators.mockValidatorsPerOperatorLimit(3000);
+
+  const [owner] = await connection.ethers.getSigners();
+
+  const operatorIds: bigint[] = [];
+
+  for (let i = 0; i < operatorCount; i++) {
+    const operatorKey = makeOperatorKey(i);
+
+    const operatorId: bigint =
+      await validators.mockOperator.staticCall(
+        operatorKey,
+        owner.address,
+        operatorFee, // Use the fee param
+        false
+      );
+
+    await validators.mockOperator(
+      operatorKey,
+      owner.address,
+      operatorFee,
+      false
+    );
+
+    operatorIds.push(operatorId);
+  }
+
+  return {
+    validators,
+    operatorIds,
+  };
+}
+
 export async function ssvOperatorsHarnessFixture(
   connection: NetworkConnection<"generic">,
   operatorMaxFee = MAXIMUM_OPERATORS_FEE,
@@ -163,6 +210,7 @@ export async function ssvNetworkFullFixture(
     "SSVViews",
     "SSVOperatorsWhitelist",
     "SSVStaking",
+    "SSVValidators",
   ];
   const moduleAddresses: { [key: string]: string } = {};
 
@@ -194,6 +242,7 @@ export async function ssvNetworkFullFixture(
 
   await attachModule(connection.ethers, networkProxyAddr, "SSVOperatorsWhitelist", moduleAddresses["SSVOperatorsWhitelist"]);
   await attachModule(connection.ethers, networkProxyAddr, "SSVStaking", moduleAddresses["SSVStaking"]);
+  await attachModule(connection.ethers, networkProxyAddr, "SSVValidators", moduleAddresses["SSVValidators"]);
 
   const { address: viewsImplAddr } = await deployContract(connection.ethers, "SSVNetworkViews");
 

@@ -37,7 +37,7 @@ async function main() {
     throw new Error("Missing SSVToken address in config");
   }
 
-  const moduleNames = ["SSVOperators", "SSVClusters", "SSVDAO", "SSVViews", "SSVOperatorsWhitelist", "SSVStaking"];
+  const moduleNames = ["SSVOperators", "SSVClusters", "SSVDAO", "SSVViews", "SSVOperatorsWhitelist", "SSVStaking", "SSVValidators"];
   const moduleAddresses: { [key: string]: string } = {};
   for (const mod of moduleNames) {
     const { address } = await deployContract(ethers, mod);
@@ -85,6 +85,7 @@ async function main() {
   saveImplementation(targetNetwork, "CSSVToken", cssvTokenAddr);
 
   await attachModule(ethers, networkProxyAddr, "SSVStaking", moduleAddresses["SSVStaking"]);
+  await attachModule(ethers, networkProxyAddr, "SSVValidators", moduleAddresses["SSVValidators"]);
 
   const { address: upgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
   saveImplementation(targetNetwork, "SSVNetworkSSVStakingUpgrade", upgradeImplAddr);

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import { SSVClusters } from "../../modules/SSVClusters.sol";
 import { SSVValidators } from "../../modules/SSVValidators.sol";
 import {ISSVNetworkCore} from "../../interfaces/ISSVNetworkCore.sol";
 import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
@@ -13,7 +12,7 @@ import "../../libraries/ClusterLib.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract SSVClustersHarness is SSVClusters, SSVValidators {
+contract SSVValidatorsHarness is SSVValidators {
     using Counters for Counters.Counter;
     using Types256 for uint256;
     using ClusterLib for Cluster;
@@ -54,11 +53,6 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     function mockValidatorsPerOperatorLimit(uint32 limit) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.validatorsPerOperatorLimit = limit;
-    }
-
-    function mockCurrentNetworkFeeIndex(uint64 index) external {
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.ethNetworkFeeIndex = index;
     }
 
     function getCurrentNetworkFeeIndex() external view returns (uint64) {

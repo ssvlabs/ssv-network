@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
 import {ISSVOperators} from "./ISSVOperators.sol";
 import {ISSVClusters} from "./ISSVClusters.sol";
+import {ISSVValidators} from "./ISSVValidators.sol";
 import {ISSVDAO} from "./ISSVDAO.sol";
 import {ISSVViews} from "./ISSVViews.sol";
 

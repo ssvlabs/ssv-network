@@ -17,6 +17,7 @@ export const SSV_MODULE_CONTRACTS: Record<SSVModules, string> = {
   [SSVModules.SSVViews]: "SSVViews",
   [SSVModules.SSVOperatorsWhitelist]: "SSVOperatorsWhitelist",
   [SSVModules.SSVStaking]: "SSVStaking",
+  [SSVModules.SSVValidators]: "SSVValidators",
 };
 
 // todo make and object to simplify imports in other files (Constants.NAME_OF_VALUE...)

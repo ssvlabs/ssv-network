@@ -2,7 +2,7 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { getTestConnection } from "../../setup/connection.ts";
-import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { ssvValidatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makePublicKey } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER } from "../../common/constants.ts";
@@ -26,17 +26,17 @@ describe("SSVClusters function `exitValidator()`", async () => {
     [clusterOwner] = await connection.ethers.getSigners();
   });
 
-  const deploySSVClustersAndPrepareOperatorsFixture = async () => {
-    return ssvClustersHarnessFixture(connection);
+  const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
+    return ssvValidatorsHarnessFixture(connection);
   };
 
   it("Exits an existing validator and emits the correct event", async function () {
-    const { clusters, operatorIds } =
-      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
     const publicKey = makePublicKey(1);
 
-    await clusters.registerValidator(
+    await validators.registerValidator(
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
@@ -45,30 +45,30 @@ describe("SSVClusters function `exitValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    await expect(clusters.exitValidator(
+    await expect(validators.exitValidator(
       publicKey,
       operatorIds
-    )).to.emit(clusters, Events.VALIDATOR_EXITED).withArgs(clusterOwner.address, operatorIds, publicKey);
+    )).to.emit(validators, Events.VALIDATOR_EXITED).withArgs(clusterOwner.address, operatorIds, publicKey);
   });
 
   it("Is reverted with 'IncorrectValidatorStateWithData' when validator was not registered", async function () {
-    const { clusters, operatorIds } =
-      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
     const missingPk = makePublicKey(1);
 
-    await expect(clusters.exitValidator(
+    await expect(validators.exitValidator(
       missingPk,
       operatorIds
-    )).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(missingPk);
+    )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(missingPk);
   });
 
   it("Is reverted with 'IncorrectValidatorStateWithData' when operator ids do not match the validator", async function () {
-    const { clusters, operatorIds } =
-      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
     const publicKey = makePublicKey(1);
-    await clusters.registerValidator(
+    await validators.registerValidator(
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
@@ -80,9 +80,9 @@ describe("SSVClusters function `exitValidator()`", async () => {
     const mismatchedOperatorIds = [...operatorIds];
     mismatchedOperatorIds[0] = mismatchedOperatorIds[0] + 1n; // alter first id
 
-    await expect(clusters.exitValidator(
+    await expect(validators.exitValidator(
       publicKey,
       mismatchedOperatorIds
-    )).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(publicKey);
+    )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(publicKey);
   });
 });

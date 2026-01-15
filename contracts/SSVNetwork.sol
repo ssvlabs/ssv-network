@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "./interfaces/ISSVNetwork.sol";
 
 import "./interfaces/ISSVClusters.sol";
+import "./interfaces/ISSVValidators.sol";
 import "./interfaces/ISSVOperators.sol";
 import "./interfaces/ISSVOperatorsWhitelist.sol";
 import "./interfaces/ISSVDAO.sol";
@@ -30,6 +31,7 @@ contract SSVNetwork is
     ISSVOperators,
     ISSVOperatorsWhitelist,
     ISSVClusters,
+    ISSVValidators,
     ISSVDAO,
     ISSVStaking,
     SSVProxy
@@ -243,7 +245,7 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function bulkRegisterValidator(
@@ -253,7 +255,7 @@ contract SSVNetwork is
         uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function removeValidator(
@@ -261,7 +263,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function bulkRemoveValidator(
@@ -269,7 +271,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function liquidate(
@@ -332,11 +334,11 @@ contract SSVNetwork is
     }
 
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function updateNetworkFee(uint256 fee) external override onlyOwner {
