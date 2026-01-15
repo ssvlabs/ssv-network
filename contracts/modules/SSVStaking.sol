@@ -80,15 +80,6 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         emit UnstakeRequested(msg.sender, amount, unlockTime);
     }
 
-    function calculateTotalRequestedBalance(StorageStaking storage s) internal view returns (uint256) {
-        uint256 total = 0;
-        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
-        for (uint256 j = 0; j < requests.length; j++) {
-            total += requests[j].amount;
-        }
-        return total;
-    }
-
     function calculateTotalUnfrozenBalance(StorageStaking storage s) internal returns (uint256) {
         uint256 total = 0;
         UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
