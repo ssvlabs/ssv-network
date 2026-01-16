@@ -8,6 +8,7 @@ import { makeOperatorKey } from "../../common/helpers.ts";
 import { MAXIMUM_OPERATORS_FEE, MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVOperators function `registerOperator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -29,7 +30,10 @@ describe("SSVOperators function `registerOperator()`", async () => {
     const publicKey = makeOperatorKey(1);
     const fee = MINIMAL_OPERATOR_ETH_FEE;
 
-    const tx = await operators.registerOperator(publicKey, fee, true);
+    const tx = await trackGas(
+      operators.registerOperator(publicKey, fee, true),
+      [GasGroup.REGISTER_OPERATOR]
+    );
     await expect(tx).to.emit(operators, Events.OPERATOR_ADDED).withArgs(1n, owner.address, publicKey, fee);
     await expect(tx).to.emit(operators, Events.OPERATOR_PRIVACY_STATUS_UPDATED).withArgs([1n], true);
   });
@@ -58,7 +62,10 @@ describe("SSVOperators function `registerOperator()`", async () => {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
     const publicKey = makeOperatorKey(1);
-    await operators.registerOperator(publicKey, MINIMAL_OPERATOR_ETH_FEE, false);
+    await trackGas(
+      operators.registerOperator(publicKey, MINIMAL_OPERATOR_ETH_FEE, false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.registerOperator(
       publicKey,
@@ -71,7 +78,10 @@ describe("SSVOperators function `registerOperator()`", async () => {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
     const publicKey = makeOperatorKey(1);
-    await operators.registerOperator(publicKey, MINIMAL_OPERATOR_ETH_FEE, true);
+    await trackGas(
+      operators.registerOperator(publicKey, MINIMAL_OPERATOR_ETH_FEE, true),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     const operatorData = await operators.getOperator(1);
 

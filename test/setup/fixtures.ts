@@ -66,6 +66,14 @@ export async function ssvClustersHarnessFixture(
   };
 }
 
+export const getClustersHarnessFixture = (
+  connection: NetworkConnection<"generic">,
+  operatorCount: number
+) =>
+  async function clustersHarnessFixtureWithOperators() {
+    return ssvClustersHarnessFixture(connection, operatorCount);
+  };
+
 export async function ssvOperatorsHarnessFixture(
   connection: NetworkConnection<"generic">,
   operatorMaxFee = MAXIMUM_OPERATORS_FEE,

@@ -15,6 +15,18 @@ export function makePublicKey(seed: number): string {
   return `0x${seed.toString(16).padStart(96, "0")}`;
 }
 
+export function makePublicKeys(count: number, start = 1): string[] {
+  return Array.from({ length: count }, (_, i) => makePublicKey(start + i));
+}
+
+export function createCluster(overrides: Partial<Cluster> = {}): Cluster {
+  return {
+    ...EMPTY_CLUSTER,
+    active: true,
+    ...overrides,
+  };
+}
+
 export function makeArrayOfKeysAndShares(initialSeed: number, amount: number): { keys: string[], shares: string[] } {
   let keys: string[] = [];
   let shares: string[] = [];
@@ -161,6 +173,20 @@ const EVENT_ABI = [
 ] as const;
 
 export function parseClusterFromEvent(contract: any, receipt: any, eventName: string): Cluster {
+  if (receipt.eventsByName?.[eventName]?.length > 0) {
+    const parsed = receipt.eventsByName[eventName][0];
+    const clusterTuple = parsed.args[parsed.args.length - 1];
+    const [validatorCount, networkFeeIndex, index, active, balance] = clusterTuple;
+
+    return {
+      validatorCount: BigInt(validatorCount),
+      networkFeeIndex: BigInt(networkFeeIndex),
+      index: BigInt(index),
+      active,
+      balance: BigInt(balance),
+    };
+  }
+
   for (const log of receipt.logs ?? []) {
     let parsed;
     try {

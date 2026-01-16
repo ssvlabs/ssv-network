@@ -7,6 +7,7 @@ import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { STAKE_AMOUNT, DEFAULT_UNSTAKE_COOLDOWN } from "../../common/constants.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `withdrawUnlocked()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -22,8 +23,14 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
   const stakeAndRequestUnstake = async () => {
     const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
-    await staking.requestUnstake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
+    await trackGas(
+      staking.requestUnstake(STAKE_AMOUNT),
+      [GasGroup.REQUEST_UNSTAKE]
+    );
     return { staking, ssvToken, cssvToken };
   };
 
@@ -33,7 +40,10 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
     await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
 
     const balanceBefore = await ssvToken.balanceOf(staker.address);
-    const tx = await staking.withdrawUnlocked();
+    const tx = await trackGas(
+      staking.withdrawUnlocked(),
+      [GasGroup.WITHDRAW_UNSTAKE]
+    );
 
     await expect(tx)
       .to.emit(staking, Events.UNSTAKE_WITHDRAWN)
@@ -47,7 +57,10 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
     const { staking } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
 
     await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
-    await staking.withdrawUnlocked();
+    await trackGas(
+      staking.withdrawUnlocked(),
+      [GasGroup.WITHDRAW_UNSTAKE]
+    );
 
     const [amount, unlockTime] = await staking.getWithdrawal(staker.address);
     expect(amount).to.equal(0n);
@@ -89,7 +102,10 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
     await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN);
 
     const balanceBefore = await ssvToken.balanceOf(staker.address);
-    await staking.withdrawUnlocked();
+    await trackGas(
+      staking.withdrawUnlocked(),
+      [GasGroup.WITHDRAW_UNSTAKE]
+    );
     const balanceAfter = await ssvToken.balanceOf(staker.address);
 
     expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
