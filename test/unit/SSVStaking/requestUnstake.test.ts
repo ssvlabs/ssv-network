@@ -7,6 +7,7 @@ import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { STAKE_AMOUNT, DEFAULT_UNSTAKE_COOLDOWN } from "../../common/constants.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `requestUnstake()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -19,12 +20,13 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     [staker] = await connection.ethers.getSigners();
   });
 
-  const deployStakingFixture = async () => ssvStakingHarnessFixture(connection);
-
   const stakeFirst = async () => {
     const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
     return { staking, ssvToken, cssvToken };
   };
 
@@ -32,7 +34,10 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const { staking, cssvToken } = await networkHelpers.loadFixture(stakeFirst);
 
     const unstakeAmount = STAKE_AMOUNT / 2n;
-    const tx = await staking.requestUnstake(unstakeAmount);
+    const tx = await trackGas(
+      staking.requestUnstake(unstakeAmount),
+      [GasGroup.REQUEST_UNSTAKE]
+    );
 
     await expect(tx).to.emit(staking, Events.UNSTAKE_REQUESTED);
 
@@ -44,7 +49,10 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const { staking } = await networkHelpers.loadFixture(stakeFirst);
 
     const unstakeAmount = STAKE_AMOUNT / 2n;
-    await staking.requestUnstake(unstakeAmount);
+    await trackGas(
+      staking.requestUnstake(unstakeAmount),
+      [GasGroup.REQUEST_UNSTAKE]
+    );
 
     const [amount, unlockTime] = await staking.getWithdrawal(staker.address);
     expect(amount).to.equal(unstakeAmount);
@@ -60,7 +68,10 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const weightBefore = await staking.getOracleWeight(1);
     const unstakeAmount = STAKE_AMOUNT / 2n;
 
-    await staking.requestUnstake(unstakeAmount);
+    await trackGas(
+      staking.requestUnstake(unstakeAmount),
+      [GasGroup.REQUEST_UNSTAKE]
+    );
 
     const weightAfter = await staking.getOracleWeight(1);
     expect(weightAfter).to.be.lessThan(weightBefore);
@@ -72,18 +83,6 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     await expect(staking.requestUnstake(0n)).to.be.revertedWithCustomError(
       staking,
       Errors.ZERO_AMOUNT
-    );
-  });
-
-  it("Is reverted with 'CooldownActive' when there is already a pending withdrawal", async function () {
-    const { staking } = await networkHelpers.loadFixture(stakeFirst);
-
-    const unstakeAmount = STAKE_AMOUNT / 4n;
-    await staking.requestUnstake(unstakeAmount);
-
-    await expect(staking.requestUnstake(unstakeAmount)).to.be.revertedWithCustomError(
-      staking,
-      Errors.COOLDOWN_ACTIVE
     );
   });
 
@@ -101,7 +100,10 @@ describe("SSVStaking function `requestUnstake()`", async () => {
   it("Allows unstaking full balance", async function () {
     const { staking, cssvToken } = await networkHelpers.loadFixture(stakeFirst);
 
-    await staking.requestUnstake(STAKE_AMOUNT);
+    await trackGas(
+      staking.requestUnstake(STAKE_AMOUNT),
+      [GasGroup.REQUEST_UNSTAKE]
+    );
 
     const cssvBalance = await cssvToken.balanceOf(staker.address);
     expect(cssvBalance).to.equal(0n);

@@ -7,6 +7,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { ethers } from "ethers";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `commitRoot()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -120,6 +121,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
     await dao.connect(oracle1).commitRoot(merkleRoot, currentBlock);
 
     const tx = await dao.connect(oracle2).commitRoot(merkleRoot, currentBlock);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.COMMIT_ROOT]);
 
     await expect(tx)
       .to.emit(dao, Events.ROOT_COMMITTED)

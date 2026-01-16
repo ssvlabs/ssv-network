@@ -6,6 +6,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `rescueERC20()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -38,7 +39,10 @@ describe("SSVStaking function `rescueERC20()`", async () => {
       await networkHelpers.loadFixture(deployWithExtraToken);
 
     const tokenAddress = await randomToken.getAddress();
-    const tx = await staking.rescueERC20(tokenAddress, recipient.address, rescueAmount);
+    const tx = await trackGas(
+      staking.rescueERC20(tokenAddress, recipient.address, rescueAmount),
+      [GasGroup.RESCUE_ERC20]
+    );
 
     await expect(tx)
       .to.emit(staking, Events.ERC20_RESCUED)
@@ -54,10 +58,13 @@ describe("SSVStaking function `rescueERC20()`", async () => {
 
     const balanceBefore = await randomToken.balanceOf(recipient.address);
     
-    await staking.rescueERC20(
-      await randomToken.getAddress(),
-      recipient.address,
-      rescueAmount
+    await trackGas(
+      staking.rescueERC20(
+        await randomToken.getAddress(),
+        recipient.address,
+        rescueAmount
+      ),
+      [GasGroup.RESCUE_ERC20]
     );
 
     const balanceAfter = await randomToken.balanceOf(recipient.address);
@@ -119,10 +126,13 @@ describe("SSVStaking function `rescueERC20()`", async () => {
       await networkHelpers.loadFixture(deployWithExtraToken);
 
     const partialAmount = rescueAmount / 2n;
-    await staking.rescueERC20(
-      await randomToken.getAddress(),
-      recipient.address,
-      partialAmount
+    await trackGas(
+      staking.rescueERC20(
+        await randomToken.getAddress(),
+        recipient.address,
+        partialAmount
+      ),
+      [GasGroup.RESCUE_ERC20]
     );
 
     const recipientBalance = await randomToken.balanceOf(recipient.address);

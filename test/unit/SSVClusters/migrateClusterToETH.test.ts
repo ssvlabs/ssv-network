@@ -8,6 +8,7 @@ import { makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER } from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVClusters function `migrateClusterToETH()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -46,6 +47,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
     const receipt = await migrateTx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.MIGRATE_CLUSTER_TO_ETH]);
     const clusterAfterMigration = parseClusterFromEvent(clusters, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
 
     await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);

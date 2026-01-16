@@ -7,6 +7,7 @@ import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { STAKE_AMOUNT } from "../../common/constants.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `claimEthRewards()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -22,7 +23,10 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   const stakeAndAccrueRewards = async () => {
     const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const rewardAmount = 10_000_000_000n;
     await staking.mockSetStakingEthPoolBalance(0);
@@ -45,7 +49,10 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     await staking.mockSetStakingEthPoolBalance(10_000_000_000n);
     await staking.mockSetEthDaoBalance(10_000_000_000n);
 
-    const tx = await staking.claimEthRewards();
+    const tx = await trackGas(
+      staking.claimEthRewards(),
+      [GasGroup.CLAIM_ETH_REWARDS, GasGroup.SYNC_FEES]
+    );
 
     await expect(tx).to.emit(staking, Events.REWARDS_CLAIMED);
   });
@@ -58,7 +65,10 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     await staking.mockSetStakingEthPoolBalance(10_000_000_000n);
     await staking.mockSetEthDaoBalance(10_000_000_000n);
 
-    await staking.claimEthRewards();
+    await trackGas(
+      staking.claimEthRewards(),
+      [GasGroup.CLAIM_ETH_REWARDS, GasGroup.SYNC_FEES]
+    );
 
     const accruedAfter = await staking.getUserAccrued(staker.address);
     expect(accruedAfter).to.be.lessThan(accruedAmount);
@@ -112,7 +122,10 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const stakingAddress = await staking.getAddress();
     await staker.sendTransaction({
@@ -127,7 +140,10 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     await staking.mockSetStakingEthPoolBalance(sufficientBalance);
     await staking.mockSetEthDaoBalance(sufficientBalance + 1_000_000_000n);
 
-    const tx = await staking.claimEthRewards();
+    const tx = await trackGas(
+      staking.claimEthRewards(),
+      [GasGroup.CLAIM_ETH_REWARDS, GasGroup.SYNC_FEES]
+    );
 
     await expect(tx).to.emit(staking, Events.FEES_SYNCED);
   });

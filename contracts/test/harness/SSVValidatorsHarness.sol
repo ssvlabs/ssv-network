@@ -55,6 +55,11 @@ contract SSVValidatorsHarness is SSVValidators {
         sp.validatorsPerOperatorLimit = limit;
     }
 
+    function mockCurrentNetworkFeeIndex(uint64 index) external {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        sp.ethNetworkFeeIndex = index;
+    }
+
     function getCurrentNetworkFeeIndex() external view returns (uint64) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         return sp.ethNetworkFeeIndex;

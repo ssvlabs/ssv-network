@@ -7,6 +7,7 @@ import { makeOperatorKey } from "../../common/helpers.ts";
 import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVOperators function `executeOperatorFee()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -24,16 +25,30 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
   it("Executes declared fee and emits event", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
-    await operators.declareOperatorFee(1, 20_000_000);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+    await trackGas(
+      operators.declareOperatorFee(1, 20_000_000),
+      [GasGroup.DECLARE_OPERATOR_FEE]
+    );
 
-    await expect(operators.executeOperatorFee(1)).to.emit(operators, Events.OPERATOR_FEE_EXECUTED);
+    await expect(
+      trackGas(
+        operators.executeOperatorFee(1),
+        [GasGroup.EXECUTE_OPERATOR_FEE]
+      )
+    ).to.emit(operators, Events.OPERATOR_FEE_EXECUTED);
   });
 
   it("Is reverted with 'NoFeeDeclared' when executing without a declaration", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.executeOperatorFee(1)).to.be.revertedWithCustomError(
       operators,
@@ -44,8 +59,14 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
   it("Is reverted with 'ApprovalNotWithinTimeframe' when executing too early or too late", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsWithDelay);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
-    await operators.declareOperatorFee(1, 20_000_000);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+    await trackGas(
+      operators.declareOperatorFee(1, 20_000_000),
+      [GasGroup.DECLARE_OPERATOR_FEE]
+    );
 
     await expect(operators.executeOperatorFee(1)).to.be.revertedWithCustomError(
       operators,

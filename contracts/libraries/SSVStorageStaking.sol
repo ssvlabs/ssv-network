@@ -31,6 +31,7 @@ struct StorageStaking {
     mapping(address => uint256) accrued;
 
     /// @notice Pending unstake request for each user
+    // todo deprecate
     mapping(address => UnstakeRequest) withdrawals;
 
     /// @notice Oracle registry: stable ID => oracle address
@@ -45,6 +46,8 @@ struct StorageStaking {
     uint32[4] defaultOracleIds;
     /// @notice Quorum threshold in basis points (e.g. 7000 = 70%)
     uint16 quorumBps;
+    /// @notice The mapping of address to their unstake requests
+    mapping(address => UnstakeRequest[]) withdrawalRequests;
 }
 
 library SSVStorageStaking {

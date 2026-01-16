@@ -4,15 +4,11 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { getTestConnection } from "../../setup/connection.ts";
 import { ssvValidatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makePublicKey } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER } from "../../common/constants.ts";
+import { createCluster, makePublicKey } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
-
-const createCluster = () => ({
-  ...EMPTY_CLUSTER,
-  active: true,
-});
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVClusters function `exitValidator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -45,10 +41,14 @@ describe("SSVClusters function `exitValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    await expect(validators.exitValidator(
+    const tx = await validators.exitValidator(
       publicKey,
       operatorIds
-    )).to.emit(validators, Events.VALIDATOR_EXITED).withArgs(clusterOwner.address, operatorIds, publicKey);
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.VALIDATOR_EXIT]);
+
+    await expect(tx).to.emit(validators, Events.VALIDATOR_EXITED).withArgs(clusterOwner.address, operatorIds, publicKey);
   });
 
   it("Is reverted with 'IncorrectValidatorStateWithData' when validator was not registered", async function () {

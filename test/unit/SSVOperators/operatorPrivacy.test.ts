@@ -6,6 +6,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey } from "../../common/helpers.ts";
 import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVOperators privacy helpers", async () => {
   let connection: NetworkConnection<"generic">;
@@ -21,14 +22,27 @@ describe("SSVOperators privacy helpers", async () => {
   it("Updates privacy status via unchecked helpers", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
-    await expect(operators.setOperatorsPrivateUnchecked([1])).to.emit(
+    await expect(
+      trackGas(
+        operators.setOperatorsPrivateUnchecked([1]),
+        [GasGroup.SET_OPERATORS_PRIVATE_10]
+      )
+    ).to.emit(
       operators,
       Events.OPERATOR_PRIVACY_STATUS_UPDATED
     ).withArgs([1n], true);
 
-    await expect(operators.setOperatorsPublicUnchecked([1])).to.emit(
+    await expect(
+      trackGas(
+        operators.setOperatorsPublicUnchecked([1]),
+        [GasGroup.SET_OPERATORS_PUBLIC_10]
+      )
+    ).to.emit(
       operators,
       Events.OPERATOR_PRIVACY_STATUS_UPDATED
     ).withArgs([1n], false);

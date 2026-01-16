@@ -1,24 +1,32 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import { getTestConnection } from '../../setup/connection.ts';
-import { ssvValidatorsHarnessFixture } from '../../setup/fixtures.ts';
+import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
-import { makePublicKey } from '../../common/helpers.ts';
+import { makePublicKey, parseClusterFromEvent } from '../../common/helpers.ts';
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.ts';
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVClusters function `registerValidator()`", async () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
 
   let clusterOwner: HardhatEthersSigner;
+  let deployClustersWith7Operators!: ReturnType<typeof getValidatorsHarnessFixture>;
+  let deployClustersWith10Operators!: ReturnType<typeof getValidatorsHarnessFixture>;
+  let deployClustersWith13Operators!: ReturnType<typeof getValidatorsHarnessFixture>;
 
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
 
     [clusterOwner] = await connection.ethers.getSigners();
+
+    deployClustersWith7Operators = getValidatorsHarnessFixture(connection, 7);
+    deployClustersWith10Operators = getValidatorsHarnessFixture(connection, 10);
+    deployClustersWith13Operators = getValidatorsHarnessFixture(connection, 13);
   });
 
   const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
@@ -42,6 +50,216 @@ describe("SSVClusters function `registerValidator()`", async () => {
 
     // todo check args with pre-calculated cluster
     await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
+  });
+
+  it("Registers a new validator with 7 operators", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith7Operators);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_7]);
+  });
+
+  it("Registers a validator into an existing cluster with 7 operators", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith7Operators);
+
+    const registerTx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfterRegister,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_7]);
+  });
+
+  it("Registers a validator without additional deposit with 7 operators", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith7Operators);
+
+    const registerTx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfterRegister,
+      { value: 0 }
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_7]);
+  });
+
+  it("Registers a new validator with 10 operators", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith10Operators);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_10]);
+  });
+
+  it("Registers a validator into an existing cluster with 10 operators", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith10Operators);
+
+    const registerTx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfterRegister,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_10]);
+  });
+
+  it("Registers a validator without additional deposit with 10 operators", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith10Operators);
+
+    const registerTx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfterRegister,
+      { value: 0 }
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_10]);
+  });
+
+  it("Registers a new validator with 13 operators", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith13Operators);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_13]);
+  });
+
+  it("Registers a validator into an existing cluster with 13 operators", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith13Operators);
+
+    const registerTx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfterRegister,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_13]);
+  });
+
+  it("Registers a validator without additional deposit with 13 operators", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith13Operators);
+
+    const registerTx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfterRegister,
+      { value: 0 }
+    );
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT_13]);
   });
 
   it("Is reverted with 'InvalidPublicKeyLength' when public key is empty or has invalid length", async function () {

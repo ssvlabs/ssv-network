@@ -5,6 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateNetworkFee()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -27,6 +28,8 @@ describe("SSVDAO function `updateNetworkFee()`", async () => {
     const newFee = 1_000_000_000n;
 
     const tx = await dao.updateNetworkFee(newFee);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.NETWORK_FEE_CHANGE]);
 
     await expect(tx)
       .to.emit(dao, Events.NETWORK_FEE_UPDATED)

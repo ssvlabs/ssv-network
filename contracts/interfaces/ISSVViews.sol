@@ -250,7 +250,7 @@ interface ISSVViews is ISSVNetworkCore {
 
     function stakedBalanceOf(address user) external view returns (uint256);
 
-    function pendingUnstake(address user) external view returns (uint256 amount, uint256 unlockTime);
+    function pendingUnstake(address user) external view returns (uint256[] memory amounts, uint256[] memory unlockTimes);
 
     function accEthPerShare() external view returns (uint256);
 

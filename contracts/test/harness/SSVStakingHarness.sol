@@ -46,7 +46,7 @@ contract SSVStakingHarness is SSVStaking {
 
     function mockSetWithdrawal(address user, uint192 amount, uint64 unlockTime) external {
         StorageStaking storage s = SSVStorageStaking.load();
-        s.withdrawals[user] = UnstakeRequest({amount: amount, unlockTime: unlockTime});
+        s.withdrawalRequests[user].push(UnstakeRequest({amount: amount, unlockTime: unlockTime}));
     }
 
     function mockSetDefaultOracleIds(uint32[4] calldata oracleIds) external {
@@ -122,7 +122,12 @@ contract SSVStakingHarness is SSVStaking {
     }
 
     function getWithdrawal(address user) external view returns (uint192 amount, uint64 unlockTime) {
-        UnstakeRequest memory req = SSVStorageStaking.load().withdrawals[user];
+        UnstakeRequest[] storage requests = SSVStorageStaking.load().withdrawalRequests[user];
+        if (requests.length == 0) {
+            return (0, 0);
+        }
+
+        UnstakeRequest memory req = requests[requests.length - 1];
         return (req.amount, req.unlockTime);
     }
 
@@ -142,7 +147,9 @@ contract SSVStakingHarness is SSVStaking {
         return SSVStorageStaking.load().oracleWeights[oracleId];
     }
 
-    function getUserDelegation(address user) external view returns (uint32[4] memory oracleIds, uint256[4] memory amounts) {
+    function getUserDelegation(
+        address user
+    ) external view returns (uint32[4] memory oracleIds, uint256[4] memory amounts) {
         Delegation storage d = SSVStorageStaking.load().userDelegations[user];
         return (d.oracleIds, d.amounts);
     }

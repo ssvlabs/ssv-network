@@ -8,6 +8,7 @@ import { makeOperatorKey } from "../../common/helpers.ts";
 import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVOperators function `declareOperatorFee()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -29,12 +30,20 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
   it("Declares operator fee within allowed limits and emits event", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     const operatorId = 1;
     const newFee = 20_000_000; // within allowed increase and precision
 
-    await expect(operators.declareOperatorFee(operatorId, newFee)).to.emit(operators, Events.OPERATOR_FEE_DECLARED);
+    await expect(
+      trackGas(
+        operators.declareOperatorFee(operatorId, newFee),
+        [GasGroup.DECLARE_OPERATOR_FEE]
+      )
+    ).to.emit(operators, Events.OPERATOR_FEE_DECLARED);
 
     const request = await operators.getOperatorFeeChangeRequest(operatorId);
     expect(request.fee).to.equal(BigInt(newFee) / 10_000_000n);
@@ -45,7 +54,10 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
   it("Is reverted with 'FeeTooLow' when declaring below minimal fee", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.declareOperatorFee(1, 1)).to.be.revertedWithCustomError(operators, Errors.FEE_TOO_LOW);
   });
@@ -53,7 +65,10 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
   it("Is reverted with 'FeeTooHigh' when declaring above max fee", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsWithTightMaxFee);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.declareOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE + 10_000_000n))).to.be.revertedWithCustomError(
       operators,
@@ -64,7 +79,10 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
   it("Is reverted with 'FeeIncreaseNotAllowed' when starting from zero fee", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), 0, false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), 0, false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.declareOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE))).to.be.revertedWithCustomError(
       operators,
@@ -75,7 +93,10 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
   it("Is reverted with 'SameFeeChangeNotAllowed' when declaring same fee", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
-    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
 
     await expect(operators.declareOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE))).to.be.revertedWithCustomError(
       operators,
