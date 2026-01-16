@@ -304,11 +304,6 @@
   },
   {
     "inputs": [],
-    "name": "ReentrancyGuardReentrantCall",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "RootNotFound",
     "type": "error"
   },
@@ -425,16 +420,16 @@
         "type": "uint64[]"
       },
       {
-        "indexed": true,
-        "internalType": "uint64",
-        "name": "blockNum",
-        "type": "uint64"
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
       },
       {
         "indexed": false,
-        "internalType": "uint32",
-        "name": "effectiveBalance",
-        "type": "uint32"
+        "internalType": "bytes",
+        "name": "shares",
+        "type": "bytes"
       },
       {
         "components": [
@@ -470,7 +465,7 @@
         "type": "tuple"
       }
     ],
-    "name": "ClusterBalanceUpdated",
+    "name": "ValidatorAdded",
     "type": "event"
   },
   {
@@ -490,97 +485,12 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint32",
-            "name": "validatorCount",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "networkFeeIndex",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "index",
-            "type": "uint64"
-          },
-          {
-            "internalType": "bool",
-            "name": "active",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "balance",
-            "type": "uint256"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
-        "type": "tuple"
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
       }
     ],
-    "name": "ClusterDeposited",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint64[]",
-        "name": "operatorIds",
-        "type": "uint64[]"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint32",
-            "name": "validatorCount",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "networkFeeIndex",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "index",
-            "type": "uint64"
-          },
-          {
-            "internalType": "bool",
-            "name": "active",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "balance",
-            "type": "uint256"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
-        "type": "tuple"
-      }
-    ],
-    "name": "ClusterLiquidated",
+    "name": "ValidatorExited",
     "type": "event"
   },
   {
@@ -600,21 +510,9 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "ethDeposited",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "ssvRefunded",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint32",
-        "name": "effectiveBalance",
-        "type": "uint32"
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
       },
       {
         "components": [
@@ -650,130 +548,43 @@
         "type": "tuple"
       }
     ],
-    "name": "ClusterMigratedToETH",
+    "name": "ValidatorRemoved",
     "type": "event"
   },
   {
-    "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
+        "internalType": "bytes[]",
+        "name": "publicKeys",
+        "type": "bytes[]"
       },
       {
-        "indexed": false,
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint32",
-            "name": "validatorCount",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "networkFeeIndex",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "index",
-            "type": "uint64"
-          },
-          {
-            "internalType": "bool",
-            "name": "active",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "balance",
-            "type": "uint256"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
-        "type": "tuple"
       }
     ],
-    "name": "ClusterReactivated",
-    "type": "event"
+    "name": "bulkExitValidator",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
+        "internalType": "bytes[]",
+        "name": "publicKeys",
+        "type": "bytes[]"
       },
       {
-        "indexed": false,
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint32",
-            "name": "validatorCount",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "networkFeeIndex",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "index",
-            "type": "uint64"
-          },
-          {
-            "internalType": "bool",
-            "name": "active",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "balance",
-            "type": "uint256"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
-        "type": "tuple"
-      }
-    ],
-    "name": "ClusterWithdrawn",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "clusterOwner",
-        "type": "address"
-      },
-      {
-        "internalType": "uint64[]",
-        "name": "operatorIds",
-        "type": "uint64[]"
+        "internalType": "bytes[]",
+        "name": "sharesData",
+        "type": "bytes[]"
       },
       {
         "internalType": "uint256",
@@ -813,7 +624,7 @@
         "type": "tuple"
       }
     ],
-    "name": "deposit",
+    "name": "bulkRegisterValidator",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
@@ -821,9 +632,9 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "clusterOwner",
-        "type": "address"
+        "internalType": "bytes[]",
+        "name": "publicKeys",
+        "type": "bytes[]"
       },
       {
         "internalType": "uint64[]",
@@ -863,7 +674,7 @@
         "type": "tuple"
       }
     ],
-    "name": "liquidate",
+    "name": "bulkRemoveValidator",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -871,49 +682,17 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "clusterOwner",
-        "type": "address"
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
       },
       {
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint32",
-            "name": "validatorCount",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "networkFeeIndex",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "index",
-            "type": "uint64"
-          },
-          {
-            "internalType": "bool",
-            "name": "active",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "balance",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
-        "type": "tuple"
       }
     ],
-    "name": "liquidateSSV",
+    "name": "exitValidator",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -921,54 +700,19 @@
   {
     "inputs": [
       {
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
       },
       {
-        "components": [
-          {
-            "internalType": "uint32",
-            "name": "validatorCount",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "networkFeeIndex",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "index",
-            "type": "uint64"
-          },
-          {
-            "internalType": "bool",
-            "name": "active",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "balance",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
-        "type": "tuple"
-      }
-    ],
-    "name": "migrateClusterToETH",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64[]",
-        "name": "operatorIds",
-        "type": "uint64[]"
+        "internalType": "bytes",
+        "name": "sharesData",
+        "type": "bytes"
       },
       {
         "internalType": "uint256",
@@ -1008,7 +752,7 @@
         "type": "tuple"
       }
     ],
-    "name": "reactivate",
+    "name": "registerValidator",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
@@ -1016,14 +760,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint64",
-        "name": "blockNum",
-        "type": "uint64"
-      },
-      {
-        "internalType": "address",
-        "name": "clusterOwner",
-        "type": "address"
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
       },
       {
         "internalType": "uint64[]",
@@ -1061,69 +800,9 @@
         "internalType": "struct ISSVNetworkCore.Cluster",
         "name": "cluster",
         "type": "tuple"
-      },
-      {
-        "internalType": "uint32",
-        "name": "effectiveBalance",
-        "type": "uint32"
-      },
-      {
-        "internalType": "bytes32[]",
-        "name": "merkleProof",
-        "type": "bytes32[]"
       }
     ],
-    "name": "updateClusterBalance",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64[]",
-        "name": "operatorIds",
-        "type": "uint64[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint32",
-            "name": "validatorCount",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "networkFeeIndex",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "index",
-            "type": "uint64"
-          },
-          {
-            "internalType": "bool",
-            "name": "active",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "balance",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct ISSVNetworkCore.Cluster",
-        "name": "cluster",
-        "type": "tuple"
-      }
-    ],
-    "name": "withdraw",
+    "name": "removeValidator",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
