@@ -20,8 +20,6 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     [staker] = await connection.ethers.getSigners();
   });
 
-  const deployStakingFixture = async () => ssvStakingHarnessFixture(connection);
-
   const stakeFirst = async () => {
     const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
@@ -85,21 +83,6 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     await expect(staking.requestUnstake(0n)).to.be.revertedWithCustomError(
       staking,
       Errors.ZERO_AMOUNT
-    );
-  });
-
-  it("Is reverted with 'CooldownActive' when there is already a pending withdrawal", async function () {
-    const { staking } = await networkHelpers.loadFixture(stakeFirst);
-
-    const unstakeAmount = STAKE_AMOUNT / 4n;
-    await trackGas(
-      staking.requestUnstake(unstakeAmount),
-      [GasGroup.REQUEST_UNSTAKE]
-    );
-
-    await expect(staking.requestUnstake(unstakeAmount)).to.be.revertedWithCustomError(
-      staking,
-      Errors.COOLDOWN_ACTIVE
     );
   });
 

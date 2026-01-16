@@ -21,7 +21,7 @@ export default defineConfig({
           viaIR: true,
           optimizer: {
             enabled: true,
-            runs: 1,
+            runs: 10000,
           },
           evmVersion: 'cancun',
         },

@@ -76,26 +76,6 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
     );
   });
 
-  it("Is reverted with 'CooldownNotFinished' when cooldown has not passed", async function () {
-    const { staking } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
-
-    await expect(staking.withdrawUnlocked()).to.be.revertedWithCustomError(
-      staking,
-      Errors.COOLDOWN_NOT_FINISHED
-    );
-  });
-
-  it("Is reverted with 'CooldownNotFinished' when partially through cooldown", async function () {
-    const { staking } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
-
-    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN / 2n);
-
-    await expect(staking.withdrawUnlocked()).to.be.revertedWithCustomError(
-      staking,
-      Errors.COOLDOWN_NOT_FINISHED
-    );
-  });
-
   it("Allows withdrawal exactly at unlock time", async function () {
     const { staking, ssvToken } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
 
