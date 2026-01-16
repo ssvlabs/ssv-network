@@ -2,12 +2,13 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { getTestConnection } from "../../setup/connection.ts";
-import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makePublicKey } from "../../common/helpers.ts";
 import { EMPTY_CLUSTER } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 type ClusterType = typeof EMPTY_CLUSTER;
 
@@ -25,15 +26,21 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
 
   let clusterOwner: HardhatEthersSigner;
   let otherAccount: HardhatEthersSigner;
+  let deployClustersWith7Operators!: ReturnType<typeof getClustersHarnessFixture>;
+  let deployClustersWith10Operators!: ReturnType<typeof getClustersHarnessFixture>;
+  let deployClustersWith13Operators!: ReturnType<typeof getClustersHarnessFixture>;
 
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
 
     [clusterOwner, otherAccount] = await connection.ethers.getSigners();
+
+    deployClustersWith7Operators = getClustersHarnessFixture(connection, 7);
+    deployClustersWith10Operators = getClustersHarnessFixture(connection, 10);
+    deployClustersWith13Operators = getClustersHarnessFixture(connection, 13);
   });
 
-  const deploySSVClustersFixture = async () => {
-    const fixture = await ssvClustersHarnessFixture(connection);
+  const setupSSVClustersFixture = async (fixture: { clusters: any, operatorIds: bigint[] }) => {
     
     const mockToken = await connection.ethers.deployContract("MockToken", []);
     await mockToken.waitForDeployment();
@@ -49,6 +56,26 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     return { ...fixture, mockToken };
   };
 
+  const deploySSVClustersFixture = async () => {
+    const fixture = await ssvClustersHarnessFixture(connection);
+    return setupSSVClustersFixture(fixture);
+  };
+
+  const deploySSVClustersWith7OperatorsFixture = async () => {
+    const fixture = await deployClustersWith7Operators();
+    return setupSSVClustersFixture(fixture);
+  };
+
+  const deploySSVClustersWith10OperatorsFixture = async () => {
+    const fixture = await deployClustersWith10Operators();
+    return setupSSVClustersFixture(fixture);
+  };
+
+  const deploySSVClustersWith13OperatorsFixture = async () => {
+    const fixture = await deployClustersWith13Operators();
+    return setupSSVClustersFixture(fixture);
+  };
+
   it("Allows the cluster owner to liquidate SSV cluster and emits correct event", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersFixture);
@@ -61,6 +88,62 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     await clusters.mockCurrentNetworkFeeIndexSSV(2000n);
 
     const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
+    const receipt = await liquidateTx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.LIQUIDATE_CLUSTER_SSV_4]);
+
+    await expect(liquidateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+  });
+
+  it("Allows the cluster owner to liquidate SSV cluster with 7 operators", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersWith7OperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+    const cluster = createSSVCluster({ networkFeeIndex: 1000n });
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockCurrentNetworkFeeIndex(100n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(2000n);
+
+    const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
+    const receipt = await liquidateTx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.LIQUIDATE_CLUSTER_SSV_7]);
+
+    await expect(liquidateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+  });
+
+  it("Allows the cluster owner to liquidate SSV cluster with 10 operators", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersWith10OperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+    const cluster = createSSVCluster({ networkFeeIndex: 1000n });
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockCurrentNetworkFeeIndex(100n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(2000n);
+
+    const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
+    const receipt = await liquidateTx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.LIQUIDATE_CLUSTER_SSV_10]);
+
+    await expect(liquidateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+  });
+
+  it("Allows the cluster owner to liquidate SSV cluster with 13 operators", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersWith13OperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+    const cluster = createSSVCluster({ networkFeeIndex: 1000n });
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockCurrentNetworkFeeIndex(100n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(2000n);
+
+    const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
+    const receipt = await liquidateTx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.LIQUIDATE_CLUSTER_SSV_13]);
 
     await expect(liquidateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
   });
@@ -151,4 +234,3 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXISTS);
   });
 });
-
