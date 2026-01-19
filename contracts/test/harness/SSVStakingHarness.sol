@@ -140,15 +140,6 @@ contract SSVStakingHarness is SSVStaking {
         return (req.amount, req.unlockTime);
     }
 
-    function getWithdrawalRequestsCount(address user) external view returns (uint256) {
-        return SSVStorageStaking.load().withdrawalRequests[user].length;
-    }
-
-    function getWithdrawalRequest(address user, uint256 index) external view returns (uint192 amount, uint64 unlockTime) {
-        UnstakeRequest storage req = SSVStorageStaking.load().withdrawalRequests[user][index];
-        return (req.amount, req.unlockTime);
-    }
-
     function getDefaultOracleIds() external view returns (uint32[4] memory) {
         return SSVStorageStaking.load().defaultOracleIds;
     }
