@@ -13,5 +13,5 @@ jobs:
         with:
           node-version: 22
           fail-on: high
-          target: contracts
-          slither-args: --exclude controlled-delegatecall,incorrect-return
+          target: .
+          slither-args: --compile-force-framework hardhat --exclude controlled-delegatecall,incorrect-return
