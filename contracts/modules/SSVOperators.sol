@@ -71,8 +71,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         uint64 currentBalanceETH = operator.ethSnapshot.balance;
         uint64 currentBalanceSSV = operator.snapshot.balance;
 
-        bool keepValidatorCounts = operator.ethValidatorCount != 0 || operator.validatorCount != 0;
-        operator = _resetOperatorState(operator, keepValidatorCounts);
+        operator = _resetOperatorState(operator);
 
         s.operators[operatorId] = operator;
 
@@ -273,17 +272,16 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         }
     }
 
-    function _resetOperatorState(Operator memory operator, bool keepValidatorCounts) private pure returns (Operator memory) {
+    function _resetOperatorState(Operator memory operator) private pure returns (Operator memory) {
         operator.ethSnapshot.block = 0;
         operator.ethSnapshot.balance = 0;
         operator.ethFee = 0;
         operator.snapshot.block = 0;
         operator.snapshot.balance = 0;
         operator.fee = 0;
-        if (!keepValidatorCounts) {
-            operator.ethValidatorCount = 0;
-            operator.validatorCount = 0;
-        }
+        operator.ethValidatorCount = 0;
+        operator.validatorCount = 0;
+        
         return operator;
     }
 
