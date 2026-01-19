@@ -1,0 +1,21 @@
+# Echidna config for SSVOperators property tests
+testMode: property
+testLimit: 50000
+seqLen: 100
+
+# Max code size
+codeSize: 0xffffffff
+
+# Gas settings
+propMaxGas: 100000000
+testMaxGas: 100000000
+
+# Coverage
+coverage: true
+corpusDir: "corpus-operators"
+
+# Pre-deploy modules before test contract
+deployContracts: [
+  ["0x1000000000000000000000000000000000000001", "SSVOperators"],
+  ["0x1000000000000000000000000000000000000002", "MockSSV"]
+]

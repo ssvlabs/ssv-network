@@ -1,0 +1,15 @@
+# Echidna configuration for SSVNetwork property tests
+testMode: property
+testLimit: 50000
+seqLen: 100
+
+# Max code size for large contracts
+codeSize: 0xffffffff
+
+# Gas settings  
+propMaxGas: 100000000
+testMaxGas: 100000000
+
+# Coverage settings
+coverage: true
+corpusDir: "corpus"
