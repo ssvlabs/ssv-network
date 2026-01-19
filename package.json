@@ -30,13 +30,16 @@
   ],
   "scripts": {
     "build": "npx hardhat compile",
-    "test": "npx hardhat test --parallel",
+    "test": "npx hardhat test",
     "test:gas": "npx hardhat test --gas-stats",
     "test:unit": "npx hardhat test test/unit/**/*.test.ts",
     "test:unit:gas": "npx hardhat test test/unit/**/*.test.ts --gas-stats",
     "test:integration": "npx hardhat test test/integration/*.test.ts",
     "test:integration:gas": "npx hardhat test test/integration/*.test.ts --gas-stats",
     "test-forked": "FORK_TESTING_ENABLED=true npx hardhat test test-forked/*.ts",
+    "gas:report": "REPORT_GAS=true npx hardhat test",
+    "gas:compare": "npx tsx scripts/gas-compare.ts",
+    "gas:ci": "REPORT_GAS=true NO_GAS_ENFORCE=1 npx hardhat test && npx tsx scripts/gas-compare.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
     "solidity-coverage": "SOLIDITY_COVERAGE=true NO_GAS_ENFORCE=1 npx hardhat coverage",
@@ -60,6 +63,7 @@
     "ethers": "^6.16.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.1.0",
-    "mocha": "^11.7.5"
+    "mocha": "^11.7.5",
+    "tsx": "^4.19.0"
   }
 }
