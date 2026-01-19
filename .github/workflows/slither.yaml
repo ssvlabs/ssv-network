@@ -13,4 +13,5 @@ jobs:
         with:
           node-version: 22
           fail-on: high
-          slither-args: contracts --exclude-paths "node_modules,lib,test,script" --exclude controlled-delegatecall,incorrect-return
+          target: contracts
+          slither-args: --exclude-paths "node_modules,lib,test,script" --exclude controlled-delegatecall,incorrect-return
