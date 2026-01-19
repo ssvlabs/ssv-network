@@ -42,7 +42,7 @@
     "gas:ci": "REPORT_GAS=true NO_GAS_ENFORCE=1 npx hardhat test && npx tsx scripts/gas-compare.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
-    "solidity-coverage": "SOLIDITY_COVERAGE=true NO_GAS_ENFORCE=1 npx hardhat coverage",
+    "solidity-coverage": "NO_GAS_ENFORCE=1 npx hardhat test --coverage",
     "slither": "slither contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin",
     "size-contracts": "npx hardhat size-contracts"
   },

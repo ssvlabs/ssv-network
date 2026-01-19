@@ -11,6 +11,6 @@ jobs:
         uses: crytic/slither-action@v0.3.2
         id: slither
         with:
-          node-version: 20
+          node-version: 22
           fail-on: high
           slither-args: --exclude controlled-delegatecall,incorrect-return
