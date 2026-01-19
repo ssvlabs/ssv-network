@@ -62,13 +62,32 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
       [GasGroup.WITHDRAW_UNSTAKE]
     );
 
-    const [amount, unlockTime] = await staking.getWithdrawal(staker.address);
-    expect(amount).to.equal(0n);
-    expect(unlockTime).to.equal(0n);
+    const requestCount = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCount).to.equal(0n);
   });
 
   it("Is reverted with 'NothingToWithdraw' when there is no pending withdrawal", async function () {
     const { staking } = await ssvStakingHarnessFixture(connection);
+
+    await expect(staking.withdrawUnlocked()).to.be.revertedWithCustomError(
+      staking,
+      Errors.NOTHING_TO_WITHDRAW
+    );
+  });
+
+  it("Is reverted with 'NothingToWithdraw' when cooldown has not passed", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
+
+    await expect(staking.withdrawUnlocked()).to.be.revertedWithCustomError(
+      staking,
+      Errors.NOTHING_TO_WITHDRAW
+    );
+  });
+
+  it("Is reverted with 'NothingToWithdraw' when partially through cooldown", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
+
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN / 2n);
 
     await expect(staking.withdrawUnlocked()).to.be.revertedWithCustomError(
       staking,
@@ -94,15 +113,17 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
   it("Clears withdrawal request from storage after withdrawal", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
 
-    const [amountBefore, unlockTimeBefore] = await staking.getWithdrawal(staker.address);
+    const requestCountBefore = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCountBefore).to.equal(1n);
+
+    const [amountBefore, unlockTimeBefore] = await staking.getWithdrawalRequest(staker.address, 0);
     expect(amountBefore).to.equal(STAKE_AMOUNT);
     expect(unlockTimeBefore).to.be.greaterThan(0n);
 
     await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
     await staking.withdrawUnlocked();
 
-    const [amountAfter, unlockTimeAfter] = await staking.getWithdrawal(staker.address);
-    expect(amountAfter).to.equal(0n);
-    expect(unlockTimeAfter).to.equal(0n);
+    const requestCountAfter = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCountAfter).to.equal(0n);
   });
 });

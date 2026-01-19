@@ -45,7 +45,7 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
     await expect(
       trackGas(
         operators.withdrawAllVersionOperatorEarnings(1),
-        [GasGroup.WITHDRAW_OPERATOR_BALANCE]
+        [GasGroup.WITHDRAW_OPERATOR_BALANCE_ALL_VERSIONS]
       )
     ).to.emit(
       operators,

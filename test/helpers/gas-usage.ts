@@ -1,9 +1,14 @@
 import { expect } from 'chai';
 import { Interface } from 'ethers';
 import { createRequire } from 'node:module';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 const require = createRequire(import.meta.url);
 const ssvNetworkAbi = require('../../abis/SSVNetwork.json');
+
+const GAS_REPORT_OUTPUT_DIR = process.env.GAS_REPORT_DIR || '.';
+const GAS_REPORT_JSON_FILE = 'gas-report.json';
 
 export enum GasGroup {
   REGISTER_OPERATOR,
@@ -73,6 +78,7 @@ export enum GasGroup {
   DEPOSIT,
   WITHDRAW_CLUSTER_BALANCE,
   WITHDRAW_OPERATOR_BALANCE,
+  WITHDRAW_OPERATOR_BALANCE_ALL_VERSIONS,
   VALIDATOR_EXIT,
   BULK_EXIT_10_VALIDATOR_4,
   BULK_EXIT_10_VALIDATOR_7,
@@ -83,6 +89,10 @@ export enum GasGroup {
   LIQUIDATE_CLUSTER_7,
   LIQUIDATE_CLUSTER_10,
   LIQUIDATE_CLUSTER_13,
+  LIQUIDATE_CLUSTER_SSV_4,
+  LIQUIDATE_CLUSTER_SSV_7,
+  LIQUIDATE_CLUSTER_SSV_10,
+  LIQUIDATE_CLUSTER_SSV_13,
   REACTIVATE_CLUSTER,
 
   NETWORK_FEE_CHANGE,
@@ -116,7 +126,6 @@ export enum GasGroup {
 }
 
 const MAX_GAS_PER_GROUP: any = {
-  /* REAL GAS LIMITS - adjusted for harness and integration contracts */
   [GasGroup.REGISTER_OPERATOR]: 210000,
   [GasGroup.REMOVE_OPERATOR]: 100000,
   [GasGroup.REMOVE_OPERATOR_WITH_WITHDRAW]: 100000,
@@ -186,6 +195,7 @@ const MAX_GAS_PER_GROUP: any = {
   [GasGroup.DEPOSIT]: 400000,
   [GasGroup.WITHDRAW_CLUSTER_BALANCE]: 120000,
   [GasGroup.WITHDRAW_OPERATOR_BALANCE]: 120000,
+  [GasGroup.WITHDRAW_OPERATOR_BALANCE_ALL_VERSIONS]: 140000,
   [GasGroup.VALIDATOR_EXIT]: 80000,
   [GasGroup.BULK_EXIT_10_VALIDATOR_4]: 126200,
   [GasGroup.BULK_EXIT_10_VALIDATOR_7]: 139500,
@@ -196,6 +206,10 @@ const MAX_GAS_PER_GROUP: any = {
   [GasGroup.LIQUIDATE_CLUSTER_7]: 171000,
   [GasGroup.LIQUIDATE_CLUSTER_10]: 212000,
   [GasGroup.LIQUIDATE_CLUSTER_13]: 253000,
+  [GasGroup.LIQUIDATE_CLUSTER_SSV_4]: 175000,
+  [GasGroup.LIQUIDATE_CLUSTER_SSV_7]: 220000,
+  [GasGroup.LIQUIDATE_CLUSTER_SSV_10]: 270000,
+  [GasGroup.LIQUIDATE_CLUSTER_SSV_13]: 320000,
   [GasGroup.REACTIVATE_CLUSTER]: 210000,
 
   [GasGroup.NETWORK_FEE_CHANGE]: 72000,
@@ -297,3 +311,173 @@ export const trackGasFromReceipt = async function (receipt: any, groups?: Array<
 export const getGasStats = (group: string) => {
   return gasUsageStats.get(group) || new GasStats();
 };
+
+export const getGasGroupName = (group: GasGroup | string): string => {
+  const groupNum = typeof group === 'string' ? parseInt(group, 10) : group;
+  return GasGroup[groupNum] || `UNKNOWN_${group}`;
+};
+
+export const getAllMaxGasLimits = (): Record<string, number> => {
+  const result: Record<string, number> = {};
+  for (const group in MAX_GAS_PER_GROUP) {
+    const name = getGasGroupName(group);
+    result[name] = MAX_GAS_PER_GROUP[group];
+  }
+  return result;
+};
+
+export interface GasReportEntry {
+  name: string;
+  maxLimit: number;
+  min: number | null;
+  max: number | null;
+  average: number | null;
+  txCount: number;
+  withinLimit: boolean;
+}
+
+export interface GasReport {
+  timestamp: string;
+  commit?: string;
+  branch?: string;
+  entries: GasReportEntry[];
+  summary: {
+    totalOperations: number;
+    operationsWithData: number;
+    allWithinLimits: boolean;
+  };
+}
+
+export const generateGasReport = (): GasReport => {
+  const entries: GasReportEntry[] = [];
+  let operationsWithData = 0;
+  let allWithinLimits = true;
+
+  for (const group in MAX_GAS_PER_GROUP) {
+    const groupNum = parseInt(group, 10);
+    const name = getGasGroupName(groupNum);
+    const maxLimit = MAX_GAS_PER_GROUP[groupNum] || 0;
+    const gasStats = getGasStats(group);
+
+    const withinLimit = gasStats.max === null || gasStats.max <= maxLimit;
+    if (!withinLimit) allWithinLimits = false;
+    if (gasStats.txCount > 0) operationsWithData++;
+
+    entries.push({
+      name,
+      maxLimit,
+      min: gasStats.min,
+      max: gasStats.max,
+      average: gasStats.txCount > 0 ? Math.round(gasStats.average) : null,
+      txCount: gasStats.txCount,
+      withinLimit,
+    });
+  }
+
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+
+  return {
+    timestamp: new Date().toISOString(),
+    entries,
+    summary: {
+      totalOperations: entries.length,
+      operationsWithData,
+      allWithinLimits,
+    },
+  };
+};
+
+export const printGasReport = (report?: GasReport): void => {
+  const gasReport = report || generateGasReport();
+
+  console.log('\n');
+  console.log('='.repeat(100));
+  console.log('                              GAS USAGE REPORT');
+  console.log('='.repeat(100));
+  console.log(`Generated: ${gasReport.timestamp}`);
+  console.log('-'.repeat(100));
+
+  console.log(
+    padRight('Operation', 55) +
+    padLeft('Max Limit', 12) +
+    padLeft('Avg Gas', 12) +
+    padLeft('Min', 10) +
+    padLeft('Max', 10)
+  );
+  console.log('-'.repeat(100));
+
+  const entriesWithData = gasReport.entries.filter(e => e.txCount > 0);
+
+  for (const entry of entriesWithData) {
+    console.log(
+      padRight(entry.name, 55) +
+      padLeft(entry.maxLimit.toLocaleString(), 12) +
+      padLeft(entry.average?.toLocaleString() || '-', 12) +
+      padLeft(entry.min?.toLocaleString() || '-', 10) +
+      padLeft(entry.max?.toLocaleString() || '-', 10)
+    );
+  }
+
+  console.log('-'.repeat(100));
+  console.log(`Total operations tracked: ${gasReport.summary.operationsWithData}`);
+  console.log(`All within limits: ${gasReport.summary.allWithinLimits ? 'YES' : 'NO'}`);
+  console.log('='.repeat(100));
+  console.log('\n');
+};
+
+export const saveGasReport = (outputPath?: string): GasReport => {
+  const report = generateGasReport();
+
+  try {
+    const { execSync } = require('child_process');
+    report.commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+    report.branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+  }
+
+  const filePath = outputPath || path.join(GAS_REPORT_OUTPUT_DIR, GAS_REPORT_JSON_FILE);
+
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  fs.writeFileSync(filePath, JSON.stringify(report, null, 2));
+  console.log(`Gas report saved to: ${filePath}`);
+
+  return report;
+};
+
+export const resetGasStats = (): void => {
+  for (const group in MAX_GAS_PER_GROUP) {
+    gasUsageStats.set(group, new GasStats());
+  }
+};
+
+function padRight(str: string, len: number): string {
+  return str.length >= len ? str.substring(0, len) : str + ' '.repeat(len - str.length);
+}
+
+function padLeft(str: string, len: number): string {
+  return str.length >= len ? str : ' '.repeat(len - str.length) + str;
+}
+
+let reportRegistered = false;
+
+export const registerGasReportOnExit = (): void => {
+  if (reportRegistered) return;
+  if (process.env.REPORT_GAS !== 'true') return;
+
+  reportRegistered = true;
+
+  process.on('beforeExit', () => {
+    const report = generateGasReport();
+
+    if (report.summary.operationsWithData > 0) {
+      printGasReport(report);
+      saveGasReport();
+    }
+  });
+};
+
+registerGasReportOnExit();

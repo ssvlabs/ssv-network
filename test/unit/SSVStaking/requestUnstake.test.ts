@@ -49,16 +49,19 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const { staking } = await networkHelpers.loadFixture(stakeFirst);
 
     const unstakeAmount = STAKE_AMOUNT / 2n;
-    await trackGas(
+    const receipt = await trackGas(
       staking.requestUnstake(unstakeAmount),
       [GasGroup.REQUEST_UNSTAKE]
     );
 
-    const [amount, unlockTime] = await staking.getWithdrawal(staker.address);
+    const requestCount = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCount).to.equal(1n);
+
+    const [amount, unlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
     expect(amount).to.equal(unstakeAmount);
 
-    const latestBlock = await connection.ethers.provider.getBlock("latest");
-    const expectedUnlockTime = BigInt(latestBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+    const receiptBlock = await connection.ethers.provider.getBlock(receipt.blockNumber);
+    const expectedUnlockTime = BigInt(receiptBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
     expect(unlockTime).to.equal(expectedUnlockTime);
   });
 
@@ -86,6 +89,20 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     );
   });
 
+  it("Is reverted with 'MaxRequestsAmountReached' when pending requests limit is reached", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeFirst);
+
+    const unstakeAmount = STAKE_AMOUNT / 20n;
+    for (let i = 0; i < 10; i += 1) {
+      await (await staking.requestUnstake(unstakeAmount)).wait();
+    }
+
+    await expect(staking.requestUnstake(unstakeAmount)).to.be.revertedWithCustomError(
+      staking,
+      Errors.MAX_REQUESTS_AMOUNT_REACHED
+    );
+  });
+
   it("Is reverted with 'UnstakeAmountExceedsBalance' when requesting more than balance", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeFirst);
 
@@ -108,7 +125,10 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const cssvBalance = await cssvToken.balanceOf(staker.address);
     expect(cssvBalance).to.equal(0n);
 
-    const [amount] = await staking.getWithdrawal(staker.address);
+    const requestCount = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCount).to.equal(1n);
+
+    const [amount] = await staking.getWithdrawalRequest(staker.address, 0);
     expect(amount).to.equal(STAKE_AMOUNT);
   });
 
@@ -116,15 +136,19 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const { staking } = await networkHelpers.loadFixture(stakeFirst);
 
     const unstakeAmount = STAKE_AMOUNT / 2n;
-    await staking.requestUnstake(unstakeAmount);
+    const tx = await staking.requestUnstake(unstakeAmount);
+    const receipt = await tx.wait();
 
-    const [storedAmount, storedUnlockTime] = await staking.getWithdrawal(staker.address);
+    const requestCount = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCount).to.equal(1n);
+
+    const [storedAmount, storedUnlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
 
     expect(storedAmount).to.equal(unstakeAmount);
     expect(storedUnlockTime).to.be.greaterThan(0n);
 
-    const latestBlock = await connection.ethers.provider.getBlock("latest");
-    const expectedUnlockTime = BigInt(latestBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+    const receiptBlock = await connection.ethers.provider.getBlock(receipt.blockNumber);
+    const expectedUnlockTime = BigInt(receiptBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
     expect(storedUnlockTime).to.equal(expectedUnlockTime);
   });
 });
