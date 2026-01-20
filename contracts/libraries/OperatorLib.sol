@@ -123,7 +123,8 @@ library OperatorLib {
 
     function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
         if (operator.ethSnapshot.block == 0) {
-            operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
+            operator.ethSnapshot.block = uint32(block.number);
+            operator.ethSnapshot.balance = 0;
         }
         if (operator.ethFee == 0 && operator.fee != 0) {
             operator.ethFee = defaultOperatorEthFee();
@@ -201,34 +202,67 @@ library OperatorLib {
         bool increaseValidatorCount,
         uint32 deltaValidatorCount,
         StorageData storage s,
-        StorageProtocol storage sp,
-        bool isClusterLiquidated
+        StorageProtocol storage sp
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
         uint256 operatorsLength = operatorIds.length;
-
         for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
-
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
-            if (operator.ethSnapshot.block == 0) {
-                updateSnapshotStSSV(operator, operatorId);
-                if (increaseValidatorCount && !isClusterLiquidated) {
-                    operator.validatorCount -= deltaValidatorCount;
-                }
-                ensureETHDefaults(operator);
-            }
-
+            // only update active operators (block != 0)
+            // removed operators have block == 0 and contribute their preserved index
             if (operator.ethSnapshot.block != 0) {
                 updateSnapshotSt(operator, operatorId);
-                if (!increaseValidatorCount) {
+
+                if (increaseValidatorCount) {
+                    if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                        revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                    }
+                } else {
                     operator.ethValidatorCount -= deltaValidatorCount;
-                } else if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
-                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
                 }
 
                 cumulativeFee += operator.ethFee;
             }
+            cumulativeIndex += operator.ethSnapshot.index;
+        }
+    }
+
+    function updateClusterOperatorsMigration(
+        uint64[] memory operatorIds,
+        uint32 validatorCount,
+        StorageData storage s,
+        StorageProtocol storage sp,
+        bool isClusterLiquidated
+    ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
+        uint256 operatorsLength = operatorIds.length;
+        for (uint256 i; i < operatorsLength; ++i) {
+            uint64 operatorId = operatorIds[i];
+            ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+            if (operator.ethSnapshot.block == 0) {
+                // first-time ETH usage or migration
+                updateSnapshotStSSV(operator, operatorId);
+
+                if (!isClusterLiquidated) {
+                    operator.validatorCount -= validatorCount;
+                }
+
+                ensureETHDefaults(operator);
+
+                // initialize ETH validator count
+                if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
+                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                }
+            } else {
+                // already ETH operator
+                updateSnapshotSt(operator, operatorId);
+                if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
+                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                }
+            }
+
+            cumulativeFee += operator.ethFee;
             cumulativeIndex += operator.ethSnapshot.index;
         }
     }

@@ -184,8 +184,7 @@ contract SSVValidators is ISSVValidators {
                 false,
                 validatorsRemoved,
                 s,
-                sp,
-                false
+                sp
             );
 
             cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());

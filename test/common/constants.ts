@@ -23,6 +23,7 @@ export const SSV_MODULE_CONTRACTS: Record<SSVModules, string> = {
 // todo make and object to simplify imports in other files (Constants.NAME_OF_VALUE...)
 export const DEFAULT_SHARES = "0x1234";
 export const DEFAULT_ETH_REGISTER_VALUE: bigint = ethers.parseEther("10");
+export const SMALL_ETH_REGISTER_VALUE: bigint = ethers.parseEther("1");
 export const DEFAULT_ETH_EB_PER_VALIDATOR: bigint = 32n;
 export const CLUSTER_VERSION_SSV = 0n;
 export const CLUSTER_VERSION_ETH = 1n;

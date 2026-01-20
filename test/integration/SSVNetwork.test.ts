@@ -25,8 +25,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
-  OPERATOR_MAX_FEE_INCREASE,
-  PRECISION_FACTOR, STAKE_AMOUNT,
+  OPERATOR_MAX_FEE_INCREASE, STAKE_AMOUNT,
 } from '../common/constants.ts';
 import { Events } from '../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';

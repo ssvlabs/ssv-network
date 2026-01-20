@@ -40,8 +40,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             false,
             cluster.validatorCount,
             s,
-            sp,
-            false
+            sp
         );
 
         _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
@@ -119,8 +118,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             true,
             cluster.validatorCount,
             s,
-            sp,
-            false
+            sp
         );
 
         cluster.balance += msg.value;
@@ -228,9 +226,8 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         uint256 ssvBalance = cluster.balance;
 
         // compute cluster data using ETH fields
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsMigration(
             operatorIds,
-            true,
             cluster.validatorCount,
             s,
             sp,
@@ -416,7 +413,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         if (version == CoreLib.VERSION_ETH) {
             // ETH path: use ethSnapshot, ethFee, ethNetworkFeeIndex
-            (clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp, false);
+            (clusterIndex, ) = OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp);
             currentNetworkFeeIndex = sp.currentNetworkFeeIndex(); // ETH network fee index
         } else {
             // SSV path: use snapshot, fee, networkFeeIndex
