@@ -36,6 +36,7 @@ let baselinePath = 'test/helpers/v1-gas-report.json';
 let currentPath = 'gas-report.json';
 let baselineLabel = process.env.BASELINE_TAG || 'v1.2.0';
 let currentLabel = process.env.CURRENT_LABEL || 'current';
+let outputPath = process.env.GAS_COMPARE_OUTPUT || 'gas-compare.txt';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--baseline' && args[i + 1]) {
@@ -46,6 +47,8 @@ for (let i = 0; i < args.length; i++) {
     baselineLabel = args[++i];
   } else if (args[i] === '--current-label' && args[i + 1]) {
     currentLabel = args[++i];
+  } else if (args[i] === '--output' && args[i + 1]) {
+    outputPath = args[++i];
   }
 }
 
@@ -138,29 +141,30 @@ function formatPercent(value: number | null): string {
   return `${sign}${value.toFixed(2)}%`;
 }
 
-function printResults(results: ComparisonResult[]): void {
+function printResults(results: ComparisonResult[]): string {
   const baselineWidth = Math.max(12, baselineLabel.length + 2);
   const currentWidth = Math.max(12, currentLabel.length + 2);
+  const lines: string[] = [];
 
-  console.log('\n');
-  console.log('='.repeat(100));
-  console.log('                        GAS COMPARISON REPORT');
-  console.log('='.repeat(100));
-  console.log(`Baseline: ${baselineLabel}`);
-  console.log(`Current:  ${currentLabel}`);
-  console.log('-'.repeat(100));
+  lines.push('');
+  lines.push('='.repeat(100));
+  lines.push('                        GAS COMPARISON REPORT');
+  lines.push('='.repeat(100));
+  lines.push(`Baseline: ${baselineLabel}`);
+  lines.push(`Current:  ${currentLabel}`);
+  lines.push('-'.repeat(100));
 
-  console.log(
+  lines.push(
     padRight('Operation', 50) +
     padLeft(baselineLabel, baselineWidth) +
     padLeft(currentLabel, currentWidth) +
     padLeft('Diff', 12) +
     padLeft('Change', 12)
   );
-  console.log('-'.repeat(100));
+  lines.push('-'.repeat(100));
 
   for (const result of results) {
-    console.log(
+    lines.push(
       padRight(result.name, 50) +
       padLeft(formatNumber(result.baseline), baselineWidth) +
       padLeft(formatNumber(result.current), currentWidth) +
@@ -169,7 +173,7 @@ function printResults(results: ComparisonResult[]): void {
     );
   }
 
-  console.log('-'.repeat(100));
+  lines.push('-'.repeat(100));
 
   const comparable = results.filter(r => r.difference !== null);
   const regressions = comparable.filter(r => (r.difference ?? 0) > 0);
@@ -178,16 +182,20 @@ function printResults(results: ComparisonResult[]): void {
   const missingBaseline = results.filter(r => r.baseline === null).length;
   const missingCurrent = results.filter(r => r.current === null).length;
 
-  console.log(`\nSummary:`);
-  console.log(`  Compared: ${comparable.length}`);
-  console.log(`  Regressions: ${regressions.length}`);
-  console.log(`  Improvements: ${improvements.length}`);
-  console.log(`  Unchanged: ${unchanged.length}`);
-  console.log(`  Missing baseline: ${missingBaseline}`);
-  console.log(`  Missing current: ${missingCurrent}`);
-  console.log('='.repeat(100));
+  lines.push('');
+  lines.push('Summary:');
+  lines.push(`  Compared: ${comparable.length}`);
+  lines.push(`  Regressions: ${regressions.length}`);
+  lines.push(`  Improvements: ${improvements.length}`);
+  lines.push(`  Unchanged: ${unchanged.length}`);
+  lines.push(`  Missing baseline: ${missingBaseline}`);
+  lines.push(`  Missing current: ${missingCurrent}`);
+  lines.push('='.repeat(100));
+  lines.push('');
 
-  console.log('\n');
+  const output = lines.join('\n');
+  console.log(output);
+  return output;
 }
 
 console.log('Gas Comparison Tool');
@@ -208,5 +216,11 @@ if (!currentReport) {
 }
 
 const results = compare(baselineReport, currentReport);
-printResults(results);
+const output = printResults(results);
+
+const resolvedOutputPath = path.isAbsolute(outputPath)
+  ? outputPath
+  : path.join(process.cwd(), outputPath);
+fs.writeFileSync(resolvedOutputPath, output, 'utf8');
+console.log(`Gas comparison report saved to: ${resolvedOutputPath}`);
 process.exit(0);
