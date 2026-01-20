@@ -1,8 +1,6 @@
 #!/usr/bin/env npx tsx
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getAllMaxGasLimits } from '../test/helpers/gas-usage.ts';
-
 interface GasReportEntry {
   name: string;
   maxLimit: number;
@@ -27,22 +25,27 @@ interface GasReport {
 
 interface ComparisonResult {
   name: string;
-  limit: number;
-  current: number;
-  difference: number;
-  percentChange: number;
-  status: 'ok' | 'exceeded';
+  baseline: number | null;
+  current: number | null;
+  difference: number | null;
+  percentChange: number | null;
 }
 
 const args = process.argv.slice(2);
-let reportPath = 'gas-report.json';
-let threshold = Number(process.env.GAS_THRESHOLD) || 3;
+let baselinePath = 'test/helpers/v1-gas-report.json';
+let currentPath = 'gas-report.json';
+let baselineLabel = process.env.BASELINE_TAG || 'v1.2.0';
+let currentLabel = process.env.CURRENT_LABEL || 'current';
 
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--report' && args[i + 1]) {
-    reportPath = args[++i];
-  } else if (args[i] === '--threshold' && args[i + 1]) {
-    threshold = Number(args[++i]);
+  if (args[i] === '--baseline' && args[i + 1]) {
+    baselinePath = args[++i];
+  } else if (args[i] === '--current' && args[i + 1]) {
+    currentPath = args[++i];
+  } else if (args[i] === '--baseline-label' && args[i + 1]) {
+    baselineLabel = args[++i];
+  } else if (args[i] === '--current-label' && args[i + 1]) {
+    currentLabel = args[++i];
   }
 }
 
@@ -73,106 +76,137 @@ function loadJson<T>(filePath: string): T | null {
   }
 }
 
-function compare(report: GasReport, limits: Record<string, number>): ComparisonResult[] {
+function buildEntryMap(report: GasReport): Map<string, GasReportEntry> {
+  const map = new Map<string, GasReportEntry>();
+  for (const entry of report.entries) {
+    map.set(entry.name, entry);
+  }
+  return map;
+}
+
+function compare(baseline: GasReport, current: GasReport): ComparisonResult[] {
   const results: ComparisonResult[] = [];
+  const baselineEntries = buildEntryMap(baseline);
+  const currentEntries = buildEntryMap(current);
+  const names = new Set<string>();
 
-  for (const entry of report.entries.filter(e => e.txCount > 0 && e.average !== null)) {
-    const limitValue = limits[entry.name];
-    const currentValue = entry.average!;
+  for (const entry of baseline.entries) {
+    if (entry.average !== null) names.add(entry.name);
+  }
 
-    if (limitValue === undefined) continue;
+  for (const entry of current.entries) {
+    if (entry.average !== null) names.add(entry.name);
+  }
 
-    const difference = currentValue - limitValue;
-    const percentChange = limitValue > 0 ? (difference / limitValue) * 100 : 0;
+  for (const name of names) {
+    const baselineEntry = baselineEntries.get(name);
+    const currentEntry = currentEntries.get(name);
+    const baselineValue = baselineEntry?.average ?? null;
+    const currentValue = currentEntry?.average ?? null;
+    const hasValues = baselineValue !== null && currentValue !== null;
+    const difference = hasValues ? currentValue - baselineValue : null;
+    const percentChange =
+      hasValues && baselineValue !== 0
+        ? (difference / baselineValue) * 100
+        : null;
 
     results.push({
-      name: entry.name,
-      limit: limitValue,
+      name,
+      baseline: baselineValue,
       current: currentValue,
       difference,
       percentChange,
-      status: currentValue > limitValue ? 'exceeded' : 'ok',
     });
   }
 
   return results.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function printResults(results: ComparisonResult[]): boolean {
+function formatNumber(value: number | null): string {
+  return value === null ? '-' : value.toLocaleString();
+}
+
+function formatDiff(value: number | null): string {
+  if (value === null) return '-';
+  const sign = value >= 0 ? '+' : '';
+  return `${sign}${value.toLocaleString()}`;
+}
+
+function formatPercent(value: number | null): string {
+  if (value === null) return '-';
+  const sign = value >= 0 ? '+' : '';
+  return `${sign}${value.toFixed(2)}%`;
+}
+
+function printResults(results: ComparisonResult[]): void {
+  const baselineWidth = Math.max(12, baselineLabel.length + 2);
+  const currentWidth = Math.max(12, currentLabel.length + 2);
+
   console.log('\n');
   console.log('='.repeat(100));
-  console.log('                           GAS COMPARISON REPORT');
+  console.log('                        GAS COMPARISON REPORT');
   console.log('='.repeat(100));
-  console.log(`Threshold: ${threshold}%`);
+  console.log(`Baseline: ${baselineLabel}`);
+  console.log(`Current:  ${currentLabel}`);
   console.log('-'.repeat(100));
 
   console.log(
     padRight('Operation', 50) +
-    padLeft('Limit', 12) +
-    padLeft('Current', 12) +
+    padLeft(baselineLabel, baselineWidth) +
+    padLeft(currentLabel, currentWidth) +
     padLeft('Diff', 12) +
     padLeft('Change', 12)
   );
   console.log('-'.repeat(100));
 
-  let hasExceeded = false;
-
   for (const result of results) {
-    if (result.status === 'exceeded') hasExceeded = true;
-
-    const changeStr = result.percentChange >= 0
-      ? `+${result.percentChange.toFixed(2)}%`
-      : `${result.percentChange.toFixed(2)}%`;
-
     console.log(
       padRight(result.name, 50) +
-      padLeft(result.limit.toLocaleString(), 12) +
-      padLeft(result.current.toLocaleString(), 12) +
-      padLeft((result.difference >= 0 ? '+' : '') + result.difference.toLocaleString(), 12) +
-      padLeft(changeStr, 12)
+      padLeft(formatNumber(result.baseline), baselineWidth) +
+      padLeft(formatNumber(result.current), currentWidth) +
+      padLeft(formatDiff(result.difference), 12) +
+      padLeft(formatPercent(result.percentChange), 12)
     );
   }
 
   console.log('-'.repeat(100));
 
-  const exceeded = results.filter(r => r.status === 'exceeded');
-  const withinLimits = results.filter(r => r.status === 'ok');
+  const comparable = results.filter(r => r.difference !== null);
+  const regressions = comparable.filter(r => (r.difference ?? 0) > 0);
+  const improvements = comparable.filter(r => (r.difference ?? 0) < 0);
+  const unchanged = comparable.filter(r => r.difference === 0);
+  const missingBaseline = results.filter(r => r.baseline === null).length;
+  const missingCurrent = results.filter(r => r.current === null).length;
 
   console.log(`\nSummary:`);
-  console.log(`  Exceeded limits: ${exceeded.length}`);
-  console.log(`  Within limits: ${withinLimits.length}`);
+  console.log(`  Compared: ${comparable.length}`);
+  console.log(`  Regressions: ${regressions.length}`);
+  console.log(`  Improvements: ${improvements.length}`);
+  console.log(`  Unchanged: ${unchanged.length}`);
+  console.log(`  Missing baseline: ${missingBaseline}`);
+  console.log(`  Missing current: ${missingCurrent}`);
   console.log('='.repeat(100));
 
-  if (hasExceeded) {
-    console.log('\nEXCEEDED LIMITS:');
-    for (const r of exceeded) {
-      console.log(`  - ${r.name}: ${r.limit.toLocaleString()} limit, ${r.current.toLocaleString()} actual (+${r.percentChange.toFixed(2)}%)`);
-    }
-  }
-
   console.log('\n');
-
-  return !hasExceeded;
 }
 
 console.log('Gas Comparison Tool');
-console.log(`Report: ${reportPath}`);
-console.log(`Using MAX_GAS_PER_GROUP limits from gas-usage.ts`);
+console.log(`Baseline report: ${baselinePath}`);
+console.log(`Current report: ${currentPath}`);
+console.log(`Labels: ${baselineLabel} -> ${currentLabel}`);
 
-const report = loadJson<GasReport>(reportPath);
-if (!report) {
-  console.error('Failed to load gas report. Run tests with REPORT_GAS=true first.');
+const baselineReport = loadJson<GasReport>(baselinePath);
+if (!baselineReport) {
+  console.error('Failed to load baseline gas report.');
   process.exit(2);
 }
 
-const limits = getAllMaxGasLimits();
-const results = compare(report, limits);
-const success = printResults(results);
-
-if (!success) {
-  console.log('Gas limits exceeded! Exiting with code 1.');
-  process.exit(1);
+const currentReport = loadJson<GasReport>(currentPath);
+if (!currentReport) {
+  console.error('Failed to load current gas report. Run tests with SSV_REPORT_GAS=true first.');
+  process.exit(2);
 }
 
-console.log('All operations within gas limits.');
+const results = compare(baselineReport, currentReport);
+printResults(results);
 process.exit(0);
