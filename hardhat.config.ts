@@ -33,12 +33,20 @@ export default defineConfig({
       type: 'edr-simulated',
       allowUnlimitedContractSize: true,
       blockGasLimit: 100_000_000,
-
+    },
+    hardhat_forked: {
+      type: 'edr-simulated',
+      allowUnlimitedContractSize: true,
+      blockGasLimit: 100_000_000,
+      forking: {
+        url: configVariable("MAINNET_RPC_URL"),
+        blockNumber: Number(process.env.FORK_BLOCK_NUMBER),
+      }
     },
     hoodi: {
       type: "http",
       chainType: "l1",
-      url: configVariable("HOODI_RPC_URL"),
+      url: process.env.HOODI_RPC_URL!,
       accounts: [configVariable("HOODI_PRIVATE_KEY")],
       ssvToken: process.env.HOODI_SSVTOKEN_ADDRESS
     },

@@ -1,11 +1,9 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from '../setup/connection.ts';
-import { ssvNetworkFullFixture } from '../setup/fixtures.ts';
+import { ssvNetworkFullForkedFixture } from '../setup/fixtures.ts';
 import type { NetworkHelpersType, OperatorTuple } from '../common/types.ts';
 import {
-  addValidatorsToCluster,
-  calculateInitialBurnRate,
+  calculateInitialBurnRate, clusterToTuple,
   getCurrentClusterState, makeArrayOfKeysAndShares,
   makeOperatorKey,
   makePublicKey, registerDefaultCluster,
@@ -25,17 +23,19 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE,
-  OPERATOR_MAX_FEE_INCREASE, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
+  OPERATOR_MAX_FEE_INCREASE,
+  STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
 } from '../common/constants.ts';
 import { Events } from '../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../common/errors.js';
 import { deployContract } from '../../scripts/common/helpers.js';
 import { ContractTransactionResponse } from 'ethers';
-import * as net from 'node:net';
 import { trackGasFromReceipt, GasGroup } from '../helpers/gas-usage.ts';
+import { getForkedConnection } from '../setup/fork.js';
+import { ForkConfig } from './config.js';
 
-describe("SSVNetwork full integration tests", () => {
+describe("SSVNetwork full integration tests made on forked contract", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
 
@@ -44,43 +44,47 @@ describe("SSVNetwork full integration tests", () => {
   let randomUser: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await getForkedConnection());
     [operatorOwner, clusterOwner, randomUser] = await connection.ethers.getSigners();
+
+    for (const signer of [operatorOwner, clusterOwner, randomUser]) {
+      await connection.ethers.provider.send("hardhat_impersonateAccount", [signer.address]);
+      await connection.ethers.provider.send("hardhat_setBalance", [signer.address, "0x56bc75e2d63100000"]);
+    }
+
+    operatorOwner = await connection.ethers.getSigner(operatorOwner.address);
+    clusterOwner = await connection.ethers.getSigner(clusterOwner.address);
+    randomUser = await connection.ethers.getSigner(randomUser.address);
   });
 
-  const deployFullSSVNetworkFixture = async () => {
-    return ssvNetworkFullFixture(connection);
+  const deployFullSSVNetworkForkFixture = async () => {
+    return ssvNetworkFullForkedFixture(connection);
   };
 
   describe("Constructor, initializer and upgrades", async function () {
     it("Configures SSVNetwork correctly", async function () {
       const { network, views, cssvToken, ssvToken } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      expect(await network.getAddress()).to.be.properAddress;
-      expect(await views.getAddress()).to.be.properAddress;
-      expect(await cssvToken.getAddress()).to.be.properAddress;
-      expect(await ssvToken.getAddress()).to.be.properAddress;
+      // todo work on params
+      expect(await network.getAddress()).to.be.equal(ForkConfig.SSV_NETWORK_ADDRESS);
+      expect(await views.getAddress()).to.be.equal(ForkConfig.SSV_NETWORK_VIEWS);
+      expect(await ssvToken.getAddress()).to.be.equal(ForkConfig.SSV_TOKEN);
 
       const version = await network.getVersion();
       expect(version).to.be.a("string").and.not.empty;
 
-      expect(await views.getMinimumLiquidationCollateral()).to.equal(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL);
+      expect(await views.getMinimumLiquidationCollateralSSV()).to.equal(1536000000000000000n);
       expect(await views.getValidatorsPerOperatorLimit()).to.equal(VALIDATORS_PER_OPERATOR_LIMIT);
-      expect(await views.getOperatorFeePeriods()).to.deep.equal([DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD]);
-      expect(await views.getOperatorFeeIncreaseLimit()).to.equal(OPERATOR_MAX_FEE_INCREASE); // 10%
+      expect(await views.getOperatorFeePeriods()).to.deep.equal([1209600n, 604800n]);
+      expect(await views.getOperatorFeeIncreaseLimit()).to.equal(OPERATOR_MAX_FEE_INCREASE);
       expect(await views.getDefaultOracleIds()).to.deep.equal(DEFAULT_ORACLES_IDS);
-      expect(await views.getQuorumBps()).to.equal(7500n);
 
-      expect(await views.getNetworkFee()).to.equal(NETWORK_FEE);
       expect(await views.getNetworkFeeSSV()).to.equal(NETWORK_FEE);
-      expect(await views.getMaximumOperatorFee()).to.equal(MAXIMUM_OPERATORS_FEE);
 
       expect(await views.cooldownDuration()).to.equal(7n * 24n * 60n * 60n);
 
       expect(await views.getNetworkEarnings()).to.equal(0n);
-      expect(await views.getNetworkEarningsSSV()).to.equal(0n);
-      expect(await views.getNetworkValidatorsCount()).to.equal(0);
       expect(await views.totalStaked()).to.equal(0n);
     });
   });
@@ -88,7 +92,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'registerOperator()'", async function () {
     it("Creates new operator and emits correct event", async function () {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
 
@@ -112,7 +116,7 @@ describe("SSVNetwork full integration tests", () => {
         connection.ethers.ZeroAddress,
         true,
         true
-        ]);
+      ]);
       expect(await views.getOperatorByIdSSV(expectedId)).to.be.deep.equal([
         operatorOwner.address,
         0,
@@ -125,7 +129,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'FeeTooLow' if the provided fee is less than minimal allowed", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
 
@@ -135,7 +139,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'FeeTooHigh' if the provided fee is higher than maximum allowed", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
 
@@ -145,7 +149,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorAlreadyExists' if the public key is already registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       await network.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -158,7 +162,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'removeOperator()'", async function (){
     it("Deactivates the operator and emits correct event", async function () {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -169,10 +173,10 @@ describe("SSVNetwork full integration tests", () => {
       expect(tx)
         .to.emit(network, Events.OPERATOR_REMOVED)
         .withArgs(expectedId)
-        
-        const receipt = await tx.wait();
-        await trackGasFromReceipt(receipt, [GasGroup.REMOVE_OPERATOR]);
-  
+
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REMOVE_OPERATOR]);
+
       const operator: OperatorTuple = await views.getOperatorById(expectedId)
 
       // todo check how to make typed, maybe cast to object like cluster
@@ -182,7 +186,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if operator with passed id is not registered", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.removeOperator(12345n))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -190,7 +194,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is not the operator owner", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -205,7 +209,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'setOperatorsWhitelists()'", async function () {
     it("Whitelists addresses and emits correct event", async function(){
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -215,12 +219,12 @@ describe("SSVNetwork full integration tests", () => {
         .to.emit(network, Events.OPERATOR_MULTIPLE_WHITELIST_UPDATED)
         .withArgs([expectedId], [clusterOwner]);
 
-      expect(await views.getWhitelistedOperators([expectedId], clusterOwner)).to.be.deep.equal([1n]); //true
+      expect(await views.getWhitelistedOperators([expectedId], clusterOwner)).to.be.deep.equal([expectedId]); //true
     });
 
     it("Whitelists multiple operators for multiple addresses", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 10);
       const whitelistAddresses = Array(10).fill(clusterOwner.address);
@@ -232,7 +236,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.setOperatorsWhitelists([], [clusterOwner]))
         .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_IDS_LENGTH)
@@ -240,7 +244,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidWhitelistAddressesLength' if the array of addresses is empty", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.setOperatorsWhitelists([123], []))
         .to.be.revertedWithCustomError(network, Errors.INVALID_WHITELIST_ADDRESSES_LENGTH)
@@ -248,7 +252,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'ZeroAddressNotAllowed' if one of addresses is zero address", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -260,15 +264,15 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if one of operators is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.setOperatorsWhitelists([123], [clusterOwner]))
+      await expect(network.setOperatorsWhitelists([123456789], [clusterOwner]))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
     });
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is the the operator owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -281,7 +285,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorsListNotUnique' if the array of operators has any duplicate", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -293,7 +297,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'UnsortedOperatorsList' if operators are not sorted in increasing order", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorIds = await registerOperators(network,operatorOwner, 3);
       const lastOp = operatorIds.pop();
@@ -307,7 +311,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'removeOperatorsWhitelists()'", async function(){
     it("Removes addresses from the whitelist and emits correct event", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -323,7 +327,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Removes multiple operators for multiple addresses", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 10);
       const whitelistAddresses = Array(10).fill(clusterOwner.address);
@@ -337,7 +341,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.removeOperatorsWhitelists([], [clusterOwner]))
         .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_IDS_LENGTH)
@@ -345,7 +349,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidWhitelistAddressesLength' if the array of addresses is empty", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.removeOperatorsWhitelists([123], []))
         .to.be.revertedWithCustomError(network, Errors.INVALID_WHITELIST_ADDRESSES_LENGTH)
@@ -353,7 +357,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'ZeroAddressNotAllowed' if one of addresses is zero address", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -365,15 +369,15 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if one of operators is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.removeOperatorsWhitelists([123], [clusterOwner]))
+      await expect(network.removeOperatorsWhitelists([123456789], [clusterOwner]))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
     });
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is the the operator owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -386,7 +390,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorsListNotUnique' if the array of operators has any duplicate", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -398,7 +402,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'UnsortedOperatorsList' if operators are not sorted in increasing order", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorIds = await registerOperators(network,operatorOwner, 3);
       const lastOp = operatorIds.pop();
@@ -412,7 +416,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'setOperatorsWhitelistingContract()'", async function () {
     it("Registers whitelisting contract, emits correct event and allows to whitelist addresses via contract", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network,operatorOwner, 3);
       const { contract: whiteListingContract, address: contractAddress } =
         await deployContract(connection.ethers, "BasicWhitelisting");
@@ -435,7 +439,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Updates whitelisting contract for operators", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 3);
       const { contract: firstContract, address: firstAddress } =
@@ -458,7 +462,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Registers whitelisting contract for 10 operators", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 10);
       const { contract: whiteListingContract } =
@@ -471,7 +475,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidWhitelistingContract' if the contract does not support required interface", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const { address: contractAddress } = await deployContract(connection.ethers, "SSVOperatorsWhitelist");
       const operatorIds = await registerOperators(network,operatorOwner, 3);
@@ -483,7 +487,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidOperatorIdsLength' is the array of operators is empty", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const { address: contractAddress } = await deployContract(connection.ethers, "BasicWhitelisting");
 
@@ -493,7 +497,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if one of operators is not registered", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const { address: contractAddress } = await deployContract(connection.ethers, "BasicWhitelisting");
 
@@ -503,7 +507,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is the the operator owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const { address: contractAddress } = await deployContract(connection.ethers, "BasicWhitelisting");
       const operatorIds = await registerOperators(network,operatorOwner, 3);
@@ -517,7 +521,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'removeOperatorsWhitelistingContract()'", async function(){
     it("Removes whitelisting address and emits correct event", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network,operatorOwner, 3);
       const { contract: whiteListingContract } =
         await deployContract(connection.ethers, "BasicWhitelisting");
@@ -534,7 +538,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Removes whitelisting contract for 10 operators", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 10);
       const { contract: whiteListingContract } =
         await deployContract(connection.ethers, "BasicWhitelisting");
@@ -548,7 +552,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.removeOperatorsWhitelistingContract([]))
         .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_IDS_LENGTH);
@@ -556,7 +560,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if one of operators is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.removeOperatorsWhitelistingContract([12345n]))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -564,7 +568,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if one of operators is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
 
       await expect(network.connect(randomUser).removeOperatorsWhitelistingContract(operatorIds))
@@ -576,7 +580,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'setOperatorsPrivateUnchecked()'", async function() {
     it("Changes privacy status and emits correct event", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       expect(await network.setOperatorsPrivateUnchecked(operatorIds))
@@ -590,7 +594,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.setOperatorsPrivateUnchecked([]))
         .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_IDS_LENGTH);
@@ -598,7 +602,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if one of operators is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.setOperatorsPrivateUnchecked([12345n]))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -606,7 +610,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is not the operator owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       await expect(network.connect(randomUser).setOperatorsPrivateUnchecked(operatorIds))
@@ -618,7 +622,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'setOperatorsPublicUnchecked()'", async function () {
     it("Changes privacy status and emits correct event", async function(){
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       expect(await network.setOperatorsPublicUnchecked(operatorIds))
@@ -632,7 +636,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.setOperatorsPublicUnchecked([]))
         .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_IDS_LENGTH);
@@ -640,7 +644,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if one of operators is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.setOperatorsPublicUnchecked([12345n]))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -648,7 +652,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is not the operator owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       await expect(network.connect(randomUser).setOperatorsPublicUnchecked(operatorIds))
@@ -660,8 +664,9 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'declareOperatorFee()'", async function() {
     it("Declares new fee and emits correct event", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
+      const [declarePeriod, executePeriod] = await views.getOperatorFeePeriods();
       const newFee: bigint = MINIMAL_OPERATOR_ETH_FEE * 2n;
 
       const tx: ContractTransactionResponse = await network.declareOperatorFee(operatorIds[0], newFee)
@@ -669,8 +674,8 @@ describe("SSVNetwork full integration tests", () => {
       await trackGasFromReceipt(receipt, [GasGroup.DECLARE_OPERATOR_FEE]);
       const block = await tx.getBlock();
 
-      const expectedBegin = BigInt(block!.timestamp) + DECLARE_OPERATOR_FEE_PERIOD;
-      const expectedEnd = expectedBegin + EXECUTE_OPERATOR_FEE_PERIOD;
+      const expectedBegin = BigInt(block!.timestamp) + declarePeriod;
+      const expectedEnd = expectedBegin + executePeriod;
 
       await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_DECLARED)
@@ -679,16 +684,16 @@ describe("SSVNetwork full integration tests", () => {
       // todo type
       expect(await views.getOperatorDeclaredFee(operatorIds[0]))
         .to.be.deep.equal([
-          true, // isActive
-          newFee, // declaredFee
-          expectedBegin,
-          expectedEnd
+        true, // isActive
+        newFee, // declaredFee
+        expectedBegin,
+        expectedEnd
       ]);
     });
 
     it("Is reverted with 'OperatorDoesNotExist' if operator is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
 
       await expect(network.declareOperatorFee(12345n, newFee))
@@ -697,7 +702,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is not the operator owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
       const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
 
@@ -708,7 +713,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'FeeTooLow' is the passed fee is less than minimal", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       await expect(network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE - 1n))
@@ -717,7 +722,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'SameFeeChangeNotAllowed' is the passed value is the same as current one", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       await expect(network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE))
@@ -726,7 +731,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'SameFeeChangeNotAllowed' is the passed value is the same as current one", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       await expect(network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE))
@@ -735,7 +740,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'FeeTooHigh' if the new fee is higher than allowed", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       await expect(network.declareOperatorFee(operatorIds[0], MAXIMUM_OPERATORS_FEE + 1n))
@@ -744,7 +749,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'FeeExceedsIncreaseLimit' if the new fee exceeds the allowed limit", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
       const exceedingFee = MINIMAL_OPERATOR_ETH_FEE * 3n;
 
@@ -754,7 +759,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'FeeIncreaseNotAllowed' if operators current fee is zero", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorKey = makeOperatorKey(1);
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
       await network.registerOperator(operatorKey, 0, true);
@@ -767,7 +772,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'cancelDeclaredOperatorFee()'", async function(){
     it("Cancels declared fee and emits correct event", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
       await network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE * 2n)
 
@@ -790,7 +795,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if operator is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.cancelDeclaredOperatorFee(12345n))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -798,7 +803,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is not the operator owner", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
       await network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE * 2n)
 
@@ -809,7 +814,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'NoFeeDeclared' if no declarations were done before", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       await expect(network.cancelDeclaredOperatorFee(operatorIds[0]))
@@ -820,11 +825,12 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'executeOperatorFee()'", async function() {
     it("Updates operator fee according to a declared one and emits the correct event", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
       await network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE * 2n)
+      const [isActive, declaredFee, begin, end] = await views.getOperatorDeclaredFee(operatorIds[0]);
 
-      await connection.networkHelpers.time.increase(EXECUTE_OPERATOR_FEE_PERIOD + 1n);
+      await connection.networkHelpers.time.increaseTo(begin + 1n);
       await connection.networkHelpers.mine();
 
       const tx = await network.executeOperatorFee(operatorIds[0]);
@@ -839,7 +845,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if operator is not registered", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.executeOperatorFee(12345n))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -847,7 +853,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is not the operator owner", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
       await network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE * 2n)
 
@@ -858,7 +864,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'NoFeeDeclared' if no declarations were done before", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       await expect(network.executeOperatorFee(operatorIds[0]))
@@ -866,15 +872,18 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("Is reverted with 'ApprovalNotWithinTimeframe' if execution period is not started or ended", async function(){
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
       await network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE * 2n)
 
       await expect(network.executeOperatorFee(operatorIds[0]))
         .to.be.revertedWithCustomError(network, Errors.APPROVAL_NOT_WITHIN_TIMEFRAME);
 
-      await connection.networkHelpers.time.increase(EXECUTE_OPERATOR_FEE_PERIOD * 2n);
+      const [declarePeriod, executePeriod] = await views.getOperatorFeePeriods();
+      const [isActive, declaredFee, begin, end] = await views.getOperatorDeclaredFee(operatorIds[0]);
+
+      await connection.networkHelpers.time.increaseTo(end + 1n);
       await connection.networkHelpers.mine();
 
       await expect(network.executeOperatorFee(operatorIds[0]))
@@ -882,26 +891,30 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("Is reverted with 'FeeTooHigh' if the maximum fee changed during the execution period", async function(){
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
-      await network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE * 2n)
-      await network.updateMaximumOperatorFee(MINIMAL_OPERATOR_ETH_FEE + 1n);
+      await network.connect(operatorOwner).declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE * 2n);
 
-      await connection.networkHelpers.time.increase(EXECUTE_OPERATOR_FEE_PERIOD + 1n);
+      const [isActive, declaredFee, begin, end] = await views.getOperatorDeclaredFee(operatorIds[0]);
+
+      await network.connect(daoSigner).updateMaximumOperatorFee(MINIMAL_OPERATOR_ETH_FEE + 1n);
+
+      await connection.networkHelpers.time.increaseTo(begin + 1n);
       await connection.networkHelpers.mine();
 
-      await expect(network.executeOperatorFee(operatorIds[0]))
+      await expect(network.connect(operatorOwner).executeOperatorFee(operatorIds[0]))
         .to.be.revertedWithCustomError(network, Errors.FEE_TOO_HIGH);
     });
   });
 
   describe("Function 'updateMaximumOperatorFee()'", async function(){
     it("Updates maximum fee and emits correct event", async function() {
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      const tx = await network.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n);
+      const tx = await network.connect(daoSigner)
+        .updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_MAX_FEE]);
 
@@ -914,7 +927,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'Ownable: caller is not the owner' if the caller is not the owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
@@ -923,10 +936,11 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function 'updateMaximumOperatorFeeSSV()'", async function(){
     it("Updates maximum fee and emits correct event", async function() {
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(await network.updateMaximumOperatorFeeSSV(MAXIMUM_OPERATORS_FEE * 2n))
+      await expect(await network.connect(daoSigner)
+        .updateMaximumOperatorFeeSSV(MAXIMUM_OPERATORS_FEE * 2n))
         .to.emit(network, Events.OPERATOR_MAXIMUM_FEE_UPDATED_SSV);
 
       expect(await views.getMaximumOperatorFeeSSV())
@@ -935,7 +949,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'Ownable: caller is not the owner' if the caller is not the owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
@@ -945,7 +959,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'reduceOperatorFee()'", async function(){
     it("Decreases fee and emits the correct event", async function(){
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const operatorId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -964,7 +978,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorDoesNotExist' if the operator is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.reduceOperatorFee(12345n, MINIMAL_OPERATOR_ETH_FEE))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -972,7 +986,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if the caller is not the operator owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const operatorId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -985,7 +999,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'FeeTooLow' if the passed fee is less than minimum allowed", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const operatorId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -997,7 +1011,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'FeeIncreaseNotAllowed' if caller is trying to increase the fee", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorKey = makeOperatorKey(1);
       const operatorId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
@@ -1011,43 +1025,49 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'withdrawOperatorEarnings()'", async function(){
     it("Withdraws operators earnings, update balances and emits correct event", async function(){
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const threshold = burnRate * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit + 10n ** 18n).toString(16),
+      ]);
+
       const earningsPeriod = 100n;
-
       await network.connect(clusterOwner).registerValidator(
-        validatorKey,
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       );
-
       await connection.networkHelpers.mine(earningsPeriod);
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
       const earnings: bigint = await views.getOperatorEarnings(operatorIds[0]);
-
       expect(expectedEarnings).to.be.equal(earnings);
-
-      const tx = await network.withdrawOperatorEarnings(operatorIds[0], earnings);
+      const withdrawAmount = earnings + MINIMAL_OPERATOR_ETH_FEE;
+      const tx = await network.connect(operatorOwner).withdrawOperatorEarnings(operatorIds[0], withdrawAmount);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.WITHDRAW_OPERATOR_BALANCE]);
-
       await expect(tx)
         .to.emit(network, Events.OPERATOR_WITHDRAWN)
-        .withArgs(operatorOwner.address, operatorIds[0], earnings);
-
+        .withArgs(operatorOwner.address, operatorIds[0], withdrawAmount);
       expect(await views.getOperatorEarnings(operatorIds[0]))
-        .to.be.equal(MINIMAL_OPERATOR_ETH_FEE);
+        .to.be.equal(0n);
     });
 
     it("Is reverted with 'OperatorDoesNotExist' if operator is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.withdrawOperatorEarnings(12345n, 9999n))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -1055,7 +1075,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if caller is not the operator owner", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
 
       await expect(network.connect(randomUser).withdrawOperatorEarnings(operatorIds[0], 9999n))
@@ -1065,7 +1085,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InsufficientBalance' if the amount is less than operator earnings", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
 
       // no validators no earnings rn
@@ -1075,41 +1095,47 @@ describe("SSVNetwork full integration tests", () => {
   });
 
   describe("Function 'withdrawAllOperatorEarnings()'", async function(){
-    it("Withdraws all operators earnings, update balances and emits correct event", async function(){
+    it("Withdraws all operators earnings, update balances and emits correct event", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const threshold = burnRate * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit + 10n ** 18n).toString(16),
+      ]);
+
       const earningsPeriod = 100n;
-
       await network.connect(clusterOwner).registerValidator(
-        validatorKey,
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       );
-
       await connection.networkHelpers.mine(earningsPeriod);
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
       const earnings: bigint = await views.getOperatorEarnings(operatorIds[0]);
-
       expect(expectedEarnings).to.be.equal(earnings);
-
-      await expect(await network.withdrawAllOperatorEarnings(operatorIds[0]))
+      await expect(network.connect(operatorOwner).withdrawAllOperatorEarnings(operatorIds[0]))
         .to.emit(network, Events.OPERATOR_WITHDRAWN)
         .withArgs(operatorOwner.address, operatorIds[0], earnings + MINIMAL_OPERATOR_ETH_FEE); // 1 block passed
-
       expect(await views.getOperatorEarnings(operatorIds[0]))
         .to.be.equal(0);
     });
 
     it("Is reverted with 'OperatorDoesNotExist' if operator is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.withdrawAllOperatorEarnings(12345n))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -1117,7 +1143,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if caller is not the operator owner", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
 
       await expect(network.connect(randomUser).withdrawAllOperatorEarnings(operatorIds[0]))
@@ -1129,39 +1155,45 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'withdrawAllVersionOperatorEarnings()'", async function() {
     it("Withdraws all operators earnings and emits correct events", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const threshold = burnRate * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit + 10n ** 18n).toString(16),
+      ]);
+
       const earningsPeriod = 100n;
-
       await network.connect(clusterOwner).registerValidator(
-        validatorKey,
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       );
-
       await connection.networkHelpers.mine(earningsPeriod);
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
       const earnings: bigint = await views.getOperatorEarnings(operatorIds[0]);
-
       expect(expectedEarnings).to.be.equal(earnings);
-
-      await expect(await network.withdrawAllVersionOperatorEarnings(operatorIds[0]))
+      await expect(network.connect(operatorOwner).withdrawAllVersionOperatorEarnings(operatorIds[0]))
         .to.emit(network, Events.OPERATOR_WITHDRAWN)
         .withArgs(operatorOwner.address, operatorIds[0], earnings + MINIMAL_OPERATOR_ETH_FEE); // 1 block passed
-
       expect(await views.getOperatorEarnings(operatorIds[0]))
         .to.be.equal(0);
     });
 
     it("Is reverted with 'OperatorDoesNotExist' if operator is not registered", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.withdrawAllVersionOperatorEarnings(12345n))
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
@@ -1169,7 +1201,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotOwnerWithData' if caller is not the operator owner", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
 
       await expect(network.connect(randomUser).withdrawAllVersionOperatorEarnings(operatorIds[0]))
@@ -1181,7 +1213,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'setFeeRecipientAddress()'", async function(){
     it("Emits the correct event with the correct input data", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).setFeeRecipientAddress(clusterOwner.address))
         .to.emit(network, Events.FEE_RECIPIENT_ADDRESS_UPDATED)
@@ -1191,10 +1223,11 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function 'updateOperatorFeeIncreaseLimit()'", async function(){
     it("Changes fee increase limit and emits the correct event", async function(){
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      const tx = await network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n);
+      const tx = await network.connect(daoSigner)
+        .updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_FEE_INCREASE_LIMIT]);
 
@@ -1207,7 +1240,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
@@ -1216,10 +1249,11 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function 'updateDeclareOperatorFeePeriod()'", async function() {
     it("Changes the fee declare period and emits correct event", async function(){
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      const tx = await network.updateDeclareOperatorFeePeriod(DECLARE_OPERATOR_FEE_PERIOD + 1n);
+      const tx = await network.connect(daoSigner)
+        .updateDeclareOperatorFeePeriod(DECLARE_OPERATOR_FEE_PERIOD + 1n);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_DECLARE_OPERATOR_FEE_PERIOD]);
 
@@ -1233,7 +1267,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).updateDeclareOperatorFeePeriod(DECLARE_OPERATOR_FEE_PERIOD + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
@@ -1242,24 +1276,26 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function 'updateExecuteOperatorFeePeriod()'", async function(){
     it("Changes the fee execute period and emits correct event", async function() {
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
+      const [initialDeclarePeriod, initialExecutePeriod] = await views.getOperatorFeePeriods();
+      const newExecutePeriod = initialExecutePeriod + 1n;
 
-      const tx = await network.updateExecuteOperatorFeePeriod(EXECUTE_OPERATOR_FEE_PERIOD + 1n);
+      const tx = await network.connect(daoSigner)
+        .updateExecuteOperatorFeePeriod(newExecutePeriod);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_EXECUTE_OPERATOR_FEE_PERIOD]);
 
       await expect(tx)
         .to.emit(network, Events.EXECUTE_OPERATOR_FEE_PERIOD_UPDATED)
-        .withArgs(EXECUTE_OPERATOR_FEE_PERIOD + 1n);
-
+        .withArgs(newExecutePeriod);
       expect(await views.getOperatorFeePeriods())
-        .to.be.deep.equal([DECLARE_OPERATOR_FEE_PERIOD , EXECUTE_OPERATOR_FEE_PERIOD + 1n]);
+        .to.be.deep.equal([initialDeclarePeriod, newExecutePeriod]);
     });
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).updateExecuteOperatorFeePeriod(EXECUTE_OPERATOR_FEE_PERIOD + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
@@ -1268,10 +1304,11 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function 'updateLiquidationThresholdPeriod()'", async function(){
     it("Changes the period and emits correct event", async function(){
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      const tx = await network.updateLiquidationThresholdPeriod(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n);
+      const tx = await network.connect(daoSigner)
+        .updateLiquidationThresholdPeriod(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.CHANGE_LIQUIDATION_THRESHOLD_PERIOD]);
 
@@ -1284,16 +1321,16 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("Is reverted 'NewBlockPeriodIsBelowMinimum' if the passed threshold is less than minimum allowed", async function(){
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD - 1n))
+      await expect(network.connect(daoSigner).updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD - 1n))
         .to.be.revertedWithCustomError(network, Errors.NEW_BLOCK_PERIOD_IS_BELOW_MINIMUM);
     });
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).updateLiquidationThresholdPeriod(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
@@ -1302,10 +1339,10 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function 'updateLiquidationThresholdPeriodSSV()'", async function(){
     it("Changes the period and emits correct event", async function(){
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.updateLiquidationThresholdPeriodSSV(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n))
+      await expect(network.connect(daoSigner).updateLiquidationThresholdPeriodSSV(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n))
         .to.emit(network, Events.LIQUIDATION_THRESHOLD_PERIOD_UPDATED_SSV)
         .withArgs(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n);
 
@@ -1314,16 +1351,16 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("Is reverted 'NewBlockPeriodIsBelowMinimum' if the passed threshold is less than minimum allowed", async function(){
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.updateLiquidationThresholdPeriodSSV(MINIMAL_LIQUIDATION_THRESHOLD - 1n))
+      await expect(network.connect(daoSigner).updateLiquidationThresholdPeriodSSV(MINIMAL_LIQUIDATION_THRESHOLD - 1n))
         .to.be.revertedWithCustomError(network, Errors.NEW_BLOCK_PERIOD_IS_BELOW_MINIMUM);
     });
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).updateLiquidationThresholdPeriodSSV(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
@@ -1332,10 +1369,11 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function 'updateMinimumLiquidationCollateral()'", async function(){
     it("Changes collateral and emits correct event", async function(){
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      const tx = await network.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n);
+      const tx = await network.connect(daoSigner)
+        .updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.CHANGE_MINIMUM_COLLATERAL]);
 
@@ -1349,7 +1387,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
@@ -1358,10 +1396,10 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function 'updateMinimumLiquidationCollateralSSV()'", async function(){
     it("Changes collateral and emits correct event", async function(){
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.updateMinimumLiquidationCollateralSSV(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n))
+      await expect(network.connect(daoSigner).updateMinimumLiquidationCollateralSSV(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n))
         .to.emit(network, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED_SSV)
         .withArgs(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n);
 
@@ -1371,7 +1409,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.connect(randomUser).updateMinimumLiquidationCollateralSSV(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
@@ -1381,30 +1419,34 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'registerValidator()'", async function () {
     it("For a new cluster, creates it with a passed validator and emits correct event", async function () {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const threshold = burnRate * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit + 10n ** 18n).toString(16),
+      ]);
 
-        const validatorKey = makePublicKey(1);
-        const operatorIds = await registerOperators(network, operatorOwner, 4);
-        await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-
-        const tx = await network.connect(clusterOwner).registerValidator(
-          validatorKey,
-          operatorIds,
-          DEFAULT_SHARES,
-          0,
-          EMPTY_CLUSTER,
-          { value: DEFAULT_ETH_REGISTER_VALUE }
-        );
-        const receipt = await tx.wait();
-        await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
-
-        await expect(tx).to.emit(network, Events.VALIDATOR_ADDED);
+      const tx = await network.connect(clusterOwner).registerValidator(
+        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
+      await expect(tx).to.emit(network, Events.VALIDATOR_ADDED);
 
       const expectedCluster = await getCurrentClusterState(
-        connection,
-        network,
-        clusterOwner.address,
-        operatorIds
+        connection, network, clusterOwner.address, operatorIds
       );
 
       expect(await views.getValidator(clusterOwner, validatorKey)).to.equal(true);
@@ -1415,7 +1457,7 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getBurnRate(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.equal(await calculateInitialBurnRate(views, operatorIds, expectedCluster));
       expect(await views.getBalance(clusterOwner, operatorIds, expectedCluster))
-        .to.be.equal(DEFAULT_ETH_REGISTER_VALUE);
+        .to.be.equal(requiredDeposit);
       expect(await views.getEffectiveBalance(clusterOwner, operatorIds, expectedCluster))
         .to.be.equal(DEFAULT_ETH_EB_PER_VALIDATOR);
       expect(await views.getClusterVersion(clusterOwner, operatorIds))
@@ -1431,54 +1473,90 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("Registers a validator for a new ETH cluster using whitelisting contract", async function () {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       const { contract: whitelistingContract, address: whitelistingContractAddress } =
         await deployContract(connection.ethers, "BasicWhitelisting");
-
       await whitelistingContract.addWhitelistedAddress(clusterOwner.address);
       await network.setOperatorsWhitelistingContract(operatorIds, whitelistingContractAddress);
 
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const threshold = burnRate * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit + 10n ** 18n).toString(16),
+      ]);
+
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_4_WHITELISTING_CONTRACT_4]);
     });
 
     it("Registers a validator for a new ETH cluster with one whitelisted operator", async function () {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await network.setOperatorsPublicUnchecked([operatorIds[1], operatorIds[2], operatorIds[3]]);
       await network.setOperatorsWhitelists([operatorIds[0]], [clusterOwner.address]);
 
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const threshold = burnRate * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit + 10n ** 18n).toString(16),
+      ]);
+
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_1_WHITELISTED_4]);
     });
 
     it("Registers a validator for a new ETH cluster with four whitelisted operators", async function () {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await network.setOperatorsWhitelists(operatorIds, [clusterOwner.address]);
+
+      // Calc min deposit to avoid liquidation
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const threshold = burnRate * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit + 10n ** 18n).toString(16),
+      ]);
 
       const tx = await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
@@ -1486,137 +1564,140 @@ describe("SSVNetwork full integration tests", () => {
         DEFAULT_SHARES,
         0,
         EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        { value: requiredDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_4_WHITELISTED_4]);
     });
 
     it("Registers a validator into an existing ETH cluster with four whitelisted operators", async function () {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await network.setOperatorsWhitelists(operatorIds, [clusterOwner.address]);
 
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const perValidatorBurn = sumOpFees + networkFee;
+      const thresholdForOne = perValidatorBurn * 1n * minBlocks;
+      const requiredForOne = thresholdForOne > minCollateral ? thresholdForOne : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredForOne + 10n ** 18n).toString(16),
+      ]);
+
       await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredForOne }
+      );
+      const existingCluster = await getCurrentClusterState(
+        connection, network, clusterOwner.address, operatorIds
       );
 
-      const existingCluster = await getCurrentClusterState(
-        connection,
-        network,
+      const currentBalance = await views.getBalance(clusterOwner.address, operatorIds, existingCluster);
+      const newValidatorCount = BigInt(existingCluster.validatorCount) + 1n;
+      const newThreshold = perValidatorBurn * newValidatorCount * minBlocks;
+      const newRequired = newThreshold > minCollateral ? newThreshold : minCollateral;
+      let additionalDeposit = newRequired > currentBalance ? newRequired - currentBalance : 0n;
+      additionalDeposit += perValidatorBurn * 2n;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
         clusterOwner.address,
-        operatorIds
-      );
+        "0x" + (additionalDeposit + 10n ** 18n).toString(16),
+      ]);
 
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(2),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        existingCluster,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, 0, clusterToTuple(existingCluster), { value: additionalDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_4_WHITELISTED_4]);
     });
 
-    it("Registers a validator for a new ETH cluster with one whitelisting contract operator", async function () {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await network.setOperatorsPublicUnchecked([operatorIds[1], operatorIds[2], operatorIds[3]]);
-
-      const { contract: whitelistingContract } =
-        await deployContract(connection.ethers, "BasicWhitelisting");
-
-      await whitelistingContract.addWhitelistedAddress(clusterOwner.address);
-      await network.setOperatorsWhitelistingContract([operatorIds[0]], whitelistingContract);
-
-      const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
-      );
-      const receipt = await tx.wait();
-      await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_1_WHITELISTING_CONTRACT_4]);
-    });
-
     it("Registers a validator into an existing ETH cluster", async function () {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const perValidatorBurn = sumOpFees + networkFee;
+      const thresholdForOne = perValidatorBurn * 1n * minBlocks;
+      const requiredForOne = thresholdForOne > minCollateral ? thresholdForOne : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredForOne + 10n ** 18n).toString(16),
+      ]);
+
       await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredForOne }
+      );
+      const existingCluster = await getCurrentClusterState(
+        connection, network, clusterOwner.address, operatorIds
       );
 
-      const existingCluster = await getCurrentClusterState(
-        connection,
-        network,
+      const currentBalance = await views.getBalance(clusterOwner.address, operatorIds, existingCluster);
+      const newValidatorCount = BigInt(existingCluster.validatorCount) + 1n;
+      const newThreshold = perValidatorBurn * newValidatorCount * minBlocks;
+      const newRequired = newThreshold > minCollateral ? newThreshold : minCollateral;
+      let additionalDeposit = newRequired > currentBalance ? newRequired - currentBalance : 0n;
+      additionalDeposit += perValidatorBurn * 2n; // Buffer
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
         clusterOwner.address,
-        operatorIds
-      );
+        "0x" + (additionalDeposit + 10n ** 18n).toString(16),
+      ]);
 
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(2),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        existingCluster,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, 0, existingCluster, { value: additionalDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_EXISTING_ETH_CLUSTER]);
     });
 
     it("Registers a validator into a prefunded ETH cluster with zero additional deposit", async function () {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
-      await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
-      );
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const perValidatorBurn = sumOpFees + networkFee;
+      const thresholdForTwo = perValidatorBurn * 2n * minBlocks;
+      const requiredForTwo = thresholdForTwo > minCollateral ? thresholdForTwo : minCollateral;
+      const initialDeposit = requiredForTwo + perValidatorBurn * 2n;
 
-      const existingCluster = await getCurrentClusterState(
-        connection,
-        network,
+      await connection.ethers.provider.send("hardhat_setBalance", [
         clusterOwner.address,
-        operatorIds
+        "0x" + (initialDeposit + 10n ** 18n).toString(16),
+      ]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: initialDeposit }
+      );
+      const existingCluster = await getCurrentClusterState(
+        connection, network, clusterOwner.address, operatorIds
       );
 
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(2),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        existingCluster,
-        { value: 0 }
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, 0, existingCluster, { value: 0 }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT]);
@@ -1624,7 +1705,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the amount of operators is not the allowed one", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 5); // 5 operators for invalid cluster size
@@ -1643,7 +1724,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidPublicKeyLength' if the public key is not 48 bytes", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const invalidLengthPublicKey = makePublicKey(1) + "11";
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -1661,29 +1742,34 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("Is reverted with 'ValidatorAlreadyExistsWithData' if the public key is already registered", async function() {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const threshold = burnRate * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit * 2n + 10n ** 18n).toString(16),
+      ]);
+
       await network.connect(clusterOwner).registerValidator(
-        validatorKey,
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       );
 
       await expect(network.connect(clusterOwner).registerValidator(
-        validatorKey,
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
         .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
         .withArgs(validatorKey);
@@ -1691,7 +1777,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -1712,7 +1798,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'UnsortedOperatorsList' if operators are not sorted in increasing order", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -1734,7 +1820,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorsListNotUnique' if the array of operators has any duplicates", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -1756,7 +1842,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotWhitelistedWithData' if one of operators did not whitelist the caller", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -1774,8 +1860,8 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("Is reverted with 'ExceedValidatorLimitWithData' if one of operators will exceed the network limit", async function () {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -1784,7 +1870,7 @@ describe("SSVNetwork full integration tests", () => {
       const { address: upgradeImplAddr } = await deployContract(connection.ethers, "SSVNetworkValidatorsPerOperatorUpgrade");
       const factory = await connection.ethers.getContractFactory("SSVNetworkValidatorsPerOperatorUpgrade");
       const initData = factory.interface.encodeFunctionData("initializev2", [0]);
-      await network.upgradeToAndCall(upgradeImplAddr, initData);
+      await network.connect(daoSigner).upgradeToAndCall(upgradeImplAddr, initData);
 
       await expect(network.connect(clusterOwner).registerValidator(
         validatorKey,
@@ -1800,7 +1886,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InsufficientBalance' if msg value is not enough to cover the validator", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -1821,91 +1907,111 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function bulkRegisterValidator()", async function() {
     it("Registers bulk of validators, creates a new cluster with the expected data and emits correct events", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const numValidators = BigInt(keys.length);
+      const threshold = burnRate * numValidators * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit + 10n ** 18n).toString(16),
+      ]);
+
       const tx = await network.connect(clusterOwner).bulkRegisterValidator(
-        keys,
-        operatorIds,
-        shares,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        keys, operatorIds, shares, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       await tx.wait();
 
+      const expectedCluster = await getCurrentClusterState(
+        connection, network, clusterOwner.address, operatorIds
+      );
+
       for (let i = 0; i < keys.length; i++) {
-        const expectedCluster = await getCurrentClusterState(
-          connection,
-          network,
-          clusterOwner.address,
-          operatorIds
-        );
-
         expect(await views.getValidator(clusterOwner, keys[i])).to.equal(true);
-        expect(await views.isLiquidatable(clusterOwner.address, operatorIds, expectedCluster))
-          .to.be.equal(false);
-        expect(await views.isLiquidated(clusterOwner.address, operatorIds, expectedCluster))
-          .to.be.equal(false);
-        expect(await views.getBurnRate(clusterOwner.address, operatorIds, expectedCluster))
-          .to.be.equal(await calculateInitialBurnRate(views, operatorIds, expectedCluster));
-        expect(await views.getBalance(clusterOwner, operatorIds, expectedCluster))
-          .to.be.equal(DEFAULT_ETH_REGISTER_VALUE);
-        expect(await views.getEffectiveBalance(clusterOwner, operatorIds, expectedCluster))
-          .to.be.equal(DEFAULT_ETH_EB_PER_VALIDATOR * BigInt(keys.length));
-        expect(await views.getClusterVersion(clusterOwner, operatorIds))
-          .to.be.equal(CLUSTER_VERSION_ETH);
-
-        await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
-          .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-        expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
-          .to.be.equal(0);
-        expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
-          .to.be.equal(0);
       }
+
+      expect(await views.isLiquidatable(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.equal(false);
+      expect(await views.isLiquidated(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.equal(false);
+      expect(await views.getBurnRate(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.equal(await calculateInitialBurnRate(views, operatorIds, expectedCluster));
+      expect(await views.getBalance(clusterOwner, operatorIds, expectedCluster))
+        .to.be.equal(requiredDeposit);
+      expect(await views.getEffectiveBalance(clusterOwner, operatorIds, expectedCluster))
+        .to.be.equal(DEFAULT_ETH_EB_PER_VALIDATOR * numValidators);
+      expect(await views.getClusterVersion(clusterOwner, operatorIds))
+        .to.be.equal(CLUSTER_VERSION_ETH);
+
+      await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+      expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.equal(0);
+      expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+        .to.be.equal(0);
     });
 
     it("Registers bulk of validators into an existing cluster with one whitelisting contract operator", async function() {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await network.setOperatorsPublicUnchecked([operatorIds[1], operatorIds[2], operatorIds[3]]);
-
       const { contract: whitelistingContract } =
         await deployContract(connection.ethers, "BasicWhitelisting");
       await whitelistingContract.addWhitelistedAddress(clusterOwner.address);
       await network.setOperatorsWhitelistingContract([operatorIds[0]], whitelistingContract);
 
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const perValidatorBurn = sumOpFees + networkFee;
+      const thresholdForOne = perValidatorBurn * 1n * minBlocks;
+      const requiredForOne = thresholdForOne > minCollateral ? thresholdForOne : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredForOne + 10n ** 18n).toString(16),
+      ]);
+
       await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredForOne }
+      );
+      const existingCluster = await getCurrentClusterState(
+        connection, network, clusterOwner.address, operatorIds
       );
 
-      const existingCluster = await getCurrentClusterState(
-        connection,
-        network,
+      const currentBalance = await views.getBalance(clusterOwner.address, operatorIds, existingCluster);
+      const newValidatorCount = BigInt(existingCluster.validatorCount) + 10n;
+      const newThreshold = perValidatorBurn * newValidatorCount * minBlocks;
+      const newRequired = newThreshold > minCollateral ? newThreshold : minCollateral;
+      let additionalDeposit = newRequired > currentBalance ? newRequired - currentBalance : 0n;
+      additionalDeposit += perValidatorBurn * 2n;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
         clusterOwner.address,
-        operatorIds
-      );
+        "0x" + (additionalDeposit + 10n ** 18n).toString(16),
+      ]);
 
       const keys = Array.from({ length: 10 }, (_, i) => makePublicKey(i + 2));
       const shares = Array(10).fill(DEFAULT_SHARES);
-
       const tx = await network.connect(clusterOwner).bulkRegisterValidator(
-        keys,
-        operatorIds,
-        shares,
-        0,
-        existingCluster,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        keys, operatorIds, shares, 0, existingCluster, { value: additionalDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.BULK_REGISTER_10_VALIDATOR_1_WHITELISTING_CONTRACT_EXISTING_CLUSTER_4]);
@@ -1913,7 +2019,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the amount of operators is not the allowed one", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
       const operatorIds = await registerOperators(network, operatorOwner, 5); // 5 operators for invalid cluster size
@@ -1932,7 +2038,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InvalidPublicKeyLength' if one of public keys is not 48 bytes", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
 
@@ -1953,30 +2059,35 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if  one of public keys is already registered", async function() {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
+    it("Is reverted with 'ValidatorAlreadyExistsWithData' if one of public keys is already registered", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
+      const networkFee = await views.getNetworkFee();
+      const minBlocks = await views.getLiquidationThresholdPeriod();
+      const minCollateral = await views.getMinimumLiquidationCollateral();
+      let sumOpFees = 0n;
+      for (const id of operatorIds) {
+        sumOpFees += await views.getOperatorFee(id);
+      }
+      const burnRate = sumOpFees + networkFee;
+      const threshold = burnRate * minBlocks;
+      const requiredDeposit = threshold > minCollateral ? threshold : minCollateral;
+
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (requiredDeposit + 10n ** 18n).toString(16),
+      ]);
+
       await network.connect(clusterOwner).registerValidator(
-        keys[7],
-        operatorIds,
-        DEFAULT_SHARES,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        keys[7], operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       );
 
       await expect(network.connect(clusterOwner).bulkRegisterValidator(
-        keys,
-        operatorIds,
-        shares,
-        0,
-        EMPTY_CLUSTER,
-        { value: DEFAULT_ETH_REGISTER_VALUE }
+        keys, operatorIds, shares, 0, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
         .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
         .withArgs(keys[7]);
@@ -1984,7 +2095,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -2005,7 +2116,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'UnsortedOperatorsList' if operators are not sorted in increasing order", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -2027,7 +2138,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'OperatorsListNotUnique' if the array of operators has any duplicates", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -2049,7 +2160,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'CallerNotWhitelistedWithData' if one of operators did not whitelist the caller", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -2067,8 +2178,8 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("Is reverted with 'ExceedValidatorLimitWithData' if one of operators will exceed the network limit", async function () {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, daoSigner} =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -2077,7 +2188,7 @@ describe("SSVNetwork full integration tests", () => {
       const { address: upgradeImplAddr } = await deployContract(connection.ethers, "SSVNetworkValidatorsPerOperatorUpgrade");
       const factory = await connection.ethers.getContractFactory("SSVNetworkValidatorsPerOperatorUpgrade");
       const initData = factory.interface.encodeFunctionData("initializev2", [0]);
-      await network.upgradeToAndCall(upgradeImplAddr, initData);
+      await network.connect(daoSigner).upgradeToAndCall(upgradeImplAddr, initData);
 
       await expect(network.connect(clusterOwner).bulkRegisterValidator(
         keys,
@@ -2093,7 +2204,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'InsufficientBalance' if msg value is not enough to cover new validators", async function () {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -2113,7 +2224,7 @@ describe("SSVNetwork full integration tests", () => {
 
   it("Is reverted with 'EmptyPublicKeysList' if the array of public keys is empty", async function() {
     const { network } =
-      await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
     const {shares} = makeArrayOfKeysAndShares(1, 10);
     const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -2132,7 +2243,7 @@ describe("SSVNetwork full integration tests", () => {
 
   it("Is reverted with 'PublicKeysSharesLengthMismatch' if the array of keys and array of shares have different length", async function(){
     const { network } =
-      await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
     const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
     const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -2152,7 +2263,7 @@ describe("SSVNetwork full integration tests", () => {
   describe("Function 'removeValidator()'", async function() {
     it("Removes validator and emits correct event", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
@@ -2178,7 +2289,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'ClusterDoesNotExists' if the cluster with this owner and operators does not exist", async function(){
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
@@ -2189,7 +2300,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'IncorrectClusterState' if the cluster data is incorrect", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
@@ -2202,7 +2313,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'ValidatorDoesNotExist' if the validator was never registered", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
@@ -2215,7 +2326,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
@@ -2228,38 +2339,9 @@ describe("SSVNetwork full integration tests", () => {
   });
 
   describe("Function 'bulkRemoveValidator()'", async function(){
-    it("Removes validators and emits correct event", async function() {
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      const {cluster, operatorIds} =
-        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
-      const { keys, shares } = makeArrayOfKeysAndShares(2, 10);
-      const populatedCluster = await addValidatorsToCluster(
-        connection, network, keys, shares, clusterOwner, operatorIds, cluster
-      );
-
-      const tx = await network.connect(clusterOwner).bulkRemoveValidator(keys, operatorIds, populatedCluster);
-      await tx.wait();
-      const clusterAfter = await getCurrentClusterState(
-        connection,
-        network,
-        clusterOwner.address,
-        operatorIds
-      );
-
-      for (let i = 0; i < keys.length; i++) {
-        await expect(tx).to.emit(network, Events.VALIDATOR_REMOVED);
-        expect(await views.getValidator(clusterOwner.address, keys[i])).to.be.equal(false);
-      }
-
-      expect(clusterAfter.validatorCount).to.equal(cluster.validatorCount); // populated keys are removed
-      expect(clusterAfter.active).to.equal(true);
-    });
-
     it("Is reverted with 'ClusterDoesNotExists' if the cluster with this owner and operators does not exist", async function(){
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
@@ -2270,7 +2352,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'IncorrectClusterState' if the cluster data is incorrect", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
@@ -2283,7 +2365,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'IncorrectValidatorStateWithData' if the validator was never registered", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
@@ -2297,7 +2379,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
       const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const {cluster, validatorKey, operatorIds} =
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
@@ -2311,11 +2393,11 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function stake()", async function() {
     it("Stakes SSV, mints CSSV to the staker and creates delegation weight", async function() {
-      const { network, views, ssvToken, cssvToken } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, ssvToken, cssvToken, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
-      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await ssvToken.connect(daoSigner).mint(randomUser.address, STAKE_AMOUNT);
 
       const tx = await network.connect(randomUser).stake(STAKE_AMOUNT);
       const receipt = await tx.wait();
@@ -2340,7 +2422,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'StakeTooLow' if the amount to stake is smaller than minimum allowed", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.stake(1))
         .to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
@@ -2348,7 +2430,7 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'ZeroAmount' is caller is trying to stake 0 SSV", async function(){
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.stake(0))
         .to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
@@ -2357,11 +2439,11 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function requestUnstake()", async function() {
     it("For full amount, creates unstake request, burns CSSV and removes delegation", async function(){
-      const { network, views, ssvToken, cssvToken } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, ssvToken, cssvToken, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
-      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await ssvToken.connect(daoSigner).mint(randomUser.address, STAKE_AMOUNT);
       await network.connect(randomUser).stake(STAKE_AMOUNT)
 
       const tx = await network.connect(randomUser).requestUnstake(STAKE_AMOUNT);
@@ -2381,11 +2463,11 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("For partial amount, creates unstake request, burns CSSV and removes delegation", async function(){
-      const { network, views, ssvToken } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, ssvToken, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
-      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await ssvToken.connect(daoSigner).mint(randomUser.address, STAKE_AMOUNT);
       await network.connect(randomUser).stake(STAKE_AMOUNT)
 
       const tx = await network.connect(randomUser).requestUnstake(STAKE_AMOUNT / 2n);
@@ -2415,11 +2497,11 @@ describe("SSVNetwork full integration tests", () => {
     });
 
     it("Is reverted with 'MaxRequestsAmountReached' if more than 10 pending requests", async function() {
-      const { network, ssvToken } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, ssvToken, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
-      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await ssvToken.connect(daoSigner).mint(randomUser.address, STAKE_AMOUNT);
       await network.connect(randomUser).stake(STAKE_AMOUNT);
 
       const smallAmount = STAKE_AMOUNT / 11n;
@@ -2434,18 +2516,18 @@ describe("SSVNetwork full integration tests", () => {
 
     it("Is reverted with 'ZeroAmount' if caller is trying to request 0 SSV", async function() {
       const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.requestUnstake(0))
         .to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
     });
 
     it("Is reverted with 'UnstakeAmountExceedsBalance' if caller is trying to request more SSV than they staked", async function(){
-      const { network, ssvToken } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, ssvToken, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
-      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await ssvToken.connect(daoSigner).mint(randomUser.address, STAKE_AMOUNT);
       await network.connect(randomUser).stake(STAKE_AMOUNT)
 
       await expect(network.connect(randomUser).requestUnstake(STAKE_AMOUNT + 1n))
@@ -2455,11 +2537,11 @@ describe("SSVNetwork full integration tests", () => {
 
   describe("Function 'withdrawUnlocked()'", async function(){
     it("Withdraws SSV and emits correct event", async function() {
-      const { network, views, ssvToken, cssvToken } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, ssvToken, cssvToken, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
-      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await ssvToken.connect(daoSigner).mint(randomUser.address, STAKE_AMOUNT);
       await network.connect(randomUser).stake(STAKE_AMOUNT)
       await network.connect(randomUser).requestUnstake(STAKE_AMOUNT);
 

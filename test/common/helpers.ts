@@ -78,8 +78,8 @@ export async function registerOperators(network: any, owner: any, count: number)
   return operatorIds;
 }
 
-export async function whitelistAddresses(network: any, operators: number[], addresses: string[]): Promise<void> {
-  const tx = await network.setOperatorsWhitelists(operators, addresses);
+export async function whitelistAddresses(network: any, signer: HardhatEthersSigner, operators: number[], addresses: string[]): Promise<void> {
+  const tx = await network.connect(signer).setOperatorsWhitelists(operators, addresses);
   await tx.wait();
 }
 
@@ -107,6 +107,7 @@ export async function calculateInitialBurnRate(
 export async function registerDefaultCluster(
   connection: any,
   network: SSVNetwork,
+  views: SSVNetworkViews,
   operatorOwner: HardhatEthersSigner,
   clusterOwner: HardhatEthersSigner
 ): Promise<{
@@ -116,14 +117,21 @@ export async function registerDefaultCluster(
 }> {
   const validatorKey = makePublicKey(1);
   const operatorIds = await registerOperators(network, operatorOwner, 4);
-  await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+  await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+  await connection.ethers.provider.send("hardhat_setBalance", [
+    clusterOwner.address,
+    "0x" + (DEFAULT_ETH_REGISTER_VALUE + 10n ** 18n).toString(16),
+  ]);
+
   await network.connect(clusterOwner).registerValidator(
     validatorKey,
     operatorIds,
     DEFAULT_SHARES,
     0,
     EMPTY_CLUSTER,
-    { value: DEFAULT_ETH_REGISTER_VALUE })
+    { value: DEFAULT_ETH_REGISTER_VALUE }
+  );
 
   const cluster = await getCurrentClusterState(
     connection,
@@ -146,6 +154,11 @@ export async function addValidatorsToCluster(
   operatorIds: number[],
   cluster: Cluster
 ): Promise<Cluster> {
+  await connection.ethers.provider.send("hardhat_setBalance", [
+    clusterOwner.address,
+    "0x" + (DEFAULT_ETH_REGISTER_VALUE + 10n ** 18n).toString(16),
+  ]);
+
   await network.connect(clusterOwner).bulkRegisterValidator(
     keys,
     operatorIds,
@@ -228,19 +241,35 @@ export async function getCurrentClusterState(
     .sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
 
   const latestBlock = await provider.getBlockNumber();
+  const minFromBlock = Math.max(0, latestBlock - 199); // limit to last 200 blocks
 
-  const logs = await provider.getLogs({
-    address: networkContract.target as string,
-    fromBlock: 0,
-    toBlock: latestBlock,
-    topics: [null, ownerTopic],
+  let allLogs: any[] = [];
+  let currentTo = latestBlock;
+
+  while (currentTo >= minFromBlock) {
+    const fromBlock = Math.max(currentTo - 9, minFromBlock);
+    const logs = await provider.getLogs({
+      address: networkContract.target as string,
+      fromBlock,
+      toBlock: currentTo,
+      topics: [null, ownerTopic],
+    });
+    allLogs = allLogs.concat(logs);
+    currentTo = fromBlock - 1;
+  }
+
+  allLogs.sort((a, b) => {
+    if (a.blockNumber !== b.blockNumber) {
+      return a.blockNumber - b.blockNumber;
+    }
+    return a.transactionIndex - b.transactionIndex;
   });
 
   const iface = new connection.ethers.Interface(EVENT_ABI);
 
   let latestClusterTuple: any = [0n, 0n, 0n, true, 0n];
 
-  for (const log of logs) {
+  for (const log of allLogs) {
     let decoded;
     try {
       decoded = iface.parseLog(log);
