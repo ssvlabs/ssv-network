@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import { SSVClusters } from "../../modules/SSVClusters.sol";
+import { SSVValidators } from "../../modules/SSVValidators.sol";
 import {ISSVNetworkCore} from "../../interfaces/ISSVNetworkCore.sol";
 import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../../libraries/SSVStorageProtocol.sol";
@@ -12,7 +13,7 @@ import "../../libraries/ClusterLib.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract SSVClustersHarness is SSVClusters {
+contract SSVClustersHarness is SSVClusters, SSVValidators {
     using Counters for Counters.Counter;
     using Types256 for uint256;
     using ClusterLib for Cluster;
@@ -106,6 +107,11 @@ contract SSVClustersHarness is SSVClusters {
 
     function getOperatorEthVUnits(uint64 operatorId) external view returns (uint64) {
         return SSVStorageEB.load().operatorEthVUnits[operatorId];
+    }
+
+    function mockSetEBRoot(uint64 blockNum, bytes32 root) external {
+        StorageEB storage seb = SSVStorageEB.load();
+        seb.ebRoots[blockNum] = root;
     }
 
     function mockEthNetworkFee(uint64 fee) external {

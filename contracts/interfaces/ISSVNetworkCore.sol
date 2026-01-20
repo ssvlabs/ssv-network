@@ -123,8 +123,6 @@ interface ISSVNetworkCore {
     error ZeroAddress();
     error ZeroAmount();
     error InvalidToken();
-    error CooldownActive();
-    error CooldownNotFinished();
     error NothingToClaim();
     error NothingToWithdraw();
     error UnstakeAmountExceedsBalance();
@@ -132,6 +130,7 @@ interface ISSVNetworkCore {
     error NotOracle();
     error AlreadyVoted();
     error OracleAlreadyAssigned();
+    error MaxRequestsAmountReached();
 
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e

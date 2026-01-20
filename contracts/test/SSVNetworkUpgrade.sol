@@ -5,6 +5,7 @@ import "./interfaces/ISSVNetworkT.sol";
 
 import "../interfaces/ISSVClusters.sol";
 import "../interfaces/ISSVOperators.sol";
+import "../interfaces/ISSVValidators.sol";
 import "../interfaces/ISSVDAO.sol";
 import "../interfaces/ISSVViews.sol";
 
@@ -29,7 +30,8 @@ contract SSVNetworkUpgrade is
     ISSVNetworkT,
     ISSVOperators,
     ISSVClusters,
-    ISSVDAO
+    ISSVDAO,
+    ISSVValidators
 {
     using Types256 for uint256;
     using ClusterLib for Cluster;

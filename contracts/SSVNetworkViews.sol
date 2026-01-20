@@ -246,7 +246,10 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.stakedBalanceOf(user);
     }
 
-    function pendingUnstake(address user) external view override returns (uint256 amount, uint256 unlockTime) {
+    function pendingUnstake(address user) external view override returns (
+        uint256[] memory amounts,
+        uint256[] memory unlockTimes
+    ) {
         return ssvNetwork.pendingUnstake(user);
     }
 

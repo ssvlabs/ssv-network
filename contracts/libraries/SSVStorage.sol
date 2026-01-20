@@ -11,7 +11,8 @@ enum SSVModules {
     SSV_DAO,
     SSV_VIEWS,
     SSV_OPERATORS_WHITELIST,
-    SSV_STAKING
+    SSV_STAKING,
+    SSV_VALIDATORS
 }
 
 /// @title SSV Network Storage Data

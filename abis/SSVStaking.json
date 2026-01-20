@@ -79,16 +79,6 @@
   },
   {
     "inputs": [],
-    "name": "CooldownActive",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "CooldownNotFinished",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "EBBelowMinimum",
     "type": "error"
   },
@@ -235,6 +225,11 @@
       }
     ],
     "name": "InvalidWhitelistingContract",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxRequestsAmountReached",
     "type": "error"
   },
   {

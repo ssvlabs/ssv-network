@@ -5,6 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 import { Errors } from "../../common/errors.ts";
 
 describe("SSVDAO function `setQuorumBps()`", async () => {
@@ -27,6 +28,8 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
     const newQuorum = 7500n;
 
     const tx = await dao.setQuorumBps(newQuorum);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.SET_QUORUM]);
 
     await expect(tx)
       .to.emit(dao, Events.QUORUM_UPDATED)

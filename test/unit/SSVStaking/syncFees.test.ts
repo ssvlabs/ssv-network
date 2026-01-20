@@ -6,6 +6,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { STAKE_AMOUNT } from "../../common/constants.ts";
+import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `syncFees()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -25,13 +26,19 @@ describe("SSVStaking function `syncFees()`", async () => {
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const newFees = 1_000_000_000n;
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(newFees);
 
-    const tx = await staking.syncFees();
+    const tx = await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
 
     await expect(tx).to.emit(staking, Events.FEES_SYNCED);
 
@@ -44,7 +51,10 @@ describe("SSVStaking function `syncFees()`", async () => {
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const accBefore = await staking.getAccEthPerShare();
 
@@ -52,7 +62,10 @@ describe("SSVStaking function `syncFees()`", async () => {
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(newFees);
 
-    await staking.syncFees();
+    await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
 
     const accAfter = await staking.getAccEthPerShare();
     expect(accAfter).to.be.greaterThan(accBefore);
@@ -63,7 +76,10 @@ describe("SSVStaking function `syncFees()`", async () => {
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const currentBalance = 1_000_000_000n;
     await staking.mockSetStakingEthPoolBalance(currentBalance);
@@ -71,7 +87,10 @@ describe("SSVStaking function `syncFees()`", async () => {
 
     const accBefore = await staking.getAccEthPerShare();
 
-    await staking.syncFees();
+    await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
 
     const accAfter = await staking.getAccEthPerShare();
     expect(accAfter).to.equal(accBefore);
@@ -86,7 +105,10 @@ describe("SSVStaking function `syncFees()`", async () => {
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(1_000_000_000n);
 
-    await staking.syncFees();
+    await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
 
     const accAfter = await staking.getAccEthPerShare();
     expect(accAfter).to.equal(accBefore);
@@ -97,12 +119,18 @@ describe("SSVStaking function `syncFees()`", async () => {
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const newBalance = 5_000_000_000n;
     await staking.mockSetEthDaoBalance(newBalance);
 
-    await staking.syncFees();
+    await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
 
     const ethDaoBalance = await staking.getEthDaoBalance();
     expect(ethDaoBalance).to.equal(newBalance);
@@ -113,16 +141,25 @@ describe("SSVStaking function `syncFees()`", async () => {
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(1_000_000_000n);
-    await staking.syncFees();
+    await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
 
     const accAfterFirst = await staking.getAccEthPerShare();
 
     await staking.mockSetEthDaoBalance(2_000_000_000n);
-    await staking.syncFees();
+    await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
 
     const accAfterSecond = await staking.getAccEthPerShare();
     expect(accAfterSecond).to.be.greaterThan(accAfterFirst);
@@ -133,13 +170,19 @@ describe("SSVStaking function `syncFees()`", async () => {
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const newFees = 5_000_000_000n;
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(newFees);
 
-    await staking.syncFees();
+    await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
 
     const storedPoolBalance = await staking.getStakingEthPoolBalance();
     expect(storedPoolBalance).to.equal(newFees);
@@ -150,14 +193,20 @@ describe("SSVStaking function `syncFees()`", async () => {
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
-    await staking.stake(STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
 
     const accBefore = await staking.getAccEthPerShare();
 
     const newFees = 1_000_000_000n;
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(newFees);
-    await staking.syncFees();
+    await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
 
     const accAfter = await staking.getAccEthPerShare();
     expect(accAfter).to.be.greaterThan(accBefore);

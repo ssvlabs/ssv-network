@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../../interfaces/ISSVClusters.sol";
+import "../../interfaces/ISSVValidators.sol";
 import "../../interfaces/ISSVNetworkCore.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract GenericWhitelistContract {
-    ISSVClusters private ssvContract;
+    ISSVValidators private ssvContract;
     IERC20 private ssvToken;
 
-    constructor(ISSVClusters _ssvContract, IERC20 _ssvToken) {
+    constructor(ISSVValidators _ssvContract, IERC20 _ssvToken) {
         ssvContract = _ssvContract;
         ssvToken = _ssvToken;
     }

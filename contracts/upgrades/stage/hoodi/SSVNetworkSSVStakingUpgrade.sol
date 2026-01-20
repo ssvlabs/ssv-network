@@ -10,6 +10,7 @@ contract SSVNetworkSSVStakingUpgrade is SSVNetwork {
         StorageStaking storage s = SSVStorageStaking.load();
         s.cssv = cssv_;
         s.cooldownDuration = cooldownDuration_;
+        s.defaultOracleIds = [1,2,3,4];
 
         emit CooldownDurationUpdated(cooldownDuration_);
     }

@@ -41,6 +41,7 @@ export enum SSVModules {
   SSVViews = 3,
   SSVOperatorsWhitelist = 4,
   SSVStaking = 5,
+  SSVValidators = 6
 }
 
 export type NetworkHelpersType =

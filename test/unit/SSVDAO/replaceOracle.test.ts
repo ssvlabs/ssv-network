@@ -6,6 +6,7 @@ import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 import { ethers } from "ethers";
 
 describe("SSVDAO function `replaceOracle()`", async () => {
@@ -31,6 +32,8 @@ describe("SSVDAO function `replaceOracle()`", async () => {
     await dao.mockSetOracle(1, oldOracle.address);
 
     const tx = await dao.replaceOracle(1, newOracle.address);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.REPLACE_ORACLE]);
 
     await expect(tx)
       .to.emit(dao, Events.ORACLE_REPLACED)
