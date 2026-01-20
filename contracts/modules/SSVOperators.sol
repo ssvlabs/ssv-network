@@ -235,7 +235,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         if (version == CoreLib.VERSION_ETH) {
             operator.updateSnapshot(operatorId);
         } else {
-            operator.updateSnapshotSSV(operatorId);
+            operator.updateSnapshotSSV();
         }
 
         uint64 shrunkWithdrawn;

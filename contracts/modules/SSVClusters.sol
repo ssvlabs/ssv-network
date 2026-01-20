@@ -58,7 +58,47 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             revert ClusterNotLiquidatable();
         }
 
-        _executeLiquidation(clusterOwner, msg.sender, hashedCluster, operatorIds, cluster, CoreLib.VERSION_ETH);
+        sp.updateDAO(false, cluster.validatorCount);
+
+        StorageEB storage seb = SSVStorageEB.load();
+
+        ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+        uint64 vUnitsCluster = ebSnapshot.vUnits;
+        if (vUnitsCluster > 0) {
+            uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+
+            if (vUnitsCluster != baselineVUnits) {
+                bool moreThanBaseline = vUnitsCluster > baselineVUnits;
+                uint64 delta = moreThanBaseline ? vUnitsCluster - baselineVUnits : baselineVUnits - vUnitsCluster;
+
+                if (delta != 0) {
+                    if (moreThanBaseline) sp.daoTotalEthVUnits -= delta;
+                    else sp.daoTotalEthVUnits += delta;
+                }
+            }
+
+            uint256 n = operatorIds.length;
+            for (uint256 i; i < n; ++i) {
+                uint64 opId = operatorIds[i];
+                seb.operatorEthVUnits[opId] -= vUnitsCluster;
+            }
+
+            ebSnapshot.vUnits = 0;
+        }
+
+        uint256 balanceLiquidatable = cluster.balance;
+        cluster.balance = 0;
+        cluster.active = false;
+        cluster.index = 0;
+        cluster.networkFeeIndex = 0;
+
+        s.ethClusters[hashedCluster] = cluster.hashClusterData();
+
+        if (balanceLiquidatable > 0) {
+            CoreLib.transferBalance(msg.sender, balanceLiquidatable);
+        }
+
+         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
     }
 
     function liquidateSSV(
@@ -82,12 +122,13 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             sp
         );
 
-        _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndexSSV());
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
+
+        uint256 balanceLiquidatable;
 
         if (
             clusterOwner != msg.sender &&
-            !cluster.isLiquidatableWithEB(
-                hashedCluster,
+            !cluster.isLiquidatable(
                 burnRate,
                 sp.networkFee,
                 sp.minimumBlocksBeforeLiquidationSSV,
@@ -97,7 +138,23 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             revert ClusterNotLiquidatable();
         }
 
-        _executeLiquidation(clusterOwner, msg.sender, hashedCluster, operatorIds, cluster, CoreLib.VERSION_SSV);
+        sp.updateDAOSSV(false, cluster.validatorCount);
+
+        if (cluster.balance != 0) {
+            balanceLiquidatable = cluster.balance;
+            cluster.balance = 0;
+        }
+        cluster.index = 0;
+        cluster.networkFeeIndex = 0;
+        cluster.active = false;
+
+        s.clusters[hashedCluster] = cluster.hashClusterData();
+
+        if (balanceLiquidatable != 0) {
+            CoreLib.transferBalance(msg.sender, balanceLiquidatable);
+        }
+
+        emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
     }
 
     function reactivate(

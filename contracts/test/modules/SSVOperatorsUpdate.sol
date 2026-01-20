@@ -132,7 +132,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
             operator.updateSnapshotSt(operatorId);
             operator.ethFee = feeChangeRequest.fee;
         } else {
-            operator.updateSnapshotStSSV(operatorId);
+            operator.updateSnapshotStSSV();
             operator.ethFee = feeChangeRequest.fee;
             operator.ethValidatorCount = 0;
             operator.ethSnapshot = ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0});
@@ -229,7 +229,7 @@ contract SSVOperatorsUpdate is ISSVOperators {
         if (expectedVersion == CoreLib.VERSION_ETH) {
             operator.updateSnapshot(operatorId);
         } else {
-            operator.updateSnapshotSSV(operatorId);
+            operator.updateSnapshotSSV();
         }
 
         uint64 shrunkWithdrawn;

@@ -350,7 +350,7 @@ contract SSVViews is ISSVViews {
     function getOperatorEarningsSSV(uint64 id) external view override returns (uint256) {
         Operator memory operator = SSVStorage.load().operators[id];
 
-        operator.updateSnapshotSSV(id);
+        operator.updateSnapshotSSV();
         return operator.snapshot.balance.expand();
     }
 
