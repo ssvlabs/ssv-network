@@ -21,6 +21,7 @@ solc-select install 0.8.24 && solc-select use 0.8.24
 echidna test/echidna/CSSVTokenEchidna.sol --contract CSSVTokenEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/CSSVTokenAccessControlEchidna.sol --contract CSSVTokenAccessControlEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVOperatorsEchidna.sol --contract SSVOperatorsEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --config test/echidna/echidna.yaml
 ```
 
 ## Files
@@ -30,6 +31,7 @@ test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
 ├── SSVOperatorsEchidna.sol           # Operators invariants (15 tests)
+├── SSVClustersEchidna.sol            # Clusters invariants (8 tests)
 ├── echidna.yaml
 ├── run-echidna.sh
 └── README.md
@@ -76,3 +78,16 @@ test/echidna/
 | `echidna_owner_only_actions` | Owner-only access enforced |
 | `echidna_remove_cleans_state` | Removal zeroes operator state |
 | `echidna_remove_pays_out` | Removal pays out and reduces holdings |
+
+## SSVClustersEchidna (8 Invariants)
+
+| Property | Description |
+|----------|-------------|
+| `echidna_cluster_hash_consistent` | Stored cluster hash matches local view |
+| `echidna_inactive_clusters_zeroed` | Inactive clusters are zeroed |
+| `echidna_cluster_balance_accounting` | Cluster balance accounting matches totals |
+| `echidna_withdraw_limit_enforced` | Cannot withdraw more than balance |
+| `echidna_withdraw_conserves_balance` | Withdrawals conserve balances |
+| `echidna_owner_withdraw_only` | Only owner can withdraw |
+| `echidna_liquidation_cleans_state` | Liquidation zeroes cluster and pays out |
+| `echidna_reactivate_requires_inactive` | Reactivation only from inactive |

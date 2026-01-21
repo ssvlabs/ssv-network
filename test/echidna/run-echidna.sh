@@ -52,7 +52,7 @@ echo -e "  ${GREEN}✓${NC} solc $REQUIRED_SOLC"
 
 echo ""
 echo "=========================================="
-echo "  [1/3] CSSVTokenEchidna (Core Tests)"
+echo "  [1/4] CSSVTokenEchidna (Core Tests)"
 echo "=========================================="
 echo ""
 
@@ -62,7 +62,7 @@ echidna test/echidna/CSSVTokenEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [2/3] CSSVTokenAccessControlEchidna"
+echo "  [2/4] CSSVTokenAccessControlEchidna"
 echo "=========================================="
 echo ""
 
@@ -72,12 +72,22 @@ echidna test/echidna/CSSVTokenAccessControlEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [3/3] SSVOperatorsEchidna"
+echo "  [3/4] SSVOperatorsEchidna"
 echo "=========================================="
 echo ""
 
 echidna test/echidna/SSVOperatorsEchidna.sol \
     --contract SSVOperatorsEchidna \
+    --config test/echidna/echidna.yaml
+
+echo ""
+echo "=========================================="
+echo "  [4/4] SSVClustersEchidna"
+echo "=========================================="
+echo ""
+
+echidna test/echidna/SSVClustersEchidna.sol \
+    --contract SSVClustersEchidna \
     --config test/echidna/echidna.yaml
 
 echo ""
