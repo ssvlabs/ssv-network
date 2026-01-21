@@ -6,6 +6,7 @@ auto_detect_solc = true
 via_ir = true
 optimizer = true
 optimizer_runs = 200
+evm_version = "cancun"
 
 remappings = [
     "forge-std/=lib/forge-std/src/",
