@@ -20,6 +20,7 @@ solc-select install 0.8.24 && solc-select use 0.8.24
 ```bash
 echidna test/echidna/CSSVTokenEchidna.sol --contract CSSVTokenEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/CSSVTokenAccessControlEchidna.sol --contract CSSVTokenAccessControlEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVOperatorsEchidna.sol --contract SSVOperatorsEchidna --config test/echidna/echidna.yaml
 ```
 
 ## Files
@@ -28,6 +29,7 @@ echidna test/echidna/CSSVTokenAccessControlEchidna.sol --contract CSSVTokenAcces
 test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
+├── SSVOperatorsEchidna.sol           # Operators invariants (15 tests)
 ├── echidna.yaml
 ├── run-echidna.sh
 └── README.md
@@ -54,3 +56,23 @@ test/echidna/
 | `echidna_attacker_cannot_mint` | Unauthorized mint blocked |
 | `echidna_attacker_cannot_burn` | Unauthorized burn blocked |
 | `echidna_only_self_is_staking` | Single authorized address |
+
+## SSVOperatorsEchidna (15 Invariants)
+
+| Property | Description |
+|----------|-------------|
+| `echidna_unique_active_pubkeys` | No duplicate active operator public keys |
+| `echidna_id_monotonic` | Operator IDs strictly increase |
+| `echidna_registered_owners_non_zero` | Owners are non-zero |
+| `echidna_eth_fee_within_max` | ETH fee <= max fee |
+| `echidna_eth_fee_minimum` | ETH fee is 0 or >= minimum |
+| `echidna_declare_does_not_change_fee` | Declaration does not change fee |
+| `echidna_execute_requires_valid_window` | Execute respects approval window |
+| `echidna_execute_rejects_invalid_fee` | Execute rejects invalid fee |
+| `echidna_reduce_fee_decreases` | Reduce strictly decreases fee |
+| `echidna_withdraw_limit_enforced` | Cannot withdraw more than earnings |
+| `echidna_withdraw_all_clears_balance` | withdrawAll clears balance |
+| `echidna_withdraw_conserves_balance` | Withdrawals conserve balances |
+| `echidna_owner_only_actions` | Owner-only access enforced |
+| `echidna_remove_cleans_state` | Removal zeroes operator state |
+| `echidna_remove_pays_out` | Removal pays out and reduces holdings |
