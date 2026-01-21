@@ -22,6 +22,7 @@ echidna test/echidna/CSSVTokenEchidna.sol --contract CSSVTokenEchidna --config t
 echidna test/echidna/CSSVTokenAccessControlEchidna.sol --contract CSSVTokenAccessControlEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVOperatorsEchidna.sol --contract SSVOperatorsEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVValidatorsEchidna.sol --contract SSVValidatorsEchidna --config test/echidna/echidna.yaml
 ```
 
 ## Files
@@ -32,6 +33,7 @@ test/echidna/
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
 ├── SSVOperatorsEchidna.sol           # Operators invariants (15 tests)
 ├── SSVClustersEchidna.sol            # Clusters invariants (8 tests)
+├── SSVValidatorsEchidna.sol          # Validators invariants (7 tests)
 ├── echidna.yaml
 ├── run-echidna.sh
 └── README.md
@@ -91,3 +93,16 @@ test/echidna/
 | `echidna_owner_withdraw_only` | Only owner can withdraw |
 | `echidna_liquidation_cleans_state` | Liquidation zeroes cluster and pays out |
 | `echidna_reactivate_requires_inactive` | Reactivation only from inactive |
+
+## SSVValidatorsEchidna (8 Invariants)
+
+| Property | Description |
+|----------|-------------|
+| `echidna_validator_hash_consistent` | Validator state matches stored operator ids |
+| `echidna_cluster_hash_consistent` | Cluster hash matches local view |
+| `echidna_cluster_validator_counts` | Cluster validatorCount matches active validators |
+| `echidna_operator_validator_counts` | Operator ethValidatorCount matches expectations |
+| `echidna_cluster_balance_accounting` | Cluster balances sum to expected total |
+| `echidna_no_duplicate_validators` | Duplicate validators cannot be registered |
+| `echidna_owner_only_remove` | Only owner can remove validators |
+| `echidna_owner_only_exit` | Only owner can exit validators |
