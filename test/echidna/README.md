@@ -23,6 +23,7 @@ echidna test/echidna/CSSVTokenAccessControlEchidna.sol --contract CSSVTokenAcces
 echidna test/echidna/SSVOperatorsEchidna.sol --contract SSVOperatorsEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVValidatorsEchidna.sol --contract SSVValidatorsEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml
 ```
 
 ## Files
@@ -33,7 +34,8 @@ test/echidna/
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
 ├── SSVOperatorsEchidna.sol           # Operators invariants (15 tests)
 ├── SSVClustersEchidna.sol            # Clusters invariants (8 tests)
-├── SSVValidatorsEchidna.sol          # Validators invariants (7 tests)
+├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
+├── SSVDAOEchidna.sol                 # DAO invariants (13 tests)
 ├── echidna.yaml
 ├── run-echidna.sh
 └── README.md
@@ -106,3 +108,21 @@ test/echidna/
 | `echidna_no_duplicate_validators` | Duplicate validators cannot be registered |
 | `echidna_owner_only_remove` | Only owner can remove validators |
 | `echidna_owner_only_exit` | Only owner can exit validators |
+
+## SSVDAOEchidna (13 Invariants)
+
+| Property | Description |
+|----------|-------------|
+| `echidna_network_fee_matches_expected` | ETH network fee index is consistent with block number |
+| `echidna_network_fee_ssv_matches_expected` | SSV network fee index is consistent with block number |
+| `echidna_liquidation_thresholds_valid` | Liquidation thresholds respect minimums |
+| `echidna_quorum_bps_valid` | Quorum stays within bounds |
+| `echidna_dao_balance_matches_expected` | DAO balance matches token holdings |
+| `echidna_withdraw_limits_enforced` | Withdrawals cannot exceed balance |
+| `echidna_withdraw_conserves_balance` | Withdrawals conserve balances |
+| `echidna_commit_root_only_oracle` | Only oracles can commit roots |
+| `echidna_commit_root_no_duplicate_votes` | Oracles cannot vote twice on the same key |
+| `echidna_commit_root_not_future` | Commit block is not in the future |
+| `echidna_commit_root_not_stale` | Commit block is newer than last committed |
+| `echidna_committed_block_monotonic` | Latest committed block is monotonic |
+| `echidna_oracle_mapping_consistent` | Oracle ID mappings remain consistent |
