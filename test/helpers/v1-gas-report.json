@@ -1,0 +1,642 @@
+{
+  "timestamp": "2026-01-20T13:04:35.178Z",
+  "entries": [
+    {
+      "name": "BULK_EXIT_10_VALIDATOR_10",
+      "maxLimit": 152500,
+      "min": 149421,
+      "max": 149421,
+      "average": 149421,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_EXIT_10_VALIDATOR_13",
+      "maxLimit": 165500,
+      "min": 162341,
+      "max": 162341,
+      "average": 162341,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_EXIT_10_VALIDATOR_4",
+      "maxLimit": 126200,
+      "min": 123585,
+      "max": 123585,
+      "average": 123585,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_EXIT_10_VALIDATOR_7",
+      "maxLimit": 139500,
+      "min": 136504,
+      "max": 136504,
+      "average": 136504,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REGISTER_10_VALIDATOR_1_WHITELISTING_CONTRACT_EXISTING_CLUSTER_4",
+      "maxLimit": 830000,
+      "min": 829413,
+      "max": 829413,
+      "average": 829413,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_10",
+      "maxLimit": 1430500,
+      "min": 1427849,
+      "max": 1427849,
+      "average": 1427849,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_13",
+      "maxLimit": 1740000,
+      "min": 1738195,
+      "max": 1738195,
+      "average": 1738195,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_4",
+      "maxLimit": 818700,
+      "min": 816931,
+      "max": 816931,
+      "average": 816931,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REGISTER_10_VALIDATOR_EXISTING_CLUSTER_7",
+      "maxLimit": 1126500,
+      "min": 1124236,
+      "max": 1124236,
+      "average": 1124236,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REGISTER_10_VALIDATOR_NEW_STATE_10",
+      "maxLimit": 1447000,
+      "min": 1445085,
+      "max": 1445085,
+      "average": 1445085,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REGISTER_10_VALIDATOR_NEW_STATE_13",
+      "maxLimit": 1757000,
+      "min": 1754752,
+      "max": 1754752,
+      "average": 1754752,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REGISTER_10_VALIDATOR_NEW_STATE_4",
+      "maxLimit": 835500,
+      "min": 833576,
+      "max": 833576,
+      "average": 833576,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REGISTER_10_VALIDATOR_NEW_STATE_7",
+      "maxLimit": 1143000,
+      "min": 1141231,
+      "max": 1141231,
+      "average": 1141231,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REMOVE_10_VALIDATOR_10",
+      "maxLimit": 292500,
+      "min": 290843,
+      "max": 290843,
+      "average": 290843,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REMOVE_10_VALIDATOR_13",
+      "maxLimit": 343000,
+      "min": 341479,
+      "max": 341479,
+      "average": 341479,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REMOVE_10_VALIDATOR_4",
+      "maxLimit": 191500,
+      "min": 190056,
+      "max": 190056,
+      "average": 190056,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "BULK_REMOVE_10_VALIDATOR_7",
+      "maxLimit": 241700,
+      "min": 240194,
+      "max": 240194,
+      "average": 240194,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "CANCEL_OPERATOR_FEE",
+      "maxLimit": 41900,
+      "min": 40821,
+      "max": 40821,
+      "average": 40821,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "CHANGE_LIQUIDATION_THRESHOLD_PERIOD",
+      "maxLimit": 41000,
+      "min": 40252,
+      "max": 40252,
+      "average": 40252,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "CHANGE_MINIMUM_COLLATERAL",
+      "maxLimit": 41200,
+      "min": 40403,
+      "max": 40403,
+      "average": 40403,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "DAO_UPDATE_DECLARE_OPERATOR_FEE_PERIOD",
+      "maxLimit": 40900,
+      "min": 40231,
+      "max": 40231,
+      "average": 40231,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "DAO_UPDATE_EXECUTE_OPERATOR_FEE_PERIOD",
+      "maxLimit": 41000,
+      "min": 40198,
+      "max": 40198,
+      "average": 40198,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "DAO_UPDATE_OPERATOR_FEE_INCREASE_LIMIT",
+      "maxLimit": 38200,
+      "min": 37376,
+      "max": 37376,
+      "average": 37376,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "DAO_UPDATE_OPERATOR_MAX_FEE",
+      "maxLimit": 40300,
+      "min": 40231,
+      "max": 40231,
+      "average": 40231,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "DECLARE_OPERATOR_FEE",
+      "maxLimit": 70000,
+      "min": 69658,
+      "max": 69658,
+      "average": 69658,
+      "txCount": 3,
+      "withinLimit": true
+    },
+    {
+      "name": "DEPOSIT",
+      "maxLimit": 77500,
+      "min": 69566,
+      "max": 69566,
+      "average": 69566,
+      "txCount": 2,
+      "withinLimit": true
+    },
+    {
+      "name": "EXECUTE_OPERATOR_FEE",
+      "maxLimit": 52000,
+      "min": 51473,
+      "max": 51473,
+      "average": 51473,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "LIQUIDATE_CLUSTER_10",
+      "maxLimit": 212000,
+      "min": 211792,
+      "max": 211792,
+      "average": 211792,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "LIQUIDATE_CLUSTER_13",
+      "maxLimit": 253000,
+      "min": 252763,
+      "max": 252763,
+      "average": 252763,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "LIQUIDATE_CLUSTER_4",
+      "maxLimit": 130500,
+      "min": 109897,
+      "max": 129851,
+      "average": 127276,
+      "txCount": 13,
+      "withinLimit": true
+    },
+    {
+      "name": "LIQUIDATE_CLUSTER_7",
+      "maxLimit": 171000,
+      "min": 170821,
+      "max": 170821,
+      "average": 170821,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "NETWORK_FEE_CHANGE",
+      "maxLimit": 45800,
+      "min": 45024,
+      "max": 45024,
+      "average": 45024,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REACTIVATE_CLUSTER",
+      "maxLimit": 121500,
+      "min": 121427,
+      "max": 121427,
+      "average": 121427,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REDUCE_OPERATOR_FEE",
+      "maxLimit": 51900,
+      "min": 51142,
+      "max": 51142,
+      "average": 51142,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_OPERATOR",
+      "maxLimit": 137000,
+      "min": 115909,
+      "max": 136460,
+      "average": 116346,
+      "txCount": 12215,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_EXISTING_CLUSTER",
+      "maxLimit": 202000,
+      "min": 179753,
+      "max": 201580,
+      "average": 194304,
+      "txCount": 3,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_EXISTING_CLUSTER_10",
+      "maxLimit": 342700,
+      "min": 342200,
+      "max": 342248,
+      "average": 342224,
+      "txCount": 2,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_EXISTING_CLUSTER_13",
+      "maxLimit": 413700,
+      "min": 412851,
+      "max": 412899,
+      "average": 412875,
+      "txCount": 2,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_EXISTING_CLUSTER_4_WHITELISTED_4",
+      "maxLimit": 204500,
+      "min": 201592,
+      "max": 201592,
+      "average": 201592,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_EXISTING_CLUSTER_7",
+      "maxLimit": 272500,
+      "min": 272063,
+      "max": 272075,
+      "average": 272069,
+      "txCount": 2,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_NEW_STATE",
+      "maxLimit": 236000,
+      "min": 218327,
+      "max": 226021,
+      "average": 223169,
+      "txCount": 59,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_NEW_STATE_1_WHITELISTED_4",
+      "maxLimit": 221000,
+      "min": 220721,
+      "max": 220721,
+      "average": 220721,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_NEW_STATE_1_WHITELISTING_CONTRACT_4",
+      "maxLimit": 231000,
+      "min": 230890,
+      "max": 230890,
+      "average": 230890,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_NEW_STATE_10",
+      "maxLimit": 359500,
+      "min": 358837,
+      "max": 358969,
+      "average": 358919,
+      "txCount": 5,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_NEW_STATE_13",
+      "maxLimit": 430500,
+      "min": 429523,
+      "max": 429583,
+      "average": 429549,
+      "txCount": 5,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_NEW_STATE_4_WHITELISTED_4",
+      "maxLimit": 221500,
+      "min": 218327,
+      "max": 218327,
+      "average": 218327,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_NEW_STATE_7",
+      "maxLimit": 289000,
+      "min": 288737,
+      "max": 288857,
+      "average": 288804,
+      "txCount": 5,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_WITHOUT_DEPOSIT",
+      "maxLimit": 180600,
+      "min": 179849,
+      "max": 179849,
+      "average": 179849,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_WITHOUT_DEPOSIT_10",
+      "maxLimit": 322200,
+      "min": 320492,
+      "max": 320492,
+      "average": 320492,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_WITHOUT_DEPOSIT_13",
+      "maxLimit": 393300,
+      "min": 390939,
+      "max": 390939,
+      "average": 390939,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REGISTER_VALIDATOR_WITHOUT_DEPOSIT_7",
+      "maxLimit": 251600,
+      "min": 250284,
+      "max": 250284,
+      "average": 250284,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REMOVE_MULTIPLE_OPERATOR_WHITELIST_10_10",
+      "maxLimit": 168000,
+      "min": 144991,
+      "max": 144991,
+      "average": 144991,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REMOVE_OPERATOR",
+      "maxLimit": 70500,
+      "min": 70272,
+      "max": 70272,
+      "average": 70272,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REMOVE_OPERATOR_WHITELISTING_CONTRACT",
+      "maxLimit": 43000,
+      "min": 42193,
+      "max": 42193,
+      "average": 42193,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REMOVE_OPERATOR_WHITELISTING_CONTRACT_10",
+      "maxLimit": 130000,
+      "min": 129251,
+      "max": 129251,
+      "average": 129251,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REMOVE_OPERATOR_WITH_WITHDRAW",
+      "maxLimit": 70500,
+      "min": 70272,
+      "max": 70272,
+      "average": 70272,
+      "txCount": 2,
+      "withinLimit": true
+    },
+    {
+      "name": "REMOVE_VALIDATOR",
+      "maxLimit": 114000,
+      "min": 51223,
+      "max": 113866,
+      "average": 103430,
+      "txCount": 7,
+      "withinLimit": true
+    },
+    {
+      "name": "REMOVE_VALIDATOR_10",
+      "maxLimit": 197000,
+      "min": 196720,
+      "max": 196720,
+      "average": 196720,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REMOVE_VALIDATOR_13",
+      "maxLimit": 238500,
+      "min": 238150,
+      "max": 238150,
+      "average": 238150,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "REMOVE_VALIDATOR_7",
+      "maxLimit": 155500,
+      "min": 155293,
+      "max": 155293,
+      "average": 155293,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "SET_MULTIPLE_OPERATOR_WHITELIST_10_10",
+      "maxLimit": 381000,
+      "min": 380595,
+      "max": 380595,
+      "average": 380595,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "SET_OPERATOR_WHITELISTING_CONTRACT",
+      "maxLimit": 70000,
+      "min": 57719,
+      "max": 69863,
+      "average": 63791,
+      "txCount": 2,
+      "withinLimit": true
+    },
+    {
+      "name": "SET_OPERATOR_WHITELISTING_CONTRACT_10",
+      "maxLimit": 375000,
+      "min": 340576,
+      "max": 340576,
+      "average": 340576,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "SET_OPERATORS_PRIVATE_10",
+      "maxLimit": 313000,
+      "min": 312019,
+      "max": 312019,
+      "average": 312019,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "SET_OPERATORS_PUBLIC_10",
+      "maxLimit": 114000,
+      "min": 112814,
+      "max": 112814,
+      "average": 112814,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "UPDATE_OPERATOR_WHITELISTING_CONTRACT",
+      "maxLimit": 70000,
+      "min": null,
+      "max": null,
+      "average": null,
+      "txCount": 0,
+      "withinLimit": true
+    },
+    {
+      "name": "VALIDATOR_EXIT",
+      "maxLimit": 43000,
+      "min": 42660,
+      "max": 42660,
+      "average": 42660,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "WITHDRAW_CLUSTER_BALANCE",
+      "maxLimit": 95000,
+      "min": 94863,
+      "max": 94863,
+      "average": 94863,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "WITHDRAW_NETWORK_EARNINGS",
+      "maxLimit": 62500,
+      "min": 62424,
+      "max": 62424,
+      "average": 62424,
+      "txCount": 1,
+      "withinLimit": true
+    },
+    {
+      "name": "WITHDRAW_OPERATOR_BALANCE",
+      "maxLimit": 64900,
+      "min": 64586,
+      "max": 64838,
+      "average": 64712,
+      "txCount": 2,
+      "withinLimit": true
+    }
+  ],
+  "summary": {
+    "totalOperations": 70,
+    "operationsWithData": 69,
+    "allWithinLimits": true
+  },
+  "commit": "4116763",
+  "branch": "main"
+}
