@@ -102,7 +102,17 @@ echidna test/echidna/SSVValidatorsEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [6/6] SSVDAOEchidna"
+echo "  [6/7] SSVStakingEchidna"
+echo "=========================================="
+echo ""
+
+echidna test/echidna/SSVStakingEchidna.sol \
+    --contract SSVStakingEchidna \
+    --config test/echidna/echidna.yaml
+
+echo ""
+echo "=========================================="
+echo "  [7/7] SSVDAOEchidna"
 echo "=========================================="
 echo ""
 

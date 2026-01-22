@@ -23,6 +23,7 @@ echidna test/echidna/CSSVTokenAccessControlEchidna.sol --contract CSSVTokenAcces
 echidna test/echidna/SSVOperatorsEchidna.sol --contract SSVOperatorsEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVValidatorsEchidna.sol --contract SSVValidatorsEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml
 ```
 
@@ -35,6 +36,7 @@ test/echidna/
 ├── SSVOperatorsEchidna.sol           # Operators invariants (15 tests)
 ├── SSVClustersEchidna.sol            # Clusters invariants (8 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
+├── SSVStakingEchidna.sol             # Staking invariants (12 tests)
 ├── SSVDAOEchidna.sol                 # DAO invariants (13 tests)
 ├── echidna.yaml
 ├── run-echidna.sh
@@ -108,6 +110,23 @@ test/echidna/
 | `echidna_no_duplicate_validators` | Duplicate validators cannot be registered |
 | `echidna_owner_only_remove` | Only owner can remove validators |
 | `echidna_owner_only_exit` | Only owner can exit validators |
+
+## SSVStakingEchidna (12 Invariants)
+
+| Property | Description |
+|----------|-------------|
+| `echidna_sync_fees_handles_decrease` | Sync fees does not fail when earnings decrease |
+| `echidna_sync_fees_never_fails` | Sync fees never fails or mismatches |
+| `echidna_invalid_stake_reverts` | Invalid stake amounts are rejected |
+| `echidna_invalid_unstake_reverts` | Invalid unstake requests are rejected |
+| `echidna_invalid_withdraw_reverts` | Withdraw with no unlocked balance is rejected |
+| `echidna_cssv_supply_matches_users` | cSSV supply matches tracked user balances |
+| `echidna_ssv_balance_matches_staked_plus_pending` | Contract SSV balance equals staked plus pending |
+| `echidna_pool_matches_dao_balance` | ETH pool balance matches DAO balance |
+| `echidna_pending_requests_bounded` | Withdrawal request count stays within bounds |
+| `echidna_user_index_leq_acc` | User index never exceeds global accumulator |
+| `echidna_accrued_within_pool` | Accrued rewards stay within pool balance |
+| `echidna_oracle_weights_match_supply` | Oracle weights sum equals cSSV supply |
 
 ## SSVDAOEchidna (13 Invariants)
 
