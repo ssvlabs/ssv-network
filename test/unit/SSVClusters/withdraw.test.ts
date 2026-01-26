@@ -71,7 +71,7 @@ describe("SSVClusters function `withdraw()`", async () => {
     const harnessBalanceBefore = await provider.getBalance(harnessAddress);
 
     const withdrawTx = await clusters.withdraw(operatorIds, withdrawAmount, clusterBeforeWithdraw);
-    const withdrawReceipt = await withdrawTx.wait();
+    const withdrawReceipt: any = await withdrawTx.wait();
     await trackGasFromReceipt(withdrawReceipt, [GasGroup.WITHDRAW_CLUSTER_BALANCE]);
     const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
     const eventArgs = getClusterWithdrawnEventArgs(clusters, withdrawReceipt);
@@ -89,7 +89,7 @@ describe("SSVClusters function `withdraw()`", async () => {
     expect(clusterAfterWithdraw.balance).to.equal(clusterBeforeWithdraw.balance - withdrawAmount);
 
     expect(harnessBalanceBefore - harnessBalanceAfter).to.equal(withdrawAmount);
-    expect(ownerBalanceAfter - ownerBalanceBefore + gasCost).to.equal(withdrawAmount);
+    expect(ownerBalanceAfter - ownerBalanceBefore + BigInt(gasCost)).to.equal(withdrawAmount);
 
     await expect(clusters.withdraw(operatorIds, 1n, clusterBeforeWithdraw))
       .to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_STATE);

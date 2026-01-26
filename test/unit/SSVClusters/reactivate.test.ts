@@ -154,14 +154,12 @@ describe("SSVClusters function `reactivate()`", async () => {
 
     await expect(clusters.reactivate(
       operatorIds,
-      0,
       clusterAfterLiquidation,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
 
     const reactivateTx = await clusters.reactivate(
       operatorIds,
-      0,
       clusterAfterLiquidation,
       { value: ethers.parseEther("30") }
     );

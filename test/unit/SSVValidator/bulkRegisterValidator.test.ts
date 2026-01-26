@@ -70,7 +70,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -92,7 +91,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       makePublicKey(100),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -110,7 +108,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       existingCluster,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );

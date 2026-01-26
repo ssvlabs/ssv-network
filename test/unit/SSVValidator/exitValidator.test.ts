@@ -67,7 +67,6 @@ describe("SSVClusters function `exitValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );

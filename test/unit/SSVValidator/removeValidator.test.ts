@@ -93,7 +93,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -273,7 +272,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       pk1,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -284,7 +282,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       pk2,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       clusterAfter1,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -331,7 +328,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );

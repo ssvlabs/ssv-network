@@ -81,7 +81,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -102,7 +101,7 @@ describe("SSVClusters function `liquidate()`", async () => {
       operatorIds,
       clusterAfterRegister
     );
-    const receipt = await tx.wait();
+    const receipt: any = await tx.wait();
 
     const liquidatorBalanceAfter = await connection.ethers.provider.getBalance(otherAccount.address);
     const harnessBalanceAfter = await connection.ethers.provider.getBalance(harnessAddress);
@@ -110,8 +109,8 @@ describe("SSVClusters function `liquidate()`", async () => {
     const payout = harnessBalanceBefore - harnessBalanceAfter;
     expect(payout).to.be.greaterThan(0n);
 
-    const gasCost = receipt.gasUsed * (receipt.effectiveGasPrice ?? receipt.gasPrice);
-    expect(liquidatorBalanceAfter - liquidatorBalanceBefore + gasCost).to.equal(payout);
+    const gasCost = receipt!.gasUsed * (receipt.effectiveGasPrice ?? receipt!.gasPrice);
+    expect(liquidatorBalanceAfter - liquidatorBalanceBefore + BigInt(gasCost)).to.equal(payout);
   });
 
   it("Updates operatorEthVUnits on liquidation even when cluster EB snapshot is not set", async function () {
@@ -124,7 +123,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -156,7 +154,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -167,7 +164,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       makePublicKey(2),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       clusterAfter1,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -178,7 +174,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       makePublicKey(3),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       clusterAfter2,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );

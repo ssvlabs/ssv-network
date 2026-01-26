@@ -88,7 +88,6 @@ describe("SSVClusters function `deposit()`", async () => {
       clusters.deposit(
         clusterOwner.address,
         operatorIds,
-        0,
         clusterBeforeDeposit,
         { value: depositAmount }
       ),
