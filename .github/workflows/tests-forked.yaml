@@ -30,7 +30,7 @@ jobs:
           HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
 
       - name: Run fork tests
-        run: npx hardhat test test-forked/fullIntegrationForked.test.ts
+        run: npx hardhat test test-forked/v2.0.0/fullIntegrationForked.test.ts
         env:
           REPORT_GAS: 'true'
           NO_GAS_ENFORCE: '1'
