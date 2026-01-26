@@ -4,6 +4,8 @@ import { defineConfig, configVariable } from "hardhat/config";
 import '@nomicfoundation/hardhat-ethers-chai-matchers';
 import '@nomicfoundation/hardhat-verify';
 
+const isCoverage = process.env.COVERAGE === "true";
+
 export default defineConfig({
   plugins: [hardhatToolboxMochaEthersPlugin],
   solidity: {
@@ -21,7 +23,7 @@ export default defineConfig({
           viaIR: true,
           optimizer: {
             enabled: true,
-            runs: 10000,
+            runs: isCoverage ? 200 : 10000,
           },
           evmVersion: 'cancun',
         },
@@ -32,7 +34,7 @@ export default defineConfig({
     hardhat: {
       type: 'edr-simulated',
       allowUnlimitedContractSize: true,
-      blockGasLimit: 100_000_000,
+      blockGasLimit: 500_000_000,
     },
     hardhat_forked: {
       type: 'edr-simulated',

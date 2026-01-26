@@ -8,7 +8,7 @@ test:
     npx hardhat test
 
 coverage:
-    npx hardhat test --coverage
+    COVERAGE=true npx hardhat test --coverage
     genhtml coverage/lcov.info -o coverage/html
 
 sizes:
