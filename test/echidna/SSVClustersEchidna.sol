@@ -6,6 +6,7 @@ import "../../contracts/interfaces/ISSVClusters.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
 import "../../contracts/libraries/SSVStorage.sol";
 import "../../contracts/libraries/SSVStorageProtocol.sol";
+import "../../contracts/libraries/SSVStorageEB.sol";
 import "../../contracts/libraries/ClusterLib.sol";
 import "../../contracts/libraries/OperatorLib.sol";
 import "../../contracts/libraries/ProtocolLib.sol";
@@ -54,6 +55,7 @@ contract SSVClustersEchidna is SSVClusters {
     uint64 private constant DEFAULT_OPERATOR_FEE = 1;
     uint64 private constant DEFAULT_NETWORK_FEE = 1;
     uint64 private constant MIN_BLOCKS_BEFORE_LIQUIDATION = 2;
+    uint32 private constant MAX_ADVANCE_BLOCKS = 8;
 
     ClusterUser private owner1;
     ClusterUser private owner2;
@@ -80,6 +82,7 @@ contract SSVClustersEchidna is SSVClusters {
     bool private unauthorizedWithdrawSucceeded;
     bool private liquidatePayoutMismatch;
     bool private reactivateWhileActiveSucceeded;
+    bool private dustLiquidationFailed;
 
     constructor() {
         ISSVClusters self = ISSVClusters(address(this));
@@ -160,16 +163,66 @@ contract SSVClustersEchidna is SSVClusters {
         ClusterRecord storage record = clusters[clusterId];
         if (!record.exists || !record.cluster.active) return;
 
+        uint32 blocks = uint32((seed >> 16) % MAX_ADVANCE_BLOCKS) + 1;
         uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        OperatorLib.updateClusterOperators(operatorIds, false, 0, s, sp);
+        _fastForwardOperators(operatorIds, blocks);
+        sp.ethNetworkFeeIndex += uint64(blocks) * sp.ethNetworkFee;
+        sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
 
         uint256 burned = _settleCluster(clusterId, record, operatorIds);
         _decreaseExpected(burned);
 
         s.ethClusters[clusterId] = record.cluster.hashClusterData();
+    }
+
+    function action_dust_liquidation(uint256 seed) external {
+        bytes32 clusterId = _pickClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = clusters[clusterId];
+        if (!record.exists || !record.cluster.active) return;
+
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        uint64 burnRate = _burnRate(operatorIds);
+        if (burnRate == 0) return;
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64 vUnits = ClusterLib.getVUnits(clusterId, record.cluster.validatorCount);
+
+        uint128 perBlockUnits = (uint128(burnRate + sp.ethNetworkFee) * uint128(vUnits)) / VUNITS_PRECISION;
+        uint256 perBlock = uint64(perBlockUnits).expand();
+        if (perBlock == 0) return;
+
+        _fastForwardOperators(operatorIds, 2);
+        sp.ethNetworkFeeIndex += 2 * sp.ethNetworkFee;
+        sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
+
+        uint256 burned = _settleCluster(clusterId, record, operatorIds);
+        _decreaseExpected(burned);
+
+        SSVStorage.load().ethClusters[clusterId] = record.cluster.hashClusterData();
+
+        bool liquidatable = record.cluster.isLiquidatableWithEB(
+            clusterId,
+            burnRate,
+            sp.ethNetworkFee,
+            sp.minimumBlocksBeforeLiquidation,
+            sp.minimumLiquidationCollateral
+        );
+
+        if (record.cluster.balance < perBlock && !liquidatable) {
+            dustLiquidationFailed = true;
+            return;
+        }
+
+        if (liquidatable) {
+            try attacker.liquidate(record.owner, operatorIds, record.cluster) {} catch {
+                dustLiquidationFailed = true;
+            }
+        }
     }
 
     function action_withdraw(uint256 seed) external {
@@ -377,6 +430,10 @@ contract SSVClustersEchidna is SSVClusters {
         return !reactivateWhileActiveSucceeded;
     }
 
+    function echidna_dust_liquidation_reachable() external view returns (bool) {
+        return !dustLiquidationFailed;
+    }
+
     function _initProtocolDefaults() internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.validatorsPerOperatorLimit = 1000;
@@ -487,6 +544,42 @@ contract SSVClustersEchidna is SSVClusters {
             clusterIndex += operator.ethSnapshot.index + blockDiff * operator.ethFee;
         }
         return clusterIndex;
+    }
+
+    function _fastForwardOperators(uint64[] memory operatorIds, uint32 blocks) internal {
+        StorageData storage s = SSVStorage.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        uint32 currentBlock = uint32(block.number);
+
+        uint256 count = operatorIds.length;
+        for (uint256 i; i < count; ++i) {
+            uint64 operatorId = operatorIds[i];
+            ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+            if (operator.ethSnapshot.block == 0) continue;
+
+            uint64 blockDiffFee = uint64(blocks) * operator.ethFee;
+            uint64 vUnits = seb.operatorEthVUnits[operatorId];
+            if (vUnits == 0 && operator.ethValidatorCount > 0) {
+                vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
+            }
+
+            operator.ethSnapshot.index += blockDiffFee;
+            if (vUnits != 0 && blockDiffFee != 0) {
+                uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
+                operator.ethSnapshot.balance += uint64(delta);
+            }
+            operator.ethSnapshot.block = currentBlock;
+        }
+    }
+
+    function _burnRate(uint64[] memory operatorIds) internal view returns (uint64) {
+        StorageData storage s = SSVStorage.load();
+        uint64 burnRate = 0;
+        uint256 count = operatorIds.length;
+        for (uint256 i; i < count; ++i) {
+            burnRate += s.operators[operatorIds[i]].ethFee;
+        }
+        return burnRate;
     }
 
     function _decreaseExpected(uint256 amount) internal {

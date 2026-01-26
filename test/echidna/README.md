@@ -22,6 +22,8 @@ echidna test/echidna/CSSVTokenEchidna.sol --contract CSSVTokenEchidna --config t
 echidna test/echidna/CSSVTokenAccessControlEchidna.sol --contract CSSVTokenAccessControlEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVOperatorsEchidna.sol --contract SSVOperatorsEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVAccountingEchidna.sol --contract SSVAccountingEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVEdgeCasesEchidna.sol --contract SSVEdgeCasesEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVValidatorsEchidna.sol --contract SSVValidatorsEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml
@@ -33,8 +35,10 @@ echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/ec
 test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
-├── SSVOperatorsEchidna.sol           # Operators invariants (15 tests)
-├── SSVClustersEchidna.sol            # Clusters invariants (8 tests)
+├── SSVOperatorsEchidna.sol           # Operators invariants (19 tests)
+├── SSVClustersEchidna.sol            # Clusters invariants (9 tests)
+├── SSVAccountingEchidna.sol          # System accounting invariants (4 tests)
+├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (4 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
 ├── SSVStakingEchidna.sol             # Staking invariants (12 tests)
 ├── SSVDAOEchidna.sol                 # DAO invariants (13 tests)
@@ -65,7 +69,7 @@ test/echidna/
 | `echidna_attacker_cannot_burn` | Unauthorized burn blocked |
 | `echidna_only_self_is_staking` | Single authorized address |
 
-## SSVOperatorsEchidna (15 Invariants)
+## SSVOperatorsEchidna (19 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -81,11 +85,15 @@ test/echidna/
 | `echidna_withdraw_limit_enforced` | Cannot withdraw more than earnings |
 | `echidna_withdraw_all_clears_balance` | withdrawAll clears balance |
 | `echidna_withdraw_conserves_balance` | Withdrawals conserve balances |
+| `echidna_earnings_monotonic` | Earnings never decrease without withdrawals |
+| `echidna_fee_change_latency` | Fee change applies only after execution |
+| `echidna_eth_withdraw_keeps_ssv` | ETH withdraws do not touch SSV earnings |
+| `echidna_ssv_withdraw_keeps_eth` | SSV withdraws do not touch ETH earnings |
 | `echidna_owner_only_actions` | Owner-only access enforced |
 | `echidna_remove_cleans_state` | Removal zeroes operator state |
 | `echidna_remove_pays_out` | Removal pays out and reduces holdings |
 
-## SSVClustersEchidna (8 Invariants)
+## SSVClustersEchidna (9 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -97,6 +105,25 @@ test/echidna/
 | `echidna_owner_withdraw_only` | Only owner can withdraw |
 | `echidna_liquidation_cleans_state` | Liquidation zeroes cluster and pays out |
 | `echidna_reactivate_requires_inactive` | Reactivation only from inactive |
+| `echidna_dust_liquidation_reachable` | Dust balances become liquidatable after burn |
+
+## SSVAccountingEchidna (4 Invariants)
+
+| Property | Description |
+|----------|-------------|
+| `echidna_eth_conservation` | ETH conservation across clusters/operators/DAO |
+| `echidna_ssv_conservation` | SSV conservation across clusters/operators/DAO |
+| `echidna_eth_solvency` | ETH solvency for all tracked balances |
+| `echidna_ssv_solvency` | SSV solvency for all tracked balances |
+
+## SSVEdgeCasesEchidna (4 Invariants)
+
+| Property | Description |
+|----------|-------------|
+| `echidna_yoyo_liquidation_reactivates` | Repeated liquidate/reactivate remains reachable |
+| `echidna_reactivation_restores_vunits` | Reactivation restores EB-weighted vUnits |
+| `echidna_validator_spam_safe` | High validator counts do not corrupt snapshots |
+| `echidna_fee_index_overflow_protected` | Fee index overflow paths revert safely |
 
 ## SSVValidatorsEchidna (8 Invariants)
 

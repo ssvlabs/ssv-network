@@ -393,6 +393,18 @@ contract SSVStakingEchidna is SSVStaking {
         s.defaultOracleIds = ids;
     }
 
+    // Override to add access control check (simulating SSVNetwork.sol behavior)
+    function onCSSVTransfer(address from, address to, uint256 amount) external override {
+        StorageStaking storage s = SSVStorageStaking.load();
+        if (msg.sender != s.cssv) revert NotCSSV();
+
+        _syncFees(s);
+        _settle(from, s);
+        _settle(to, s);
+
+        _transferDelegation(from, to, amount, s);
+    }
+
     function _mockSetEthDaoBalance(uint64 balance) internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethDaoBalance = balance;

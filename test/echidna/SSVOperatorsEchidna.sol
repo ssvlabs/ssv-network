@@ -7,6 +7,7 @@ import "../../contracts/test/mocks/MockToken.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
 import "../../contracts/libraries/SSVStorage.sol";
 import "../../contracts/libraries/SSVStorageProtocol.sol";
+import "../../contracts/libraries/SSVStorageEB.sol";
 import "../../contracts/libraries/Types.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -70,7 +71,8 @@ contract SSVOperatorsEchidna is SSVOperators {
 
     uint256 private constant MINIMAL_OPERATOR_ETH_FEE = 10_000_000;
     uint64 private constant MAX_OPERATORS = 8;
-    uint64 private constant MAX_SSV_BALANCE_SHRUNK = 1_000_000;
+    uint32 private constant MAX_ADVANCE_BLOCKS = 8;
+    uint64 private constant MAX_SSV_MINT_UNITS = 1_000_000;
 
     MockToken private token;
 
@@ -88,8 +90,6 @@ contract SSVOperatorsEchidna is SSVOperators {
     mapping(uint64 => uint64) private expectedSsvBalance;
 
     uint64 private lastOperatorId;
-    uint64 private totalExpectedEth;
-    uint64 private totalExpectedSsv;
 
     bool private duplicatePkAllowed;
     bool private nonMonotonicId;
@@ -105,6 +105,10 @@ contract SSVOperatorsEchidna is SSVOperators {
     bool private removalPayoutMismatch;
     bool private removalContractBalanceMismatch;
     bool private declareChangedFee;
+    bool private nonMonotonicEarnings;
+    bool private feeLatencyMismatch;
+    bool private ethWithdrawTouchedSSV;
+    bool private ssvWithdrawTouchedEth;
 
     constructor() {
         token = new MockToken();
@@ -112,6 +116,7 @@ contract SSVOperatorsEchidna is SSVOperators {
         _mockSetOperatorMaxFee(uint64(10 ether));
         _mockSetFeePeriods(1, 10);
         _mockSetOperatorMaxFeeIncrease(10_000);
+        _initProtocolDefaults();
 
         ISSVOperators self = ISSVOperators(address(this));
         user1 = new OperatorUser(self);
@@ -124,6 +129,13 @@ contract SSVOperatorsEchidna is SSVOperators {
 
     function action_fund(uint256 amount) external payable {
         amount;
+    }
+
+    function action_fund_ssv(uint256 seed) external {
+        uint64 units = uint64(seed % (uint256(MAX_SSV_MINT_UNITS) + 1));
+        if (units == 0) return;
+        uint256 amount = uint256(units) * DEDUCTED_DIGITS;
+        token.mint(address(this), amount);
     }
 
     function action_set_max_fee(uint256 seed) external {
@@ -230,28 +242,92 @@ contract SSVOperatorsEchidna is SSVOperators {
         } catch {}
     }
 
-    function action_seed_eth_balance(uint256 idSeed, uint256 ethSeed) external {
+    function action_set_ssv_fee(uint256 idSeed, uint256 feeSeed) external {
         uint64 operatorId = _pickOperatorId(idSeed);
         if (operatorId == 0) return;
         if (!_operatorExists(getOperator(operatorId))) return;
 
-        uint64 currentEth = expectedEthBalance[operatorId];
-        uint64 currentSsv = expectedSsvBalance[operatorId];
-
-        uint64 desiredEth = _capEthAllocation(currentEth, uint64(ethSeed));
-        _setOperatorBalances(operatorId, desiredEth, currentSsv);
+        uint256 fee = _boundFeeSSV(feeSeed);
+        SSVStorage.load().operators[operatorId].fee = fee.shrink();
     }
 
-    function action_seed_ssv_balance(uint256 idSeed, uint256 ssvSeed) external {
+    function action_assign_validators(uint256 idSeed, uint256 deltaSeed, bool eth) external {
         uint64 operatorId = _pickOperatorId(idSeed);
         if (operatorId == 0) return;
-        if (!_operatorExists(getOperator(operatorId))) return;
 
-        uint64 currentEth = expectedEthBalance[operatorId];
-        uint64 currentSsv = expectedSsvBalance[operatorId];
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (!_operatorExists(operator)) return;
 
-        uint64 desiredSsv = uint64(ssvSeed % (uint256(MAX_SSV_BALANCE_SHRUNK) + 1));
-        _setOperatorBalances(operatorId, currentEth, desiredSsv);
+        uint32 delta = uint32(deltaSeed % 64) + 1;
+        if (eth) {
+            if (operator.ethValidatorCount + delta > sp.validatorsPerOperatorLimit) return;
+            operator.ethValidatorCount += delta;
+        } else {
+            if (operator.validatorCount + delta > sp.validatorsPerOperatorLimit) return;
+            operator.validatorCount += delta;
+        }
+    }
+
+    function action_advance_time(uint256 seed) external {
+        uint32 blocks = uint32(seed % MAX_ADVANCE_BLOCKS) + 1;
+        _fastForwardOperators(blocks);
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        sp.ethNetworkFeeIndex += uint64(blocks) * sp.ethNetworkFee;
+        sp.networkFeeIndex += uint64(blocks) * sp.networkFee;
+        sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
+        sp.networkFeeIndexBlockNumber = uint32(block.number);
+    }
+
+    function action_fee_change_latency(uint256 idSeed, uint256 feeSeed, uint256 blocksSeed) external {
+        uint64 operatorId = _pickOperatorId(idSeed);
+        if (operatorId == 0) return;
+        address ownerAddr = operatorOwner[operatorId];
+        if (ownerAddr == address(0)) return;
+
+        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
+        if (!_operatorExists(operator)) return;
+
+        uint256 newFee = _boundFee(feeSeed);
+        if (newFee == operator.ethFee.expand()) return;
+
+        OperatorUser owner = OperatorUser(payable(ownerAddr));
+        try owner.declareFee(operatorId, newFee) {} catch {
+            return;
+        }
+
+        ISSVNetworkCore.OperatorFeeChangeRequest storage request =
+            SSVStorage.load().operatorFeeChangeRequests[operatorId];
+        if (request.approvalBeginTime != 0) {
+            request.approvalBeginTime = uint64(block.timestamp);
+            request.approvalEndTime = uint64(block.timestamp) + 1;
+        }
+
+        uint32 blocks = uint32(blocksSeed % MAX_ADVANCE_BLOCKS) + 1;
+        uint64 indexBefore = operator.ethSnapshot.index;
+        uint64 feeBefore = operator.ethFee;
+
+        _fastForwardSingle(operatorId, blocks);
+        uint64 indexAfterOld = operator.ethSnapshot.index;
+        if (indexAfterOld < indexBefore || indexAfterOld - indexBefore != uint64(blocks) * feeBefore) {
+            feeLatencyMismatch = true;
+            return;
+        }
+
+        try owner.executeFee(operatorId) {} catch {
+            return;
+        }
+
+        uint64 feeAfter = operator.ethFee;
+        uint64 indexMid = operator.ethSnapshot.index;
+
+        _fastForwardSingle(operatorId, blocks);
+        uint64 indexAfterNew = operator.ethSnapshot.index;
+        if (indexAfterNew < indexMid || indexAfterNew - indexMid != uint64(blocks) * feeAfter) {
+            feeLatencyMismatch = true;
+        }
     }
 
     function action_withdraw(uint256 idSeed, uint256 amountSeed) external {
@@ -260,8 +336,11 @@ contract SSVOperatorsEchidna is SSVOperators {
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
 
+        _syncToCurrentBlock(operatorId);
+
         ISSVNetworkCore.Operator memory before = getOperator(operatorId);
         uint64 balance = before.ethSnapshot.balance;
+        uint64 ssvBalanceBefore = before.snapshot.balance;
         if (balance == 0) return;
 
         uint64 withdrawShrunk = _boundWithdrawAmount(balance, amountSeed);
@@ -283,6 +362,9 @@ contract SSVOperatorsEchidna is SSVOperators {
             if (address(this).balance != contractEthBefore - withdrawAmount) {
                 withdrawPayoutMismatch = true;
             }
+            if (getOperator(operatorId).snapshot.balance != ssvBalanceBefore) {
+                ethWithdrawTouchedSSV = true;
+            }
             _updateExpectedBalances(operatorId, afterBalance, expectedSsvBalance[operatorId]);
         } catch {}
     }
@@ -293,8 +375,11 @@ contract SSVOperatorsEchidna is SSVOperators {
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
 
+        _syncToCurrentBlock(operatorId);
+
         ISSVNetworkCore.Operator memory before = getOperator(operatorId);
         uint64 balance = before.ethSnapshot.balance;
+        uint64 ssvBalanceBefore = before.snapshot.balance;
         if (balance == 0) return;
 
         uint256 withdrawAmount = balance.expand();
@@ -315,6 +400,9 @@ contract SSVOperatorsEchidna is SSVOperators {
             if (address(this).balance != contractEthBefore - withdrawAmount) {
                 withdrawPayoutMismatch = true;
             }
+            if (getOperator(operatorId).snapshot.balance != ssvBalanceBefore) {
+                ethWithdrawTouchedSSV = true;
+            }
             _updateExpectedBalances(operatorId, afterBalance, expectedSsvBalance[operatorId]);
         } catch {}
     }
@@ -324,6 +412,8 @@ contract SSVOperatorsEchidna is SSVOperators {
         if (operatorId == 0) return;
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
+
+        _syncToCurrentBlock(operatorId);
 
         uint64 balance = getOperator(operatorId).ethSnapshot.balance;
         if (balance == type(uint64).max) return;
@@ -343,8 +433,11 @@ contract SSVOperatorsEchidna is SSVOperators {
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
 
+        _syncToCurrentBlock(operatorId);
+
         ISSVNetworkCore.Operator memory before = getOperator(operatorId);
         uint64 balance = before.snapshot.balance;
+        uint64 ethBalanceBefore = before.ethSnapshot.balance;
         if (balance == 0) return;
 
         uint64 withdrawShrunk = _boundWithdrawAmount(balance, amountSeed);
@@ -366,6 +459,9 @@ contract SSVOperatorsEchidna is SSVOperators {
             if (token.balanceOf(address(this)) != contractBefore - withdrawAmount) {
                 withdrawPayoutMismatch = true;
             }
+            if (getOperator(operatorId).ethSnapshot.balance != ethBalanceBefore) {
+                ssvWithdrawTouchedEth = true;
+            }
             _updateExpectedBalances(operatorId, expectedEthBalance[operatorId], afterBalance);
         } catch {}
     }
@@ -376,7 +472,11 @@ contract SSVOperatorsEchidna is SSVOperators {
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
 
-        uint64 balance = getOperator(operatorId).snapshot.balance;
+        _syncToCurrentBlock(operatorId);
+
+        ISSVNetworkCore.Operator memory before = getOperator(operatorId);
+        uint64 balance = before.snapshot.balance;
+        uint64 ethBalanceBefore = before.ethSnapshot.balance;
         if (balance == 0) return;
 
         uint256 withdrawAmount = balance.expand();
@@ -397,6 +497,9 @@ contract SSVOperatorsEchidna is SSVOperators {
             if (token.balanceOf(address(this)) != contractBefore - withdrawAmount) {
                 withdrawPayoutMismatch = true;
             }
+            if (getOperator(operatorId).ethSnapshot.balance != ethBalanceBefore) {
+                ssvWithdrawTouchedEth = true;
+            }
             _updateExpectedBalances(operatorId, expectedEthBalance[operatorId], afterBalance);
         } catch {}
     }
@@ -406,6 +509,8 @@ contract SSVOperatorsEchidna is SSVOperators {
         if (operatorId == 0) return;
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
+
+        _syncToCurrentBlock(operatorId);
 
         uint64 balance = getOperator(operatorId).snapshot.balance;
         if (balance == type(uint64).max) return;
@@ -424,6 +529,8 @@ contract SSVOperatorsEchidna is SSVOperators {
         if (operatorId == 0) return;
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
+
+        _syncToCurrentBlock(operatorId);
 
         ISSVNetworkCore.Operator memory before = getOperator(operatorId);
         if (!_operatorExists(before)) return;
@@ -578,6 +685,22 @@ contract SSVOperatorsEchidna is SSVOperators {
         return !withdrawConservationBroken && !withdrawPayoutMismatch;
     }
 
+    function echidna_earnings_monotonic() external view returns (bool) {
+        return !nonMonotonicEarnings;
+    }
+
+    function echidna_fee_change_latency() external view returns (bool) {
+        return !feeLatencyMismatch;
+    }
+
+    function echidna_eth_withdraw_keeps_ssv() external view returns (bool) {
+        return !ethWithdrawTouchedSSV;
+    }
+
+    function echidna_ssv_withdraw_keeps_eth() external view returns (bool) {
+        return !ssvWithdrawTouchedEth;
+    }
+
     function echidna_owner_only_actions() external view returns (bool) {
         return !unauthorizedActionSucceeded;
     }
@@ -617,14 +740,16 @@ contract SSVOperatorsEchidna is SSVOperators {
         SSVStorageProtocol.load().operatorMaxFeeIncrease = increase;
     }
 
-    function _mockSetOperatorBalances(
-        uint64 operatorId,
-        uint64 ethSnapshotBalance,
-        uint64 ssvSnapshotBalance
-    ) internal {
-        StorageData storage s = SSVStorage.load();
-        s.operators[operatorId].ethSnapshot.balance = ethSnapshotBalance;
-        s.operators[operatorId].snapshot.balance = ssvSnapshotBalance;
+    function _initProtocolDefaults() internal {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        sp.validatorsPerOperatorLimit = 3000;
+        sp.ethNetworkFee = 1;
+        sp.networkFee = 1;
+        sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
+        sp.networkFeeIndexBlockNumber = uint32(block.number);
+        sp.ethDaoIndexBlockNumber = uint32(block.number);
+        sp.daoIndexBlockNumber = uint32(block.number);
+        sp.operatorMaxFeeSSV = type(uint64).max;
     }
 
     function _mockSetToken(address tokenAddress) internal {
@@ -681,6 +806,15 @@ contract SSVOperatorsEchidna is SSVOperators {
         return fee;
     }
 
+    function _boundFeeSSV(uint256 seed) internal view returns (uint256) {
+        uint64 maxFee = SSVStorageProtocol.load().operatorMaxFeeSSV;
+        uint256 maxUnits = uint256(maxFee) / DEDUCTED_DIGITS;
+        if (maxUnits == 0) return 0;
+
+        uint256 units = seed % (maxUnits + 1);
+        return units * DEDUCTED_DIGITS;
+    }
+
     function _boundFeeBelow(uint256 currentFee, uint256 seed) internal pure returns (uint256) {
         if (currentFee == 0) return 0;
         if (currentFee <= MINIMAL_OPERATOR_ETH_FEE) return 0;
@@ -704,45 +838,108 @@ contract SSVOperatorsEchidna is SSVOperators {
         return uint64(seed % balance) + 1;
     }
 
-    function _capEthAllocation(uint64 currentEth, uint64 desiredEth) internal view returns (uint64) {
-        if (totalExpectedEth < currentEth) return 0;
-        uint256 maxShrunk = address(this).balance / DEDUCTED_DIGITS;
-        uint256 available = 0;
-        if (maxShrunk > totalExpectedEth - currentEth) {
-            available = maxShrunk - (totalExpectedEth - currentEth);
+    function _fastForwardOperators(uint32 blocks) internal {
+        uint256 count = operatorIds.length;
+        for (uint256 i; i < count; ++i) {
+            _fastForwardSingle(operatorIds[i], blocks);
         }
-        if (available == 0) return 0;
-        if (desiredEth > available) return uint64(available);
-        return desiredEth;
     }
 
-    function _setOperatorBalances(uint64 operatorId, uint64 ethBalance, uint64 ssvBalance) internal {
-        uint64 currentEth = expectedEthBalance[operatorId];
-        uint64 currentSsv = expectedSsvBalance[operatorId];
-        if (totalExpectedEth < currentEth) return;
-        if (totalExpectedSsv < currentSsv) return;
+    function _syncToCurrentBlock(uint64 operatorId) internal {
+        StorageData storage s = SSVStorage.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0) return;
 
-        uint64 nextTotalEth = totalExpectedEth - currentEth + ethBalance;
-        uint64 nextTotalSsv = totalExpectedSsv - currentSsv + ssvBalance;
+        uint32 currentBlock = uint32(block.number);
 
-        _ensureTokenBalance(nextTotalSsv);
+        if (operator.ethSnapshot.block != 0 && operator.ethSnapshot.block < currentBlock) {
+            uint32 blockDiff = currentBlock - operator.ethSnapshot.block;
+            uint64 blockDiffFee = uint64(blockDiff) * operator.ethFee;
 
-        _mockSetOperatorBalances(operatorId, ethBalance, ssvBalance);
+            uint64 vUnits = seb.operatorEthVUnits[operatorId];
+            if (vUnits == 0 && operator.ethValidatorCount > 0) {
+                vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
+            }
 
-        totalExpectedEth = nextTotalEth;
-        totalExpectedSsv = nextTotalSsv;
-        expectedEthBalance[operatorId] = ethBalance;
-        expectedSsvBalance[operatorId] = ssvBalance;
+            operator.ethSnapshot.index += blockDiffFee;
+            if (vUnits != 0 && blockDiffFee != 0) {
+                uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
+                operator.ethSnapshot.balance += uint64(delta);
+            }
+            operator.ethSnapshot.block = currentBlock;
+        }
+
+        if (operator.snapshot.block != 0 && operator.snapshot.block < currentBlock) {
+            uint32 blockDiff = currentBlock - operator.snapshot.block;
+            uint64 blockDiffFee = uint64(blockDiff) * operator.fee;
+
+            uint64 vUnits = seb.operatorVUnits[operatorId];
+            if (vUnits == 0 && operator.validatorCount > 0) {
+                vUnits = operator.validatorCount * VUNITS_PRECISION;
+            }
+
+            operator.snapshot.index += blockDiffFee;
+            if (vUnits != 0 && blockDiffFee != 0) {
+                uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
+                operator.snapshot.balance += uint64(delta);
+            }
+            operator.snapshot.block = currentBlock;
+        }
+
+        expectedEthBalance[operatorId] = operator.ethSnapshot.balance;
+        expectedSsvBalance[operatorId] = operator.snapshot.balance;
+    }
+
+    function _fastForwardSingle(uint64 operatorId, uint32 blocks) internal {
+        StorageData storage s = SSVStorage.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0) return;
+
+        uint32 currentBlock = uint32(block.number);
+        if (operator.ethSnapshot.block != 0) {
+            uint64 blockDiffFee = uint64(blocks) * operator.ethFee;
+            uint64 vUnits = seb.operatorEthVUnits[operatorId];
+            if (vUnits == 0 && operator.ethValidatorCount > 0) {
+                vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
+            }
+
+            operator.ethSnapshot.index += blockDiffFee;
+            if (vUnits != 0 && blockDiffFee != 0) {
+                uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
+                operator.ethSnapshot.balance += uint64(delta);
+            }
+            operator.ethSnapshot.block = currentBlock;
+        }
+
+        if (operator.snapshot.block != 0) {
+            uint64 blockDiffFee = uint64(blocks) * operator.fee;
+            uint64 vUnits = seb.operatorVUnits[operatorId];
+            if (vUnits == 0 && operator.validatorCount > 0) {
+                vUnits = operator.validatorCount * VUNITS_PRECISION;
+            }
+
+            operator.snapshot.index += blockDiffFee;
+            if (vUnits != 0 && blockDiffFee != 0) {
+                uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
+                operator.snapshot.balance += uint64(delta);
+            }
+            operator.snapshot.block = currentBlock;
+        }
+
+        if (operator.ethSnapshot.balance < expectedEthBalance[operatorId]) {
+            nonMonotonicEarnings = true;
+        }
+        if (operator.snapshot.balance < expectedSsvBalance[operatorId]) {
+            nonMonotonicEarnings = true;
+        }
+
+        expectedEthBalance[operatorId] = operator.ethSnapshot.balance;
+        expectedSsvBalance[operatorId] = operator.snapshot.balance;
     }
 
     function _updateExpectedBalances(uint64 operatorId, uint64 ethBalance, uint64 ssvBalance) internal {
-        uint64 currentEth = expectedEthBalance[operatorId];
-        uint64 currentSsv = expectedSsvBalance[operatorId];
-        if (totalExpectedEth < currentEth) return;
-        if (totalExpectedSsv < currentSsv) return;
-
-        totalExpectedEth = totalExpectedEth - currentEth + ethBalance;
-        totalExpectedSsv = totalExpectedSsv - currentSsv + ssvBalance;
         expectedEthBalance[operatorId] = ethBalance;
         expectedSsvBalance[operatorId] = ssvBalance;
     }
@@ -763,14 +960,6 @@ contract SSVOperatorsEchidna is SSVOperators {
             return type(uint64).max;
         }
         return uint64(maxFee);
-    }
-
-    function _ensureTokenBalance(uint64 requiredTotal) internal {
-        uint256 requiredRaw = requiredTotal.expand();
-        uint256 currentRaw = token.balanceOf(address(this));
-        if (currentRaw < requiredRaw) {
-            token.mint(address(this), requiredRaw - currentRaw);
-        }
     }
 
     function _hasPayoutFunds(uint64 ethBalance, uint64 ssvBalance) internal view returns (bool) {

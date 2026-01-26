@@ -52,7 +52,7 @@ echo -e "  ${GREEN}✓${NC} solc $REQUIRED_SOLC"
 
 echo ""
 echo "=========================================="
-echo "  [1/6] CSSVTokenEchidna (Core Tests)"
+echo "  [1/9] CSSVTokenEchidna (Core Tests)"
 echo "=========================================="
 echo ""
 
@@ -62,7 +62,7 @@ echidna test/echidna/CSSVTokenEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [2/6] CSSVTokenAccessControlEchidna"
+echo "  [2/9] CSSVTokenAccessControlEchidna"
 echo "=========================================="
 echo ""
 
@@ -72,7 +72,7 @@ echidna test/echidna/CSSVTokenAccessControlEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [3/6] SSVOperatorsEchidna"
+echo "  [3/9] SSVOperatorsEchidna"
 echo "=========================================="
 echo ""
 
@@ -82,7 +82,7 @@ echidna test/echidna/SSVOperatorsEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [4/6] SSVClustersEchidna"
+echo "  [4/9] SSVClustersEchidna"
 echo "=========================================="
 echo ""
 
@@ -92,7 +92,27 @@ echidna test/echidna/SSVClustersEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [5/6] SSVValidatorsEchidna"
+echo "  [5/9] SSVAccountingEchidna"
+echo "=========================================="
+echo ""
+
+echidna test/echidna/SSVAccountingEchidna.sol \
+    --contract SSVAccountingEchidna \
+    --config test/echidna/echidna.yaml
+
+echo ""
+echo "=========================================="
+echo "  [6/9] SSVEdgeCasesEchidna"
+echo "=========================================="
+echo ""
+
+echidna test/echidna/SSVEdgeCasesEchidna.sol \
+    --contract SSVEdgeCasesEchidna \
+    --config test/echidna/echidna.yaml
+
+echo ""
+echo "=========================================="
+echo "  [7/9] SSVValidatorsEchidna"
 echo "=========================================="
 echo ""
 
@@ -102,7 +122,7 @@ echidna test/echidna/SSVValidatorsEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [6/7] SSVStakingEchidna"
+echo "  [8/9] SSVStakingEchidna"
 echo "=========================================="
 echo ""
 
@@ -112,7 +132,7 @@ echidna test/echidna/SSVStakingEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [7/7] SSVDAOEchidna"
+echo "  [9/9] SSVDAOEchidna"
 echo "=========================================="
 echo ""
 
