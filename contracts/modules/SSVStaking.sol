@@ -199,24 +199,6 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         emit FeesSynced(newFeesWei, s.accEthPerShare);
     }
 
-    function _previewAccEthPerShare(StorageStaking storage s) internal view returns (uint256) {
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-        uint64 current = sp.networkTotalEarnings();
-
-        uint256 idx = s.accEthPerShare;
-        uint64 previous = s.stakingEthPoolBalance;
-
-        uint256 totalStaked = ICSSVToken(s.cssv).totalSupply();
-
-        if (current <= previous || totalStaked == 0) {
-            return idx;
-        }
-
-        uint64 newFeesShrunk = current - previous;
-        uint256 newFeesWei = newFeesShrunk.expand();
-        return idx + (newFeesWei * PRECISION) / totalStaked;
-    }
-
     function _settle(address user, StorageStaking storage s) internal {
         uint256 bal = ICSSVToken(s.cssv).balanceOf(user);
         _settleWithBalance(user, bal, s);
