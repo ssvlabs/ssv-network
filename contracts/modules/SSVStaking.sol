@@ -163,7 +163,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         emit ERC20Rescued(token, to, amount);
     }
 
-    function onCSSVTransfer(address from, address to, uint256 amount) external {
+    function onCSSVTransfer(address from, address to, uint256 amount) external virtual {
         StorageStaking storage s = SSVStorageStaking.load();
 
         _syncFees(s);
@@ -327,12 +327,6 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
                 maxAmount = fromAmounts[i];
                 idxWithMax = i;
             }
-        }
-
-        if (transferred == 0) {
-            // Persist default initialization if it happened
-            fromDel.amounts = fromAmounts;
-            return;
         }
 
         if (transferred < amount && fromOracleIds[idxWithMax] != 0) {

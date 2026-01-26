@@ -1,0 +1,10 @@
+cryticArgs: ["--compile-force-framework", "solc"]
+
+testMode: property
+prefix: "echidna_"
+
+testLimit: 100000
+shrinkLimit: 5000
+seqLen: 200
+
+workers: 4

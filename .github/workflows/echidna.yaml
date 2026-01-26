@@ -1,0 +1,62 @@
+name: Echidna Fuzzing
+
+on:
+  push:
+    paths:
+      - 'contracts/**'
+      - 'test/echidna/**'
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - 'test/echidna/**'
+  workflow_dispatch:
+
+jobs:
+  echidna:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        contract:
+          - SSVClustersEchidna
+          - SSVOperatorsEchidna
+          - SSVAccountingEchidna
+          - SSVEdgeCasesEchidna
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Echidna
+        uses: crytic/echidna-action@v2
+        with:
+          files: test/echidna/${{ matrix.contract }}.sol
+          contract: ${{ matrix.contract }}
+          config: test/echidna/echidna.yaml
+          crytic-args: --compile-force-framework foundry
+          test-mode: property
+          test-limit: 50000
+
+      - name: Upload corpus
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: echidna-corpus-${{ matrix.contract }}
+          path: crytic-export/
+          retention-days: 7
