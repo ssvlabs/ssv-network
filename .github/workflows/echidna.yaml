@@ -40,13 +40,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.github_token }}
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Run Echidna
         uses: crytic/echidna-action@v2
         with:
           files: test/echidna/${{ matrix.contract }}.sol
           contract: ${{ matrix.contract }}
           config: test/echidna/echidna.yaml
-          crytic-args: --compile-force-framework solc
+          crytic-args: --compile-force-framework foundry
           test-mode: property
           test-limit: 50000
 

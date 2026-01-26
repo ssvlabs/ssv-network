@@ -321,7 +321,6 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators, SSVDAO {
         record.cluster.networkFeeIndex = sp.currentNetworkFeeIndexSSV();
 
         sp.updateDAOSSV(true, record.cluster.validatorCount);
-        sp.daoTotalVUnits += uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
 
         s.clusters[clusterId] = record.cluster.hashClusterData();
         unallocatedSsv -= amount;
@@ -448,12 +447,6 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators, SSVDAO {
             record.cluster.index = 0;
             record.cluster.networkFeeIndex = 0;
 
-            uint64 deltaVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-            if (sp.daoTotalVUnits >= deltaVUnits) {
-                sp.daoTotalVUnits -= deltaVUnits;
-            } else {
-                sp.daoTotalVUnits = 0;
-            }
             totalSsvOut += token.balanceOf(address(liquidator)) - liquidatorBefore;
             SSVStorage.load().clusters[clusterId] = record.cluster.hashClusterData();
         } catch {}
@@ -746,15 +739,8 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators, SSVDAO {
                 uint32 diff = currentBlock - operator.snapshot.block;
                 if (diff != 0) {
                     uint64 blockDiffFee = uint64(diff) * operator.fee;
-                    uint64 vUnits = seb.operatorVUnits[operatorId];
-                    if (vUnits == 0 && operator.validatorCount > 0) {
-                        vUnits = operator.validatorCount * VUNITS_PRECISION;
-                    }
                     operator.snapshot.index += blockDiffFee;
-                    if (vUnits != 0 && blockDiffFee != 0) {
-                        uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
-                        operator.snapshot.balance += uint64(delta);
-                    }
+                    operator.snapshot.balance += blockDiffFee * operator.validatorCount;
                     operator.snapshot.block = currentBlock;
                 }
             }
@@ -802,15 +788,8 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators, SSVDAO {
 
             if (operator.snapshot.block != 0) {
                 uint64 blockDiffFee = uint64(blocks) * operator.fee;
-                uint64 vUnits = seb.operatorVUnits[operatorId];
-                if (vUnits == 0 && operator.validatorCount > 0) {
-                    vUnits = operator.validatorCount * VUNITS_PRECISION;
-                }
                 operator.snapshot.index += blockDiffFee;
-                if (vUnits != 0 && blockDiffFee != 0) {
-                    uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
-                    operator.snapshot.balance += uint64(delta);
-                }
+                operator.snapshot.balance += blockDiffFee * operator.validatorCount;
                 operator.snapshot.block = currentBlock;
             }
         }
@@ -825,10 +804,10 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators, SSVDAO {
                 VUNITS_PRECISION;
             sp.ethDaoBalance += uint64(earned);
         }
-        if (sp.daoTotalVUnits != 0 && sp.networkFee != 0) {
-            uint128 earned = (uint128(blocks) * uint128(sp.networkFee) * uint128(sp.daoTotalVUnits)) /
-                VUNITS_PRECISION;
-            sp.daoBalance += uint64(earned);
+
+        if (sp.daoValidatorCount != 0 && sp.networkFee != 0) {
+            uint64 earned = uint64(blocks) * sp.networkFee * sp.daoValidatorCount;
+            sp.daoBalance += earned;
         }
         sp.ethDaoIndexBlockNumber = currentBlock;
         sp.daoIndexBlockNumber = currentBlock;

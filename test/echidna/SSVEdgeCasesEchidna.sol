@@ -238,7 +238,7 @@ contract SSVEdgeCasesEchidna is SSVClusters {
 
         for (uint256 i; i < operatorIds.length; ++i) {
             uint64 opVUnits = seb.operatorEthVUnits[operatorIds[i]];
-            if (opVUnits != 0) {
+            if (opVUnits != newVUnits) {
                 reactivationVUnitsMismatch = true;
             }
         }

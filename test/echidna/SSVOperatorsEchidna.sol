@@ -874,16 +874,8 @@ contract SSVOperatorsEchidna is SSVOperators {
             uint32 blockDiff = currentBlock - operator.snapshot.block;
             uint64 blockDiffFee = uint64(blockDiff) * operator.fee;
 
-            uint64 vUnits = seb.operatorVUnits[operatorId];
-            if (vUnits == 0 && operator.validatorCount > 0) {
-                vUnits = operator.validatorCount * VUNITS_PRECISION;
-            }
-
             operator.snapshot.index += blockDiffFee;
-            if (vUnits != 0 && blockDiffFee != 0) {
-                uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
-                operator.snapshot.balance += uint64(delta);
-            }
+            operator.snapshot.balance += blockDiffFee * operator.validatorCount;
             operator.snapshot.block = currentBlock;
         }
 
@@ -915,16 +907,9 @@ contract SSVOperatorsEchidna is SSVOperators {
 
         if (operator.snapshot.block != 0) {
             uint64 blockDiffFee = uint64(blocks) * operator.fee;
-            uint64 vUnits = seb.operatorVUnits[operatorId];
-            if (vUnits == 0 && operator.validatorCount > 0) {
-                vUnits = operator.validatorCount * VUNITS_PRECISION;
-            }
 
             operator.snapshot.index += blockDiffFee;
-            if (vUnits != 0 && blockDiffFee != 0) {
-                uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
-                operator.snapshot.balance += uint64(delta);
-            }
+            operator.snapshot.balance += blockDiffFee * operator.validatorCount;
             operator.snapshot.block = currentBlock;
         }
 
