@@ -27,7 +27,7 @@ contract ValidatorUser {
         bytes calldata sharesData,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable {
-        validators.registerValidator{value: msg.value}(publicKey, operatorIds, sharesData, 0, cluster);
+        validators.registerValidator{value: msg.value}(publicKey, operatorIds, sharesData, cluster);
     }
 
     function remove(

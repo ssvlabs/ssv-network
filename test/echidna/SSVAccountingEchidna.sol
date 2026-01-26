@@ -55,7 +55,7 @@ contract ClusterUser {
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable {
-        clusters.reactivate{value: msg.value}(operatorIds, 0, cluster);
+        clusters.reactivate{value: msg.value}(operatorIds, cluster);
     }
 }
 
@@ -341,7 +341,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators, SSVDAO {
         uint64[] memory operatorIdsLocal = _operatorIdsForKey(record.operatorsKey);
         ISSVNetworkCore.Cluster memory cluster = record.cluster;
 
-        try this.deposit{value: amount}(record.owner, operatorIdsLocal, 0, cluster) {
+        try this.deposit{value: amount}(record.owner, operatorIdsLocal, cluster) {
             record.cluster.balance += amount;
             unallocatedEth -= amount;
         } catch {}
@@ -614,18 +614,19 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators, SSVDAO {
     }
 
     function _operatorIdsForKey(uint8 key) internal view returns (uint64[] memory) {
+        uint64[] memory ids;
         if (key == 0) {
-            uint64[] memory ids = new uint64[](1);
+            ids = new uint64[](1);
             ids[0] = op1;
             return ids;
         }
         if (key == 1) {
-            uint64[] memory ids = new uint64[](2);
+            ids = new uint64[](2);
             ids[0] = op1;
             ids[1] = op2;
             return ids;
         }
-        uint64[] memory ids = new uint64[](3);
+        ids = new uint64[](3);
         ids[0] = op1;
         ids[1] = op2;
         ids[2] = op3;

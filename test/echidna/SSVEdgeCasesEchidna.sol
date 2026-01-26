@@ -33,7 +33,7 @@ contract ClusterUser {
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable {
-        clusters.reactivate{value: msg.value}(operatorIds, 0, cluster);
+        clusters.reactivate{value: msg.value}(operatorIds, cluster);
     }
 }
 
