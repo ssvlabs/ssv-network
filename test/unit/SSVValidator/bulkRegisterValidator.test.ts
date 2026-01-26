@@ -5,10 +5,11 @@ import { getTestConnection } from '../../setup/connection.ts';
 import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import { createCluster, makePublicKey, makePublicKeys, parseClusterFromEvent } from '../../common/helpers.ts';
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from '../../common/constants.ts';
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import { Errors } from '../../common/errors.ts';
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ethers } from "ethers";
 
 describe("SSVClusters function `bulkRegisterValidator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -33,6 +34,12 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
     return ssvValidatorsHarnessFixture(connection);
   };
 
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
+  };
+
   it("Registers multiple validators, creates new cluster with the expected data and emits correct events", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
@@ -51,6 +58,69 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
 
     // todo check args with pre-calculated cluster
     await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
+  });
+
+  it("Updates operatorEthVUnits even when cluster EB snapshot is not set", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    const publicKeys = [makePublicKey(1), makePublicKey(2)];
+    const shares = [DEFAULT_SHARES, DEFAULT_SHARES];
+
+    const tx = await validators.connect(clusterOwner).bulkRegisterValidator(
+      publicKeys,
+      operatorIds,
+      shares,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    await tx.wait();
+
+    for (const operatorId of operatorIds) {
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION);
+    }
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    expect(await validators.getClusterVUnits(clusterId)).to.equal(0n);
+  });
+
+  it("Increments stored EB snapshot vUnits when cluster EB snapshot is set", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    const registerTx = await validators.connect(clusterOwner).registerValidator(
+      makePublicKey(100),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const existingCluster = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const startVUnits = 5n * VUNITS_PRECISION;
+    await validators.mockSetClusterVUnits(clusterId, startVUnits);
+
+    const publicKeys = [makePublicKey(1), makePublicKey(2)];
+    const shares = [DEFAULT_SHARES, DEFAULT_SHARES];
+
+    const tx = await validators.connect(clusterOwner).bulkRegisterValidator(
+      publicKeys,
+      operatorIds,
+      shares,
+      0,
+      existingCluster,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    await tx.wait();
+
+    expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + 2n * VUNITS_PRECISION);
+    for (const operatorId of operatorIds) {
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION);
+    }
   });
 
   it("Registers 10 validators into a new cluster with 4 operators", async function () {

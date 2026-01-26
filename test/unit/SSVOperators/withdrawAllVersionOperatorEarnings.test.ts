@@ -57,6 +57,66 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
     expect(operatorAfter.snapshot.balance).to.equal(0n);
   });
 
+  it("Withdraws both ETH and SSV earnings when both have balances", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const [owner] = await connection.ethers.getSigners();
+
+    // Deploy MockToken and set it
+    const token = await connection.ethers.deployContract("MockToken");
+    await token.waitForDeployment();
+    await operators.mockSetToken(await token.getAddress());
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+
+    // Fund operators contract with ETH and SSV
+    const harnessAddress = await operators.getAddress();
+    await networkHelpers.setBalance(harnessAddress, connection.ethers.parseEther("1"));
+    await token.mint(harnessAddress, connection.ethers.parseEther("100"));
+
+    // Simulate both ETH and SSV balances
+    const ethBalance = 2n;
+    const ssvBalance = 3n;
+    await operators.mockSetOperatorBalances(1, Number(ethBalance), Number(ssvBalance));
+
+    const ownerSsvBalanceBefore = await token.balanceOf(owner.address);
+
+    await expect(
+      trackGas(
+        operators.withdrawAllVersionOperatorEarnings(1),
+        [GasGroup.WITHDRAW_OPERATOR_BALANCE_ALL_VERSIONS]
+      )
+    ).to.emit(operators, Events.OPERATOR_WITHDRAWN);
+
+    const operatorAfter = await operators.getOperator(1);
+    expect(operatorAfter.ethSnapshot.balance).to.equal(0n);
+    expect(operatorAfter.snapshot.balance).to.equal(0n);
+
+    const ownerSsvBalanceAfter = await token.balanceOf(owner.address);
+    expect(ownerSsvBalanceAfter).to.be.gt(ownerSsvBalanceBefore);
+  });
+
+  it("Succeeds when withdrawing with zero balances (no-op)", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+
+    // Ensure balances are zero
+    await operators.mockSetOperatorBalances(1, 0, 0);
+
+    // Should not revert, just do nothing
+    await operators.withdrawAllVersionOperatorEarnings(1);
+
+    const operatorAfter = await operators.getOperator(1);
+    expect(operatorAfter.ethSnapshot.balance).to.equal(0n);
+    expect(operatorAfter.snapshot.balance).to.equal(0n);
+  });
+
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to withdraw", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 

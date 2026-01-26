@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { ethers } from "ethers";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { getTestConnection } from "../../setup/connection.ts";
@@ -89,5 +90,51 @@ describe("SSVOperators function `registerOperator()`", async () => {
     expect(operatorData.ethFee).to.equal(1n); // MINIMAL_OPERATOR_ETH_FEE shrinks to 1
     expect(operatorData.whitelisted).to.equal(true);
     expect(operatorData.ethSnapshot.block).to.be.greaterThan(0);
+  });
+
+  it("Registers an operator with 0 fee", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const publicKey = makeOperatorKey(1);
+    
+    await expect(operators.registerOperator(publicKey, 0n, false))
+      .to.emit(operators, Events.OPERATOR_ADDED)
+      .withArgs(1n, owner.address, publicKey, 0n);
+      
+    const operatorData = await operators.getOperator(1);
+    expect(operatorData.ethFee).to.equal(0n);
+  });
+
+  it("Registers an operator with exact max fee", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const publicKey = makeOperatorKey(1);
+    
+    await expect(operators.registerOperator(publicKey, MAXIMUM_OPERATORS_FEE, false))
+      .to.emit(operators, Events.OPERATOR_ADDED)
+      .withArgs(1n, owner.address, publicKey, MAXIMUM_OPERATORS_FEE);
+  });
+
+  it("Registers a public operator (whitelisted = false)", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const publicKey = makeOperatorKey(1);
+    
+    await expect(operators.registerOperator(publicKey, MINIMAL_OPERATOR_ETH_FEE, false))
+      .to.emit(operators, Events.OPERATOR_PRIVACY_STATUS_UPDATED)
+      .withArgs([1n], false);
+      
+    const operatorData = await operators.getOperator(1);
+    expect(operatorData.whitelisted).to.equal(false);
+  });
+
+  it("Increments operator ID correctly for multiple registrations", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    
+    await operators.registerOperator(makeOperatorKey(1), MINIMAL_OPERATOR_ETH_FEE, false);
+    await operators.registerOperator(makeOperatorKey(2), MINIMAL_OPERATOR_ETH_FEE, false);
+    
+    const op1 = await operators.getOperator(1);
+    const op2 = await operators.getOperator(2);
+    
+    expect(op1.owner).to.not.equal(ethers.ZeroAddress);
+    expect(op2.owner).to.not.equal(ethers.ZeroAddress);
   });
 });

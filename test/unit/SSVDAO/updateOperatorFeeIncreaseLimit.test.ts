@@ -5,6 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateOperatorFeeIncreaseLimit()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -26,10 +27,29 @@ describe("SSVDAO function `updateOperatorFeeIncreaseLimit()`", async () => {
     const newLimit = 1000n;
 
     const tx = await dao.updateOperatorFeeIncreaseLimit(newLimit);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_FEE_INCREASE_LIMIT]);
 
     await expect(tx)
       .to.emit(dao, Events.OPERATOR_FEE_INCREASE_LIMIT_UPDATED)
       .withArgs(newLimit);
+  });
+
+  it("Can update operator fee increase limit from one value to another", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const firstLimit = 1000n;
+    const secondLimit = 2000n;
+
+    await dao.updateOperatorFeeIncreaseLimit(firstLimit);
+    const tx = await dao.updateOperatorFeeIncreaseLimit(secondLimit);
+
+    await expect(tx)
+      .to.emit(dao, Events.OPERATOR_FEE_INCREASE_LIMIT_UPDATED)
+      .withArgs(secondLimit);
+
+    const storedLimit = await dao.getOperatorMaxFeeIncrease();
+    expect(storedLimit).to.equal(secondLimit);
   });
 
   it("Stores the new operator fee increase limit in storage", async function () {

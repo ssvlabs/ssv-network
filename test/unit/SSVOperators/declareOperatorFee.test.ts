@@ -103,4 +103,30 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
       Errors.SAME_FEE_CHANGE_NOT_ALLOWED
     );
   });
+
+  it("Is reverted with 'FeeExceedsIncreaseLimit' when increasing fee beyond allowed percentage", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    // Fixture sets max increase to 100% (10_000)
+    
+    const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE);
+    await operators.registerOperator(makeOperatorKey(1), initialFee, false);
+
+    // Try to increase by > 100% (e.g. triple the fee)
+    const newFee = initialFee * 3;
+    
+    await expect(operators.declareOperatorFee(1, newFee)).to.be.revertedWithCustomError(
+      operators,
+      Errors.FEE_EXCEEDS_INCREASE_LIMIT
+    );
+  });
+
+  it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to declare fee", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const [_, other] = await connection.ethers.getSigners();
+    
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+
+    await expect(operators.connect(other).declareOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE) * 2))
+      .to.be.revertedWithCustomError(operators, Errors.CALLER_NOT_OWNER);
+  });
 });

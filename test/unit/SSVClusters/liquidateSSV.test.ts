@@ -4,11 +4,12 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { getTestConnection } from "../../setup/connection.ts";
 import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makePublicKey } from "../../common/helpers.ts";
-import { EMPTY_CLUSTER } from "../../common/constants.ts";
+import { createCluster, makePublicKey } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ethers } from "ethers";
 
 type ClusterType = typeof EMPTY_CLUSTER;
 
@@ -52,8 +53,16 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     
     await mockToken.mint(harnessAddress, connection.ethers.parseEther("1000"));
     await clusters.mockSetToken(tokenAddress);
+
+    await networkHelpers.setBalance(harnessAddress, connection.ethers.parseEther("1000"));
     
     return { ...fixture, mockToken };
+  };
+
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
   };
 
   const deploySSVClustersFixture = async () => {
@@ -76,6 +85,14 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     return setupSSVClustersFixture(fixture);
   };
 
+  const createSSVClusterWithTokenBalance = (balance: bigint, overrides: Partial<ClusterType> = {}): ClusterType => ({
+    ...EMPTY_CLUSTER,
+    validatorCount: 1n,
+    active: true,
+    balance,
+    ...overrides,
+  });
+
   it("Allows the cluster owner to liquidate SSV cluster and emits correct event", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersFixture);
@@ -92,6 +109,71 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     await trackGasFromReceipt(receipt, [GasGroup.LIQUIDATE_CLUSTER_SSV_4]);
 
     await expect(liquidateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+  });
+
+  it("Transfers remaining SSV token balance in the cluster to the liquidator", async function () {
+    const { clusters, operatorIds, mockToken } =
+      await networkHelpers.loadFixture(deploySSVClustersFixture);
+
+    const publicKey = makePublicKey(1);
+    const clusterBalance = connection.ethers.parseEther("1");
+    const currentNetworkFeeIndexSSV = 2000n;
+    const cluster = createSSVClusterWithTokenBalance(clusterBalance, { networkFeeIndex: currentNetworkFeeIndexSSV });
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockCurrentNetworkFeeIndex(100n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(currentNetworkFeeIndexSSV);
+
+    const minCollateral = clusterBalance / 10_000_000n + 1n;
+    await clusters.mockMinimumLiquidationCollateralSSV(minCollateral);
+
+    const liquidatorBalanceBefore = await mockToken.balanceOf(otherAccount.address);
+    const harnessBalanceBefore = await mockToken.balanceOf(await clusters.getAddress());
+    expect(harnessBalanceBefore).to.be.greaterThanOrEqual(clusterBalance);
+
+    await clusters.connect(otherAccount).liquidateSSV(clusterOwner.address, operatorIds, cluster);
+
+    const liquidatorBalanceAfter = await mockToken.balanceOf(otherAccount.address);
+    const harnessBalanceAfter = await mockToken.balanceOf(await clusters.getAddress());
+
+    expect(liquidatorBalanceAfter - liquidatorBalanceBefore).to.equal(clusterBalance);
+    expect(harnessBalanceBefore - harnessBalanceAfter).to.equal(clusterBalance);
+  });
+
+  it("Does not change operatorEthVUnits or stored cluster EB snapshot when liquidating an SSV cluster", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersFixture);
+
+    // Seed operatorEthVUnits via an ETH registration on a DIFFERENT cluster id (different owner).
+    await clusters.connect(otherAccount).registerValidator(
+      makePublicKey(999),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    await clusters.mockSetClusterVUnits(clusterId, 7n * VUNITS_PRECISION);
+
+    const beforeClusterVUnits = await clusters.getClusterVUnits(clusterId);
+    const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => clusters.getOperatorEthVUnits(id)));
+
+    const publicKey = makePublicKey(1);
+    const cluster = createSSVCluster({ networkFeeIndex: 1000n });
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockCurrentNetworkFeeIndex(100n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(2000n);
+
+    await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
+
+    const afterClusterVUnits = await clusters.getClusterVUnits(clusterId);
+    const afterOperatorVUnits = await Promise.all(operatorIds.map((id) => clusters.getOperatorEthVUnits(id)));
+
+    expect(afterClusterVUnits).to.equal(beforeClusterVUnits);
+    expect(afterOperatorVUnits).to.deep.equal(beforeOperatorVUnits);
   });
 
   it("Allows the cluster owner to liquidate SSV cluster with 7 operators", async function () {

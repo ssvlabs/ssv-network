@@ -16,44 +16,19 @@ library OperatorLib {
 
     uint256 internal constant MINIMAL_OPERATOR_ETH_FEE = 10_000_000;
 
-    function updateSnapshotStSSV(
-        ISSVNetworkCore.Operator storage operator,
-        uint64 operatorId
-    ) internal {
-        StorageEB storage seb = SSVStorageEB.load();
+    function updateSnapshotSSV(ISSVNetworkCore.Operator memory operator) internal view {
         uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
 
-        // EB-weighted: use operatorVUnits with fallback to validatorCount
-        uint64 vUnits = seb.operatorVUnits[operatorId];
-        if (vUnits == 0 && operator.validatorCount > 0) {
-            vUnits = operator.validatorCount * VUNITS_PRECISION;
-        }
-
         operator.snapshot.index += blockDiffFee;
-        if (vUnits != 0 && blockDiffFee != 0) {
-            uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
-            operator.snapshot.balance += uint64(delta);
-        }
+        operator.snapshot.balance += blockDiffFee * operator.validatorCount;
         operator.snapshot.block = uint32(block.number);
     }
 
-    function updateSnapshotSSV(
-        ISSVNetworkCore.Operator memory operator,
-        uint64 operatorId
-    ) internal view {
-        StorageEB storage seb = SSVStorageEB.load();
+    function updateSnapshotStSSV(ISSVNetworkCore.Operator storage operator) internal {
         uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
 
-        uint64 vUnits = seb.operatorVUnits[operatorId];
-        if (vUnits == 0 && operator.validatorCount > 0) {
-            vUnits = operator.validatorCount * VUNITS_PRECISION;
-        }
-
         operator.snapshot.index += blockDiffFee;
-        if (vUnits != 0 && blockDiffFee != 0) {
-            uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
-            operator.snapshot.balance += uint64(delta);
-        }
+        operator.snapshot.balance += blockDiffFee * operator.validatorCount;
         operator.snapshot.block = uint32(block.number);
     }
 
@@ -65,11 +40,8 @@ library OperatorLib {
         uint32 currentBlock = uint32(block.number);
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
-        // EB-weighted: use operatorEthVUnits with fallback to ethValidatorCount
+        // EB-weighted: use operatorEthVUnits
         uint64 vUnits = seb.operatorEthVUnits[operatorId];
-        if (vUnits == 0 && operator.ethValidatorCount > 0) {
-            vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
-        }
 
         operator.ethSnapshot.index += blockDiffEthFee;
         if (vUnits != 0 && blockDiffEthFee != 0) {
@@ -88,9 +60,6 @@ library OperatorLib {
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
         uint64 vUnits = seb.operatorEthVUnits[operatorId];
-        if (vUnits == 0 && operator.ethValidatorCount > 0) {
-            vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
-        }
 
         operator.ethSnapshot.index += blockDiffEthFee;
         if (vUnits != 0 && blockDiffEthFee != 0) {
@@ -102,19 +71,19 @@ library OperatorLib {
 
     function updateSnapshots(ISSVNetworkCore.Operator memory operator, uint64 operatorId) internal view {
         updateSnapshot(operator, operatorId);
-        updateSnapshotSSV(operator, operatorId);
+        updateSnapshotSSV(operator);
     }
 
     function updateSnapshotsSt(ISSVNetworkCore.Operator storage operator, uint64 operatorId) internal {
         updateSnapshotSt(operator, operatorId);
-        updateSnapshotStSSV(operator, operatorId);
+        updateSnapshotStSSV(operator);
     }
 
     function defaultOperatorEthFee() internal pure returns (uint64) {
         return MINIMAL_OPERATOR_ETH_FEE.shrink();
     }
 
-    function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
+    function checkOwner(ISSVNetworkCore.Operator storage operator) internal view {
         if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
             revert ISSVNetworkCore.OperatorDoesNotExist();
         }
@@ -242,7 +211,7 @@ library OperatorLib {
 
             if (operator.ethSnapshot.block == 0) {
                 // first-time ETH usage or migration
-                updateSnapshotStSSV(operator, operatorId);
+                updateSnapshotStSSV(operator);
 
                 if (!isClusterLiquidated) {
                     operator.validatorCount -= validatorCount;
@@ -282,7 +251,7 @@ library OperatorLib {
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
             if (operator.snapshot.block != 0) {
-                updateSnapshotStSSV(operator, operatorId);
+                updateSnapshotStSSV(operator);
                 if (!increaseValidatorCount) {
                     operator.validatorCount -= deltaValidatorCount;
                 } else if ((operator.validatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {

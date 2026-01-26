@@ -6,6 +6,7 @@ import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateMinimumLiquidationCollateral()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -27,10 +28,19 @@ describe("SSVDAO function `updateMinimumLiquidationCollateral()`", async () => {
     const newCollateral = ethers.parseEther("1");
 
     const tx = await dao.updateMinimumLiquidationCollateral(newCollateral);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.CHANGE_MINIMUM_COLLATERAL]);
 
     await expect(tx)
       .to.emit(dao, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED)
       .withArgs(newCollateral);
+  });
+
+  it("Is reverted when collateral is not a multiple of 1e7 (shrink precision)", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    await expect(dao.updateMinimumLiquidationCollateral(1n))
+      .to.be.revertedWith("Max precision exceeded");
   });
 
   it("Stores the new minimum liquidation collateral in storage", async function () {
@@ -97,6 +107,13 @@ describe("SSVDAO function `updateMinimumLiquidationCollateralSSV()`", async () =
     await expect(tx)
       .to.emit(dao, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED_SSV)
       .withArgs(newCollateral);
+  });
+
+  it("Is reverted when SSV collateral is not a multiple of 1e7 (shrink precision)", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    await expect(dao.updateMinimumLiquidationCollateralSSV(1n))
+      .to.be.revertedWith("Max precision exceeded");
   });
 
   it("Stores the new SSV minimum liquidation collateral in storage", async function () {

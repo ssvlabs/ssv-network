@@ -4,6 +4,7 @@ export const Events = {
   VALIDATOR_EXITED: "ValidatorExited",
   CLUSTER_LIQUIDATED: "ClusterLiquidated",
   CLUSTER_REACTIVATED: "ClusterReactivated",
+  CLUSTER_BALANCE_UPDATED: "ClusterBalanceUpdated",
   CLUSTER_DEPOSITED: "ClusterDeposited",
   CLUSTER_WITHDRAWN: "ClusterWithdrawn",
   CLUSTER_MIGRATED_TO_ETH: "ClusterMigratedToETH",

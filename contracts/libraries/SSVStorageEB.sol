@@ -17,7 +17,7 @@ struct StorageEB {
     /// @notice Maps cluster ID to EB snapshot
     mapping(bytes32 => ClusterEBSnapshot) clusterEB;
     /// @notice Maps operator ID to vUnits
-    mapping(uint64 => uint64) operatorVUnits;
+    mapping(uint64 => uint64) DEPRECATED_operatorVUnits;
     /// @notice Maps operator ID to ETH vUnits
     mapping(uint64 => uint64) operatorEthVUnits;
     /// @notice Latest block number where EB was committed

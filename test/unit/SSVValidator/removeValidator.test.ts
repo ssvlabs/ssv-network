@@ -2,13 +2,14 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { getTestConnection } from "../../setup/connection.ts";
-import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
+import { ssvClustersHarnessFixture, ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ethers } from "ethers";
 
 describe("SSVClusters function `removeValidator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -31,6 +32,30 @@ describe("SSVClusters function `removeValidator()`", async () => {
 
   const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
     return ssvValidatorsHarnessFixture(connection);
+  };
+
+  const deploySSVClustersAndPrepareOperatorsFixture = async () => {
+    return ssvClustersHarnessFixture(connection);
+  };
+
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
+  };
+
+  const setValidSingleLeafRoot = async (
+    clusters: any,
+    clusterId: string,
+    blockNum: number,
+    effectiveBalance: number
+  ) => {
+    const coder = ethers.AbiCoder.defaultAbiCoder();
+    const innerHash = ethers.keccak256(
+      coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance])
+    );
+    const root = ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
+    await clusters.mockSetEBRoot(blockNum, root);
   };
 
   it("Removes an existing validator, updates cluster state and emits correct events", async function () {
@@ -57,6 +82,35 @@ describe("SSVClusters function `removeValidator()`", async () => {
     await expect(removeTx).to.emit(validators, Events.VALIDATOR_REMOVED);
     expect(clusterAfterRemove.validatorCount).to.equal(0n);
     expect(clusterAfterRemove.active).to.equal(true);
+  });
+
+  it("Updates operatorEthVUnits on register/remove even when cluster EB snapshot is not set", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+
+    const registerTx = await validators.connect(clusterOwner).registerValidator(
+      publicKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
+
+    for (const operatorId of operatorIds) {
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+    }
+
+    const removeTx = await validators.connect(clusterOwner).removeValidator(publicKey, operatorIds, clusterAfterRegister);
+    await removeTx.wait();
+
+    for (const operatorId of operatorIds) {
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n);
+    }
   });
 
   it("Removes a validator with 7 operators", async function () {
@@ -125,7 +179,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     await trackGasFromReceipt(removeReceipt, [GasGroup.REMOVE_VALIDATOR_13]);
   });
 
-  it("Is reverted with 'ValidatorDoesNotExist' when validator was not registered", async function () {
+  it("Is reverted with 'IncorrectValidatorState' when validator was not registered", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -188,7 +242,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_DOES_NOT_EXISTS);
   });
 
-  it("Is reverted with 'ValidatorDoesNotExist' when removing a validator twice", async function () {
+  it("Is reverted with 'IncorrectValidatorState' when removing a validator twice", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -213,5 +267,110 @@ describe("SSVClusters function `removeValidator()`", async () => {
       operatorIds,
       clusterAfterRemove
     )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE);
+  });
+
+  it("Keeps explicit EB snapshot consistent across updateClusterBalance and remove", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const pk1 = makePublicKey(1);
+    const pk2 = makePublicKey(2);
+
+    const register1 = await clusters.connect(clusterOwner).registerValidator(
+      pk1,
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt1 = await register1.wait();
+    const clusterAfter1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+
+    const register2 = await clusters.connect(clusterOwner).registerValidator(
+      pk2,
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfter1,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt2 = await register2.wait();
+    const clusterAfter2 = parseClusterFromEvent(clusters, receipt2, Events.VALIDATOR_ADDED);
+
+    const clusterId = getClusterId(await clusterOwner.getAddress(), operatorIds);
+    const blockNum = 1;
+    const effectiveBalance = 160;
+
+    await setValidSingleLeafRoot(clusters, clusterId, blockNum, effectiveBalance);
+
+    const updateTx = await clusters.updateClusterBalance(
+      blockNum,
+      await clusterOwner.getAddress(),
+      operatorIds,
+      clusterAfter2,
+      effectiveBalance,
+      []
+    );
+    const updateReceipt = await updateTx.wait();
+    const clusterAfterUpdate = parseClusterFromEvent(clusters, updateReceipt, "ClusterBalanceUpdated");
+
+    const expectedUpdatedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 31n) / 32n;
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits);
+    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(expectedUpdatedVUnits);
+
+    const removeTx = await clusters.connect(clusterOwner).removeValidator(pk1, operatorIds, clusterAfterUpdate);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+
+    expect(clusterAfterRemove.validatorCount).to.equal(1n);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits - VUNITS_PRECISION);
+    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(expectedUpdatedVUnits - VUNITS_PRECISION);
+  });
+
+  it("Clears remaining explicit EB vUnits when removing the last validator", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+
+    const registerTx = await clusters.connect(clusterOwner).registerValidator(
+      publicKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const clusterId = getClusterId(await clusterOwner.getAddress(), operatorIds);
+    const blockNum = 1;
+    const effectiveBalance = 96;
+
+    await setValidSingleLeafRoot(clusters, clusterId, blockNum, effectiveBalance);
+
+    const updateTx = await clusters.updateClusterBalance(
+      blockNum,
+      await clusterOwner.getAddress(),
+      operatorIds,
+      clusterAfterRegister,
+      effectiveBalance,
+      []
+    );
+    const updateReceipt = await updateTx.wait();
+    const clusterAfterUpdate = parseClusterFromEvent(clusters, updateReceipt, "ClusterBalanceUpdated");
+
+    const expectedUpdatedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 31n) / 32n;
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits);
+
+    const removeTx = await clusters.connect(clusterOwner).removeValidator(publicKey, operatorIds, clusterAfterUpdate);
+    await removeTx.wait();
+
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+    }
   });
 });

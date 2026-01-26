@@ -58,6 +58,19 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
     expect(operatorAfter.snapshot.balance).to.equal(3n);
   });
 
+  it("Succeeds when withdrawing zero amount", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+    await seedOperatorWithSSVBalance(operators, 1, 5n);
+
+    // Withdraw zero should succeed (snapshot gets updated as part of the process)
+    await operators.withdrawOperatorEarningsSSV(1, 0n);
+  });
+
   it("withdrawAllOperatorEarningsSSV withdraws full balance and resets snapshot", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const [owner] = await connection.ethers.getSigners();
