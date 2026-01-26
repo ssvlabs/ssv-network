@@ -37,9 +37,8 @@ interface ISSVClusters is ISSVNetworkCore {
 
     /// @notice Reactivates a cluster
     /// @param operatorIds Array of IDs of operators managing the cluster
-    /// @param amount Amount of SSV tokens to be deposited for reactivation
     /// @param cluster Cluster to be reactivated
-    function reactivate(uint64[] memory operatorIds, uint256 amount, Cluster memory cluster) external payable;
+    function reactivate(uint64[] memory operatorIds, Cluster memory cluster) external payable;
 
     /******************************/
     /* Balance External Functions */
@@ -48,12 +47,10 @@ interface ISSVClusters is ISSVNetworkCore {
     /// @notice Deposits tokens into a cluster
     /// @param owner The owner of the cluster
     /// @param operatorIds Array of IDs of operators managing the cluster
-    /// @param amount Amount of SSV tokens to be deposited
     /// @param cluster Cluster where the deposit will be made
     function deposit(
         address owner,
         uint64[] memory operatorIds,
-        uint256 amount,
         Cluster memory cluster
     ) external payable;
 
@@ -119,8 +116,8 @@ interface ISSVClusters is ISSVNetworkCore {
      * @dev Emitted when tokens are deposited into a cluster.
      * @param owner The owner of the cluster.
      * @param operatorIds The operator IDs managing the cluster.
-     * @param value The amount of SSV tokens deposited.
-     * @param cluster The cluster into which SSV tokens were deposited.
+     * @param value The amount of ETH deposited.
+     * @param cluster The cluster into which ETH was deposited.
      */
     event ClusterDeposited(address indexed owner, uint64[] operatorIds, uint256 value, Cluster cluster);
 

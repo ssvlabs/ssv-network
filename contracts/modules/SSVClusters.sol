@@ -103,7 +103,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
     function reactivate(
         uint64[] calldata operatorIds,
-        uint256, // deprecated amount param stays for backward compatability
         Cluster memory cluster
     ) external payable override {
         StorageData storage s = SSVStorage.load();
@@ -150,7 +149,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     function deposit(
         address clusterOwner,
         uint64[] calldata operatorIds,
-        uint256, // deprecated amount param stays for backward compatability
         Cluster memory cluster
     ) external payable override {
         StorageData storage s = SSVStorage.load();

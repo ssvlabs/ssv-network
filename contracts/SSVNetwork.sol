@@ -242,7 +242,6 @@ contract SSVNetwork is
         bytes calldata publicKey,
         uint64[] calldata operatorIds,
         bytes calldata sharesData,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
@@ -252,7 +251,6 @@ contract SSVNetwork is
         bytes[] calldata publicKeys,
         uint64[] calldata operatorIds,
         bytes[] calldata sharesData,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
@@ -292,7 +290,6 @@ contract SSVNetwork is
 
     function reactivate(
         uint64[] calldata operatorIds,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
@@ -301,7 +298,6 @@ contract SSVNetwork is
     function deposit(
         address clusterOwner,
         uint64[] calldata operatorIds,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
@@ -369,7 +365,6 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    // todo check
     function updateLiquidationThresholdPeriodSSV(uint64 blocks) external onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
@@ -378,7 +373,6 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    // todo check
     function updateMinimumLiquidationCollateralSSV(uint256 amount) external onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
@@ -387,7 +381,6 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    // todo check
     function updateMaximumOperatorFeeSSV(uint64 maxFee) external onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
