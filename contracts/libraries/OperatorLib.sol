@@ -83,7 +83,7 @@ library OperatorLib {
         return MINIMAL_OPERATOR_ETH_FEE.shrink();
     }
 
-    function checkOwner(ISSVNetworkCore.Operator memory operator) internal view {
+    function checkOwner(ISSVNetworkCore.Operator storage operator) internal view {
         if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
             revert ISSVNetworkCore.OperatorDoesNotExist();
         }

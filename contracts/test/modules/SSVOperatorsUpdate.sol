@@ -59,9 +59,9 @@ contract SSVOperatorsUpdate is ISSVOperators {
 
     function removeOperator(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        s.operators[operatorId].checkOwner();
 
+        Operator memory operator = s.operators[operatorId];
         operator.updateSnapshots(operatorId);
         uint64 currentBalanceETH = operator.ethSnapshot.balance;
         uint64 currentBalanceSSV = operator.snapshot.balance;
@@ -156,9 +156,9 @@ contract SSVOperatorsUpdate is ISSVOperators {
 
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        s.operators[operatorId].checkOwner();
 
+        Operator memory operator = s.operators[operatorId];
         uint64 shrunkAmount = fee.shrink();
         if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
 
@@ -191,9 +191,10 @@ contract SSVOperatorsUpdate is ISSVOperators {
 
     function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        
+        s.operators[operatorId].checkOwner();
 
+        Operator memory operator = s.operators[operatorId];
         operator.updateSnapshots(operatorId);
 
         uint64 ethBalance = operator.ethSnapshot.balance;
@@ -223,8 +224,9 @@ contract SSVOperatorsUpdate is ISSVOperators {
     // private functions
     function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount, uint8 expectedVersion) private {
         StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].checkOwner();
+        
         Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
 
         if (expectedVersion == CoreLib.VERSION_ETH) {
             operator.updateSnapshot(operatorId);

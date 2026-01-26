@@ -64,8 +64,9 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
     function removeOperator(uint64 operatorId) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
+        s.operators[operatorId].checkOwner();
+
         Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
 
         operator.updateSnapshots(operatorId);
         uint64 currentBalanceETH = operator.ethSnapshot.balance;
@@ -123,8 +124,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
     function executeOperatorFee(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        s.operators[operatorId].checkOwner();
 
         OperatorFeeChangeRequest memory feeChangeRequest = s.operatorFeeChangeRequests[operatorId];
 
@@ -137,6 +137,8 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         }
 
         if (feeChangeRequest.fee.expand() > SSVStorageProtocol.load().operatorMaxFee) revert FeeTooHigh();
+
+        Operator memory operator = s.operators[operatorId];
 
         operator.updateSnapshot(operatorId);
         operator.ethFee = feeChangeRequest.fee;
@@ -160,10 +162,11 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        s.operators[operatorId].checkOwner();
 
         if (fee != 0 && fee < OperatorLib.MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
+
+        Operator memory operator = s.operators[operatorId]; 
 
         uint64 shrunkAmount = fee.shrink();
         if (shrunkAmount >= operator.ethFee) revert FeeIncreaseNotAllowed();
@@ -196,9 +199,10 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
     }
 
     function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override nonReentrant {
-        StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        StorageData storage s = SSVStorage.load();        
+        s.operators[operatorId].checkOwner();
+
+        Operator memory operator = s.operators[operatorId]; 
 
         operator.updateSnapshots(operatorId);
 
@@ -229,9 +233,9 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
     // private functions
     function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount, uint8 version) private {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        s.operators[operatorId].checkOwner();
 
+        Operator memory operator = s.operators[operatorId];
         if (version == CoreLib.VERSION_ETH) {
             operator.updateSnapshot(operatorId);
         } else {
