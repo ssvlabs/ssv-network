@@ -1,17 +1,17 @@
 import hre from "hardhat";
+import type { NetworkConnection } from "hardhat/types/network";
+import type { NetworkHelpersType } from "../common/types.ts";
 
-type ForkParams = {
-  fork: {
-    url: string;
-    blockNumber?: number;
+export async function getForkedConnection(): Promise<{
+  connection: NetworkConnection<"generic">;
+  ethers: NetworkConnection<"generic">["ethers"];
+  networkHelpers: NetworkHelpersType;
+}> {
+  const connection = await hre.network.connect("hardhat_forked");
+
+  return {
+    connection,
+    ethers: connection.ethers,
+    networkHelpers: connection.networkHelpers,
   };
-};
-
-export async function connectFork(blockNumber?: number) {
-  return hre.network.connect({
-    fork: {
-      url: process.env.MAINNET_RPC_URL!,
-      blockNumber,
-    },
-  } as ForkParams as any);
 }

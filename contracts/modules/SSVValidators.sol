@@ -27,7 +27,6 @@ contract SSVValidators is ISSVValidators {
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata sharesData,
-        uint256, // deprecated amount param stays for backward compatability
         Cluster memory cluster
     ) external payable override {
         bytes[] memory publicKeys = new bytes[](1);
@@ -43,7 +42,6 @@ contract SSVValidators is ISSVValidators {
         bytes[] memory publicKeys,
         uint64[] memory operatorIds,
         bytes[] calldata sharesData,
-        uint256, // deprecated amount param stays for backward compatability
         Cluster memory cluster
     ) external payable override {
         _bulkRegisterValidator(msg.sender, msg.value, publicKeys, operatorIds, sharesData, cluster);

@@ -42,7 +42,7 @@ contract ClusterUser {
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable {
-        clusters.reactivate{value: msg.value}(operatorIds, 0, cluster);
+        clusters.reactivate{value: msg.value}(operatorIds, cluster);
     }
 }
 
@@ -150,7 +150,7 @@ contract SSVClustersEchidna is SSVClusters {
         uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
         ISSVNetworkCore.Cluster memory cluster = record.cluster;
 
-        try this.deposit{value: amount}(record.owner, operatorIds, 0, cluster) {
+        try this.deposit{value: amount}(record.owner, operatorIds, cluster) {
             record.cluster.balance += amount;
             totalExpectedBalance += amount;
         } catch {}

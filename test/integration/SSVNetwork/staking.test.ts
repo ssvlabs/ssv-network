@@ -16,13 +16,11 @@ import {
   STAKE_AMOUNT,
   DEFAULT_UNSTAKE_COOLDOWN,
   DEFAULT_ORACLES_IDS,
-  MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE,
 } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.js';
-import { trackGasFromReceipt, GasGroup } from '../../helpers/gas-usage.ts';
 
 /**
  * Enhanced Integration Tests for SSVNetwork Staking
@@ -128,7 +126,7 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
     });
 
     it("withdrawUnlocked: SSV returned to staker after cooldown", async function() {
-      const { network, views, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
@@ -176,13 +174,12 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
 
       // Register a validator (source of ETH inflow)
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -209,14 +206,13 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await network.connect(staker).stake(STAKE_AMOUNT);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       // First validator registration
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -235,7 +231,6 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
         makePublicKey(2),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         cluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -426,13 +421,12 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
 
       // STEP 2: Generate network activity (cluster deposits → network fees)
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );

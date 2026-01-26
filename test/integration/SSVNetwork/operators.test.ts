@@ -66,13 +66,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -116,13 +115,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -272,13 +270,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -306,13 +303,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -333,14 +329,13 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       // Register first validator
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -356,7 +351,6 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
         makePublicKey(2),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         cluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -386,17 +380,17 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       const depositAmount = DEFAULT_ETH_REGISTER_VALUE;
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: depositAmount }
       );
+      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       const blocks = 500n;
       await connection.networkHelpers.mine(blocks);
@@ -408,7 +402,6 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
       }
 
       // Get cluster balance
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       const clusterBalance = await views.getBalance(clusterOwner.address, operatorIds, cluster);
 
       // Get network earnings (if applicable)
@@ -432,13 +425,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -457,13 +449,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -500,7 +491,7 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       const depositAmount = DEFAULT_ETH_REGISTER_VALUE;
       const networkFeeBefore = await views.getNetworkEarnings();
@@ -509,7 +500,6 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: depositAmount }
       );
@@ -550,13 +540,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -587,13 +576,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -651,13 +639,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -692,7 +679,6 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );

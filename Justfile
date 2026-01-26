@@ -5,10 +5,10 @@ clean:
     npx hardhat clean
 
 test:
-    npx hardhat test
+    NO_GAS_ENFORCE=true npx hardhat test
 
 coverage:
-    npx hardhat test --coverage
+    COVERAGE=true npx hardhat test --coverage
     genhtml coverage/lcov.info -o coverage/html
 
 sizes:

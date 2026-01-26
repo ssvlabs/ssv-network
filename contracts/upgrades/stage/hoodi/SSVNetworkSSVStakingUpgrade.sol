@@ -4,14 +4,19 @@ pragma solidity 0.8.24;
 import "../../../SSVNetwork.sol";
 
 contract SSVNetworkSSVStakingUpgrade is SSVNetwork {
-    function initializeSSVStaking(address cssv_, uint64 cooldownDuration_) external onlyOwner reinitializer(2) {
-        if (cssv_ == address(0)) revert ZeroAddress();
-        
-        StorageStaking storage s = SSVStorageStaking.load();
-        s.cssv = cssv_;
-        s.cooldownDuration = cooldownDuration_;
-        s.defaultOracleIds = [1,2,3,4];
+    function initializeSSVStaking(
+        address cssv,
+        uint64 cooldownDuration,
+        uint32[4] memory defaultOracleIds
+    ) external onlyOwner reinitializer(_getInitializedVersion() + 1) {
+        if (cssv == address(0)) revert ZeroAddress();
 
-        emit CooldownDurationUpdated(cooldownDuration_);
+        // save staking storage updates
+        StorageStaking storage s = SSVStorageStaking.load();
+        s.cssv = cssv;
+        s.cooldownDuration = cooldownDuration;
+        s.defaultOracleIds = defaultOracleIds;
+
+        emit CooldownDurationUpdated(cooldownDuration);
     }
 }

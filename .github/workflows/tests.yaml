@@ -20,12 +20,18 @@ jobs:
 
       - name: Compile contracts
         run: npx hardhat compile
+        env:
+          FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
+          HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
 
       - name: Run tests with gas tracking
         run: npx hardhat test
         env:
           REPORT_GAS: 'true'
           NO_GAS_ENFORCE: '1'
+          FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
+          HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
+          MAINNET_RPC_URL: ${{ secrets.mainnet_rpc_url }}
 
       - name: Compare gas usage with limits
         id: gas-compare

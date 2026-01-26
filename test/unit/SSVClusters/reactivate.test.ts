@@ -39,7 +39,6 @@ describe("SSVClusters function `reactivate()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -61,7 +60,6 @@ describe("SSVClusters function `reactivate()`", async () => {
 
     const reactivateTx = await clusters.reactivate(
       operatorIds,
-      0,
       clusterAfterLiquidation,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -82,7 +80,6 @@ describe("SSVClusters function `reactivate()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -91,7 +88,6 @@ describe("SSVClusters function `reactivate()`", async () => {
 
     await expect(clusters.reactivate(
       operatorIds,
-      0,
       clusterAfterRegister,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_ALREADY_ENABLED);
@@ -105,7 +101,6 @@ describe("SSVClusters function `reactivate()`", async () => {
 
     await expect(clusters.connect(otherAccount).reactivate(
       operatorIds,
-      0,
       clusterAfterLiquidation,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXISTS);
@@ -124,7 +119,6 @@ describe("SSVClusters function `reactivate()`", async () => {
 
     await expect(clusters.reactivate(
       operatorIds,
-      0,
       mismatchedCluster,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_STATE);
@@ -141,7 +135,6 @@ describe("SSVClusters function `reactivate()`", async () => {
 
     await expect(clusters.reactivate(
       operatorIds,
-      0,
       clusterAfterLiquidation,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
@@ -161,14 +154,12 @@ describe("SSVClusters function `reactivate()`", async () => {
 
     await expect(clusters.reactivate(
       operatorIds,
-      0,
       clusterAfterLiquidation,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
 
     const reactivateTx = await clusters.reactivate(
       operatorIds,
-      0,
       clusterAfterLiquidation,
       { value: ethers.parseEther("30") }
     );

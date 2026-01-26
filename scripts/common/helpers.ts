@@ -30,7 +30,7 @@ export async function deployContract(
   const contract = await factory.deploy(...args);
   await contract.waitForDeployment();
   const address = await contract.getAddress();
-  if (network.name != "hardhat") console.log(`${contractName} at: ${address}`);
+  if (!network.name.includes("hardhat")) console.log(`${contractName} at: ${address}`);
   return { contract, address };
 }
 
@@ -46,7 +46,7 @@ export async function deployProxy(
   const proxy = await proxyFactory.deploy(implAddress, initData);
   await proxy.waitForDeployment();
   const address = await proxy.getAddress();
-  if (network.name != "hardhat") console.log(`Proxy at: ${address}`);
+  if (!network.name.includes("hardhat")) console.log(`Proxy at: ${address}`);
   return { proxy, address };
 }
 
@@ -63,10 +63,10 @@ export async function attachModule(
   }
   const networkFactory = await ethers.getContractFactory("SSVNetwork");
   const ssvNetwork = networkFactory.attach(proxyAddress);
-  if (network.name != "hardhat") console.log(`Attaching ${moduleName} (${moduleAddress})...`);
+  if (!network.name.includes("hardhat")) console.log(`Attaching ${moduleName} (${moduleAddress})...`);
   const tx = await ssvNetwork.updateModule(SSVModules[moduleEnumKey], moduleAddress);
   await tx.wait();
-  if (network.name != "hardhat") console.log(`Attached ${moduleName} at ${moduleAddress}`);
+  if (!network.name.includes("hardhat")) console.log(`Attached ${moduleName} at ${moduleAddress}`);
 }
 
 export async function upgradeProxy(
@@ -93,12 +93,12 @@ export async function upgradeProxy(
 
     const tx = await proxy.upgradeToAndCall(implAddress, initData);
     await tx.wait();
-    if (network.name != "hardhat") console.log("Upgrade with init done");
+    if (!network.name.includes("hardhat")) console.log("Upgrade with init done");
   } else {
     const tx = await proxy.upgradeTo(implAddress);
     await tx.wait();
-    if (network.name != "hardhat") console.log("Upgrade done");
+    if (!network.name.includes("hardhat")) console.log("Upgrade done");
   }
 
-  if (network.name != "hardhat") console.log(`Proxy now uses: ${implAddress}`);
+  if (!network.name.includes("hardhat")) console.log(`Proxy now uses: ${implAddress}`);
 }

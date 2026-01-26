@@ -209,7 +209,6 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       { ...EMPTY_CLUSTER },
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );

@@ -40,7 +40,6 @@ describe("SSVClusters function `deposit()`", async () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         createCluster(),
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ),
@@ -61,7 +60,6 @@ describe("SSVClusters function `deposit()`", async () => {
       clusters.deposit(
         clusterOwner.address,
         operatorIds,
-        0,
         clusterBeforeDeposit,
         { value: depositAmount }
       ),
@@ -90,7 +88,6 @@ describe("SSVClusters function `deposit()`", async () => {
       clusters.deposit(
         clusterOwner.address,
         operatorIds,
-        0,
         clusterBeforeDeposit,
         { value: depositAmount }
       ),
@@ -118,7 +115,6 @@ describe("SSVClusters function `deposit()`", async () => {
       clusters.connect(otherAccount).deposit(
         clusterOwner.address,
         operatorIds,
-        0,
         clusterBeforeDeposit,
         { value: depositAmount }
       ),
@@ -144,7 +140,6 @@ describe("SSVClusters function `deposit()`", async () => {
     await expect(clusters.deposit(
       clusterOwner.address,
       operatorIds,
-      0,
       mismatchedCluster,
       { value: 1n }
     )).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_STATE);
@@ -157,7 +152,6 @@ describe("SSVClusters function `deposit()`", async () => {
     await expect(clusters.deposit(
       clusterOwner.address,
       operatorIds,
-      0,
       createCluster(),
       { value: 1n }
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXISTS);

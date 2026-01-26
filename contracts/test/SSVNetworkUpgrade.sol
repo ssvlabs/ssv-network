@@ -243,17 +243,15 @@ contract SSVNetworkUpgrade is
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata shares,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
-                "registerValidator(bytes[],uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
+                "registerValidator(bytes[],uint64[],bytes,(uint32,uint64,uint64,bool,uint256))",
                 publicKey,
                 operatorIds,
                 shares,
-                amount,
                 cluster
             )
         );
@@ -263,17 +261,15 @@ contract SSVNetworkUpgrade is
         bytes[] calldata publicKey,
         uint64[] memory operatorIds,
         bytes[] calldata shares,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
-                "registerValidator(bytes[],uint64[],bytes,uint256,(uint32,uint64,uint64,bool,uint256))",
+                "registerValidator(bytes[],uint64[],bytes,(uint32,uint64,uint64,bool,uint256))",
                 publicKey,
                 operatorIds,
                 shares,
-                amount,
                 cluster
             )
         );
@@ -345,15 +341,13 @@ contract SSVNetworkUpgrade is
 
     function reactivate(
         uint64[] calldata operatorIds,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
-                "reactivate(uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+                "reactivate(uint64[],(uint32,uint64,uint64,bool,uint256))",
                 operatorIds,
-                amount,
                 cluster
             )
         );
@@ -362,16 +356,14 @@ contract SSVNetworkUpgrade is
     function deposit(
         address owner,
         uint64[] calldata operatorIds,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
     ) external payable override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
             abi.encodeWithSignature(
-                "deposit(address,uint64[],uint256,(uint32,uint64,uint64,bool,uint256))",
+                "deposit(address,uint64[],(uint32,uint64,uint64,bool,uint256))",
                 owner,
                 operatorIds,
-                amount,
                 cluster
             )
         );

@@ -49,7 +49,6 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
       publicKeys,
       operatorIds,
       [DEFAULT_SHARES, DEFAULT_SHARES],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -69,7 +68,6 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
       publicKeys,
       operatorIds,
       [DEFAULT_SHARES, DEFAULT_SHARES],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -100,7 +98,6 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -121,7 +118,6 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -142,7 +138,6 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -163,7 +158,6 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -192,7 +186,6 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
       publicKeys[0],
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -212,7 +205,6 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
       publicKeys,
       operatorIds,
       [DEFAULT_SHARES, DEFAULT_SHARES],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );

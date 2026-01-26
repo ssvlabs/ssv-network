@@ -62,13 +62,12 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -120,13 +119,12 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -169,7 +167,7 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       const ethEarningsBefore = await views.getNetworkEarnings();
       const ssvEarningsBefore = await views.getNetworkEarningsSSV();
@@ -178,7 +176,6 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -279,14 +276,13 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       // Create ETH cluster (not SSV)
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -330,14 +326,13 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       // Create ETH cluster
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );

@@ -46,6 +46,10 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
     [operatorOwner, clusterOwner, liquidator] = await connection.ethers.getSigners();
+
+    for (const signer of [operatorOwner, clusterOwner, liquidator]) {
+      await connection.ethers.provider.send("hardhat_setBalance", [signer.address, "0x3635c9adc5dea00000"]);
+    }
   });
 
   const deployFullSSVNetworkFixture = async () => {
@@ -62,8 +66,10 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const { cluster, operatorIds } = await registerDefaultCluster(
-        connection, network, operatorOwner, clusterOwner
+        connection, network, views, operatorOwner, clusterOwner
       );
+
+      await connection.ethers.provider.send("hardhat_setBalance", [clusterOwner.address, "0x3635c9adc5dea00000"]);
 
       const depositAmount = connection.ethers.parseEther("5");
       const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
@@ -73,7 +79,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const tx = await network.connect(clusterOwner).deposit(
         clusterOwner.address,
         operatorIds,
-        0,
         cluster,
         { value: depositAmount }
       );
@@ -99,7 +104,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const { cluster, operatorIds } = await registerDefaultCluster(
-        connection, network, operatorOwner, clusterOwner
+        connection, network, views, operatorOwner, clusterOwner
       );
 
       const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
@@ -135,13 +140,12 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -152,7 +156,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       let attempts = 0;
       while (!isLiquidatable && attempts < 20) {
         await connection.networkHelpers.mine(100000);
-        currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
         isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster);
         attempts++;
       }
@@ -198,13 +201,12 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -224,7 +226,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
         await connection.networkHelpers.mine(blocks);
         totalBlocksMined += blocks;
 
-        currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
         const currentBalance = await views.getBalance(clusterOwner.address, operatorIds, currentCluster);
         const expectedBalance = initialBalance - (totalBlocksMined * expectedBurnRatePerBlock);
 
@@ -239,14 +240,13 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       // Register first validator
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -268,7 +268,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
         makePublicKey(2),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         currentCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -301,7 +300,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       const depositAmount = DEFAULT_ETH_REGISTER_VALUE;
       const networkEarningsBefore = await views.getNetworkEarnings();
@@ -310,17 +309,16 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: depositAmount }
       );
 
       // Mine blocks to accumulate fees
       const blocks = 500n;
+      let currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       await connection.networkHelpers.mine(blocks);
 
       // Calculate all balances
-      let currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       const clusterBalance = await views.getBalance(clusterOwner.address, operatorIds, currentCluster);
 
       let totalOperatorEarnings = 0n;
@@ -346,7 +344,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const { cluster, operatorIds } = await registerDefaultCluster(
-        connection, network, operatorOwner, clusterOwner
+        connection, network, views, operatorOwner, clusterOwner
       );
 
       const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
@@ -366,16 +364,16 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const { cluster, operatorIds } = await registerDefaultCluster(
-        connection, network, operatorOwner, clusterOwner
+        connection, network, views, operatorOwner, clusterOwner
       );
 
+      await connection.ethers.provider.send("hardhat_setBalance", [clusterOwner.address, "0x3635c9adc5dea00000"]);
       const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
       const depositAmount = connection.ethers.parseEther("5");
 
       await network.connect(clusterOwner).deposit(
         clusterOwner.address,
         operatorIds,
-        0,
         cluster,
         { value: depositAmount }
       );
@@ -401,14 +399,13 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       // Register with large deposit
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -430,13 +427,12 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -467,13 +463,12 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -483,7 +478,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       let attempts = 0;
       while (!(await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster)) && attempts < 20) {
         await connection.networkHelpers.mine(100000);
-        currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
         attempts++;
       }
 
@@ -496,7 +490,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       await expect(
         network.connect(clusterOwner).reactivate(
           operatorIds,
-          0,
           liquidatedCluster,
           { value: 1n } // Too small
         )
@@ -505,7 +498,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       // Reactivate with sufficient balance
       const tx = await network.connect(clusterOwner).reactivate(
         operatorIds,
-        0,
         liquidatedCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -530,14 +522,13 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       // STEP 1: Register validator
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -566,7 +557,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       await network.connect(clusterOwner).deposit(
         clusterOwner.address,
         operatorIds,
-        0,
         currentCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -578,7 +568,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       let attempts = 0;
       while (!(await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster)) && attempts < 30) {
         await connection.networkHelpers.mine(100000);
-        currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
         attempts++;
       }
       expect(await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster)).to.be.true;
@@ -590,7 +579,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       // STEP 6: Reactivate
       await network.connect(clusterOwner).reactivate(
         operatorIds,
-        0,
         currentCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -612,7 +600,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const { cluster, operatorIds } = await registerDefaultCluster(
-        connection, network, operatorOwner, clusterOwner
+        connection, network, views, operatorOwner, clusterOwner
       );
 
       const balanceBeforeThirdParty = await views.getBalance(clusterOwner.address, operatorIds, cluster);
@@ -621,7 +609,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       await network.connect(liquidator).deposit(
         clusterOwner.address,
         operatorIds,
-        0,
         cluster,
         { value: connection.ethers.parseEther("2") }
       );
@@ -647,7 +634,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const { cluster, operatorIds } = await registerDefaultCluster(
-        connection, network, operatorOwner, clusterOwner
+        connection, network, views, operatorOwner, clusterOwner
       );
 
       const balance = await views.getBalance(clusterOwner.address, operatorIds, cluster);
@@ -662,7 +649,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const { cluster, operatorIds } = await registerDefaultCluster(
-        connection, network, operatorOwner, clusterOwner
+        connection, network, views, operatorOwner, clusterOwner
       );
 
       const balance = await views.getBalance(clusterOwner.address, operatorIds, cluster);
@@ -675,10 +662,10 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
     });
 
     it("Deposit with stale cluster state reverts", async function() {
-      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const { cluster, operatorIds } = await registerDefaultCluster(
-        connection, network, operatorOwner, clusterOwner
+        connection, network, views, operatorOwner, clusterOwner
       );
 
       // Create stale state by modifying balance
@@ -688,7 +675,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
         network.connect(clusterOwner).deposit(
           clusterOwner.address,
           operatorIds,
-          0,
           staleCluster,
           { value: DEFAULT_ETH_REGISTER_VALUE }
         )
@@ -696,16 +682,15 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
     });
 
     it("Cannot reactivate an already active cluster", async function() {
-      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const { cluster, operatorIds } = await registerDefaultCluster(
-        connection, network, operatorOwner, clusterOwner
+        connection, network, views, operatorOwner, clusterOwner
       );
 
       await expect(
         network.connect(clusterOwner).reactivate(
           operatorIds,
-          0,
           cluster,
           { value: DEFAULT_ETH_REGISTER_VALUE }
         )
@@ -721,7 +706,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
         network.deposit(
           clusterOwner.address,
           operatorIds,
-          0,
           EMPTY_CLUSTER,
           { value: DEFAULT_ETH_REGISTER_VALUE }
         )
@@ -740,13 +724,12 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -756,7 +739,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       let attempts = 0;
       while (!(await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster)) && attempts < 20) {
         await connection.networkHelpers.mine(100000);
-        currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
         attempts++;
       }
 

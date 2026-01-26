@@ -13,11 +13,13 @@ import {
 import { CSSVToken, SSVNetwork, SSVNetworkViews, SSVToken } from '../../types/ethers-contracts/index.js';
 import {
   DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
-  MAXIMUM_OPERATORS_FEE,
+  MAXIMUM_OPERATORS_FEE, MINIMAL_LIQUIDATION_THRESHOLD,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
   NETWORK_FEE, OPERATOR_MAX_FEE_INCREASE, VALIDATORS_PER_OPERATOR_LIMIT,
 } from '../common/constants.js';
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
+import { ForkConfig } from '../../test-forked/v2.0.0/config.ts';
 
 export async function ssvClustersHarnessFixture(
   connection: NetworkConnection<"generic">,
@@ -287,13 +289,18 @@ export async function ssvNetworkFullFixture(
     networkProxyAddr,
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
-    "initializeSSVStaking(address,uint64)",
-    [await cssvToken.getAddress(), cooldown]
+    "initializeSSVStaking(address,uint64,uint32[4])",
+    [
+      await cssvToken.getAddress(),
+      cooldown,
+      DEFAULT_ORACLE_IDS
+    ]
   );
 
   await network.updateNetworkFeeSSV(NETWORK_FEE);
   await network.updateNetworkFee(NETWORK_FEE);
-
+  await network.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL);
+  await network.updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD);
   await network.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE);
 
   return {
@@ -303,4 +310,87 @@ export async function ssvNetworkFullFixture(
     ssvToken,
     modules: moduleAddresses,
   };
+}
+
+export async function ssvNetworkFullForkedFixture(
+  connection: NetworkConnection<"generic">
+): Promise<{
+  network: SSVNetwork;
+  views: SSVNetworkViews;
+  cssvToken: CSSVToken;
+  ssvToken: SSVToken;
+  modules: { [key: string]: string };
+  daoSigner: HardhatEthersSigner
+}> {
+  const ethers = connection.ethers;
+
+  await ethers.provider.send("hardhat_impersonateAccount", [ForkConfig.DAO_ADDRESS]);
+  const daoSigner = await ethers.getSigner(ForkConfig.DAO_ADDRESS);
+  await ethers.provider.send("hardhat_setBalance", [ForkConfig.DAO_ADDRESS, "0x" + (BigInt(1e18) * 100n).toString(16)]);
+
+  const { contract: cssvToken, address: cssvAddr } = await deployContract(ethers, "CSSVToken", [ForkConfig.SSV_NETWORK_ADDRESS]);
+
+  const moduleNames = [
+    "SSVOperators",
+    "SSVClusters",
+    "SSVDAO",
+    "SSVViews",
+    "SSVOperatorsWhitelist",
+    "SSVStaking",
+    "SSVValidators",
+  ];
+  const modules: { [key: string]: string } = {};
+
+  for (const mod of moduleNames) {
+    const { address } = await deployContract(ethers, mod);
+    modules[mod] = address;
+  }
+
+  const { address: networkImplAddr } = await deployContract(ethers, "SSVNetwork");
+
+  const networkFactory = await ethers.getContractFactory("SSVNetwork");
+  let network = networkFactory.attach(ForkConfig.SSV_NETWORK_ADDRESS);
+
+  const daoNetwork = network.connect(daoSigner);
+  await daoNetwork.upgradeTo(networkImplAddr);
+
+  const { address: stakingUpgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
+  const cooldown = 7n * 24n * 60n * 60n; // 7 days
+  const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
+  const initData = upgradeFactory.interface.encodeFunctionData(
+    "initializeSSVStaking(address,uint64,uint32[4])",
+    [
+      cssvAddr,
+      cooldown,
+      DEFAULT_ORACLE_IDS
+    ]
+  );
+
+  await daoNetwork.upgradeToAndCall(stakingUpgradeImplAddr, initData);
+
+  const { address: viewsImplAddr } = await deployContract(ethers, "SSVNetworkViews");
+  const viewsFactory = await ethers.getContractFactory("SSVNetworkViews");
+  let views = viewsFactory.attach(ForkConfig.SSV_NETWORK_VIEWS);
+  const daoViews = views.connect(daoSigner);
+  await daoViews.upgradeTo(viewsImplAddr);
+
+  for (const mod of moduleNames) {
+    const moduleEnumKey = mod as keyof typeof SSVModules;
+    if (SSVModules[moduleEnumKey] === undefined) {
+      throw new Error(`Invalid module: ${mod}`);
+    }
+    const tx = await daoNetwork.updateModule(SSVModules[moduleEnumKey], modules[mod]);
+    await tx.wait();
+  }
+
+  const ssvTokenFactory = await ethers.getContractFactory("SSVToken");
+  let ssvToken = ssvTokenFactory.attach(ForkConfig.SSV_TOKEN);
+
+  await daoNetwork.updateNetworkFeeSSV(NETWORK_FEE);
+  await daoNetwork.updateNetworkFee(NETWORK_FEE);
+  await daoNetwork.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL);
+  await daoNetwork.updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD);
+  await daoNetwork.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE);
+
+  return { network, views, cssvToken, ssvToken, modules, daoSigner };
 }

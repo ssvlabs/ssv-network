@@ -60,7 +60,6 @@ interface ISSVDAO is ISSVNetworkCore {
 
     event ExecuteOperatorFeePeriodUpdated(uint64 value);
 
-    // todo check
     event LiquidationThresholdPeriodUpdated(uint64 value);
     event LiquidationThresholdPeriodSSVUpdated(uint64 value);
 
@@ -83,7 +82,6 @@ interface ISSVDAO is ISSVNetworkCore {
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
     event OperatorMaximumFeeUpdated(uint64 maxFee);
-    // todo check
     event OperatorMaximumFeeSSVUpdated(uint64 maxFee);
 
     /// @notice Emitted when an EB Merkle root is committed for a given block

@@ -35,13 +35,12 @@ describe("Cluster with a removed operator sanity test", () => {
 
     const validatorKey = makePublicKey(1);
     const operatorIds = await registerOperators(network, operatorOwner, 4);
-    await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+    await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
     await network.connect(clusterOwner).registerValidator(
       validatorKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: SMALL_ETH_REGISTER_VALUE }
     );
@@ -56,7 +55,7 @@ describe("Cluster with a removed operator sanity test", () => {
     // make cluster liquidatable
     await networkHelpers.mine(100);
     await network.connect(operatorOwner).removeOperator(operatorIds[2]);
-    await networkHelpers.mine(300);
+    await networkHelpers.mine(999999999999);
 
     expect(await views.isLiquidatable(clusterOwner.address, operatorIds, expectedCluster))
       .to.be.equal(true);

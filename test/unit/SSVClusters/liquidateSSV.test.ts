@@ -149,7 +149,6 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
       makePublicKey(999),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
