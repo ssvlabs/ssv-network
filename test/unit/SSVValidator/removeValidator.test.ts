@@ -43,7 +43,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -69,7 +68,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -91,7 +89,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -113,7 +110,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -134,7 +130,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       registeredKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -158,7 +153,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -197,7 +191,6 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );

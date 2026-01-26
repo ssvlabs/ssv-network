@@ -4,12 +4,12 @@ import { getTestConnection } from '../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../setup/fixtures.ts';
 import type { NetworkHelpersType, OperatorTuple } from '../common/types.ts';
 import {
-  addValidatorsToCluster,
+  addValidatorsToCluster, buildEBMerkleForDefaultClusters,
   calculateInitialBurnRate,
   getCurrentClusterState, makeArrayOfKeysAndShares,
   makeOperatorKey,
-  makePublicKey, registerDefaultCluster,
-  registerOperators,
+  makePublicKey, registerDefaultCluster, registerDefaultClusters,
+  registerOperators, updateClusterBalancesForDefaultClusters,
   whitelistAddresses,
 } from '../common/helpers.ts';
 import {
@@ -25,14 +25,13 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE,
-  OPERATOR_MAX_FEE_INCREASE, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
+  OPERATOR_MAX_FEE_INCREASE, SMALL_ETH_REGISTER_VALUE, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
 } from '../common/constants.ts';
 import { Events } from '../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../common/errors.js';
 import { deployContract } from '../../scripts/common/helpers.js';
 import { ContractTransactionResponse } from 'ethers';
-import * as net from 'node:net';
 import { trackGasFromReceipt, GasGroup } from '../helpers/gas-usage.ts';
 
 describe("SSVNetwork full integration tests", () => {
@@ -61,6 +60,8 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getAddress()).to.be.properAddress;
       expect(await cssvToken.getAddress()).to.be.properAddress;
       expect(await ssvToken.getAddress()).to.be.properAddress;
+
+      expect(await views.getVersion()).to.be.equal("v1.3.0");
 
       const version = await network.getVersion();
       expect(version).to.be.a("string").and.not.empty;
@@ -921,7 +922,7 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
-  describe("Function 'updateMaximumOperatorFeeSSV()'", async function(){
+  describe("Function 'updateMaximumOperatorFeeSSV()'", async function() {
     it("Updates maximum fee and emits correct event", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
@@ -938,6 +939,48 @@ describe("SSVNetwork full integration tests", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
+  describe("Function 'setUnstakeCooldownDuration()'", async function() {
+    it("Changes cooldown period and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(await network.setUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
+        .to.emit(network, Events.COOLDOWN_DURATION_UPDATED)
+        .withArgs(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+
+      expect(await views.cooldownDuration()).to.be.equal(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+    });
+
+    it("Is reverted if the caller is not the error", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).setUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
+  describe("Function 'setQuorumBps()'", async function() {
+    it("Changes quorum and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(await network.setQuorumBps(10000n))
+        .to.emit(network, Events.QUORUM_UPDATED)
+        .withArgs(10000n);
+
+      expect(await views.getQuorumBps()).to.be.equal(10000n);
+    });
+
+    it("Is reverted if the caller is not the error", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).setQuorumBps(10000n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
   });
@@ -1022,7 +1065,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1088,7 +1130,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1140,7 +1181,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1391,7 +1431,6 @@ describe("SSVNetwork full integration tests", () => {
           validatorKey,
           operatorIds,
           DEFAULT_SHARES,
-          0,
           EMPTY_CLUSTER,
           { value: DEFAULT_ETH_REGISTER_VALUE }
         );
@@ -1445,7 +1484,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1465,7 +1503,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1484,7 +1521,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1503,7 +1539,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1519,7 +1554,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(2),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         existingCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1544,7 +1578,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1563,7 +1596,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1579,7 +1611,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(2),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         existingCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1598,7 +1629,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
       );
@@ -1614,7 +1644,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(2),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         existingCluster,
         { value: 0 }
       );
@@ -1634,7 +1663,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1653,7 +1681,6 @@ describe("SSVNetwork full integration tests", () => {
         invalidLengthPublicKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1672,7 +1699,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1681,7 +1707,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1703,7 +1728,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         invalidCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1725,7 +1749,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1747,7 +1770,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1765,7 +1787,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1790,7 +1811,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1810,7 +1830,6 @@ describe("SSVNetwork full integration tests", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: 0 }
       ))
@@ -1831,7 +1850,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1884,7 +1902,6 @@ describe("SSVNetwork full integration tests", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1903,7 +1920,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         existingCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1923,7 +1939,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1946,7 +1961,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1965,7 +1979,6 @@ describe("SSVNetwork full integration tests", () => {
         keys[7],
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
@@ -1974,7 +1987,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1996,7 +2008,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         invalidCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2018,7 +2029,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2040,7 +2050,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2058,7 +2067,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2083,7 +2091,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2103,7 +2110,6 @@ describe("SSVNetwork full integration tests", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: 0 }
       ))
@@ -2123,7 +2129,6 @@ describe("SSVNetwork full integration tests", () => {
       [],
       operatorIds,
       shares,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     ))
@@ -2142,7 +2147,6 @@ describe("SSVNetwork full integration tests", () => {
       keys,
       operatorIds,
       shares,
-      0,
       EMPTY_CLUSTER,
       { value: 0 }
     ))
@@ -2227,7 +2231,7 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
-  describe("Function 'bulkRemoveValidator()'", async function(){
+  describe("Function 'bulkRemoveValidator()'", async function() {
     it("Removes validators and emits correct event", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
@@ -2306,6 +2310,355 @@ describe("SSVNetwork full integration tests", () => {
 
       await expect(network.connect(clusterOwner).bulkRemoveValidator([validatorKey], operatorIds, updatedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+    });
+  });
+
+  describe("Function 'liquidate()'", async function() {
+    it("If called by cluster owner - liquidates cluster, refunds caller and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: SMALL_ETH_REGISTER_VALUE }
+      );
+
+      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      const callerBalanceBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
+
+      await expect(network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster))
+        .to.emit(network, Events.CLUSTER_LIQUIDATED);
+
+      const callerBalanceAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
+      expect(callerBalanceAfter).to.be.greaterThan(callerBalanceBefore);
+
+      const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(await views.isLiquidated(clusterOwner.address, operatorIds, newClusterState)).to.be.equal(true);
+    });
+
+    it("If called not by a cluster owner, liquidates cluster, refunds the caller and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: SMALL_ETH_REGISTER_VALUE }
+      );
+
+      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.updateLiquidationThresholdPeriod(1000000000);
+
+      const callerBalanceBefore = await connection.ethers.provider.getBalance(randomUser.address);
+
+      await expect(network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, cluster))
+        .to.emit(network, Events.CLUSTER_LIQUIDATED);
+
+      const callerBalanceAfter = await connection.ethers.provider.getBalance(randomUser.address);
+      expect(callerBalanceAfter).to.be.greaterThan(callerBalanceBefore);
+
+      const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(await views.isLiquidated(clusterOwner.address, operatorIds, newClusterState)).to.be.equal(true);
+    });
+
+    it("Is reverted with 'ClusterDoesNotExists' if the cluster was not created yet", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.connect(randomUser).liquidate(randomUser.address, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+
+    it("Is reverted with 'IncorrectClusterState' if the provided cluster state is incorrect", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      cluster.validatorCount += 1n;
+
+      await expect(network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
+    });
+
+    it("Is reverted with 'ClusterIsLiquidated' if cluster is already liquidated", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster);
+      const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      await expect(network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, newClusterState))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_IS_LIQUIDATED);
+    });
+
+    it("Is reverted with 'ClusterNotLiquidatable' if called not by cluster owner and cluster is not yet liquidatable", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_NOT_LIQUIDATABLE);
+    });
+  });
+
+  describe("Function 'reactivate()'", async function() {
+    it("Reactivates the cluster and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster);
+      let newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      await expect(await network.connect(clusterOwner).reactivate(operatorIds, newClusterState, {value: DEFAULT_ETH_REGISTER_VALUE}))
+        .to.emit(network, Events.CLUSTER_REACTIVATED);
+      newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      expect(await views.isLiquidated(clusterOwner.address, operatorIds, newClusterState)).to.be.equal(false);
+    });
+
+    it("Is reverted with 'ClusterDoesNotExists' if such cluster was not yet registered", async function(){
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.connect(randomUser).reactivate(operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+
+    it("Is reverted with 'IncorrectClusterState' if the provided cluster state is incorrect", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      cluster.validatorCount += 1n;
+
+      await expect(network.connect(clusterOwner).reactivate(operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
+    });
+
+    it("Is reverted with 'ClusterAlreadyEnabled' if cluster is not liquidated", async function(){
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.connect(clusterOwner).reactivate(operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_ALREADY_ENABLED);
+    });
+
+    it("Is reverted with 'InsufficientBalance' if the amount is not enough to cover runway", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster);
+      let newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      await expect(network.connect(clusterOwner).reactivate(operatorIds, newClusterState, {value: 1}))
+        .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
+    });
+  });
+
+  describe("Function 'deposit()'", async function() {
+    it("Increases cluster balance and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
+
+      await expect(await network.deposit(clusterOwner.address, operatorIds, cluster, {value: DEFAULT_ETH_REGISTER_VALUE}))
+        .to.emit(network, Events.CLUSTER_DEPOSITED);
+
+      const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      const balanceAfter = await views.getBalance(clusterOwner.address, operatorIds, newClusterState);
+
+      expect(balanceAfter).to.be.greaterThan(balanceBefore);
+    });
+
+    it("Is reverted with 'ClusterDoesNotExists' if such cluster was not yet registered", async function(){
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.deposit(randomUser.address, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+
+    it("Is reverted with 'IncorrectClusterState' if the provided cluster state is incorrect", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      cluster.validatorCount += 1n;
+
+      await expect(network.connect(clusterOwner).deposit(clusterOwner.address, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
+    });
+  });
+
+  describe("Function 'withdraw()'", async function() {
+    it("Withdraws from cluster balance and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      const callerBalanceBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
+
+      await expect(await network.connect(clusterOwner).withdraw(operatorIds, SMALL_ETH_REGISTER_VALUE, cluster))
+        .to.emit(network, Events.CLUSTER_WITHDRAWN);
+
+      const callerBalanceAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
+      const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      expect(callerBalanceAfter).to.be.greaterThan(callerBalanceBefore);
+      expect(BigInt(newClusterState.balance)).to.be.lessThan(BigInt(cluster.balance));
+    });
+
+    it("Is reverted with 'ClusterDoesNotExists' if such cluster was not yet registered", async function(){
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.withdraw(operatorIds, SMALL_ETH_REGISTER_VALUE, cluster))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+
+    it("Is reverted with 'IncorrectClusterState' if the provided cluster state is incorrect", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      cluster.validatorCount += 1n;
+
+      await expect(network.connect(clusterOwner).withdraw(operatorIds, SMALL_ETH_REGISTER_VALUE, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
+    });
+
+    it("Is reverted with 'ClusterIsLiquidated' if the cluster is liquidated", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster);
+      const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      await expect(network.connect(clusterOwner).withdraw(operatorIds, SMALL_ETH_REGISTER_VALUE, newClusterState))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_IS_LIQUIDATED);
+    });
+
+    it("Is reverted with 'InsufficientBalance' if the amount is bigger than cluster balance", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.connect(clusterOwner).withdraw(operatorIds, DEFAULT_ETH_REGISTER_VALUE + 1n, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
+    });
+  });
+
+  describe("Function 'exitValidator()'", async function() {
+    it("Emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {validatorKey, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.connect(clusterOwner).exitValidator(validatorKey, operatorIds))
+        .to.emit(network, Events.VALIDATOR_EXITED)
+        .withArgs(clusterOwner.address, operatorIds, validatorKey)
+    });
+
+    it("Is reverted with 'IncorrectValidatorStateWithData' if the key does not exist or belong to a caller", async function(){
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {validatorKey, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.connect(clusterOwner).exitValidator(makePublicKey(123), operatorIds))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
+        .withArgs(makePublicKey(123));
+
+      await expect(network.connect(randomUser).exitValidator(validatorKey, operatorIds))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
+        .withArgs(validatorKey);
+    });
+  });
+
+  describe("Function 'bulkExitValidator()'", async function() {
+    it("Emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {validatorKey, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.connect(clusterOwner).bulkExitValidator([validatorKey], operatorIds))
+        .to.emit(network, Events.VALIDATOR_EXITED)
+        .withArgs(clusterOwner.address, operatorIds, validatorKey)
+    });
+
+    it("Is reverted with 'IncorrectValidatorStateWithData' if the key does not exist or belong to a caller", async function(){
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {validatorKey, operatorIds} =
+        await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
+
+      await expect(network.connect(clusterOwner).bulkExitValidator([makePublicKey(123)], operatorIds))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
+        .withArgs(makePublicKey(123));
+
+      await expect(network.connect(randomUser).bulkExitValidator([validatorKey], operatorIds))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
+        .withArgs(validatorKey);
     });
   });
 
@@ -2477,6 +2830,415 @@ describe("SSVNetwork full integration tests", () => {
       expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(0);
       expect(await ssvToken.balanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
       expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(0);
+    });
+
+    it("Is reverted with 'NothingToWithdraw()' if nor rewards were unfrozen yet", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).withdrawUnlocked())
+        .to.be.revertedWithCustomError(network, Errors.NOTHING_TO_WITHDRAW);
+    });
+  });
+
+  describe("Function 'claimEthRewards()'", async function() {
+    it("Claims ETH rewards and emits correct event", async function() {
+      const { network, views, ssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
+
+      const oracles = (await connection.ethers.getSigners()).slice(10, 14);
+
+      await network.replaceOracle(1, oracles[0].address);
+      await network.replaceOracle(2, oracles[1].address);
+      await network.replaceOracle(3, oracles[2].address);
+      await network.replaceOracle(4, oracles[3].address);
+
+      for (let i = 1; i <= oracles.length; i++) {
+        expect(await views.getOracle(i)).to.be.equal(oracles[i-1]);
+        expect(await views.getOracleWeight(i)).to.be.equal(STAKE_AMOUNT / BigInt(oracles.length));
+      }
+
+      const operatorIds =  await registerOperators(network, operatorOwner, 4)
+      const clusters = await registerDefaultClusters(
+        connection,
+        network,
+        operatorIds,
+        operatorOwner,
+        8
+      );
+      const merkleData = buildEBMerkleForDefaultClusters(connection, clusters, 33);
+
+      const block = await connection.ethers.provider.getBlock('latest');
+      const blockNum = block!.number
+
+      for (let i = 0; i < 3; i++) {
+        await network.connect(oracles[i]).commitRoot(merkleData.root, blockNum);
+      }
+      expect(await views.getCommittedRoot(blockNum)).to.be.equal(merkleData.root);
+
+      await updateClusterBalancesForDefaultClusters(
+        network,
+        clusters,
+        merkleData,
+        blockNum,
+        33
+      );
+
+      expect(await views.previewClaimableEth(randomUser.address)).to.not.be.equal(0);
+      expect(await views.stakingEthPoolBalance()).to.be.equal(0);
+
+      const userBalanceBefore = await connection.ethers.provider.getBalance(randomUser.address);
+
+      await expect(network.connect(randomUser).claimEthRewards())
+        .to.emit(network, Events.REWARDS_CLAIMED);
+
+      const userBalanceAfter = await connection.ethers.provider.getBalance(randomUser.address);
+      expect(userBalanceAfter).to.be.greaterThan(userBalanceBefore);
+    });
+
+    it("Is reverted with 'NothingToClaim()' if no rewards were accumulated yet", async function(){
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).claimEthRewards())
+        .to.be.revertedWithCustomError(network, Errors.NOTHING_TO_CLAIM);
+    });
+  });
+
+  describe("Function 'syncFees()'", async function() {
+    it("Syncs fees and emits correct event if the data is relevant", async function() {
+      const { network, ssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
+
+      const oracles = (await connection.ethers.getSigners()).slice(10, 14);
+
+      await network.replaceOracle(1, oracles[0].address);
+      await network.replaceOracle(2, oracles[1].address);
+      await network.replaceOracle(3, oracles[2].address);
+      await network.replaceOracle(4, oracles[3].address);
+
+      const operatorIds =  await registerOperators(network, operatorOwner, 4)
+      const clusters = await registerDefaultClusters(
+        connection,
+        network,
+        operatorIds,
+        operatorOwner,
+        8
+      );
+      const merkleData = buildEBMerkleForDefaultClusters(connection, clusters, 33);
+
+      const block = await connection.ethers.provider.getBlock('latest');
+      const blockNum = block!.number
+
+      for (let i = 0; i < 3; i++) {
+        await network.connect(oracles[i]).commitRoot(merkleData.root, blockNum);
+      }
+
+      await updateClusterBalancesForDefaultClusters(
+        network,
+        clusters,
+        merkleData,
+        blockNum,
+        33
+      );
+
+      await expect(network.syncFees())
+        .to.emit(network, Events.FEES_SYNCED);
+    });
+
+    it("Does not emit event if no relevant changes happened", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.syncFees())
+        .to.not.emit(network, Events.FEES_SYNCED);
+    })
+  });
+
+  describe("Function 'rescueERC20()'", async function() {
+    it("Withdraws tokens and emits correct event", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const randomToken = await connection.ethers.deployContract("MockToken");
+      await randomToken.waitForDeployment();
+      const tokenAddress = await randomToken.getAddress();
+
+      await randomToken.mint(await network.getAddress(), 123);
+
+      await expect(network.rescueERC20(tokenAddress, randomUser.address, 123))
+        .to.emit(network, Events.ERC20_RESCUED)
+        .withArgs(tokenAddress, randomUser.address, 123);
+
+      expect(await randomToken.balanceOf(randomUser.address)).to.be.equal(123);
+    });
+
+    it("Is reverted with 'Ownable: caller is not the owner' if the caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).rescueERC20(randomUser.address, randomUser.address, 123))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+
+    it("Is reverted with 'ZeroAddress()' if token address is zero", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.rescueERC20(connection.ethers.ZeroAddress, randomUser.address, 123))
+        .to.be.revertedWithCustomError(network, Errors.ZERO_ADDRESS);
+    });
+
+    it("Is reverted with 'ZeroAddress()' if receiver address is zero", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.rescueERC20(randomUser.address, connection.ethers.ZeroAddress, 123))
+        .to.be.revertedWithCustomError(network, Errors.ZERO_ADDRESS);
+    });
+
+    it("Is reverted with 'InvalidToken()' if trying to rescue ssv token", async function() {
+      const { network, ssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.rescueERC20(await ssvToken.getAddress(), randomUser.address, 123))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_TOKEN);
+    });
+
+    it("Is reverted with 'InvalidToken()' if trying to rescue cssv token", async function() {
+      const { network, cssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.rescueERC20(await cssvToken.getAddress(), randomUser.address, 123))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_TOKEN);
+    });
+
+    it("Is reverted with 'ZeroAmount()' if trying to rescue zero tokens", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.rescueERC20(randomUser.address, randomUser.address, 0))
+        .to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+    });
+  });
+
+  describe("Function 'onCSSVTransfer()'", async function() {
+    it("Syncs fees, transfers delegation and emits correct events", async function() {
+      const { network, ssvToken, cssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
+
+      const oracles = (await connection.ethers.getSigners()).slice(10, 14);
+
+      await network.replaceOracle(1, oracles[0].address);
+      await network.replaceOracle(2, oracles[1].address);
+      await network.replaceOracle(3, oracles[2].address);
+      await network.replaceOracle(4, oracles[3].address);
+
+      const operatorIds =  await registerOperators(network, operatorOwner, 4)
+      const clusters = await registerDefaultClusters(
+        connection,
+        network,
+        operatorIds,
+        operatorOwner,
+        8
+      );
+      const merkleData = buildEBMerkleForDefaultClusters(connection, clusters, 33);
+
+      const block = await connection.ethers.provider.getBlock('latest');
+      const blockNum = block!.number
+
+      for (let i = 0; i < 3; i++) {
+        await network.connect(oracles[i]).commitRoot(merkleData.root, blockNum);
+      }
+
+      await updateClusterBalancesForDefaultClusters(
+        network,
+        clusters,
+        merkleData,
+        blockNum,
+        33
+      );
+
+      const tx = await cssvToken.connect(randomUser).transfer(operatorOwner.address, STAKE_AMOUNT);
+      await tx.wait();
+
+      await expect(tx)
+        .to.emit(network, Events.FEES_SYNCED)
+        .and.to.emit(network, Events.DELEGATION_UPDATED);
+    });
+
+    it("Is reverted with 'NotCSSV()' if the caller is not CSSV token", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).onCSSVTransfer(randomUser.address, randomUser.address, 123))
+        .to.be.revertedWithCustomError(network, Errors.NOT_CSSV);
+    });
+  });
+
+  describe("Reentrancy Guard Tests", async function () {
+    it("Prevents reentrancy in 'liquidate()'", async function () {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      const Malicious = await connection.ethers.getContractFactory("MaliciousLiquidate");
+      const malicious = await Malicious.deploy(await network.getAddress());
+      await malicious.waitForDeployment();
+
+      await whitelistAddresses(network, operatorOwner, operatorIds, [await malicious.getAddress()]);
+
+      await malicious.registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: SMALL_ETH_REGISTER_VALUE }
+      );
+
+      const cluster = await getCurrentClusterState(connection, network, await malicious.getAddress(), operatorIds);
+
+      await connection.networkHelpers.mine(9999);
+
+      await malicious.setParams(operatorIds, cluster);
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+    });
+
+    it("Prevents reentrancy in 'withdraw()'", async function() {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      const Malicious = await connection.ethers.getContractFactory("MaliciousWithdraw");
+      const malicious = await Malicious.deploy(await network.getAddress());
+      await malicious.waitForDeployment();
+
+      await whitelistAddresses(network, operatorOwner, operatorIds, [await malicious.getAddress()]);
+
+      await malicious.registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: SMALL_ETH_REGISTER_VALUE }
+      );
+
+      const cluster = await getCurrentClusterState(connection, network, await malicious.getAddress(), operatorIds);
+
+      await malicious.setParams(operatorIds, cluster);
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+    });
+
+    it("Prevents reentrancy in 'withdrawAllOperatorEarnings()'", async function() {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const Malicious = await connection.ethers.getContractFactory("MaliciousWithdrawAllOperatorEarnings");
+      const malicious = await Malicious.deploy(await network.getAddress());
+      await malicious.waitForDeployment();
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 3);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      const operatorKey = makeOperatorKey(123);
+      const expectedId = await malicious.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
+      await malicious.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
+
+      await malicious.setOperatorsWhitelists([expectedId], [clusterOwner]);
+      const earningsPeriod = 100n;
+      operatorIds.push(Number(expectedId));
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      await connection.networkHelpers.mine(earningsPeriod);
+
+      await malicious.setParams(expectedId);
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+    });
+
+    it("Prevents reentrancy in 'MaliciousWithdrawAllVersionOperatorEarnings()'", async function() {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const Malicious = await connection.ethers.getContractFactory("MaliciousWithdrawAllVersionOperatorEarnings");
+      const malicious = await Malicious.deploy(await network.getAddress());
+      await malicious.waitForDeployment();
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 3);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      const operatorKey = makeOperatorKey(123);
+      const expectedId = await malicious.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
+      await malicious.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
+
+      await malicious.setOperatorsWhitelists([expectedId], [clusterOwner]);
+      const earningsPeriod = 100n;
+      operatorIds.push(Number(expectedId));
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      await connection.networkHelpers.mine(earningsPeriod);
+
+      await malicious.setParams(expectedId);
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+    });
+
+    it("Prevents reentrancy in 'withdrawOperatorEarnings()'", async function() {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const Malicious = await connection.ethers.getContractFactory("MaliciousWithdrawOperatorEarnings");
+      const malicious = await Malicious.deploy(await network.getAddress());
+      await malicious.waitForDeployment();
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 3);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      const operatorKey = makeOperatorKey(123);
+      const expectedId = await malicious.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
+      await malicious.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
+
+      await malicious.setOperatorsWhitelists([expectedId], [clusterOwner]);
+      const earningsPeriod = 100n;
+      operatorIds.push(Number(expectedId));
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      await connection.networkHelpers.mine(earningsPeriod);
+
+      await malicious.setParams(expectedId, MINIMAL_OPERATOR_ETH_FEE);
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
     });
   });
 });

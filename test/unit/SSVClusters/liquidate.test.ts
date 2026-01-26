@@ -46,7 +46,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -75,7 +74,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -99,7 +97,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -123,7 +120,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -149,7 +145,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -181,7 +176,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -205,7 +199,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -233,7 +226,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );

@@ -8,7 +8,7 @@ contract SSVNetworkSSVStakingUpgrade is SSVNetwork {
         address cssv,
         uint64 cooldownDuration,
         uint32[4] memory defaultOracleIds
-    ) external onlyOwner reinitializer(3) {
+    ) external onlyOwner reinitializer(_getInitializedVersion() + 1) {
         if (cssv == address(0)) revert ZeroAddress();
 
         // save staking storage updates

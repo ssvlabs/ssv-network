@@ -43,7 +43,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -60,7 +59,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -76,7 +74,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -87,7 +84,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(2),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       clusterAfterRegister,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -103,7 +99,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
     );
@@ -114,7 +109,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(2),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       clusterAfterRegister,
       { value: 0 }
     );
@@ -130,7 +124,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -146,7 +139,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -157,7 +149,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(2),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       clusterAfterRegister,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -173,7 +164,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
     );
@@ -184,7 +174,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(2),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       clusterAfterRegister,
       { value: 0 }
     );
@@ -200,7 +189,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -216,7 +204,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -227,7 +214,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(2),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       clusterAfterRegister,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -243,7 +229,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
     );
@@ -254,7 +239,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(2),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       clusterAfterRegister,
       { value: 0 }
     );
@@ -272,7 +256,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       emptyPublicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.INVALID_PUBLIC_KEYS_LENGTH);
@@ -281,7 +264,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       invalidLengthPublicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.INVALID_PUBLIC_KEYS_LENGTH);
@@ -294,7 +276,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       [makePublicKey(1)], // 1 pk
       operatorIds,
       [], // 0 shares
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.PUBLIC_KEYS_SHARES_LENGTH_MISMATCH);
@@ -304,13 +285,12 @@ describe("SSVClusters function `registerValidator()`", async () => {
     const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
     const publicKey = makePublicKey(1);
-    await validators.registerValidator(publicKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: DEFAULT_ETH_REGISTER_VALUE });
+    await validators.registerValidator(publicKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: DEFAULT_ETH_REGISTER_VALUE });
 
     await expect(validators.registerValidator(
       publicKey,
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
       )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA).withArgs(publicKey);
@@ -324,7 +304,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.INVALID_OPERATOR_IDS_LENGTH);
@@ -338,7 +317,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.UNSORTED_OPERATORS_LIST);
@@ -352,7 +330,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.OPERATORS_LIST_NOT_UNIQUE);
@@ -368,7 +345,6 @@ describe("SSVClusters function `registerValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_IS_LIQUIDATED);

@@ -44,7 +44,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -64,7 +63,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -80,7 +78,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       makePublicKey(100),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -94,7 +91,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       existingCluster,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -113,7 +109,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -129,7 +124,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       makePublicKey(100),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -143,7 +137,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       existingCluster,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -162,7 +155,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -178,7 +170,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       makePublicKey(100),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -192,7 +183,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       existingCluster,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -211,7 +201,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -227,7 +216,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       makePublicKey(100),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -241,7 +229,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       publicKeys,
       operatorIds,
       shares,
-      0,
       existingCluster,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
@@ -256,7 +243,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [],
       operatorIds,
       [],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.EMPTY_PUBLIC_KEYS_LIST);
@@ -272,7 +258,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [emptyPublicKey],
       operatorIds,
       [DEFAULT_SHARES],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.INVALID_PUBLIC_KEYS_LENGTH);
@@ -281,7 +266,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [makePublicKey(1), invalidLengthPublicKey],
       operatorIds,
       [DEFAULT_SHARES, DEFAULT_SHARES],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.INVALID_PUBLIC_KEYS_LENGTH);
@@ -294,7 +278,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [makePublicKey(1), makePublicKey(2)], // 2 public keys
       operatorIds,
       [DEFAULT_SHARES], // only 1 share
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.PUBLIC_KEYS_SHARES_LENGTH_MISMATCH);
@@ -309,7 +292,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [publicKey, publicKey],
       operatorIds,
       [DEFAULT_SHARES, DEFAULT_SHARES],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA).withArgs(publicKey);
@@ -323,7 +305,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [makePublicKey(1), makePublicKey(2)],
       operatorIds,
       [DEFAULT_SHARES, DEFAULT_SHARES],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.INVALID_OPERATOR_IDS_LENGTH);
@@ -337,7 +318,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [makePublicKey(1), makePublicKey(2)],
       operatorIds,
       [DEFAULT_SHARES, DEFAULT_SHARES],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.UNSORTED_OPERATORS_LIST);
@@ -351,7 +331,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [makePublicKey(1), makePublicKey(2)],
       operatorIds,
       [DEFAULT_SHARES, DEFAULT_SHARES],
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.OPERATORS_LIST_NOT_UNIQUE);
@@ -367,7 +346,6 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [makePublicKey(1), makePublicKey(2)],
       operatorIds,
       [DEFAULT_SHARES, DEFAULT_SHARES],
-      0,
       liquidatedCluster,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_IS_LIQUIDATED);

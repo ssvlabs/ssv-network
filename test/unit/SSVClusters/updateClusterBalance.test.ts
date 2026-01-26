@@ -34,7 +34,6 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
-      0,
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );

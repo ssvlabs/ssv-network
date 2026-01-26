@@ -3,7 +3,7 @@ import type { NetworkConnection } from "hardhat/types/network";
 import { ssvNetworkFullForkedFixture } from '../setup/fixtures.ts';
 import type { NetworkHelpersType, OperatorTuple } from '../common/types.ts';
 import {
-  calculateInitialBurnRate, clusterToTuple,
+  calculateInitialBurnRate,
   getCurrentClusterState, makeArrayOfKeysAndShares,
   makeOperatorKey,
   makePublicKey, registerDefaultCluster,
@@ -1048,7 +1048,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
 
       const earningsPeriod = 100n;
       await network.connect(clusterOwner).registerValidator(
-        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       await connection.networkHelpers.mine(earningsPeriod);
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
@@ -1120,7 +1120,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
 
       const earningsPeriod = 100n;
       await network.connect(clusterOwner).registerValidator(
-        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       await connection.networkHelpers.mine(earningsPeriod);
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
@@ -1178,7 +1178,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
 
       const earningsPeriod = 100n;
       await network.connect(clusterOwner).registerValidator(
-        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       await connection.networkHelpers.mine(earningsPeriod);
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
@@ -1439,7 +1439,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       const tx = await network.connect(clusterOwner).registerValidator(
-        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE]);
@@ -1498,7 +1498,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_4_WHITELISTING_CONTRACT_4]);
@@ -1528,7 +1528,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_NEW_STATE_1_WHITELISTED_4]);
@@ -1562,7 +1562,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: requiredDeposit }
       );
@@ -1593,7 +1592,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredForOne }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredForOne }
       );
       const existingCluster = await getCurrentClusterState(
         connection, network, clusterOwner.address, operatorIds
@@ -1612,7 +1611,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(2), operatorIds, DEFAULT_SHARES, 0, clusterToTuple(existingCluster), { value: additionalDeposit }
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, existingCluster, { value: additionalDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_EXISTING_CLUSTER_4_WHITELISTED_4]);
@@ -1641,7 +1640,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredForOne }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredForOne }
       );
       const existingCluster = await getCurrentClusterState(
         connection, network, clusterOwner.address, operatorIds
@@ -1660,7 +1659,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(2), operatorIds, DEFAULT_SHARES, 0, existingCluster, { value: additionalDeposit }
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, existingCluster, { value: additionalDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_EXISTING_ETH_CLUSTER]);
@@ -1690,14 +1689,14 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: initialDeposit }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: initialDeposit }
       );
       const existingCluster = await getCurrentClusterState(
         connection, network, clusterOwner.address, operatorIds
       );
 
       const tx = await network.connect(clusterOwner).registerValidator(
-        makePublicKey(2), operatorIds, DEFAULT_SHARES, 0, existingCluster, { value: 0 }
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, existingCluster, { value: 0 }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT]);
@@ -1715,7 +1714,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1734,7 +1732,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         invalidLengthPublicKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1765,11 +1762,11 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       await network.connect(clusterOwner).registerValidator(
-        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       );
 
       await expect(network.connect(clusterOwner).registerValidator(
-        validatorKey, operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
         .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
         .withArgs(validatorKey);
@@ -1789,7 +1786,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         invalidCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1811,7 +1807,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1833,7 +1828,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1851,7 +1845,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1876,7 +1869,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -1896,7 +1888,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
-        0,
         EMPTY_CLUSTER,
         { value: 0 }
       ))
@@ -1930,7 +1921,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       const tx = await network.connect(clusterOwner).bulkRegisterValidator(
-        keys, operatorIds, shares, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        keys, operatorIds, shares, EMPTY_CLUSTER, { value: requiredDeposit }
       );
       await tx.wait();
 
@@ -1990,7 +1981,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       await network.connect(clusterOwner).registerValidator(
-        makePublicKey(1), operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredForOne }
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredForOne }
       );
       const existingCluster = await getCurrentClusterState(
         connection, network, clusterOwner.address, operatorIds
@@ -2011,7 +2002,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       const keys = Array.from({ length: 10 }, (_, i) => makePublicKey(i + 2));
       const shares = Array(10).fill(DEFAULT_SHARES);
       const tx = await network.connect(clusterOwner).bulkRegisterValidator(
-        keys, operatorIds, shares, 0, existingCluster, { value: additionalDeposit }
+        keys, operatorIds, shares, existingCluster, { value: additionalDeposit }
       );
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.BULK_REGISTER_10_VALIDATOR_1_WHITELISTING_CONTRACT_EXISTING_CLUSTER_4]);
@@ -2029,7 +2020,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2052,7 +2042,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2083,11 +2072,11 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       ]);
 
       await network.connect(clusterOwner).registerValidator(
-        keys[7], operatorIds, DEFAULT_SHARES, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        keys[7], operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       );
 
       await expect(network.connect(clusterOwner).bulkRegisterValidator(
-        keys, operatorIds, shares, 0, EMPTY_CLUSTER, { value: requiredDeposit }
+        keys, operatorIds, shares, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
         .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
         .withArgs(keys[7]);
@@ -2107,7 +2096,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         keys,
         operatorIds,
         shares,
-        0,
         invalidCluster,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2129,7 +2117,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2151,7 +2138,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2169,7 +2155,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2194,7 +2179,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
@@ -2214,7 +2198,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         keys,
         operatorIds,
         shares,
-        0,
         EMPTY_CLUSTER,
         { value: 0 }
       ))
@@ -2234,7 +2217,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       [],
       operatorIds,
       shares,
-      0,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     ))
@@ -2253,7 +2235,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       keys,
       operatorIds,
       shares,
-      0,
       EMPTY_CLUSTER,
       { value: 0 }
     ))
