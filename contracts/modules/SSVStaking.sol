@@ -347,19 +347,6 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
             }
         }
 
-        // Early return when transferred == 0 causes a bug when transferring tiny amounts.
-        // When amount > 0 but all individual moves round to 0 due to integer division, this block
-        // exits early without initializing the recipient's delegation. Later, when the recipient
-        // calls requestUnstake, _removeDelegation does nothing (because oracleIds[0] == 0), but
-        // cSSV is still burned, causing oracleWeights to become out of sync with totalSupply.
-        // The remainder handling logic below (lines 356-362) correctly handles this case by
-        // forcing the full amount to transfer from the oracle with max delegation.
-        // if (transferred == 0) {
-        //     // Persist default initialization if it happened
-        //     fromDel.amounts = fromAmounts;
-        //     return;
-        // }
-
         if (transferred < amount && fromOracleIds[idxWithMax] != 0) {
             uint256 remainder = amount - transferred;
             movedAmounts[idxWithMax] += remainder;
