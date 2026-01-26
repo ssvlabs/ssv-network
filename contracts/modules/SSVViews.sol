@@ -306,9 +306,7 @@ contract SSVViews is ISSVViews {
             vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
 
-        uint256 units = uint256(vUnits) / VUNITS_PRECISION;
-
-        return (networkFee + operatorsFee).expand() * units;
+        return ((networkFee + operatorsFee).expand() * uint256(vUnits)) / VUNITS_PRECISION;
     }
 
     function getBurnRateSSV(
