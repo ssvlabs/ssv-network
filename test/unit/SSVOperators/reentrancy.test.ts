@@ -54,4 +54,52 @@ describe("SSVOperators reentrancy guard", async () => {
     const operatorAfter = await operators.getOperator(operatorId);
     expect(operatorAfter.ethSnapshot.balance).to.equal(3n);
   });
+
+  it("Blocks reentrancy during SSV earnings withdrawal", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    // Deploy ReentrantTokenMock
+    const token = await connection.ethers.deployContract("ReentrantTokenMock");
+    await token.waitForDeployment();
+
+    // Set token in storage
+    await operators.mockSetToken(await token.getAddress());
+
+    // Deploy Attacker
+    const attacker = await connection.ethers.deployContract(
+      "OperatorEarningsReentrancySSV",
+      [await operators.getAddress(), await token.getAddress()]
+    );
+    await attacker.waitForDeployment();
+
+    // Register operator via attacker
+    await trackGas(
+      attacker.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+
+    const operatorId = await attacker.operatorId();
+
+    // Fund operators contract with tokens
+    await token.mint(await operators.getAddress(), connection.ethers.parseEther("100"));
+    
+    // Set attacker balance in SSVOperators (using raw storage values, so shrunk)
+    await operators.mockSetOperatorBalances(Number(operatorId), 0, 5n);
+
+    // Withdraw 2 units
+    const withdrawAmount = 2n * SHRINK_FACTOR;
+    // Try to reenter for 1 unit
+    const reenterAmount = 1n * SHRINK_FACTOR;
+
+    await attacker.setReenterAmount(reenterAmount);
+    
+    // Trigger withdraw
+    await attacker.triggerWithdraw(withdrawAmount);
+
+    expect(await attacker.reentered()).to.equal(true);
+    expect(await attacker.reenterSucceeded()).to.equal(false);
+
+    const operatorAfter = await operators.getOperator(operatorId);
+    expect(operatorAfter.snapshot.balance).to.equal(3n); // 5 - 2 = 3. Reentry of 1 failed.
+  });
 });

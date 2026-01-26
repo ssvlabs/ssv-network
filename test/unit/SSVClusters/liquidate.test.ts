@@ -5,10 +5,11 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ethers } from "ethers";
 
 describe("SSVClusters function `liquidate()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -32,6 +33,12 @@ describe("SSVClusters function `liquidate()`", async () => {
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
     return ssvClustersHarnessFixture(connection);
+  };
+
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
   };
 
   it("Allows the cluster owner to liquidate and emits correct event", async function () {
@@ -63,6 +70,143 @@ describe("SSVClusters function `liquidate()`", async () => {
     await expect(liquidateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
     expect(clusterAfterLiquidation.active).to.equal(false);
     expect(clusterAfterLiquidation.balance).to.equal(0n);
+  });
+
+  it("Transfers remaining cluster ETH balance to the liquidator", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockCurrentNetworkFeeIndex(1000n);
+
+    const registerTx = await clusters.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    // Make liquidatable for third party via minimum collateral.
+    const harnessAddress = await clusters.getAddress();
+    const harnessBalance = await connection.ethers.provider.getBalance(harnessAddress);
+    const minCollateral = harnessBalance / 10_000_000n + 1n;
+    await clusters.mockMinimumLiquidationCollateral(minCollateral);
+
+    const liquidatorBalanceBefore = await connection.ethers.provider.getBalance(otherAccount.address);
+    const harnessBalanceBefore = await connection.ethers.provider.getBalance(harnessAddress);
+
+    const tx = await clusters.connect(otherAccount).liquidate(
+      clusterOwner.address,
+      operatorIds,
+      clusterAfterRegister
+    );
+    const receipt = await tx.wait();
+
+    const liquidatorBalanceAfter = await connection.ethers.provider.getBalance(otherAccount.address);
+    const harnessBalanceAfter = await connection.ethers.provider.getBalance(harnessAddress);
+
+    const payout = harnessBalanceBefore - harnessBalanceAfter;
+    expect(payout).to.be.greaterThan(0n);
+
+    const gasCost = receipt.gasUsed * (receipt.effectiveGasPrice ?? receipt.gasPrice);
+    expect(liquidatorBalanceAfter - liquidatorBalanceBefore + gasCost).to.equal(payout);
+  });
+
+  it("Updates operatorEthVUnits on liquidation even when cluster EB snapshot is not set", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockCurrentNetworkFeeIndex(1000n);
+
+    const registerTx = await clusters.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+    }
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
+
+    const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister);
+    await liquidateTx.wait();
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+    }
+  });
+
+  it("Uses stored cluster EB snapshot vUnits when present when updating operatorEthVUnits on liquidation", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockCurrentNetworkFeeIndex(1000n);
+
+    const registerTx1 = await clusters.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt1 = await registerTx1.wait();
+    const clusterAfter1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+
+    const registerTx2 = await clusters.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfter1,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt2 = await registerTx2.wait();
+    const clusterAfter2 = parseClusterFromEvent(clusters, receipt2, Events.VALIDATOR_ADDED);
+
+    const registerTx3 = await clusters.registerValidator(
+      makePublicKey(3),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfter2,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt3 = await registerTx3.wait();
+    const clusterAfter3 = parseClusterFromEvent(clusters, receipt3, Events.VALIDATOR_ADDED);
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION);
+    }
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    await clusters.mockSetClusterVUnits(clusterId, 2n * VUNITS_PRECISION);
+
+    const beforeSnapshotVUnits = await clusters.getClusterVUnits(clusterId);
+    expect(beforeSnapshotVUnits).to.equal(2n * VUNITS_PRECISION);
+
+    const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfter3);
+    await liquidateTx.wait();
+
+    // If liquidation used the default baseline (3 validators), operatorEthVUnits would become 0.
+    // With an explicit snapshot set to 2 validators worth of vUnits, it should remain at 1 validator worth.
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(1n * VUNITS_PRECISION);
+    }
+
+    const afterSnapshotVUnits = await clusters.getClusterVUnits(clusterId);
+    expect(afterSnapshotVUnits).to.equal(beforeSnapshotVUnits);
   });
 
   it("Allows the cluster owner to liquidate with 7 operators", async function () {

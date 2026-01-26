@@ -40,11 +40,8 @@ library OperatorLib {
         uint32 currentBlock = uint32(block.number);
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
-        // EB-weighted: use operatorEthVUnits with fallback to ethValidatorCount
+        // EB-weighted: use operatorEthVUnits
         uint64 vUnits = seb.operatorEthVUnits[operatorId];
-        if (vUnits == 0 && operator.ethValidatorCount > 0) {
-            vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
-        }
 
         operator.ethSnapshot.index += blockDiffEthFee;
         if (vUnits != 0 && blockDiffEthFee != 0) {
@@ -63,9 +60,6 @@ library OperatorLib {
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
         uint64 vUnits = seb.operatorEthVUnits[operatorId];
-        if (vUnits == 0 && operator.ethValidatorCount > 0) {
-            vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
-        }
 
         operator.ethSnapshot.index += blockDiffEthFee;
         if (vUnits != 0 && blockDiffEthFee != 0) {

@@ -5,6 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateDeclareOperatorFeePeriod()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -26,6 +27,8 @@ describe("SSVDAO function `updateDeclareOperatorFeePeriod()`", async () => {
     const newPeriod = 604800n;
 
     const tx = await dao.updateDeclareOperatorFeePeriod(newPeriod);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_DECLARE_OPERATOR_FEE_PERIOD]);
 
     await expect(tx)
       .to.emit(dao, Events.DECLARE_OPERATOR_FEE_PERIOD_UPDATED)

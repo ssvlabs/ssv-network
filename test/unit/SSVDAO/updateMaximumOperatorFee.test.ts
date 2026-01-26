@@ -6,6 +6,7 @@ import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { MAXIMUM_OPERATORS_FEE } from "../../common/constants.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -27,6 +28,8 @@ describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
     const newMaxFee = 100_000_000_000n;
 
     const tx = await dao.updateMaximumOperatorFee(newMaxFee);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_MAX_FEE]);
 
     await expect(tx)
       .to.emit(dao, Events.OPERATOR_MAXIMUM_FEE_UPDATED)
@@ -122,5 +125,25 @@ describe("SSVDAO function `updateMaximumOperatorFeeSSV()`", async () => {
     await expect(tx)
       .to.emit(dao, Events.OPERATOR_MAXIMUM_FEE_UPDATED_SSV)
       .withArgs(0n);
+
+    const storedMaxFee = await dao.getOperatorMaxFeeSSV();
+    expect(storedMaxFee).to.equal(0n);
+  });
+
+  it("Can update SSV maximum operator fee from one value to another", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const firstMaxFee = 50_000_000_000n;
+    const secondMaxFee = 75_000_000_000n;
+
+    await dao.updateMaximumOperatorFeeSSV(firstMaxFee);
+    const tx = await dao.updateMaximumOperatorFeeSSV(secondMaxFee);
+
+    await expect(tx)
+      .to.emit(dao, Events.OPERATOR_MAXIMUM_FEE_UPDATED_SSV)
+      .withArgs(secondMaxFee);
+
+    const storedMaxFee = await dao.getOperatorMaxFeeSSV();
+    expect(storedMaxFee).to.equal(secondMaxFee);
   });
 });

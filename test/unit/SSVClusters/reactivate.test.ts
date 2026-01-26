@@ -9,6 +9,7 @@ import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constan
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ethers } from "ethers";
 
 describe("SSVClusters function `reactivate()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -25,6 +26,12 @@ describe("SSVClusters function `reactivate()`", async () => {
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
     return ssvClustersHarnessFixture(connection);
+  };
+
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
   };
 
   const registerAndLiquidate = async (clusters: any, operatorIds: bigint[]) => {
@@ -138,5 +145,107 @@ describe("SSVClusters function `reactivate()`", async () => {
       clusterAfterLiquidation,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
+  });
+
+  it("Is reverted with 'InsufficientBalance' when reactivation deposit does not cover runway", async function () {
+    const operatorFee = 5_000_000_000n;
+    const deployFixture = async () => ssvClustersHarnessFixture(connection, 4, operatorFee);
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
+
+    await clusters.mockMinimumLiquidationCollateral(0n);
+
+    const { clusterAfterLiquidation } = await registerAndLiquidate(clusters, operatorIds);
+
+    // Increase liquidation runway requirements only for the reactivation call.
+    await clusters.mockMinimumBlocksBeforeLiquidation(1_000_000_000n);
+
+    await expect(clusters.reactivate(
+      operatorIds,
+      0,
+      clusterAfterLiquidation,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    )).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
+
+    const reactivateTx = await clusters.reactivate(
+      operatorIds,
+      0,
+      clusterAfterLiquidation,
+      { value: ethers.parseEther("30") }
+    );
+    await reactivateTx.wait();
+  });
+
+  it("Migrates a liquidated SSV cluster to ETH without requiring an EB snapshot", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const ssvCluster = {
+      validatorCount: 1n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      balance: 0n,
+      active: true,
+    };
+
+    const publicKey = makePublicKey(1);
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+    const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, ssvCluster);
+    const liquidateReceipt = await liquidateTx.wait();
+    const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
+
+    const migrateTx = await clusters.migrateClusterToETH(
+      operatorIds,
+      liquidatedCluster,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const migrateReceipt = await migrateTx.wait();
+    const clusterAfterMigration = parseClusterFromEvent(clusters, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+
+    await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
+    expect(clusterAfterMigration.active).to.equal(true);
+    expect(clusterAfterMigration.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(10_000n);
+    }
+  });
+
+  it("Migrates a liquidated SSV cluster to ETH using the stored EB snapshot when present", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const ssvCluster = {
+      validatorCount: 1n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      balance: 0n,
+      active: true,
+    };
+
+    const publicKey = makePublicKey(1);
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    await clusters.mockSetClusterVUnits(clusterId, 12_000n);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(12_000n);
+
+    const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, ssvCluster);
+    const liquidateReceipt = await liquidateTx.wait();
+    const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
+
+    const migrateTx = await clusters.migrateClusterToETH(
+      operatorIds,
+      liquidatedCluster,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    await migrateTx.wait();
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(12_000n);
+    }
   });
 });

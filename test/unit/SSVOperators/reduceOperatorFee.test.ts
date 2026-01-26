@@ -54,4 +54,52 @@ describe("SSVOperators function `reduceOperatorFee()`", async () => {
       Errors.FEE_INCREASE_NOT_ALLOWED
     );
   });
+
+  it("Clears pending fee declaration when reducing fee", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE * 2n);
+    const declaredFee = Number(MINIMAL_OPERATOR_ETH_FEE * 3n);
+    const reducedFee = Number(MINIMAL_OPERATOR_ETH_FEE);
+
+    await operators.registerOperator(makeOperatorKey(1), initialFee, false);
+    await operators.declareOperatorFee(1, declaredFee);
+
+    // Verify declaration exists
+    let request = await operators.getOperatorFeeChangeRequest(1);
+    expect(request.approvalBeginTime).to.be.gt(0);
+
+    // Reduce fee
+    await operators.reduceOperatorFee(1, reducedFee);
+
+    // Verify declaration is cleared
+    request = await operators.getOperatorFeeChangeRequest(1);
+    expect(request.approvalBeginTime).to.equal(0);
+    
+    // Verify fee is reduced
+    const op = await operators.getOperator(1);
+    expect(op.ethFee).to.equal(BigInt(reducedFee) / 10_000_000n);
+  });
+
+  it("Is reverted with 'FeeTooLow' when reducing below minimal allowed fee", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE * 2n);
+
+    await operators.registerOperator(makeOperatorKey(1), initialFee, false);
+
+    await expect(operators.reduceOperatorFee(1, 1)).to.be.revertedWithCustomError(
+      operators,
+      Errors.FEE_TOO_LOW
+    );
+  });
+
+  it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to reduce fee", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const [_, other] = await connection.ethers.getSigners();
+    const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE * 2n);
+    
+    await operators.registerOperator(makeOperatorKey(1), initialFee, false);
+
+    await expect(operators.connect(other).reduceOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE)))
+      .to.be.revertedWithCustomError(operators, Errors.CALLER_NOT_OWNER);
+  });
 });
