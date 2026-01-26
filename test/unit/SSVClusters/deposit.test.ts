@@ -5,10 +5,11 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
+import { ethers } from "ethers";
 
 describe("SSVClusters function `deposit()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -25,6 +26,12 @@ describe("SSVClusters function `deposit()`", async () => {
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
     return ssvClustersHarnessFixture(connection);
+  };
+
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
   };
 
   const registerCluster = async (clusters: any, operatorIds: bigint[]) => {
@@ -62,6 +69,40 @@ describe("SSVClusters function `deposit()`", async () => {
 
     expect(depositReceipt.eventsByName[Events.CLUSTER_DEPOSITED]).to.have.lengthOf(1);
     expect(clusterAfterDeposit.balance).to.equal(clusterBeforeDeposit.balance + depositAmount);
+  });
+
+  it("Does not change operatorEthVUnits or stored cluster EB snapshot when depositing", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    await clusters.mockSetClusterVUnits(clusterId, 7n * VUNITS_PRECISION);
+
+    const beforeClusterVUnits = await clusters.getClusterVUnits(clusterId);
+    const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => clusters.getOperatorEthVUnits(id)));
+
+    const depositAmount = 3n;
+    const depositReceipt = await trackGas(
+      clusters.deposit(
+        clusterOwner.address,
+        operatorIds,
+        0,
+        clusterBeforeDeposit,
+        { value: depositAmount }
+      ),
+      [GasGroup.DEPOSIT]
+    );
+    const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+
+    expect(clusterAfterDeposit.balance).to.equal(clusterBeforeDeposit.balance + depositAmount);
+
+    const afterClusterVUnits = await clusters.getClusterVUnits(clusterId);
+    const afterOperatorVUnits = await Promise.all(operatorIds.map((id) => clusters.getOperatorEthVUnits(id)));
+
+    expect(afterClusterVUnits).to.equal(beforeClusterVUnits);
+    expect(afterOperatorVUnits).to.deep.equal(beforeOperatorVUnits);
   });
 
   it("Allows a third party to deposit to an existing cluster", async function () {

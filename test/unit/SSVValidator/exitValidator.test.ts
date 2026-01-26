@@ -5,10 +5,11 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvValidatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ethers } from "ethers";
 
 describe("SSVClusters function `exitValidator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -24,6 +25,12 @@ describe("SSVClusters function `exitValidator()`", async () => {
 
   const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
     return ssvValidatorsHarnessFixture(connection);
+  };
+
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
   };
 
   it("Exits an existing validator and emits the correct event", async function () {
@@ -48,6 +55,36 @@ describe("SSVClusters function `exitValidator()`", async () => {
     await trackGasFromReceipt(receipt, [GasGroup.VALIDATOR_EXIT]);
 
     await expect(tx).to.emit(validators, Events.VALIDATOR_EXITED).withArgs(clusterOwner.address, operatorIds, publicKey);
+  });
+
+  it("Does not change operatorEthVUnits or stored cluster EB snapshot when exiting", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+
+    await validators.registerValidator(
+      publicKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    await validators.mockSetClusterVUnits(clusterId, 7n * VUNITS_PRECISION);
+
+    const beforeClusterVUnits = await validators.getClusterVUnits(clusterId);
+    const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => validators.getOperatorEthVUnits(id)));
+
+    await validators.exitValidator(publicKey, operatorIds);
+
+    const afterClusterVUnits = await validators.getClusterVUnits(clusterId);
+    const afterOperatorVUnits = await Promise.all(operatorIds.map((id) => validators.getOperatorEthVUnits(id)));
+
+    expect(afterClusterVUnits).to.equal(beforeClusterVUnits);
+    expect(afterOperatorVUnits).to.deep.equal(beforeOperatorVUnits);
   });
 
   it("Is reverted with 'IncorrectValidatorStateWithData' when validator was not registered", async function () {

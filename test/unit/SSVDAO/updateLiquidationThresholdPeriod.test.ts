@@ -7,6 +7,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { MINIMAL_LIQUIDATION_THRESHOLD } from "../../common/constants.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateLiquidationThresholdPeriod()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -28,6 +29,8 @@ describe("SSVDAO function `updateLiquidationThresholdPeriod()`", async () => {
     const newPeriod = MINIMAL_LIQUIDATION_THRESHOLD + 1000n;
 
     const tx = await dao.updateLiquidationThresholdPeriod(newPeriod);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.CHANGE_LIQUIDATION_THRESHOLD_PERIOD]);
 
     await expect(tx)
       .to.emit(dao, Events.LIQUIDATION_THRESHOLD_PERIOD_UPDATED)

@@ -1418,6 +1418,68 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
+  describe("Function 'updateNetworkFee()'", async function() {
+    it("Updates network fee and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const currentFee = await views.getNetworkFee();
+      const newFee = currentFee * 2n;
+
+      const tx = await network.updateNetworkFee(newFee);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.NETWORK_FEE_CHANGE]);
+
+      await expect(tx)
+        .to.emit(network, Events.NETWORK_FEE_UPDATED)
+        .withArgs(currentFee, newFee);
+
+      expect(await views.getNetworkFee()).to.equal(newFee);
+    });
+
+    it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).updateNetworkFee(1000n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
+  describe("Function 'updateNetworkFeeSSV()'", async function() {
+    it("Updates network fee SSV and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const currentFee = await views.getNetworkFeeSSV();
+      const newFee = currentFee * 2n;
+
+      await expect(network.updateNetworkFeeSSV(newFee))
+        .to.emit(network, Events.NETWORK_FEE_UPDATED_SSV)
+        .withArgs(currentFee, newFee);
+
+      expect(await views.getNetworkFeeSSV()).to.equal(newFee);
+    });
+
+    it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).updateNetworkFeeSSV(1000n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
+  describe("Function 'withdrawNetworkSSVEarnings()'", async function() {
+    it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).withdrawNetworkSSVEarnings(1n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
   describe("Function 'registerValidator()'", async function () {
     it("For a new cluster, creates it with a passed validator and emits correct event", async function () {
       const { network, views } =

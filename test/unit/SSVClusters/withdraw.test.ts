@@ -9,6 +9,7 @@ import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constan
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ethers } from "ethers";
 
 describe("SSVClusters function `withdraw()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -39,20 +40,96 @@ describe("SSVClusters function `withdraw()`", async () => {
     return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
   };
 
+  const getClusterWithdrawnEventArgs = (clusters: any, receipt: any) => {
+    for (const log of receipt.logs ?? []) {
+      let parsed;
+      try {
+        parsed = clusters.interface.parseLog(log);
+      } catch {
+        continue;
+      }
+      if (parsed?.name === Events.CLUSTER_WITHDRAWN) {
+        return parsed.args;
+      }
+    }
+    throw new Error("ClusterWithdrawn event not found");
+  };
+
   it("Withdraws from an existing cluster, updates balance and emits correct event", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
+    await clusters.mockEthNetworkFee(0);
+    await clusters.mockCurrentNetworkFeeIndex(0);
+
     const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
     const withdrawAmount = 1n;
+
+    const provider = connection.ethers.provider;
+    const ownerBalanceBefore = await provider.getBalance(clusterOwner.address);
+    const harnessAddress = await clusters.getAddress();
+    const harnessBalanceBefore = await provider.getBalance(harnessAddress);
 
     const withdrawTx = await clusters.withdraw(operatorIds, withdrawAmount, clusterBeforeWithdraw);
     const withdrawReceipt = await withdrawTx.wait();
     await trackGasFromReceipt(withdrawReceipt, [GasGroup.WITHDRAW_CLUSTER_BALANCE]);
     const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+    const eventArgs = getClusterWithdrawnEventArgs(clusters, withdrawReceipt);
+
+    const ownerBalanceAfter = await provider.getBalance(clusterOwner.address);
+    const harnessBalanceAfter = await provider.getBalance(harnessAddress);
+    const gasCost = withdrawReceipt.gasUsed * (withdrawReceipt.effectiveGasPrice ?? withdrawReceipt.gasPrice);
 
     await expect(withdrawTx).to.emit(clusters, Events.CLUSTER_WITHDRAWN);
+
+    expect(eventArgs.owner).to.equal(clusterOwner.address);
+    expect(eventArgs.operatorIds).to.deep.equal(operatorIds);
+    expect(eventArgs.value).to.equal(withdrawAmount);
+
     expect(clusterAfterWithdraw.balance).to.equal(clusterBeforeWithdraw.balance - withdrawAmount);
+
+    expect(harnessBalanceBefore - harnessBalanceAfter).to.equal(withdrawAmount);
+    expect(ownerBalanceAfter - ownerBalanceBefore + gasCost).to.equal(withdrawAmount);
+
+    await expect(clusters.withdraw(operatorIds, 1n, clusterBeforeWithdraw))
+      .to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_STATE);
+  });
+
+  it("Is reverted with 'InsufficientBalance' when withdrawal would make the cluster liquidatable", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(0);
+    await clusters.mockCurrentNetworkFeeIndex(0);
+
+    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+    await clusters.mockMinimumLiquidationCollateral(clusterBeforeWithdraw.balance);
+
+    await expect(clusters.withdraw(
+      operatorIds,
+      1n,
+      clusterBeforeWithdraw
+    )).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
+  });
+
+  it("Is reverted with 'IncorrectClusterVersion' when withdrawing from an SSV cluster", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const ssvCluster = {
+      validatorCount: 1n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      balance: 0n,
+      active: true,
+    };
+    await clusters.mockRegisterSSVValidator(makePublicKey(1), operatorIds, clusterOwner.address, ssvCluster);
+
+    await expect(clusters.withdraw(
+      operatorIds,
+      1n,
+      ssvCluster
+    )).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
   });
 
   it("Is reverted with 'InsufficientBalance' when withdrawing more than the cluster balance", async function () {

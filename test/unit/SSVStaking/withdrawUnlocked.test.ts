@@ -39,7 +39,9 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
 
     await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
 
-    const balanceBefore = await ssvToken.balanceOf(staker.address);
+    const stakerBalanceBefore = await ssvToken.balanceOf(staker.address);
+    const contractBalanceBefore = await ssvToken.balanceOf(await staking.getAddress());
+
     const tx = await trackGas(
       staking.withdrawUnlocked(),
       [GasGroup.WITHDRAW_UNSTAKE]
@@ -49,8 +51,13 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
       .to.emit(staking, Events.UNSTAKE_WITHDRAWN)
       .withArgs(staker.address, STAKE_AMOUNT);
 
-    const balanceAfter = await ssvToken.balanceOf(staker.address);
-    expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
+    // Verify staker received tokens
+    const stakerBalanceAfter = await ssvToken.balanceOf(staker.address);
+    expect(stakerBalanceAfter - stakerBalanceBefore).to.equal(STAKE_AMOUNT);
+
+    // Verify contract balance decreased
+    const contractBalanceAfter = await ssvToken.balanceOf(await staking.getAddress());
+    expect(contractBalanceBefore - contractBalanceAfter).to.equal(STAKE_AMOUNT);
   });
 
   it("Clears the withdrawal request after successful withdrawal", async function () {
@@ -125,5 +132,143 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
 
     const requestCountAfter = await staking.getWithdrawalRequestsCount(staker.address);
     expect(requestCountAfter).to.equal(0n);
+  });
+
+  it("Withdraws multiple unlocked requests in a single call", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+
+    // Stake and create multiple unstake requests
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const amount1 = STAKE_AMOUNT / 4n;
+    const amount2 = STAKE_AMOUNT / 4n;
+    const amount3 = STAKE_AMOUNT / 4n;
+
+    await staking.requestUnstake(amount1);
+    await staking.requestUnstake(amount2);
+    await staking.requestUnstake(amount3);
+
+    const requestCount = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCount).to.equal(3n);
+
+    // Wait for all to unlock
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+
+    const balanceBefore = await ssvToken.balanceOf(staker.address);
+    const tx = await trackGas(
+      staking.withdrawUnlocked(),
+      [GasGroup.WITHDRAW_UNSTAKE]
+    );
+
+    const totalWithdrawn = amount1 + amount2 + amount3;
+    await expect(tx)
+      .to.emit(staking, Events.UNSTAKE_WITHDRAWN)
+      .withArgs(staker.address, totalWithdrawn);
+
+    const balanceAfter = await ssvToken.balanceOf(staker.address);
+    expect(balanceAfter - balanceBefore).to.equal(totalWithdrawn);
+
+    // All requests should be cleared
+    const requestCountAfter = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCountAfter).to.equal(0n);
+  });
+
+  it("Withdraws only unlocked requests, leaving locked ones pending", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const amount1 = STAKE_AMOUNT / 4n;
+    const amount2 = STAKE_AMOUNT / 4n;
+
+    // First request
+    await staking.requestUnstake(amount1);
+
+    // Wait half the cooldown
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN / 2n);
+
+    // Second request (will have later unlock time)
+    await staking.requestUnstake(amount2);
+
+    // Wait remaining cooldown - first should be unlocked, second still locked
+    await networkHelpers.time.increase((DEFAULT_UNSTAKE_COOLDOWN / 2n) + 1n);
+
+    const balanceBefore = await ssvToken.balanceOf(staker.address);
+    const tx = await trackGas(
+      staking.withdrawUnlocked(),
+      [GasGroup.WITHDRAW_UNSTAKE]
+    );
+
+    // Only first amount should be withdrawn
+    await expect(tx)
+      .to.emit(staking, Events.UNSTAKE_WITHDRAWN)
+      .withArgs(staker.address, amount1);
+
+    const balanceAfter = await ssvToken.balanceOf(staker.address);
+    expect(balanceAfter - balanceBefore).to.equal(amount1);
+
+    // One request should remain (the locked one)
+    const requestCountAfter = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCountAfter).to.equal(1n);
+
+    // The remaining request should be the second one
+    const [remainingAmount] = await staking.getWithdrawalRequest(staker.address, 0);
+    expect(remainingAmount).to.equal(amount2);
+  });
+
+  it("Allows second withdrawal after remaining requests unlock", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const amount1 = STAKE_AMOUNT / 4n;
+    const amount2 = STAKE_AMOUNT / 4n;
+
+    await staking.requestUnstake(amount1);
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN / 2n);
+    await staking.requestUnstake(amount2);
+
+    // First withdrawal - only amount1 unlocked
+    await networkHelpers.time.increase((DEFAULT_UNSTAKE_COOLDOWN / 2n) + 1n);
+    await staking.withdrawUnlocked();
+
+    // Second withdrawal - wait for amount2 to unlock
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN / 2n);
+
+    const balanceBefore = await ssvToken.balanceOf(staker.address);
+    const tx = await staking.withdrawUnlocked();
+
+    await expect(tx)
+      .to.emit(staking, Events.UNSTAKE_WITHDRAWN)
+      .withArgs(staker.address, amount2);
+
+    const balanceAfter = await ssvToken.balanceOf(staker.address);
+    expect(balanceAfter - balanceBefore).to.equal(amount2);
+
+    // All requests should be cleared now
+    const requestCountFinal = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCountFinal).to.equal(0n);
+  });
+
+  it("Does not allow one user to withdraw another user's tokens", async function () {
+    const { staking, ssvToken } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
+    const [, otherUser] = await connection.ethers.getSigners();
+
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+
+    // Other user has no pending withdrawals
+    await expect(staking.connect(otherUser).withdrawUnlocked()).to.be.revertedWithCustomError(
+      staking,
+      Errors.NOTHING_TO_WITHDRAW
+    );
+
+    // Original staker can still withdraw
+    const balanceBefore = await ssvToken.balanceOf(staker.address);
+    await staking.withdrawUnlocked();
+    const balanceAfter = await ssvToken.balanceOf(staker.address);
+    expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
   });
 });

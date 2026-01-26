@@ -36,11 +36,6 @@ contract SSVDAOHarness is SSVDAO {
         sp.daoValidatorCount = count;
     }
 
-    function mockSetDaoTotalVUnits(uint64 vUnits) external {
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.daoTotalVUnits = vUnits;
-    }
-
     function mockSetDaoTotalEthVUnits(uint64 vUnits) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.daoTotalEthVUnits = vUnits;
