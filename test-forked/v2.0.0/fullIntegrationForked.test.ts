@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvNetworkFullForkedFixture } from '../setup/fixtures.ts';
-import type { NetworkHelpersType, OperatorTuple } from '../common/types.ts';
+import { ssvNetworkFullForkedFixture } from '../../test/setup/fixtures.ts';
+import type { NetworkHelpersType, OperatorTuple } from '../../test/common/types.ts';
 import {
   calculateInitialBurnRate,
   getCurrentClusterState, makeArrayOfKeysAndShares,
@@ -9,7 +9,7 @@ import {
   makePublicKey, registerDefaultCluster,
   registerOperators,
   whitelistAddresses,
-} from '../common/helpers.ts';
+} from '../../test/common/helpers.ts';
 import {
   CLUSTER_VERSION_ETH,
   DECLARE_OPERATOR_FEE_PERIOD,
@@ -25,15 +25,15 @@ import {
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE,
   OPERATOR_MAX_FEE_INCREASE,
   STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
-} from '../common/constants.ts';
-import { Events } from '../common/events.ts';
+} from '../../test/common/constants.ts';
+import { Events } from '../../test/common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
-import { Errors } from '../common/errors.js';
-import { deployContract } from '../../scripts/common/helpers.js';
+import { Errors } from '../../test/common/errors.ts';
+import { deployContract } from '../../scripts/common/helpers.ts';
 import { ContractTransactionResponse } from 'ethers';
-import { trackGasFromReceipt, GasGroup } from '../helpers/gas-usage.ts';
-import { getForkedConnection } from '../setup/fork.js';
-import { ForkConfig } from './config.js';
+import { trackGasFromReceipt, GasGroup } from '../../test/helpers/gas-usage.ts';
+import { getForkedConnection } from '../../test/setup/fork.ts';
+import { ForkConfig } from './config.ts';
 
 describe("SSVNetwork full integration tests made on forked contract", () => {
   let connection: NetworkConnection<"generic">;
