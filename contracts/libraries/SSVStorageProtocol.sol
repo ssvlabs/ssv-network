@@ -56,8 +56,6 @@ struct StorageProtocol {
     uint64 operatorMaxFee;
 
     // EB
-    /// @notice The current total SSV vUnits
-    uint64 DEPRECATED_daoTotalVUnits;
     /// @notice The current total ETH vUnits
     uint64 daoTotalEthVUnits;
     /// @notice First-phase oracle start epoch (firstStartEpoch)

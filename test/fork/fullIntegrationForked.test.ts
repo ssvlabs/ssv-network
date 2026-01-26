@@ -67,25 +67,25 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       // todo work on params
-      expect(await network.getAddress()).to.be.equal(ForkConfig.SSV_NETWORK_ADDRESS);
-      expect(await views.getAddress()).to.be.equal(ForkConfig.SSV_NETWORK_VIEWS);
-      expect(await ssvToken.getAddress()).to.be.equal(ForkConfig.SSV_TOKEN);
+      await expect(await network.getAddress()).to.be.equal(ForkConfig.SSV_NETWORK_ADDRESS);
+      await expect(await views.getAddress()).to.be.equal(ForkConfig.SSV_NETWORK_VIEWS);
+      await expect(await ssvToken.getAddress()).to.be.equal(ForkConfig.SSV_TOKEN);
 
       const version = await network.getVersion();
-      expect(version).to.be.a("string").and.not.empty;
+      await expect(version).to.be.a("string").and.not.empty;
 
-      expect(await views.getMinimumLiquidationCollateralSSV()).to.equal(1536000000000000000n);
-      expect(await views.getValidatorsPerOperatorLimit()).to.equal(VALIDATORS_PER_OPERATOR_LIMIT);
-      expect(await views.getOperatorFeePeriods()).to.deep.equal([1209600n, 604800n]);
-      expect(await views.getOperatorFeeIncreaseLimit()).to.equal(OPERATOR_MAX_FEE_INCREASE);
-      expect(await views.getDefaultOracleIds()).to.deep.equal(DEFAULT_ORACLES_IDS);
+      await expect(await views.getMinimumLiquidationCollateralSSV()).to.equal(1536000000000000000n);
+      await expect(await views.getValidatorsPerOperatorLimit()).to.equal(VALIDATORS_PER_OPERATOR_LIMIT);
+      await expect(await views.getOperatorFeePeriods()).to.deep.equal([1209600n, 604800n]);
+      await expect(await views.getOperatorFeeIncreaseLimit()).to.equal(OPERATOR_MAX_FEE_INCREASE);
+      await expect(await views.getDefaultOracleIds()).to.deep.equal(DEFAULT_ORACLES_IDS);
 
-      expect(await views.getNetworkFeeSSV()).to.equal(NETWORK_FEE);
+      await expect(await views.getNetworkFeeSSV()).to.equal(NETWORK_FEE);
 
-      expect(await views.cooldownDuration()).to.equal(7n * 24n * 60n * 60n);
+      await expect(await views.cooldownDuration()).to.equal(7n * 24n * 60n * 60n);
 
-      expect(await views.getNetworkEarnings()).to.equal(0n);
-      expect(await views.totalStaked()).to.equal(0n);
+      await expect(await views.getNetworkEarnings()).to.equal(0n);
+      await expect(await views.totalStaked()).to.equal(0n);
     });
   });
 
@@ -106,10 +106,10 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.OPERATOR_ADDED).withArgs(expectedId, operatorOwner.address, operatorKey, MINIMAL_OPERATOR_ETH_FEE)
         .and.to.emit(network, Events.OPERATOR_PRIVACY_STATUS_UPDATED).withArgs([expectedId], true);
 
-      expect(await views.getOperatorFee(expectedId)).to.be.equal(MINIMAL_OPERATOR_ETH_FEE);
-      expect(await views.getOperatorFeeSSV(expectedId)).to.be.equal(0);
-      expect(await views.getOperatorDeclaredFee(expectedId)).to.be.deep.equal([false, 0n, 0n, 0n]);
-      expect(await views.getOperatorById(expectedId)).to.be.deep.equal([
+      await expect(await views.getOperatorFee(expectedId)).to.be.equal(MINIMAL_OPERATOR_ETH_FEE);
+      await expect(await views.getOperatorFeeSSV(expectedId)).to.be.equal(0);
+      await expect(await views.getOperatorDeclaredFee(expectedId)).to.be.deep.equal([false, 0n, 0n, 0n]);
+      await expect(await views.getOperatorById(expectedId)).to.be.deep.equal([
         operatorOwner.address,
         MINIMAL_OPERATOR_ETH_FEE,
         0,
@@ -117,7 +117,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         true,
         true
       ]);
-      expect(await views.getOperatorByIdSSV(expectedId)).to.be.deep.equal([
+      await expect(await views.getOperatorByIdSSV(expectedId)).to.be.deep.equal([
         operatorOwner.address,
         0,
         0,
@@ -170,7 +170,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
 
       const tx = await network.removeOperator(expectedId);
 
-      expect(tx)
+      await expect(tx)
         .to.emit(network, Events.OPERATOR_REMOVED)
         .withArgs(expectedId)
 
@@ -180,8 +180,8 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       const operator: OperatorTuple = await views.getOperatorById(expectedId)
 
       // todo check how to make typed, maybe cast to object like cluster
-      expect(operator[5]).to.be.equal(false)
-      expect(await views.getOperatorFee(expectedId)).to.be.equal(0);
+      await expect(operator[5]).to.be.equal(false)
+      await expect(await views.getOperatorFee(expectedId)).to.be.equal(0);
     });
 
     it("Is reverted with 'OperatorDoesNotExist' if operator with passed id is not registered", async function () {
@@ -215,11 +215,11 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       const expectedId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
       await network.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
 
-      expect(await network.setOperatorsWhitelists([expectedId], [clusterOwner]))
+      await expect(await network.setOperatorsWhitelists([expectedId], [clusterOwner]))
         .to.emit(network, Events.OPERATOR_MULTIPLE_WHITELIST_UPDATED)
         .withArgs([expectedId], [clusterOwner]);
 
-      expect(await views.getWhitelistedOperators([expectedId], clusterOwner)).to.be.deep.equal([expectedId]); //true
+      await expect(await views.getWhitelistedOperators([expectedId], clusterOwner)).to.be.deep.equal([expectedId]); //true
     });
 
     it("Whitelists multiple operators for multiple addresses", async function() {
@@ -318,11 +318,11 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       await network.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
       await network.setOperatorsWhitelists([expectedId], [clusterOwner])
 
-      expect(await network.removeOperatorsWhitelists([expectedId], [clusterOwner]))
+      await expect(await network.removeOperatorsWhitelists([expectedId], [clusterOwner]))
         .to.emit(network, Events.OPERATOR_MULTIPLE_WHITELIST_REMOVED)
         .withArgs([expectedId], [clusterOwner]);
 
-      expect(await views.getWhitelistedOperators([expectedId], clusterOwner)).to.be.deep.equal([]); //false
+      await expect(await views.getWhitelistedOperators([expectedId], clusterOwner)).to.be.deep.equal([]); //false
     });
 
     it("Removes multiple operators for multiple addresses", async function() {
@@ -425,15 +425,15 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.SET_OPERATOR_WHITELISTING_CONTRACT]);
 
-      expect(tx)
+      await expect(tx)
         .to.emit(network, Events.OPERATORS_WHITELISTING_CONTRACT_UPDATED)
         .withArgs(operatorIds, contractAddress);
 
-      expect(await views.isWhitelistingContract(contractAddress)).to.be.equal(true);
+      await expect(await views.isWhitelistingContract(contractAddress)).to.be.equal(true);
 
       await whiteListingContract.addWhitelistedAddress(clusterOwner);
 
-      expect(await views.isAddressWhitelistedInWhitelistingContract(clusterOwner, operatorIds[0], contractAddress))
+      await expect(await views.isAddressWhitelistedInWhitelistingContract(clusterOwner, operatorIds[0], contractAddress))
         .to.be.equal(true);
     });
 
@@ -457,7 +457,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.OPERATORS_WHITELISTING_CONTRACT_UPDATED)
         .withArgs(operatorIds, secondAddress);
 
-      expect(firstAddress).to.not.equal(secondAddress);
+      await expect(firstAddress).to.not.equal(secondAddress);
     });
 
     it("Registers whitelisting contract for 10 operators", async function() {
@@ -480,7 +480,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       const { address: contractAddress } = await deployContract(connection.ethers, "SSVOperatorsWhitelist");
       const operatorIds = await registerOperators(network,operatorOwner, 3);
 
-      expect(network.setOperatorsWhitelistingContract(operatorIds, contractAddress))
+      await expect(network.setOperatorsWhitelistingContract(operatorIds, contractAddress))
         .to.be.revertedWithCustomError(network, Errors.INVALID_WHITELISTING_CONTRACT)
         .withArgs(contractAddress);
     });
@@ -531,7 +531,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REMOVE_OPERATOR_WHITELISTING_CONTRACT]);
 
-      expect(tx)
+      await expect(tx)
         .to.emit(network, Events.OPERATORS_WHITELISTING_CONTRACT_UPDATED)
         .withArgs(operatorIds, connection.ethers.ZeroAddress);
     });
@@ -583,13 +583,13 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
-      expect(await network.setOperatorsPrivateUnchecked(operatorIds))
+      await expect(await network.setOperatorsPrivateUnchecked(operatorIds))
         .to.emit(network, Events.OPERATORS_PRIVACY_STATUS_UPDATED)
         .withArgs(operatorIds, true);
 
       const operator: OperatorTuple = await views.getOperatorById(operatorIds[0]);
       // todo type
-      expect(operator[4]).to.be.equal(true); //isPrivate
+      await expect(operator[4]).to.be.equal(true); //isPrivate
     });
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function() {
@@ -615,7 +615,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(network.connect(randomUser).setOperatorsPrivateUnchecked(operatorIds))
         .to.be.revertedWithCustomError(network, Errors.CALLER_NOT_OWNER)
-        .withArgs(randomUser.address, operatorOwner);
+        .withArgs(randomUser.address, operatorOwner.address);
     });
   });
 
@@ -625,13 +625,13 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
-      expect(await network.setOperatorsPublicUnchecked(operatorIds))
+      await expect(await network.setOperatorsPublicUnchecked(operatorIds))
         .to.emit(network, Events.OPERATORS_PRIVACY_STATUS_UPDATED)
         .withArgs(operatorIds, false);
 
       const operator: OperatorTuple = await views.getOperatorById(operatorIds[0]);
       // todo type
-      expect(operator[4]).to.be.equal(false); //isPrivate
+      await expect(operator[4]).to.be.equal(false); //isPrivate
     });
 
     it("Is reverted with 'InvalidOperatorIdsLength' if the array of operators is empty", async function() {
@@ -657,7 +657,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(network.connect(randomUser).setOperatorsPublicUnchecked(operatorIds))
         .to.be.revertedWithCustomError(network, Errors.CALLER_NOT_OWNER)
-        .withArgs(randomUser.address, operatorOwner);
+        .withArgs(randomUser.address, operatorOwner.address);
     });
   });
 
@@ -682,7 +682,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .withArgs(operatorOwner.address, operatorIds[0], tx.blockNumber, newFee);
 
       // todo type
-      expect(await views.getOperatorDeclaredFee(operatorIds[0]))
+      await expect(await views.getOperatorDeclaredFee(operatorIds[0]))
         .to.be.deep.equal([
         true, // isActive
         newFee, // declaredFee
@@ -708,7 +708,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(network.connect(randomUser).declareOperatorFee(operatorIds[0], newFee))
         .to.be.revertedWithCustomError(network, Errors.CALLER_NOT_OWNER)
-        .withArgs(randomUser.address, operatorOwner);
+        .withArgs(randomUser.address, operatorOwner.address);
     });
 
     it("Is reverted with 'FeeTooLow' is the passed fee is less than minimal", async function() {
@@ -718,15 +718,6 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE - 1n))
         .to.be.revertedWithCustomError(network, Errors.FEE_TOO_LOW);
-    });
-
-    it("Is reverted with 'SameFeeChangeNotAllowed' is the passed value is the same as current one", async function(){
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
-      const operatorIds = await registerOperators(network, operatorOwner, 1);
-
-      await expect(network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE))
-        .to.be.revertedWithCustomError(network, Errors.SAME_FEE_CHANGE_NOW_ALLOWED);
     });
 
     it("Is reverted with 'SameFeeChangeNotAllowed' is the passed value is the same as current one", async function(){
@@ -784,7 +775,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.OPERATOR_FEE_DECLARATION_CANCELLED)
         .withArgs(operatorOwner, operatorIds[0]);
 
-      expect(await views.getOperatorDeclaredFee(operatorIds[0]))
+      await expect(await views.getOperatorDeclaredFee(operatorIds[0]))
         .to.be.deep.equal([
         false, // isActive
         0n,
@@ -809,7 +800,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(network.connect(randomUser).cancelDeclaredOperatorFee(operatorIds[0]))
         .to.be.revertedWithCustomError(network, Errors.CALLER_NOT_OWNER)
-        .withArgs(randomUser.address, operatorOwner);
+        .withArgs(randomUser.address, operatorOwner.address);
     });
 
     it("Is reverted with 'NoFeeDeclared' if no declarations were done before", async function(){
@@ -840,7 +831,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_EXECUTED);
 
-      expect(await views.getOperatorFee(operatorIds[0])).to.be.equal(MINIMAL_OPERATOR_ETH_FEE * 2n);
+      await expect(await views.getOperatorFee(operatorIds[0])).to.be.equal(MINIMAL_OPERATOR_ETH_FEE * 2n);
     });
 
     it("Is reverted with 'OperatorDoesNotExist' if operator is not registered", async function(){
@@ -921,7 +912,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       await expect(tx)
         .to.emit(network, Events.OPERATOR_MAXIMUM_FEE_UPDATED);
 
-      expect(await views.getMaximumOperatorFee())
+      await expect(await views.getMaximumOperatorFee())
         .to.be.equal(MAXIMUM_OPERATORS_FEE * 2n);
     });
 
@@ -943,7 +934,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .updateMaximumOperatorFeeSSV(MAXIMUM_OPERATORS_FEE * 2n))
         .to.emit(network, Events.OPERATOR_MAXIMUM_FEE_UPDATED_SSV);
 
-      expect(await views.getMaximumOperatorFeeSSV())
+      await expect(await views.getMaximumOperatorFeeSSV())
         .to.be.equal(MAXIMUM_OPERATORS_FEE * 2n);
     });
 
@@ -972,7 +963,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_EXECUTED);
 
-      expect(await views.getOperatorFee(operatorId))
+      await expect(await views.getOperatorFee(operatorId))
         .to.be.equal(MINIMAL_OPERATOR_ETH_FEE);
     });
 
@@ -1053,7 +1044,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       await connection.networkHelpers.mine(earningsPeriod);
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
       const earnings: bigint = await views.getOperatorEarnings(operatorIds[0]);
-      expect(expectedEarnings).to.be.equal(earnings);
+      await expect(expectedEarnings).to.be.equal(earnings);
       const withdrawAmount = earnings + MINIMAL_OPERATOR_ETH_FEE;
       const tx = await network.connect(operatorOwner).withdrawOperatorEarnings(operatorIds[0], withdrawAmount);
       const receipt = await tx.wait();
@@ -1061,7 +1052,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       await expect(tx)
         .to.emit(network, Events.OPERATOR_WITHDRAWN)
         .withArgs(operatorOwner.address, operatorIds[0], withdrawAmount);
-      expect(await views.getOperatorEarnings(operatorIds[0]))
+      await expect(await views.getOperatorEarnings(operatorIds[0]))
         .to.be.equal(0n);
     });
 
@@ -1125,11 +1116,11 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       await connection.networkHelpers.mine(earningsPeriod);
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
       const earnings: bigint = await views.getOperatorEarnings(operatorIds[0]);
-      expect(expectedEarnings).to.be.equal(earnings);
+      await expect(expectedEarnings).to.be.equal(earnings);
       await expect(network.connect(operatorOwner).withdrawAllOperatorEarnings(operatorIds[0]))
         .to.emit(network, Events.OPERATOR_WITHDRAWN)
         .withArgs(operatorOwner.address, operatorIds[0], earnings + MINIMAL_OPERATOR_ETH_FEE); // 1 block passed
-      expect(await views.getOperatorEarnings(operatorIds[0]))
+      await expect(await views.getOperatorEarnings(operatorIds[0]))
         .to.be.equal(0);
     });
 
@@ -1183,11 +1174,11 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       await connection.networkHelpers.mine(earningsPeriod);
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
       const earnings: bigint = await views.getOperatorEarnings(operatorIds[0]);
-      expect(expectedEarnings).to.be.equal(earnings);
+      await expect(expectedEarnings).to.be.equal(earnings);
       await expect(network.connect(operatorOwner).withdrawAllVersionOperatorEarnings(operatorIds[0]))
         .to.emit(network, Events.OPERATOR_WITHDRAWN)
         .withArgs(operatorOwner.address, operatorIds[0], earnings + MINIMAL_OPERATOR_ETH_FEE); // 1 block passed
-      expect(await views.getOperatorEarnings(operatorIds[0]))
+      await expect(await views.getOperatorEarnings(operatorIds[0]))
         .to.be.equal(0);
     });
 
@@ -1235,7 +1226,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.OPERATOR_FEE_INCREASE_LIMIT_UPDATED)
         .withArgs(OPERATOR_MAX_FEE_INCREASE + 1n);
 
-      expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE + 1n);
+      await expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE + 1n);
     });
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
@@ -1261,7 +1252,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.DECLARE_OPERATOR_FEE_PERIOD_UPDATED)
         .withArgs(DECLARE_OPERATOR_FEE_PERIOD + 1n);
 
-      expect(await views.getOperatorFeePeriods())
+      await expect(await views.getOperatorFeePeriods())
         .to.be.deep.equal([DECLARE_OPERATOR_FEE_PERIOD + 1n, EXECUTE_OPERATOR_FEE_PERIOD]);
     });
 
@@ -1289,7 +1280,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       await expect(tx)
         .to.emit(network, Events.EXECUTE_OPERATOR_FEE_PERIOD_UPDATED)
         .withArgs(newExecutePeriod);
-      expect(await views.getOperatorFeePeriods())
+      await expect(await views.getOperatorFeePeriods())
         .to.be.deep.equal([initialDeclarePeriod, newExecutePeriod]);
     });
 
@@ -1316,7 +1307,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.LIQUIDATION_THRESHOLD_PERIOD_UPDATED)
         .withArgs(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n);
 
-      expect(await views.getLiquidationThresholdPeriod())
+      await expect(await views.getLiquidationThresholdPeriod())
         .to.be.equal(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n);
     });
 
@@ -1346,7 +1337,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.LIQUIDATION_THRESHOLD_PERIOD_UPDATED_SSV)
         .withArgs(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n);
 
-      expect(await views.getLiquidationThresholdPeriodSSV())
+      await expect(await views.getLiquidationThresholdPeriodSSV())
         .to.be.equal(MINIMUM_BLOCKS_BEFORE_LIQUIDATION + 1n);
     });
 
@@ -1381,7 +1372,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED)
         .withArgs(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n);
 
-      expect(await views.getMinimumLiquidationCollateral())
+      await expect(await views.getMinimumLiquidationCollateral())
         .to.be.equal(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n);
     });
 
@@ -1403,7 +1394,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED_SSV)
         .withArgs(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n);
 
-      expect(await views.getMinimumLiquidationCollateralSSV())
+      await expect(await views.getMinimumLiquidationCollateralSSV())
         .to.be.equal(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 2n);
     });
 
@@ -1449,26 +1440,26 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         connection, network, clusterOwner.address, operatorIds
       );
 
-      expect(await views.getValidator(clusterOwner, validatorKey)).to.equal(true);
-      expect(await views.isLiquidatable(clusterOwner.address, operatorIds, expectedCluster))
+      await expect(await views.getValidator(clusterOwner, validatorKey)).to.equal(true);
+      await expect(await views.isLiquidatable(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.equal(false);
-      expect(await views.isLiquidated(clusterOwner.address, operatorIds, expectedCluster))
+      await expect(await views.isLiquidated(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.equal(false);
-      expect(await views.getBurnRate(clusterOwner.address, operatorIds, expectedCluster))
+      await expect(await views.getBurnRate(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.equal(await calculateInitialBurnRate(views, operatorIds, expectedCluster));
-      expect(await views.getBalance(clusterOwner, operatorIds, expectedCluster))
+      await expect(await views.getBalance(clusterOwner, operatorIds, expectedCluster))
         .to.be.equal(requiredDeposit);
-      expect(await views.getEffectiveBalance(clusterOwner, operatorIds, expectedCluster))
+      await expect(await views.getEffectiveBalance(clusterOwner, operatorIds, expectedCluster))
         .to.be.equal(DEFAULT_ETH_EB_PER_VALIDATOR);
-      expect(await views.getClusterVersion(clusterOwner, operatorIds))
+      await expect(await views.getClusterVersion(clusterOwner, operatorIds))
         .to.be.equal(CLUSTER_VERSION_ETH);
 
       // ssv legacy getters
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-      expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+      await expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.equal(0);
-      expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+      await expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
         .to.be.equal(0);
     });
 
@@ -1930,27 +1921,27 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
       );
 
       for (let i = 0; i < keys.length; i++) {
-        expect(await views.getValidator(clusterOwner, keys[i])).to.equal(true);
+        await expect(await views.getValidator(clusterOwner, keys[i])).to.equal(true);
       }
 
-      expect(await views.isLiquidatable(clusterOwner.address, operatorIds, expectedCluster))
+      await expect(await views.isLiquidatable(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.equal(false);
-      expect(await views.isLiquidated(clusterOwner.address, operatorIds, expectedCluster))
+      await expect(await views.isLiquidated(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.equal(false);
-      expect(await views.getBurnRate(clusterOwner.address, operatorIds, expectedCluster))
+      await expect(await views.getBurnRate(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.equal(await calculateInitialBurnRate(views, operatorIds, expectedCluster));
-      expect(await views.getBalance(clusterOwner, operatorIds, expectedCluster))
+      await expect(await views.getBalance(clusterOwner, operatorIds, expectedCluster))
         .to.be.equal(requiredDeposit);
-      expect(await views.getEffectiveBalance(clusterOwner, operatorIds, expectedCluster))
+      await expect(await views.getEffectiveBalance(clusterOwner, operatorIds, expectedCluster))
         .to.be.equal(DEFAULT_ETH_EB_PER_VALIDATOR * numValidators);
-      expect(await views.getClusterVersion(clusterOwner, operatorIds))
+      await expect(await views.getClusterVersion(clusterOwner, operatorIds))
         .to.be.equal(CLUSTER_VERSION_ETH);
 
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-      expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+      await expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.equal(0);
-      expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+      await expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
         .to.be.equal(0);
     });
 
@@ -2263,9 +2254,9 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         operatorIds
       );
 
-      expect(clusterAfter.validatorCount).to.equal(0n);
-      expect(clusterAfter.active).to.equal(true);
-      expect(await views.getValidator(clusterOwner.address, validatorKey)).to.be.equal(false);
+      await expect(clusterAfter.validatorCount).to.equal(0n);
+      await expect(clusterAfter.active).to.equal(true);
+      await expect(await views.getValidator(clusterOwner.address, validatorKey)).to.be.equal(false);
     });
 
     it("Is reverted with 'ClusterDoesNotExists' if the cluster with this owner and operators does not exist", async function(){
@@ -2388,8 +2379,8 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.STAKED)
         .withArgs(randomUser.address, STAKE_AMOUNT);
 
-      expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
-      expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
+      await expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
+      await expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
 
       const expectedWeightPerOracle = STAKE_AMOUNT / BigInt(DEFAULT_ORACLES_IDS.length);
       let expectedWeights: bigint[] = [];
@@ -2397,7 +2388,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         expectedWeights.push(expectedWeightPerOracle);
       }
 
-      expect(await views.getUserDelegation(randomUser.address))
+      await expect(await views.getUserDelegation(randomUser.address))
         .to.be.deep.equal([DEFAULT_ORACLES_IDS, expectedWeights]);
     });
 
@@ -2436,11 +2427,11 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.UNSTAKE_REQUESTED)
         .withArgs(randomUser.address, STAKE_AMOUNT, BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN)
 
-      expect(await views.pendingUnstake(randomUser.address))
+      await expect(await views.pendingUnstake(randomUser.address))
         .to.be.deep.equal([[STAKE_AMOUNT], [BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]]);
 
-      expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(0);
-      expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(0);
+      await expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(0);
+      await expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(0);
     });
 
     it("For partial amount, creates unstake request, burns CSSV and removes delegation", async function(){
@@ -2459,7 +2450,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.UNSTAKE_REQUESTED)
         .withArgs(randomUser.address, STAKE_AMOUNT / 2n, BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN)
 
-      expect(await views.pendingUnstake(randomUser.address))
+      await expect(await views.pendingUnstake(randomUser.address))
         .to.be.deep.equal([[STAKE_AMOUNT / 2n], [BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]]);
 
       const secondTx = await network.connect(randomUser).requestUnstake(STAKE_AMOUNT / 2n);
@@ -2470,7 +2461,7 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.UNSTAKE_REQUESTED)
         .withArgs(randomUser.address, STAKE_AMOUNT / 2n, BigInt(secondBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN);
 
-      expect(await views.pendingUnstake(randomUser.address))
+      await expect(await views.pendingUnstake(randomUser.address))
         .to.be.deep.equal([
         [STAKE_AMOUNT / 2n, STAKE_AMOUNT / 2n],
         [BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN, BigInt(secondBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]
@@ -2537,9 +2528,9 @@ describe("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.UNSTAKE_WITHDRAWN)
         .withArgs(randomUser.address, STAKE_AMOUNT);
 
-      expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(0);
-      expect(await ssvToken.balanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
-      expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(0);
+      await expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(0);
+      await expect(await ssvToken.balanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
+      await expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(0);
     });
   });
 });

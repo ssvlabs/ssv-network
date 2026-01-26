@@ -31,7 +31,6 @@ struct StorageStaking {
     mapping(address => uint256) accrued;
 
     /// @notice Pending unstake request for each user
-    // todo deprecate
     mapping(address => UnstakeRequest) withdrawals;
 
     /// @notice Oracle registry: stable ID => oracle address
