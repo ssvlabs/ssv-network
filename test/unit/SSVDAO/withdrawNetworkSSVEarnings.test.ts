@@ -47,10 +47,20 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
       .to.be.revertedWithCustomError(dao, Errors.INSUFFICIENT_BALANCE);
   });
 
+  it("Is reverted when amount is not a multiple of 1e7 (shrink precision)", async function () {
+    const { dao } = await ssvDAOHarnessFixture(connection);
+
+    await expect(dao.withdrawNetworkSSVEarnings(1n))
+      .to.be.revertedWith("Max precision exceeded");
+  });
+
   it("Withdraws network SSV earnings and emits NetworkEarningsWithdrawn event", async function () {
     const { dao, mockToken, daoBalance } = await networkHelpers.loadFixture(deployDAOWithTokenFixture);
 
     const withdrawAmount = 500n * 10_000_000n;
+
+    const ownerBalanceBefore = await mockToken.balanceOf(owner.address);
+    const daoTokenBalanceBefore = await mockToken.balanceOf(await dao.getAddress());
 
     const tx = await dao.withdrawNetworkSSVEarnings(withdrawAmount);
     const receipt = await tx.wait();
@@ -59,6 +69,12 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
     await expect(tx)
       .to.emit(dao, Events.NETWORK_EARNINGS_WITHDRAWN)
       .withArgs(withdrawAmount, owner.address);
+
+    const ownerBalanceAfter = await mockToken.balanceOf(owner.address);
+    const daoTokenBalanceAfter = await mockToken.balanceOf(await dao.getAddress());
+
+    expect(ownerBalanceAfter - ownerBalanceBefore).to.equal(withdrawAmount);
+    expect(daoTokenBalanceBefore - daoTokenBalanceAfter).to.equal(withdrawAmount);
   });
 
   it("Updates DAO balance after withdrawal", async function () {

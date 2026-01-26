@@ -59,20 +59,20 @@ library ProtocolLib {
     }    
 
     function networkTotalEarningsSSV(StorageProtocol storage sp) internal view returns (uint64) {
-        uint128 units = sp.daoTotalVUnits;
-        uint128 idx = uint64(block.number) - sp.daoIndexBlockNumber;
-        uint128 fee = sp.networkFee;
-
-        uint128 earningsUnits = (idx * fee * units) / VUNITS_PRECISION;
-        return sp.daoBalance + uint64(earningsUnits);
+        return sp.daoBalance + (uint64(block.number) - sp.daoIndexBlockNumber) * sp.networkFee * sp.daoValidatorCount;
     }
 
     function updateDAO(StorageProtocol storage sp, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
         updateDAOEarnings(sp);
+        uint64 vUnitsDelta = uint64(deltaValidatorCount) * VUNITS_PRECISION;
         if (!increaseValidatorCount) {
             sp.ethDaoValidatorCount -= deltaValidatorCount;
-        } else if ((sp.ethDaoValidatorCount += deltaValidatorCount) > type(uint32).max) {
-            revert ISSVNetworkCore.MaxValueExceeded();
+            sp.daoTotalEthVUnits -= vUnitsDelta;
+        } else {
+            if ((sp.ethDaoValidatorCount += deltaValidatorCount) > type(uint32).max) {
+                revert ISSVNetworkCore.MaxValueExceeded();
+            } 
+            sp.daoTotalEthVUnits += vUnitsDelta;
         }
     }
 
@@ -82,16 +82,6 @@ library ProtocolLib {
             sp.daoValidatorCount -= deltaValidatorCount;
         } else if ((sp.daoValidatorCount += deltaValidatorCount) > type(uint32).max) {
             revert ISSVNetworkCore.MaxValueExceeded();
-        }
-    }
-
-    function updateDAOVUnits(StorageProtocol storage sp, uint64 oldVUnits, uint64 newVUnits) internal {
-        updateDAOEarningsSSV(sp);  // Settle SSV earnings first
-
-        if (newVUnits > oldVUnits) {
-            sp.daoTotalVUnits += newVUnits - oldVUnits;
-        } else {
-            sp.daoTotalVUnits -= oldVUnits - newVUnits;
         }
     }
 

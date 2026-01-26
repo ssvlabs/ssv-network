@@ -4,11 +4,12 @@ import { getTestConnection } from '../../setup/connection.ts';
 import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import { makePublicKey, parseClusterFromEvent } from '../../common/helpers.ts';
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER } from '../../common/constants.ts';
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.ts';
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ethers } from "ethers";
 
 describe("SSVClusters function `registerValidator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -33,6 +34,12 @@ describe("SSVClusters function `registerValidator()`", async () => {
     return ssvValidatorsHarnessFixture(connection);
   };
 
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
+  };
+
   it("Registers a new validator, creates new cluster with the expected data and emits correct events", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
@@ -50,6 +57,97 @@ describe("SSVClusters function `registerValidator()`", async () => {
 
     // todo check args with pre-calculated cluster
     await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
+  });
+
+  it("Updates operatorEthVUnits even when cluster EB snapshot is not set", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+
+    const tx = await validators.registerValidator(
+      publicKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    await tx.wait();
+
+    for (const operatorId of operatorIds) {
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+    }
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    expect(await validators.getClusterVUnits(clusterId)).to.equal(0n);
+  });
+
+  it("Keeps stored EB snapshot unset when registering into an existing cluster without an explicit EB snapshot", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    const registerTx1 = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt1 = await registerTx1.wait();
+    const clusterAfter1 = parseClusterFromEvent(validators, receipt1, Events.VALIDATOR_ADDED);
+
+    const registerTx2 = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfter1,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    await registerTx2.wait();
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    expect(await validators.getClusterVUnits(clusterId)).to.equal(0n);
+    for (const operatorId of operatorIds) {
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION);
+    }
+  });
+
+  it("Increments stored EB snapshot vUnits when cluster EB snapshot is set", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    const registerTx = await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const startVUnits = 3n * VUNITS_PRECISION;
+    await validators.mockSetClusterVUnits(clusterId, startVUnits);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      0,
+      clusterAfterRegister,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    await tx.wait();
+
+    expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + VUNITS_PRECISION);
+    for (const operatorId of operatorIds) {
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION);
+    }
   });
 
   it("Registers a new validator with 7 operators", async function () {
@@ -362,14 +460,14 @@ describe("SSVClusters function `registerValidator()`", async () => {
     const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
     await validators.mockSetClusterLiquidated(clusterOwner.address, operatorIds);
 
-    EMPTY_CLUSTER.active = false;
+    const liquidatedCluster = { ...EMPTY_CLUSTER, active: false };
 
     await expect(validators.registerValidator(
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
       0,
-      EMPTY_CLUSTER,
+      liquidatedCluster,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_IS_LIQUIDATED);
   });

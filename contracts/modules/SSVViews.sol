@@ -318,7 +318,6 @@ contract SSVViews is ISSVViews {
     ) external view override returns (uint256) {
         (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
 
-        // todo double check
         if (version != CoreLib.VERSION_SSV) {
             return 0;
         }
@@ -350,7 +349,7 @@ contract SSVViews is ISSVViews {
     function getOperatorEarningsSSV(uint64 id) external view override returns (uint256) {
         Operator memory operator = SSVStorage.load().operators[id];
 
-        operator.updateSnapshotSSV(id);
+        operator.updateSnapshotSSV();
         return operator.snapshot.balance.expand();
     }
 
@@ -382,7 +381,7 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256 balance) {
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         if (version != CoreLib.VERSION_SSV) {
             return 0;
         }
@@ -395,8 +394,7 @@ contract SSVViews is ISSVViews {
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
         }
 
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-        cluster.updateBalanceWithEB(hashedCluster, clusterIndex, sp.currentNetworkFeeIndexSSV());
+        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndexSSV());
         balance = cluster.balance;
     }
 

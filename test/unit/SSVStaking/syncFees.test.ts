@@ -40,7 +40,10 @@ describe("SSVStaking function `syncFees()`", async () => {
       [GasGroup.SYNC_FEES]
     );
 
-    await expect(tx).to.emit(staking, Events.FEES_SYNCED);
+    // newFeesWei = newFees * 1e7 = 1e16
+    // totalStaked = 10 ETH = 10e18
+    // accDelta = (1e16 * 1e18) / 10e18 = 1e16 / 10 = 1e15
+    await expect(tx).to.emit(staking, Events.FEES_SYNCED).withArgs(newFees * 10_000_000n, 1_000_000_000_000_000n);
 
     const poolBalance = await staking.getStakingEthPoolBalance();
     expect(poolBalance).to.equal(newFees);
@@ -68,10 +71,65 @@ describe("SSVStaking function `syncFees()`", async () => {
     );
 
     const accAfter = await staking.getAccEthPerShare();
-    expect(accAfter).to.be.greaterThan(accBefore);
+    
+    // Calculation: newFeesWei = newFees * 1e7 = 1e16
+    // accDelta = (1e16 * 1e18) / STAKE_AMOUNT (10 * 1e18) = 1e16 / 10 = 1e15
+    const expectedDelta = (newFees * 10_000_000n * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
+    expect(accAfter - accBefore).to.equal(expectedDelta);
   });
 
-  it("Does not change accEthPerShare when no new fees", async function () {
+  it("Calculates and syncs fees based on network usage (natural accrual)", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    // Initial sync to set baseline
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(0n);
+    await staking.syncFees();
+
+    const accBefore = await staking.getAccEthPerShare();
+    const poolBalanceBefore = await staking.getStakingEthPoolBalance();
+
+    // Setup network parameters for accrual
+    const vUnits = 10_000n; // 1 validator * 10000 precision
+    const fee = 500n; // 500 wei per block per validator
+    await staking.mockSetDaoTotalEthVUnits(vUnits);
+    await staking.mockSetEthNetworkFee(fee);
+    // Reset index block to current
+    const setDaoTx = await staking.mockSetEthDaoBalance(0n); 
+    const setDaoReceipt = await setDaoTx.wait();
+
+    // Mine blocks
+    const blocksToMine = 10;
+    await connection.ethers.provider.send("hardhat_mine", ["0xA"]); // 10 blocks
+
+    const receipt = await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
+    
+    const blocksElapsed = BigInt(receipt.blockNumber - setDaoReceipt!.blockNumber);
+    // earnings = (blocks * fee * vUnits) / VUNITS_PRECISION
+    // vUnits = 10000, PRECISION = 10000 -> factor is 1
+    // fee = 500
+    // earnings = blocks * 500
+    const expectedEarnings = blocksElapsed * fee;
+    const expectedEarningsWei = expectedEarnings * 10_000_000n; // expand
+
+    const accAfter = await staking.getAccEthPerShare();
+    
+    // delta = (earningsWei * 1e18) / STAKE_AMOUNT
+    const expectedDelta = (expectedEarningsWei * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
+    expect(accAfter - accBefore).to.equal(expectedDelta);
+
+    const poolBalanceAfter = await staking.getStakingEthPoolBalance();
+    expect(poolBalanceAfter).to.equal(expectedEarnings);
+  });
+
+  it("Does not emit FeesSynced or update accEthPerShare when no new fees (current == previous)", async function () {
     const { staking, ssvToken } =
       await networkHelpers.loadFixture(deployStakingFixture);
 
@@ -87,23 +145,57 @@ describe("SSVStaking function `syncFees()`", async () => {
 
     const accBefore = await staking.getAccEthPerShare();
 
-    await trackGas(
+    const tx = await trackGas(
       staking.syncFees(),
       [GasGroup.SYNC_FEES]
     );
 
+    await expect(tx).to.not.emit(staking, Events.FEES_SYNCED);
+
     const accAfter = await staking.getAccEthPerShare();
     expect(accAfter).to.equal(accBefore);
+
+    const poolBalance = await staking.getStakingEthPoolBalance();
+    expect(poolBalance).to.equal(currentBalance);
   });
 
-  it("Does not change accEthPerShare when total staked is zero", async function () {
+  it("Updates pool balance without emitting FeesSynced when current < previous (inconsistent state)", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const highBalance = 2_000_000_000n;
+    const lowBalance = 1_000_000_000n;
+
+    // Set pool balance higher than DAO balance (simulating inconsistency or deflation)
+    await staking.mockSetStakingEthPoolBalance(highBalance);
+    await staking.mockSetEthDaoBalance(lowBalance);
+
+    const accBefore = await staking.getAccEthPerShare();
+
+    const tx = await staking.syncFees();
+
+    await expect(tx).to.not.emit(staking, Events.FEES_SYNCED);
+
+    const accAfter = await staking.getAccEthPerShare();
+    expect(accAfter).to.equal(accBefore);
+
+    // Should update pool balance to current (low)
+    const poolBalance = await staking.getStakingEthPoolBalance();
+    expect(poolBalance).to.equal(lowBalance);
+  });
+
+  it("Does not change accEthPerShare but updates pool balance when total staked is zero", async function () {
     const { staking } =
       await networkHelpers.loadFixture(deployStakingFixture);
 
     const accBefore = await staking.getAccEthPerShare();
 
+    const newFees = 1_000_000_000n;
     await staking.mockSetStakingEthPoolBalance(0n);
-    await staking.mockSetEthDaoBalance(1_000_000_000n);
+    await staking.mockSetEthDaoBalance(newFees);
 
     await trackGas(
       staking.syncFees(),
@@ -112,6 +204,9 @@ describe("SSVStaking function `syncFees()`", async () => {
 
     const accAfter = await staking.getAccEthPerShare();
     expect(accAfter).to.equal(accBefore);
+
+    const poolBalance = await staking.getStakingEthPoolBalance();
+    expect(poolBalance).to.equal(newFees);
   });
 
   it("Syncs DAO balance correctly", async function () {

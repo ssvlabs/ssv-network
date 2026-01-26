@@ -25,7 +25,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
-  OPERATOR_MAX_FEE_INCREASE, STAKE_AMOUNT,
+  OPERATOR_MAX_FEE_INCREASE, STAKE_AMOUNT, NETWORK_FEE,
 } from '../common/constants.ts';
 import { Events } from '../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
@@ -1378,6 +1378,68 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
+  describe("Function 'updateNetworkFee()'", async function() {
+    it("Updates network fee and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const currentFee = await views.getNetworkFee();
+      const newFee = currentFee * 2n;
+
+      const tx = await network.updateNetworkFee(newFee);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.NETWORK_FEE_CHANGE]);
+
+      await expect(tx)
+        .to.emit(network, Events.NETWORK_FEE_UPDATED)
+        .withArgs(currentFee, newFee);
+
+      expect(await views.getNetworkFee()).to.equal(newFee);
+    });
+
+    it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).updateNetworkFee(1000n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
+  describe("Function 'updateNetworkFeeSSV()'", async function() {
+    it("Updates network fee SSV and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const currentFee = await views.getNetworkFeeSSV();
+      const newFee = currentFee * 2n;
+
+      await expect(network.updateNetworkFeeSSV(newFee))
+        .to.emit(network, Events.NETWORK_FEE_UPDATED_SSV)
+        .withArgs(currentFee, newFee);
+
+      expect(await views.getNetworkFeeSSV()).to.equal(newFee);
+    });
+
+    it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).updateNetworkFeeSSV(1000n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
+  describe("Function 'withdrawNetworkSSVEarnings()'", async function() {
+    it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).withdrawNetworkSSVEarnings(1n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
   describe("Function 'registerValidator()'", async function () {
     it("For a new cluster, creates it with a passed validator and emits correct event", async function () {
       const { network, views } =
@@ -2309,6 +2371,325 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
+  describe("Function 'deposit()'", async function() {
+    it("Deposits ETH into an existing cluster and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, operatorOwner, clusterOwner);
+
+      const depositAmount = DEFAULT_ETH_REGISTER_VALUE;
+      const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
+
+      const tx = await network.connect(clusterOwner).deposit(
+        clusterOwner.address,
+        operatorIds,
+        0, // deprecated amount param
+        cluster,
+        { value: depositAmount }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.DEPOSIT]);
+
+      const clusterAfter = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      await expect(tx)
+        .to.emit(network, Events.CLUSTER_DEPOSITED);
+
+      const balanceAfter = await views.getBalance(clusterOwner.address, operatorIds, clusterAfter);
+      expect(balanceAfter).to.be.greaterThan(balanceBefore);
+    });
+
+    it("Allows third party to deposit into a cluster", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, operatorOwner, clusterOwner);
+
+      const depositAmount = DEFAULT_ETH_REGISTER_VALUE;
+
+      // randomUser deposits into clusterOwner's cluster
+      const tx = await network.connect(randomUser).deposit(
+        clusterOwner.address,
+        operatorIds,
+        0,
+        cluster,
+        { value: depositAmount }
+      );
+
+      await expect(tx).to.emit(network, Events.CLUSTER_DEPOSITED);
+    });
+
+    it("Is reverted with 'ClusterDoesNotExists' if cluster does not exist", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      await expect(network.deposit(
+        clusterOwner.address,
+        operatorIds,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+
+    it("Is reverted with 'IncorrectClusterState' if cluster data is incorrect", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, operatorOwner, clusterOwner);
+
+      const incorrectCluster = { ...cluster, validatorCount: cluster.validatorCount + 1n };
+
+      await expect(network.deposit(
+        clusterOwner.address,
+        operatorIds,
+        0,
+        incorrectCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
+    });
+  });
+
+  describe("Function 'withdraw()'", async function() {
+    it("Withdraws ETH from cluster and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, operatorOwner, clusterOwner);
+
+      const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
+      const withdrawAmount = balanceBefore / 2n;
+
+      const ownerEthBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
+
+      const tx = await network.connect(clusterOwner).withdraw(operatorIds, withdrawAmount, cluster);
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.WITHDRAW_CLUSTER_BALANCE]);
+      const gasUsed = BigInt(receipt!.gasUsed) * BigInt(receipt!.gasPrice);
+
+      const clusterAfter = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      await expect(tx)
+        .to.emit(network, Events.CLUSTER_WITHDRAWN);
+
+      const balanceAfter = await views.getBalance(clusterOwner.address, operatorIds, clusterAfter);
+      expect(balanceAfter).to.be.lessThan(balanceBefore);
+
+      const ownerEthAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
+      expect(ownerEthAfter + gasUsed - ownerEthBefore).to.equal(withdrawAmount);
+    });
+
+    it("Is reverted with 'ClusterDoesNotExists' if cluster does not exist", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      await expect(network.withdraw(operatorIds, 1000n, EMPTY_CLUSTER))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+
+    it("Is reverted with 'InsufficientBalance' if withdrawing more than available", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, operatorOwner, clusterOwner);
+
+      const balance = await views.getBalance(clusterOwner.address, operatorIds, cluster);
+
+      await expect(network.connect(clusterOwner).withdraw(operatorIds, balance * 10n, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
+    });
+
+    it("Is reverted with 'IncorrectClusterState' if cluster data is incorrect", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, operatorOwner, clusterOwner);
+
+      const incorrectCluster = { ...cluster, validatorCount: cluster.validatorCount + 1n };
+
+      await expect(network.connect(clusterOwner).withdraw(operatorIds, 1000n, incorrectCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
+    });
+  });
+
+  describe("Function 'liquidate()'", async function() {
+    it("Liquidates an underfunded cluster and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      // Set higher network fee to increase burn rate for faster liquidation
+      // With NETWORK_FEE * 100, liquidation occurs within ~50k blocks
+      await network.updateNetworkFee(NETWORK_FEE * 100n);
+
+      const validatorKey = makePublicKey(99);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+
+      // Use DEFAULT_ETH_REGISTER_VALUE to ensure registration succeeds with network fee
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      // Mine blocks to drain balance below liquidation threshold
+      let currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      let isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster);
+
+      // Keep mining until liquidatable
+      let attempts = 0;
+      while (!isLiquidatable && attempts < 20) {
+        await connection.networkHelpers.mine(100000);
+        currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+        isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster);
+        attempts++;
+      }
+
+      expect(isLiquidatable).to.be.equal(true);
+
+      const tx = await network.connect(randomUser).liquidate(
+        clusterOwner.address,
+        operatorIds,
+        currentCluster
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.LIQUIDATE_CLUSTER_4]);
+
+      await expect(tx)
+        .to.emit(network, Events.CLUSTER_LIQUIDATED);
+
+      const clusterAfter = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(clusterAfter.active).to.equal(false);
+      expect(await views.isLiquidated(clusterOwner.address, operatorIds, clusterAfter)).to.be.equal(true);
+    });
+
+    it("Is reverted with 'ClusterNotLiquidatable' if cluster has sufficient balance", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, operatorOwner, clusterOwner);
+
+      await expect(network.liquidate(clusterOwner.address, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_NOT_LIQUIDATABLE);
+    });
+
+    it("Is reverted with 'ClusterDoesNotExists' if cluster does not exist", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      await expect(network.liquidate(clusterOwner.address, operatorIds, EMPTY_CLUSTER))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+  });
+
+  describe("Function 'reactivate()'", async function() {
+    it("Reactivates a liquidated cluster with sufficient deposit and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      // Set higher network fee to increase burn rate for faster liquidation
+      // With NETWORK_FEE * 100, liquidation occurs within ~50k blocks
+      await network.updateNetworkFee(NETWORK_FEE * 100n);
+
+      const validatorKey = makePublicKey(98);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      // Mine until liquidatable
+      let currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      let isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster);
+      let attempts = 0;
+      while (!isLiquidatable && attempts < 20) {
+        await connection.networkHelpers.mine(100000);
+        currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+        isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster);
+        attempts++;
+      }
+
+      // Liquidate
+      await network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, currentCluster);
+
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+
+      // Reactivate with fresh deposit
+      const tx = await network.connect(clusterOwner).reactivate(
+        operatorIds,
+        0, // deprecated amount param
+        liquidatedCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await tx.wait();
+      await trackGasFromReceipt(receipt, [GasGroup.REACTIVATE_CLUSTER]);
+
+      await expect(tx)
+        .to.emit(network, Events.CLUSTER_REACTIVATED);
+
+      const reactivatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(reactivatedCluster.active).to.equal(true);
+      expect(await views.isLiquidated(clusterOwner.address, operatorIds, reactivatedCluster)).to.be.equal(false);
+    });
+
+    it("Is reverted with 'ClusterAlreadyEnabled' if cluster is not liquidated", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {cluster, operatorIds} =
+        await registerDefaultCluster(connection, network, operatorOwner, clusterOwner);
+
+      await expect(network.connect(clusterOwner).reactivate(
+        operatorIds,
+        0,
+        cluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_ALREADY_ENABLED);
+    });
+
+    it("Is reverted with 'ClusterDoesNotExists' if cluster does not exist", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      await expect(network.reactivate(
+        operatorIds,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+  });
+
   describe("Function stake()", async function() {
     it("Stakes SSV, mints CSSV to the staker and creates delegation weight", async function() {
       const { network, views, ssvToken, cssvToken } =
@@ -2477,6 +2858,120 @@ describe("SSVNetwork full integration tests", () => {
       expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(0);
       expect(await ssvToken.balanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
       expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(0);
+    });
+
+    it("Is reverted with 'NothingToWithdraw' if no pending withdrawal", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.withdrawUnlocked())
+        .to.be.revertedWithCustomError(network, Errors.NOTHING_TO_WITHDRAW);
+    });
+
+    it("Is reverted with 'NothingToWithdraw' if cooldown not passed", async function() {
+      const { network, ssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
+      await network.connect(randomUser).requestUnstake(STAKE_AMOUNT);
+
+      // Don't wait for cooldown
+      await expect(network.connect(randomUser).withdrawUnlocked())
+        .to.be.revertedWithCustomError(network, Errors.NOTHING_TO_WITHDRAW);
+    });
+  });
+
+  describe("Function 'claimEthRewards()'", async function() {
+    it("Is reverted with 'NothingToClaim' if no rewards accrued", async function() {
+      const { network, ssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
+
+      // No blocks mined, no rewards
+      await expect(network.connect(randomUser).claimEthRewards())
+        .to.be.revertedWithCustomError(network, Errors.NOTHING_TO_CLAIM);
+    });
+  });
+
+  describe("End-to-end cluster lifecycle", async function() {
+    it("Full lifecycle: register → operate → liquidate → reactivate", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      // Set higher network fee to increase burn rate for faster liquidation
+      // With NETWORK_FEE * 100, liquidation occurs within ~50k blocks
+      await network.updateNetworkFee(NETWORK_FEE * 100n);
+
+      // 1. Register operators
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorIds, [clusterOwner.address]);
+
+      // 2. Register validator (creates cluster)
+      const validatorKey = makePublicKey(97);
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        0,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      let cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(cluster.active).to.equal(true);
+      expect(cluster.validatorCount).to.equal(1n);
+
+      // 3. Operate for some time (mine blocks)
+      await connection.networkHelpers.mine(1000);
+
+      // 4. Verify operators are earning
+      const operatorEarnings = await views.getOperatorEarnings(operatorIds[0]);
+      expect(operatorEarnings).to.be.greaterThan(0n);
+
+      // 5. Mine until liquidatable
+      let isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, cluster);
+      let attempts = 0;
+      while (!isLiquidatable && attempts < 20) {
+        await connection.networkHelpers.mine(100000);
+        cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+        isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, cluster);
+        attempts++;
+      }
+
+      expect(isLiquidatable).to.be.equal(true);
+
+      // 6. Liquidate
+      await network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, cluster);
+
+      cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(cluster.active).to.equal(false);
+
+      // 7. Reactivate with fresh deposit
+      await network.connect(clusterOwner).reactivate(
+        operatorIds,
+        0,
+        cluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE * 2n }
+      );
+
+      cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(cluster.active).to.equal(true);
+
+      // 8. Withdraw some balance
+      const newBalance = await views.getBalance(clusterOwner.address, operatorIds, cluster);
+      await network.connect(clusterOwner).withdraw(operatorIds, newBalance / 4n, cluster);
+
+      // 9. Remove validator
+      cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, cluster);
+
+      cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(cluster.validatorCount).to.equal(0n);
     });
   });
 });

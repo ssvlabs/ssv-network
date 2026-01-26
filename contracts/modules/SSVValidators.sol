@@ -127,15 +127,14 @@ contract SSVValidators is ISSVValidators {
         {
             StorageEB storage seb = SSVStorageEB.load();
             ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            uint64 deltaClusterVUnits = uint64(validatorsLength) * VUNITS_PRECISION;
             if (ebSnapshot.vUnits > 0) {
-                uint64 deltaClusterVUnits = uint64(validatorsLength) * VUNITS_PRECISION;
                 ebSnapshot.vUnits += deltaClusterVUnits;
-
-                uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ++i) {
-                    uint64 operatorId = operatorIds[i];
-                    seb.operatorEthVUnits[operatorId] += deltaClusterVUnits;
-                }
+            }
+            uint256 operatorsLength = operatorIds.length;
+            for (uint256 i; i < operatorsLength; ++i) {
+                uint64 operatorId = operatorIds[i];
+                seb.operatorEthVUnits[operatorId] += deltaClusterVUnits;
             }
         }
 
@@ -196,15 +195,27 @@ contract SSVValidators is ISSVValidators {
 
         {
             StorageEB storage seb = SSVStorageEB.load();
+            uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
+            
+            uint256 operatorsLength = operatorIds.length;
+            for (uint256 i; i < operatorsLength; ++i) {
+                seb.operatorEthVUnits[operatorIds[i]] -= deltaClusterVUnits;
+            }
+
             ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
             if (ebSnapshot.vUnits > 0) {
-                uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
                 ebSnapshot.vUnits -= deltaClusterVUnits;
+                if (cluster.validatorCount == 0) {
+                    uint64 remainingVUnits = ebSnapshot.vUnits;
+                    if (remainingVUnits > 0) {
+                        for (uint256 i; i < operatorsLength; ++i) {
+                            seb.operatorEthVUnits[operatorIds[i]] -= remainingVUnits;
+                        }
 
-                uint256 operatorsLength = operatorIds.length;
-                for (uint256 i; i < operatorsLength; ++i) {
-                    uint64 operatorId = operatorIds[i];
-                    seb.operatorEthVUnits[operatorId] -= deltaClusterVUnits;
+                        StorageProtocol storage sp = SSVStorageProtocol.load();
+                        sp.updateDAOEthVUnits(remainingVUnits, 0);
+                    }
+                    ebSnapshot.vUnits = 0;
                 }
             }
         }

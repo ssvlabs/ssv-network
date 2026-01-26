@@ -34,6 +34,16 @@ describe("SSVDAO function `updateNetworkFee()`", async () => {
     await expect(tx)
       .to.emit(dao, Events.NETWORK_FEE_UPDATED)
       .withArgs(initialFee, newFee);
+
+    const storedFee = await dao.getNetworkFee();
+    expect(storedFee).to.equal(newFee / 10_000_000n);
+  });
+
+  it("Is reverted when fee is not a multiple of 1e7 (shrink precision)", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    await expect(dao.updateNetworkFee(1n))
+      .to.be.revertedWith("Max precision exceeded");
   });
 
   it("Stores the new network fee in storage", async function () {
