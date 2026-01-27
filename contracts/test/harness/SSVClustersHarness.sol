@@ -109,6 +109,22 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         return SSVStorageEB.load().operatorEthVUnits[operatorId];
     }
 
+    function getEffectiveOperatorVUnits(uint64 operatorId) external view returns (uint64) {
+        StorageData storage s = SSVStorage.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * VUNITS_PRECISION;
+        uint64 deviation = seb.operatorEthVUnits[operatorId];
+        return baseline + deviation;
+    }
+
+    function mockSetOperatorEthVUnits(uint64 operatorId, uint64 vUnits) external {
+        SSVStorageEB.load().operatorEthVUnits[operatorId] = vUnits;
+    }
+
+    function mockSetDaoTotalEthVUnits(uint64 vUnits) external {
+        SSVStorageProtocol.load().daoTotalEthVUnits = vUnits;
+    }
+
     function mockSetEBRoot(uint64 blockNum, bytes32 root) external {
         StorageEB storage seb = SSVStorageEB.load();
         seb.ebRoots[blockNum] = root;

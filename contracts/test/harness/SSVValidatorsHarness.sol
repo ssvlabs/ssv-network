@@ -108,6 +108,14 @@ contract SSVValidatorsHarness is SSVValidators {
         return SSVStorageEB.load().operatorEthVUnits[operatorId];
     }
 
+    function getEffectiveOperatorVUnits(uint64 operatorId) external view returns (uint64) {
+        StorageData storage s = SSVStorage.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * VUNITS_PRECISION;
+        uint64 deviation = seb.operatorEthVUnits[operatorId];
+        return baseline + deviation;
+    }
+
     function mockEthNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethNetworkFee = fee;

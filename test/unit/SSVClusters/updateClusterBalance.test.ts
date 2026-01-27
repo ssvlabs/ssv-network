@@ -99,7 +99,8 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     await clusters.mockSetEBRoot(blockNum, root);
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
     }
 
     const tx = await clusters.updateClusterBalance(
@@ -126,7 +127,9 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
 
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      // After EB update to 32 ETH (same as baseline), deviation is 0
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
     }
   });
 
@@ -161,7 +164,10 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
 
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(newVUnits);
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(newVUnits);
+      // EB update to 33 ETH: newVUnits = 10313, baseline = 10000, deviation = 313
+      const deviation = newVUnits - VUNITS_PRECISION;
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(deviation); // deviation only
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(newVUnits); // baseline + deviation
     }
   });
 

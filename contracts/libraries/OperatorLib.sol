@@ -40,12 +40,15 @@ library OperatorLib {
         uint32 currentBlock = uint32(block.number);
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
-        // EB-weighted: use operatorEthVUnits
-        uint64 vUnits = seb.operatorEthVUnits[operatorId];
+        // Deviation-only model: effectiveVUnits = baseline + storedDeviation
+        // storedDeviation = operatorEthVUnits (only non-default EB contributions)
+        // baseline = ethValidatorCount * VUNITS_PRECISION
+        uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
+        uint64 effectiveVUnits = storedDeviation + (uint64(operator.ethValidatorCount) * VUNITS_PRECISION);
 
         operator.ethSnapshot.index += blockDiffEthFee;
-        if (vUnits != 0 && blockDiffEthFee != 0) {
-            uint128 delta = (uint128(blockDiffEthFee) * uint128(vUnits)) / VUNITS_PRECISION;
+        if (effectiveVUnits != 0 && blockDiffEthFee != 0) {
+            uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
             operator.ethSnapshot.balance += uint64(delta);
         }
         operator.ethSnapshot.block = currentBlock;
@@ -59,11 +62,13 @@ library OperatorLib {
         uint32 currentBlock = uint32(block.number);
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
-        uint64 vUnits = seb.operatorEthVUnits[operatorId];
+        // Deviation-only model: effectiveVUnits = baseline + storedDeviation
+        uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
+        uint64 effectiveVUnits = storedDeviation + (uint64(operator.ethValidatorCount) * VUNITS_PRECISION);
 
         operator.ethSnapshot.index += blockDiffEthFee;
-        if (vUnits != 0 && blockDiffEthFee != 0) {
-            uint128 delta = (uint128(blockDiffEthFee) * uint128(vUnits)) / VUNITS_PRECISION;
+        if (effectiveVUnits != 0 && blockDiffEthFee != 0) {
+            uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
             operator.ethSnapshot.balance += uint64(delta);
         }
         operator.ethSnapshot.block = currentBlock;
