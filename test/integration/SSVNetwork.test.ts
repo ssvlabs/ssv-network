@@ -70,7 +70,7 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getValidatorsPerOperatorLimit()).to.equal(VALIDATORS_PER_OPERATOR_LIMIT);
       expect(await views.getOperatorFeePeriods()).to.deep.equal([DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD]);
       expect(await views.getOperatorFeeIncreaseLimit()).to.equal(OPERATOR_MAX_FEE_INCREASE); // 10%
-      expect(await views.getDefaultOracleIds()).to.deep.equal(DEFAULT_ORACLES_IDS);
+      expect(await views.getActiveOracleIds()).to.deep.equal(DEFAULT_ORACLES_IDS);
       expect(await views.getQuorumBps()).to.equal(7500n);
 
       expect(await views.getNetworkFee()).to.equal(NETWORK_FEE);
@@ -1519,7 +1519,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.equal(DEFAULT_ETH_REGISTER_VALUE);
       expect(await views.getEffectiveBalance(clusterOwner, operatorIds, expectedCluster))
         .to.be.equal(DEFAULT_ETH_EB_PER_VALIDATOR);
-      expect(await views.getClusterVersion(clusterOwner, operatorIds))
+      expect(await views.getClusterAssetType(clusterOwner, operatorIds))
         .to.be.equal(CLUSTER_VERSION_ETH);
 
       // ssv legacy getters
@@ -1936,7 +1936,7 @@ describe("SSVNetwork full integration tests", () => {
           .to.be.equal(DEFAULT_ETH_REGISTER_VALUE);
         expect(await views.getEffectiveBalance(clusterOwner, operatorIds, expectedCluster))
           .to.be.equal(DEFAULT_ETH_EB_PER_VALIDATOR * BigInt(keys.length));
-        expect(await views.getClusterVersion(clusterOwner, operatorIds))
+        expect(await views.getClusterAssetType(clusterOwner, operatorIds))
           .to.be.equal(CLUSTER_VERSION_ETH);
 
         await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))

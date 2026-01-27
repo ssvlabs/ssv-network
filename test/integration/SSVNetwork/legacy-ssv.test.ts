@@ -80,7 +80,7 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
       );
 
       // Verify ETH cluster properties
-      expect(await views.getClusterVersion(clusterOwner, operatorIds)).to.equal(CLUSTER_VERSION_ETH);
+      expect(await views.getClusterAssetType(clusterOwner, operatorIds)).to.equal(CLUSTER_VERSION_ETH);
       expect(await views.getBalance(clusterOwner, operatorIds, cluster)).to.equal(DEFAULT_ETH_REGISTER_VALUE);
       expect(await views.getBurnRate(clusterOwner, operatorIds, cluster)).to.be.greaterThan(0n);
 

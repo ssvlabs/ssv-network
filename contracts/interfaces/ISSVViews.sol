@@ -194,7 +194,7 @@ interface ISSVViews is ISSVNetworkCore {
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
     /// @return version The cluster version (see CoreLib.VERSION_* constants)
-    function getClusterVersion(address owner, uint64[] calldata operatorIds) external view returns (uint8 version);
+    function getClusterAssetType(address owner, uint64[] calldata operatorIds) external view returns (uint8 version);
 
     /// @notice Gets the network fee
     /// @return networkFee The fee associated with the network (ETH)
@@ -260,7 +260,7 @@ interface ISSVViews is ISSVNetworkCore {
 
     function getOracle(uint32 oracleId) external view returns (address);
     function getOracleWeight(uint32 oracleId) external view returns (uint256);
-    function getDefaultOracleIds() external view returns (uint32[4] memory);
+    function getActiveOracleIds() external view returns (uint32[4] memory);
     function getUserDelegation(address user) external view returns (uint32[4] memory oracleIds, uint256[4] memory amounts);
     function getQuorumBps() external view returns (uint16);
 
