@@ -587,11 +587,6 @@
         "type": "bytes[]"
       },
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      },
-      {
         "components": [
           {
             "internalType": "uint32",
@@ -713,11 +708,6 @@
         "internalType": "bytes",
         "name": "sharesData",
         "type": "bytes"
-      },
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
       },
       {
         "components": [

@@ -1824,11 +1824,6 @@
         "type": "bytes[]"
       },
       {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
         "components": [
           {
             "internalType": "uint32",
@@ -1983,11 +1978,6 @@
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
       },
       {
         "components": [
@@ -2366,11 +2356,6 @@
         "type": "uint64[]"
       },
       {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
         "components": [
           {
             "internalType": "uint32",
@@ -2471,11 +2456,6 @@
         "internalType": "bytes",
         "name": "sharesData",
         "type": "bytes"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
       },
       {
         "components": [
