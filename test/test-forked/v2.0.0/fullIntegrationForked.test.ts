@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvNetworkFullForkedFixture } from '../../test/setup/fixtures.ts';
-import type { NetworkHelpersType, OperatorTuple } from '../../test/common/types.ts';
+import { ssvNetworkFullForkedFixture } from '../../setup/fixtures.ts';
+import type { NetworkHelpersType, OperatorTuple } from '../../common/types.ts';
 import {
   calculateInitialBurnRate,
   getCurrentClusterState, makeArrayOfKeysAndShares,
@@ -9,7 +9,7 @@ import {
   makePublicKey, registerDefaultCluster,
   registerOperators,
   whitelistAddresses,
-} from '../../test/common/helpers.ts';
+} from '../../common/helpers.ts';
 import {
   CLUSTER_VERSION_ETH,
   DECLARE_OPERATOR_FEE_PERIOD,
@@ -25,17 +25,20 @@ import {
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE,
   OPERATOR_MAX_FEE_INCREASE,
   STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
-} from '../../test/common/constants.ts';
-import { Events } from '../../test/common/events.ts';
+} from '../../common/constants.ts';
+import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
-import { Errors } from '../../test/common/errors.ts';
-import { deployContract } from '../../scripts/common/helpers.ts';
+import { Errors } from '../../common/errors.ts';
+import { deployContract } from '../../../scripts/common/helpers.ts';
 import { ContractTransactionResponse } from 'ethers';
-import { trackGasFromReceipt, GasGroup } from '../../test/helpers/gas-usage.ts';
-import { getForkedConnection } from '../../test/setup/fork.ts';
+import { trackGasFromReceipt, GasGroup } from '../../helpers/gas-usage.ts';
+import { getForkedConnection } from '../../setup/fork.ts';
 import { ForkConfig } from './config.ts';
 
-describe("SSVNetwork full integration tests made on forked contract", () => {
+const RUN_FORK = process.env.RUN_FORK === 'true';
+const suite = RUN_FORK ? describe : describe.skip;
+
+suite("SSVNetwork full integration tests made on forked contract", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
 

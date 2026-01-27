@@ -129,20 +129,13 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         if (cluster.active) revert ClusterAlreadyEnabled();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        StorageEB storage seb = SSVStorageEB.load();
 
-        uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
-        if (vUnits == 0) {
-            vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-        }
-
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsOnReactivation(
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
             operatorIds,
+            true,
             cluster.validatorCount,
-            vUnits,
             s,
-            sp,
-            seb
+            sp
         );
 
         cluster.balance += msg.value;
@@ -152,9 +145,28 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         sp.updateDAO(true, cluster.validatorCount);
 
+        StorageEB storage seb = SSVStorageEB.load();
+
+        // Deviation-only model: baseline restored via ethValidatorCount (in updateClusterOperators above)
+        // Only add deviation if cluster has explicit EB tracking
+        uint64 vUnitsCluster = seb.clusterEB[hashedCluster].vUnits;
+        if (vUnitsCluster > 0) {
+            uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            // Note: EB floor is 32 ETH, so vUnitsCluster >= baselineVUnits always
+            if (vUnitsCluster > baselineVUnits) {
+                uint64 deviation = vUnitsCluster - baselineVUnits;
+                uint256 n = operatorIds.length;
+                for (uint256 i; i < n; ++i) {
+                    seb.operatorEthVUnits[operatorIds[i]] += deviation;
+                }
+            }
+            // If vUnitsCluster == baselineVUnits, deviation is 0, nothing to add
+        }
+        // For implicit clusters (vUnitsCluster == 0): no deviation to add
+
         if (
-            cluster.isLiquidatableWithVUnits(
-                vUnits,
+            cluster.isLiquidatableWithEB(
+                hashedCluster,
                 burnRate,
                 sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,
@@ -288,25 +300,33 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         StorageEB storage seb = SSVStorageEB.load();
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
 
-        // It is expected that the cluster has an EB snapshot,
-        // but if not, we can derive it from the validator count
-        uint64 vUnits = ebSnapshot.vUnits;
-        if (vUnits > 0) {
+        // Deviation-only model: baseline added via ethValidatorCount (in updateClusterOperatorsMigration above)
+        // Only add deviation if cluster has explicit EB tracking
+        uint64 vUnitsCluster = ebSnapshot.vUnits;
+        if (vUnitsCluster > 0) {
             uint64 baseline = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-            if (vUnits > baseline) {
-                sp.daoTotalEthVUnits += (vUnits - baseline);
-            } else if (vUnits < baseline) {
-                sp.daoTotalEthVUnits -= (baseline - vUnits);
+            
+            // DAO deviation accounting
+            if (vUnitsCluster > baseline) {
+                uint64 deviation = vUnitsCluster - baseline;
+                sp.daoTotalEthVUnits += deviation;
+                
+                // Operator deviation accounting
+                uint256 n = operatorIds.length;
+                for (uint256 i; i < n; ++i) {
+                    seb.operatorEthVUnits[operatorIds[i]] += deviation;
+                }
             }
+            // Note: EB floor is 32 ETH, so vUnitsCluster >= baseline always
+            // If vUnitsCluster == baseline, deviation is 0, nothing to add
         }
+        // For implicit clusters (vUnitsCluster == 0): no deviation to add
 
-        if (vUnits == 0) {
-            vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-        }
-
-        _updateOperatorVUnits(operatorIds, seb, 0, vUnits);
-
-        uint32 effectiveBalance = ClusterLib.vUnitsToEB(vUnits);
+        // For event emission, compute effective balance
+        uint64 effectiveVUnits = vUnitsCluster > 0 
+            ? vUnitsCluster 
+            : uint64(cluster.validatorCount) * VUNITS_PRECISION;
+        uint32 effectiveBalance = ClusterLib.vUnitsToEB(effectiveVUnits);
 
         emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, effectiveBalance, cluster);
     }
@@ -543,30 +563,39 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
         uint64 vUnitsCluster = ebSnapshot.vUnits;
         
-        // DAO deviation accounting: only needed for explicit snapshots
+        // Deviation-only model: only subtract deviation from operatorEthVUnits
+        // Baseline is removed via ethValidatorCount decrement (in updateClusterOperators above)
         if (vUnitsCluster > 0) {
             uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
 
+            // DAO deviation accounting
             if (vUnitsCluster != baselineVUnits) {
                 bool moreThanBaseline = vUnitsCluster > baselineVUnits;
-                uint64 delta = moreThanBaseline ? vUnitsCluster - baselineVUnits : baselineVUnits - vUnitsCluster;
+                uint64 deviation = moreThanBaseline ? vUnitsCluster - baselineVUnits : baselineVUnits - vUnitsCluster;
 
-                if (delta != 0) {
-                    if (moreThanBaseline) sp.daoTotalEthVUnits -= delta;
-                    else sp.daoTotalEthVUnits += delta;
+                if (deviation != 0) {
+                    if (moreThanBaseline) sp.daoTotalEthVUnits -= deviation;
+                    else sp.daoTotalEthVUnits += deviation;
+                }
+                
+                // Operator deviation accounting: only subtract deviation, not baseline
+                // Note: EB floor is 32 ETH, so vUnitsCluster >= baselineVUnits always
+                // But we handle both cases for safety
+                uint256 n = operatorIds.length;
+                for (uint256 i; i < n; ++i) {
+                    if (moreThanBaseline) {
+                        seb.operatorEthVUnits[operatorIds[i]] -= deviation;
+                    } else {
+                        seb.operatorEthVUnits[operatorIds[i]] += deviation;
+                    }
                 }
             }
-        }
-
-        // Operator accounting: always subtract effective vUnits (stored or default 32 ETH)
-        uint64 effectiveVUnits = vUnitsCluster == 0 
-            ? uint64(cluster.validatorCount) * VUNITS_PRECISION 
-            : vUnitsCluster;
+            // If vUnitsCluster == baselineVUnits, deviation is 0, nothing to update
             
-        uint256 n = operatorIds.length;
-        for (uint256 i; i < n; ++i) {
-            seb.operatorEthVUnits[operatorIds[i]] -= effectiveVUnits;
+            // Reset snapshot
+            ebSnapshot.vUnits = 0;
         }
+        // For implicit clusters (vUnitsCluster == 0): no deviation to remove
 
         uint256 balanceLiquidatable = cluster.balance;
         cluster.balance = 0;

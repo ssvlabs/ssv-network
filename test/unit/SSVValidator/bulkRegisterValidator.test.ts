@@ -76,7 +76,8 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
     await tx.wait();
 
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION);
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION); // baseline + deviation
     }
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
@@ -115,7 +116,11 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
 
     expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + 2n * VUNITS_PRECISION);
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION);
+      // Cluster has 3 validators (baseline = 30000), explicit snapshot = 70000
+      // But operatorEthVUnits is only updated by EB updates, not registration
+      // The deviation in clusterEB.vUnits is implicit until an EB update syncs it
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only (not updated on registration)
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION); // baseline only
     }
   });
 

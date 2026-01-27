@@ -73,7 +73,8 @@ describe("SSVClusters function `registerValidator()`", async () => {
     await tx.wait();
 
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
     }
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
@@ -106,7 +107,8 @@ describe("SSVClusters function `registerValidator()`", async () => {
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
     expect(await validators.getClusterVUnits(clusterId)).to.equal(0n);
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION);
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION); // baseline + deviation
     }
   });
 
@@ -139,7 +141,11 @@ describe("SSVClusters function `registerValidator()`", async () => {
 
     expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + VUNITS_PRECISION);
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION);
+      // Cluster has 2 validators (baseline = 20000), explicit snapshot = 40000
+      // But operatorEthVUnits is only updated by EB updates, not registration
+      // The deviation in clusterEB.vUnits is implicit until an EB update syncs it
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only (not updated on registration)
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION); // baseline only
     }
   });
 

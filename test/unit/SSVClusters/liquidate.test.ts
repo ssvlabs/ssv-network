@@ -130,7 +130,8 @@ describe("SSVClusters function `liquidate()`", async () => {
     const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
     }
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
@@ -140,7 +141,8 @@ describe("SSVClusters function `liquidate()`", async () => {
     await liquidateTx.wait();
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(0n); // baseline removed on liquidation
     }
   });
 
@@ -181,26 +183,46 @@ describe("SSVClusters function `liquidate()`", async () => {
     const clusterAfter3 = parseClusterFromEvent(clusters, receipt3, Events.VALIDATOR_ADDED);
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION);
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION); // baseline + deviation
     }
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    await clusters.mockSetClusterVUnits(clusterId, 2n * VUNITS_PRECISION);
+    // Set explicit snapshot to 5 validators worth (more than 3 validators baseline)
+    // EB floor is 32 ETH per validator, so vUnits >= baseline always
+    // 5 * 10000 = 50000 vUnits, baseline = 3 * 10000 = 30000, deviation = 20000
+    const explicitVUnits = 5n * VUNITS_PRECISION;
+    const baseline = 3n * VUNITS_PRECISION;
+    const deviation = explicitVUnits - baseline;
+    await clusters.mockSetClusterVUnits(clusterId, explicitVUnits);
+    // Also mock the operatorEthVUnits and daoTotalEthVUnits to be consistent (as if EB update happened)
+    // updateDAO subtracts baseline, _executeLiquidation subtracts deviation
+    // So daoTotalEthVUnits needs baseline + deviation = explicitVUnits
+    await clusters.mockSetDaoTotalEthVUnits(explicitVUnits);
+    for (const operatorId of operatorIds) {
+      await clusters.mockSetOperatorEthVUnits(operatorId, deviation);
+    }
 
     const beforeSnapshotVUnits = await clusters.getClusterVUnits(clusterId);
-    expect(beforeSnapshotVUnits).to.equal(2n * VUNITS_PRECISION);
+    expect(beforeSnapshotVUnits).to.equal(explicitVUnits);
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(deviation);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(explicitVUnits);
+    }
 
     const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfter3);
     await liquidateTx.wait();
 
-    // If liquidation used the default baseline (3 validators), operatorEthVUnits would become 0.
-    // With an explicit snapshot set to 2 validators worth of vUnits, it should remain at 1 validator worth.
+    // After liquidation: baseline removed (ethValidatorCount = 0), deviation removed
+    // operatorEthVUnits -= deviation, ethValidatorCount = 0
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(1n * VUNITS_PRECISION);
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(0n);
     }
 
     const afterSnapshotVUnits = await clusters.getClusterVUnits(clusterId);
-    expect(afterSnapshotVUnits).to.equal(beforeSnapshotVUnits);
+    expect(afterSnapshotVUnits).to.equal(0n); // Snapshot reset on liquidation
   });
 
   it("Allows the cluster owner to liquidate with 7 operators", async function () {

@@ -19,7 +19,7 @@ import {
   NETWORK_FEE, OPERATOR_MAX_FEE_INCREASE, VALIDATORS_PER_OPERATOR_LIMIT,
 } from '../common/constants.js';
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
-import { ForkConfig } from '../../test-forked/v2.0.0/config.ts';
+import { ForkConfig } from '../test-forked/v2.0.0/config.ts';
 
 export async function ssvClustersHarnessFixture(
   connection: NetworkConnection<"generic">,

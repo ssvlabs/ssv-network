@@ -123,17 +123,16 @@ contract SSVValidators is ISSVValidators {
         cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
 
         {
+            // Deviation-only model: baseline comes from ethValidatorCount (already updated above)
+            // Only update ebSnapshot.vUnits for clusters with explicit EB tracking
+            // Do NOT update operatorEthVUnits here - deviation unchanged on registration
             StorageEB storage seb = SSVStorageEB.load();
             ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
-            uint64 deltaClusterVUnits = uint64(validatorsLength) * VUNITS_PRECISION;
             if (ebSnapshot.vUnits > 0) {
-                ebSnapshot.vUnits += deltaClusterVUnits;
+                // Cluster has explicit EB tracking - add baseline for new validators
+                ebSnapshot.vUnits += uint64(validatorsLength) * VUNITS_PRECISION;
             }
-            uint256 operatorsLength = operatorIds.length;
-            for (uint256 i; i < operatorsLength; ++i) {
-                uint64 operatorId = operatorIds[i];
-                seb.operatorEthVUnits[operatorId] += deltaClusterVUnits;
-            }
+            // operatorEthVUnits NOT updated: deviation doesn't change on registration
         }
 
         for (uint i; i < validatorsLength; ++i) {
@@ -192,30 +191,34 @@ contract SSVValidators is ISSVValidators {
         cluster.validatorCount -= validatorsRemoved;
 
         {
+            // Deviation-only model: baseline removed via ethValidatorCount (already updated above)
+            // Do NOT subtract baseline from operatorEthVUnits
+            // Only handle deviation cleanup for explicit EB clusters
             StorageEB storage seb = SSVStorageEB.load();
-            uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
-            
-            uint256 operatorsLength = operatorIds.length;
-            for (uint256 i; i < operatorsLength; ++i) {
-                seb.operatorEthVUnits[operatorIds[i]] -= deltaClusterVUnits;
-            }
-
             ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+            
             if (ebSnapshot.vUnits > 0) {
+                // Cluster has explicit EB tracking - subtract baseline from snapshot
+                uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
                 ebSnapshot.vUnits -= deltaClusterVUnits;
+                
+                // When cluster becomes empty, clean up any remaining deviation
                 if (cluster.validatorCount == 0) {
                     uint64 remainingVUnits = ebSnapshot.vUnits;
                     if (remainingVUnits > 0) {
+                        // remainingVUnits is pure deviation (no baseline left since validatorCount=0)
+                        uint256 operatorsLength = operatorIds.length;
                         for (uint256 i; i < operatorsLength; ++i) {
                             seb.operatorEthVUnits[operatorIds[i]] -= remainingVUnits;
                         }
-
                         StorageProtocol storage sp = SSVStorageProtocol.load();
                         sp.updateDAOEthVUnits(remainingVUnits, 0);
                     }
                     ebSnapshot.vUnits = 0;
                 }
             }
+            // For implicit clusters (ebSnapshot.vUnits == 0): nothing to do
+            // Baseline removal handled via ethValidatorCount decrement
         }
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
