@@ -14,5 +14,20 @@ remappings = [
     "@openzeppelin/=node_modules/@openzeppelin/"
 ]
 
+[profile.echidna]
+src = "contracts"
+test = "test"
+out = "out"
+libs = ["node_modules", "lib"]
+auto_detect_solc = true
+via_ir = true
+optimizer = false
+evm_version = "cancun"
+
+remappings = [
+    "forge-std/=lib/forge-std/src/",
+    "@openzeppelin/=node_modules/@openzeppelin/"
+]
+
 [rpc_endpoints]
 hoodi = "https://hoodi.infura.io/v3/{INFURA_KEY}"

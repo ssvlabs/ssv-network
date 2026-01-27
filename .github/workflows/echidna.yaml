@@ -41,6 +41,8 @@ jobs:
 
       - name: Run Echidna
         uses: crytic/echidna-action@v2
+        env:
+          FOUNDRY_PROFILE: echidna
         with:
           files: test/echidna/${{ matrix.contract }}.sol
           contract: ${{ matrix.contract }}
