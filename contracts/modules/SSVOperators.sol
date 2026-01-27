@@ -136,7 +136,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         if (feeChangeRequest.approvalBeginTime == 0) revert NoFeeDeclared();
 
         if (feeChangeRequest.approvalBeginTime <= UPGRADE_TIMESTAMP) {
-            revert LegacyOpereatorFeeDeclarationInvalid();
+            revert LegacyOperatorFeeDeclarationInvalid();
         }
 
         if (

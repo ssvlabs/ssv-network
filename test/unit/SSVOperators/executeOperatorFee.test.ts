@@ -139,4 +139,36 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
       Errors.FEE_TOO_HIGH
     );
   });
+
+  it("Is reverted with 'LegacyOperatorFeeDeclarationInvalid' when executing a pre-upgrade fee declaration", async function () {
+    const currentTime = BigInt(Math.floor(Date.now() / 1000));
+    const upgradeTimestamp = currentTime + 1000n;
+
+    const operators = (await ssvOperatorsHarnessFixture(
+      connection,
+      1_000_000_000n,
+      0n,
+      1_000n,
+      10_000n,
+      upgradeTimestamp
+    )).operators;
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+
+    const legacyApprovalBeginTime = upgradeTimestamp - 500n;
+    const legacyApprovalEndTime = upgradeTimestamp + 500n;
+    const newFee = 2n;
+
+    await operators.mockSetOperatorFeeChangeRequest(
+      1,
+      newFee,
+      legacyApprovalBeginTime,
+      legacyApprovalEndTime
+    );
+
+    await expect(operators.executeOperatorFee(1)).to.be.revertedWithCustomError(
+      operators,
+      Errors.LEGACY_OPERATOR_FEE_DECLARATION_INVALID
+    );
+  });
 });

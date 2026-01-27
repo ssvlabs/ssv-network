@@ -27,9 +27,11 @@ export async function deployModule(
 
 export async function deployHarnessModule(
   connection: NetworkConnection<"generic">,
-  module: SSVModules
+  module: SSVModules,
+  args: unknown[] = []
 ): Promise<Contract> {
   return connection.ethers.deployContract(
-    getHarnessName(module)
+    getHarnessName(module),
+    args
   );
 }

@@ -42,13 +42,13 @@ export default defineConfig({
       blockGasLimit: 100_000_000,
       forking: {
         url: configVariable("MAINNET_RPC_URL"),
-        blockNumber: Number(process.env.FORK_BLOCK_NUMBER),
+        blockNumber: process.env.FORK_BLOCK_NUMBER ? Number(process.env.FORK_BLOCK_NUMBER) : undefined,
       }
     },
     hoodi: {
       type: "http",
       chainType: "l1",
-      url: process.env.HOODI_RPC_URL!,
+      url: configVariable("HOODI_RPC_URL"),
       accounts: [configVariable("HOODI_PRIVATE_KEY")],
       ssvToken: process.env.HOODI_SSVTOKEN_ADDRESS
     },

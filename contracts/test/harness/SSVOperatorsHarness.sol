@@ -62,4 +62,21 @@ contract SSVOperatorsHarness is SSVOperators {
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
     }
+
+    function mockSetOperatorFeeChangeRequest(
+        uint64 operatorId,
+        uint64 fee,
+        uint64 approvalBeginTime,
+        uint64 approvalEndTime
+    ) external {
+        SSVStorage.load().operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
+            fee,
+            approvalBeginTime,
+            approvalEndTime
+        );
+    }
+
+    function getUpgradeTimestamp() external view returns (uint256) {
+        return UPGRADE_TIMESTAMP;
+    }
 }

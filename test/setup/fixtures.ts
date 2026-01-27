@@ -137,9 +137,10 @@ export async function ssvOperatorsHarnessFixture(
   operatorMaxFee = MAXIMUM_OPERATORS_FEE,
   declarePeriod = 0n,
   executePeriod = 1_000n,
-  maxFeeIncrease = OPERATOR_MAX_FEE_INCREASE
+  maxFeeIncrease = OPERATOR_MAX_FEE_INCREASE,
+  upgradeTimestamp = 0n
 ): Promise<{ operators: SSVOperatorsHarness; }> {
-  const operators = await deployHarnessModule(connection, SSVModules.SSVOperators);
+  const operators = await deployHarnessModule(connection, SSVModules.SSVOperators, [upgradeTimestamp]);
   await operators.waitForDeployment();
 
   await operators.mockSetOperatorMaxFee(Number(operatorMaxFee));
