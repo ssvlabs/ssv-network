@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FOUNDRY_PROFILE: echidna
+      FOUNDRY_OPTIMIZER: "false"
+      FOUNDRY_VIA_IR: "true"
     strategy:
       fail-fast: false
       matrix:
