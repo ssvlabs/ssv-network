@@ -129,13 +129,20 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         if (cluster.active) revert ClusterAlreadyEnabled();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+        uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
+        if (vUnits == 0) {
+            vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+        }
+
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsOnReactivation(
             operatorIds,
-            true,
             cluster.validatorCount,
+            vUnits,
             s,
-            sp
+            sp,
+            seb
         );
 
         cluster.balance += msg.value;
@@ -145,17 +152,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         sp.updateDAO(true, cluster.validatorCount);
 
-        StorageEB storage seb = SSVStorageEB.load();
-
-        uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
-        if (vUnits == 0) {
-            vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-        }
-        _updateOperatorVUnits(operatorIds, seb, 0, vUnits);
-
         if (
-            cluster.isLiquidatableWithEB(
-                hashedCluster,
+            cluster.isLiquidatableWithVUnits(
+                vUnits,
                 burnRate,
                 sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,

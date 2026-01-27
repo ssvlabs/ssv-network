@@ -197,6 +197,49 @@ library OperatorLib {
         }
     }
 
+    function updateClusterOperatorsOnReactivation(
+        uint64[] memory operatorIds,
+        uint32 deltaValidatorCount,
+        uint64 clusterVUnits,
+        StorageData storage s,
+        StorageProtocol storage sp,
+        StorageEB storage seb
+    ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
+        uint256 operatorsLength = operatorIds.length;
+        uint32 currentBlock = uint32(block.number);
+
+        for (uint256 i; i < operatorsLength; ) {
+            uint64 operatorId = operatorIds[i];
+            ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+            if (operator.ethSnapshot.block != 0) {
+                uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+
+                uint64 currentVUnits = seb.operatorEthVUnits[operatorId];
+
+                operator.ethSnapshot.index += blockDiffEthFee;
+                if (currentVUnits != 0 && blockDiffEthFee != 0) {
+                    uint128 delta = (uint128(blockDiffEthFee) * uint128(currentVUnits)) / VUNITS_PRECISION;
+                    operator.ethSnapshot.balance += uint64(delta);
+                }
+                operator.ethSnapshot.block = currentBlock;
+
+                seb.operatorEthVUnits[operatorId] = currentVUnits + clusterVUnits;
+
+                if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
+                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                }
+
+                cumulativeFee += operator.ethFee;
+            }
+            cumulativeIndex += operator.ethSnapshot.index;
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
     function updateClusterOperatorsMigration(
         uint64[] memory operatorIds,
         uint32 validatorCount,
