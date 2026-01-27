@@ -7,9 +7,9 @@ async function main() {
   const ethers = await getEthers(targetNetwork);
   const deployer = await getDeployer(ethers);
 
-  const networkProxyAddr = process.env.NETWORK_PROXY;
+  const networkProxyAddr = parseArg("proxy-address");
   if (!networkProxyAddr) {
-    throw new Error("Missing NETWORK_PROXY env variable");
+    throw new Error("Missing --proxy-address argument");
   }
 
   console.log(`Upgrading existing network on ${targetNetwork} at ${networkProxyAddr}`);

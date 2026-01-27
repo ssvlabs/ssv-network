@@ -38,6 +38,10 @@ upgrade-contract contract proxy network:
 upgrade-implementation contract proxy implementation network:
     npx tsx scripts/upgrade-with-impl.ts --network {{network}} --contract {{contract}} --proxy-address {{proxy}} --impl-address {{implementation}}
 
+upgrade-ssv-staking proxy network:
+    npx hardhat compile --force
+    npx tsx scripts/staking-upgrade.ts --network {{network}} --proxy-address {{proxy}}
+
 verify address network:
     npx hardhat verify --network "{{network}}" "{{address}}"
 
