@@ -30,9 +30,6 @@ struct StorageStaking {
     /// @notice Accumulated but unclaimed ETH rewards for each user (in wei)
     mapping(address => uint256) accrued;
 
-    /// @notice Pending unstake request for each user
-    mapping(address => UnstakeRequest) withdrawals;
-
     /// @notice Oracle registry: stable ID => oracle address
     mapping(uint32 => address) oracles;
     /// @notice Reverse lookup: oracle address => oracle ID (0 if not registered)

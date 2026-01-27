@@ -58,14 +58,6 @@ struct StorageProtocol {
     // EB
     /// @notice The current total ETH vUnits
     uint64 daoTotalEthVUnits;
-    /// @notice First-phase oracle start epoch (firstStartEpoch)
-    uint64 oracleFirstStartEpoch;
-    /// @notice First-phase oracle interval in epochs (firstInterval), must be > 0
-    uint64 oracleFirstEpochInterval;
-    /// @notice Second-phase oracle start epoch (secondStartEpoch)
-    uint64 oracleSecondStartEpoch;
-    /// @notice Second-phase oracle interval in epochs (secondInterval), must be > 0
-    uint64 oracleSecondEpochInterval;
 }
 
 library SSVStorageProtocol {
