@@ -776,11 +776,6 @@
         "type": "uint64[]"
       },
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      },
-      {
         "components": [
           {
             "internalType": "uint32",
@@ -969,11 +964,6 @@
         "internalType": "uint64[]",
         "name": "operatorIds",
         "type": "uint64[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
       },
       {
         "components": [

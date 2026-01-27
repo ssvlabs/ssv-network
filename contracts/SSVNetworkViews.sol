@@ -230,8 +230,8 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getNetworkValidatorsCount();
     }
 
-    function getClusterVersion(address owner, uint64[] calldata operatorIds) external view override returns (uint8) {
-        return ssvNetwork.getClusterVersion(owner, operatorIds);
+    function getClusterAssetType(address owner, uint64[] calldata operatorIds) external view override returns (uint8) {
+        return ssvNetwork.getClusterAssetType(owner, operatorIds);
     }
 
     function cooldownDuration() external view override returns (uint256) {
@@ -273,8 +273,8 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOracleWeight(oracleId);
     }
 
-    function getDefaultOracleIds() external view override returns (uint32[4] memory) {
-        return ssvNetwork.getDefaultOracleIds();
+    function getActiveOracleIds() external view override returns (uint32[4] memory) {
+        return ssvNetwork.getActiveOracleIds();
     }
 
     function getUserDelegation(address user) external view override returns (uint32[4] memory oracleIds, uint256[4] memory amounts) {

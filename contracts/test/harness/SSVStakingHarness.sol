@@ -140,7 +140,7 @@ contract SSVStakingHarness is SSVStaking {
         return (req.amount, req.unlockTime);
     }
 
-    function getDefaultOracleIds() external view returns (uint32[4] memory) {
+    function getActiveOracleIds() external view returns (uint32[4] memory) {
         return SSVStorageStaking.load().defaultOracleIds;
     }
 

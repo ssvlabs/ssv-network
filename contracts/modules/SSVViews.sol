@@ -414,7 +414,7 @@ contract SSVViews is ISSVViews {
         return ClusterLib.vUnitsToEB(vUnits);
     }
 
-    function getClusterVersion(address clusterOwner, uint64[] calldata operatorIds) external view override returns (uint8) {
+    function getClusterAssetType(address clusterOwner, uint64[] calldata operatorIds) external view override returns (uint8) {
         StorageData storage s = SSVStorage.load();
         bytes32 hashedCluster = keccak256(abi.encodePacked(clusterOwner, operatorIds));
 
@@ -537,7 +537,7 @@ contract SSVViews is ISSVViews {
         return SSVStorageStaking.load().oracleWeights[oracleId];
     }
 
-    function getDefaultOracleIds() external view override returns (uint32[4] memory) {
+    function getActiveOracleIds() external view override returns (uint32[4] memory) {
         return SSVStorageStaking.load().defaultOracleIds;
     }
 
