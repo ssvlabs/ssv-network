@@ -205,7 +205,7 @@ library OperatorLib {
     function updateClusterOperatorsOnReactivation(
         uint64[] memory operatorIds,
         uint32 deltaValidatorCount,
-        uint64 clusterVUnits,
+        uint64 clusterDeviation,
         StorageData storage s,
         StorageProtocol storage sp,
         StorageEB storage seb
@@ -220,16 +220,17 @@ library OperatorLib {
             if (operator.ethSnapshot.block != 0) {
                 uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
-                uint64 currentVUnits = seb.operatorEthVUnits[operatorId];
+                uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
+                uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
 
                 operator.ethSnapshot.index += blockDiffEthFee;
-                if (currentVUnits != 0 && blockDiffEthFee != 0) {
-                    uint128 delta = (uint128(blockDiffEthFee) * uint128(currentVUnits)) / VUNITS_PRECISION;
+                if (effectiveVUnits != 0 && blockDiffEthFee != 0) {
+                    uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
                     operator.ethSnapshot.balance += uint64(delta);
                 }
                 operator.ethSnapshot.block = currentBlock;
 
-                seb.operatorEthVUnits[operatorId] = currentVUnits + clusterVUnits;
+                seb.operatorEthVUnits[operatorId] = storedDeviation + clusterDeviation;
 
                 if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
                     revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
