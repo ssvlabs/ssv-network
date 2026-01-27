@@ -51,6 +51,26 @@ library OperatorLib {
         operator.ethSnapshot.block = currentBlock;
     }
 
+    /// @notice Overload that accepts cached StorageEB to avoid redundant load() calls in loops
+    function updateSnapshotStWithSeb(
+        ISSVNetworkCore.Operator storage operator,
+        uint64 operatorId,
+        StorageEB storage seb
+    ) internal {
+        uint32 currentBlock = uint32(block.number);
+        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+
+        // EB-weighted: use operatorEthVUnits
+        uint64 vUnits = seb.operatorEthVUnits[operatorId];
+
+        operator.ethSnapshot.index += blockDiffEthFee;
+        if (vUnits != 0 && blockDiffEthFee != 0) {
+            uint128 delta = (uint128(blockDiffEthFee) * uint128(vUnits)) / VUNITS_PRECISION;
+            operator.ethSnapshot.balance += uint64(delta);
+        }
+        operator.ethSnapshot.block = currentBlock;
+    }
+
     function updateSnapshot(
         ISSVNetworkCore.Operator memory operator,
         uint64 operatorId
@@ -59,6 +79,27 @@ library OperatorLib {
         uint32 currentBlock = uint32(block.number);
         uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
 
+        // EB-weighted: use operatorEthVUnits
+        uint64 vUnits = seb.operatorEthVUnits[operatorId];
+
+        operator.ethSnapshot.index += blockDiffEthFee;
+        if (vUnits != 0 && blockDiffEthFee != 0) {
+            uint128 delta = (uint128(blockDiffEthFee) * uint128(vUnits)) / VUNITS_PRECISION;
+            operator.ethSnapshot.balance += uint64(delta);
+        }
+        operator.ethSnapshot.block = currentBlock;
+    }
+
+    /// @notice Overload that accepts cached StorageEB to avoid redundant load() calls in loops
+    function updateSnapshotWithSeb(
+        ISSVNetworkCore.Operator memory operator,
+        uint64 operatorId,
+        StorageEB storage seb
+    ) internal view {
+        uint32 currentBlock = uint32(block.number);
+        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+
+        // EB-weighted: use operatorEthVUnits
         uint64 vUnits = seb.operatorEthVUnits[operatorId];
 
         operator.ethSnapshot.index += blockDiffEthFee;
@@ -111,6 +152,8 @@ library OperatorLib {
         uint256 blockIndex;
         uint256 lastBlockIndex = ~uint256(0); // Use an invalid block index as the initial value
         uint256 currentWhitelistedMask;
+        // Cache StorageEB to avoid redundant load() calls in the loop
+        StorageEB storage seb = SSVStorageEB.load();
 
         for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
@@ -155,7 +198,7 @@ library OperatorLib {
                 }
             }
 
-            updateSnapshot(operator, operatorId);
+            updateSnapshotWithSeb(operator, operatorId, seb);
             if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
                 revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
             }
@@ -174,6 +217,8 @@ library OperatorLib {
         StorageProtocol storage sp
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
         uint256 operatorsLength = operatorIds.length;
+        // Cache StorageEB to avoid redundant load() calls in the loop
+        StorageEB storage seb = SSVStorageEB.load();
         for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
@@ -181,7 +226,7 @@ library OperatorLib {
             // only update active operators (block != 0)
             // removed operators have block == 0 and contribute their preserved index
             if (operator.ethSnapshot.block != 0) {
-                updateSnapshotSt(operator, operatorId);
+                updateSnapshotStWithSeb(operator, operatorId, seb);
 
                 if (increaseValidatorCount) {
                     if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
@@ -205,6 +250,8 @@ library OperatorLib {
         bool isClusterLiquidated
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
         uint256 operatorsLength = operatorIds.length;
+        // Cache StorageEB to avoid redundant load() calls in the loop
+        StorageEB storage seb = SSVStorageEB.load();
         for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
@@ -225,7 +272,7 @@ library OperatorLib {
                 }
             } else {
                 // already ETH operator
-                updateSnapshotSt(operator, operatorId);
+                updateSnapshotStWithSeb(operator, operatorId, seb);
                 if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
                     revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
                 }

@@ -5,6 +5,8 @@ import {ISSVDAO} from "../interfaces/ISSVDAO.sol";
 import {Types64, Types256} from "../libraries/Types.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
+import "../libraries/OperatorLib.sol";
+import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
@@ -189,4 +191,19 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         SSVStorageStaking.load().cooldownDuration = duration;
         emit CooldownDurationUpdated(duration);
     }
+
+    /// @notice Batch initialize ETH fields for legacy operators to avoid lazy init penalty
+    /// @param operatorIds Array of operator IDs to initialize
+    /// @dev This is a DAO-only function to pre-warm operator storage slots before users interact
+    function batchInitializeOperatorETHFields(uint64[] calldata operatorIds) external {
+        StorageData storage s = SSVStorage.load();
+        uint256 length = operatorIds.length;
+        for (uint256 i; i < length; ++i) {
+            OperatorLib.ensureETHDefaults(s.operators[operatorIds[i]]);
+        }
+        emit OperatorsETHFieldsInitialized(operatorIds.length);
+    }
+
+    /// @notice Emitted when operator ETH fields are batch initialized
+    event OperatorsETHFieldsInitialized(uint256 count);
 }

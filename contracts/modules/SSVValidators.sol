@@ -129,10 +129,10 @@ contract SSVValidators is ISSVValidators {
             if (ebSnapshot.vUnits > 0) {
                 ebSnapshot.vUnits += deltaClusterVUnits;
             }
+            // Always update operatorEthVUnits to ensure proper fee accounting from registration
             uint256 operatorsLength = operatorIds.length;
             for (uint256 i; i < operatorsLength; ++i) {
-                uint64 operatorId = operatorIds[i];
-                seb.operatorEthVUnits[operatorId] += deltaClusterVUnits;
+                seb.operatorEthVUnits[operatorIds[i]] += deltaClusterVUnits;
             }
         }
 
@@ -195,6 +195,7 @@ contract SSVValidators is ISSVValidators {
             StorageEB storage seb = SSVStorageEB.load();
             uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
             
+            // Always update operatorEthVUnits to maintain proper fee accounting
             uint256 operatorsLength = operatorIds.length;
             for (uint256 i; i < operatorsLength; ++i) {
                 seb.operatorEthVUnits[operatorIds[i]] -= deltaClusterVUnits;
