@@ -7,17 +7,13 @@ on:
       - 'test/echidna/**'
       - 'foundry.toml'
       - '.github/workflows/echidna.yaml'
-  pull_request:
-    paths:
-      - 'contracts/**'
-      - 'test/echidna/**'
-      - 'foundry.toml'
-      - '.github/workflows/echidna.yaml'
   workflow_dispatch:
 
 jobs:
   echidna:
     runs-on: ubuntu-latest
+    env:
+      FOUNDRY_PROFILE: echidna
     strategy:
       fail-fast: false
       matrix:
@@ -47,10 +43,11 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
+      - name: Pre-build contracts
+        run: forge build test/echidna/${{ matrix.contract }}.sol
+
       - name: Run Echidna
         uses: crytic/echidna-action@v2
-        env:
-          FOUNDRY_PROFILE: echidna
         with:
           files: test/echidna/${{ matrix.contract }}.sol
           contract: ${{ matrix.contract }}
