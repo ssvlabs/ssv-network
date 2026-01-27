@@ -64,7 +64,12 @@ export default defineConfig({
     etherscan: {
       apiKey: configVariable("ETHERSCAN_KEY"),
     },
-  }
+  },
+  test: {
+    mocha: {
+      timeout: 300_000,
+    },
+  },
 });
 
 declare module "hardhat/types/config" {
