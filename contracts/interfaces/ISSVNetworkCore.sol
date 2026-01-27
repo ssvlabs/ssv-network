@@ -105,6 +105,7 @@ interface ISSVNetworkCore {
     error IncorrectOperatorVersion(uint8 operatorVersion); // 0xf222e863
     error IncorrectClusterVersion(); // 0xf6749746
     error ETHTransferFailed(); // 0xb12d13eb
+    error LegacyOperatorFeeDeclarationInvalid();
 
     // EB oracle-specific errors
     error StaleBlockNumber();

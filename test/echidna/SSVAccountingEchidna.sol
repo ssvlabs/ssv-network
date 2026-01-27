@@ -85,7 +85,7 @@ contract OperatorUser {
     }
 }
 
-contract SSVAccountingEchidna is SSVClusters, SSVOperators, SSVDAO {
+contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     using ClusterLib for ISSVNetworkCore.Cluster;
     using Counters for Counters.Counter;
     using Types64 for uint64;

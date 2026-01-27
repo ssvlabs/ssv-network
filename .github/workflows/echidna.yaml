@@ -5,10 +5,8 @@ on:
     paths:
       - 'contracts/**'
       - 'test/echidna/**'
-  pull_request:
-    paths:
-      - 'contracts/**'
-      - 'test/echidna/**'
+      - 'foundry.toml'
+      - '.github/workflows/echidna.yaml'
   workflow_dispatch:
 
 jobs:

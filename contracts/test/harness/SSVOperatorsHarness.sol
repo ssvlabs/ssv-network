@@ -9,6 +9,11 @@ import {ISSVOperators} from "../../interfaces/ISSVOperators.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SSVOperatorsHarness is SSVOperators {
+
+    constructor(uint256 upgradeTimestamp) SSVOperators(upgradeTimestamp) {
+  
+    }
+
     function mockSetOperatorMaxFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.operatorMaxFee = fee;
@@ -56,5 +61,22 @@ contract SSVOperatorsHarness is SSVOperators {
 
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
+    }
+
+    function mockSetOperatorFeeChangeRequest(
+        uint64 operatorId,
+        uint64 fee,
+        uint64 approvalBeginTime,
+        uint64 approvalEndTime
+    ) external {
+        SSVStorage.load().operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
+            fee,
+            approvalBeginTime,
+            approvalEndTime
+        );
+    }
+
+    function getUpgradeTimestamp() external view returns (uint256) {
+        return UPGRADE_TIMESTAMP;
     }
 }

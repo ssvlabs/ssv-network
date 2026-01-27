@@ -1,4 +1,4 @@
-cryticArgs: ["--compile-force-framework", "solc"]
+cryticArgs: ["--compile-force-framework", "foundry"]
 
 testMode: property
 prefix: "echidna_"

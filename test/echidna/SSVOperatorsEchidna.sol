@@ -65,7 +65,7 @@ contract OperatorUser {
     }
 }
 
-contract SSVOperatorsEchidna is SSVOperators {
+contract SSVOperatorsEchidna is SSVOperators(0) {
     using Types64 for uint64;
     using Types256 for uint256;
 
