@@ -224,7 +224,6 @@ export async function ssvNetworkFullFixture(
   const { contract: ssvToken } = await deployContract(connection.ethers, "SSVToken");
 
   const moduleNames = [
-    "SSVOperators",
     "SSVClusters",
     "SSVDAO",
     "SSVViews",
@@ -233,6 +232,9 @@ export async function ssvNetworkFullFixture(
     "SSVValidators",
   ];
   const moduleAddresses: { [key: string]: string } = {};
+
+  const { address: ssvOperatorsAddr } = await deployContract(connection.ethers, "SSVOperators", [0]);
+  moduleAddresses["SSVOperators"] = ssvOperatorsAddr;
 
   for (const mod of moduleNames) {
     const { address } = await deployContract(connection.ethers, mod);
@@ -332,7 +334,6 @@ export async function ssvNetworkFullForkedFixture(
   const { contract: cssvToken, address: cssvAddr } = await deployContract(ethers, "CSSVToken", [ForkConfig.SSV_NETWORK_ADDRESS]);
 
   const moduleNames = [
-    "SSVOperators",
     "SSVClusters",
     "SSVDAO",
     "SSVViews",
@@ -341,6 +342,9 @@ export async function ssvNetworkFullForkedFixture(
     "SSVValidators",
   ];
   const modules: { [key: string]: string } = {};
+
+  const { address: ssvOperatorsAddr } = await deployContract(ethers, "SSVOperators", [0]);
+  modules["SSVOperators"] = ssvOperatorsAddr;
 
   for (const mod of moduleNames) {
     const { address } = await deployContract(ethers, mod);
