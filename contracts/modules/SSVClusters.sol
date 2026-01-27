@@ -129,13 +129,20 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         if (cluster.active) revert ClusterAlreadyEnabled();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
 
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperators(
+        uint64 vUnitsCluster = seb.clusterEB[hashedCluster].vUnits;
+        uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+        uint64 effectiveVUnits = vUnitsCluster > 0 ? vUnitsCluster : baselineVUnits;
+        uint64 clusterDeviation = vUnitsCluster > baselineVUnits ? vUnitsCluster - baselineVUnits : 0;
+
+        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsOnReactivation(
             operatorIds,
-            true,
             cluster.validatorCount,
+            clusterDeviation,
             s,
-            sp
+            sp,
+            seb
         );
 
         cluster.balance += msg.value;
@@ -145,28 +152,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         sp.updateDAO(true, cluster.validatorCount);
 
-        StorageEB storage seb = SSVStorageEB.load();
-
-        // Deviation-only model: baseline restored via ethValidatorCount (in updateClusterOperators above)
-        // Only add deviation if cluster has explicit EB tracking
-        uint64 vUnitsCluster = seb.clusterEB[hashedCluster].vUnits;
-        if (vUnitsCluster > 0) {
-            uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-            // Note: EB floor is 32 ETH, so vUnitsCluster >= baselineVUnits always
-            if (vUnitsCluster > baselineVUnits) {
-                uint64 deviation = vUnitsCluster - baselineVUnits;
-                uint256 n = operatorIds.length;
-                for (uint256 i; i < n; ++i) {
-                    seb.operatorEthVUnits[operatorIds[i]] += deviation;
-                }
-            }
-            // If vUnitsCluster == baselineVUnits, deviation is 0, nothing to add
-        }
-        // For implicit clusters (vUnitsCluster == 0): no deviation to add
-
         if (
-            cluster.isLiquidatableWithEB(
-                hashedCluster,
+            cluster.isLiquidatableWithVUnits(
+                effectiveVUnits,
                 burnRate,
                 sp.ethNetworkFee,
                 sp.minimumBlocksBeforeLiquidation,
