@@ -551,34 +551,26 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
         uint64 vUnitsCluster = ebSnapshot.vUnits;
         
-        // Deviation-only model: only subtract deviation from operatorEthVUnits
+        // Deviation-only model: only subtract positive deviation from operatorEthVUnits
         // Baseline is removed via ethValidatorCount decrement (in updateClusterOperators above)
         if (vUnitsCluster > 0) {
             uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
 
-            // DAO deviation accounting
-            if (vUnitsCluster != baselineVUnits) {
-                bool moreThanBaseline = vUnitsCluster > baselineVUnits;
-                uint64 deviation = moreThanBaseline ? vUnitsCluster - baselineVUnits : baselineVUnits - vUnitsCluster;
+            // Only process positive deviation (vUnitsCluster > baselineVUnits)
+            // EB floor is 32 ETH, so vUnitsCluster >= baselineVUnits in valid states
+            // If vUnitsCluster <= baselineVUnits: no positive deviation to remove
+            if (vUnitsCluster > baselineVUnits) {
+                uint64 deviation = vUnitsCluster - baselineVUnits;
 
-                if (deviation != 0) {
-                    if (moreThanBaseline) sp.daoTotalEthVUnits -= deviation;
-                    else sp.daoTotalEthVUnits += deviation;
-                }
+                // DAO deviation accounting
+                sp.daoTotalEthVUnits -= deviation;
                 
                 // Operator deviation accounting: only subtract deviation, not baseline
-                // Note: EB floor is 32 ETH, so vUnitsCluster >= baselineVUnits always
-                // But we handle both cases for safety
                 uint256 n = operatorIds.length;
                 for (uint256 i; i < n; ++i) {
-                    if (moreThanBaseline) {
-                        seb.operatorEthVUnits[operatorIds[i]] -= deviation;
-                    } else {
-                        seb.operatorEthVUnits[operatorIds[i]] += deviation;
-                    }
+                    seb.operatorEthVUnits[operatorIds[i]] -= deviation;
                 }
             }
-            // If vUnitsCluster == baselineVUnits, deviation is 0, nothing to update
             
             // Reset snapshot
             ebSnapshot.vUnits = 0;
