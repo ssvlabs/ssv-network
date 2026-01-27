@@ -857,14 +857,13 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             uint32 blockDiff = currentBlock - operator.ethSnapshot.block;
             uint64 blockDiffFee = uint64(blockDiff) * operator.ethFee;
 
-            uint64 vUnits = seb.operatorEthVUnits[operatorId];
-            if (vUnits == 0 && operator.ethValidatorCount > 0) {
-                vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
-            }
+            // Deviation-only model: effectiveVUnits = baseline + storedDeviation
+            uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
+            uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
 
             operator.ethSnapshot.index += blockDiffFee;
-            if (vUnits != 0 && blockDiffFee != 0) {
-                uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
+            if (effectiveVUnits != 0 && blockDiffFee != 0) {
+                uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
                 operator.ethSnapshot.balance += uint64(delta);
             }
             operator.ethSnapshot.block = currentBlock;
@@ -892,14 +891,13 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         uint32 currentBlock = uint32(block.number);
         if (operator.ethSnapshot.block != 0) {
             uint64 blockDiffFee = uint64(blocks) * operator.ethFee;
-            uint64 vUnits = seb.operatorEthVUnits[operatorId];
-            if (vUnits == 0 && operator.ethValidatorCount > 0) {
-                vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
-            }
+            // Deviation-only model: effectiveVUnits = baseline + storedDeviation
+            uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
+            uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
 
             operator.ethSnapshot.index += blockDiffFee;
-            if (vUnits != 0 && blockDiffFee != 0) {
-                uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
+            if (effectiveVUnits != 0 && blockDiffFee != 0) {
+                uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
                 operator.ethSnapshot.balance += uint64(delta);
             }
             operator.ethSnapshot.block = currentBlock;
