@@ -13,11 +13,16 @@ import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
 contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
     uint64 private constant PRECISION_FACTOR = 10_000;
+    uint256 public immutable UPGRADE_TIMESTAMP;
 
     using Types256 for uint256;
     using Types64 for uint64;
     using Counters for Counters.Counter;
     using OperatorLib for Operator;
+
+    constructor(uint256 upgradeTimestamp) {
+        UPGRADE_TIMESTAMP = upgradeTimestamp;
+    }
 
     /*******************************/
     /* Operator External Functions */
@@ -129,6 +134,10 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         OperatorFeeChangeRequest memory feeChangeRequest = s.operatorFeeChangeRequests[operatorId];
 
         if (feeChangeRequest.approvalBeginTime == 0) revert NoFeeDeclared();
+
+        if (feeChangeRequest.approvalBeginTime <= UPGRADE_TIMESTAMP) {
+            revert LegacyOpereatorFeeDeclarationInvalid();
+        }
 
         if (
             block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime
