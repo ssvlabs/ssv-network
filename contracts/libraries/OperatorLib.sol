@@ -14,7 +14,7 @@ library OperatorLib {
     using Types64 for uint64;
     using Types256 for uint256;
 
-    uint256 internal constant MINIMAL_OPERATOR_ETH_FEE = 10_000_000;
+    uint256 internal constant MINIMAL_OPERATOR_ETH_FEE = 1770_000_000;
 
     function updateSnapshotSSV(ISSVNetworkCore.Operator memory operator) internal view {
         uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
