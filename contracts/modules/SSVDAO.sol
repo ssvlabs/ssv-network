@@ -17,7 +17,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
 
     using ProtocolLib for StorageProtocol;
 
-    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
+    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 50_190;
     uint256 private constant ROOT_COMMITS_THRESHOLD = 3;
 
     function updateNetworkFee(uint256 fee) external override {
