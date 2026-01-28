@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -70,6 +70,30 @@ describe("SSVClusters function `reactivate()`", async () => {
     await expect(reactivateTx).to.emit(clusters, Events.CLUSTER_REACTIVATED);
     expect(clusterAfterReactivate.active).to.equal(true);
     expect(clusterAfterReactivate.validatorCount).to.equal(clusterAfterLiquidation.validatorCount);
+  });
+
+  it("Keeps operator deviation at zero when reactivating without EB snapshot", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const { clusterAfterLiquidation } = await registerAndLiquidate(clusters, operatorIds);
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+    }
+
+    const reactivateTx = await clusters.reactivate(
+      operatorIds,
+      clusterAfterLiquidation,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    await reactivateTx.wait();
+
+    const baselineVUnits = clusterAfterLiquidation.validatorCount * VUNITS_PRECISION;
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(baselineVUnits);
+    }
   });
 
   it("Is reverted with 'ClusterAlreadyEnabled' when trying to reactivate an active cluster", async function () {
