@@ -234,6 +234,11 @@
   },
   {
     "inputs": [],
+    "name": "LegacyOperatorFeeDeclarationInvalid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "MaxRequestsAmountReached",
     "type": "error"
   },
