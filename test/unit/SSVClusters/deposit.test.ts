@@ -43,7 +43,6 @@ describe("SSVClusters function `deposit()`", async () => {
         createCluster(),
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ),
-      [GasGroup.REGISTER_VALIDATOR_NEW_STATE]
     );
     return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
   };

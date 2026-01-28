@@ -61,6 +61,25 @@ library ClusterLib {
         return cluster.balance < liquidationThreshold.expand();
     }
 
+    function isLiquidatableWithVUnits(
+        ISSVNetworkCore.Cluster memory cluster,
+        uint64 vUnits,
+        uint64 burnRate,
+        uint64 networkFee,
+        uint64 minimumBlocksBeforeLiquidation,
+        uint64 minimumLiquidationCollateral
+    ) internal pure returns (bool liquidatable) {
+        if (cluster.validatorCount == 0) return false;
+        if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
+
+        uint128 units = vUnits;
+        uint128 rate = burnRate + networkFee;
+        uint128 thresholdUnits = (uint128(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
+
+        uint64 liquidationThreshold = uint64(thresholdUnits);
+        return cluster.balance < liquidationThreshold.expand();
+    }
+
     function validateClusterIsNotLiquidated(ISSVNetworkCore.Cluster memory cluster) internal pure {
         if (!cluster.active) revert ISSVNetworkCore.ClusterIsLiquidated();
     }

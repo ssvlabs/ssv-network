@@ -100,14 +100,16 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
 
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
     }
 
     const removeTx = await validators.connect(clusterOwner).removeValidator(publicKey, operatorIds, clusterAfterRegister);
     await removeTx.wait();
 
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(0n); // baseline removed
     }
   });
 
@@ -305,9 +307,16 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const updateReceipt = await updateTx.wait();
     const clusterAfterUpdate = parseClusterFromEvent(clusters, updateReceipt, "ClusterBalanceUpdated");
 
+    // EB update to 160 ETH for 2 validators (80 ETH each)
+    // vUnits = ceil(160 * 10000 / 32) = 50000
     const expectedUpdatedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 31n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits);
-    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(expectedUpdatedVUnits);
+    
+    // baseline = 2 validators * 10000 = 20000, deviation = 50000 - 20000 = 30000
+    const baselineBeforeRemove = 2n * VUNITS_PRECISION;
+    const deviationAfterUpdate = expectedUpdatedVUnits - baselineBeforeRemove;
+    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviationAfterUpdate); // deviation only
+    expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(expectedUpdatedVUnits); // baseline + deviation
 
     const removeTx = await clusters.connect(clusterOwner).removeValidator(pk1, operatorIds, clusterAfterUpdate);
     const removeReceipt = await removeTx.wait();
@@ -315,7 +324,14 @@ describe("SSVClusters function `removeValidator()`", async () => {
 
     expect(clusterAfterRemove.validatorCount).to.equal(1n);
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits - VUNITS_PRECISION);
-    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(expectedUpdatedVUnits - VUNITS_PRECISION);
+    
+    // After removing 1 validator: baseline = 1 * 10000 = 10000
+    // Cluster vUnits = 50000 - 10000 = 40000
+    // deviation = 40000 - 10000 = 30000 (unchanged)
+    const baselineAfterRemove = 1n * VUNITS_PRECISION;
+    const expectedClusterVUnitsAfterRemove = expectedUpdatedVUnits - VUNITS_PRECISION;
+    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviationAfterUpdate); // deviation unchanged
+    expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(baselineAfterRemove + deviationAfterUpdate);
   });
 
   it("Clears remaining explicit EB vUnits when removing the last validator", async function () {

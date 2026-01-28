@@ -201,7 +201,8 @@ describe("SSVClusters function `reactivate()`", async () => {
     expect(clusterAfterMigration.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(10_000n);
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(10_000n); // baseline + deviation
     }
   });
 
@@ -236,7 +237,9 @@ describe("SSVClusters function `reactivate()`", async () => {
     await migrateTx.wait();
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(12_000n);
+      // Explicit snapshot of 12000 vUnits with baseline of 10000 (1 validator) = deviation of 2000
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(2_000n); // deviation only
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(12_000n); // baseline + deviation
     }
   });
 });

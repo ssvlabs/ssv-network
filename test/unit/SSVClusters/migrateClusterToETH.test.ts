@@ -87,7 +87,8 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthValidatorCount(operatorId)).to.equal(1n);
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only (no EB update yet)
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
     }
 
     await expect(clusters.migrateClusterToETH(
@@ -172,7 +173,9 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     expect(eventArgs.effectiveBalance).to.equal(38);
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(12_000n);
+      // Explicit snapshot of 12000 vUnits with baseline of 10000 (1 validator) = deviation of 2000
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(2_000n); // deviation only
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(12_000n); // baseline + deviation
     }
   });
 

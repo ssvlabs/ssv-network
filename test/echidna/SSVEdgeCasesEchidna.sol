@@ -200,11 +200,20 @@ contract SSVEdgeCasesEchidna is SSVClusters {
         StorageEB storage seb = SSVStorageEB.load();
         uint64 baseline = uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
         if (baseline == 0) return;
-        uint64 newVUnits = baseline / 2;
+        
+        // Deviation-only model: set up a valid scenario with POSITIVE deviation
+        // (e.g., 48 ETH per validator = 16 ETH deviation per validator)
+        // vUnits = baseline + deviation (must be >= baseline due to 32 ETH floor)
+        uint64 deviation = baseline / 4; // 25% deviation above baseline
+        uint64 clusterVUnits = baseline + deviation;
 
-        seb.clusterEB[clusterId].vUnits = newVUnits;
+        // Set cluster EB snapshot with positive deviation
+        seb.clusterEB[clusterId].vUnits = clusterVUnits;
+        
+        // In deviation-only model, operatorEthVUnits stores ONLY the deviation, not full vUnits
+        // Record the deviation we're adding to operators
         for (uint256 i; i < operatorIds.length; ++i) {
-            seb.operatorEthVUnits[operatorIds[i]] = newVUnits;
+            seb.operatorEthVUnits[operatorIds[i]] = deviation;
         }
 
         record.cluster.balance = 0;
@@ -236,9 +245,16 @@ contract SSVEdgeCasesEchidna is SSVClusters {
             return;
         }
 
+        // In deviation-only model:
+        // - Liquidation subtracts the cluster's deviation from operatorEthVUnits
+        // - clusterEB.vUnits is reset to 0 during liquidation
+        // - Reactivation with clusterEB.vUnits == 0 means clusterDeviation = 0, so nothing added
+        // Expected: operatorEthVUnits should be 0 after liquidation removed the deviation
         for (uint256 i; i < operatorIds.length; ++i) {
             uint64 opVUnits = seb.operatorEthVUnits[operatorIds[i]];
-            if (opVUnits != newVUnits) {
+            // After liquidation + reactivation, deviation should be removed (= 0)
+            // because this was the only cluster contributing deviation
+            if (opVUnits != 0) {
                 reactivationVUnitsMismatch = true;
             }
         }
@@ -444,14 +460,14 @@ contract SSVEdgeCasesEchidna is SSVClusters {
 
         uint32 currentBlock = uint32(block.number);
         uint64 blockDiffFee = uint64(blocks) * operator.ethFee;
-        uint64 vUnits = seb.operatorEthVUnits[operatorId];
-        if (vUnits == 0 && operator.ethValidatorCount > 0) {
-            vUnits = operator.ethValidatorCount * VUNITS_PRECISION;
-        }
+        
+        // Deviation-only model: effectiveVUnits = baseline + storedDeviation
+        uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
+        uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
 
         operator.ethSnapshot.index += blockDiffFee;
-        if (vUnits != 0 && blockDiffFee != 0) {
-            uint128 delta = (uint128(blockDiffFee) * uint128(vUnits)) / VUNITS_PRECISION;
+        if (effectiveVUnits != 0 && blockDiffFee != 0) {
+            uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
             operator.ethSnapshot.balance += uint64(delta);
         }
         operator.ethSnapshot.block = currentBlock;
