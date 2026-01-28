@@ -15,7 +15,23 @@ async function main() {
     throw new Error(`Invalid module: ${moduleName}`);
   }
 
-  const { address: moduleAddress } = await deployContract(ethers, moduleName);
+  let args: any[] = [];
+  const argsIndex = process.argv.indexOf("--args");
+  if (argsIndex !== -1) {
+    const argsValue = process.argv[argsIndex + 1];
+    if (argsValue) {
+      try {
+        args = JSON.parse(argsValue);
+        if (!Array.isArray(args)) {
+          throw new Error("Args must be a JSON array");
+        }
+      } catch (err) {
+        throw new Error(`Invalid --args JSON: ${argsValue}. Expected array like [1, "hello", true]`);
+      }
+    }
+  }
+
+  const { address: moduleAddress } = await deployContract(ethers, moduleName, args);
   await attachModule(ethers, proxyAddress, moduleName, moduleAddress);
   saveImplementation(targetNetwork, moduleName, moduleAddress);
 }

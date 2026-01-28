@@ -15,9 +15,9 @@ sizes:
     npx hardhat compile --force
     npx tsx ./scripts/contract-sizes.ts
 
-deploy-module module network:
+deploy-module module network *args:
     npx hardhat compile --force
-    npx tsx scripts/deploy-module.ts --network {{network}} --module {{module}}
+    npx tsx scripts/deploy-module.ts --network {{network}} --module {{module}} {{ if args == "" { "" } else { "--args '[\"" + replace(args, " ", "\",\"") + "\"]'" } }}
 
 deploy-implementation contract network:
     npx hardhat compile --force
@@ -27,9 +27,9 @@ deploy-all network:
     npx hardhat compile --force
     npx tsx scripts/deploy-all.ts --network {{network}}
 
-update-module module proxy network:
+update-module module proxy network *args:
     npx hardhat compile --force
-    npx tsx scripts/update-module.ts --network {{network}} --module {{module}} --proxy-address {{proxy}}
+    npx tsx scripts/update-module.ts --network {{network}} --module {{module}} --proxy-address {{proxy}} {{ if args == "" { "" } else { "--args '[\"" + replace(args, " ", "\",\"") + "\"]'" } }}
 
 upgrade-contract contract proxy network:
     npx hardhat compile --force

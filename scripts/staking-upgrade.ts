@@ -26,6 +26,7 @@ async function main() {
   saveImplementation(targetNetwork, "SSVNetworkSSVStakingUpgrade", upgradeImplAddr);
 
   const cooldown = 7n * 24n * 60n * 60n;
+  const defaultOracles = [1,2,3,4];
 
   await upgradeProxy(
     ethers,
@@ -33,8 +34,8 @@ async function main() {
     networkProxyAddr,
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
-    "initializeSSVStaking(address,uint64)",
-    [cssvTokenAddr, cooldown]
+    "initializeSSVStaking(address,uint64,uint32[4])",
+    [cssvTokenAddr, cooldown, defaultOracles]
   );
 }
 
