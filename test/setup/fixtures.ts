@@ -387,6 +387,7 @@ export async function ssvNetworkFullForkedFixture(
     const tx = await daoNetwork.updateModule(SSVModules[moduleEnumKey], modules[mod]);
     await tx.wait();
   }
+  await daoNetwork.updateModule(SSVModules.SSVOperators, ssvOperatorsAddr);
 
   const ssvTokenFactory = await ethers.getContractFactory("SSVToken");
   let ssvToken = ssvTokenFactory.attach(ForkConfig.SSV_TOKEN);
