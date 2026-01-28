@@ -150,8 +150,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
 
-        sp.updateDAO(true, cluster.validatorCount);
-
         if (
             cluster.isLiquidatableWithVUnits(
                 effectiveVUnits,
@@ -163,6 +161,8 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         ) {
             revert InsufficientBalance();
         }
+
+        sp.updateDAO(true, cluster.validatorCount);
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
