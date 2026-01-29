@@ -87,7 +87,7 @@ describe("SSVOperators function `registerOperator()`", async () => {
     const operatorData = await operators.getOperator(1);
 
     expect(operatorData.owner).to.equal(owner.address);
-    expect(operatorData.ethFee).to.equal(1n); // MINIMAL_OPERATOR_ETH_FEE shrinks to 1
+    expect(operatorData.ethFee).to.equal(MINIMAL_OPERATOR_ETH_FEE / 10_000_000n); // MINIMAL_OPERATOR_ETH_FEE shrinks
     expect(operatorData.whitelisted).to.equal(true);
     expect(operatorData.ethSnapshot.block).to.be.greaterThan(0);
   });
