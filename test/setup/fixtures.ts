@@ -135,8 +135,8 @@ export const getClustersHarnessFixture = (
 export async function ssvOperatorsHarnessFixture(
   connection: NetworkConnection<"generic">,
   operatorMaxFee = MAXIMUM_OPERATORS_FEE,
-  declarePeriod = 0n,
-  executePeriod = 1_000n,
+  declarePeriod = DECLARE_OPERATOR_FEE_PERIOD,
+  executePeriod = EXECUTE_OPERATOR_FEE_PERIOD,
   maxFeeIncrease = OPERATOR_MAX_FEE_INCREASE,
   upgradeTimestamp = 0n
 ): Promise<{ operators: SSVOperatorsHarness; }> {
@@ -305,6 +305,7 @@ export async function ssvNetworkFullFixture(
   await network.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL);
   await network.updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD);
   await network.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE);
+  await network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
 
   return {
     network,
@@ -397,6 +398,7 @@ export async function ssvNetworkFullForkedFixture(
   await daoNetwork.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL);
   await daoNetwork.updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD);
   await daoNetwork.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE);
+  await daoNetwork.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
 
   return { network, views, cssvToken, ssvToken, modules, daoSigner };
 }

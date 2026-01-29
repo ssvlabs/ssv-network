@@ -4,7 +4,11 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey } from "../../common/helpers.ts";
-import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
+import {
+  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
+  MAXIMUM_OPERATORS_FEE,
+  MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
+} from '../../common/constants.ts';
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
@@ -18,7 +22,7 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
   });
 
   const deployOperatorsFixture = async () =>
-    ssvOperatorsHarnessFixture(connection, 1_000_000_000n, 0n, 1_000n, 10_000n);
+    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
 
   it("Withdraws both ETH and SSV earnings and resets balances", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
@@ -29,9 +33,12 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
     );
 
     await trackGas(
-      operators.declareOperatorFee(1, 20_000_000),
+      operators.declareOperatorFee(1, MINIMAL_OPERATOR_ETH_FEE * 2n),
       [GasGroup.DECLARE_OPERATOR_FEE]
     );
+
+    await networkHelpers.mine(DECLARE_OPERATOR_FEE_PERIOD + 1n);
+
     await trackGas(
       operators.executeOperatorFee(1),
       [GasGroup.EXECUTE_OPERATOR_FEE]

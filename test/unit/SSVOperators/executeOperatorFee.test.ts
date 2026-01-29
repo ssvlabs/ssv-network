@@ -4,7 +4,12 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey } from "../../common/helpers.ts";
-import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
+import {
+  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
+  MAXIMUM_OPERATORS_FEE,
+  MINIMAL_OPERATOR_ETH_FEE,
+  OPERATOR_MAX_FEE_INCREASE,
+} from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
@@ -18,9 +23,9 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
   });
 
   const deployOperatorsFixture = async () =>
-    ssvOperatorsHarnessFixture(connection, 1_000_000_000n, 0n, 1_000n, 10_000n);
+    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
   const deployOperatorsWithDelay = async () =>
-    ssvOperatorsHarnessFixture(connection, 1_000_000_000n, 100n, 100n, 10_000n);
+    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
 
   it("Executes declared fee and emits event", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
@@ -30,9 +35,11 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
       [GasGroup.REGISTER_OPERATOR]
     );
     await trackGas(
-      operators.declareOperatorFee(1, 20_000_000),
+      operators.declareOperatorFee(1, MINIMAL_OPERATOR_ETH_FEE * 2n),
       [GasGroup.DECLARE_OPERATOR_FEE]
     );
+
+    await networkHelpers.mine(DECLARE_OPERATOR_FEE_PERIOD + 1n);
 
     await expect(
       trackGas(
@@ -64,7 +71,7 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
       [GasGroup.REGISTER_OPERATOR]
     );
     await trackGas(
-      operators.declareOperatorFee(1, 20_000_000),
+      operators.declareOperatorFee(1, MINIMAL_OPERATOR_ETH_FEE * 2n),
       [GasGroup.DECLARE_OPERATOR_FEE]
     );
 
@@ -85,10 +92,12 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
   it("Updates operator fee and clears request after execution", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE);
-    const newFee = 20_000_000;
+    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
 
     await operators.registerOperator(makeOperatorKey(1), initialFee, false);
     await operators.declareOperatorFee(1, newFee);
+
+    await networkHelpers.mine(DECLARE_OPERATOR_FEE_PERIOD + 1n);
 
     await operators.executeOperatorFee(1);
 
@@ -117,7 +126,9 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
     const [_, other] = await connection.ethers.getSigners();
     
     await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
-    await operators.declareOperatorFee(1, 20_000_000);
+    await operators.declareOperatorFee(1, MINIMAL_OPERATOR_ETH_FEE * 2n);
+
+    await networkHelpers.mine(DECLARE_OPERATOR_FEE_PERIOD + 1n);
 
     await expect(operators.connect(other).executeOperatorFee(1))
       .to.be.revertedWithCustomError(operators, Errors.CALLER_NOT_OWNER);
@@ -126,13 +137,15 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
   it("Is reverted with 'FeeTooHigh' if DAO lowers max fee below declared amount before execution", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE);
-    const newFee = 20_000_000; // 2x minimal
+    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n; // 2x minimal
 
     await operators.registerOperator(makeOperatorKey(1), initialFee, false);
     await operators.declareOperatorFee(1, newFee);
 
     // DAO lowers max fee to MINIMAL_OPERATOR_ETH_FEE
     await operators.mockSetOperatorMaxFee(Number(MINIMAL_OPERATOR_ETH_FEE));
+
+    await networkHelpers.mine(DECLARE_OPERATOR_FEE_PERIOD + 1n);
 
     await expect(operators.executeOperatorFee(1)).to.be.revertedWithCustomError(
       operators,
@@ -146,10 +159,10 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
 
     const operators = (await ssvOperatorsHarnessFixture(
       connection,
-      1_000_000_000n,
-      0n,
-      1_000n,
-      10_000n,
+      MAXIMUM_OPERATORS_FEE,
+      DECLARE_OPERATOR_FEE_PERIOD,
+      EXECUTE_OPERATOR_FEE_PERIOD,
+      OPERATOR_MAX_FEE_INCREASE,
       upgradeTimestamp
     )).operators;
 
