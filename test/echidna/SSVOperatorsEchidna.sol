@@ -69,7 +69,7 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
     using Types64 for uint64;
     using Types256 for uint256;
 
-    uint256 private constant MINIMAL_OPERATOR_ETH_FEE = 10_000_000;
+    uint256 private constant DEFAULT_MIN_OPERATOR_ETH_FEE = 10_000_000;
     uint64 private constant MAX_OPERATORS = 8;
     uint32 private constant MAX_ADVANCE_BLOCKS = 8;
     uint64 private constant MAX_SSV_MINT_UNITS = 1_000_000;
@@ -145,6 +145,12 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             newMax = minMax;
         }
         _mockSetOperatorMaxFee(newMax);
+    }
+
+    function action_set_min_operator_eth_fee(uint256 seed) external {
+        uint64 maxFee = SSVStorageProtocol.load().operatorMaxFee;
+        uint64 newMin = uint64(seed % (uint256(maxFee) + 1));
+        _mockSetMinimumOperatorEthFee(newMin);
     }
 
     function action_register(
@@ -233,7 +239,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             if (operatorAfter.ethFee.expand() >= currentFee) {
                 invalidReduceSucceeded = true;
             }
-            if (operatorAfter.ethFee != 0 && operatorAfter.ethFee.expand() < MINIMAL_OPERATOR_ETH_FEE) {
+            uint64 minFee = SSVStorageProtocol.load().minimumOperatorEthFee;
+            if (operatorAfter.ethFee != 0 && operatorAfter.ethFee.expand() < minFee) {
                 invalidReduceSucceeded = true;
             }
             if (getOperatorFeeChangeRequest(operatorId).approvalBeginTime != 0) {
@@ -647,12 +654,13 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
     }
 
     function echidna_eth_fee_minimum() external view returns (bool) {
+        uint64 minFee = SSVStorageProtocol.load().minimumOperatorEthFee;
         uint256 count = operatorIds.length;
         for (uint256 i; i < count; ++i) {
             uint64 id = operatorIds[i];
             ISSVNetworkCore.Operator memory op = getOperator(id);
             if (!_operatorExists(op)) continue;
-            if (op.ethFee != 0 && op.ethFee.expand() < MINIMAL_OPERATOR_ETH_FEE) return false;
+            if (op.ethFee != 0 && op.ethFee.expand() < minFee) return false;
         }
         return true;
     }
@@ -740,6 +748,10 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         SSVStorageProtocol.load().operatorMaxFeeIncrease = increase;
     }
 
+    function _mockSetMinimumOperatorEthFee(uint64 fee) internal {
+        SSVStorageProtocol.load().minimumOperatorEthFee = fee;
+    }
+
     function _initProtocolDefaults() internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.validatorsPerOperatorLimit = 3000;
@@ -750,6 +762,7 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         sp.ethDaoIndexBlockNumber = uint32(block.number);
         sp.daoIndexBlockNumber = uint32(block.number);
         sp.operatorMaxFeeSSV = type(uint64).max;
+        sp.minimumOperatorEthFee = uint64(DEFAULT_MIN_OPERATOR_ETH_FEE);
     }
 
     function _mockSetToken(address tokenAddress) internal {
@@ -786,21 +799,23 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
     }
 
     function _boundFee(uint256 seed) internal view returns (uint256) {
-        uint64 maxFee = SSVStorageProtocol.load().operatorMaxFee;
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64 maxFee = sp.operatorMaxFee;
+        uint64 minFee = sp.minimumOperatorEthFee;
         uint256 maxUnits = uint256(maxFee) / DEDUCTED_DIGITS;
         if (maxUnits == 0) return 0;
 
         uint256 units = seed % (maxUnits + 1);
         uint256 fee = units * DEDUCTED_DIGITS;
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) {
-            fee = MINIMAL_OPERATOR_ETH_FEE;
+        if (fee != 0 && fee < minFee) {
+            fee = minFee;
         }
 
         if (fee > maxFee) {
-            if (maxFee < MINIMAL_OPERATOR_ETH_FEE) return 0;
+            if (maxFee < minFee) return 0;
             fee = maxUnits * DEDUCTED_DIGITS;
-            if (fee < MINIMAL_OPERATOR_ETH_FEE) return 0;
+            if (fee < minFee) return 0;
         }
 
         return fee;
@@ -815,9 +830,10 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         return units * DEDUCTED_DIGITS;
     }
 
-    function _boundFeeBelow(uint256 currentFee, uint256 seed) internal pure returns (uint256) {
+    function _boundFeeBelow(uint256 currentFee, uint256 seed) internal view returns (uint256) {
+        uint64 minFee = SSVStorageProtocol.load().minimumOperatorEthFee;
         if (currentFee == 0) return 0;
-        if (currentFee <= MINIMAL_OPERATOR_ETH_FEE) return 0;
+        if (currentFee <= minFee) return 0;
 
         uint256 currentUnits = currentFee / DEDUCTED_DIGITS;
         if (currentUnits <= 1) return 0;
@@ -825,8 +841,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         uint256 units = seed % currentUnits;
         uint256 fee = units * DEDUCTED_DIGITS;
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_ETH_FEE) {
-            fee = MINIMAL_OPERATOR_ETH_FEE;
+        if (fee != 0 && fee < minFee) {
+            fee = minFee;
         }
         if (fee >= currentFee) return 0;
 

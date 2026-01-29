@@ -30,6 +30,11 @@ contract SSVOperatorsHarness is SSVOperators {
         sp.operatorMaxFeeIncrease = increase;
     }
 
+    function mockSetMinimumOperatorEthFee(uint64 fee) external {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        sp.minimumOperatorEthFee = fee;
+    }
+
     function getOperator(uint64 operatorId) external view returns (Operator memory) {
         return SSVStorage.load().operators[operatorId];
     }

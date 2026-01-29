@@ -14,7 +14,8 @@ library OperatorLib {
     using Types64 for uint64;
     using Types256 for uint256;
 
-    uint256 internal constant MINIMAL_OPERATOR_ETH_FEE = 1770_000_000;
+    /// @notice Default operator ETH fee used when migrating operators without an ETH fee set
+    uint256 internal constant DEFAULT_OPERATOR_ETH_FEE = 1770_000_000;
 
     function updateSnapshotSSV(ISSVNetworkCore.Operator memory operator) internal view {
         uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
@@ -85,7 +86,7 @@ library OperatorLib {
     }
 
     function defaultOperatorEthFee() internal pure returns (uint64) {
-        return MINIMAL_OPERATOR_ETH_FEE.shrink();
+        return DEFAULT_OPERATOR_ETH_FEE.shrink();
     }
 
     function checkOwner(ISSVNetworkCore.Operator storage operator) internal view {

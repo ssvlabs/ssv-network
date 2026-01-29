@@ -33,10 +33,12 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         uint256 fee,
         bool setPrivate
     ) external override returns (uint64 id) {
-        if (fee != 0 && fee < OperatorLib.MINIMAL_OPERATOR_ETH_FEE) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (fee != 0 && fee < sp.minimumOperatorEthFee) {
             revert ISSVNetworkCore.FeeTooLow();
         }
-        if (fee > SSVStorageProtocol.load().operatorMaxFee) {
+        if (fee > sp.operatorMaxFee) {
             revert ISSVNetworkCore.FeeTooHigh();
         }
 
@@ -95,7 +97,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        if (fee != 0 && fee < OperatorLib.MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
+        if (fee != 0 && fee < sp.minimumOperatorEthFee) revert FeeTooLow();
         if (fee > sp.operatorMaxFee) revert FeeTooHigh();
         if (s.operators[operatorId].ethSnapshot.block == 0) {
             s.operators[operatorId].ensureETHDefaults();
@@ -168,7 +170,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
 
-        if (fee != 0 && fee < OperatorLib.MINIMAL_OPERATOR_ETH_FEE) revert FeeTooLow();
+        if (fee != 0 && fee < SSVStorageProtocol.load().minimumOperatorEthFee) revert FeeTooLow();
 
         Operator memory operator = s.operators[operatorId]; 
 

@@ -63,7 +63,8 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
       [GasGroup.REGISTER_OPERATOR]
     );
 
-    await expect(operators.declareOperatorFee(1, 1)).to.be.revertedWithCustomError(operators, Errors.FEE_TOO_LOW);
+    await operators.mockSetMinimumOperatorEthFee(20_000_000); // above 10_000_000
+    await expect(operators.declareOperatorFee(1, 10_000_000)).to.be.revertedWithCustomError(operators, Errors.FEE_TOO_LOW);
   });
 
   it("Is reverted with 'FeeTooHigh' when declaring above max fee", async function () {

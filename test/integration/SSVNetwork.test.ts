@@ -76,6 +76,7 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getNetworkFee()).to.equal(NETWORK_FEE);
       expect(await views.getNetworkFeeSSV()).to.equal(NETWORK_FEE);
       expect(await views.getMaximumOperatorFee()).to.equal(MAXIMUM_OPERATORS_FEE);
+      expect(await views.getMinimumOperatorEthFee()).to.equal(MINIMAL_OPERATOR_ETH_FEE);
 
       expect(await views.cooldownDuration()).to.equal(7n * 24n * 60n * 60n);
 
@@ -940,6 +941,46 @@ describe("SSVNetwork full integration tests", () => {
 
       await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
+  describe("Function 'updateMinimumOperatorEthFee()'", async function() {
+    it("Updates minimum fee and emits correct event", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const newMinFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+      const tx = await network.updateMinimumOperatorEthFee(newMinFee);
+
+      await expect(tx)
+        .to.emit(network, Events.MINIMUM_OPERATOR_ETH_FEE_UPDATED)
+        .withArgs(newMinFee);
+
+      expect(await views.getMinimumOperatorEthFee()).to.equal(newMinFee);
+    });
+
+    it("Is reverted with 'Ownable: caller is not the owner' if the caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).updateMinimumOperatorEthFee(MINIMAL_OPERATOR_ETH_FEE))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+
+    it("When minimum is raised, registerOperator with fee below minimum reverts with FeeTooLow", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const raisedMinFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+      await network.updateMinimumOperatorEthFee(raisedMinFee);
+
+      await expect(
+        network.registerOperator(makeOperatorKey(1), MINIMAL_OPERATOR_ETH_FEE, false)
+      ).to.be.revertedWithCustomError(network, Errors.FEE_TOO_LOW);
+
+      await expect(
+        network.registerOperator(makeOperatorKey(1), raisedMinFee, false)
+      ).to.emit(network, Events.OPERATOR_ADDED);
     });
   });
 

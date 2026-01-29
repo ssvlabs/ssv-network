@@ -16,6 +16,7 @@ import {
   MAXIMUM_OPERATORS_FEE, MINIMAL_LIQUIDATION_THRESHOLD,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+  MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE, OPERATOR_MAX_FEE_INCREASE, VALIDATORS_PER_OPERATOR_LIMIT,
 } from '../common/constants.js';
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
@@ -306,6 +307,7 @@ export async function ssvNetworkFullFixture(
   await network.updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD);
   await network.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE);
   await network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
+  await network.updateMinimumOperatorEthFee(MINIMAL_OPERATOR_ETH_FEE);
 
   return {
     network,
@@ -399,6 +401,7 @@ export async function ssvNetworkFullForkedFixture(
   await daoNetwork.updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD);
   await daoNetwork.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE);
   await daoNetwork.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
+  await daoNetwork.updateMinimumOperatorEthFee(MINIMAL_OPERATOR_ETH_FEE);
 
   return { network, views, cssvToken, ssvToken, modules, daoSigner };
 }
