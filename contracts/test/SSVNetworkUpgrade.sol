@@ -473,6 +473,13 @@ contract SSVNetworkUpgrade is
         );
     }
 
+    function updateMinimumOperatorEthFee(uint64 minFee) external override onlyOwner {
+        _delegateCall(
+            SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
+            abi.encodeWithSignature("updateMinimumOperatorEthFee(uint64)", minFee)
+        );
+    }
+
     function replaceOracle(uint32 oracleId, address newOracle) external override onlyOwner {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],

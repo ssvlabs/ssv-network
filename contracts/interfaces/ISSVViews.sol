@@ -221,6 +221,10 @@ interface ISSVViews is ISSVNetworkCore {
     function getMaximumOperatorFee() external view returns (uint64);
     function getMaximumOperatorFeeSSV() external view returns (uint64);
 
+    /// @notice Gets the minimum operator ETH fee (DAO-governed)
+    /// @return The minimum fee value (ETH)
+    function getMinimumOperatorEthFee() external view returns (uint64);
+
     /// @notice Gets the periods of operator fee declaration and execution
     /// @return The period for declaring operator fee
     /// @return The period for executing operator fee

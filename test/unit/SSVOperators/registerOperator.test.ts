@@ -42,6 +42,8 @@ describe("SSVOperators function `registerOperator()`", async () => {
   it("Is reverted with 'FeeTooLow' when provided fee is below minimal allowed", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
+    await operators.mockSetMinimumOperatorEthFee(Number(MINIMAL_OPERATOR_ETH_FEE));
+
     await expect(operators.registerOperator(
       makeOperatorKey(1),
       1n,
@@ -87,7 +89,7 @@ describe("SSVOperators function `registerOperator()`", async () => {
     const operatorData = await operators.getOperator(1);
 
     expect(operatorData.owner).to.equal(owner.address);
-    expect(operatorData.ethFee).to.equal(MINIMAL_OPERATOR_ETH_FEE / 10_000_000n); // MINIMAL_OPERATOR_ETH_FEE shrinks
+    expect(operatorData.ethFee).to.equal(177n); // MINIMAL_OPERATOR_ETH_FEE (1770_000_000) shrinks to 177
     expect(operatorData.whitelisted).to.equal(true);
     expect(operatorData.ethSnapshot.block).to.be.greaterThan(0);
   });

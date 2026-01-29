@@ -192,6 +192,10 @@ contract SSVDAOHarness is SSVDAO {
         return SSVStorageProtocol.load().operatorMaxFeeSSV;
     }
 
+    function getMinimumOperatorEthFee() external view returns (uint64) {
+        return SSVStorageProtocol.load().minimumOperatorEthFee;
+    }
+
     function getQuorumBps() external view returns (uint16) {
         return SSVStorageStaking.load().quorumBps;
     }

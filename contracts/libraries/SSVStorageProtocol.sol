@@ -58,6 +58,8 @@ struct StorageProtocol {
     // EB
     /// @notice The current total ETH vUnits
     uint64 daoTotalEthVUnits;
+    /// @notice The minimum operator ETH fee (DAO-governed)
+    uint64 minimumOperatorEthFee;
 }
 
 library SSVStorageProtocol {

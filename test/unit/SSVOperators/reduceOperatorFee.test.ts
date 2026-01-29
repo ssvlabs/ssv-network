@@ -90,7 +90,8 @@ describe("SSVOperators function `reduceOperatorFee()`", async () => {
 
     await operators.registerOperator(makeOperatorKey(1), initialFee, false);
 
-    await expect(operators.reduceOperatorFee(1, 1)).to.be.revertedWithCustomError(
+    await operators.mockSetMinimumOperatorEthFee(Number(MINIMAL_OPERATOR_ETH_FEE));
+    await expect(operators.reduceOperatorFee(1, 10_000_000)).to.be.revertedWithCustomError(
       operators,
       Errors.FEE_TOO_LOW
     );
