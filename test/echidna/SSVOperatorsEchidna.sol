@@ -109,6 +109,7 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
     bool private feeLatencyMismatch;
     bool private ethWithdrawTouchedSSV;
     bool private ssvWithdrawTouchedEth;
+    bool private operatorRegisteredBelowMinFee;
 
     constructor() {
         token = new MockToken();
@@ -170,12 +171,24 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             try user.register(publicKey, fee, setPrivate) returns (uint64 newId) {
                 duplicatePkAllowed = true;
                 _trackNewOperator(newId, hashedPk, address(user));
+                // Check if operator was registered with fee below minimum
+                uint64 minFee = SSVStorageProtocol.load().minimumOperatorEthFee;
+                ISSVNetworkCore.Operator memory op = getOperator(newId);
+                if (op.ethFee != 0 && op.ethFee.expand() < minFee) {
+                    operatorRegisteredBelowMinFee = true;
+                }
             } catch {}
             return;
         }
 
         try user.register(publicKey, fee, setPrivate) returns (uint64 newId) {
             _trackNewOperator(newId, hashedPk, address(user));
+            // Check if operator was registered with fee below minimum (should not happen)
+            uint64 minFee = SSVStorageProtocol.load().minimumOperatorEthFee;
+            ISSVNetworkCore.Operator memory op = getOperator(newId);
+            if (op.ethFee != 0 && op.ethFee.expand() < minFee) {
+                operatorRegisteredBelowMinFee = true;
+            }
         } catch {}
     }
 
@@ -653,16 +666,11 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         return true;
     }
 
+    // Note: This invariant only checks that operators cannot be registered with a fee
+    // below the minimum at registration time. Existing operators are grandfathered
+    // when the DAO increases the minimum fee, so we track violation at registration.
     function echidna_eth_fee_minimum() external view returns (bool) {
-        uint64 minFee = SSVStorageProtocol.load().minimumOperatorEthFee;
-        uint256 count = operatorIds.length;
-        for (uint256 i; i < count; ++i) {
-            uint64 id = operatorIds[i];
-            ISSVNetworkCore.Operator memory op = getOperator(id);
-            if (!_operatorExists(op)) continue;
-            if (op.ethFee != 0 && op.ethFee.expand() < minFee) return false;
-        }
-        return true;
+        return !operatorRegisteredBelowMinFee;
     }
 
     function echidna_declare_does_not_change_fee() external view returns (bool) {
