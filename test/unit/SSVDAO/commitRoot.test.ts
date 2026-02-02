@@ -90,14 +90,16 @@ describe("SSVDAO function `commitRoot()`", async () => {
       .to.be.revertedWithCustomError(dao, Errors.FUTURE_BLOCK_NUMBER);
   });
 
-  it("Is reverted with 'NoSSVStaked' if the total staked amount is zero", async function() {
+  it("Is reverted with 'OracleHasZeroWeight' if the oracle`s weight is zero", async function() {
     const { dao } =
       await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const currentBlock = await connection.ethers.provider.getBlockNumber();
+
+    dao.mockSetOracleWeight(1, 0);
     await expect(dao.connect(oracle1).commitRoot(merkleRoot, currentBlock))
-      .to.be.revertedWithCustomError(dao, Errors.NO_SSV_STAKED);
+      .to.be.revertedWithCustomError(dao, Errors.ORACLE_HAS_ZERO_WEIGHT);
   });
 
   it("Is reverted with 'AlreadyVoted' when oracle tries to vote twice", async function () {
