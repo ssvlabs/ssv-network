@@ -19,6 +19,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
   let oracle3: HardhatEthersSigner;
   let nonOracle: HardhatEthersSigner;
 
+  const totalSupply = ethers.parseEther("1000");
+
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
 
@@ -30,9 +32,6 @@ describe("SSVDAO function `commitRoot()`", async () => {
 
     const mockCSSV = await connection.ethers.deployContract("MockToken", []);
     await mockCSSV.waitForDeployment();
-
-    const totalSupply = ethers.parseEther("1000");
-    await mockCSSV.mint(owner.address, totalSupply);
 
     await dao.mockSetCSSVToken(await mockCSSV.getAddress());
 
@@ -47,7 +46,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
 
     await dao.mockSetQuorumBps(7500);
 
-    return { dao, mockCSSV, totalSupply };
+    return { dao, mockCSSV };
   };
 
   const getCommitmentKey = (blockNum: number | bigint, merkleRoot: string) => {
@@ -91,9 +90,19 @@ describe("SSVDAO function `commitRoot()`", async () => {
       .to.be.revertedWithCustomError(dao, Errors.FUTURE_BLOCK_NUMBER);
   });
 
-  it("Is reverted with 'AlreadyVoted' when oracle tries to vote twice", async function () {
-    const { dao } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+  it("Is reverted with 'NoSSVStaked' if the total staked amount is zero", async function() {
+    const { dao } =
+      await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
 
+    const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
+    const currentBlock = await connection.ethers.provider.getBlockNumber();
+    await expect(dao.connect(oracle1).commitRoot(merkleRoot, currentBlock))
+      .to.be.revertedWithCustomError(dao, Errors.NO_SSV_STAKED);
+  });
+
+  it("Is reverted with 'AlreadyVoted' when oracle tries to vote twice", async function () {
+    const { dao, mockCSSV } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await mockCSSV.mint(owner.address, totalSupply);
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const currentBlock = await connection.ethers.provider.getBlockNumber();
 
@@ -104,7 +113,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
   });
 
   it("Emits WeightedRootProposed when quorum is not reached", async function () {
-    const { dao, totalSupply } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    const { dao, mockCSSV } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await mockCSSV.mint(owner.address, totalSupply);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const currentBlock = await connection.ethers.provider.getBlockNumber();
@@ -124,7 +134,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
   });
 
   it("Emits WeightedRootProposed repeatedly and accumulates weight when quorum is still not reached", async function () {
-    const { dao, totalSupply } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    const { dao, mockCSSV } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await mockCSSV.mint(owner.address, totalSupply);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const blockNum = await connection.ethers.provider.getBlockNumber();
@@ -155,7 +166,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
   });
 
   it("Commits root and emits RootCommitted when quorum is reached", async function () {
-    const { dao } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    const { dao, mockCSSV } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await mockCSSV.mint(owner.address, totalSupply);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const currentBlock = await connection.ethers.provider.getBlockNumber();
@@ -178,7 +190,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
   });
 
   it("Commits root on the first vote when accumulated weight meets the quorum threshold", async function () {
-    const { dao, totalSupply } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    const { dao, mockCSSV } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await mockCSSV.mint(owner.address, totalSupply);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const blockNum = await connection.ethers.provider.getBlockNumber();
@@ -203,7 +216,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
   });
 
   it("Is reverted with 'StaleBlockNumber' when trying to propose the same block after it was committed", async function () {
-    const { dao } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    const { dao, mockCSSV } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await mockCSSV.mint(owner.address, totalSupply);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const blockNum = await connection.ethers.provider.getBlockNumber();
@@ -216,7 +230,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
   });
 
   it("Accumulates weight across multiple oracle votes", async function () {
-    const { dao } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    const { dao, mockCSSV } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await mockCSSV.mint(owner.address, totalSupply);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const currentBlock = await connection.ethers.provider.getBlockNumber();

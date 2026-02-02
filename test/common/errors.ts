@@ -59,5 +59,6 @@ export const Errors = {
   NOTHING_TO_WITHDRAW: "NothingToWithdraw",
   TOKEN_TRANSFER_FAILED: "TokenTransferFailed",
   ETH_TRANSFER_FAILED: "ETHTransferFailed",
-  LEGACY_OPERATOR_FEE_DECLARATION_INVALID: "LegacyOperatorFeeDeclarationInvalid"
+  LEGACY_OPERATOR_FEE_DECLARATION_INVALID: "LegacyOperatorFeeDeclarationInvalid",
+  NO_SSV_STAKED: "NoSSVStaked"
 } as const;
