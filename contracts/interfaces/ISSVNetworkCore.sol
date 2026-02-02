@@ -118,6 +118,7 @@ interface ISSVNetworkCore {
     error NotAuthorizedOracle();
     error ZeroInterval();
     error EBBelowMinimum();
+    error NoSSVStaked();
 
     // SSV Staking-specific errors
     error NotCSSV();

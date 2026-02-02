@@ -136,6 +136,11 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
         seb.hasVoted[commitmentKey][oracleId] = true;
 
+        uint256 totalStaked = ICSSVToken(s.cssv).totalSupply();
+        if (totalStaked == 0) {
+            revert NoSSVStaked();
+        }
+
         uint256 weight = s.oracleWeights[oracleId];
         seb.rootCommitments[commitmentKey] += weight;
 
