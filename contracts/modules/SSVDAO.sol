@@ -120,6 +120,10 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         uint32 oracleId = s.oracleIdOf[msg.sender];
         if (oracleId == 0) revert NotOracle();
 
+        if (s.oracleWeights[oracleId] == 0) {
+            revert OracleHasZeroWeight();
+        }
+
         // Enforce monotonicity - new block must be greater than last
         if (blockNum <= seb.latestCommittedBlock) {
             revert StaleBlockNumber();
@@ -135,11 +139,6 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
 
         if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
         seb.hasVoted[commitmentKey][oracleId] = true;
-
-        uint256 totalStaked = ICSSVToken(s.cssv).totalSupply();
-        if (totalStaked == 0) {
-            revert NoSSVStaked();
-        }
 
         uint256 weight = s.oracleWeights[oracleId];
         seb.rootCommitments[commitmentKey] += weight;
