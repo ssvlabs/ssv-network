@@ -120,6 +120,10 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         uint32 oracleId = s.oracleIdOf[msg.sender];
         if (oracleId == 0) revert NotOracle();
 
+        if (s.oracleWeights[oracleId] == 0) {
+            revert OracleHasZeroWeight();
+        }
+
         // Enforce monotonicity - new block must be greater than last
         if (blockNum <= seb.latestCommittedBlock) {
             revert StaleBlockNumber();
