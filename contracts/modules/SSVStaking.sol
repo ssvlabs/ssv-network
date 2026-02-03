@@ -91,6 +91,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         uint256 i = 0;
 
         while (i < requests.length) {
+            // slither-disable-next-line timestamp
             if (requests[i].unlockTime <= block.timestamp) {
                 total += requests[i].amount;
                 requests[i] = requests[requests.length - 1];

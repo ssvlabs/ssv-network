@@ -138,6 +138,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
             revert LegacyOperatorFeeDeclarationInvalid();
         }
 
+        // slither-disable-next-line timestamp
         if (
             block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime
         ) {

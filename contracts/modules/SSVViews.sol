@@ -171,6 +171,7 @@ contract SSVViews is ISSVViews {
                 address whitelistedAddress = s.operatorsWhitelist[operatorId];
 
                 // Legacy address whitelists (EOAs or generic contracts)
+                // slither-disable-next-line calls-loop
                 if (
                     whitelistedAddress == addressToCheck ||
                     (OperatorLib.isWhitelistingContract(whitelistedAddress) &&

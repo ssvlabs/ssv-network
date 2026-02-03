@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {SSVModules, SSVStorage, StorageData} from "./libraries/SSVStorage.sol";
 
 abstract contract SSVProxy {
+    // slither-disable-next-line incorrect-return
     function _delegate(address implementation) internal {
         assembly {
             // Copy msg.data. We take full control of memory in this inline assembly

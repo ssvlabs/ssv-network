@@ -234,8 +234,8 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getNetworkValidatorsCount();
     }
 
-    function getClusterAssetType(address owner, uint64[] calldata operatorIds) external view override returns (uint8) {
-        return ssvNetwork.getClusterAssetType(owner, operatorIds);
+    function getClusterAssetType(address clusterOwner, uint64[] calldata operatorIds) external view override returns (uint8) {
+        return ssvNetwork.getClusterAssetType(clusterOwner, operatorIds);
     }
 
     function cooldownDuration() external view override returns (uint256) {

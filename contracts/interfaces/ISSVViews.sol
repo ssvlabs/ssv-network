@@ -85,8 +85,8 @@ interface ISSVViews is ISSVNetworkCore {
 
     /// @notice Checks if the given address is a whitelisting contract (implements ISSVWhitelistingContract)
     /// @param contractAddress The address to check
-    /// @return isWhitelistingContract A boolean indicating if the address is a whitelisting contract
-    function isWhitelistingContract(address contractAddress) external view returns (bool isWhitelistingContract);
+    /// @return whitelistingContract A boolean indicating if the address is a whitelisting contract
+    function isWhitelistingContract(address contractAddress) external view returns (bool whitelistingContract);
 
     /// @notice Checks if the given address is whitelisted in a specific whitelisting contract.
     /// @notice It's up to the whitelisting contract implementation to use the operatorId parameter or not.
@@ -103,32 +103,32 @@ interface ISSVViews is ISSVNetworkCore {
     /// @notice Checks if the cluster can be liquidated
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
-    /// @return isLiquidatable A boolean indicating if the cluster can be liquidated
+    /// @return liquidatable A boolean indicating if the cluster can be liquidated
     function isLiquidatable(
         address owner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view returns (bool isLiquidatable);
+    ) external view returns (bool liquidatable);
 
     /// @notice Checks if the legacy SSV cluster can be liquidated
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
-    /// @return isLiquidatable A boolean indicating if the cluster can be liquidated
+    /// @return liquidatable A boolean indicating if the cluster can be liquidated
     function isLiquidatableSSV(
         address owner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view returns (bool isLiquidatable);
+    ) external view returns (bool liquidatable);
 
     /// @notice Checks if the cluster is liquidated
     /// @param owner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
-    /// @return isLiquidated A boolean indicating if the cluster is liquidated
+    /// @return liquidated A boolean indicating if the cluster is liquidated
     function isLiquidated(
         address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
-    ) external view returns (bool isLiquidated);
+    ) external view returns (bool liquidated);
 
     /// @notice Gets the burn rate of the cluster
     /// @param owner The owner address of the cluster
@@ -191,10 +191,10 @@ interface ISSVViews is ISSVNetworkCore {
     ) external view returns (uint32 effectiveBalance);
 
     /// @notice Gets the version of a cluster (ETH or SSV)
-    /// @param owner The owner address of the cluster
+    /// @param clusterOwner The owner address of the cluster
     /// @param operatorIds The IDs of the operators in the cluster
     /// @return version The cluster version (see CoreLib.VERSION_* constants)
-    function getClusterAssetType(address owner, uint64[] calldata operatorIds) external view returns (uint8 version);
+    function getClusterAssetType(address clusterOwner, uint64[] calldata operatorIds) external view returns (uint8 version);
 
     /// @notice Gets the network fee
     /// @return networkFee The fee associated with the network (ETH)

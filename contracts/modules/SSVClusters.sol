@@ -316,6 +316,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             : uint64(cluster.validatorCount) * VUNITS_PRECISION;
         uint32 effectiveBalance = ClusterLib.vUnitsToEB(effectiveVUnits);
 
+        // slither-disable-next-line reentrancy-events
         emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, effectiveBalance, cluster);
     }
 
@@ -388,6 +389,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             _updateEBSnapshot(seb, clusterId, ctx.blockNum, newVUnits);
         }
         
+        // slither-disable-next-line reentrancy-events
         emit ClusterBalanceUpdated(ctx.clusterOwner, operatorIds, ctx.blockNum, ctx.effectiveBalance, cluster);
     }
 
@@ -597,6 +599,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             CoreLib.transferBalance(liquidator, balanceLiquidatable);
         }
 
+        // slither-disable-next-line reentrancy-events
         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
     }
 }
