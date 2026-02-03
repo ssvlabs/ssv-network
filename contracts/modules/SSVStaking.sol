@@ -163,6 +163,8 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     }
 
     function onCSSVTransfer(address from, address to, uint256 amount) external virtual {
+        if (msg.sender != CSSV_ADDRESS) revert NotCSSV();
+
         StorageStaking storage s = SSVStorageStaking.load();
 
         _syncFees(s);
