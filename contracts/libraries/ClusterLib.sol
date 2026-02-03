@@ -95,7 +95,7 @@ library ClusterLib {
 
         (bytes32 clusterData, uint8 detectedVersion) = getClusterData(hashedCluster, s);
         if (clusterData == bytes32(0)) {
-            revert ISSVNetworkCore.ClusterDoesNotExists();
+            revert ISSVNetworkCore.ClusterDoesNotExist();
         } else if (clusterData != hashedClusterData) {
             revert ISSVNetworkCore.IncorrectClusterState();
         }
@@ -245,7 +245,7 @@ library ClusterLib {
             return (clusterData, CoreLib.VERSION_SSV);
         }
 
-        revert ISSVNetworkCore.ClusterDoesNotExists();
+        revert ISSVNetworkCore.ClusterDoesNotExist();
     }
 
     /// @notice Convert effective balance to vUnits using ceiling division (write path)

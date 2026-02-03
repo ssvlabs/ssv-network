@@ -79,7 +79,7 @@ interface ISSVNetworkCore {
     error InvalidOperatorIdsLength(); // 0x38186224
     error ClusterAlreadyEnabled(); // 0x3babafd2
     error ClusterIsLiquidated(); // 0x95a0cf33
-    error ClusterDoesNotExists(); // 0x185e2b16
+    error ClusterDoesNotExist(); // 0x185e2b16
     error IncorrectClusterState(); // 0x12e04c87
     error UnsortedOperatorsList(); // 0xdd020e25
     error NewBlockPeriodIsBelowMinimum(); // 0x6e6c9cac

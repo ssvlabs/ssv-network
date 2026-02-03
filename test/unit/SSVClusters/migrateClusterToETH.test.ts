@@ -231,6 +231,6 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     await expect(clusters.migrateClusterToETH(
       operatorIds,
       { ...EMPTY_CLUSTER }
-    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXISTS);
+    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 });
