@@ -8,15 +8,13 @@ import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SSVStakingHarness is SSVStaking {
+
+    constructor(address cssvAddress) SSVStaking(cssvAddress) {}
+
     // ============ Mock Setters ============
 
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
-    }
-
-    function mockSetCSSVToken(address cssvToken) external {
-        StorageStaking storage s = SSVStorageStaking.load();
-        s.cssv = cssvToken;
     }
 
     function mockSetCooldownDuration(uint64 duration) external {
@@ -62,17 +60,6 @@ contract SSVStakingHarness is SSVStaking {
         }
     }
 
-    function mockSetOracleWeight(uint32 oracleId, uint256 weight) external {
-        StorageStaking storage s = SSVStorageStaking.load();
-        s.oracleWeights[oracleId] = weight;
-    }
-
-    function mockSetUserDelegation(address user, uint32[4] calldata oracleIds, uint256[4] calldata amounts) external {
-        StorageStaking storage s = SSVStorageStaking.load();
-        s.userDelegations[user].oracleIds = oracleIds;
-        s.userDelegations[user].amounts = amounts;
-    }
-
     function mockSetEthDaoBalance(uint64 balance) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethDaoBalance = balance;
@@ -96,10 +83,6 @@ contract SSVStakingHarness is SSVStaking {
     }
 
     // ============ Getters ============
-
-    function getCSSVToken() external view returns (address) {
-        return SSVStorageStaking.load().cssv;
-    }
 
     function getCooldownDuration() external view returns (uint64) {
         return SSVStorageStaking.load().cooldownDuration;
@@ -150,17 +133,6 @@ contract SSVStakingHarness is SSVStaking {
 
     function getOracleId(address oracle) external view returns (uint32) {
         return SSVStorageStaking.load().oracleIdOf[oracle];
-    }
-
-    function getOracleWeight(uint32 oracleId) external view returns (uint256) {
-        return SSVStorageStaking.load().oracleWeights[oracleId];
-    }
-
-    function getUserDelegation(
-        address user
-    ) external view returns (uint32[4] memory oracleIds, uint256[4] memory amounts) {
-        Delegation storage d = SSVStorageStaking.load().userDelegations[user];
-        return (d.oracleIds, d.amounts);
     }
 
     function getEthDaoBalance() external view returns (uint64) {
