@@ -175,6 +175,7 @@ contract SSVValidators is ISSVValidators {
 
         if (cluster.active) {
             StorageProtocol storage sp = SSVStorageProtocol.load();
+            // slither-disable-next-line unused-return
             (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
                 operatorIds,
                 false,

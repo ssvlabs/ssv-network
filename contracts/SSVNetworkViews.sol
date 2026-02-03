@@ -56,18 +56,21 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
     }
 
     function getOperatorDeclaredFee(uint64 operatorId) external view override returns (bool, uint256, uint64, uint64) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.getOperatorDeclaredFee(operatorId);
     }
 
     function getOperatorById(
         uint64 operatorId
     ) external view override returns (address, uint256, uint32, address, bool, bool) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.getOperatorById(operatorId);
     }
 
     function getOperatorByIdSSV(
         uint64 operatorId
     ) external view override returns (address, uint256, uint32, address, bool, bool) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.getOperatorByIdSSV(operatorId);
     }
 
@@ -207,6 +210,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
     }
 
     function getOperatorFeePeriods() external view override returns (uint64, uint64) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.getOperatorFeePeriods();
     }
 
@@ -254,6 +258,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         uint256[] memory amounts,
         uint256[] memory unlockTimes
     ) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.pendingUnstake(user);
     }
 
@@ -282,6 +287,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
     }
 
     function getUserDelegation(address user) external view override returns (uint32[4] memory oracleIds, uint256[4] memory amounts) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.getUserDelegation(user);
     }
 
