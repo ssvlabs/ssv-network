@@ -8,7 +8,7 @@ import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
 import {SSVStorage} from "../libraries/SSVStorage.sol";
-import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
+import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 import "../libraries/Types.sol";
