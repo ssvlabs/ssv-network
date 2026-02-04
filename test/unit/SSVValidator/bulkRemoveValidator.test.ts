@@ -317,6 +317,6 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
       [makePublicKey(1)],
       operatorIds,
       createCluster()
-    )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_DOES_NOT_EXISTS);
+    )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 });

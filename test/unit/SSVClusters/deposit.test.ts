@@ -153,6 +153,6 @@ describe("SSVClusters function `deposit()`", async () => {
       operatorIds,
       createCluster(),
       { value: 1n }
-    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXISTS);
+    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 });

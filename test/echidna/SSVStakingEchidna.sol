@@ -111,12 +111,11 @@ contract SSVStakingEchidna is SSVStaking {
     bool private invalidUnstakeSucceeded;
     bool private invalidWithdrawSucceeded;
 
-    constructor() {
+    constructor() SSVStaking(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
         cssv = new CSSVTokenMock(address(this));
 
         _mockSetToken(address(token));
-        _mockSetCSSVToken(address(cssv));
 
         IStaking self = IStaking(address(this));
         user1 = new StakingUser(self, IERC20(address(token)), IERC20(address(cssv)));
@@ -327,12 +326,6 @@ contract SSVStakingEchidna is SSVStaking {
         return accrued <= poolWei;
     }
 
-    function echidna_oracle_weights_match_supply() external view returns (bool) {
-        StorageStaking storage s = SSVStorageStaking.load();
-        uint256 totalWeights = s.oracleWeights[1] + s.oracleWeights[2] + s.oracleWeights[3] + s.oracleWeights[4];
-        return totalWeights == cssv.totalSupply();
-    }
-
     function _boundShrunk(uint256 seed, uint64 maxValue) internal pure returns (uint64) {
         if (maxValue == 0) return 0;
         return uint64(seed % (uint256(maxValue) + 1));
@@ -383,10 +376,6 @@ contract SSVStakingEchidna is SSVStaking {
         SSVStorage.load().token = IERC20(tokenAddress);
     }
 
-    function _mockSetCSSVToken(address cssvToken) internal {
-        SSVStorageStaking.load().cssv = cssvToken;
-    }
-
     function _mockSetDefaultOracleIds() internal {
         StorageStaking storage s = SSVStorageStaking.load();
         uint32[4] memory ids = [uint32(1), uint32(2), uint32(3), uint32(4)];
@@ -396,13 +385,10 @@ contract SSVStakingEchidna is SSVStaking {
     // Override to add access control check (simulating SSVNetwork.sol behavior)
     function onCSSVTransfer(address from, address to, uint256 amount) external override {
         StorageStaking storage s = SSVStorageStaking.load();
-        if (msg.sender != s.cssv) revert NotCSSV();
 
         _syncFees(s);
         _settle(from, s);
         _settle(to, s);
-
-        _transferDelegation(from, to, amount, s);
     }
 
     function _mockSetEthDaoBalance(uint64 balance) internal {

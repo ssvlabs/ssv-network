@@ -253,30 +253,6 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
   // ============================================================================
 
   describe("Staking Rewards Distribution", async function() {
-
-    it("Delegation is distributed equally among default oracles", async function() {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      await ssvToken.mint(staker.address, STAKE_AMOUNT);
-      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
-
-      const tx = await network.connect(staker).stake(STAKE_AMOUNT);
-      await tx.wait();
-
-      const [oracleIds, weights] = await views.getUserDelegation(staker.address);
-      
-      expect(oracleIds).to.deep.equal(DEFAULT_ORACLES_IDS);
-      
-      const expectedWeightPerOracle = STAKE_AMOUNT / BigInt(DEFAULT_ORACLES_IDS.length);
-      for (const weight of weights) {
-        expect(weight).to.equal(expectedWeightPerOracle);
-      }
-
-      // Total weights should equal stake amount
-      const totalWeight = weights.reduce((sum: bigint, w: bigint) => sum + w, 0n);
-      expect(totalWeight).to.equal(STAKE_AMOUNT);
-    });
-
     it("Multiple stakers share rewards proportionally", async function() {
       const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -293,40 +269,6 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       // Both should have equal staked balance
       expect(await views.stakedBalanceOf(staker.address)).to.equal(STAKE_AMOUNT);
       expect(await views.stakedBalanceOf(staker2.address)).to.equal(STAKE_AMOUNT);
-
-      // Both should have equal delegation weights
-      const [_, weights1] = await views.getUserDelegation(staker.address);
-      const [__, weights2] = await views.getUserDelegation(staker2.address);
-
-      const totalWeight1 = weights1.reduce((sum: bigint, w: bigint) => sum + w, 0n);
-      const totalWeight2 = weights2.reduce((sum: bigint, w: bigint) => sum + w, 0n);
-
-      expect(totalWeight1).to.equal(totalWeight2);
-    });
-
-    it("Staking remainder is distributed starting from first oracle", async function() {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      // Stake amount that doesn't divide evenly by 4 oracles
-      const oddAmount = STAKE_AMOUNT + 1n; // 10 ETH + 1 wei
-      await ssvToken.mint(staker.address, oddAmount);
-      await ssvToken.connect(staker).approve(await network.getAddress(), oddAmount);
-      await network.connect(staker).stake(oddAmount);
-
-      const [_, weights] = await views.getUserDelegation(staker.address);
-      
-      const baseWeight = oddAmount / 4n;
-      const remainder = oddAmount % 4n;
-
-      // First oracle(s) should have the remainder distributed
-      expect(weights[0]).to.equal(baseWeight + 1n);
-      expect(weights[1]).to.equal(baseWeight);
-      expect(weights[2]).to.equal(baseWeight);
-      expect(weights[3]).to.equal(baseWeight);
-
-      // Total should still equal stake amount
-      const totalWeight = weights.reduce((sum: bigint, w: bigint) => sum + w, 0n);
-      expect(totalWeight).to.equal(oddAmount);
     });
   });
 

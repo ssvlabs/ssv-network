@@ -20,6 +20,12 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 21_480;
     uint256 private constant ROOT_COMMITS_THRESHOLD = 3;
 
+    address public immutable CSSV_ADDRESS;
+
+    constructor(address _cssv) {
+        CSSV_ADDRESS = _cssv;
+    }
+
     function updateNetworkFee(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64 previousFee = sp.ethNetworkFee;
@@ -120,10 +126,6 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         uint32 oracleId = s.oracleIdOf[msg.sender];
         if (oracleId == 0) revert NotOracle();
 
-        if (s.oracleWeights[oracleId] == 0) {
-            revert OracleHasZeroWeight();
-        }
-
         // Enforce monotonicity - new block must be greater than last
         if (blockNum <= seb.latestCommittedBlock) {
             revert StaleBlockNumber();
@@ -134,17 +136,20 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
             revert FutureBlockNumber();
         }
 
+        uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
+        if (totalStaked == 0) revert OracleHasZeroWeight();
+
         // block and root combined to keep block-root proposal tied together
         bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, merkleRoot));
 
         if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
         seb.hasVoted[commitmentKey][oracleId] = true;
 
-        uint256 weight = s.oracleWeights[oracleId];
+        uint256 weight = totalStaked / s.defaultOracleIds.length;
         seb.rootCommitments[commitmentKey] += weight;
 
         uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];
-        uint256 totalSupply = ICSSVToken(s.cssv).totalSupply();
+        uint256 totalSupply = ICSSVToken(CSSV_ADDRESS).totalSupply();
 
         uint256 threshold = (totalSupply * s.quorumBps) / 10000;
 

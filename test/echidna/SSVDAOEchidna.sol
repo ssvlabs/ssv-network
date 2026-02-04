@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/interfaces/ISSVDAO.sol";
+import "../../contracts/libraries/SSVStorage.sol";
+import "../../contracts/libraries/SSVStorageEB.sol";
 import "../../contracts/libraries/SSVStorageProtocol.sol";
 import "../../contracts/libraries/SSVStorageStaking.sol";
-import "../../contracts/libraries/SSVStorageEB.sol";
-import "../../contracts/libraries/SSVStorage.sol";
 import "../../contracts/libraries/Types.sol";
+import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/test/mocks/MockToken.sol";
+import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DAOUser {
@@ -68,7 +69,7 @@ contract SSVDAOEchidna is SSVDAO {
     bool private overWithdrawSucceeded;
     bool private withdrawMismatch;
 
-    constructor() {
+    constructor() SSVDAO(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
 
         ISSVDAO self = ISSVDAO(address(this));
@@ -83,17 +84,12 @@ contract SSVDAOEchidna is SSVDAO {
         attacker = new OracleUser(self);
 
         _mockSetToken(address(token));
-        _mockSetCSSVToken(address(token));
 
         token.mint(address(user1), 1000 ether);
 
         _mockSetOracle(1, address(oracle1));
         _mockSetOracle(2, address(oracle2));
         _mockSetOracle(3, address(oracle3));
-
-        _mockSetOracleWeight(1, 400 ether);
-        _mockSetOracleWeight(2, 400 ether);
-        _mockSetOracleWeight(3, 400 ether);
 
         _mockSetQuorumBps(7500);
     }
@@ -415,20 +411,12 @@ contract SSVDAOEchidna is SSVDAO {
         SSVStorage.load().token = IERC20(tokenAddress);
     }
 
-    function _mockSetCSSVToken(address cssvToken) internal {
-        SSVStorageStaking.load().cssv = cssvToken;
-    }
-
     function _mockSetOracle(uint32 oracleId, address oracle) internal {
         StorageStaking storage s = SSVStorageStaking.load();
         s.oracles[oracleId] = oracle;
         if (oracle != address(0)) {
             s.oracleIdOf[oracle] = oracleId;
         }
-    }
-
-    function _mockSetOracleWeight(uint32 oracleId, uint256 weight) internal {
-        SSVStorageStaking.load().oracleWeights[oracleId] = weight;
     }
 
     function _mockSetQuorumBps(uint16 quorum) internal {

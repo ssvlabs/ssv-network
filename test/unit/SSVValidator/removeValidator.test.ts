@@ -234,7 +234,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
       makePublicKey(1),
       operatorIds,
       createCluster()
-    )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_DOES_NOT_EXISTS);
+    )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 
   it("Is reverted with 'IncorrectValidatorState' when removing a validator twice", async function () {

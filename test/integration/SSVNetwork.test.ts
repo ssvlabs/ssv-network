@@ -2783,15 +2783,6 @@ describe("SSVNetwork full integration tests", () => {
 
       expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
       expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
-
-      const expectedWeightPerOracle = STAKE_AMOUNT / BigInt(DEFAULT_ORACLES_IDS.length);
-      let expectedWeights: bigint[] = [];
-      for (let i = 0; i < DEFAULT_ORACLES_IDS.length; i++) {
-        expectedWeights.push(expectedWeightPerOracle);
-      }
-
-      expect(await views.getUserDelegation(randomUser.address))
-        .to.be.deep.equal([DEFAULT_ORACLES_IDS, expectedWeights]);
     });
 
     it("Is reverted with 'StakeTooLow' if the amount to stake is smaller than minimum allowed", async function() {
@@ -3136,7 +3127,7 @@ describe("SSVNetwork full integration tests", () => {
   });
 
   describe("Function 'onCSSVTransfer()'", async function() {
-    it("Syncs fees, transfers delegation and emits correct events", async function() {
+    it("Syncs fees and emits correct events", async function() {
       const { network, ssvToken, cssvToken } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -3182,7 +3173,6 @@ describe("SSVNetwork full integration tests", () => {
 
       await expect(tx)
         .to.emit(network, Events.FEES_SYNCED)
-        .and.to.emit(network, Events.DELEGATION_UPDATED);
     });
 
     it("Is reverted with 'NotCSSV()' if the caller is not CSSV token", async function() {

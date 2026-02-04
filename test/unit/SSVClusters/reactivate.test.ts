@@ -127,7 +127,7 @@ describe("SSVClusters function `reactivate()`", async () => {
       operatorIds,
       clusterAfterLiquidation,
       { value: DEFAULT_ETH_REGISTER_VALUE }
-    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXISTS);
+    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 
   it("Is reverted with 'IncorrectClusterState' when provided cluster data is stale or mismatched", async function () {

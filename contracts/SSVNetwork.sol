@@ -228,9 +228,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
-    // todo reentrant
     function onCSSVTransfer(address from, address to, uint256 amount) external {
-        if (msg.sender != SSVStorageStaking.load().cssv) revert NotCSSV();
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
