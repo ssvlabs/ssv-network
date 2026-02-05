@@ -65,7 +65,7 @@ interface ISSVNetworkCore {
     /* Errors */
     /**********/
 
-    error CallerNotOwnerWithData(address caller, address owner); // 0x163678e9
+    error CallerNotOwnerWithData(address caller, address owner); // 0x8907fc65
     error CallerNotWhitelistedWithData(uint64 operatorId); // 0xb7f529fe
     error FeeTooLow(); // 0x732f9413
     error FeeExceedsIncreaseLimit(); // 0x958065d9
@@ -83,7 +83,7 @@ interface ISSVNetworkCore {
     error IncorrectClusterState(); // 0x12e04c87
     error UnsortedOperatorsList(); // 0xdd020e25
     error NewBlockPeriodIsBelowMinimum(); // 0x6e6c9cac
-    error ExceedValidatorLimitWithData(uint64 operatorId); // 0x8ddf7de4
+    error ExceedValidatorLimitWithData(uint64 operatorId); // 0x639f5851
     error TokenTransferFailed(); // 0x045c4b02
     error SameFeeChangeNotAllowed(); // 0xc81272f8
     error FeeIncreaseNotAllowed(); // 0x410a2b6c
@@ -96,7 +96,7 @@ interface ISSVNetworkCore {
     error PublicKeysSharesLengthMismatch(); // 0x9ad467b8
     error IncorrectValidatorStateWithData(bytes publicKey); // 0x89307938
     error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
-    error EmptyPublicKeysList(); // df83e679
+    error EmptyPublicKeysList(); // 0xdf83e679
     error InvalidContractAddress(); // 0xa710429d
     error AddressIsWhitelistingContract(address contractAddress); // 0x71cadba7
     error InvalidWhitelistingContract(address contractAddress); // 0x886e6a03
@@ -105,39 +105,39 @@ interface ISSVNetworkCore {
     error IncorrectOperatorVersion(uint8 operatorVersion); // 0xf222e863
     error IncorrectClusterVersion(); // 0xf6749746
     error ETHTransferFailed(); // 0xb12d13eb
-    error LegacyOperatorFeeDeclarationInvalid();
+    error LegacyOperatorFeeDeclarationInvalid(); // 0x9e593e76
 
     // EB oracle-specific errors
-    error StaleBlockNumber();
-    error FutureBlockNumber();
-    error RootNotFound();
-    error UpdateTooFrequent();
-    error StaleUpdate();
-    error InvalidProof();
-    error EBExceedsMaximum();
-    error NotAuthorizedOracle();
-    error ZeroInterval();
-    error EBBelowMinimum();
-    error OracleHasZeroWeight();
+    error StaleBlockNumber(); // 0x305c3e93
+    error FutureBlockNumber(); // 0x252f8a0e
+    error RootNotFound(); // 0x3033b0ff
+    error UpdateTooFrequent(); // 0x53f7a6ee
+    error StaleUpdate(); // 0x666a2814
+    error InvalidProof(); // 0x09bde339
+    error EBExceedsMaximum(); // 0xf5ca7cb9
+    error NotAuthorizedOracle(); // 0x0b7b9fc7
+    error ZeroInterval(); // 0x346ff607
+    error EBBelowMinimum(); // 0x9fecdce5
+    error OracleHasZeroWeight(); // 0xf2b58fb9
 
     // SSV Staking-specific errors
-    error NotCSSV();
-    error ZeroAddress();
-    error ZeroAmount();
-    error InvalidToken();
-    error NothingToClaim();
-    error NothingToWithdraw();
-    error UnstakeAmountExceedsBalance();
-    error StakeTooLow();
-    error NotOracle();
-    error AlreadyVoted();
-    error OracleAlreadyAssigned();
-    error MaxRequestsAmountReached();
+    error NotCSSV(); // 0x1598959e
+    error ZeroAddress(); // 0xd92e233d
+    error ZeroAmount(); // 0x1f2a2005
+    error InvalidToken(); // 0xc1ab6dc1
+    error NothingToClaim(); // 0x969bf728
+    error NothingToWithdraw(); // 0xd0d04f60
+    error UnstakeAmountExceedsBalance(); // 0x02a19f57
+    error StakeTooLow(); // 0x1cc3b37b
+    error NotOracle(); // 0x1bc2178f
+    error AlreadyVoted(); // 0x7c9a1cf9
+    error OracleAlreadyAssigned(); // 0xa97938cb
+    error MaxRequestsAmountReached(); // 0xee0e82ff
 
     // legacy errors
     error ValidatorAlreadyExists(); // 0x8d09a73e
     error IncorrectValidatorState(); // 0x2feda3c1
-    error ExceedValidatorLimit(uint64 operatorId); // 0x6df5ab76
+    error ExceedValidatorLimit(uint64 operatorId); // 0x8ddf7de4
     error CallerNotOwner(); // 0x5cd83192
     error TargetModuleDoesNotExist(); // 0x8f9195fb
     error CallerNotWhitelisted(); // 0x8c6e5d71
