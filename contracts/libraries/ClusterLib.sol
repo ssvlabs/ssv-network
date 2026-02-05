@@ -7,7 +7,7 @@ import {StorageProtocol} from "./SSVStorageProtocol.sol";
 import {DEFAULT_EB_PER_VALIDATOR, SSVStorageEB, StorageEB, VUNITS_PRECISION} from "./SSVStorageEB.sol";
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
-import {Types64} from "./Types.sol";
+import {Types64, DEDUCTED_DIGITS} from "./Types.sol";
 import "./CoreLib.sol";
 
 library ClusterLib {
@@ -223,8 +223,8 @@ library ClusterLib {
         uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
         uint128 usageUnits = (idxOp * units) / VUNITS_PRECISION + networkFeeUnits;
 
-        uint64 usage = uint64(usageUnits);
-        cluster.balance = usage.expand() > cluster.balance ? 0 : cluster.balance - usage.expand();
+        uint256 usageExpanded = uint256(usageUnits) * DEDUCTED_DIGITS;
+        cluster.balance = usageExpanded > cluster.balance ? 0 : cluster.balance - usageExpanded;
     }
 
     function validateClusterVersion(uint8 clusterVersion, uint8 expectedVersion) internal pure {

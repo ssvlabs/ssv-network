@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-uint256 constant DEDUCTED_DIGITS = 10_000_000;
+uint256 constant DEDUCTED_DIGITS = 100_000;
 
 library Types64 {
     function expand(uint64 value) internal pure returns (uint256) {
