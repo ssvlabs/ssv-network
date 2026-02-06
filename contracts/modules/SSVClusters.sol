@@ -402,16 +402,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         cluster.networkFeeIndex = networkFeeIndex;
     }
 
-    function _emitClusterBalanceUpdated(
-        address clusterOwner,
-        uint64[] calldata operatorIds,
-        uint64 blockNum,
-        uint32 eb,
-        Cluster memory cluster
-    ) internal {
-        emit ClusterBalanceUpdated(clusterOwner, operatorIds, blockNum, eb, cluster);
-    }
-
     function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {
         if (seb.ebRoots[ctx.blockNum] == bytes32(0)) {
             revert RootNotFound();

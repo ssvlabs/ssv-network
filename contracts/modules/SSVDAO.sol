@@ -18,8 +18,6 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     using ProtocolLib for StorageProtocol;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 21_480;
-    uint256 private constant ROOT_COMMITS_THRESHOLD = 3;
-
     address public immutable CSSV_ADDRESS;
 
     constructor(address _cssv) {
