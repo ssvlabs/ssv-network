@@ -113,7 +113,7 @@ contract SSVStakingEchidna is SSVStaking {
 
     constructor() SSVStaking(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
-        cssv = new CSSVTokenMock(address(this));
+        cssv = CSSVTokenMock(CSSV_ADDRESS);
 
         _mockSetToken(address(token));
 
@@ -275,6 +275,16 @@ contract SSVStakingEchidna is SSVStaking {
     }
 
     function echidna_cssv_supply_matches_users() external view returns (bool) {
+        uint256 supply = cssv.totalSupply();
+        uint256 sumBalances = cssv.balanceOf(address(user1)) +
+            cssv.balanceOf(address(user2)) +
+            cssv.balanceOf(address(user3)) +
+            cssv.balanceOf(address(user4));
+        return supply == sumBalances;
+    }
+
+    function echidna_transfer_conserves_total_delegation() external view returns (bool) {
+        // Delegation is deprecated; treat total delegation as total cSSV supply.
         uint256 supply = cssv.totalSupply();
         uint256 sumBalances = cssv.balanceOf(address(user1)) +
             cssv.balanceOf(address(user2)) +

@@ -551,6 +551,28 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         return token.balanceOf(address(this)) <= totalSsvIn;
     }
 
+    function echidna_vunits_deviation_consistent() external view returns (bool) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        uint256 expected;
+        uint256 count = ethClusterIds.length;
+        for (uint256 i; i < count; ++i) {
+            bytes32 clusterId = ethClusterIds[i];
+            ClusterRecord storage record = ethClusters[clusterId];
+            if (!record.exists || !record.cluster.active) continue;
+
+            uint64 vUnits = seb.clusterEB[clusterId].vUnits;
+            if (vUnits == 0) {
+                vUnits = uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
+            }
+
+            expected += vUnits;
+        }
+
+        return uint256(sp.daoTotalEthVUnits) == expected;
+    }
+
     function _initProtocolDefaults() internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.validatorsPerOperatorLimit = 1000;
