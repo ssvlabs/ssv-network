@@ -18,8 +18,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     using ProtocolLib for StorageProtocol;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 21_480;
-    uint256 private constant ROOT_COMMITS_THRESHOLD = 3;
-
+    uint256 private constant BPS_DENOMINATOR = 10_000;
     address public immutable CSSV_ADDRESS;
 
     constructor(address _cssv) {
@@ -151,7 +150,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];
         uint256 totalSupply = ICSSVToken(CSSV_ADDRESS).totalSupply();
 
-        uint256 threshold = (totalSupply * s.quorumBps) / 10000;
+        uint256 threshold = (totalSupply * s.quorumBps) / BPS_DENOMINATOR;
 
         if (accumulatedWeight >= threshold) {
             seb.ebRoots[blockNum] = merkleRoot;
@@ -194,7 +193,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     }
 
     function setQuorumBps(uint16 quorum) external override {
-        if (quorum > 10000) revert("Invalid quorum");
+        if (quorum > BPS_DENOMINATOR) revert("Invalid quorum");
         SSVStorageStaking.load().quorumBps = quorum;
         emit QuorumUpdated(quorum);
     }

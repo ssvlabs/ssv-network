@@ -201,7 +201,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             {
                 uint256 operatorsLength = operatorIds.length;
                 for (uint256 i; i < operatorsLength; ++i) {
-                    Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
+                    Operator storage operator = s.operators[operatorIds[i]];
                     clusterIndex +=
                         operator.ethSnapshot.index +
                         (uint64(block.number) - operator.ethSnapshot.block) *
@@ -400,16 +400,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         cluster.updateBalanceWithEB(clusterId, clusterIndex, networkFeeIndex);
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = networkFeeIndex;
-    }
-
-    function _emitClusterBalanceUpdated(
-        address clusterOwner,
-        uint64[] calldata operatorIds,
-        uint64 blockNum,
-        uint32 eb,
-        Cluster memory cluster
-    ) internal {
-        emit ClusterBalanceUpdated(clusterOwner, operatorIds, blockNum, eb, cluster);
     }
 
     function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {

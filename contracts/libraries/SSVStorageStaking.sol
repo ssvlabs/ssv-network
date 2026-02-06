@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
+uint256 constant MAX_DELEGATION_SLOTS = 4;
+
 struct UnstakeRequest {
     /// @notice Amount of cSSV burned and pending to be withdrawn as SSV
     uint192 amount;
@@ -9,10 +11,10 @@ struct UnstakeRequest {
 }
 
 struct Delegation {
-    /// @notice Oracle IDs delegated to (up to 4). Stable across replacements.
-    uint32[4] oracleIds;
+    /// @notice Oracle IDs delegated to (up to MAX_DELEGATION_SLOTS). Stable across replacements.
+    uint32[MAX_DELEGATION_SLOTS] oracleIds;
     /// @notice Amount of cSSV delegated to each oracle ID
-    uint256[4] amounts;
+    uint256[MAX_DELEGATION_SLOTS] amounts;
 }
 
 struct StorageStaking {
@@ -42,7 +44,7 @@ struct StorageStaking {
     /// @dev deprecated, kept for v2
     mapping(address => Delegation) DEPRECATED_userDelegations;
     /// @notice Default oracle IDs to use for new delegations (equal split)
-    uint32[4] defaultOracleIds;
+    uint32[MAX_DELEGATION_SLOTS] defaultOracleIds;
     /// @notice Quorum threshold in basis points (e.g. 7000 = 70%)
     uint16 quorumBps;
     /// @notice The mapping of address to their unstake requests

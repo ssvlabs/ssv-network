@@ -30,7 +30,6 @@ struct StorageProtocol {
     /// @notice The maximum increase in operator fee that is allowed (percentage)
     uint64 operatorMaxFeeIncrease;
     /// @notice The maximum value in operator fee that is allowed (SSV)
-    // todo ssv-eth separated
     uint64 operatorMaxFeeSSV;
 
     // ETH 
@@ -52,7 +51,6 @@ struct StorageProtocol {
     /// @notice The minimum number of blocks before a liquidation event can be triggered
     uint64 minimumBlocksBeforeLiquidation;
     /// @notice The maximum value in operator fee that is allowed (ETH)
-    // todo ssv-eth separated
     uint64 operatorMaxFee;
 
     // EB

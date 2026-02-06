@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
+import {MAX_DELEGATION_SLOTS} from "../libraries/SSVStorageStaking.sol";
 
 interface ISSVViews is ISSVNetworkCore {
     /// @notice Gets the validator status
@@ -264,7 +265,7 @@ interface ISSVViews is ISSVNetworkCore {
 
     function getOracle(uint32 oracleId) external view returns (address);
     function getOracleWeight(uint32 oracleId) external view returns (uint256);
-    function getActiveOracleIds() external view returns (uint32[4] memory);
+    function getActiveOracleIds() external view returns (uint32[MAX_DELEGATION_SLOTS] memory);
     function getQuorumBps() external view returns (uint16);
 
     /// @notice Gets the committed merkle root for a specific block

@@ -2,11 +2,12 @@
 pragma solidity 0.8.24;
 
 import "../../../SSVNetwork.sol";
+import {MAX_DELEGATION_SLOTS} from "../../../libraries/SSVStorageStaking.sol";
 
 contract SSVNetworkSSVStakingUpgrade is SSVNetwork {
     function initializeSSVStaking(
         uint64 cooldownDuration,
-        uint32[4] memory defaultOracleIds
+        uint32[MAX_DELEGATION_SLOTS] memory defaultOracleIds
     ) external onlyOwner reinitializer(_getInitializedVersion() + 1) {
         // save staking storage updates
         StorageStaking storage s = SSVStorageStaking.load();

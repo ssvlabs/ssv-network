@@ -9,6 +9,7 @@ import {ISSVDAO} from "./ISSVDAO.sol";
 import {ISSVViews} from "./ISSVViews.sol";
 
 import {SSVModules} from "../libraries/SSVStorage.sol";
+import {MAX_DELEGATION_SLOTS} from "../libraries/SSVStorageStaking.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -20,7 +21,7 @@ interface ISSVNetwork {
         uint64 declareOperatorFeePeriod;
         uint64 executeOperatorFeePeriod;
         uint64 operatorMaxFeeIncrease;
-        uint32[4] defaultOracleIds;
+        uint32[MAX_DELEGATION_SLOTS] defaultOracleIds;
         uint16 quorumBps;
     }
 

@@ -6,6 +6,7 @@ import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/ProtocolLib.sol";
+import {MAX_DELEGATION_SLOTS} from "./libraries/SSVStorageStaking.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
@@ -277,7 +278,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOracleWeight(oracleId);
     }
 
-    function getActiveOracleIds() external view override returns (uint32[4] memory) {
+    function getActiveOracleIds() external view override returns (uint32[MAX_DELEGATION_SLOTS] memory) {
         return ssvNetwork.getActiveOracleIds();
     }
 
