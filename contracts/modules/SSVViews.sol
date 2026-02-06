@@ -11,7 +11,12 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
-import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
+import {
+    MAX_DELEGATION_SLOTS,
+    SSVStorageStaking,
+    StorageStaking,
+    UnstakeRequest
+} from "../libraries/SSVStorageStaking.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -548,7 +553,7 @@ contract SSVViews is ISSVViews {
         return staked / SSVStorageStaking.load().defaultOracleIds.length;
     }
 
-    function getActiveOracleIds() external view override returns (uint32[4] memory) {
+    function getActiveOracleIds() external view override returns (uint32[MAX_DELEGATION_SLOTS] memory) {
         return SSVStorageStaking.load().defaultOracleIds;
     }
 

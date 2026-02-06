@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
+import {MAX_DELEGATION_SLOTS} from "../libraries/SSVStorageStaking.sol";
 
 interface ISSVStaking is ISSVNetworkCore {
     /// @notice Updates the global ETH reward index by pulling new earnings from the protocol storage
@@ -88,5 +89,9 @@ interface ISSVStaking is ISSVNetworkCore {
      */
     event ERC20Rescued(address indexed token, address indexed to, uint256 amount);
 
-    event DelegationUpdated(address indexed user, uint32[4] oracleIds, uint256[4] amounts);
+    event DelegationUpdated(
+        address indexed user,
+        uint32[MAX_DELEGATION_SLOTS] oracleIds,
+        uint256[MAX_DELEGATION_SLOTS] amounts
+    );
 }

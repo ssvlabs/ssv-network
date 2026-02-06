@@ -3,7 +3,13 @@ pragma solidity 0.8.24;
 
 import {SSVStaking} from "../../modules/SSVStaking.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../../libraries/SSVStorageProtocol.sol";
-import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../../libraries/SSVStorageStaking.sol";
+import {
+    MAX_DELEGATION_SLOTS,
+    SSVStorageStaking,
+    StorageStaking,
+    UnstakeRequest,
+    Delegation
+} from "../../libraries/SSVStorageStaking.sol";
 import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -47,7 +53,7 @@ contract SSVStakingHarness is SSVStaking {
         s.withdrawalRequests[user].push(UnstakeRequest({amount: amount, unlockTime: unlockTime}));
     }
 
-    function mockSetDefaultOracleIds(uint32[4] calldata oracleIds) external {
+    function mockSetDefaultOracleIds(uint32[MAX_DELEGATION_SLOTS] calldata oracleIds) external {
         StorageStaking storage s = SSVStorageStaking.load();
         s.defaultOracleIds = oracleIds;
     }
@@ -123,7 +129,7 @@ contract SSVStakingHarness is SSVStaking {
         return (req.amount, req.unlockTime);
     }
 
-    function getActiveOracleIds() external view returns (uint32[4] memory) {
+    function getActiveOracleIds() external view returns (uint32[MAX_DELEGATION_SLOTS] memory) {
         return SSVStorageStaking.load().defaultOracleIds;
     }
 
