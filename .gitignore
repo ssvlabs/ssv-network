@@ -12,6 +12,7 @@ node_modules
 
 # IDE related files
 .idea
+.cursor/
 
 # solidity-coverage files
 /coverage
@@ -24,3 +25,6 @@ out/
 
 gas-report.json
 crytic-export/combined_solc.json
+
+# Fork test setup (generated, not committed)
+/contracts/mainnet-fork

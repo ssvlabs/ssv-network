@@ -133,7 +133,7 @@ contract SSVForked is Test {
     function test_fork_at_specific_block() public {
         // Create fork at a specific block if needed
         // uint256 specificBlock = 12345678;
-        // uint256 forkAtBlock = vm.createFork("https://hoodi.infura.io/v3/fbee2c3c78dc4b3b866a608b72b459c2", specificBlock);
+        // uint256 forkAtBlock = vm.createFork("https://hoodi.infura.io/v3/{INFURA_API_KEY}", specificBlock);
         // vm.selectFork(forkAtBlock);
 
         vm.prank(SENDER);

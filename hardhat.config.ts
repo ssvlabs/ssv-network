@@ -41,7 +41,7 @@ export default defineConfig({
       allowUnlimitedContractSize: true,
       blockGasLimit: 100_000_000,
       forking: {
-        url: configVariable("MAINNET_RPC_URL"),
+        url: process.env.MAINNET_RPC_URL ?? "",
         blockNumber: process.env.FORK_BLOCK_NUMBER ? Number(process.env.FORK_BLOCK_NUMBER) : undefined,
       }
     },
@@ -55,7 +55,7 @@ export default defineConfig({
     mainnet: {
       type: "http",
       chainType: "l1",
-      url: configVariable("MAINNET_RPC_URL"),
+      url: process.env.MAINNET_RPC_URL ?? configVariable("MAINNET_RPC_URL"),
       accounts: [configVariable("MAINNET_PRIVATE_KEY")],
       ssvToken: process.env.MAINNET_SSVTOKEN_ADDRESS
     }

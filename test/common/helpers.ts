@@ -61,7 +61,7 @@ export const clusterToTuple = (cluster: Cluster): ClusterTuple => [
 export async function registerOperators(network: any, owner: any, count: number): Promise<number[]> {
   const operatorIds: number[] = [];
 
-  for (let i = 0; i < count; i += 1) {
+  for (let i = 1234; i < 1234 + count; i += 1) {
     const expectedId = await network.connect(owner).registerOperator.staticCall(
       makeOperatorKey(i + 1), MINIMAL_OPERATOR_ETH_FEE, true
     );
@@ -179,6 +179,7 @@ const EVENT_ABI = [
   'event ClusterWithdrawn(address indexed owner, uint64[] operatorIds, uint256 value, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
   'event ClusterLiquidated(address indexed owner, uint64[] operatorIds, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
   'event ClusterReactivated(address indexed owner, uint64[] operatorIds, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
+  'event ClusterMigratedToETH(address indexed owner, uint64[] operatorIds, uint256 ethDeposited, uint256 ssvRefunded, uint32 effectiveBalance, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
   'event ValidatorAdded(address indexed owner, uint64[] operatorIds, bytes publicKey, bytes shares, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
   'event ValidatorRemoved(address indexed owner, uint64[] operatorIds, bytes publicKey, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
 ] as const;

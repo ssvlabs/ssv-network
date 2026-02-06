@@ -1,4 +1,5 @@
 import type { NetworkConnection } from "hardhat/types/network";
+import { artifacts } from "hardhat";
 import { SSVClustersHarness, SSVValidatorsHarness, SSVOperatorsHarness, SSVDAOHarness, SSVStakingHarness } from '../../types/ethers-contracts/index.js';
 import { deployHarnessModule } from './deploy.ts';
 import { SSVModules } from '../common/types.ts';
@@ -325,6 +326,38 @@ export async function ssvNetworkFullFixture(
   };
 }
 
+/** Fully qualified names for v2 contracts (contracts/ folder) so fork fixture uses v2 artifacts when mainnet-fork/ has duplicates. */
+const V2 = {
+  CSSVToken: "contracts/token/CSSVToken.sol:CSSVToken",
+  SSVOperators: "contracts/modules/SSVOperators.sol:SSVOperators",
+  SSVClusters: "contracts/modules/SSVClusters.sol:SSVClusters",
+  SSVDAO: "contracts/modules/SSVDAO.sol:SSVDAO",
+  SSVViews: "contracts/modules/SSVViews.sol:SSVViews",
+  SSVOperatorsWhitelist: "contracts/modules/SSVOperatorsWhitelist.sol:SSVOperatorsWhitelist",
+  SSVStaking: "contracts/modules/SSVStaking.sol:SSVStaking",
+  SSVValidators: "contracts/modules/SSVValidators.sol:SSVValidators",
+  SSVNetwork: "contracts/SSVNetwork.sol:SSVNetwork",
+  SSVNetworkSSVStakingUpgrade: "contracts/upgrades/stage/hoodi/SSVNetworkSSVStakingUpgrade.sol:SSVNetworkSSVStakingUpgrade",
+  SSVNetworkViews: "contracts/SSVNetworkViews.sol:SSVNetworkViews",
+  SSVToken: "contracts/token/SSVToken.sol:SSVToken",
+} as const;
+
+/** Deploy by fully qualified name using readArtifact + getContractFactoryFromArtifact to avoid short-name ambiguity when duplicates exist. */
+async function deployByFQN(ethers: NetworkConnection<"generic">["ethers"], fqn: string, args: any[] = []): Promise<{ contract: any; address: string }> {
+  const artifact = await artifacts.readArtifact(fqn);
+  const factory = await ethers.getContractFactoryFromArtifact(artifact);
+  const contract = await factory.deploy(...args);
+  await contract.waitForDeployment();
+  const address = await contract.getAddress();
+  return { contract, address };
+}
+
+/** Get contract factory by fully qualified name to avoid short-name ambiguity. */
+async function getFactoryByFQN(ethers: NetworkConnection<"generic">["ethers"], fqn: string) {
+  const artifact = await artifacts.readArtifact(fqn);
+  return ethers.getContractFactoryFromArtifact(artifact);
+}
+
 export async function ssvNetworkFullForkedFixture(
   connection: NetworkConnection<"generic">
 ): Promise<{
@@ -341,16 +374,16 @@ export async function ssvNetworkFullForkedFixture(
   const daoSigner = await ethers.getSigner(ForkConfig.DAO_ADDRESS);
   await ethers.provider.send("hardhat_setBalance", [ForkConfig.DAO_ADDRESS, "0x" + (BigInt(1e18) * 100n).toString(16)]);
 
-  const { contract: cssvToken, address: cssvAddr } = await deployContract(ethers, "CSSVToken", [ForkConfig.SSV_NETWORK_ADDRESS]);
+  const { contract: cssvToken, address: cssvAddr } = await deployByFQN(ethers, V2.CSSVToken, [ForkConfig.SSV_NETWORK_ADDRESS]);
 
   const moduleNames = [
     "SSVClusters",
     "SSVOperatorsWhitelist",
     "SSVValidators",
-  ];
+  ] as const;
   const modules: { [key: string]: string } = {};
 
-  const { address: ssvOperatorsAddr } = await deployContract(ethers, "SSVOperators", [0]);
+  const { address: ssvOperatorsAddr } = await deployByFQN(ethers, V2.SSVOperators, [0]);
   modules["SSVOperators"] = ssvOperatorsAddr;
 
   const { address: ssvDaoAddr } = await deployContract(ethers, "SSVDAO", [await cssvToken.getAddress()]);
@@ -363,21 +396,21 @@ export async function ssvNetworkFullForkedFixture(
   modules["SSVStaking"] = ssvStakingAddr;
 
   for (const mod of moduleNames) {
-    const { address } = await deployContract(ethers, mod);
+    const { address } = await deployByFQN(ethers, V2[mod], []);
     modules[mod] = address;
   }
 
-  const { address: networkImplAddr } = await deployContract(ethers, "SSVNetwork");
+  const { address: networkImplAddr } = await deployByFQN(ethers, V2.SSVNetwork, []);
 
-  const networkFactory = await ethers.getContractFactory("SSVNetwork");
+  const networkFactory = await getFactoryByFQN(ethers, V2.SSVNetwork);
   let network = networkFactory.attach(ForkConfig.SSV_NETWORK_ADDRESS);
 
   const daoNetwork = network.connect(daoSigner);
   await daoNetwork.upgradeTo(networkImplAddr);
 
-  const { address: stakingUpgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
+  const { address: stakingUpgradeImplAddr } = await deployByFQN(ethers, V2.SSVNetworkSSVStakingUpgrade, []);
   const cooldown = 7n * 24n * 60n * 60n; // 7 days
-  const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
+  const upgradeFactory = await getFactoryByFQN(ethers, V2.SSVNetworkSSVStakingUpgrade);
   const initData = upgradeFactory.interface.encodeFunctionData(
     "initializeSSVStaking(uint64,uint32[4])",
     [
@@ -388,8 +421,8 @@ export async function ssvNetworkFullForkedFixture(
 
   await daoNetwork.upgradeToAndCall(stakingUpgradeImplAddr, initData);
 
-  const { address: viewsImplAddr } = await deployContract(ethers, "SSVNetworkViews");
-  const viewsFactory = await ethers.getContractFactory("SSVNetworkViews");
+  const { address: viewsImplAddr } = await deployByFQN(ethers, V2.SSVNetworkViews, []);
+  const viewsFactory = await getFactoryByFQN(ethers, V2.SSVNetworkViews);
   let views = viewsFactory.attach(ForkConfig.SSV_NETWORK_VIEWS);
   const daoViews = views.connect(daoSigner);
   await daoViews.upgradeTo(viewsImplAddr);
@@ -404,7 +437,7 @@ export async function ssvNetworkFullForkedFixture(
   }
   await daoNetwork.updateModule(SSVModules.SSVOperators, ssvOperatorsAddr);
 
-  const ssvTokenFactory = await ethers.getContractFactory("SSVToken");
+  const ssvTokenFactory = await getFactoryByFQN(ethers, V2.SSVToken);
   let ssvToken = ssvTokenFactory.attach(ForkConfig.SSV_TOKEN);
 
   await daoNetwork.updateNetworkFeeSSV(NETWORK_FEE);
