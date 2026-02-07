@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../interfaces/ISSVNetworkCore.sol";
+import "../../interfaces/ISSVNetworkCore.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -40,7 +40,6 @@ struct StorageData {
     /// @notice that are whitelisted for that address using bitmaps
     /// @dev The nested mapping's key represents a uint256 slot to handle more than 256 operators per address
     mapping(address => mapping(uint256 => uint256)) addressWhitelistedForOperators;
-
     /// @notice Maps each cluster's bytes32 identifier to its hashed representation of ISSVNetworkCore.Cluster for eth
     mapping(bytes32 => bytes32) ethClusters;
 }

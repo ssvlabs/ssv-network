@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-/// @notice Storage layout for the reentrancy guard (matches other SSV storage libs).
+/// @title SSV Reentrancy Guard Storage
+/// @notice Represents the storage layout for reentrancy protection in the SSV Network
 struct StorageReentrancy {
+    /// @notice The current reentrancy status (0 = non-entered, 1 = entered)
     uint256 status;
 }
 

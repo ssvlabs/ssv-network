@@ -5,10 +5,10 @@ import {ISSVDAO} from "../interfaces/ISSVDAO.sol";
 import {Types64, Types256} from "../libraries/Types.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
-import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB} from "../libraries/storage/SSVStorageEB.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
-import {SSVStorageStaking, StorageStaking} from "../libraries/SSVStorageStaking.sol";
+import {SSVStorageStaking, StorageStaking} from "../libraries/storage/SSVStorageStaking.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
 contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
@@ -25,6 +25,9 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         CSSV_ADDRESS = _cssv;
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateNetworkFee(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64 previousFee = sp.ethNetworkFee;
@@ -33,6 +36,9 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         emit NetworkFeeUpdated(previousFee.expand(), fee);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateNetworkFeeSSV(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64 previousFee = sp.networkFee;
@@ -41,6 +47,9 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         emit NetworkFeeUpdatedSSV(previousFee.expand(), fee);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function withdrawNetworkSSVEarnings(uint256 amount) external override nonReentrant {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
@@ -60,21 +69,33 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         emit NetworkEarningsWithdrawn(amount, msg.sender);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external override {
         SSVStorageProtocol.load().operatorMaxFeeIncrease = percentage;
         emit OperatorFeeIncreaseLimitUpdated(percentage);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateDeclareOperatorFeePeriod(uint64 timeInSeconds) external override {
         SSVStorageProtocol.load().declareOperatorFeePeriod = timeInSeconds;
         emit DeclareOperatorFeePeriodUpdated(timeInSeconds);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateExecuteOperatorFeePeriod(uint64 timeInSeconds) external override {
         SSVStorageProtocol.load().executeOperatorFeePeriod = timeInSeconds;
         emit ExecuteOperatorFeePeriodUpdated(timeInSeconds);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateLiquidationThresholdPeriod(uint64 blocks) external override {
         if (blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
             revert NewBlockPeriodIsBelowMinimum();
@@ -84,6 +105,9 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         emit LiquidationThresholdPeriodUpdated(blocks);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateLiquidationThresholdPeriodSSV(uint64 blocks) external {
         if (blocks < MINIMAL_LIQUIDATION_THRESHOLD) {
             revert NewBlockPeriodIsBelowMinimum();
@@ -93,31 +117,49 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         emit LiquidationThresholdPeriodSSVUpdated(blocks);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateMinimumLiquidationCollateral(uint256 amount) external override {
         SSVStorageProtocol.load().minimumLiquidationCollateral = amount.shrink();
         emit MinimumLiquidationCollateralUpdated(amount);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateMinimumLiquidationCollateralSSV(uint256 amount) external {
         SSVStorageProtocol.load().minimumLiquidationCollateralSSV = amount.shrink();
         emit MinimumLiquidationCollateralSSVUpdated(amount);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateMaximumOperatorFee(uint64 maxFee) external override {
         SSVStorageProtocol.load().operatorMaxFee = maxFee;
         emit OperatorMaximumFeeUpdated(maxFee);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateMaximumOperatorFeeSSV(uint64 maxFee) external {
         SSVStorageProtocol.load().operatorMaxFeeSSV = maxFee;
         emit OperatorMaximumFeeSSVUpdated(maxFee);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function updateMinimumOperatorEthFee(uint64 minFee) external override {
         SSVStorageProtocol.load().minimumOperatorEthFee = minFee;
         emit MinimumOperatorEthFeeUpdated(minFee);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
         StorageEB storage seb = SSVStorageEB.load();
         StorageStaking storage s = SSVStorageStaking.load();
@@ -166,6 +208,9 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold, oracleId, msg.sender);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function replaceOracle(uint32 oracleId, address newOracle) external override {
         StorageStaking storage s = SSVStorageStaking.load();
         if (oracleId == 0) revert ZeroAmount(); // reuse error for invalid id
@@ -192,12 +237,18 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         emit OracleReplaced(oracleId, oldOracle, newOracle);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function setQuorumBps(uint16 quorum) external override {
         if (quorum > BPS_DENOMINATOR) revert("Invalid quorum");
         SSVStorageStaking.load().quorumBps = quorum;
         emit QuorumUpdated(quorum);
     }
 
+    /**
+     * @inheritdoc ISSVDAO
+     */
     function setUnstakeCooldownDuration(uint64 duration) external override {
         SSVStorageStaking.load().cooldownDuration = duration;
         emit CooldownDurationUpdated(duration);

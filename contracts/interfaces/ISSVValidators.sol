@@ -3,12 +3,61 @@ pragma solidity ^0.8.20;
 
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
 
+/**
+ * @title SSV Validators Interface
+ * @author SSV Labs
+ * @notice Interface for managing validators in the SSV network including registration, removal and exit operations
+ */
 interface ISSVValidators is ISSVNetworkCore {
-    /// @notice Registers a new validator on the SSV Network
-    /// @param publicKey The public key of the new validator
-    /// @param operatorIds Array of IDs of operators managing this validator
-    /// @param sharesData Encrypted shares related to the new validator
-    /// @param cluster Cluster to be used with the new validator
+    /**
+     * @dev Emitted when a validator is added
+     * @param owner The owner of the validator (and cluster)
+     * @param operatorIds The operator IDs managing the validator
+     * @param publicKey The validator's public key
+     * @param shares The shares data
+     * @param cluster The cluster data
+     */
+    event ValidatorAdded(
+        address indexed owner,
+        uint64[] operatorIds,
+        bytes publicKey,
+        bytes shares,
+        Cluster cluster
+    );
+
+    /**
+     * @dev Emitted when a validator is removed
+     * @param owner The owner of the validator
+     * @param operatorIds The operator IDs managing the validator
+     * @param publicKey The validator's public key
+     * @param cluster The cluster data
+     */
+    event ValidatorRemoved(
+        address indexed owner,
+        uint64[] operatorIds,
+        bytes publicKey,
+        Cluster cluster
+    );
+
+    /**
+     * @dev Emitted when a validator exits
+     * @param owner The owner of the validator
+     * @param operatorIds The operator IDs managing the validator
+     * @param publicKey The validator's public key
+     */
+    event ValidatorExited(
+        address indexed owner,
+        uint64[] operatorIds,
+        bytes publicKey
+    );
+
+    /**
+     * @notice Registers a new validator
+     * @param publicKey Validator public key
+     * @param operatorIds Operator IDs managing the validator
+     * @param sharesData Encrypted shares data
+     * @param cluster Cluster data
+     */
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
@@ -16,11 +65,13 @@ interface ISSVValidators is ISSVNetworkCore {
         Cluster memory cluster
     ) external payable;
 
-    /// @notice Registers new validators on the SSV Network
-    /// @param publicKeys The public keys of the new validators
-    /// @param operatorIds Array of IDs of operators managing this validator
-    /// @param sharesData Encrypted shares related to the new validators
-    /// @param cluster Cluster to be used with the new validator
+    /**
+     * @notice Registers multiple new validators
+     * @param publicKeys Array of validator public keys
+     * @param operatorIds Operator IDs managing the validators
+     * @param sharesData Array of encrypted shares data
+     * @param cluster Cluster data
+     */
     function bulkRegisterValidator(
         bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
@@ -28,55 +79,48 @@ interface ISSVValidators is ISSVNetworkCore {
         Cluster memory cluster
     ) external payable;
 
-    /// @notice Removes an existing validator from the SSV Network
-    /// @param publicKey The public key of the validator to be removed
-    /// @param operatorIds Array of IDs of operators managing the validator
-    /// @param cluster Cluster associated with the validator
-    function removeValidator(bytes calldata publicKey, uint64[] memory operatorIds, Cluster memory cluster) external;
+    /**
+     * @notice Removes an existing validator
+     * @param publicKey Validator public key
+     * @param operatorIds Operator IDs managing the validator
+     * @param cluster Cluster data
+     */
+    function removeValidator(
+        bytes calldata publicKey,
+        uint64[] memory operatorIds,
+        Cluster memory cluster
+    ) external;
 
-    /// @notice Bulk removes a set of existing validators in the same cluster from the SSV Network
-    /// @notice Reverts if publicKeys contains duplicates or non-existent validators
-    /// @param publicKeys The public keys of the validators to be removed
-    /// @param operatorIds Array of IDs of operators managing the validator
-    /// @param cluster Cluster associated with the validator
+    /**
+     * @notice Removes multiple existing validators from the same cluster
+     * @notice Reverts on duplicates or non-existent validators
+     * @param publicKeys Array of validator public keys
+     * @param operatorIds Operator IDs managing the validators
+     * @param cluster Cluster data
+     */
     function bulkRemoveValidator(
         bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external;
 
-    /// @notice Fires the exit event for a validator
-    /// @param publicKey The public key of the validator to be exited
-    /// @param operatorIds Array of IDs of operators managing the validator
-    function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external;
-
-    /// @notice Fires the exit event for a set of validators
-    /// @param publicKeys The public keys of the validators to be exited
-    /// @param operatorIds Array of IDs of operators managing the validators
-    function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external;
+    /**
+     * @notice Initiates exit for a validator
+     * @param publicKey Validator public key
+     * @param operatorIds Operator IDs managing the validator
+     */
+    function exitValidator(
+        bytes calldata publicKey,
+        uint64[] calldata operatorIds
+    ) external;
 
     /**
-     * @dev Emitted when the validator has been added.
-     * @param publicKey The public key of a validator.
-     * @param operatorIds The operator ids list.
-     * @param shares snappy compressed shares(a set of encrypted and public shares).
-     * @param cluster All the cluster data.
+     * @notice Initiates exit for multiple validators
+     * @param publicKeys Array of validator public keys
+     * @param operatorIds Operator IDs managing the validators
      */
-    event ValidatorAdded(address indexed owner, uint64[] operatorIds, bytes publicKey, bytes shares, Cluster cluster);
-
-    /**
-     * @dev Emitted when the validator is removed.
-     * @param publicKey The public key of a validator.
-     * @param operatorIds The operator ids list.
-     * @param cluster All the cluster data.
-     */
-    event ValidatorRemoved(address indexed owner, uint64[] operatorIds, bytes publicKey, Cluster cluster);
-
-    /**
-     * @dev Emitted when a validator begins the exit process.
-     * @param owner The owner of the exiting validator.
-     * @param operatorIds The operator IDs managing the validator.
-     * @param publicKey The public key of the exiting validator.
-     */
-    event ValidatorExited(address indexed owner, uint64[] operatorIds, bytes publicKey);
+    function bulkExitValidator(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds
+    ) external;
 }

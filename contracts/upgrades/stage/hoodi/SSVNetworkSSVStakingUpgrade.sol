@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../../../SSVNetwork.sol";
-import {MAX_DELEGATION_SLOTS} from "../../../libraries/SSVStorageStaking.sol";
+import {MAX_DELEGATION_SLOTS} from "../../../libraries/storage/SSVStorageStaking.sol";
 
 contract SSVNetworkSSVStakingUpgrade is SSVNetwork {
     function initializeSSVStaking(

@@ -3,8 +3,8 @@ pragma solidity 0.8.24;
 
 import "../../interfaces/ISSVOperators.sol";
 import "../../libraries/Types.sol";
-import "../../libraries/SSVStorage.sol";
-import "../../libraries/SSVStorageProtocol.sol";
+import "../../libraries/storage/SSVStorage.sol";
+import "../../libraries/storage/SSVStorageProtocol.sol";
 import "../../libraries/OperatorLib.sol";
 import "../../libraries/CoreLib.sol";
 

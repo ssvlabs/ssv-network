@@ -14,9 +14,9 @@ import "./interfaces/external/ISSVWhitelistingContract.sol";
 
 import {Types256} from "./libraries/Types.sol";
 import {CoreLib} from "./libraries/CoreLib.sol";
-import {StorageProtocol, SSVStorageProtocol} from "./libraries/SSVStorageProtocol.sol";
-import {StorageData, SSVModules} from "./libraries/SSVStorage.sol";
-import {SSVStorageStaking, StorageStaking} from "./libraries/SSVStorageStaking.sol";
+import {StorageProtocol, SSVStorageProtocol} from "./libraries/storage/SSVStorageProtocol.sol";
+import {StorageData, SSVModules} from "./libraries/storage/SSVStorage.sol";
+import {SSVStorageStaking, StorageStaking} from "./libraries/storage/SSVStorageStaking.sol";
 
 import "./SSVProxy.sol";
 

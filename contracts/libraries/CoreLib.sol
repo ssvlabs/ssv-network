@@ -1,25 +1,50 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "./SSVStorage.sol";
+import "./storage/SSVStorage.sol";
 
+/**
+ * @title SSV Core Library
+ * @author SSV Labs
+ * @notice Library with core utility functions for SSV network including transfers, contract checks and module upgrades
+ */
 library CoreLib {
-    event ModuleUpgraded(SSVModules indexed moduleId, address moduleAddress);
-    
     uint8 internal constant VERSION_SSV = 0;
     uint8 internal constant VERSION_ETH = 1;
     uint8 internal constant VERSION_UNDEFINED = type(uint8).max;
 
+    /**
+     * @dev Emitted when a module is upgraded
+     * @param moduleId The module ID
+     * @param moduleAddress The new module address
+     */
+    event ModuleUpgraded(SSVModules indexed moduleId, address moduleAddress);
+
+    /**
+     * @notice Returns the contract version
+     * @return Version string
+     */
     function getVersion() internal pure returns (string memory) {
         return "v1.3.0";
     }
-    
+
+    /**
+     * @notice Transfers ETH to recipient
+     * @param to Recipient address
+     * @param amount Amount to transfer
+     */
     function transferBalance(address to, uint256 amount) internal {
         (bool success, ) = payable(to).call{value: amount}("");
         if(!success){
             revert ISSVNetworkCore.ETHTransferFailed();
         }
     }
+
+    /**
+     * @notice Transfers tokens to recipient
+     * @param to Recipient address
+     * @param amount Amount to transfer
+     */
     function transferTokenBalance(address to, uint256 amount) internal {
         if (!SSVStorage.load().token.transfer(to, amount)) {
             revert ISSVNetworkCore.TokenTransferFailed();
@@ -59,6 +84,11 @@ library CoreLib {
         return size > 0;
     }
 
+    /**
+     * @notice Sets contract address for a module
+     * @param moduleId Module ID
+     * @param moduleAddress New module address
+     */
     function setModuleContract(SSVModules moduleId, address moduleAddress) internal {
         if (!isContract(moduleAddress)) revert ISSVNetworkCore.TargetModuleDoesNotExistWithData(uint8(moduleId));
 

@@ -9,14 +9,14 @@ import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
-import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
     MAX_DELEGATION_SLOTS,
     SSVStorageStaking,
     StorageStaking,
     UnstakeRequest
-} from "../libraries/SSVStorageStaking.sol";
+} from "../libraries/storage/SSVStorageStaking.sol";
 
 contract SSVViews is ISSVViews {
     using Types64 for uint64;
@@ -33,10 +33,9 @@ contract SSVViews is ISSVViews {
         CSSV_ADDRESS = _cssv;
     }
 
-    /*************************************/
-    /* Validator External View Functions */
-    /*************************************/
-
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getValidator(address clusterOwner, bytes calldata publicKey) external view override returns (bool) {
         bytes32 validatorData = SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKey, clusterOwner))];
 
@@ -46,18 +45,23 @@ contract SSVViews is ISSVViews {
         return activeFlag == bytes32(uint256(1));
     }
 
-    /************************************/
-    /* Operator External View Functions */
-    /************************************/
-
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
         return SSVStorage.load().operators[operatorId].ethFee.expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOperatorFeeSSV(uint64 operatorId) external view override returns (uint256) {
         return SSVStorage.load().operators[operatorId].fee.expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOperatorDeclaredFee(uint64 operatorId) external view override returns (bool, uint256, uint64, uint64) {
         OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorage.load().operatorFeeChangeRequests[operatorId];
 
@@ -69,6 +73,9 @@ contract SSVViews is ISSVViews {
         );
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOperatorById(
         uint64 operatorId
     )
@@ -94,6 +101,9 @@ contract SSVViews is ISSVViews {
         isActive = operator.ethSnapshot.block != 0;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOperatorByIdSSV(
         uint64 operatorId
     )
@@ -119,6 +129,9 @@ contract SSVViews is ISSVViews {
         isActive = operator.snapshot.block != 0;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getWhitelistedOperators(
         uint64[] calldata operatorIds,
         address addressToCheck
@@ -198,10 +211,16 @@ contract SSVViews is ISSVViews {
         }
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function isWhitelistingContract(address contractAddress) external view override returns (bool) {
         return OperatorLib.isWhitelistingContract(contractAddress);
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function isAddressWhitelistedInWhitelistingContract(
         address addressToCheck,
         uint256 operatorId,
@@ -211,10 +230,9 @@ contract SSVViews is ISSVViews {
         return ISSVWhitelistingContract(whitelistingContract).isWhitelisted(addressToCheck, operatorId);
     }
 
-    /***********************************/
-    /* Cluster External View Functions */
-    /***********************************/
-
+    /**
+     * @inheritdoc ISSVViews
+     */
     function isLiquidatable(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -248,6 +266,9 @@ contract SSVViews is ISSVViews {
             );
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function isLiquidatableSSV(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -281,6 +302,9 @@ contract SSVViews is ISSVViews {
             );
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function isLiquidated(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -290,6 +314,9 @@ contract SSVViews is ISSVViews {
         return !cluster.active;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getBurnRate(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -320,6 +347,9 @@ contract SSVViews is ISSVViews {
         return ((networkFee + operatorsFee).expand() * uint256(vUnits)) / VUNITS_PRECISION;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getBurnRateSSV(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -344,10 +374,9 @@ contract SSVViews is ISSVViews {
         return burnRate.expand();
     }
 
-    /***********************************/
-    /* Balance External View Functions */
-    /***********************************/
-
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOperatorEarnings(uint64 id) external view override returns (uint256) {
         Operator memory operator = SSVStorage.load().operators[id];
 
@@ -355,6 +384,9 @@ contract SSVViews is ISSVViews {
         return operator.ethSnapshot.balance.expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOperatorEarningsSSV(uint64 id) external view override returns (uint256) {
         Operator memory operator = SSVStorage.load().operators[id];
 
@@ -362,6 +394,9 @@ contract SSVViews is ISSVViews {
         return operator.snapshot.balance.expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getBalance(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -385,6 +420,9 @@ contract SSVViews is ISSVViews {
         balance = cluster.balance;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getBalanceSSV(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -407,6 +445,9 @@ contract SSVViews is ISSVViews {
         balance = cluster.balance;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getEffectiveBalance(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -425,6 +466,9 @@ contract SSVViews is ISSVViews {
         return ClusterLib.vUnitsToEB(vUnits);
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getClusterAssetType(address clusterOwner, uint64[] calldata operatorIds) external view override returns (uint8) {
         StorageData storage s = SSVStorage.load();
         bytes32 hashedCluster = keccak256(abi.encodePacked(clusterOwner, operatorIds));
@@ -439,82 +483,135 @@ contract SSVViews is ISSVViews {
         revert ClusterDoesNotExist();
     }
 
-    /*******************************/
-    /* DAO External View Functions */
-    /*******************************/
-
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getNetworkFee() external view override returns (uint256) {
         return SSVStorageProtocol.load().ethNetworkFee.expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getNetworkFeeSSV() external view override returns (uint256) {
         return SSVStorageProtocol.load().networkFee.expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getNetworkEarnings() external view override returns (uint256) {
         return SSVStorageProtocol.load().networkTotalEarnings().expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getNetworkEarningsSSV() external view override returns (uint256) {
         return SSVStorageProtocol.load().networkTotalEarningsSSV().expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOperatorFeeIncreaseLimit() external view override returns (uint64) {
         return SSVStorageProtocol.load().operatorMaxFeeIncrease;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getMaximumOperatorFee() external view override returns (uint64) {
         return SSVStorageProtocol.load().operatorMaxFee;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getMaximumOperatorFeeSSV() external view override returns (uint64) {
         return SSVStorageProtocol.load().operatorMaxFeeSSV;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getMinimumOperatorEthFee() external view override returns (uint64) {
         return SSVStorageProtocol.load().minimumOperatorEthFee;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOperatorFeePeriods() external view override returns (uint64, uint64) {
         return (SSVStorageProtocol.load().declareOperatorFeePeriod, SSVStorageProtocol.load().executeOperatorFeePeriod);
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getLiquidationThresholdPeriod() external view override returns (uint64) {
         return SSVStorageProtocol.load().minimumBlocksBeforeLiquidation;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getLiquidationThresholdPeriodSSV() external view override returns (uint64) {
         return SSVStorageProtocol.load().minimumBlocksBeforeLiquidationSSV;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getMinimumLiquidationCollateral() external view override returns (uint256) {
         return SSVStorageProtocol.load().minimumLiquidationCollateral.expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getMinimumLiquidationCollateralSSV() external view override returns (uint256) {
         return SSVStorageProtocol.load().minimumLiquidationCollateralSSV.expand();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getValidatorsPerOperatorLimit() external view override returns (uint32) {
         return SSVStorageProtocol.load().validatorsPerOperatorLimit;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getNetworkValidatorsCount() external view override returns (uint32) {
         return SSVStorageProtocol.load().ethDaoValidatorCount;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function cooldownDuration() external view override returns (uint256) {
         return SSVStorageStaking.load().cooldownDuration;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function totalStaked() external view override returns (uint256) {
         return ICSSVToken(CSSV_ADDRESS).totalSupply();
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function stakedBalanceOf(address user) external view override returns (uint256) {
         return ICSSVToken(CSSV_ADDRESS).balanceOf(user);
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function pendingUnstake(address user) external view override returns (uint256[] memory amounts, uint256[] memory unlockTimes) {
         StorageStaking storage s = SSVStorageStaking.load();
         UnstakeRequest[] storage requests = s.withdrawalRequests[user];
@@ -527,14 +624,23 @@ contract SSVViews is ISSVViews {
         }
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function accEthPerShare() external view override returns (uint256) {
         return SSVStorageStaking.load().accEthPerShare;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function stakingEthPoolBalance() external view override returns (uint64) {
         return SSVStorageStaking.load().stakingEthPoolBalance;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function previewClaimableEth(address user) external view override returns (uint256) {
         StorageStaking storage s = SSVStorageStaking.load();
         uint256 idx = _previewAccEthPerShare(s);
@@ -544,23 +650,38 @@ contract SSVViews is ISSVViews {
         return s.accrued[user] + pending;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOracle(uint32 oracleId) external view override returns (address) {
         return SSVStorageStaking.load().oracles[oracleId];
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getOracleWeight(uint32 oracleId) external view override returns (uint256) {
         uint256 staked = ICSSVToken(CSSV_ADDRESS).totalSupply();
         return staked / SSVStorageStaking.load().defaultOracleIds.length;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getActiveOracleIds() external view override returns (uint32[MAX_DELEGATION_SLOTS] memory) {
         return SSVStorageStaking.load().defaultOracleIds;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getQuorumBps() external view override returns (uint16) {
         return SSVStorageStaking.load().quorumBps;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getCommittedRoot(uint64 blockNum) external view override returns (bytes32) {
         return SSVStorageEB.load().ebRoots[blockNum];
     }
@@ -583,6 +704,9 @@ contract SSVViews is ISSVViews {
         return idx + (newFeesWei * PRECISION) / totalStaked_;
     }
 
+    /**
+     * @inheritdoc ISSVViews
+     */
     function getVersion() external pure override returns (string memory) {
         return CoreLib.getVersion();
     }

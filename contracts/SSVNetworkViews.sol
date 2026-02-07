@@ -6,7 +6,7 @@ import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/ProtocolLib.sol";
-import {MAX_DELEGATION_SLOTS} from "./libraries/SSVStorageStaking.sol";
+import {MAX_DELEGATION_SLOTS} from "./libraries/storage/SSVStorageStaking.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";

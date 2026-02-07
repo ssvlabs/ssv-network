@@ -5,9 +5,9 @@ import "../../contracts/modules/SSVOperators.sol";
 import "../../contracts/interfaces/ISSVOperators.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
-import "../../contracts/libraries/SSVStorage.sol";
-import "../../contracts/libraries/SSVStorageProtocol.sol";
-import "../../contracts/libraries/SSVStorageEB.sol";
+import "../../contracts/libraries/storage/SSVStorage.sol";
+import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
+import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "../../contracts/libraries/Types.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 

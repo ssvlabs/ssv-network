@@ -18,7 +18,6 @@ struct StorageProtocol {
     uint64 networkFeeIndex;
     /// @notice The current balance of the DAO
     uint64 daoBalance;
-    // todo double check separation
     /// @notice The minimum number of blocks before a liquidation event can be triggered for SSV cluster
     uint64 minimumBlocksBeforeLiquidationSSV;
     /// @notice The minimum collateral required for liquidation of SSV clusters
@@ -45,7 +44,6 @@ struct StorageProtocol {
     uint64 ethNetworkFeeIndex;
     /// @notice The current balance of the DAO for eth clusters
     uint64 ethDaoBalance;
-    // todo double check
     /// @notice The minimum collateral required for liquidation
     uint64 minimumLiquidationCollateral;
     /// @notice The minimum number of blocks before a liquidation event can be triggered

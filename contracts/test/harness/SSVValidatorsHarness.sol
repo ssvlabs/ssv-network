@@ -3,9 +3,9 @@ pragma solidity 0.8.24;
 
 import { SSVValidators } from "../../modules/SSVValidators.sol";
 import {ISSVNetworkCore} from "../../interfaces/ISSVNetworkCore.sol";
-import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../../libraries/SSVStorageProtocol.sol";
-import {SSVStorageEB, StorageEB} from "../../libraries/SSVStorageEB.sol";
+import {SSVStorage, StorageData} from "../../libraries/storage/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../../libraries/storage/SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB} from "../../libraries/storage/SSVStorageEB.sol";
 import {Types256} from "../../libraries/Types.sol";
 import "../../libraries/ClusterLib.sol";
 
