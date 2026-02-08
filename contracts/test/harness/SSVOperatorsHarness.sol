@@ -7,6 +7,7 @@ import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {ISSVNetworkCore} from "../../interfaces/ISSVNetworkCore.sol";
 import {ISSVOperators} from "../../interfaces/ISSVOperators.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {PackedETH, PackedSSV} from "../../libraries/SSVCoreTypes.sol";
 
 contract SSVOperatorsHarness is SSVOperators {
 
@@ -16,7 +17,7 @@ contract SSVOperatorsHarness is SSVOperators {
 
     function mockSetOperatorMaxFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.operatorMaxFee = fee;
+        sp.operatorMaxFee = PackedETH.wrap(fee);
     }
 
     function mockSetFeePeriods(uint64 declarePeriod, uint64 executePeriod) external {
@@ -32,7 +33,7 @@ contract SSVOperatorsHarness is SSVOperators {
 
     function mockSetMinimumOperatorEthFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.minimumOperatorEthFee = fee;
+        sp.minimumOperatorEthFee = PackedETH.wrap(fee);
     }
 
     function getOperator(uint64 operatorId) external view returns (Operator memory) {
@@ -60,8 +61,8 @@ contract SSVOperatorsHarness is SSVOperators {
         uint64 ssvSnapshotBalance
     ) external {
         StorageData storage s = SSVStorage.load();
-        s.operators[operatorId].ethSnapshot.balance = ethSnapshotBalance;
-        s.operators[operatorId].snapshot.balance = ssvSnapshotBalance;
+        s.operators[operatorId].ethSnapshot.balance = PackedETH.wrap(ethSnapshotBalance);
+        s.operators[operatorId].snapshot.balance = PackedSSV.wrap(ssvSnapshotBalance);
     }
 
     function mockSetToken(address token) external {

@@ -3,13 +3,10 @@ pragma solidity 0.8.24;
 
 import {ISSVOperatorsWhitelist} from "../interfaces/ISSVOperatorsWhitelist.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
-import {Types64, Types256} from "../libraries/Types.sol";
 import {StorageData, SSVStorage} from "../libraries/SSVStorage.sol";
 import {OperatorLib} from "../libraries/OperatorLib.sol";
 
 contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
-    using Types256 for uint256;
-    using Types64 for uint64;
     using OperatorLib for Operator;
 
     /*******************************/

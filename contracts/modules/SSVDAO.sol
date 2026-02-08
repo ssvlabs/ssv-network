@@ -2,9 +2,10 @@
 pragma solidity 0.8.24;
 
 import {ISSVDAO} from "../interfaces/ISSVDAO.sol";
-import {Types64, Types256} from "../libraries/Types.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
+import {PackedSSV, PackedETH} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../libraries/SSVStorageEB.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
@@ -12,42 +13,40 @@ import {SSVStorageStaking, StorageStaking} from "../libraries/SSVStorageStaking.
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
 contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
-    using Types64 for uint64;
-    using Types256 for uint256;
-
     using ProtocolLib for StorageProtocol;
+    using PackedSSVLib for PackedSSV;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 21_480;
     uint256 private constant ROOT_COMMITS_THRESHOLD = 3;
 
     function updateNetworkFee(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        uint64 previousFee = sp.ethNetworkFee;
+        PackedETH previousFee = sp.ethNetworkFee;
 
         sp.updateNetworkFee(fee);
-        emit NetworkFeeUpdated(previousFee.expand(), fee);
+        emit NetworkFeeUpdated(PackedETHLib.unpack(previousFee), fee);
     }
 
     function updateNetworkFeeSSV(uint256 fee) external override {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        uint64 previousFee = sp.networkFee;
+        PackedSSV previousFee = sp.networkFee;
 
         sp.updateNetworkFeeSSV(fee);
-        emit NetworkFeeUpdatedSSV(previousFee.expand(), fee);
+        emit NetworkFeeUpdatedSSV(PackedSSVLib.unpack(previousFee), fee);
     }
 
     function withdrawNetworkSSVEarnings(uint256 amount) external override nonReentrant {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        uint64 shrunkAmount = amount.shrink();
+        PackedSSV shrunkAmount = PackedSSVLib.pack(amount);
 
-        uint64 networkBalance = sp.networkTotalEarningsSSV();
+        PackedSSV networkBalance = sp.networkTotalEarningsSSV();
 
-        if (shrunkAmount > networkBalance) {
+        if (shrunkAmount.gt(networkBalance)) {
             revert InsufficientBalance();
         }
 
-        sp.daoBalance = networkBalance - shrunkAmount;
+        sp.daoBalance = networkBalance.sub(shrunkAmount);
         sp.daoIndexBlockNumber = uint32(block.number);
 
         CoreLib.transferTokenBalance(msg.sender, amount);
@@ -89,17 +88,17 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     }
 
     function updateMinimumLiquidationCollateral(uint256 amount) external override {
-        SSVStorageProtocol.load().minimumLiquidationCollateral = amount.shrink();
+        SSVStorageProtocol.load().minimumLiquidationCollateral = PackedETHLib.pack(amount);
         emit MinimumLiquidationCollateralUpdated(amount);
     }
 
     function updateMinimumLiquidationCollateralSSV(uint256 amount) external {
-        SSVStorageProtocol.load().minimumLiquidationCollateralSSV = amount.shrink();
+        SSVStorageProtocol.load().minimumLiquidationCollateralSSV = PackedSSVLib.pack(amount);
         emit MinimumLiquidationCollateralSSVUpdated(amount);
     }
 
-    function updateMaximumOperatorFee(uint64 maxFee) external override {
-        SSVStorageProtocol.load().operatorMaxFee = maxFee;
+    function updateMaximumOperatorFee(uint256 maxFee) external override {
+        SSVStorageProtocol.load().operatorMaxFee = PackedETHLib.pack(maxFee);
         emit OperatorMaximumFeeUpdated(maxFee);
     }
 
@@ -108,8 +107,8 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         emit OperatorMaximumFeeSSVUpdated(maxFee);
     }
 
-    function updateMinimumOperatorEthFee(uint64 minFee) external override {
-        SSVStorageProtocol.load().minimumOperatorEthFee = minFee;
+    function updateMinimumOperatorEthFee(uint256 minFee) external override {
+        SSVStorageProtocol.load().minimumOperatorEthFee = PackedETHLib.pack(minFee);
         emit MinimumOperatorEthFeeUpdated(minFee);
     }
 

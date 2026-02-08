@@ -7,27 +7,28 @@ import {SSVStorageStaking, StorageStaking} from "../../libraries/SSVStorageStaki
 import {SSVStorageEB, StorageEB} from "../../libraries/SSVStorageEB.sol";
 import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {PackedETH, PackedSSV} from "../../libraries/SSVCoreTypes.sol";
 
 contract SSVDAOHarness is SSVDAO {
     function mockSetNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.ethNetworkFee = fee;
+        sp.ethNetworkFee = PackedETH.wrap(fee);
     }
 
     function mockSetNetworkFeeSSV(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.networkFee = fee;
+        sp.networkFee = PackedSSV.wrap(fee);
     }
 
     function mockSetDaoBalance(uint64 balance) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.daoBalance = balance;
+        sp.daoBalance = PackedSSV.wrap(balance);
         sp.daoIndexBlockNumber = uint32(block.number);
     }
 
     function mockSetEthDaoBalance(uint64 balance) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.ethDaoBalance = balance;
+        sp.ethDaoBalance = PackedETH.wrap(balance);
         sp.ethDaoIndexBlockNumber = uint32(block.number);
     }
 
@@ -65,17 +66,17 @@ contract SSVDAOHarness is SSVDAO {
 
     function mockSetMinimumLiquidationCollateral(uint64 collateral) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.minimumLiquidationCollateral = collateral;
+        sp.minimumLiquidationCollateral = PackedETH.wrap(collateral);
     }
 
     function mockSetMinimumLiquidationCollateralSSV(uint64 collateral) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.minimumLiquidationCollateralSSV = collateral;
+        sp.minimumLiquidationCollateralSSV = PackedSSV.wrap(collateral);
     }
 
     function mockSetOperatorMaxFee(uint64 maxFee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.operatorMaxFee = maxFee;
+        sp.operatorMaxFee = PackedETH.wrap(maxFee);
     }
 
     function mockSetOperatorMaxFeeSSV(uint64 maxFee) external {
@@ -141,19 +142,19 @@ contract SSVDAOHarness is SSVDAO {
     }
 
     function getNetworkFee() external view returns (uint64) {
-        return SSVStorageProtocol.load().ethNetworkFee;
+        return PackedETH.unwrap(SSVStorageProtocol.load().ethNetworkFee);
     }
 
     function getNetworkFeeSSV() external view returns (uint64) {
-        return SSVStorageProtocol.load().networkFee;
+        return PackedSSV.unwrap(SSVStorageProtocol.load().networkFee);
     }
 
     function getDaoBalance() external view returns (uint64) {
-        return SSVStorageProtocol.load().daoBalance;
+        return PackedSSV.unwrap(SSVStorageProtocol.load().daoBalance);
     }
 
     function getEthDaoBalance() external view returns (uint64) {
-        return SSVStorageProtocol.load().ethDaoBalance;
+        return PackedETH.unwrap(SSVStorageProtocol.load().ethDaoBalance);
     }
 
     function getOperatorMaxFeeIncrease() external view returns (uint64) {
@@ -177,15 +178,15 @@ contract SSVDAOHarness is SSVDAO {
     }
 
     function getMinimumLiquidationCollateral() external view returns (uint64) {
-        return SSVStorageProtocol.load().minimumLiquidationCollateral;
+        return PackedETH.unwrap(SSVStorageProtocol.load().minimumLiquidationCollateral);
     }
 
     function getMinimumLiquidationCollateralSSV() external view returns (uint64) {
-        return SSVStorageProtocol.load().minimumLiquidationCollateralSSV;
+        return PackedSSV.unwrap(SSVStorageProtocol.load().minimumLiquidationCollateralSSV);
     }
 
     function getOperatorMaxFee() external view returns (uint64) {
-        return SSVStorageProtocol.load().operatorMaxFee;
+        return PackedETH.unwrap(SSVStorageProtocol.load().operatorMaxFee);
     }
 
     function getOperatorMaxFeeSSV() external view returns (uint64) {
@@ -193,7 +194,7 @@ contract SSVDAOHarness is SSVDAO {
     }
 
     function getMinimumOperatorEthFee() external view returns (uint64) {
-        return SSVStorageProtocol.load().minimumOperatorEthFee;
+        return PackedETH.unwrap(SSVStorageProtocol.load().minimumOperatorEthFee);
     }
 
     function getQuorumBps() external view returns (uint16) {

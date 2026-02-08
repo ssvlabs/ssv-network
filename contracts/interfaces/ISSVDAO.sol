@@ -38,11 +38,11 @@ interface ISSVDAO is ISSVNetworkCore {
 
     /// @notice Updates the maximum fee an operator that uses SSV token can set
     /// @param maxFee The new maximum fee (SSV)
-    function updateMaximumOperatorFee(uint64 maxFee) external;
+    function updateMaximumOperatorFee(uint256 maxFee) external;
 
     /// @notice Updates the minimum operator ETH fee
     /// @param minFee The new minimum fee (ETH)
-    function updateMinimumOperatorEthFee(uint64 minFee) external;
+    function updateMinimumOperatorEthFee(uint256 minFee) external;
 
     /// @notice Commit Merkle root of all cluster EBs
     /// @param merkleRoot Root of Merkle tree containing all cluster EBs
@@ -85,9 +85,9 @@ interface ISSVDAO is ISSVNetworkCore {
      */
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
-    event OperatorMaximumFeeUpdated(uint64 maxFee);
+    event OperatorMaximumFeeUpdated(uint256 maxFee);
     event OperatorMaximumFeeSSVUpdated(uint64 maxFee);
-    event MinimumOperatorEthFeeUpdated(uint64 minFee);
+    event MinimumOperatorEthFeeUpdated(uint256 minFee);
 
     /// @notice Emitted when an EB Merkle root is committed for a given block
     /// @param merkleRoot The committed Merkle root

@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "./interfaces/ISSVViews.sol";
-import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/ProtocolLib.sol";
@@ -11,8 +10,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews {
-    using Types256 for uint256;
-    using Types64 for uint64;
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
 
@@ -194,7 +191,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorFeeIncreaseLimit();
     }
 
-    function getMaximumOperatorFee() external view override returns (uint64) {
+    function getMaximumOperatorFee() external view override returns (uint256) {
         return ssvNetwork.getMaximumOperatorFee();
     }
 
@@ -202,7 +199,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getMaximumOperatorFeeSSV();
     }
 
-    function getMinimumOperatorEthFee() external view override returns (uint64) {
+    function getMinimumOperatorEthFee() external view override returns (uint256) {
         return ssvNetwork.getMinimumOperatorEthFee();
     }
 
@@ -261,7 +258,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.accEthPerShare();
     }
 
-    function stakingEthPoolBalance() external view override returns (uint64) {
+    function stakingEthPoolBalance() external view override returns (uint256) {
         return ssvNetwork.stakingEthPoolBalance();
     }
 
