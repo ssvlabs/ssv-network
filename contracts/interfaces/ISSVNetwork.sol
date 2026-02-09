@@ -41,6 +41,13 @@ interface ISSVNetwork {
     }
 
     /**
+     * @notice Emitted when the SSV Network contract is upgraded
+     * @param version The version string of the upgrade
+     * @param blockNumber The block number at which the upgrade occurred
+     */
+    event SSVNetworkUpgradeBlock(string indexed version, uint256 blockNumber);
+
+    /**
      * @notice Initializes the SSV Network contract
      * @param token_ The ERC20 (SSV) token used in the network
      * @param ssvOperators_ The SSVOperators module address
