@@ -340,6 +340,11 @@ interface ISSVNetworkCore {
     error ZeroAddress(); // 0xd92e233d
 
     /**
+     * @dev Thrown when trying to configure a quorum higher than 100%
+     */
+    error InvalidQuorum(); // 0xd1735779
+
+    /**
      * @dev Thrown when amount is zero
      */
     error ZeroAmount(); // 0x1f2a2005

@@ -82,7 +82,7 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
     const invalidQuorum = 10001n;
 
     await expect(dao.setQuorumBps(invalidQuorum))
-      .to.be.revertedWith(Errors.INVALID_QUORUM);
+      .to.be.revertedWithCustomError(dao, Errors.INVALID_QUORUM);
   });
 
   it("Can update quorum from one value to another", async function () {

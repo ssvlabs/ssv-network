@@ -49,7 +49,7 @@ export const Errors = {
   ALREADY_VOTED: "AlreadyVoted",
   ZERO_ADDRESS: "ZeroAddress",
   ORACLE_ALREADY_ASSIGNED: "OracleAlreadyAssigned",
-  INVALID_QUORUM: "Invalid quorum",
+  INVALID_QUORUM: "InvalidQuorum",
   MAX_REQUESTS_AMOUNT_REACHED: "MaxRequestsAmountReached",
   NOT_CSSV: "NotCSSV",
   INVALID_TOKEN: "InvalidToken",
