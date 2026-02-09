@@ -77,46 +77,6 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     expect(unlockTime).to.equal(expectedUnlockTime);
   });
 
-  it("Removes delegation proportionally from all oracles and emits DelegationUpdated", async function () {
-    const { staking } = await networkHelpers.loadFixture(stakeFirst);
-
-    // Get weights for all 4 default oracles before unstaking
-    const weightsBefore = await Promise.all([
-      staking.getOracleWeight(1),
-      staking.getOracleWeight(2),
-      staking.getOracleWeight(3),
-      staking.getOracleWeight(4),
-    ]);
-
-    const unstakeAmount = STAKE_AMOUNT / 2n;
-
-    const tx = await trackGas(
-      staking.requestUnstake(unstakeAmount),
-      [GasGroup.REQUEST_UNSTAKE]
-    );
-
-    // Verify DelegationUpdated event is emitted
-    await expect(tx).to.emit(staking, Events.DELEGATION_UPDATED);
-
-    // Get weights for all 4 oracles after unstaking
-    const weightsAfter = await Promise.all([
-      staking.getOracleWeight(1),
-      staking.getOracleWeight(2),
-      staking.getOracleWeight(3),
-      staking.getOracleWeight(4),
-    ]);
-
-    // Each oracle should have reduced weight
-    for (let i = 0; i < 4; i++) {
-      expect(weightsAfter[i]).to.be.lessThan(weightsBefore[i]);
-    }
-
-    // Total weight reduction should equal unstakeAmount
-    const totalWeightBefore = weightsBefore.reduce((a, b) => a + b, 0n);
-    const totalWeightAfter = weightsAfter.reduce((a, b) => a + b, 0n);
-    expect(totalWeightBefore - totalWeightAfter).to.equal(unstakeAmount);
-  });
-
   it("Is reverted with 'ZeroAmount' when requesting unstake of zero amount", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeFirst);
 
@@ -151,7 +111,7 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     );
   });
 
-  it("Allows unstaking full balance and clears all delegation", async function () {
+  it("Allows unstaking full balance", async function () {
     const { staking, cssvToken } = await networkHelpers.loadFixture(stakeFirst);
 
     await trackGas(
@@ -167,17 +127,6 @@ describe("SSVStaking function `requestUnstake()`", async () => {
 
     const [amount] = await staking.getWithdrawalRequest(staker.address, 0);
     expect(amount).to.equal(STAKE_AMOUNT);
-
-    // All oracle weights should be zero after full unstake
-    const weightsAfter = await Promise.all([
-      staking.getOracleWeight(1),
-      staking.getOracleWeight(2),
-      staking.getOracleWeight(3),
-      staking.getOracleWeight(4),
-    ]);
-    for (const weight of weightsAfter) {
-      expect(weight).to.equal(0n);
-    }
   });
 
   it("Stores withdrawal request in storage", async function () {
@@ -262,25 +211,5 @@ describe("SSVStaking function `requestUnstake()`", async () => {
 
     // User should have accrued some rewards
     expect(accruedAfter).to.be.greaterThan(accruedBefore);
-  });
-
-  it("Updates user delegation amounts correctly after partial unstake", async function () {
-    const { staking } = await networkHelpers.loadFixture(stakeFirst);
-
-    const [oracleIdsBefore, amountsBefore] = await staking.getUserDelegation(staker.address);
-    const totalDelegationBefore = amountsBefore.reduce((a: bigint, b: bigint) => a + b, 0n);
-    expect(totalDelegationBefore).to.equal(STAKE_AMOUNT);
-
-    const unstakeAmount = STAKE_AMOUNT / 2n;
-    await staking.requestUnstake(unstakeAmount);
-
-    const [oracleIdsAfter, amountsAfter] = await staking.getUserDelegation(staker.address);
-    const totalDelegationAfter = amountsAfter.reduce((a: bigint, b: bigint) => a + b, 0n);
-
-    // Oracle IDs should remain the same
-    expect(oracleIdsAfter).to.deep.equal(oracleIdsBefore);
-
-    // Total delegation should be reduced by unstake amount
-    expect(totalDelegationAfter).to.equal(totalDelegationBefore - unstakeAmount);
   });
 });

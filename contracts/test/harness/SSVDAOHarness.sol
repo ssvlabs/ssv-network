@@ -11,6 +11,9 @@ import {PackedETH, PackedSSV} from "../../libraries/SSVCoreTypes.sol";
 import {PackedETHLib} from "../../libraries/SSVPackedLib.sol";
 
 contract SSVDAOHarness is SSVDAO {
+
+    constructor(address cssvAddress) SSVDAO(cssvAddress) {}
+
     function mockSetNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethNetworkFee = PackedETHLib.pack(fee);
@@ -95,22 +98,12 @@ contract SSVDAOHarness is SSVDAO {
         sp.executeOperatorFeePeriod = period;
     }
 
-    function mockSetCSSVToken(address cssvToken) external {
-        StorageStaking storage s = SSVStorageStaking.load();
-        s.cssv = cssvToken;
-    }
-
     function mockSetOracle(uint32 oracleId, address oracle) external {
         StorageStaking storage s = SSVStorageStaking.load();
         s.oracles[oracleId] = oracle;
         if (oracle != address(0)) {
             s.oracleIdOf[oracle] = oracleId;
         }
-    }
-
-    function mockSetOracleWeight(uint32 oracleId, uint256 weight) external {
-        StorageStaking storage s = SSVStorageStaking.load();
-        s.oracleWeights[oracleId] = weight;
     }
 
     function mockSetQuorumBps(uint16 quorum) external {
@@ -215,10 +208,6 @@ contract SSVDAOHarness is SSVDAO {
 
     function getOracleId(address oracle) external view returns (uint32) {
         return SSVStorageStaking.load().oracleIdOf[oracle];
-    }
-
-    function getOracleWeight(uint32 oracleId) external view returns (uint256) {
-        return SSVStorageStaking.load().oracleWeights[oracleId];
     }
 
     function getRootCommitmentWeight(bytes32 commitmentKey) external view returns (uint256) {

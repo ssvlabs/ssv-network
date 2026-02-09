@@ -174,7 +174,7 @@ describe("SSVClusters function `withdraw()`", async () => {
       operatorIds,
       1n,
       clusterBeforeWithdraw
-    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXISTS);
+    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 
   it("Is reverted with 'ClusterIsLiquidated' when attempting to withdraw from a liquidated cluster", async function () {

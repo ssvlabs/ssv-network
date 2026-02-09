@@ -12,7 +12,7 @@ import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCo
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
-import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
+import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
 
 contract SSVViews is ISSVViews {
     using ClusterLib for Cluster;
@@ -22,6 +22,12 @@ contract SSVViews is ISSVViews {
     using PackedSSVLib for PackedSSV;
 
     uint256 private constant PRECISION = 1e18;
+
+    address public immutable CSSV_ADDRESS;
+
+    constructor(address _cssv) {
+        CSSV_ADDRESS = _cssv;
+    }
 
     /*************************************/
     /* Validator External View Functions */
@@ -430,7 +436,7 @@ contract SSVViews is ISSVViews {
             return VERSION_SSV;
         }
 
-        revert ClusterDoesNotExists();
+        revert ClusterDoesNotExist();
     }
 
     /*******************************/
@@ -502,11 +508,11 @@ contract SSVViews is ISSVViews {
     }
 
     function totalStaked() external view override returns (uint256) {
-        return ICSSVToken(SSVStorageStaking.load().cssv).totalSupply();
+        return ICSSVToken(CSSV_ADDRESS).totalSupply();
     }
 
     function stakedBalanceOf(address user) external view override returns (uint256) {
-        return ICSSVToken(SSVStorageStaking.load().cssv).balanceOf(user);
+        return ICSSVToken(CSSV_ADDRESS).balanceOf(user);
     }
 
     function pendingUnstake(address user) external view override returns (uint256[] memory amounts, uint256[] memory unlockTimes) {
@@ -532,7 +538,7 @@ contract SSVViews is ISSVViews {
     function previewClaimableEth(address user) external view override returns (uint256) {
         StorageStaking storage s = SSVStorageStaking.load();
         uint256 idx = _previewAccEthPerShare(s);
-        uint256 bal = ICSSVToken(s.cssv).balanceOf(user);
+        uint256 bal = ICSSVToken(CSSV_ADDRESS).balanceOf(user);
         uint256 delta = idx - s.userIndex[user];
         uint256 pending = (bal * delta) / PRECISION;
         return s.accrued[user] + pending;
@@ -543,16 +549,12 @@ contract SSVViews is ISSVViews {
     }
 
     function getOracleWeight(uint32 oracleId) external view override returns (uint256) {
-        return SSVStorageStaking.load().oracleWeights[oracleId];
+        uint256 staked = ICSSVToken(CSSV_ADDRESS).totalSupply();
+        return staked / SSVStorageStaking.load().defaultOracleIds.length;
     }
 
     function getActiveOracleIds() external view override returns (uint32[4] memory) {
         return SSVStorageStaking.load().defaultOracleIds;
-    }
-
-    function getUserDelegation(address user) external view override returns (uint32[4] memory oracleIds, uint256[4] memory amounts) {
-        Delegation storage d = SSVStorageStaking.load().userDelegations[user];
-        return (d.oracleIds, d.amounts);
     }
 
     function getQuorumBps() external view override returns (uint16) {
@@ -570,7 +572,7 @@ contract SSVViews is ISSVViews {
         uint256 idx = s.accEthPerShare;
         PackedETH previous = s.stakingEthPoolBalance;
 
-        uint256 totalStaked_ = ICSSVToken(s.cssv).totalSupply();
+        uint256 totalStaked_ = ICSSVToken(CSSV_ADDRESS).totalSupply();
 
         if (current.lte(previous) || totalStaked_ == 0) {
             return idx;

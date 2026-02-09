@@ -8,7 +8,7 @@ import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
 import {SSVStorage} from "../libraries/SSVStorage.sol";
-import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../libraries/SSVStorageStaking.sol";
+import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 import {PackedETH} from "../libraries/SSVCoreTypes.sol";
@@ -21,6 +21,12 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint64 private constant PRECISION = 1e18;
     uint256 private constant MAX_PENDING_REQUESTS = 10;
+
+    address public immutable CSSV_ADDRESS;
+
+    constructor(address _cssv) {
+        CSSV_ADDRESS = _cssv;
+    }
 
     function syncFees() external nonReentrant {
         _syncFees(SSVStorageStaking.load());
@@ -39,14 +45,11 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         _syncFees(s);
         _settle(msg.sender, s);
 
-        // todo maybe use safeTransfer here?
         if (!SSVStorage.load().token.transferFrom(msg.sender, address(this), amount)) {
             revert TokenTransferFailed();
         }
 
-        _createDelegation(msg.sender, amount, s);
-
-        ICSSVToken(s.cssv).mint(msg.sender, amount);
+        ICSSVToken(CSSV_ADDRESS).mint(msg.sender, amount);
 
         emit Staked(msg.sender, amount);
     }
@@ -57,12 +60,10 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         }
 
         StorageStaking storage s = SSVStorageStaking.load();
-        // todo maybe use immutable
-        address cssv = s.cssv;
 
         _syncFees(s);
 
-        uint256 bal = ICSSVToken(cssv).balanceOf(msg.sender);
+        uint256 bal = ICSSVToken(CSSV_ADDRESS).balanceOf(msg.sender);
         _settleWithBalance(msg.sender, bal, s);
 
         if (amount > bal) {
@@ -78,9 +79,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
         requests.push(UnstakeRequest({amount: uint192(amount), unlockTime: unlockTime}));
 
-        _removeDelegation(msg.sender, amount, bal, s);
-
-        ICSSVToken(cssv).burn(msg.sender, amount);
+        ICSSVToken(CSSV_ADDRESS).burn(msg.sender, amount);
 
         emit UnstakeRequested(msg.sender, amount, unlockTime);
     }
@@ -149,7 +148,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
 
     function rescueERC20(address token, address to, uint256 amount) external nonReentrant {
         if (token == address(0) || to == address(0)) revert ZeroAddress();
-        if (token == address(SSVStorage.load().token) || token == address(SSVStorageStaking.load().cssv)) {
+        if (token == address(SSVStorage.load().token) || token == CSSV_ADDRESS) {
             revert InvalidToken();
         }
         if (amount == 0) {
@@ -164,13 +163,13 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     }
 
     function onCSSVTransfer(address from, address to, uint256 amount) external virtual {
+        if (msg.sender != CSSV_ADDRESS) revert NotCSSV();
+
         StorageStaking storage s = SSVStorageStaking.load();
 
         _syncFees(s);
         _settle(from, s);
         _settle(to, s);
-
-        _transferDelegation(from, to, amount, s);
     }
 
     function _syncFees(StorageStaking storage s) internal {
@@ -189,7 +188,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         PackedETH packedNewFees = current.sub(previous);
         uint256 newFeesWei;
 
-        uint256 totalStaked = ICSSVToken(s.cssv).totalSupply();
+        uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
         if (totalStaked != 0) {
             newFeesWei = PackedETHLib.unpack(packedNewFees);
             s.accEthPerShare += uint128((newFeesWei * PRECISION) / totalStaked);
@@ -200,7 +199,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     }
 
     function _settle(address user, StorageStaking storage s) internal {
-        uint256 bal = ICSSVToken(s.cssv).balanceOf(user);
+        uint256 bal = ICSSVToken(CSSV_ADDRESS).balanceOf(user);
         _settleWithBalance(user, bal, s);
     }
 
@@ -218,167 +217,5 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
 
         s.userIndex[user] = idx;
         emit RewardsSettled(user, pending, s.accrued[user], idx);
-    }
-
-    function _createDelegation(address user, uint256 amount, StorageStaking storage s) internal {
-        if (amount == 0) return;
-        Delegation storage d = s.userDelegations[user];
-
-        if (d.oracleIds[0] == 0) {
-            d.oracleIds = s.defaultOracleIds;
-        }
-
-        uint32[4] memory oracleIds = d.oracleIds;
-
-        uint256 active;
-        for (uint256 i; i < 4; ++i) {
-            if (oracleIds[i] != 0) active++;
-        }
-        if (active == 0) return;
-
-        uint256 baseShare = amount / active;
-        uint256 remainder = amount - baseShare * active;
-
-        for (uint256 i; i < 4; ++i) {
-            uint32 oracleId = oracleIds[i];
-            if (oracleId == 0) continue;
-
-            uint256 addAmount = baseShare;
-            if (remainder != 0) {
-                addAmount += 1;
-                --remainder;
-            }
-
-            d.amounts[i] += addAmount;
-            s.oracleWeights[oracleId] += addAmount;
-        }
-
-        emit DelegationUpdated(user, d.oracleIds, d.amounts);
-    }
-
-    function _removeDelegation(address user, uint256 amount, uint256 userBalance, StorageStaking storage s) internal {
-        if (amount == 0) return;
-        Delegation storage d = s.userDelegations[user];
-        if (d.oracleIds[0] == 0 || userBalance == 0) return;
-
-        uint32[4] memory oracleIds = d.oracleIds;
-        uint256 removed;
-        uint256 idxWithMax;
-        uint256 maxAmount;
-
-        for (uint256 i; i < 4; ++i) {
-            uint32 oracleId = oracleIds[i];
-            if (oracleId == 0) continue;
-
-            uint256 removeAmount = (d.amounts[i] * amount) / userBalance;
-            if (removeAmount != 0) {
-                d.amounts[i] -= removeAmount;
-                s.oracleWeights[oracleId] -= removeAmount;
-                removed += removeAmount;
-            }
-
-            if (d.amounts[i] > maxAmount) {
-                maxAmount = d.amounts[i];
-                idxWithMax = i;
-            }
-        }
-
-        if (removed < amount && oracleIds[idxWithMax] != 0) {
-            uint256 remainder = amount - removed;
-            d.amounts[idxWithMax] -= remainder;
-            s.oracleWeights[oracleIds[idxWithMax]] -= remainder;
-        }
-
-        emit DelegationUpdated(user, d.oracleIds, d.amounts);
-    }
-
-    function _transferDelegation(address from, address to, uint256 amount, StorageStaking storage s) internal {
-        if (amount == 0 || from == to) return;
-
-        uint256 fromBalance = ICSSVToken(s.cssv).balanceOf(from);
-        if (fromBalance == 0) return;
-
-        Delegation storage fromDel = s.userDelegations[from];
-        if (fromDel.oracleIds[0] == 0) {
-            fromDel.oracleIds = s.defaultOracleIds;
-        }
-
-        uint32[4] memory fromOracleIds = fromDel.oracleIds;
-        uint256[4] memory fromAmounts = fromDel.amounts;
-        uint256[4] memory movedAmounts;
-
-        uint256 transferred;
-        uint256 idxWithMax;
-        uint256 maxAmount;
-
-        for (uint256 i; i < 4; ++i) {
-            uint32 oracleId = fromOracleIds[i];
-            if (oracleId == 0) continue;
-
-            uint256 move = (fromAmounts[i] * amount) / fromBalance;
-            movedAmounts[i] = move;
-            if (move != 0) {
-                fromAmounts[i] -= move;
-                s.oracleWeights[oracleId] -= move;
-                transferred += move;
-            }
-
-            if (fromAmounts[i] > maxAmount) {
-                maxAmount = fromAmounts[i];
-                idxWithMax = i;
-            }
-        }
-
-        if (transferred < amount && fromOracleIds[idxWithMax] != 0) {
-            uint256 remainder = amount - transferred;
-            movedAmounts[idxWithMax] += remainder;
-            fromAmounts[idxWithMax] -= remainder;
-            s.oracleWeights[fromOracleIds[idxWithMax]] -= remainder;
-            transferred = amount;
-        }
-
-        fromDel.amounts = fromAmounts;
-
-        Delegation storage toDel = s.userDelegations[to];
-        if (toDel.oracleIds[0] == 0) {
-            toDel.oracleIds = s.defaultOracleIds;
-        }
-
-        uint32[4] memory toOracleIds = toDel.oracleIds;
-        uint256[4] memory toAmounts = toDel.amounts;
-
-        for (uint256 i; i < 4; ++i) {
-            uint32 oracleId = fromOracleIds[i];
-            if (oracleId == 0) continue;
-
-            uint256 moved = movedAmounts[i];
-            if (moved == 0) continue;
-
-            // Find matching slot or first empty slot
-            uint256 targetIdx = 4;
-            for (uint256 j; j < 4; ++j) {
-                if (toOracleIds[j] == oracleId) {
-                    targetIdx = j;
-                    break;
-                }
-                if (targetIdx == 4 && toOracleIds[j] == 0) {
-                    targetIdx = j;
-                }
-            }
-            if (targetIdx == 4) targetIdx = 0;
-
-            if (toOracleIds[targetIdx] == 0) {
-                toOracleIds[targetIdx] = oracleId;
-            }
-
-            toAmounts[targetIdx] += moved;
-            s.oracleWeights[oracleId] += moved;
-        }
-
-        toDel.oracleIds = toOracleIds;
-        toDel.amounts = toAmounts;
-
-        emit DelegationUpdated(from, fromDel.oracleIds, fromDel.amounts);
-        emit DelegationUpdated(to, toDel.oracleIds, toDel.amounts);
     }
 }

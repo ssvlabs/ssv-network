@@ -413,6 +413,6 @@ describe("SSVClusters function `liquidate()`", async () => {
       clusterOwner.address,
       operatorIds,
       createCluster()
-    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXISTS);
+    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 });

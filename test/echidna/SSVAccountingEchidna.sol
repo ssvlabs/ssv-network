@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../../contracts/modules/SSVClusters.sol";
-import "../../contracts/modules/SSVOperators.sol";
-import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/interfaces/ISSVClusters.sol";
-import "../../contracts/interfaces/ISSVOperators.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
-import "../../contracts/libraries/SSVStorage.sol";
-import "../../contracts/libraries/SSVStorageProtocol.sol";
-import "../../contracts/libraries/SSVStorageEB.sol";
+import "../../contracts/interfaces/ISSVOperators.sol";
 import "../../contracts/libraries/ClusterLib.sol";
 import "../../contracts/libraries/OperatorLib.sol";
 import "../../contracts/libraries/ProtocolLib.sol";
+import "../../contracts/libraries/SSVStorage.sol";
+import "../../contracts/libraries/SSVStorageEB.sol";
+import "../../contracts/libraries/SSVStorageProtocol.sol";
+import "../../contracts/modules/SSVClusters.sol";
+import "../../contracts/modules/SSVDAO.sol";
+import "../../contracts/modules/SSVOperators.sol";
 import "../../contracts/test/mocks/MockToken.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
 import {PackedETHLib, PackedSSVLib, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
 import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../contracts/libraries/SSVCoreTypes.sol";
@@ -140,7 +141,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     uint256 private unallocatedEth;
     uint256 private unallocatedSsv;
 
-    constructor() {
+    constructor() SSVDAO(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
         _mockSetToken(address(token));
 
