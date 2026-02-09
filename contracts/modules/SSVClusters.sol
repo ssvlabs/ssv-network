@@ -263,8 +263,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
         bool isLiquidated = !cluster.active; // A liquidated SSV cluster already had its SSV counts removed
 
-        uint256 ssvBalance = cluster.balance;
-
         // compute cluster data using ETH fields
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsMigration(
             operatorIds,
@@ -273,6 +271,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             sp,
             isLiquidated
         );
+
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndexSSV());
+        uint256 ssvBalance = cluster.balance;
 
         cluster.balance = msg.value;
         cluster.active = true;
