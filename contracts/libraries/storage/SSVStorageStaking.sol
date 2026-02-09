@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import {PackedETH} from "./SSVCoreTypes.sol";
+import {PackedETH} from "../SSVCoreTypes.sol";
 
 uint256 constant MAX_DELEGATION_SLOTS = 4;
 

@@ -194,19 +194,13 @@ interface ISSVDAO is ISSVNetworkCore {
      * @notice Updates the maximum fee an operator that uses SSV token can set
      * @param maxFee The new maximum fee
      */
-    function updateMaximumOperatorFee(uint64 maxFee) external;
-
-    /**
-     * @notice Updates the maximum SSV fee an operator that uses SSV token can set
-     * @param maxFee The new maximum fee (SSV)
-     */
-    function updateMaximumOperatorFeeSSV(uint64 maxFee) external;
+    function updateMaximumOperatorFee(uint256 maxFee) external;
 
     /**
      * @notice Updates the minimum operator ETH fee
      * @param minFee The new minimum fee (ETH)
      */
-    function updateMinimumOperatorEthFee(uint64 minFee) external;
+    function updateMinimumOperatorEthFee(uint256 minFee) external;
 
     /**
      * @notice Commit Merkle root of all cluster EBs

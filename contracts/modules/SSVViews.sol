@@ -506,7 +506,7 @@ contract SSVViews is ISSVViews {
     /**
      * @inheritdoc ISSVViews
      */
-    function getMaximumOperatorFeeSSV() external view override returns (uint64) {
+    function getMaximumOperatorFeeSSV() external view override returns (uint256) {
         return SSVStorageProtocol.load().operatorMaxFeeSSV;
     }
 

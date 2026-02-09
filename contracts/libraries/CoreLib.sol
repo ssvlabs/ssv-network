@@ -9,8 +9,6 @@ import "./storage/SSVStorage.sol";
  * @notice Library with core utility functions for SSV network including transfers, contract checks and module upgrades
  */
 library CoreLib {
-    event ModuleUpgraded(SSVModules indexed moduleId, address moduleAddress);
-
     /**
      * @dev Emitted when a module is upgraded
      * @param moduleId The module ID

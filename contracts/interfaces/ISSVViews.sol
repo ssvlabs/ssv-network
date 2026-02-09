@@ -2,31 +2,55 @@
 pragma solidity ^0.8.20;
 
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
+import {MAX_DELEGATION_SLOTS} from "../libraries/storage/SSVStorageStaking.sol";
 
+/**
+ * @title SSV Views Types Interface
+ * @author SSV Labs
+ * @notice Interface providing strict data types to be used as return values in SSV Views getters
+ */
 interface ISSVViewsTypes {
+    /// @notice Contains data about a declared (pending) operator fee change
     struct OperatorDeclaredFeeData {
+        /// @dev Whether the operator has an active fee declaration
         bool isFeeDeclared;
+        /// @dev The fee value that was declared
         uint256 fee;
+        /// @dev Timestamp when the approval window for this declaration begins
         uint64 approvalBeginTime;
+        /// @dev Timestamp when the approval window for this declaration ends
         uint64 approvalEndTime;
     }
 
+    /// @notice Contains core information about an operator
     struct OperatorData {
+        /// @dev The address that owns and manages the operator
         address owner;
+        /// @dev The current fee charged by the operator
         uint256 fee;
+        /// @dev The number of validators currently registered to this operator
         uint32 validatorCount;
+        /// @dev The address whitelisted for this operator
         address whitelistedAddress;
+        /// @dev Whether the operator is private
         bool isPrivate;
+        /// @dev Whether the operator is currently active
         bool isActive;
     }
 
+    /// @notice Contains the time periods used for operator fee change workflow
     struct OperatorFeePeriodsData {
+        /// @dev Duration (in seconds) of the declaration period
         uint64 declarePeriod;
+        /// @dev Duration (in seconds) of the approval/execution period
         uint64 executePeriod;
     }
 
+    /// @notice Represents a single pending unstake request
     struct UnstakeRequestsData {
+        /// @dev The amount of SSV requested to be unstaked
         uint256 amount;
+        /// @dev Timestamp after which the unstaked amount becomes withdrawable
         uint256 unlockTime;
     }
 }
@@ -287,6 +311,12 @@ interface ISSVViews is ISSVNetworkCore, ISSVViewsTypes {
      * @return Maximum operator fee
      */
     function getMaximumOperatorFee() external view returns (uint256);
+
+    /**
+     * @notice Returns the maximum allowed operator fee (SSV)
+     * @return Maximum operator fee
+     */
+    function getMaximumOperatorFeeSSV() external view returns (uint256);
 
     /**
      * @notice Returns the minimum operator ETH fee set by DAO

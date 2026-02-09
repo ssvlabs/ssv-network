@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import {PackedSSV, PackedETH} from "./SSVCoreTypes.sol";
+import {PackedSSV, PackedETH} from "../SSVCoreTypes.sol";
 
 /// @title SSV Network Storage Protocol
 /// @notice Represents the operational settings and parameters required by the SSV Network
