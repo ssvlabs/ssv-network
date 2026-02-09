@@ -2,7 +2,7 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import { getTestConnection } from '../../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../../setup/fixtures.ts';
-import type { NetworkHelpersType } from '../../common/types.ts';
+import type { NetworkHelpersType, UnstakeRequest } from '../../common/types.ts';
 import {
   registerOperators,
   whitelistAddresses,
@@ -120,9 +120,9 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       expect(stakedBefore - stakedAfter).to.equal(unstakeAmount);
 
       // Pending unstake recorded with correct unlock time
-      const [amounts, unlockTimes] = await views.pendingUnstake(staker.address);
-      expect(amounts[0]).to.equal(unstakeAmount);
-      expect(unlockTimes[0]).to.equal(BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN);
+      const requests: UnstakeRequest[] = await views.pendingUnstake(staker.address);
+      expect(requests[0].amount).to.equal(unstakeAmount);
+      expect(requests[0].unlockTime).to.equal(BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN);
     });
 
     it("withdrawUnlocked: SSV returned to staker after cooldown", async function() {
@@ -151,8 +151,8 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       expect(contractSsvBefore - contractSsvAfter).to.equal(STAKE_AMOUNT);
 
       // Pending unstake cleared
-      const [amounts, _] = await views.pendingUnstake(staker.address);
-      expect(amounts.length).to.equal(0);
+      const requests: UnstakeRequest[] = await views.pendingUnstake(staker.address);
+      expect(requests.length).to.equal(0);
     });
   });
 
@@ -326,8 +326,9 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       expect(staker1Balance + staker2Balance).to.equal(totalStaked);
     });
 
-    it("Invariant: Unstake request + staked balance = original stake", async function() {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+    it("Invariant: Unstake request + staked balance = original stake", async function () {
+      const { network, views, ssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
@@ -337,8 +338,12 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await network.connect(staker).requestUnstake(unstakeAmount);
 
       const stakedBalance = await views.stakedBalanceOf(staker.address);
-      const [amounts, _] = await views.pendingUnstake(staker.address);
-      const pendingAmount = amounts.reduce((sum: bigint, a: bigint) => sum + a, 0n);
+
+      const requests: UnstakeRequest[] = await views.pendingUnstake(staker.address);
+      const pendingAmount = requests.reduce(
+        (sum: bigint, r: { amount: bigint }) => sum + r.amount,
+        0n
+      );
 
       expect(stakedBalance + pendingAmount).to.equal(STAKE_AMOUNT);
     });
@@ -402,8 +407,9 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       expect(await views.stakedBalanceOf(staker.address)).to.equal(STAKE_AMOUNT - unstakeAmount);
     });
 
-    it("Multiple unstake requests processed in order", async function() {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+    it("Multiple unstake requests processed in order", async function () {
+      const { network, views, ssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
@@ -420,12 +426,13 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await networkHelpers.time.increase(100n);
       await network.connect(staker).requestUnstake(amount3);
 
-      // Verify 3 pending requests
-      const [amounts, _] = await views.pendingUnstake(staker.address);
-      expect(amounts.length).to.equal(3);
-      expect(amounts[0]).to.equal(amount1);
-      expect(amounts[1]).to.equal(amount2);
-      expect(amounts[2]).to.equal(amount3);
+      // Verify 3 pending requests (order preserved)
+      const requests: UnstakeRequest[] = await views.pendingUnstake(staker.address);
+
+      expect(requests.length).to.equal(3);
+      expect(requests[0].amount).to.equal(amount1);
+      expect(requests[1].amount).to.equal(amount2);
+      expect(requests[2].amount).to.equal(amount3);
 
       // Wait for all cooldowns to pass
       await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
@@ -436,11 +443,13 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await network.connect(staker).withdrawUnlocked();
       const stakerSsvAfter = await ssvToken.balanceOf(staker.address);
 
-      expect(stakerSsvAfter - stakerSsvBefore).to.equal(amount1 + amount2 + amount3);
+      expect(stakerSsvAfter - stakerSsvBefore).to.equal(
+        amount1 + amount2 + amount3
+      );
 
       // All requests cleared
-      const [amountsAfter, __] = await views.pendingUnstake(staker.address);
-      expect(amountsAfter.length).to.equal(0);
+      const requestsAfter: UnstakeRequest[] = await views.pendingUnstake(staker.address);
+      expect(requestsAfter.length).to.equal(0);
     });
   });
 

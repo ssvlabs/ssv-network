@@ -8,12 +8,11 @@ import {
   DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
   MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
+  ETH_DEDUCTED_DIGITS
 } from '../../common/constants.ts';
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
-
-const SHRINK_FACTOR = 10_000_000n;
 
 describe("SSVOperators ETH earnings withdrawals", async () => {
   let connection: NetworkConnection<"generic">;
@@ -42,7 +41,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     );
     await seedOperatorWithETHBalance(operators, 1, 5n);
 
-    const amount = 2n * SHRINK_FACTOR;
+    const amount = 2n * ETH_DEDUCTED_DIGITS;
 
     await expect(
       trackGas(
@@ -80,7 +79,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     );
     await seedOperatorWithETHBalance(operators, 1, 4n);
 
-    const expectedAmount = 4n * SHRINK_FACTOR;
+    const expectedAmount = 4n * ETH_DEDUCTED_DIGITS;
 
     await expect(
       trackGas(
@@ -103,7 +102,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
       [GasGroup.REGISTER_OPERATOR]
     );
 
-    await expect(operators.withdrawOperatorEarnings(1, SHRINK_FACTOR)).to.be.revertedWithCustomError(
+    await expect(operators.withdrawOperatorEarnings(1, ETH_DEDUCTED_DIGITS)).to.be.revertedWithCustomError(
       operators,
       Errors.INSUFFICIENT_BALANCE
     );
@@ -119,10 +118,23 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     );
     await seedOperatorWithETHBalance(operators, 1, 1n);
 
-    await expect(operators.connect(other).withdrawOperatorEarnings(1, SHRINK_FACTOR)).to.be.revertedWithCustomError(
+    await expect(operators.connect(other).withdrawOperatorEarnings(1, ETH_DEDUCTED_DIGITS)).to.be.revertedWithCustomError(
       operators,
       Errors.CALLER_NOT_OWNER
     );
+  });
+
+  it("Is reverted with 'MaxPrecisionExceeded' when ETH withdrawal amount is not aligned to ETH_DEDUCTED_DIGITS", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+    await seedOperatorWithETHBalance(operators, 1, 5n);
+
+    await expect(operators.withdrawOperatorEarnings(1, 1n))
+      .to.be.revertedWithCustomError(operators, Errors.MAX_PRECISION_EXCEEDED);
   });
 
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to withdraw all ETH earnings", async function () {

@@ -42,3 +42,5 @@ export const MINIMAL_LIQUIDATION_THRESHOLD = 21480n;
 export const STAKE_AMOUNT = ethers.parseEther("10");
 export const DEFAULT_ORACLES_IDS = [1n, 2n, 3n, 4n];
 export const DEFAULT_UNSTAKE_COOLDOWN = 604800n;
+export const DEDUCTED_DIGITS = 10_000_000n;
+export const ETH_DEDUCTED_DIGITS = 100_000n;

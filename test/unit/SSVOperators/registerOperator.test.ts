@@ -10,6 +10,7 @@ import { MAXIMUM_OPERATORS_FEE, MINIMAL_OPERATOR_ETH_FEE } from "../../common/co
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
+import { ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 
 describe("SSVOperators function `registerOperator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -89,7 +90,7 @@ describe("SSVOperators function `registerOperator()`", async () => {
     const operatorData = await operators.getOperator(1);
 
     expect(operatorData.owner).to.equal(owner.address);
-    expect(operatorData.ethFee).to.equal(177n); // MINIMAL_OPERATOR_ETH_FEE (1770_000_000) shrinks to 177
+    expect(operatorData.ethFee).to.equal(MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS);
     expect(operatorData.whitelisted).to.equal(true);
     expect(operatorData.ethSnapshot.block).to.be.greaterThan(0);
   });
@@ -125,6 +126,16 @@ describe("SSVOperators function `registerOperator()`", async () => {
       
     const operatorData = await operators.getOperator(1);
     expect(operatorData.whitelisted).to.equal(false);
+  });
+
+  it("Is reverted with 'MaxPrecisionExceeded' when fee is not aligned to ETH_DEDUCTED_DIGITS", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await expect(operators.registerOperator(
+      makeOperatorKey(1),
+      1n, // not divisible by ETH_DEDUCTED_DIGITS (100_000)
+      false
+    )).to.be.revertedWithCustomError(operators, Errors.MAX_PRECISION_EXCEEDED);
   });
 
   it("Increments operator ID correctly for multiple registrations", async function () {

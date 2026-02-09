@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "../../interfaces/ISSVNetworkCore.sol";
-import "../../libraries/Types.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -15,7 +14,6 @@ enum SSVModules {
 
 library SSVStorageT {
     using Counters for Counters.Counter;
-    using Types64 for uint64;
 
     uint256 constant SSV_STORAGE_POSITION = uint256(keccak256("ssv.network.storage")) - 1;
 

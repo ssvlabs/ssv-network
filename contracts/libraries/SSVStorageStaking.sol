@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
+import {PackedETH} from "./SSVCoreTypes.sol";
+
 struct UnstakeRequest {
     /// @notice Amount of cSSV burned and pending to be withdrawn as SSV
     uint192 amount;
@@ -22,7 +24,7 @@ struct StorageStaking {
     /// @notice Cooldown duration for unstaking
     uint64 cooldownDuration;
     /// @notice Total ETH-denominated rewards (shrunk) allocated to the staking pool
-    uint64 stakingEthPoolBalance;
+    PackedETH stakingEthPoolBalance;
     /// @notice Global accumulated ETH rewards per cSSV token (scaled by PRECISION)
     uint128 accEthPerShare;
 

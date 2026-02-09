@@ -6,6 +6,8 @@ import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { Errors } from '../../common/errors.js';
+import { DEDUCTED_DIGITS } from "../../common/constants.ts";
 
 describe("SSVDAO function `updateNetworkFeeSSV()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -36,14 +38,14 @@ describe("SSVDAO function `updateNetworkFeeSSV()`", async () => {
       .withArgs(initialFee, newFee);
 
     const storedFee = await dao.getNetworkFeeSSV();
-    expect(storedFee).to.equal(newFee / 10_000_000n);
+    expect(storedFee).to.equal(newFee / DEDUCTED_DIGITS);
   });
 
   it("Is reverted when fee is not a multiple of 1e7 (shrink precision)", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
     await expect(dao.updateNetworkFeeSSV(1n))
-      .to.be.revertedWith("Max precision exceeded");
+      .to.be.revertedWithCustomError(dao, Errors.MAX_PRECISION_EXCEEDED);
   });
 
   it("Stores the new SSV network fee in storage", async function () {
@@ -54,7 +56,7 @@ describe("SSVDAO function `updateNetworkFeeSSV()`", async () => {
     await dao.updateNetworkFeeSSV(newFee);
 
     const storedFee = await dao.getNetworkFeeSSV();
-    expect(storedFee).to.equal(newFee / 10_000_000n);
+    expect(storedFee).to.equal(newFee / DEDUCTED_DIGITS);
   });
 
   it("Updates the SSV network fee from a non-zero value", async function () {

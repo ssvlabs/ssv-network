@@ -6,7 +6,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { STAKE_AMOUNT } from "../../common/constants.ts";
+import { STAKE_AMOUNT, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `stake()`", async () => {
@@ -172,7 +172,7 @@ describe("SSVStaking function `stake()`", async () => {
 
     const accruedAfter = await staking.getUserAccrued(staker.address);
     const blocksElapsed = BigInt(receipt2.blockNumber - receipt1.blockNumber);
-    expect(accruedAfter).to.equal(blocksElapsed * 10_000_000n);
+    expect(accruedAfter).to.equal(blocksElapsed * ETH_DEDUCTED_DIGITS);
 
     const userIndex = await staking.getUserIndex(staker.address);
     const accEthPerShare = await staking.getAccEthPerShare();

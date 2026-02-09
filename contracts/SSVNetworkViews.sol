@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "./interfaces/ISSVViews.sol";
-import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/ProtocolLib.sol";
@@ -11,8 +10,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews {
-    using Types256 for uint256;
-    using Types64 for uint64;
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
 
@@ -55,19 +52,19 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorFeeSSV(operatorId);
     }
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (bool, uint256, uint64, uint64) {
+    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (OperatorDeclaredFeeData memory) {
         return ssvNetwork.getOperatorDeclaredFee(operatorId);
     }
 
     function getOperatorById(
         uint64 operatorId
-    ) external view override returns (address, uint256, uint32, address, bool, bool) {
+    ) external view override returns (OperatorData memory) {
         return ssvNetwork.getOperatorById(operatorId);
     }
 
     function getOperatorByIdSSV(
         uint64 operatorId
-    ) external view override returns (address, uint256, uint32, address, bool, bool) {
+    ) external view override returns (OperatorData memory) {
         return ssvNetwork.getOperatorByIdSSV(operatorId);
     }
 
@@ -194,7 +191,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorFeeIncreaseLimit();
     }
 
-    function getMaximumOperatorFee() external view override returns (uint64) {
+    function getMaximumOperatorFee() external view override returns (uint256) {
         return ssvNetwork.getMaximumOperatorFee();
     }
 
@@ -202,11 +199,11 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getMaximumOperatorFeeSSV();
     }
 
-    function getMinimumOperatorEthFee() external view override returns (uint64) {
+    function getMinimumOperatorEthFee() external view override returns (uint256) {
         return ssvNetwork.getMinimumOperatorEthFee();
     }
 
-    function getOperatorFeePeriods() external view override returns (uint64, uint64) {
+    function getOperatorFeePeriods() external view override returns (OperatorFeePeriodsData memory) {
         return ssvNetwork.getOperatorFeePeriods();
     }
 
@@ -250,10 +247,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.stakedBalanceOf(user);
     }
 
-    function pendingUnstake(address user) external view override returns (
-        uint256[] memory amounts,
-        uint256[] memory unlockTimes
-    ) {
+    function pendingUnstake(address user) external view override returns (UnstakeRequestsData[] memory) {
         return ssvNetwork.pendingUnstake(user);
     }
 
@@ -261,7 +255,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.accEthPerShare();
     }
 
-    function stakingEthPoolBalance() external view override returns (uint64) {
+    function stakingEthPoolBalance() external view override returns (uint256) {
         return ssvNetwork.stakingEthPoolBalance();
     }
 

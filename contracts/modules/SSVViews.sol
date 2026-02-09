@@ -4,21 +4,22 @@ pragma solidity 0.8.24;
 import {ISSVViews} from "../interfaces/ISSVViews.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
-import {Types64} from "../libraries/Types.sol";
 import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
+import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
 
 contract SSVViews is ISSVViews {
-    using Types64 for uint64;
-
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
+    using PackedETHLib for PackedETH;
+    using PackedSSVLib for PackedSSV;
 
     uint256 private constant PRECISION = 1e18;
 
@@ -46,19 +47,22 @@ contract SSVViews is ISSVViews {
     /************************************/
 
     function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
-        return SSVStorage.load().operators[operatorId].ethFee.expand();
+        return PackedETHLib.unpack(SSVStorage.load().operators[operatorId].ethFee);
     }
 
     function getOperatorFeeSSV(uint64 operatorId) external view override returns (uint256) {
-        return SSVStorage.load().operators[operatorId].fee.expand();
+        return PackedSSVLib.unpack(SSVStorage.load().operators[operatorId].fee);
     }
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (bool, uint256, uint64, uint64) {
-        OperatorFeeChangeRequest memory opFeeChangeRequest = SSVStorage.load().operatorFeeChangeRequests[operatorId];
+    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (OperatorDeclaredFeeData memory) {
+        StorageData storage s = SSVStorage.load();
+        OperatorFeeChangeRequest memory opFeeChangeRequest = s.operatorFeeChangeRequests[operatorId];
 
-        return (
+        bool isETHOperator = s.operators[operatorId].ethSnapshot.block != 0;
+
+        return OperatorDeclaredFeeData(
             opFeeChangeRequest.approvalBeginTime != 0,
-            opFeeChangeRequest.fee.expand(),
+            isETHOperator ? PackedETHLib.unpack(PackedETH.wrap(opFeeChangeRequest.fee)) : PackedSSVLib.unpack(PackedSSV.wrap(opFeeChangeRequest.fee)),
             opFeeChangeRequest.approvalBeginTime,
             opFeeChangeRequest.approvalEndTime
         );
@@ -66,52 +70,30 @@ contract SSVViews is ISSVViews {
 
     function getOperatorById(
         uint64 operatorId
-    )
-        external
-        view
-        override
-        returns (
-            address owner,
-            uint256 ethFee,
-            uint32 ethValidatorCount,
-            address whitelistedAddress,
-            bool isPrivate,
-            bool isActive
-        )
+    ) external view override returns (OperatorData memory op)
     {
         ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
 
-        owner = operator.owner;
-        ethFee = operator.ethFee.expand();
-        ethValidatorCount = operator.ethValidatorCount;
-        whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
-        isPrivate = operator.whitelisted;
-        isActive = operator.ethSnapshot.block != 0;
+        op.owner = operator.owner;
+        op.fee = PackedETHLib.unpack(operator.ethFee);
+        op.validatorCount = operator.ethValidatorCount;
+        op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
+        op.isPrivate = operator.whitelisted;
+        op.isActive = operator.ethSnapshot.block != 0;
     }
 
     function getOperatorByIdSSV(
         uint64 operatorId
-    )
-        external
-        view
-        override
-        returns (
-            address owner,
-            uint256 fee,
-            uint32 validatorCount,
-            address whitelistedAddress,
-            bool isPrivate,
-            bool isActive
-        )
+    ) external view override returns (OperatorData memory op)
     {
         ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
 
-        owner = operator.owner;
-        fee = operator.fee.expand();
-        validatorCount = operator.validatorCount;
-        whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
-        isPrivate = operator.whitelisted;
-        isActive = operator.snapshot.block != 0;
+        op.owner = operator.owner;
+        op.fee = PackedSSVLib.unpack(operator.fee);
+        op.validatorCount = operator.validatorCount;
+        op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
+        op.isPrivate = operator.whitelisted;
+        op.isActive = operator.snapshot.block != 0;
     }
 
     function getWhitelistedOperators(
@@ -215,8 +197,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
 
         if (!cluster.active) {
             return false;
@@ -227,17 +209,18 @@ contract SSVViews is ISSVViews {
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
             Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
-            clusterIndex += operator.ethSnapshot.index + (uint64(block.number) - operator.ethSnapshot.block) * operator.ethFee;
-            burnRate += operator.ethFee;
+            clusterIndex += operator.ethSnapshot.index + (uint64(block.number) - operator.ethSnapshot.block) * PackedETH.unwrap(operator.ethFee);
+            burnRate += PackedETH.unwrap(operator.ethFee);
         }
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndex());
         return
-            cluster.isLiquidatable(
+            cluster.isLiquidatableWithEB(
+                hashedCluster,
                 burnRate,
-                sp.ethNetworkFee,
+                PackedETH.unwrap(sp.ethNetworkFee),
                 sp.minimumBlocksBeforeLiquidation,
                 sp.minimumLiquidationCollateral
             );
@@ -249,7 +232,7 @@ contract SSVViews is ISSVViews {
         Cluster memory cluster
     ) external view override returns (bool) {
         (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
+        ClusterLib.validateClusterVersion(version, VERSION_SSV);
 
         if (!cluster.active) {
             return false;
@@ -260,8 +243,8 @@ contract SSVViews is ISSVViews {
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
             Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
-            clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
-            burnRate += operator.fee;
+            clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * PackedSSV.unwrap(operator.fee);
+            burnRate += PackedSSV.unwrap(operator.fee);
         }
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -270,7 +253,7 @@ contract SSVViews is ISSVViews {
         return
             cluster.isLiquidatable(
                 burnRate,
-                sp.networkFee,
+                PackedSSV.unwrap(sp.networkFee),
                 sp.minimumBlocksBeforeLiquidationSSV,
                 sp.minimumLiquidationCollateralSSV
             );
@@ -296,23 +279,23 @@ contract SSVViews is ISSVViews {
             SSVStorage.load()
         );
 
-        uint64 operatorsFee;
+        PackedETH operatorsFee;
         uint256 len = operatorIds.length;
         for (uint256 i; i < len; ++i) {
             Operator memory op = SSVStorage.load().operators[operatorIds[i]];
             if (op.owner != address(0)) {
-                operatorsFee += op.ethFee;
+                operatorsFee = operatorsFee.add(op.ethFee);
             }
         }
 
-        uint64 networkFee = SSVStorageProtocol.load().ethNetworkFee;
+        PackedETH networkFee = SSVStorageProtocol.load().ethNetworkFee;
 
         uint64 vUnits = SSVStorageEB.load().clusterEB[hashedCluster].vUnits;
         if (vUnits == 0) {
             vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
         }
 
-        return ((networkFee + operatorsFee).expand() * uint256(vUnits)) / VUNITS_PRECISION;
+        return (PackedETHLib.unpack(networkFee.add(operatorsFee)) * uint256(vUnits)) / VUNITS_PRECISION;
     }
 
     function getBurnRateSSV(
@@ -322,21 +305,21 @@ contract SSVViews is ISSVViews {
     ) external view override returns (uint256) {
         (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
 
-        if (version != CoreLib.VERSION_SSV) {
+        if (version != VERSION_SSV) {
             return 0;
         }
 
-        uint64 aggregateFee;
+        PackedSSV aggregateFee;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
             Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
             if (operator.owner != address(0)) {
-                aggregateFee += operator.fee;
+                aggregateFee = aggregateFee.add(operator.fee);
             }
         }
 
-        uint64 burnRate = (aggregateFee + SSVStorageProtocol.load().networkFee) * cluster.validatorCount;
-        return burnRate.expand();
+        uint128 burnRate = PackedSSV.unwrap(aggregateFee.add(SSVStorageProtocol.load().networkFee)) * cluster.validatorCount;
+        return PackedSSVLib.unpack(PackedSSV.wrap(uint64(burnRate)));
     }
 
     /***********************************/
@@ -347,14 +330,14 @@ contract SSVViews is ISSVViews {
         Operator memory operator = SSVStorage.load().operators[id];
 
         operator.updateSnapshot(id);
-        return operator.ethSnapshot.balance.expand();
+        return PackedETHLib.unpack(operator.ethSnapshot.balance);
     }
 
     function getOperatorEarningsSSV(uint64 id) external view override returns (uint256) {
         Operator memory operator = SSVStorage.load().operators[id];
 
         operator.updateSnapshotSSV();
-        return operator.snapshot.balance.expand();
+        return PackedSSVLib.unpack(operator.snapshot.balance);
     }
 
     function getBalance(
@@ -363,7 +346,7 @@ contract SSVViews is ISSVViews {
         Cluster memory cluster
     ) external view override returns (uint256 balance) {
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
-        if (version != CoreLib.VERSION_ETH) {
+        if (version != VERSION_ETH) {
             return 0;
         }
         cluster.validateClusterIsNotLiquidated();
@@ -372,7 +355,7 @@ contract SSVViews is ISSVViews {
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
             Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
-            clusterIndex += operator.ethSnapshot.index + (uint64(block.number) - operator.ethSnapshot.block) * operator.ethFee;
+            clusterIndex += operator.ethSnapshot.index + (uint64(block.number) - operator.ethSnapshot.block) * PackedETH.unwrap(operator.ethFee);
         }
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -386,7 +369,7 @@ contract SSVViews is ISSVViews {
         Cluster memory cluster
     ) external view override returns (uint256 balance) {
         (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
-        if (version != CoreLib.VERSION_SSV) {
+        if (version != VERSION_SSV) {
             return 0;
         }
         cluster.validateClusterIsNotLiquidated();
@@ -395,10 +378,10 @@ contract SSVViews is ISSVViews {
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
             Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
-            clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * operator.fee;
+            clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * PackedSSV.unwrap(operator.fee);
         }
 
-        cluster.updateBalance(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndexSSV());
+        cluster.updateBalanceSSV(clusterIndex, SSVStorageProtocol.load().currentNetworkFeeIndexSSV());
         balance = cluster.balance;
     }
 
@@ -425,10 +408,10 @@ contract SSVViews is ISSVViews {
         bytes32 hashedCluster = keccak256(abi.encodePacked(clusterOwner, operatorIds));
 
         if (s.ethClusters[hashedCluster] != bytes32(0)) {
-            return CoreLib.VERSION_ETH;
+            return VERSION_ETH;
         }
         if (s.clusters[hashedCluster] != bytes32(0)) {
-            return CoreLib.VERSION_SSV;
+            return VERSION_SSV;
         }
 
         revert ClusterDoesNotExist();
@@ -439,39 +422,42 @@ contract SSVViews is ISSVViews {
     /*******************************/
 
     function getNetworkFee() external view override returns (uint256) {
-        return SSVStorageProtocol.load().ethNetworkFee.expand();
+        return PackedETHLib.unpack(SSVStorageProtocol.load().ethNetworkFee);
     }
 
     function getNetworkFeeSSV() external view override returns (uint256) {
-        return SSVStorageProtocol.load().networkFee.expand();
+        return PackedSSVLib.unpack(SSVStorageProtocol.load().networkFee);
     }
 
     function getNetworkEarnings() external view override returns (uint256) {
-        return SSVStorageProtocol.load().networkTotalEarnings().expand();
+        return PackedETHLib.unpack(SSVStorageProtocol.load().networkTotalEarnings());
     }
 
     function getNetworkEarningsSSV() external view override returns (uint256) {
-        return SSVStorageProtocol.load().networkTotalEarningsSSV().expand();
+        return PackedSSVLib.unpack(SSVStorageProtocol.load().networkTotalEarningsSSV());
     }
 
     function getOperatorFeeIncreaseLimit() external view override returns (uint64) {
         return SSVStorageProtocol.load().operatorMaxFeeIncrease;
     }
 
-    function getMaximumOperatorFee() external view override returns (uint64) {
-        return SSVStorageProtocol.load().operatorMaxFee;
+    function getMaximumOperatorFee() external view override returns (uint256) {
+        return SSVStorageProtocol.load().operatorMaxFee.unpack();
     }
 
     function getMaximumOperatorFeeSSV() external view override returns (uint64) {
         return SSVStorageProtocol.load().operatorMaxFeeSSV;
     }
 
-    function getMinimumOperatorEthFee() external view override returns (uint64) {
-        return SSVStorageProtocol.load().minimumOperatorEthFee;
+    function getMinimumOperatorEthFee() external view override returns (uint256) {
+        return SSVStorageProtocol.load().minimumOperatorEthFee.unpack();
     }
 
-    function getOperatorFeePeriods() external view override returns (uint64, uint64) {
-        return (SSVStorageProtocol.load().declareOperatorFeePeriod, SSVStorageProtocol.load().executeOperatorFeePeriod);
+    function getOperatorFeePeriods() external view override returns (OperatorFeePeriodsData memory) {
+        return OperatorFeePeriodsData(
+            SSVStorageProtocol.load().declareOperatorFeePeriod,
+            SSVStorageProtocol.load().executeOperatorFeePeriod
+        );
     }
 
     function getLiquidationThresholdPeriod() external view override returns (uint64) {
@@ -483,11 +469,11 @@ contract SSVViews is ISSVViews {
     }
 
     function getMinimumLiquidationCollateral() external view override returns (uint256) {
-        return SSVStorageProtocol.load().minimumLiquidationCollateral.expand();
+        return PackedETHLib.unpack(SSVStorageProtocol.load().minimumLiquidationCollateral);
     }
 
     function getMinimumLiquidationCollateralSSV() external view override returns (uint256) {
-        return SSVStorageProtocol.load().minimumLiquidationCollateralSSV.expand();
+        return PackedSSVLib.unpack(SSVStorageProtocol.load().minimumLiquidationCollateralSSV);
     }
 
     function getValidatorsPerOperatorLimit() external view override returns (uint32) {
@@ -510,15 +496,18 @@ contract SSVViews is ISSVViews {
         return ICSSVToken(CSSV_ADDRESS).balanceOf(user);
     }
 
-    function pendingUnstake(address user) external view override returns (uint256[] memory amounts, uint256[] memory unlockTimes) {
+    function pendingUnstake(address user) external view override returns (UnstakeRequestsData[] memory data) {
         StorageStaking storage s = SSVStorageStaking.load();
         UnstakeRequest[] storage requests = s.withdrawalRequests[user];
+
         uint256 len = requests.length;
-        amounts = new uint256[](len);
-        unlockTimes = new uint256[](len);
-        for (uint256 j = 0; j < len; j++) {
-            amounts[j] = requests[j].amount;
-            unlockTimes[j] = requests[j].unlockTime;
+        data = new UnstakeRequestsData[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            data[i] = UnstakeRequestsData({
+                amount: requests[i].amount,
+                unlockTime: requests[i].unlockTime
+            });
         }
     }
 
@@ -526,8 +515,8 @@ contract SSVViews is ISSVViews {
         return SSVStorageStaking.load().accEthPerShare;
     }
 
-    function stakingEthPoolBalance() external view override returns (uint64) {
-        return SSVStorageStaking.load().stakingEthPoolBalance;
+    function stakingEthPoolBalance() external view override returns (uint256) {
+        return SSVStorageStaking.load().stakingEthPoolBalance.unpack();
     }
 
     function previewClaimableEth(address user) external view override returns (uint256) {
@@ -562,19 +551,19 @@ contract SSVViews is ISSVViews {
 
     function _previewAccEthPerShare(StorageStaking storage s) internal view returns (uint256) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        uint64 current = sp.networkTotalEarnings();
+        PackedETH current = sp.networkTotalEarnings();
 
         uint256 idx = s.accEthPerShare;
-        uint64 previous = s.stakingEthPoolBalance;
+        PackedETH previous = s.stakingEthPoolBalance;
 
         uint256 totalStaked_ = ICSSVToken(CSSV_ADDRESS).totalSupply();
 
-        if (current <= previous || totalStaked_ == 0) {
+        if (current.lte(previous) || totalStaked_ == 0) {
             return idx;
         }
 
-        uint64 newFeesShrunk = current - previous;
-        uint256 newFeesWei = newFeesShrunk.expand();
+        PackedETH packedNewFees = current.sub(previous);
+        uint256 newFeesWei = PackedETHLib.unpack(packedNewFees);
         return idx + (newFeesWei * PRECISION) / totalStaked_;
     }
 

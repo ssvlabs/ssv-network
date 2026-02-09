@@ -5,31 +5,29 @@ import "../interfaces/ISSVNetworkCore.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {StorageData} from "./SSVStorage.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
-import {Types64, Types256} from "./Types.sol";
+import {PackedETH, PackedSSV, DEFAULT_OPERATOR_ETH_FEE, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../libraries/SSVCoreTypes.sol";
+import {PackedETHLib, PackedSSVLib} from "../libraries/SSVPackedLib.sol";
 import "./SSVStorageEB.sol";
 
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
 library OperatorLib {
-    using Types64 for uint64;
-    using Types256 for uint256;
-
-    /// @notice Default operator ETH fee used when migrating operators without an ETH fee set
-    uint256 internal constant DEFAULT_OPERATOR_ETH_FEE = 1770_000_000;
+    using PackedETHLib for PackedETH;
+    using PackedSSVLib for PackedSSV;
 
     function updateSnapshotSSV(ISSVNetworkCore.Operator memory operator) internal view {
-        uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
+        uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * PackedSSV.unwrap(operator.fee);
 
         operator.snapshot.index += blockDiffFee;
-        operator.snapshot.balance += blockDiffFee * operator.validatorCount;
+        operator.snapshot.balance = operator.snapshot.balance.add(PackedSSV.wrap(blockDiffFee * operator.validatorCount));
         operator.snapshot.block = uint32(block.number);
     }
 
     function updateSnapshotStSSV(ISSVNetworkCore.Operator storage operator) internal {
-        uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * operator.fee;
+        uint64 blockDiffFee = (uint32(block.number) - operator.snapshot.block) * PackedSSV.unwrap(operator.fee);
 
         operator.snapshot.index += blockDiffFee;
-        operator.snapshot.balance += blockDiffFee * operator.validatorCount;
+        operator.snapshot.balance = operator.snapshot.balance.add(PackedSSV.wrap(blockDiffFee * operator.validatorCount));
         operator.snapshot.block = uint32(block.number);
     }
 
@@ -39,7 +37,7 @@ library OperatorLib {
     ) internal {
         StorageEB storage seb = SSVStorageEB.load();
         uint32 currentBlock = uint32(block.number);
-        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * PackedETH.unwrap(operator.ethFee);
 
         // Deviation-only model: effectiveVUnits = baseline + storedDeviation
         // storedDeviation = operatorEthVUnits (only non-default EB contributions)
@@ -50,7 +48,7 @@ library OperatorLib {
         operator.ethSnapshot.index += blockDiffEthFee;
         if (effectiveVUnits != 0 && blockDiffEthFee != 0) {
             uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
-            operator.ethSnapshot.balance += uint64(delta);
+            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
         }
         operator.ethSnapshot.block = currentBlock;
     }
@@ -61,7 +59,7 @@ library OperatorLib {
     ) internal view {
         StorageEB storage seb = SSVStorageEB.load();
         uint32 currentBlock = uint32(block.number);
-        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+        uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * PackedETH.unwrap(operator.ethFee);
 
         // Deviation-only model: effectiveVUnits = baseline + storedDeviation
         uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
@@ -70,7 +68,7 @@ library OperatorLib {
         operator.ethSnapshot.index += blockDiffEthFee;
         if (effectiveVUnits != 0 && blockDiffEthFee != 0) {
             uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
-            operator.ethSnapshot.balance += uint64(delta);
+            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
         }
         operator.ethSnapshot.block = currentBlock;
     }
@@ -85,8 +83,8 @@ library OperatorLib {
         updateSnapshotStSSV(operator);
     }
 
-    function defaultOperatorEthFee() internal pure returns (uint64) {
-        return DEFAULT_OPERATOR_ETH_FEE.shrink();
+    function defaultOperatorEthFee() internal pure returns (PackedETH) {
+        return PackedETHLib.pack(DEFAULT_OPERATOR_ETH_FEE);
     }
 
     function checkOwner(ISSVNetworkCore.Operator storage operator) internal view {
@@ -99,9 +97,9 @@ library OperatorLib {
     function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
         if (operator.ethSnapshot.block == 0) {
             operator.ethSnapshot.block = uint32(block.number);
-            operator.ethSnapshot.balance = 0;
+            operator.ethSnapshot.balance = PACKED_ETH_ZERO;
         }
-        if (operator.ethFee == 0 && operator.fee != 0) {
+        if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
             operator.ethFee = defaultOperatorEthFee();
         }
     }
@@ -165,7 +163,7 @@ library OperatorLib {
             if ((operator.ethValidatorCount += deltaValidatorCount) > sp.validatorsPerOperatorLimit) {
                 revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
             }
-            cumulativeFee += operator.ethFee;
+            cumulativeFee += PackedETH.unwrap(operator.ethFee);
             cumulativeIndex += operator.ethSnapshot.index;
 
             s.operators[operatorId] = operator;
@@ -197,7 +195,7 @@ library OperatorLib {
                     operator.ethValidatorCount -= deltaValidatorCount;
                 }
 
-                cumulativeFee += operator.ethFee;
+                cumulativeFee += PackedETH.unwrap(operator.ethFee);
             }
             cumulativeIndex += operator.ethSnapshot.index;
         }
@@ -220,7 +218,7 @@ library OperatorLib {
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
             if (operator.ethSnapshot.block != 0) {
-                uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * operator.ethFee;
+                uint64 blockDiffEthFee = (currentBlock - operator.ethSnapshot.block) * PackedETH.unwrap(operator.ethFee);
 
                 if (blockDiffEthFee != 0) {
                     operator.ethSnapshot.index += blockDiffEthFee;
@@ -235,7 +233,7 @@ library OperatorLib {
 
                     if (effectiveVUnits != 0) {
                         uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
-                        operator.ethSnapshot.balance += uint64(delta);
+                        operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
                     }
                 }
                 operator.ethSnapshot.block = currentBlock;
@@ -254,7 +252,7 @@ library OperatorLib {
                     revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
                 }
 
-                cumulativeFee += operator.ethFee;
+                cumulativeFee += PackedETH.unwrap(operator.ethFee);
             }
             cumulativeIndex += operator.ethSnapshot.index;
 
@@ -298,7 +296,7 @@ library OperatorLib {
                 }
             }
 
-            cumulativeFee += operator.ethFee;
+            cumulativeFee += PackedETH.unwrap(operator.ethFee);
             cumulativeIndex += operator.ethSnapshot.index;
         }
     }
@@ -325,7 +323,7 @@ library OperatorLib {
                     revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
                 }
 
-                cumulativeFee += operator.fee;
+                cumulativeFee += PackedSSV.unwrap(operator.fee);
             }
 
             cumulativeIndex += operator.snapshot.index;
