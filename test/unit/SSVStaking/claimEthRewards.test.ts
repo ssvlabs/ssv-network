@@ -6,7 +6,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { STAKE_AMOUNT } from "../../common/constants.ts";
+import { STAKE_AMOUNT, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `claimEthRewards()`", async () => {
@@ -43,35 +43,37 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
 
   it("Claims accrued ETH rewards and emits RewardsClaimed event with correct args", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeAndAccrueRewards);
-
+  
     const accruedAmount = connection.ethers.parseEther("0.1");
     await staking.mockSetUserAccrued(staker.address, accruedAmount);
-    await staking.mockSetStakingEthPoolBalance(10_000_000_000n);
-    await staking.mockSetEthDaoBalance(10_000_000_000n);
-
+    
+    // Calculate packed payout value
+    const expectedPayout = accruedAmount - (accruedAmount % ETH_DEDUCTED_DIGITS);
+    const expectedPayoutShrunk = expectedPayout / ETH_DEDUCTED_DIGITS;
+    
+    // Set packed balances (add buffer to ensure sufficiency)
+    await staking.mockSetStakingEthPoolBalance(expectedPayoutShrunk + 1_000_000n);
+    await staking.mockSetEthDaoBalance(expectedPayoutShrunk + 1_000_000n);
+  
     const ethBalanceBefore = await connection.ethers.provider.getBalance(staker.address);
     const poolBalanceBefore = await staking.getStakingEthPoolBalance();
     const daoBalanceBefore = await staking.getEthDaoBalance();
-
+  
     const tx = await trackGas(
       staking.claimEthRewards(),
       [GasGroup.CLAIM_ETH_REWARDS, GasGroup.SYNC_FEES]
     );
-
-    // Payout is accrued rounded down to DEDUCTED_DIGITS (1e7)
-    const expectedPayout = accruedAmount - (accruedAmount % 10_000_000n);
-    const expectedPayoutShrunk = expectedPayout / 10_000_000n;
-
+  
     await expect(tx)
       .to.emit(staking, Events.REWARDS_CLAIMED)
       .withArgs(staker.address, expectedPayout);
-
+  
     // Verify ETH received (accounting for gas)
     const ethBalanceAfter = await connection.ethers.provider.getBalance(staker.address);
     const gasUsed = BigInt(tx.gasUsed) * BigInt(tx.gasPrice);
     expect(ethBalanceAfter + gasUsed - ethBalanceBefore).to.equal(expectedPayout);
-
-    // Verify pool balances decreased
+  
+    // Verify pool balances decreased by packed payout amount
     const poolBalanceAfter = await staking.getStakingEthPoolBalance();
     const daoBalanceAfter = await staking.getEthDaoBalance();
     expect(poolBalanceBefore - poolBalanceAfter).to.equal(expectedPayoutShrunk);
@@ -82,7 +84,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     const { staking } = await networkHelpers.loadFixture(stakeAndAccrueRewards);
 
     // Use an amount with a remainder when divided by DEDUCTED_DIGITS (1e7)
-    const accruedAmount = 123_456_789n; // Payout = 120_000_000, remainder = 3_456_789
+    const accruedAmount = 123_456_789n;
     await staking.mockSetUserAccrued(staker.address, accruedAmount);
     await staking.mockSetStakingEthPoolBalance(100_000_000_000n);
     await staking.mockSetEthDaoBalance(100_000_000_000n);
@@ -92,7 +94,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
       [GasGroup.CLAIM_ETH_REWARDS, GasGroup.SYNC_FEES]
     );
 
-    const expectedRemainder = accruedAmount % 10_000_000n; // 3_456_789
+    const expectedRemainder = accruedAmount % ETH_DEDUCTED_DIGITS; 
     const accruedAfter = await staking.getUserAccrued(staker.address);
     expect(accruedAfter).to.equal(expectedRemainder);
   });
@@ -118,7 +120,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(0n);
 
-    const tinyAmount = 9_999_999n;
+    const tinyAmount = 99_999n;
     await staking.mockSetUserAccrued(staker.address, tinyAmount);
 
     await expect(staking.claimEthRewards()).to.be.revertedWithCustomError(
@@ -143,46 +145,61 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
 
   it("Syncs fees before claiming", async function () {
     const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
-
+    
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await trackGas(
       staking.stake(STAKE_AMOUNT),
       [GasGroup.STAKE_SSV]
     );
-
+    
     const stakingAddress = await staking.getAddress();
     await staker.sendTransaction({
       to: stakingAddress,
       value: connection.ethers.parseEther("1"),
     });
-
-    const accruedAmount = connection.ethers.parseEther("0.01");
-    await staking.mockSetUserAccrued(staker.address, accruedAmount);
-
-    const sufficientBalance = 2_000_000_000n;
-    await staking.mockSetStakingEthPoolBalance(sufficientBalance);
-    await staking.mockSetEthDaoBalance(sufficientBalance + 1_000_000_000n);
-
+    
+    // _syncFees detects new fees when networkTotalEarnings() > stakingEthPoolBalance.
+    // It then updates accEthPerShare, and _settle adds pending to accrued.
+    // The total claimable = accrued + pending from settlement.
+    // ethDaoBalance must cover the full packed claimable.
+    //
+    // With newFees packed units and STAKE_AMOUNT staked cSSV:
+    //   newFeesWei = newFees * ETH_DEDUCTED_DIGITS
+    //   accDelta = (newFeesWei * PRECISION) / STAKE_AMOUNT
+    //   pending = (STAKE_AMOUNT * accDelta) / PRECISION = newFeesWei
+    // So pending ≈ newFeesWei, and claimable = accrued + newFeesWei.
+    // packedClaimable = claimable / ETH_DEDUCTED_DIGITS ≈ accrued/ETH_DEDUCTED_DIGITS + newFees
+    // ethDaoBalance (packed) must be >= packedClaimable.
+    // Since ethDaoBalance = newFees, we need accrued = 0 so claimable = newFeesWei only.
+    const newFees = 1_000n; // small packed value
+    await staking.mockSetUserAccrued(staker.address, 0n);
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(newFees);
+    
     const tx = await trackGas(
       staking.claimEthRewards(),
       [GasGroup.CLAIM_ETH_REWARDS, GasGroup.SYNC_FEES]
     );
-
+    
     await expect(tx).to.emit(staking, Events.FEES_SYNCED);
   });
 
   it("Stores updated accrued balance in storage after claiming", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeAndAccrueRewards);
-
+  
     const accruedBefore = connection.ethers.parseEther("0.1");
     await staking.mockSetUserAccrued(staker.address, accruedBefore);
-    await staking.mockSetStakingEthPoolBalance(10_000_000_000n);
-    await staking.mockSetEthDaoBalance(10_000_000_000n);
-
+    
+    // Calculate packed value from accrued
+    const packedPayout = accruedBefore / ETH_DEDUCTED_DIGITS;
+    
+    // Set packed balances (add buffer to ensure sufficiency)
+    await staking.mockSetStakingEthPoolBalance(packedPayout + 1n);
+    await staking.mockSetEthDaoBalance(packedPayout + 1n);
+  
     await staking.claimEthRewards();
-
+  
     const accruedAfter = await staking.getUserAccrued(staker.address);
-    // 0.1 ETH is divisible by 1e7, so remainder should be 0
     expect(accruedAfter).to.equal(0n);
   });
 
@@ -215,7 +232,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
 
     // First claim
     const firstAccrued = 100_000_000n; // 0.1 shrunk units = 1e9 wei
-    await staking.mockSetUserAccrued(staker.address, firstAccrued * 10_000_000n);
+    await staking.mockSetUserAccrued(staker.address, firstAccrued * ETH_DEDUCTED_DIGITS);
     await staking.mockSetStakingEthPoolBalance(firstAccrued);
     await staking.mockSetEthDaoBalance(firstAccrued);
 
@@ -224,7 +241,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
 
     // Accrue more rewards
     const secondAccrued = 200_000_000n;
-    await staking.mockSetUserAccrued(staker.address, secondAccrued * 10_000_000n);
+    await staking.mockSetUserAccrued(staker.address, secondAccrued * ETH_DEDUCTED_DIGITS);
     await staking.mockSetStakingEthPoolBalance(secondAccrued);
     await staking.mockSetEthDaoBalance(secondAccrued);
 

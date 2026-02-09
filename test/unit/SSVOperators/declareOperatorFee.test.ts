@@ -6,7 +6,7 @@ import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey } from "../../common/helpers.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
+  DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
   MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
 } from '../../common/constants.ts';
@@ -50,7 +50,7 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
     ).to.emit(operators, Events.OPERATOR_FEE_DECLARED);
 
     const request = await operators.getOperatorFeeChangeRequest(operatorId);
-    expect(request.fee).to.equal(BigInt(newFee) / 10_000_000n);
+    expect(request.fee).to.equal(BigInt(newFee) / ETH_DEDUCTED_DIGITS);
     expect(request.approvalBeginTime).to.be.greaterThan(0);
     expect(request.approvalEndTime).to.be.greaterThan(request.approvalBeginTime);
   });
@@ -75,7 +75,7 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
       [GasGroup.REGISTER_OPERATOR]
     );
 
-    await expect(operators.declareOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE + 10_000_000n))).to.be.revertedWithCustomError(
+    await expect(operators.declareOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE * 2n))).to.be.revertedWithCustomError(
       operators,
       Errors.FEE_TOO_HIGH
     );
@@ -123,6 +123,18 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
       operators,
       Errors.FEE_EXCEEDS_INCREASE_LIMIT
     );
+  });
+
+  it("Is reverted with 'MaxPrecisionExceeded' when declared fee is not aligned to ETH_DEDUCTED_DIGITS", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+
+    await expect(operators.declareOperatorFee(1, 1n))
+      .to.be.revertedWithCustomError(operators, Errors.MAX_PRECISION_EXCEEDED);
   });
 
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to declare fee", async function () {

@@ -7,6 +7,7 @@ import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../
 import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PackedETH} from "../../libraries/SSVCoreTypes.sol";
+import {PackedETHLib} from "../../libraries/SSVPackedLib.sol";
 
 contract SSVStakingHarness is SSVStaking {
     // ============ Mock Setters ============

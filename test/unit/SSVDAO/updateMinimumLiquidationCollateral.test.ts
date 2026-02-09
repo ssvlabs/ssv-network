@@ -5,8 +5,10 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
+import { Errors } from '../../common/errors.js';
 import { ethers } from "ethers";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 
 describe("SSVDAO function `updateMinimumLiquidationCollateral()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -40,7 +42,7 @@ describe("SSVDAO function `updateMinimumLiquidationCollateral()`", async () => {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
     await expect(dao.updateMinimumLiquidationCollateral(1n))
-      .to.be.revertedWith("Max precision exceeded");
+      .to.be.revertedWithCustomError(dao, Errors.MAX_PRECISION_EXCEEDED);
   });
 
   it("Stores the new minimum liquidation collateral in storage", async function () {
@@ -51,7 +53,7 @@ describe("SSVDAO function `updateMinimumLiquidationCollateral()`", async () => {
     await dao.updateMinimumLiquidationCollateral(newCollateral);
 
     const storedCollateral = await dao.getMinimumLiquidationCollateral();
-    expect(storedCollateral).to.equal(newCollateral / 10_000_000n);
+    expect(storedCollateral).to.equal(newCollateral / ETH_DEDUCTED_DIGITS);
   });
 
   it("Can set minimum liquidation collateral to zero", async function () {
@@ -113,7 +115,7 @@ describe("SSVDAO function `updateMinimumLiquidationCollateralSSV()`", async () =
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
     await expect(dao.updateMinimumLiquidationCollateralSSV(1n))
-      .to.be.revertedWith("Max precision exceeded");
+      .to.be.revertedWithCustomError(dao, Errors.MAX_PRECISION_EXCEEDED);
   });
 
   it("Stores the new SSV minimum liquidation collateral in storage", async function () {

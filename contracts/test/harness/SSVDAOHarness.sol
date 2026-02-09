@@ -8,16 +8,12 @@ import {SSVStorageEB, StorageEB} from "../../libraries/SSVStorageEB.sol";
 import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PackedETH, PackedSSV} from "../../libraries/SSVCoreTypes.sol";
+import {PackedETHLib} from "../../libraries/SSVPackedLib.sol";
 
 contract SSVDAOHarness is SSVDAO {
     function mockSetNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.ethNetworkFee = PackedETH.wrap(fee);
-    }
-
-    function mockSetNetworkFeeSSV(uint64 fee) external {
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.networkFee = PackedSSV.wrap(fee);
+        sp.ethNetworkFee = PackedETHLib.pack(fee);
     }
 
     function mockSetDaoBalance(uint64 balance) external {
@@ -76,7 +72,7 @@ contract SSVDAOHarness is SSVDAO {
 
     function mockSetOperatorMaxFee(uint64 maxFee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.operatorMaxFee = PackedETH.wrap(maxFee);
+        sp.operatorMaxFee = PackedETHLib.pack(maxFee);
     }
 
     function mockSetOperatorMaxFeeSSV(uint64 maxFee) external {

@@ -886,9 +886,10 @@ describe("SSVNetwork full integration tests", () => {
     it("Is reverted with 'FeeTooHigh' if the maximum fee changed during the execution period", async function(){
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      const operatorIds = await registerOperators(network, operatorOwner, 1);
+      
+      const operatorIds = await registerOperators(network, operatorOwner, 1);  
       await network.declareOperatorFee(operatorIds[0], MINIMAL_OPERATOR_ETH_FEE * 2n)
-      await network.updateMaximumOperatorFee(MINIMAL_OPERATOR_ETH_FEE + 1n);
+      await network.updateMaximumOperatorFee(MINIMAL_OPERATOR_ETH_FEE);
 
       await connection.networkHelpers.time.increase(EXECUTE_OPERATOR_FEE_PERIOD + 1n);
       await connection.networkHelpers.mine();

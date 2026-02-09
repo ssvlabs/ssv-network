@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -90,7 +90,7 @@ describe("SSVClusters function `liquidate()`", async () => {
     // Make liquidatable for third party via minimum collateral.
     const harnessAddress = await clusters.getAddress();
     const harnessBalance = await connection.ethers.provider.getBalance(harnessAddress);
-    const minCollateral = harnessBalance / 10_000_000n + 1n;
+    const minCollateral = harnessBalance / ETH_DEDUCTED_DIGITS + 1n;
     await clusters.mockMinimumLiquidationCollateral(minCollateral);
 
     const liquidatorBalanceBefore = await connection.ethers.provider.getBalance(otherAccount.address);

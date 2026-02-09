@@ -5,7 +5,7 @@ import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey } from "../../common/helpers.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
+  DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
   MINIMAL_OPERATOR_ETH_FEE,
   OPERATOR_MAX_FEE_INCREASE,
@@ -102,20 +102,7 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
     await operators.executeOperatorFee(1);
 
     const op = await operators.getOperator(1);
-    // fee in storage is shrunk (div by 10^7 if using default precision, 
-    // actually it's just stored as is if using same precision logic as declared)
-    // The fixture uses standard precision. 
-    // newFee is 20_000_000 (wei/units?). 
-    // Let's check how it's stored. The input to declare is in WEI (or similar units), stored as shrunk.
-    // In `declareOperatorFee`: `uint64 shrunkFee = fee.shrink();`
-    // In `executeOperatorFee`: `operator.ethFee = feeChangeRequest.fee;`
-    // getOperator returns the struct. ethFee is uint64.
-    // 20_000_000 / 10_000_000 (DEDUCTED_DIGITS?) = 2?
-    // Let's rely on the fact that `declareOperatorFee` takes the full value.
-    
-    // Actually, looking at declare test: `expect(request.fee).to.equal(BigInt(newFee) / 10_000_000n);`
-    // So stored fee is 2.
-    expect(op.ethFee).to.equal(BigInt(newFee) / 10_000_000n);
+    expect(op.ethFee).to.equal(BigInt(newFee) / ETH_DEDUCTED_DIGITS);
 
     const request = await operators.getOperatorFeeChangeRequest(1);
     expect(request.approvalBeginTime).to.equal(0);
