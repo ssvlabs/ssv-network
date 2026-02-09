@@ -51,7 +51,7 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
     const { dao } = await ssvDAOHarnessFixture(connection);
 
     await expect(dao.withdrawNetworkSSVEarnings(1n))
-      .to.be.revertedWith("Max precision exceeded");
+      .to.be.revertedWithCustomError(dao, Errors.MAX_PRECISION_EXCEEDED);
   });
 
   it("Withdraws network SSV earnings and emits NetworkEarningsWithdrawn event", async function () {

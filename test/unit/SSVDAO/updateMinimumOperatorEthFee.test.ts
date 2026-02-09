@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
-import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
+import { MINIMAL_OPERATOR_ETH_FEE, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 
 describe("SSVDAO function `updateMinimumOperatorEthFee()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -41,7 +41,7 @@ describe("SSVDAO function `updateMinimumOperatorEthFee()`", async () => {
     await dao.updateMinimumOperatorEthFee(newMinFee);
 
     const storedMinFee = await dao.getMinimumOperatorEthFee();
-    expect(storedMinFee).to.equal(newMinFee);
+    expect(storedMinFee * ETH_DEDUCTED_DIGITS).to.equal(newMinFee);
   });
 
   it("Can set minimum operator ETH fee to zero", async function () {
@@ -72,6 +72,6 @@ describe("SSVDAO function `updateMinimumOperatorEthFee()`", async () => {
       .withArgs(secondMinFee);
 
     const storedMinFee = await dao.getMinimumOperatorEthFee();
-    expect(storedMinFee).to.equal(secondMinFee);
+    expect(storedMinFee * ETH_DEDUCTED_DIGITS).to.equal(secondMinFee);
   });
 });

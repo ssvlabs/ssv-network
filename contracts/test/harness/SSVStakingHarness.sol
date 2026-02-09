@@ -6,6 +6,8 @@ import {SSVStorageProtocol, StorageProtocol} from "../../libraries/SSVStoragePro
 import {SSVStorageStaking, StorageStaking, UnstakeRequest, Delegation} from "../../libraries/SSVStorageStaking.sol";
 import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {PackedETH} from "../../libraries/SSVCoreTypes.sol";
+import {PackedETHLib} from "../../libraries/SSVPackedLib.sol";
 
 contract SSVStakingHarness is SSVStaking {
 
@@ -29,7 +31,7 @@ contract SSVStakingHarness is SSVStaking {
 
     function mockSetStakingEthPoolBalance(uint64 balance) external {
         StorageStaking storage s = SSVStorageStaking.load();
-        s.stakingEthPoolBalance = balance;
+        s.stakingEthPoolBalance = PackedETH.wrap(balance);
     }
 
     function mockSetUserIndex(address user, uint256 index) external {
@@ -62,13 +64,13 @@ contract SSVStakingHarness is SSVStaking {
 
     function mockSetEthDaoBalance(uint64 balance) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.ethDaoBalance = balance;
+        sp.ethDaoBalance = PackedETH.wrap(balance);
         sp.ethDaoIndexBlockNumber = uint32(block.number);
     }
 
     function mockSetEthNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.ethNetworkFee = fee;
+        sp.ethNetworkFee = PackedETH.wrap(fee);
     }
 
     function mockSetDaoTotalEthVUnits(uint64 vUnits) external {
@@ -93,7 +95,7 @@ contract SSVStakingHarness is SSVStaking {
     }
 
     function getStakingEthPoolBalance() external view returns (uint64) {
-        return SSVStorageStaking.load().stakingEthPoolBalance;
+        return PackedETH.unwrap(SSVStorageStaking.load().stakingEthPoolBalance);
     }
 
     function getUserIndex(address user) external view returns (uint256) {
@@ -136,11 +138,11 @@ contract SSVStakingHarness is SSVStaking {
     }
 
     function getEthDaoBalance() external view returns (uint64) {
-        return SSVStorageProtocol.load().ethDaoBalance;
+        return PackedETH.unwrap(SSVStorageProtocol.load().ethDaoBalance);
     }
 
     function getEthNetworkFee() external view returns (uint64) {
-        return SSVStorageProtocol.load().ethNetworkFee;
+        return PackedETH.unwrap(SSVStorageProtocol.load().ethNetworkFee);
     }
 
     function getDaoTotalEthVUnits() external view returns (uint64) {

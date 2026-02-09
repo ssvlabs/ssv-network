@@ -11,12 +11,12 @@ import {SSVStorage} from "../libraries/SSVStorage.sol";
 import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
-import "../libraries/Types.sol";
+import {PackedETH} from "../libraries/SSVCoreTypes.sol";
+import {PackedETHLib, ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
 
 contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     using ProtocolLib for StorageProtocol;
-    using Types64 for uint64;
-    using Types256 for uint256;
+    using PackedETHLib for PackedETH;
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint64 private constant PRECISION = 1e18;
@@ -122,25 +122,25 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         uint256 claimable = s.accrued[msg.sender];
         if (claimable == 0) revert NothingToClaim();
 
-        uint256 payout = claimable - (claimable % DEDUCTED_DIGITS);
+        uint256 payout = claimable - (claimable % ETH_DEDUCTED_DIGITS);
         if (payout == 0) {
             revert NothingToClaim();
         }
 
-        uint64 payoutShrunk = payout.shrink();
+        PackedETH packedPayout = PackedETHLib.pack(payout);
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        if (payoutShrunk > s.stakingEthPoolBalance) {
+        if (packedPayout.gt(s.stakingEthPoolBalance)) {
             revert InsufficientBalance();
         }
-        if (payoutShrunk > sp.ethDaoBalance) {
+        if (packedPayout.gt(sp.ethDaoBalance))   {
             revert InsufficientBalance();
         }
 
         s.accrued[msg.sender] = claimable - payout;
-        s.stakingEthPoolBalance -= payoutShrunk;
-        sp.ethDaoBalance -= payoutShrunk;
+        s.stakingEthPoolBalance = s.stakingEthPoolBalance.sub(packedPayout);
+        sp.ethDaoBalance = sp.ethDaoBalance.sub(packedPayout);
 
         CoreLib.transferBalance(msg.sender, payout);
         emit RewardsClaimed(msg.sender, payout);
@@ -175,22 +175,22 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     function _syncFees(StorageStaking storage s) internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        uint64 current = sp.networkTotalEarnings();
+        PackedETH current = sp.networkTotalEarnings();
         sp.ethDaoBalance = current;
         sp.ethDaoIndexBlockNumber = uint32(block.number);
 
-        uint64 previous = s.stakingEthPoolBalance;
-        if (current <= previous) {
+        PackedETH previous = s.stakingEthPoolBalance;
+        if (current.lte(previous)) {
             s.stakingEthPoolBalance = current;
             return;
         }
 
-        uint64 newFeesShrunk = current - previous;
+        PackedETH packedNewFees = current.sub(previous);
         uint256 newFeesWei;
 
         uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
         if (totalStaked != 0) {
-            newFeesWei = newFeesShrunk.expand();
+            newFeesWei = PackedETHLib.unpack(packedNewFees);
             s.accEthPerShare += uint128((newFeesWei * PRECISION) / totalStaked);
         }
 

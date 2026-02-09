@@ -1,19 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.20;
 
+import {PackedSSV, PackedETH} from "../libraries/SSVCoreTypes.sol";
+
 interface ISSVNetworkCore {
     /***********/
     /* Structs */
     /***********/
 
-    /// @notice Represents a snapshot of an operator's or a DAO's state at a certain block
+    /// @notice Represents a snapshot of an SSV operator's or a SSV DAO's state at a certain block
     struct Snapshot {
         /// @dev The block number when the snapshot was taken
         uint32 block;
         /// @dev The last index calculated by the formula index += (currentBlock - block) * fee
         uint64 index;
         /// @dev Total accumulated earnings calculated by the formula accumulated + lastIndex * validatorCount
-        uint64 balance;
+        PackedSSV balance;
+    }
+
+    /// @notice Represents a snapshot of an operator's or a DAO's state at a certain block
+    struct EthSnapshot {
+        /// @dev The block number when the snapshot was taken
+        uint32 block;
+        /// @dev The last index calculated by the formula index += (currentBlock - block) * fee
+        uint64 index;
+        /// @dev Total accumulated earnings calculated by the formula accumulated + lastIndex * validatorCount
+        PackedETH balance;
     }
 
     /// @notice Represents an SSV operator
@@ -21,7 +33,7 @@ interface ISSVNetworkCore {
         /// @dev The number of validators associated with this operator
         uint32 validatorCount;
         /// @dev The fee charged by the operator, set to zero for private operators and cannot be increased once set
-        uint64 fee;
+        PackedSSV fee;
         /// @dev The address of the operator's owner
         address owner;
         /// @dev private flag for this operator
@@ -32,9 +44,9 @@ interface ISSVNetworkCore {
         /// @dev The number of validators associated with this operator in eth
         uint32 ethValidatorCount;
         /// @dev The fee charged by the operator in eth, set to zero for private operators and cannot be increased once set
-        uint64 ethFee;
+        PackedETH ethFee;
         /// @dev The state snapshot of the operator for eth
-        Snapshot ethSnapshot;
+        EthSnapshot ethSnapshot;
     }
 
     /// @notice Represents a request to change an operator's fee

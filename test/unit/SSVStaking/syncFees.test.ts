@@ -5,7 +5,7 @@ import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { STAKE_AMOUNT } from "../../common/constants.ts";
+import { STAKE_AMOUNT, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `syncFees()`", async () => {
@@ -43,7 +43,7 @@ describe("SSVStaking function `syncFees()`", async () => {
     // newFeesWei = newFees * 1e7 = 1e16
     // totalStaked = 10 ETH = 10e18
     // accDelta = (1e16 * 1e18) / 10e18 = 1e16 / 10 = 1e15
-    await expect(tx).to.emit(staking, Events.FEES_SYNCED).withArgs(newFees * 10_000_000n, 1_000_000_000_000_000n);
+    await expect(tx).to.emit(staking, Events.FEES_SYNCED).withArgs(newFees * ETH_DEDUCTED_DIGITS, 10_000_000_000_000n);
 
     const poolBalance = await staking.getStakingEthPoolBalance();
     expect(poolBalance).to.equal(newFees);
@@ -74,7 +74,7 @@ describe("SSVStaking function `syncFees()`", async () => {
     
     // Calculation: newFeesWei = newFees * 1e7 = 1e16
     // accDelta = (1e16 * 1e18) / STAKE_AMOUNT (10 * 1e18) = 1e16 / 10 = 1e15
-    const expectedDelta = (newFees * 10_000_000n * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
+    const expectedDelta = (newFees * ETH_DEDUCTED_DIGITS * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
     expect(accAfter - accBefore).to.equal(expectedDelta);
   });
 
@@ -117,7 +117,7 @@ describe("SSVStaking function `syncFees()`", async () => {
     // fee = 500
     // earnings = blocks * 500
     const expectedEarnings = blocksElapsed * fee;
-    const expectedEarningsWei = expectedEarnings * 10_000_000n; // expand
+    const expectedEarningsWei = expectedEarnings * ETH_DEDUCTED_DIGITS; // expand
 
     const accAfter = await staking.getAccEthPerShare();
     

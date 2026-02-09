@@ -2,22 +2,23 @@
 pragma solidity 0.8.24;
 
 import "../interfaces/ISSVNetworkCore.sol";
-import {Types256} from "./Types.sol";
+import {PackedSSV, PackedETH} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {StorageProtocol} from "./SSVStorageProtocol.sol";
 import {VUNITS_PRECISION} from "./SSVStorageEB.sol";
 
 library ProtocolLib {
-    using Types256 for uint256;
-
+    using PackedETHLib for PackedETH;
+    
     /******************************/
     /* Network internal functions */
     /******************************/
     function currentNetworkFeeIndex(StorageProtocol storage sp) internal view returns (uint64) {
-        return sp.ethNetworkFeeIndex + uint64(block.number - sp.ethNetworkFeeIndexBlockNumber) * sp.ethNetworkFee;
+        return sp.ethNetworkFeeIndex + uint64(block.number - sp.ethNetworkFeeIndexBlockNumber) * PackedETH.unwrap(sp.ethNetworkFee);
     }
 
     function currentNetworkFeeIndexSSV(StorageProtocol storage sp) internal view returns (uint64) {
-        return sp.networkFeeIndex + uint64(block.number - sp.networkFeeIndexBlockNumber) * sp.networkFee;
+        return sp.networkFeeIndex + uint64(block.number - sp.networkFeeIndexBlockNumber) * PackedSSV.unwrap(sp.networkFee);
     }
 
     function updateNetworkFee(StorageProtocol storage sp, uint256 fee) internal {
@@ -25,7 +26,7 @@ library ProtocolLib {
 
         sp.ethNetworkFeeIndex = currentNetworkFeeIndex(sp);
         sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
-        sp.ethNetworkFee = fee.shrink();
+        sp.ethNetworkFee = PackedETHLib.pack(fee);
     }
 
     function updateNetworkFeeSSV(StorageProtocol storage sp, uint256 fee) internal {
@@ -33,7 +34,7 @@ library ProtocolLib {
 
         sp.networkFeeIndex = currentNetworkFeeIndexSSV(sp);
         sp.networkFeeIndexBlockNumber = uint32(block.number);
-        sp.networkFee = fee.shrink();
+        sp.networkFee = PackedSSVLib.pack(fee);
     }
 
     /**************************/
@@ -49,17 +50,16 @@ library ProtocolLib {
         sp.daoIndexBlockNumber = uint32(block.number);
     }
 
-    function networkTotalEarnings(StorageProtocol storage sp) internal view returns (uint64) {
+    function networkTotalEarnings(StorageProtocol storage sp) internal view returns (PackedETH) {
         uint128 units = sp.daoTotalEthVUnits;
         uint128 idx = uint64(block.number) - sp.ethDaoIndexBlockNumber;
-        uint128 fee = sp.ethNetworkFee;
 
-        uint128 earningsUnits = (idx * fee * units) / VUNITS_PRECISION;
-        return sp.ethDaoBalance + uint64(earningsUnits);
+        uint128 earningsUnits = (idx * PackedETH.unwrap(sp.ethNetworkFee) * units) / VUNITS_PRECISION;
+        return sp.ethDaoBalance.add(PackedETH.wrap(uint64(earningsUnits)));
     }    
 
-    function networkTotalEarningsSSV(StorageProtocol storage sp) internal view returns (uint64) {
-        return sp.daoBalance + (uint64(block.number) - sp.daoIndexBlockNumber) * sp.networkFee * sp.daoValidatorCount;
+    function networkTotalEarningsSSV(StorageProtocol storage sp) internal view returns (PackedSSV) {
+        return PackedSSV.wrap(PackedSSV.unwrap(sp.daoBalance) + (uint64(block.number) - sp.daoIndexBlockNumber) * PackedSSV.unwrap(sp.networkFee) * sp.daoValidatorCount);
     }
 
     function updateDAO(StorageProtocol storage sp, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {

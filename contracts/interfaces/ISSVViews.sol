@@ -217,13 +217,16 @@ interface ISSVViews is ISSVNetworkCore {
     function getOperatorFeeIncreaseLimit() external view returns (uint64);
 
     /// @notice Gets the operator maximum fee for operators that use SSV token
+    /// @return The maximum fee value (ETH)
+    function getMaximumOperatorFee() external view returns (uint256);
+
+    /// @notice Gets the operator maximum fee for operators that use SSV token
     /// @return The maximum fee value (SSV)
-    function getMaximumOperatorFee() external view returns (uint64);
     function getMaximumOperatorFeeSSV() external view returns (uint64);
 
     /// @notice Gets the minimum operator ETH fee (DAO-governed)
     /// @return The minimum fee value (ETH)
-    function getMinimumOperatorEthFee() external view returns (uint64);
+    function getMinimumOperatorEthFee() external view returns (uint256);
 
     /// @notice Gets the periods of operator fee declaration and execution
     /// @return The period for declaring operator fee
@@ -258,7 +261,7 @@ interface ISSVViews is ISSVNetworkCore {
 
     function accEthPerShare() external view returns (uint256);
 
-    function stakingEthPoolBalance() external view returns (uint64);
+    function stakingEthPoolBalance() external view returns (uint256);
 
     function previewClaimableEth(address user) external view returns (uint256);
 

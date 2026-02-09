@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
-import { MAXIMUM_OPERATORS_FEE } from "../../common/constants.ts";
+import { MAXIMUM_OPERATORS_FEE, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
@@ -44,7 +44,7 @@ describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
     await dao.updateMaximumOperatorFee(newMaxFee);
 
     const storedMaxFee = await dao.getOperatorMaxFee();
-    expect(storedMaxFee).to.equal(newMaxFee);
+    expect(storedMaxFee * ETH_DEDUCTED_DIGITS).to.equal(newMaxFee);
   });
 
   it("Can set maximum operator fee to zero", async function () {
@@ -75,7 +75,7 @@ describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
       .withArgs(secondMaxFee);
 
     const storedMaxFee = await dao.getOperatorMaxFee();
-    expect(storedMaxFee).to.equal(secondMaxFee);
+    expect(storedMaxFee * ETH_DEDUCTED_DIGITS).to.equal(secondMaxFee);
   });
 });
 

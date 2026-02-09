@@ -5,7 +5,7 @@ import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey } from "../../common/helpers.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
+  DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
   MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
 } from '../../common/constants.ts';
@@ -81,7 +81,7 @@ describe("SSVOperators function `reduceOperatorFee()`", async () => {
     
     // Verify fee is reduced
     const op = await operators.getOperator(1);
-    expect(op.ethFee).to.equal(BigInt(reducedFee) / 10_000_000n);
+    expect(op.ethFee).to.equal(BigInt(reducedFee) / ETH_DEDUCTED_DIGITS);
   });
 
   it("Is reverted with 'FeeTooLow' when reducing below minimal allowed fee", async function () {
@@ -95,6 +95,16 @@ describe("SSVOperators function `reduceOperatorFee()`", async () => {
       operators,
       Errors.FEE_TOO_LOW
     );
+  });
+
+  it("Is reverted with 'MaxPrecisionExceeded' when reduced fee is not aligned to ETH_DEDUCTED_DIGITS", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE * 2n);
+
+    await operators.registerOperator(makeOperatorKey(1), initialFee, false);
+
+    await expect(operators.reduceOperatorFee(1, 1n))
+      .to.be.revertedWithCustomError(operators, Errors.MAX_PRECISION_EXCEEDED);
   });
 
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to reduce fee", async function () {
