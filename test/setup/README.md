@@ -20,6 +20,8 @@ Run the setup script to copy mainnet contracts to the contracts directory:
 bash test/setup/setup-fork.sh
 ```
 
+**Important**: Run this command from the **project root directory**, not from `test/setup/`.
+
 This will:
 - Remove any existing `contracts/mainnet-fork` directory
 - Copy `test/setup/mainnet` to `contracts/mainnet-fork`
@@ -31,6 +33,8 @@ Compile the contracts so Hardhat can use them:
 ```bash
 npx hardhat compile
 ```
+
+**Important**: Run this command from the **project root directory**.
 
 ### Step 3: Run fork tests
 
@@ -45,6 +49,8 @@ Or run all fork tests:
 ```bash
 RUN_FORK=true npx hardhat test test/test-forked/
 ```
+
+**Important**: All commands must be run from the **project root directory** (`/Users/gabriel/ssv/repos/ssv-network/`), not from subdirectories.
 
 ## Environment Variables
 

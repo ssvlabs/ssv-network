@@ -220,11 +220,11 @@ export async function ssvNetworkFullFixture(
 }> {
   const deployer = await getDeployer(connection.ethers);
 
-  const { contract: ssvToken } = await deployContract(connection.ethers, "SSVToken");
+  const { contract: ssvToken } = await deployByFQN(connection.ethers, V2.SSVToken);
 
-  const { address: networkImplAddr } = await deployContract(connection.ethers, "SSVNetwork");
+  const { address: networkImplAddr } = await deployByFQN(connection.ethers, V2.SSVNetwork);
 
-  const networkFactory = await connection.ethers.getContractFactory("SSVNetwork");
+  const networkFactory = await connection.ethers.getContractFactory(V2.SSVNetwork);
   const networkInitData = networkFactory.interface.encodeFunctionData("initialize", [
     await ssvToken.getAddress(),
     ethers.ZeroAddress,
@@ -241,7 +241,7 @@ export async function ssvNetworkFullFixture(
     networkInitData
   );
 
-  const { contract: cssvToken } = await deployContract(connection.ethers, "CSSVToken", [networkProxyAddr]);
+  const { contract: cssvToken } = await deployByFQN(connection.ethers, V2.CSSVToken, [networkProxyAddr]);
 
   const moduleNames = [
     "SSVClusters",
@@ -250,20 +250,21 @@ export async function ssvNetworkFullFixture(
   ];
   const moduleAddresses: { [key: string]: string } = {};
 
-  const { address: ssvOperatorsAddr } = await deployContract(connection.ethers, "SSVOperators", [0]);
+  const { address: ssvOperatorsAddr } = await deployByFQN(connection.ethers, V2.SSVOperators, [0]);
   moduleAddresses["SSVOperators"] = ssvOperatorsAddr;
 
-  const { address: ssvDaoAddr } = await deployContract(connection.ethers, "SSVDAO", [await cssvToken.getAddress()]);
+  const { address: ssvDaoAddr } = await deployByFQN(connection.ethers, V2.SSVDAO, [await cssvToken.getAddress()]);
   moduleAddresses["SSVDAO"] = ssvDaoAddr;
 
-  const { address: ssvViewsAddr } = await deployContract(connection.ethers, "SSVViews", [await cssvToken.getAddress()]);
+  const { address: ssvViewsAddr } = await deployByFQN(connection.ethers, V2.SSVViews, [await cssvToken.getAddress()]);
   moduleAddresses["SSVViews"] = ssvViewsAddr;
 
-  const { address: ssvStakingAddr } = await deployContract(connection.ethers, "SSVStaking", [await cssvToken.getAddress()]);
+  const { address: ssvStakingAddr } = await deployByFQN(connection.ethers, V2.SSVStaking, [await cssvToken.getAddress()]);
   moduleAddresses["SSVStaking"] = ssvStakingAddr;
 
   for (const mod of moduleNames) {
-    const { address } = await deployContract(connection.ethers, mod);
+    const fqn = V2[mod as keyof typeof V2];
+    const { address } = await deployByFQN(connection.ethers, fqn);
     moduleAddresses[mod] = address;
   }
 
@@ -278,9 +279,9 @@ export async function ssvNetworkFullFixture(
   await attachModule(connection.ethers, networkProxyAddr, "SSVClusters", moduleAddresses["SSVClusters"]);
 
 
-  const { address: viewsImplAddr } = await deployContract(connection.ethers, "SSVNetworkViews");
+  const { address: viewsImplAddr } = await deployByFQN(connection.ethers, V2.SSVNetworkViews);
 
-  const viewsFactory = await connection.ethers.getContractFactory("SSVNetworkViews");
+  const viewsFactory = await connection.ethers.getContractFactory(V2.SSVNetworkViews);
   const viewsInitData = viewsFactory.interface.encodeFunctionData("initialize", [networkProxyAddr]);
 
   const { address: viewsProxyAddr } = await deployProxy(
@@ -292,7 +293,7 @@ export async function ssvNetworkFullFixture(
 
   const views = viewsFactory.attach(viewsProxyAddr);
 
-  const { address: upgradeImplAddr } = await deployContract(connection.ethers, "SSVNetworkSSVStakingUpgrade");
+  const { address: upgradeImplAddr } = await deployByFQN(connection.ethers, V2.SSVNetworkSSVStakingUpgrade);
 
   const cooldown = 7n * 24n * 60n * 60n;
 
@@ -386,13 +387,13 @@ export async function ssvNetworkFullForkedFixture(
   const { address: ssvOperatorsAddr } = await deployByFQN(ethers, V2.SSVOperators, [0]);
   modules["SSVOperators"] = ssvOperatorsAddr;
 
-  const { address: ssvDaoAddr } = await deployContract(ethers, "SSVDAO", [await cssvToken.getAddress()]);
+  const { address: ssvDaoAddr } = await deployByFQN(ethers, V2.SSVDAO, [await cssvToken.getAddress()]);
   modules["SSVDAO"] = ssvDaoAddr;
 
-  const { address: ssvViewsAddr } = await deployContract(ethers, "SSVViews", [await cssvToken.getAddress()]);
+  const { address: ssvViewsAddr } = await deployByFQN(ethers, V2.SSVViews, [await cssvToken.getAddress()]);
   modules["SSVViews"] = ssvViewsAddr;
 
-  const { address: ssvStakingAddr } = await deployContract(ethers, "SSVStaking", [await cssvToken.getAddress()]);
+  const { address: ssvStakingAddr } = await deployByFQN(ethers, V2.SSVStaking, [await cssvToken.getAddress()]);
   modules["SSVStaking"] = ssvStakingAddr;
 
   for (const mod of moduleNames) {
@@ -436,6 +437,9 @@ export async function ssvNetworkFullForkedFixture(
     await tx.wait();
   }
   await daoNetwork.updateModule(SSVModules.SSVOperators, ssvOperatorsAddr);
+  await daoNetwork.updateModule(SSVModules.SSVDAO, modules["SSVDAO"]);
+  await daoNetwork.updateModule(SSVModules.SSVViews, modules["SSVViews"]);
+  await daoNetwork.updateModule(SSVModules.SSVStaking, modules["SSVStaking"]);
 
   const ssvTokenFactory = await getFactoryByFQN(ethers, V2.SSVToken);
   let ssvToken = ssvTokenFactory.attach(ForkConfig.SSV_TOKEN);

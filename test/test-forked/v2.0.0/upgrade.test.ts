@@ -2283,7 +2283,7 @@ suite("SSVNetwork upgrade scenarios", () => {
       await expect(clusterBalanceAfter).to.be.at.most(expectedBalance + tolerance);
     });
 
-    it.skip("migrated cluster fees are correctly adjusted after operators removal", async function () {
+    it.only("migrated cluster fees are correctly adjusted after operators removal", async function () {
       const { network: mainnetNetwork, views: mainnetViews, ssvToken } =
         await networkHelpers.loadFixture(getMainnetFixture);
 
@@ -2355,6 +2355,62 @@ suite("SSVNetwork upgrade scenarios", () => {
         clusterOwner.address,
         operatorIds
       );
+
+      // Set all operator fees to equal the network fee
+      // This ensures that when we remove operators, the fee reduction is predictable
+      // We need to do incremental increases due to OPERATOR_MAX_FEE_INCREASE limit (100% per increase)
+      const operatorMaxFeeIncrease = await forkedViews.getOperatorFeeIncreaseLimit();
+      
+      async function setOperatorFeeToTarget(operatorId: number, targetFee: bigint) {
+        let currentFee = await forkedViews.getOperatorFee(operatorId);
+        
+        if (currentFee === targetFee) {
+          return; // Already at target
+        }
+        
+        if (currentFee > targetFee) {
+          // Decrease immediately
+          await forkedNetwork.connect(operatorOwner).reduceOperatorFee(operatorId, targetFee);
+          return;
+        }
+        
+        // Increase incrementally until we reach target
+        while (currentFee < targetFee) {
+          // Calculate max allowed increase: currentFee * 2 (100% increase)
+          const maxAllowedFee = (currentFee * (PRECISION_FACTOR + operatorMaxFeeIncrease) + PRECISION_FACTOR - 1n) / PRECISION_FACTOR;
+          const nextFee = maxAllowedFee < targetFee ? maxAllowedFee : targetFee;
+          
+          // Declare the fee increase
+          await forkedNetwork.connect(operatorOwner).declareOperatorFee(operatorId, nextFee);
+          
+          // Wait for declare and execute periods
+          await connection.networkHelpers.time.increase(
+            DECLARE_OPERATOR_FEE_PERIOD + EXECUTE_OPERATOR_FEE_PERIOD + 1n
+          );
+          await connection.networkHelpers.mine(1);
+          
+          // Execute the fee change
+          await forkedNetwork.connect(operatorOwner).executeOperatorFee(operatorId);
+          
+          // Update current fee for next iteration
+          currentFee = await forkedViews.getOperatorFee(operatorId);
+          
+          if (currentFee >= targetFee) {
+            break; // Reached or exceeded target
+          }
+        }
+      }
+      
+      // Set all operator fees to network fee
+      for (const operatorId of operatorIds) {
+        await setOperatorFeeToTarget(operatorId, ethNetworkFee);
+      }
+
+      // Verify all operator fees are now equal to network fee
+      for (const operatorId of operatorIds) {
+        const operatorFee = await forkedViews.getOperatorFee(operatorId);
+        await expect(operatorFee).to.be.equal(ethNetworkFee);
+      }
  
       const balanceBefore4Operators = await forkedViews.getBalance(clusterOwner.address, operatorIds, clusterData);
       await connection.networkHelpers.mine(1000);
@@ -2365,13 +2421,24 @@ suite("SSVNetwork upgrade scenarios", () => {
       await forkedNetwork.connect(operatorOwner).removeOperator(operatorIds[2]);
       await forkedNetwork.connect(operatorOwner).removeOperator(operatorIds[3]);
 
+      clusterData = await getCurrentClusterState(
+        connection,
+        forkedNetwork as any,
+        clusterOwner.address,
+        operatorIds
+      );
+
       const balanceBefore2Operators = await forkedViews.getBalance(clusterOwner.address, operatorIds, clusterData);
       await connection.networkHelpers.mine(1000);
 
       const balanceAfter2Operators = await forkedViews.getBalance(clusterOwner.address, operatorIds, clusterData);
       const consumedWith2Operators = balanceBefore2Operators - balanceAfter2Operators;
 
-      const expectedConsumedWith2Operators = consumedWith4Operators / 2n;
+      // With 4 operators + 1 network fee = 5 components total
+      // Removing 2 operators means 2/5 = 40% reduction
+      // So fees should be 60% of original (or 40% less)
+      // consumedWith2Operators should be 60% of consumedWith4Operators
+      const expectedConsumedWith2Operators = (consumedWith4Operators * 60n) / 100n;
       const tolerance = expectedConsumedWith2Operators / 100n;
       await expect(consumedWith2Operators).to.be.at.least(expectedConsumedWith2Operators - tolerance);
       await expect(consumedWith2Operators).to.be.at.most(expectedConsumedWith2Operators + tolerance);

@@ -40,10 +40,12 @@ export default defineConfig({
       type: 'edr-simulated',
       allowUnlimitedContractSize: true,
       blockGasLimit: 100_000_000,
-      forking: {
-        url: process.env.MAINNET_RPC_URL ?? "",
-        blockNumber: process.env.FORK_BLOCK_NUMBER ? Number(process.env.FORK_BLOCK_NUMBER) : undefined,
-      }
+      ...(process.env.MAINNET_RPC_URL && {
+        forking: {
+          url: process.env.MAINNET_RPC_URL,
+          blockNumber: process.env.FORK_BLOCK_NUMBER ? Number(process.env.FORK_BLOCK_NUMBER) : undefined,
+        }
+      })
     },
     hoodi: {
       type: "http",
