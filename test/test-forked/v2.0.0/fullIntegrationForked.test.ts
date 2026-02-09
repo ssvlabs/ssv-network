@@ -928,28 +928,6 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
     });
   });
 
-  describe("Function 'updateMaximumOperatorFeeSSV()'", async function(){
-    it("Updates maximum fee and emits correct event", async function() {
-      const { network, views, daoSigner } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
-
-      await expect(await network.connect(daoSigner)
-        .updateMaximumOperatorFeeSSV(MAXIMUM_OPERATORS_FEE * 2n))
-        .to.emit(network, Events.OPERATOR_MAXIMUM_FEE_UPDATED_SSV);
-
-      await expect(await views.getMaximumOperatorFeeSSV())
-        .to.be.equal(MAXIMUM_OPERATORS_FEE * 2n);
-    });
-
-    it("Is reverted with 'Ownable: caller is not the owner' if the caller is not the owner", async function() {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
-
-      await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
-        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
-    });
-  });
-
   describe("Function 'reduceOperatorFee()'", async function(){
     it("Decreases fee and emits the correct event", async function(){
       const { network, views } =

@@ -924,27 +924,6 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
-  describe("Function 'updateMaximumOperatorFeeSSV()'", async function() {
-    it("Updates maximum fee and emits correct event", async function() {
-      const { network, views } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      await expect(await network.updateMaximumOperatorFeeSSV(MAXIMUM_OPERATORS_FEE * 2n))
-        .to.emit(network, Events.OPERATOR_MAXIMUM_FEE_UPDATED_SSV);
-
-      expect(await views.getMaximumOperatorFeeSSV())
-        .to.be.equal(MAXIMUM_OPERATORS_FEE * 2n);
-    });
-
-    it("Is reverted with 'Ownable: caller is not the owner' if the caller is not the owner", async function() {
-      const { network } =
-        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
-        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
-    });
-  });
-
   describe("Function 'updateMinimumOperatorEthFee()'", async function() {
     it("Updates minimum fee and emits correct event", async function() {
       const { network, views } =

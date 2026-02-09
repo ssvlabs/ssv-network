@@ -78,11 +78,6 @@ contract SSVDAOHarness is SSVDAO {
         sp.operatorMaxFee = PackedETHLib.pack(maxFee);
     }
 
-    function mockSetOperatorMaxFeeSSV(uint64 maxFee) external {
-        StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.operatorMaxFeeSSV = maxFee;
-    }
-
     function mockSetOperatorMaxFeeIncrease(uint64 increase) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.operatorMaxFeeIncrease = increase;
@@ -178,10 +173,6 @@ contract SSVDAOHarness is SSVDAO {
         return PackedETH.unwrap(SSVStorageProtocol.load().operatorMaxFee);
     }
 
-    function getOperatorMaxFeeSSV() external view returns (uint64) {
-        return SSVStorageProtocol.load().operatorMaxFeeSSV;
-    }
-
     function getMinimumOperatorEthFee() external view returns (uint64) {
         return PackedETH.unwrap(SSVStorageProtocol.load().minimumOperatorEthFee);
     }
@@ -218,4 +209,3 @@ contract SSVDAOHarness is SSVDAO {
         return SSVStorageEB.load().hasVoted[commitmentKey][oracleId];
     }
 }
-

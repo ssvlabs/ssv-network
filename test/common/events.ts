@@ -28,7 +28,6 @@ export const Events = {
   MINIMUM_LIQUIDATION_COLLATERAL_UPDATED: "MinimumLiquidationCollateralUpdated",
   MINIMUM_LIQUIDATION_COLLATERAL_UPDATED_SSV: "MinimumLiquidationCollateralSSVUpdated",
   OPERATOR_MAXIMUM_FEE_UPDATED: "OperatorMaximumFeeUpdated",
-  OPERATOR_MAXIMUM_FEE_UPDATED_SSV: "OperatorMaximumFeeSSVUpdated",
   MINIMUM_OPERATOR_ETH_FEE_UPDATED: "MinimumOperatorEthFeeUpdated",
   STAKED: "Staked",
   UNSTAKE_REQUESTED: "UnstakeRequested",

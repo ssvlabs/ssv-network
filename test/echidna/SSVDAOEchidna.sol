@@ -154,11 +154,6 @@ contract SSVDAOEchidna is SSVDAO {
         try this.updateMinimumOperatorEthFee(value) {} catch {}
     }
 
-    function action_update_max_operator_fee_ssv(uint64 maxFee) external {
-        uint64 value = maxFee;
-        try this.updateMaximumOperatorFeeSSV(value) {} catch {}
-    }
-
     function action_set_quorum(uint16 quorum) external {
         uint16 value = uint16(uint256(quorum) % (MAX_QUORUM_BPS + 1));
         try this.setQuorumBps(value) {} catch {}
