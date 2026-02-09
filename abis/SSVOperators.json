@@ -75,7 +75,7 @@
   },
   {
     "inputs": [],
-    "name": "ClusterDoesNotExists",
+    "name": "ClusterDoesNotExist",
     "type": "error"
   },
   {
@@ -245,7 +245,17 @@
   },
   {
     "inputs": [],
+    "name": "MaxPrecisionExceeded",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "MaxRequestsAmountReached",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxValueExceeded",
     "type": "error"
   },
   {
@@ -311,6 +321,11 @@
   {
     "inputs": [],
     "name": "OracleAlreadyAssigned",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OracleHasZeroWeight",
     "type": "error"
   },
   {

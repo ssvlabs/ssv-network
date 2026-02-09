@@ -3,6 +3,17 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "_cssv",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "contractAddress",
         "type": "address"
       }
@@ -64,7 +75,7 @@
   },
   {
     "inputs": [],
-    "name": "ClusterDoesNotExists",
+    "name": "ClusterDoesNotExist",
     "type": "error"
   },
   {
@@ -234,7 +245,17 @@
   },
   {
     "inputs": [],
+    "name": "MaxPrecisionExceeded",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "MaxRequestsAmountReached",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxValueExceeded",
     "type": "error"
   },
   {
@@ -300,6 +321,11 @@
   {
     "inputs": [],
     "name": "OracleAlreadyAssigned",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OracleHasZeroWeight",
     "type": "error"
   },
   {
@@ -595,6 +621,19 @@
     ],
     "name": "UnstakedWithdrawn",
     "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "CSSV_ADDRESS",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
     "inputs": [],

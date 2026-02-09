@@ -3,6 +3,17 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "_cssv",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "contractAddress",
         "type": "address"
       }
@@ -64,7 +75,7 @@
   },
   {
     "inputs": [],
-    "name": "ClusterDoesNotExists",
+    "name": "ClusterDoesNotExist",
     "type": "error"
   },
   {
@@ -234,7 +245,17 @@
   },
   {
     "inputs": [],
+    "name": "MaxPrecisionExceeded",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "MaxRequestsAmountReached",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxValueExceeded",
     "type": "error"
   },
   {
@@ -300,6 +321,11 @@
   {
     "inputs": [],
     "name": "OracleAlreadyAssigned",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OracleHasZeroWeight",
     "type": "error"
   },
   {
@@ -511,6 +537,19 @@
       {
         "indexed": false,
         "internalType": "uint256",
+        "name": "minFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "MinimumOperatorEthFeeUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
         "name": "value",
         "type": "uint256"
       },
@@ -580,9 +619,9 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "uint64",
+        "internalType": "uint256",
         "name": "maxFee",
-        "type": "uint64"
+        "type": "uint256"
       }
     ],
     "name": "OperatorMaximumFeeUpdated",
@@ -708,6 +747,19 @@
     "type": "event"
   },
   {
+    "inputs": [],
+    "name": "CSSV_ADDRESS",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "bytes32",
@@ -824,9 +876,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint64",
+        "internalType": "uint256",
         "name": "maxFee",
-        "type": "uint64"
+        "type": "uint256"
       }
     ],
     "name": "updateMaximumOperatorFee",
@@ -856,6 +908,19 @@
       }
     ],
     "name": "updateMinimumLiquidationCollateralSSV",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "minFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateMinimumOperatorEthFee",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
