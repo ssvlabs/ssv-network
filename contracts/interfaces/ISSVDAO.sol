@@ -86,7 +86,6 @@ interface ISSVDAO is ISSVNetworkCore {
     event NetworkEarningsWithdrawn(uint256 value, address recipient);
 
     event OperatorMaximumFeeUpdated(uint256 maxFee);
-    event OperatorMaximumFeeSSVUpdated(uint64 maxFee);
     event MinimumOperatorEthFeeUpdated(uint256 minFee);
 
     /// @notice Emitted when an EB Merkle root is committed for a given block

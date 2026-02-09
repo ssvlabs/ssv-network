@@ -377,10 +377,6 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function updateMaximumOperatorFeeSSV(uint64 maxFee) external onlyOwner {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
-    }
-
     function updateMinimumOperatorEthFee(uint256 minFee) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }

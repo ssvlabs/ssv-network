@@ -108,11 +108,6 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         emit OperatorMaximumFeeUpdated(maxFee);
     }
 
-    function updateMaximumOperatorFeeSSV(uint64 maxFee) external {
-        SSVStorageProtocol.load().operatorMaxFeeSSV = maxFee;
-        emit OperatorMaximumFeeSSVUpdated(maxFee);
-    }
-
     function updateMinimumOperatorEthFee(uint256 minFee) external override {
         SSVStorageProtocol.load().minimumOperatorEthFee = PackedETHLib.pack(minFee);
         emit MinimumOperatorEthFeeUpdated(minFee);
