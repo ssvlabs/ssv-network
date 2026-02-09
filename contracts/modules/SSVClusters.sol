@@ -7,6 +7,8 @@ import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
+import {PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
+import {PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
@@ -16,7 +18,8 @@ import {
     VUNITS_PRECISION,
     MAX_EB_PER_VALIDATOR
 } from "../libraries/storage/SSVStorageEB.sol";
-import {Types64} from "../libraries/Types.sol";
+
+
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
@@ -24,7 +27,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
-    using Types64 for uint64;
 
     /**
      * @inheritdoc ISSVClusters
@@ -33,7 +35,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -54,7 +56,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             !cluster.isLiquidatableWithEB(
                 hashedCluster,
                 burnRate,
-                sp.ethNetworkFee,
+                PackedETH.unwrap(sp.ethNetworkFee),
                 sp.minimumBlocksBeforeLiquidation,
                 sp.minimumLiquidationCollateral
             )
@@ -76,7 +78,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
+        ClusterLib.validateClusterVersion(version, VERSION_SSV);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -89,7 +91,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             sp
         );
 
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndexSSV());
+        cluster.updateBalanceSSV(clusterIndex, sp.currentNetworkFeeIndexSSV());
 
         uint256 balanceLiquidatable;
 
@@ -97,7 +99,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             clusterOwner != msg.sender &&
             !cluster.isLiquidatable(
                 burnRate,
-                sp.networkFee,
+                PackedSSV.unwrap(sp.networkFee),
                 sp.minimumBlocksBeforeLiquidationSSV,
                 sp.minimumLiquidationCollateralSSV
             )
@@ -134,7 +136,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
         if (cluster.active) revert ClusterAlreadyEnabled();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -163,7 +165,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             cluster.isLiquidatableWithVUnits(
                 effectiveVUnits,
                 burnRate,
-                sp.ethNetworkFee,
+                PackedETH.unwrap(sp.ethNetworkFee),
                 sp.minimumBlocksBeforeLiquidation,
                 sp.minimumLiquidationCollateral
             )
@@ -189,7 +191,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
 
         cluster.balance += msg.value;
 
@@ -205,7 +207,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
         cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -216,12 +218,12 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             {
                 uint256 operatorsLength = operatorIds.length;
                 for (uint256 i; i < operatorsLength; ++i) {
-                    Operator storage operator = s.operators[operatorIds[i]];
+                    Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
                     clusterIndex +=
                         operator.ethSnapshot.index +
                         (uint64(block.number) - operator.ethSnapshot.block) *
-                        operator.ethFee;
-                    burnRate += operator.ethFee;
+                        PackedETH.unwrap(operator.ethFee);
+                    burnRate += PackedETH.unwrap(operator.ethFee);
                 }
             }
 
@@ -237,7 +239,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             cluster.isLiquidatableWithEB(
                 hashedCluster,
                 burnRate,
-                sp.ethNetworkFee,
+                PackedETH.unwrap(sp.ethNetworkFee),
                 sp.minimumBlocksBeforeLiquidation,
                 sp.minimumLiquidationCollateral
             )
@@ -260,7 +262,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_SSV);
+        ClusterLib.validateClusterVersion(version, VERSION_SSV);
         bool isLiquidated = !cluster.active; // A liquidated SSV cluster already had its SSV counts removed
 
         // compute cluster data using ETH fields
@@ -289,7 +291,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             cluster.isLiquidatableWithEB(
                 hashedCluster,
                 burnRate,
-                sp.ethNetworkFee,
+                PackedETH.unwrap(sp.ethNetworkFee),
                 sp.minimumBlocksBeforeLiquidation,
                 sp.minimumLiquidationCollateral
             )
@@ -380,7 +382,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         uint64 newVUnits = ClusterLib.ebToVUnits(ctx.effectiveBalance);
 
-        if (ctx.version == CoreLib.VERSION_ETH) {
+        if (ctx.version == VERSION_ETH) {
             // ETH clusters: full accounting flow
             uint64 storedVUnits = seb.clusterEB[clusterId].vUnits;
             uint64 effectiveOldVUnits = storedVUnits;
@@ -480,14 +482,14 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
         uint128 operatorFeeUnits = (idxOp * units) / VUNITS_PRECISION;
-        uint64 totalFees = uint64(networkFeeUnits) + uint64(operatorFeeUnits);
+        PackedETH totalFees = PackedETH.wrap(uint64(networkFeeUnits) + uint64(operatorFeeUnits));
 
-        // Now update indexes
+        // Update indexes
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = currentNetworkFeeIndex;
 
-        if (cluster.balance >= totalFees.expand()) {
-            cluster.balance -= totalFees.expand();
+        if (cluster.balance >= PackedETHLib.unpack(totalFees)) {
+            cluster.balance -= PackedETHLib.unpack(totalFees);
         } else {
             cluster.balance = 0;
         }
@@ -538,7 +540,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         if (cluster.isLiquidatableWithEB(
             clusterId,
             burnRate,
-            sp.ethNetworkFee,
+            PackedETH.unwrap(sp.ethNetworkFee),
             sp.minimumBlocksBeforeLiquidation,
             sp.minimumLiquidationCollateral
         )) {

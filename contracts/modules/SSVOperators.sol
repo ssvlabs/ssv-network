@@ -2,7 +2,8 @@
 pragma solidity 0.8.24;
 
 import {ISSVOperators} from "../interfaces/ISSVOperators.sol";
-import {Types64, Types256} from "../libraries/Types.sol";
+import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
@@ -15,10 +16,10 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
     uint64 private constant PRECISION_FACTOR = 10_000;
     uint256 public immutable UPGRADE_TIMESTAMP;
 
-    using Types256 for uint256;
-    using Types64 for uint64;
     using Counters for Counters.Counter;
     using OperatorLib for Operator;
+    using PackedETHLib for PackedETH;
+    using PackedSSVLib for PackedSSV;
 
     constructor(uint256 upgradeTimestamp) {
         UPGRADE_TIMESTAMP = upgradeTimestamp;
@@ -34,10 +35,10 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
     ) external override returns (uint64 id) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        if (fee != 0 && fee < sp.minimumOperatorEthFee) {
+        if (fee != 0 && fee < PackedETHLib.unpack(sp.minimumOperatorEthFee)) {
             revert ISSVNetworkCore.FeeTooLow();
         }
-        if (fee > sp.operatorMaxFee) {
+        if (fee > PackedETHLib.unpack(sp.operatorMaxFee)) {
             revert ISSVNetworkCore.FeeTooHigh();
         }
 
@@ -52,7 +53,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
         op.owner = msg.sender;
         op.whitelisted = setPrivate;
-        op.ethFee = fee.shrink();
+        op.ethFee = PackedETHLib.pack(fee);
 
         uint32 blockNum = uint32(block.number);
         op.snapshot.block = blockNum;
@@ -77,18 +78,18 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
         OperatorLib.updateSnapshotsSt(operator, operatorId);
 
-        uint64 currentBalanceETH = operator.ethSnapshot.balance;
-        uint64 currentBalanceSSV = operator.snapshot.balance;
+        PackedETH currentBalanceETH = operator.ethSnapshot.balance;
+        PackedSSV currentBalanceSSV = operator.snapshot.balance;
 
         _resetOperatorState(operator);
 
         delete s.operatorsWhitelist[operatorId];
 
-        if (currentBalanceETH > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalanceETH.expand());
+        if (PackedETHLib.raw(currentBalanceETH) > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(currentBalanceETH));
         }
-        if (currentBalanceSSV > 0) {
-            _transferOperatorTokenBalanceUnsafe(operatorId, currentBalanceSSV.expand());
+        if (PackedSSVLib.raw(currentBalanceSSV) > 0) {
+            _transferOperatorTokenBalanceUnsafe(operatorId, PackedSSVLib.unpack(currentBalanceSSV));
         }
         emit OperatorRemoved(operatorId);
     }
@@ -102,28 +103,28 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        if (fee != 0 && fee < sp.minimumOperatorEthFee) revert FeeTooLow();
-        if (fee > sp.operatorMaxFee) revert FeeTooHigh();
+        if (fee != 0 && fee < PackedETHLib.unpack(sp.minimumOperatorEthFee)) revert FeeTooLow();
+        if (fee > PackedETHLib.unpack(sp.operatorMaxFee)) revert FeeTooHigh();
         if (s.operators[operatorId].ethSnapshot.block == 0) {
             s.operators[operatorId].ensureETHDefaults();
         }
-        uint64 operatorSSVFee = s.operators[operatorId].fee;
-        uint64 operatorFee = s.operators[operatorId].ethFee;
-        uint64 shrunkFee = fee.shrink();
+        PackedSSV operatorSSVFee = s.operators[operatorId].fee;
+        PackedETH operatorFee = s.operators[operatorId].ethFee;
+        PackedETH shrunkFee = PackedETHLib.pack(fee);
 
-        if (operatorFee == shrunkFee) {
+        if (operatorFee.eq(shrunkFee)) {
             revert SameFeeChangeNotAllowed();
-        } else if (shrunkFee != 0 && operatorFee == 0 && operatorSSVFee == 0) {
+        } else if (shrunkFee.raw() != 0 && operatorFee.raw() == 0 && operatorSSVFee.raw() == 0) {
             revert FeeIncreaseNotAllowed();
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease) + PRECISION_FACTOR - 1) / PRECISION_FACTOR;
+        uint64 maxAllowedFee = (operatorFee.raw() * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease) + PRECISION_FACTOR - 1) / PRECISION_FACTOR;
 
-        if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
+        if (shrunkFee.raw() > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 
         s.operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
-            shrunkFee,
+            PackedETH.unwrap(shrunkFee),
             uint64(block.timestamp) + sp.declareOperatorFeePeriod,
             uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod
         );
@@ -151,15 +152,15 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
             revert ApprovalNotWithinTimeframe();
         }
 
-        if (feeChangeRequest.fee.expand() > SSVStorageProtocol.load().operatorMaxFee) revert FeeTooHigh();
+        if (PackedETH.wrap(feeChangeRequest.fee).gt(SSVStorageProtocol.load().operatorMaxFee)) revert FeeTooHigh();
 
         Operator storage operator = s.operators[operatorId];
         OperatorLib.updateSnapshotSt(operator, operatorId);
-        operator.ethFee = feeChangeRequest.fee;
+        operator.ethFee = PackedETH.wrap(feeChangeRequest.fee);
 
         delete s.operatorFeeChangeRequests[operatorId];
 
-        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, feeChangeRequest.fee.expand());
+        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, PackedETHLib.unpack(PackedETH.wrap(feeChangeRequest.fee)));
     }
 
     /**
@@ -183,12 +184,12 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
 
-        if (fee != 0 && fee < SSVStorageProtocol.load().minimumOperatorEthFee) revert FeeTooLow();
+        if (fee != 0 && fee < PackedETHLib.unpack(SSVStorageProtocol.load().minimumOperatorEthFee)) revert FeeTooLow();
 
         Operator memory operator = s.operators[operatorId]; 
 
-        uint64 shrunkAmount = fee.shrink();
-        if (shrunkAmount >= operator.ethFee) revert FeeIncreaseNotAllowed();
+        PackedETH shrunkAmount = PackedETHLib.pack(fee);
+        if (shrunkAmount.gte(operator.ethFee)) revert FeeIncreaseNotAllowed();
 
         operator.updateSnapshot(operatorId);
         operator.ethFee = shrunkAmount;
@@ -219,14 +220,14 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
      * @inheritdoc ISSVOperators
      */
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override nonReentrant {
-        _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_ETH);
+        _withdrawOperatorEarnings(operatorId, amount, VERSION_ETH);
     }
 
     /**
      * @inheritdoc ISSVOperators
      */
     function withdrawAllOperatorEarnings(uint64 operatorId) external override nonReentrant {
-        _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_ETH);
+        _withdrawOperatorEarnings(operatorId, 0, VERSION_ETH);
     }
 
     /**
@@ -240,19 +241,19 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
         operator.updateSnapshots(operatorId);
 
-        uint64 ethBalance = operator.ethSnapshot.balance;
-        uint64 ssvBalance = operator.snapshot.balance;
+        PackedETH ethBalance = operator.ethSnapshot.balance;
+        PackedSSV ssvBalance = operator.snapshot.balance;
 
-        operator.ethSnapshot.balance = 0;
-        operator.snapshot.balance = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        operator.snapshot.balance = PACKED_SSV_ZERO;
 
         s.operators[operatorId] = operator;
 
-        if (ethBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, ethBalance.expand());
+        if (PackedETHLib.raw(ethBalance) > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(ethBalance));
         }
-        if (ssvBalance > 0) {
-            _transferOperatorTokenBalanceUnsafe(operatorId, ssvBalance.expand());
+        if (PackedSSVLib.raw(ssvBalance) > 0) {
+            _transferOperatorTokenBalanceUnsafe(operatorId, PackedSSVLib.unpack(ssvBalance));
         }
     }
 
@@ -260,14 +261,14 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
      * @inheritdoc ISSVOperators
      */
     function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override nonReentrant {
-        _withdrawOperatorEarnings(operatorId, amount, CoreLib.VERSION_SSV);
+        _withdrawOperatorEarnings(operatorId, amount, VERSION_SSV);
     }
 
     /**
      * @inheritdoc ISSVOperators
      */
     function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override nonReentrant {
-        _withdrawOperatorEarnings(operatorId, 0, CoreLib.VERSION_SSV);
+        _withdrawOperatorEarnings(operatorId, 0, VERSION_SSV);
     }
 
     // private functions
@@ -281,40 +282,41 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
         operator.checkOwner();
 
-        uint64 shrunkWithdrawn;
-        uint64 shrunkAmount = amount.shrink();
-
-        if (version == CoreLib.VERSION_ETH) {
+        if (version == VERSION_ETH) {
+            PackedETH shrunkWithdrawn;
+            PackedETH shrunkAmount = PackedETHLib.pack(amount);
             OperatorLib.updateSnapshotSt(operator, operatorId);
 
-            uint64 balance = operator.ethSnapshot.balance;
+            PackedETH balance = operator.ethSnapshot.balance;
 
             if (amount == 0) {
-                if (balance == 0) revert InsufficientBalance();
+                if (PackedETHLib.raw(balance) == 0) revert InsufficientBalance();
                 shrunkWithdrawn = balance;
             } else {
-                if (balance < shrunkAmount) revert InsufficientBalance();
+                if (PackedETHLib.raw(balance) < PackedETHLib.raw(shrunkAmount)) revert InsufficientBalance();
                 shrunkWithdrawn = shrunkAmount;
             }
 
-            operator.ethSnapshot.balance = balance - shrunkWithdrawn;
-            _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+            operator.ethSnapshot.balance = balance.sub(shrunkWithdrawn);
+            _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(shrunkWithdrawn));
 
-        } else if (version == CoreLib.VERSION_SSV) {
+        } else if (version == VERSION_SSV) {
+            PackedSSV shrunkWithdrawn;
+            PackedSSV shrunkAmount = PackedSSVLib.pack(amount);
             OperatorLib.updateSnapshotStSSV(operator);
 
-            uint64 balance = operator.snapshot.balance;
+            PackedSSV balance = operator.snapshot.balance;
 
             if (amount == 0) {
-                if (balance == 0) revert InsufficientBalance();
+                if (PackedSSVLib.raw(balance) == 0) revert InsufficientBalance();
                 shrunkWithdrawn = balance;
             } else {
-                if (balance < shrunkAmount) revert InsufficientBalance();
+                if (PackedSSVLib.raw(balance) < PackedSSVLib.raw(shrunkAmount)) revert InsufficientBalance();
                 shrunkWithdrawn = shrunkAmount;
             }
 
-            operator.snapshot.balance = balance - shrunkWithdrawn;
-            _transferOperatorTokenBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+            operator.snapshot.balance = balance.sub(shrunkWithdrawn);
+            _transferOperatorTokenBalanceUnsafe(operatorId, PackedSSVLib.unpack(shrunkWithdrawn));
 
         } else {
             revert ISSVNetworkCore.IncorrectOperatorVersion(version);
@@ -323,11 +325,11 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
     function _resetOperatorState(Operator storage operator) private returns (Operator memory) {
         operator.ethSnapshot.block = 0;
-        operator.ethSnapshot.balance = 0;
-        operator.ethFee = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        operator.ethFee = PACKED_ETH_ZERO;
         operator.snapshot.block = 0;
-        operator.snapshot.balance = 0;
-        operator.fee = 0;
+        operator.snapshot.balance = PACKED_SSV_ZERO;
+        operator.fee = PACKED_SSV_ZERO;
         operator.ethValidatorCount = 0;
         operator.validatorCount = 0;
         

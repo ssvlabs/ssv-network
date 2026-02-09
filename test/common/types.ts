@@ -17,6 +17,11 @@ export interface Operator {
   isActive: boolean;
 }
 
+export interface UnstakeRequest {
+  amount: bigint;
+  unlockTime: bigint;
+}
+
 export type ClusterTuple = readonly [
   validatorCount: bigint,
   networkFeeIndex: bigint,

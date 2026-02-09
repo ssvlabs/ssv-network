@@ -7,6 +7,7 @@ import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
+import {VERSION_ETH} from "../libraries/SSVCoreTypes.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
@@ -15,13 +16,11 @@ import {
     ClusterEBSnapshot,
     VUNITS_PRECISION
 } from "../libraries/storage/SSVStorageEB.sol";
-import {Types64} from "../libraries/Types.sol";
 
 contract SSVValidators is ISSVValidators {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
-    using Types64 for uint64;
 
     /**
      * @inheritdoc ISSVValidators
@@ -175,7 +174,7 @@ contract SSVValidators is ISSVValidators {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(owner, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, CoreLib.VERSION_ETH);
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         uint32 validatorsRemoved;

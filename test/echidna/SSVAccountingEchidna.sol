@@ -10,7 +10,6 @@ import "../../contracts/libraries/ProtocolLib.sol";
 import "../../contracts/libraries/storage/SSVStorage.sol";
 import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
-import "../../contracts/libraries/Types.sol";
 import "../../contracts/modules/SSVClusters.sol";
 import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/modules/SSVOperators.sol";
@@ -18,6 +17,9 @@ import "../../contracts/test/mocks/MockToken.sol";
 import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+
+import {PackedETHLib, PackedSSVLib, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
+import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract ClusterUser {
     ISSVClusters public clusters;
@@ -89,17 +91,17 @@ contract OperatorUser {
 contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     using ClusterLib for ISSVNetworkCore.Cluster;
     using Counters for Counters.Counter;
-    using Types64 for uint64;
-    using Types256 for uint256;
     using ProtocolLib for StorageProtocol;
+    using PackedETHLib for PackedETH;
+    using PackedSSVLib for PackedSSV;
 
     uint8 private constant MAX_ETH_CLUSTERS = 6;
     uint8 private constant MAX_SSV_CLUSTERS = 6;
     uint32 private constant MAX_ADVANCE_BLOCKS = 8;
-    uint64 private constant DEFAULT_OPERATOR_ETH_FEE = 1;
-    uint64 private constant DEFAULT_OPERATOR_SSV_FEE = 1;
-    uint64 private constant DEFAULT_NETWORK_ETH_FEE = 1;
-    uint64 private constant DEFAULT_NETWORK_SSV_FEE = 1;
+    PackedETH private constant DEFAULT_OPERATOR_ETH_FEE = PackedETH.wrap(1);
+    PackedSSV private constant DEFAULT_OPERATOR_SSV_FEE = PackedSSV.wrap(1);
+    PackedETH private constant DEFAULT_NETWORK_ETH_FEE = PackedETH.wrap(1);
+    PackedSSV private constant DEFAULT_NETWORK_SSV_FEE = PackedSSV.wrap(1);
     uint64 private constant MIN_BLOCKS_BEFORE_LIQUIDATION = 2;
     uint64 private constant MAX_SSV_MINT_UNITS = 1_000_000;
 
@@ -254,13 +256,13 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64[] memory operatorIdsLocal = _operatorIdsForKey(record.operatorsKey);
 
-        uint64 burnRate;
+        PackedETH burnRate;
         for (uint256 i; i < operatorIdsLocal.length; ++i) {
-            burnRate += s.operators[operatorIdsLocal[i]].ethFee;
+            burnRate = burnRate.add(s.operators[operatorIdsLocal[i]].ethFee);
         }
-        uint256 minPerBlock = uint256(burnRate + sp.ethNetworkFee) * uint64(record.cluster.validatorCount) * DEDUCTED_DIGITS;
+        uint256 minPerBlock = uint256(PackedETH.unwrap(burnRate) + PackedETH.unwrap(sp.ethNetworkFee)) * uint64(record.cluster.validatorCount) * ETH_DEDUCTED_DIGITS;
         uint256 minRequired = minPerBlock * (MAX_ADVANCE_BLOCKS + 2);
-        if (minRequired == 0) minRequired = DEDUCTED_DIGITS;
+        if (minRequired == 0) minRequired = ETH_DEDUCTED_DIGITS;
 
         uint256 amount = _boundAmount(seed >> 8, unallocatedEth);
         if (amount < minRequired) amount = minRequired;
@@ -295,11 +297,11 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64[] memory operatorIdsLocal = _operatorIdsForKey(record.operatorsKey);
 
-        uint64 burnRate;
+        PackedSSV burnRate;
         for (uint256 i; i < operatorIdsLocal.length; ++i) {
-            burnRate += s.operators[operatorIdsLocal[i]].fee;
+            burnRate = burnRate.add(s.operators[operatorIdsLocal[i]].fee);
         }
-        uint256 minPerBlock = uint256(burnRate + sp.networkFee) * uint64(record.cluster.validatorCount) * DEDUCTED_DIGITS;
+        uint256 minPerBlock = uint256(PackedSSV.unwrap(burnRate) + PackedSSV.unwrap(sp.networkFee)) * uint64(record.cluster.validatorCount) * DEDUCTED_DIGITS;
         uint256 minRequired = minPerBlock * (MAX_ADVANCE_BLOCKS + 2);
         if (minRequired == 0) minRequired = DEDUCTED_DIGITS;
 
@@ -461,11 +463,11 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         if (ownerAddr == address(0)) return;
 
         ISSVNetworkCore.Operator memory operator = SSVStorage.load().operators[operatorId];
-        uint64 balance = operator.ethSnapshot.balance;
-        if (balance == 0) return;
+        PackedETH balance = operator.ethSnapshot.balance;
+        if (balance.eq(PACKED_ETH_ZERO)) return;
 
-        uint64 withdrawShrunk = uint64(seed % balance) + 1;
-        uint256 amount = withdrawShrunk.expand();
+        PackedETH withdrawShrunk = PackedETH.wrap(uint64(seed % PackedETH.unwrap(balance)) + 1);
+        uint256 amount = PackedETHLib.unpack(withdrawShrunk);
         if (amount > address(this).balance) return;
 
         uint256 ownerBefore = ownerAddr.balance;
@@ -483,11 +485,11 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         if (ownerAddr == address(0)) return;
 
         ISSVNetworkCore.Operator memory operator = SSVStorage.load().operators[operatorId];
-        uint64 balance = operator.snapshot.balance;
-        if (balance == 0) return;
+        PackedSSV balance = operator.snapshot.balance;
+        if (balance.eq(PACKED_SSV_ZERO)) return;
 
-        uint64 withdrawShrunk = uint64(seed % balance) + 1;
-        uint256 amount = withdrawShrunk.expand();
+        PackedSSV withdrawShrunk = PackedSSV.wrap(uint64(seed % PackedSSV.unwrap(balance)) + 1);
+        uint256 amount = PackedSSVLib.unpack(withdrawShrunk);
         if (amount > token.balanceOf(address(this))) return;
 
         uint256 ownerBefore = token.balanceOf(ownerAddr);
@@ -500,12 +502,12 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     function action_withdraw_dao_ssv(uint256 seed) external {
         _settleTime();
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        uint64 available = sp.daoBalance;
-        if (available == 0) return;
-        uint64 withdrawUnits = uint64(seed % (available + 1));
-        if (withdrawUnits == 0) return;
+        PackedSSV available = sp.daoBalance;
+        if (available.eq(PACKED_SSV_ZERO)) return;
+        PackedSSV withdrawUnits = PackedSSV.wrap(uint64(seed % (PackedSSV.unwrap(available) + 1)));
+        if (withdrawUnits.eq(PACKED_SSV_ZERO)) return;
 
-        uint256 amount = withdrawUnits.expand();
+        uint256 amount = PackedSSVLib.unpack(withdrawUnits);
         if (amount > token.balanceOf(address(this))) return;
 
         uint256 before = token.balanceOf(address(this));
@@ -517,7 +519,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     function action_update_network_fee(uint256 seed) external {
         _settleTime();
         uint64 units = uint64(seed % 10);
-        uint256 fee = uint256(units) * DEDUCTED_DIGITS;
+        uint256 fee = uint256(units) * ETH_DEDUCTED_DIGITS;
         try this.updateNetworkFee(fee) {} catch {}
     }
 
@@ -586,9 +588,9 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         sp.daoIndexBlockNumber = uint32(block.number);
         sp.minimumBlocksBeforeLiquidation = MIN_BLOCKS_BEFORE_LIQUIDATION;
         sp.minimumBlocksBeforeLiquidationSSV = MIN_BLOCKS_BEFORE_LIQUIDATION;
-        sp.minimumLiquidationCollateral = 0;
-        sp.minimumLiquidationCollateralSSV = 0;
-        sp.operatorMaxFee = type(uint64).max;
+        sp.minimumLiquidationCollateral = PACKED_ETH_ZERO;
+        sp.minimumLiquidationCollateralSSV = PACKED_SSV_ZERO;
+        sp.operatorMaxFee = PackedETH.wrap(type(uint64).max);
         sp.operatorMaxFeeSSV = type(uint64).max;
     }
 
@@ -616,11 +618,11 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             validatorCount: 0,
             fee: DEFAULT_OPERATOR_SSV_FEE,
             owner: owner,
-            snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
+            snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: PACKED_SSV_ZERO}),
             whitelisted: false,
             ethValidatorCount: 0,
             ethFee: DEFAULT_OPERATOR_ETH_FEE,
-            ethSnapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0})
+            ethSnapshot: ISSVNetworkCore.EthSnapshot({block: uint32(block.number), index: 0, balance: PACKED_ETH_ZERO})
         });
         s.operatorsPKs[keccak256(abi.encodePacked(pk))] = id;
         return id;
@@ -745,14 +747,14 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             if (operator.ethSnapshot.block != 0) {
                 uint32 diff = currentBlock - operator.ethSnapshot.block;
                 if (diff != 0) {
-                    uint64 blockDiffFee = uint64(diff) * operator.ethFee;
+                    uint64 blockDiffFee = uint64(diff) * PackedETH.unwrap(operator.ethFee);
                     // Deviation-only model: effectiveVUnits = baseline + storedDeviation
                     uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
                     uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
                     operator.ethSnapshot.index += blockDiffFee;
                     if (effectiveVUnits != 0 && blockDiffFee != 0) {
                         uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
-                        operator.ethSnapshot.balance += uint64(delta);
+                        operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
                     }
                     operator.ethSnapshot.block = currentBlock;
                 }
@@ -761,9 +763,9 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             if (operator.snapshot.block != 0) {
                 uint32 diff = currentBlock - operator.snapshot.block;
                 if (diff != 0) {
-                    uint64 blockDiffFee = uint64(diff) * operator.fee;
+                    uint64 blockDiffFee = uint64(diff) * PackedSSV.unwrap(operator.fee);
                     operator.snapshot.index += blockDiffFee;
-                    operator.snapshot.balance += blockDiffFee * operator.validatorCount;
+                    operator.snapshot.balance = operator.snapshot.balance.add(PackedSSV.wrap(blockDiffFee * operator.validatorCount));
                     operator.snapshot.block = currentBlock;
                 }
             }
@@ -796,40 +798,40 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
             if (operator.ethSnapshot.block != 0) {
-                uint64 blockDiffFee = uint64(blocks) * operator.ethFee;
+                uint64 blockDiffFee = uint64(blocks) * PackedETH.unwrap(operator.ethFee);
                 // Deviation-only model: effectiveVUnits = baseline + storedDeviation
                 uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
                 uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
                 operator.ethSnapshot.index += blockDiffFee;
                 if (effectiveVUnits != 0 && blockDiffFee != 0) {
                     uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
-                    operator.ethSnapshot.balance += uint64(delta);
+                    operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
                 }
                 operator.ethSnapshot.block = currentBlock;
             }
 
             if (operator.snapshot.block != 0) {
-                uint64 blockDiffFee = uint64(blocks) * operator.fee;
+                uint64 blockDiffFee = uint64(blocks) * PackedSSV.unwrap(operator.fee);
                 operator.snapshot.index += blockDiffFee;
-                operator.snapshot.balance += blockDiffFee * operator.validatorCount;
+                operator.snapshot.balance = operator.snapshot.balance.add(PackedSSV.wrap(blockDiffFee * operator.validatorCount));
                 operator.snapshot.block = currentBlock;
             }
         }
 
-        sp.ethNetworkFeeIndex += uint64(blocks) * sp.ethNetworkFee;
-        sp.networkFeeIndex += uint64(blocks) * sp.networkFee;
+        sp.ethNetworkFeeIndex += uint64(blocks) * PackedETH.unwrap(sp.ethNetworkFee);
+        sp.networkFeeIndex += uint64(blocks) * PackedSSV.unwrap(sp.networkFee);
         sp.ethNetworkFeeIndexBlockNumber = currentBlock;
         sp.networkFeeIndexBlockNumber = currentBlock;
 
-        if (sp.daoTotalEthVUnits != 0 && sp.ethNetworkFee != 0) {
-            uint128 earned = (uint128(blocks) * uint128(sp.ethNetworkFee) * uint128(sp.daoTotalEthVUnits)) /
+        if (sp.daoTotalEthVUnits != 0 && sp.ethNetworkFee.eq(PACKED_ETH_ZERO)) {
+            uint128 earned = (uint128(blocks) * uint128(PackedETH.unwrap(sp.ethNetworkFee)) * uint128(sp.daoTotalEthVUnits)) /
                 VUNITS_PRECISION;
-            sp.ethDaoBalance += uint64(earned);
+            sp.ethDaoBalance = sp.ethDaoBalance.add(PackedETH.wrap(uint64(earned)));
         }
 
-        if (sp.daoValidatorCount != 0 && sp.networkFee != 0) {
-            uint64 earned = uint64(blocks) * sp.networkFee * sp.daoValidatorCount;
-            sp.daoBalance += earned;
+        if (sp.daoValidatorCount != 0 && sp.networkFee.neq(PACKED_SSV_ZERO)) {
+            uint64 earned = uint64(blocks) * PackedSSV.unwrap(sp.networkFee) * sp.daoValidatorCount;
+            sp.daoBalance = sp.daoBalance.add(PackedSSV.wrap(earned));
         }
         sp.ethDaoIndexBlockNumber = currentBlock;
         sp.daoIndexBlockNumber = currentBlock;
@@ -884,7 +886,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         uint256 sum = 0;
         uint256 count = operatorIds.length;
         for (uint256 i; i < count; ++i) {
-            sum += s.operators[operatorIds[i]].ethSnapshot.balance.expand();
+            sum += PackedETHLib.unpack(s.operators[operatorIds[i]].ethSnapshot.balance);
         }
         return sum;
     }
@@ -894,16 +896,16 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         uint256 sum = 0;
         uint256 count = operatorIds.length;
         for (uint256 i; i < count; ++i) {
-            sum += s.operators[operatorIds[i]].snapshot.balance.expand();
+            sum += PackedSSVLib.unpack(s.operators[operatorIds[i]].snapshot.balance);
         }
         return sum;
     }
 
     function _daoEthEarnings() internal view returns (uint256) {
-        return SSVStorageProtocol.load().ethDaoBalance.expand();
+        return PackedETHLib.unpack(SSVStorageProtocol.load().ethDaoBalance);
     }
 
     function _daoSsvEarnings() internal view returns (uint256) {
-        return SSVStorageProtocol.load().daoBalance.expand();
+        return PackedSSVLib.unpack(SSVStorageProtocol.load().daoBalance);
     }
 }

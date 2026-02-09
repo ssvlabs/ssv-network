@@ -9,9 +9,7 @@ import "./storage/SSVStorage.sol";
  * @notice Library with core utility functions for SSV network including transfers, contract checks and module upgrades
  */
 library CoreLib {
-    uint8 internal constant VERSION_SSV = 0;
-    uint8 internal constant VERSION_ETH = 1;
-    uint8 internal constant VERSION_UNDEFINED = type(uint8).max;
+    event ModuleUpgraded(SSVModules indexed moduleId, address moduleAddress);
 
     /**
      * @dev Emitted when a module is upgraded

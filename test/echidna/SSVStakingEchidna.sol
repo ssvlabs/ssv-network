@@ -5,10 +5,12 @@ import "../../contracts/modules/SSVStaking.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/storage/SSVStorageStaking.sol";
 import "../../contracts/libraries/storage/SSVStorage.sol";
-import "../../contracts/libraries/Types.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import {ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
+import {PackedETH} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 interface IStakingHook {
     function onCSSVTransfer(address from, address to, uint256 amount) external;
@@ -92,6 +94,8 @@ contract StakingUser {
 }
 
 contract SSVStakingEchidna is SSVStaking {
+    using PackedETHLib for PackedETH;
+
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint256 private constant MAX_STAKE = 1_000_000 ether;
     uint256 private constant MAX_PENDING_REQUESTS = 10;
@@ -202,25 +206,25 @@ contract SSVStakingEchidna is SSVStaking {
         StorageStaking storage s = SSVStorageStaking.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        uint64 previous = s.stakingEthPoolBalance;
+        uint64 previous = PackedETH.unwrap(s.stakingEthPoolBalance);
         uint64 add = _boundShrunk(seed, type(uint64).max);
         if (add == 0) return;
         if (previous > type(uint64).max - add) return;
         uint64 current = previous + add;
 
-        uint64 oldDao = sp.ethDaoBalance;
+        uint64 oldDao = PackedETH.unwrap(sp.ethDaoBalance);
         uint32 oldIndex = sp.ethDaoIndexBlockNumber;
 
-        sp.ethDaoBalance = current;
+        sp.ethDaoBalance = PackedETH.wrap(current);
         sp.ethDaoIndexBlockNumber = uint32(block.number);
 
         try this.syncFees() {
-            if (s.stakingEthPoolBalance != current) {
+            if (PackedETH.unwrap(s.stakingEthPoolBalance) != current) {
                 syncFeesMismatch = true;
             }
         } catch {
             syncFeesFailed = true;
-            sp.ethDaoBalance = oldDao;
+            sp.ethDaoBalance = PackedETH.wrap(oldDao);
             sp.ethDaoIndexBlockNumber = oldIndex;
         }
     }
@@ -229,26 +233,26 @@ contract SSVStakingEchidna is SSVStaking {
         StorageStaking storage s = SSVStorageStaking.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        uint64 oldPool = s.stakingEthPoolBalance;
+        uint64 oldPool = PackedETH.unwrap(s.stakingEthPoolBalance);
         uint64 previous = _boundShrunk(seed, type(uint64).max);
         if (previous == 0) previous = 1;
         uint64 current = previous - 1;
 
-        uint64 oldDao = sp.ethDaoBalance;
+        uint64 oldDao = PackedETH.unwrap(sp.ethDaoBalance);
         uint32 oldIndex = sp.ethDaoIndexBlockNumber;
 
-        s.stakingEthPoolBalance = previous;
+        s.stakingEthPoolBalance = PackedETH.wrap(previous);
         _mockSetEthDaoBalance(current);
         sawDecrease = true;
 
         try this.syncFees() {
-            if (s.stakingEthPoolBalance != current) {
+            if (PackedETH.unwrap(s.stakingEthPoolBalance) != current) {
                 syncFeesMismatch = true;
             }
         } catch {
             syncFeesFailed = true;
-            s.stakingEthPoolBalance = oldPool;
-            sp.ethDaoBalance = oldDao;
+            s.stakingEthPoolBalance = PackedETH.wrap(oldPool);
+            sp.ethDaoBalance = PackedETH.wrap(oldDao);
             sp.ethDaoIndexBlockNumber = oldIndex;
         }
     }
@@ -283,16 +287,6 @@ contract SSVStakingEchidna is SSVStaking {
         return supply == sumBalances;
     }
 
-    function echidna_transfer_conserves_total_delegation() external view returns (bool) {
-        // Delegation is deprecated; treat total delegation as total cSSV supply.
-        uint256 supply = cssv.totalSupply();
-        uint256 sumBalances = cssv.balanceOf(address(user1)) +
-            cssv.balanceOf(address(user2)) +
-            cssv.balanceOf(address(user3)) +
-            cssv.balanceOf(address(user4));
-        return supply == sumBalances;
-    }
-
     function echidna_ssv_balance_matches_staked_plus_pending() external view returns (bool) {
         StorageStaking storage s = SSVStorageStaking.load();
         uint256 pending = _totalPendingUnstake(s);
@@ -303,7 +297,7 @@ contract SSVStakingEchidna is SSVStaking {
 
     function echidna_pool_matches_dao_balance() external view returns (bool) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        return SSVStorageStaking.load().stakingEthPoolBalance == sp.ethDaoBalance;
+        return SSVStorageStaking.load().stakingEthPoolBalance.eq(sp.ethDaoBalance);
     }
 
     function echidna_pending_requests_bounded() external view returns (bool) {
@@ -332,7 +326,7 @@ contract SSVStakingEchidna is SSVStaking {
             s.accrued[address(user2)] +
             s.accrued[address(user3)] +
             s.accrued[address(user4)];
-        uint256 poolWei = uint256(SSVStorageProtocol.load().ethDaoBalance) * DEDUCTED_DIGITS;
+        uint256 poolWei = uint256(PackedETH.unwrap(SSVStorageProtocol.load().ethDaoBalance)) * ETH_DEDUCTED_DIGITS;
         return accrued <= poolWei;
     }
 
@@ -403,7 +397,7 @@ contract SSVStakingEchidna is SSVStaking {
 
     function _mockSetEthDaoBalance(uint64 balance) internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.ethDaoBalance = balance;
+        sp.ethDaoBalance = PackedETH.wrap(balance);
         sp.ethDaoIndexBlockNumber = uint32(block.number);
     }
 }

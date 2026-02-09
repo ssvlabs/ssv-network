@@ -9,8 +9,10 @@ import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/ProtocolLib.sol";
 import "../../contracts/libraries/ValidatorLib.sol";
 import "../../contracts/libraries/ClusterLib.sol";
-import "../../contracts/libraries/Types.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+
+import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../contracts/libraries/SSVCoreTypes.sol";
+
 
 contract ValidatorUser {
     ISSVValidators public validators;
@@ -46,7 +48,6 @@ contract ValidatorUser {
 contract SSVValidatorsEchidna is SSVValidators {
     using ClusterLib for ISSVNetworkCore.Cluster;
     using Counters for Counters.Counter;
-    using Types64 for uint64;
     using ProtocolLib for StorageProtocol;
 
     uint8 private constant MAX_VALIDATORS = 16;
@@ -298,11 +299,11 @@ contract SSVValidatorsEchidna is SSVValidators {
     function _initProtocolDefaults() internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.validatorsPerOperatorLimit = 5000;
-        sp.ethNetworkFee = 0;
+        sp.ethNetworkFee = PACKED_ETH_ZERO;
         sp.ethNetworkFeeIndex = 0;
         sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
         sp.minimumBlocksBeforeLiquidation = 0;
-        sp.minimumLiquidationCollateral = 0;
+        sp.minimumLiquidationCollateral = PACKED_ETH_ZERO;
     }
 
     function _initOperators() internal {
@@ -322,13 +323,13 @@ contract SSVValidatorsEchidna is SSVValidators {
 
         s.operators[id] = ISSVNetworkCore.Operator({
             validatorCount: 0,
-            fee: 0,
+            fee: PACKED_SSV_ZERO,
             owner: address(this),
-            snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
+            snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: PACKED_SSV_ZERO}),
             whitelisted: false,
             ethValidatorCount: 0,
-            ethFee: 0,
-            ethSnapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0})
+            ethFee: PACKED_ETH_ZERO,
+            ethSnapshot: ISSVNetworkCore.EthSnapshot({block: uint32(block.number), index: 0, balance: PACKED_ETH_ZERO})
         });
         s.operatorsPKs[keccak256(abi.encodePacked(pk))] = id;
         return id;

@@ -2,21 +2,48 @@
 pragma solidity ^0.8.20;
 
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
-import {MAX_DELEGATION_SLOTS} from "../libraries/storage/SSVStorageStaking.sol";
+
+interface ISSVViewsTypes {
+    struct OperatorDeclaredFeeData {
+        bool isFeeDeclared;
+        uint256 fee;
+        uint64 approvalBeginTime;
+        uint64 approvalEndTime;
+    }
+
+    struct OperatorData {
+        address owner;
+        uint256 fee;
+        uint32 validatorCount;
+        address whitelistedAddress;
+        bool isPrivate;
+        bool isActive;
+    }
+
+    struct OperatorFeePeriodsData {
+        uint64 declarePeriod;
+        uint64 executePeriod;
+    }
+
+    struct UnstakeRequestsData {
+        uint256 amount;
+        uint256 unlockTime;
+    }
+}
 
 /**
  * @title SSV Views Interface
  * @author SSV Labs
  * @notice Interface providing view functions to retrieve network state, operator data, validator status, cluster information, fees, and staking details
  */
-interface ISSVViews is ISSVNetworkCore {
+interface ISSVViews is ISSVNetworkCore, ISSVViewsTypes {
     /**
      * @notice Returns whether a validator is active
      * @param owner Owner of the validator
      * @param publicKey Validator public key
      * @return active True if validator exists and is active
      */
-    function getValidator(address owner, bytes calldata publicKey) external view returns (bool active);
+    function getValidator(address owner, bytes calldata publicKey) external view returns (bool);
 
     /**
      * @notice Returns the current ETH fee of an operator
@@ -33,66 +60,37 @@ interface ISSVViews is ISSVNetworkCore {
     function getOperatorFeeSSV(uint64 operatorId) external view returns (uint256 fee);
 
     /**
-     * @notice Returns the currently declared (pending) operator fee
-     * @param operatorId The operator ID
-     * @return isFeeDeclared Whether a fee is currently declared
-     * @return fee The declared fee amount
-     * @return approvalBeginTime Start of the approval window
-     * @return approvalEndTime End of the approval window
+     * @notice Gets the declared operator fee
+     * @param operatorId The ID of the operator
+     * @return data Declaration data
      */
-    function getOperatorDeclaredFee(uint64 operatorId)
-    external
-    view
-    returns (
-        bool isFeeDeclared,
-        uint256 fee,
-        uint64 approvalBeginTime,
-        uint64 approvalEndTime
-    );
+    function getOperatorDeclaredFee(
+        uint64 operatorId
+    ) external view returns (OperatorDeclaredFeeData memory);
 
     /**
-     * @notice Returns full details of an operator (ETH version)
-     * @param operatorId The operator ID
-     * @return owner Operator owner address
-     * @return ethFee Current ETH fee
-     * @return ethValidatorCount Number of validators managed
-     * @return whitelistedAddress Whitelisted address or contract
-     * @return isPrivate Whether operator is private
-     * @return active Whether operator is active
+     * @notice Gets operator details by ID
+     * @param operatorId The ID of the operator
+     * @return The struct with operator details
      */
-    function getOperatorById(uint64 operatorId)
-    external
-    view
-    returns (
-        address owner,
-        uint256 ethFee,
-        uint32 ethValidatorCount,
-        address whitelistedAddress,
-        bool isPrivate,
-        bool active
-    );
+    function getOperatorById(
+        uint64 operatorId
+    )
+        external
+        view
+        returns (OperatorData memory);
 
     /**
-     * @notice Returns full details of an operator (legacy SSV version)
-     * @param operatorId The operator ID
-     * @return owner Operator owner address
-     * @return fee Current SSV fee
-     * @return validatorCount Number of validators managed
-     * @return whitelistedAddress Whitelisted address or contract
-     * @return isPrivate Whether operator is private
-     * @return active Whether operator is active
+     * @notice Gets legacy SSV operator details by ID
+     * @param operatorId The ID of the operator
+     * @return The struct with operator details
      */
-    function getOperatorByIdSSV(uint64 operatorId)
-    external
-    view
-    returns (
-        address owner,
-        uint256 fee,
-        uint32 validatorCount,
-        address whitelistedAddress,
-        bool isPrivate,
-        bool active
-    );
+    function getOperatorByIdSSV(
+        uint64 operatorId
+    )
+        external
+        view
+        returns (OperatorData memory);
 
     /**
      * @notice Returns which operators have the given address whitelisted
@@ -288,26 +286,19 @@ interface ISSVViews is ISSVNetworkCore {
      * @notice Returns the maximum allowed operator fee (ETH)
      * @return Maximum operator fee
      */
-    function getMaximumOperatorFee() external view returns (uint64);
-
-    /**
-     * @notice Returns the maximum allowed operator fee (SSV)
-     * @return Maximum operator fee
-     */
-    function getMaximumOperatorFeeSSV() external view returns (uint64);
+    function getMaximumOperatorFee() external view returns (uint256);
 
     /**
      * @notice Returns the minimum operator ETH fee set by DAO
      * @return Minimum operator fee in ETH
      */
-    function getMinimumOperatorEthFee() external view returns (uint64);
+    function getMinimumOperatorEthFee() external view returns (uint256);
 
     /**
      * @notice Returns the declaration and execution periods for operator fee changes
-     * @return declarationPeriod Duration of declaration phase
-     * @return executionPeriod Duration of execution phase
+     * @return The struct with operator fee periods
      */
-    function getOperatorFeePeriods() external view returns (uint64 declarationPeriod, uint64 executionPeriod);
+    function getOperatorFeePeriods() external view returns (OperatorFeePeriodsData memory);
 
     /**
      * @notice Returns the liquidation threshold period (ETH)
@@ -367,13 +358,9 @@ interface ISSVViews is ISSVNetworkCore {
     /**
      * @notice Returns pending unstake requests for a user
      * @param user User address
-     * @return amounts Array of pending amounts
-     * @return unlockTimes Array of unlock timestamps
+     * @return Array of pending amounts and unstake requests
      */
-    function pendingUnstake(address user)
-    external
-    view
-    returns (uint256[] memory amounts, uint256[] memory unlockTimes);
+    function pendingUnstake(address user) external view returns (UnstakeRequestsData[] memory);
 
     /**
      * @notice Returns current accumulated ETH per share
@@ -385,7 +372,7 @@ interface ISSVViews is ISSVNetworkCore {
      * @notice Returns current ETH balance in the staking pool
      * @return ETH pool balance
      */
-    function stakingEthPoolBalance() external view returns (uint64);
+    function stakingEthPoolBalance() external view returns (uint256);
 
     /**
      * @notice Returns claimable ETH rewards for a user

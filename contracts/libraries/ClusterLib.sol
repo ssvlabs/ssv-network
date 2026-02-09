@@ -7,8 +7,8 @@ import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
 import {DEFAULT_EB_PER_VALIDATOR, SSVStorageEB, StorageEB, VUNITS_PRECISION} from "./storage/SSVStorageEB.sol";
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
-import {Types64} from "./Types.sol";
-import "./CoreLib.sol";
+import {PackedSSV, PackedETH, VERSION_SSV, VERSION_ETH} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 
 /**
  * @title SSV Cluster Library
@@ -16,7 +16,6 @@ import "./CoreLib.sol";
  * @notice Library functions for managing SSV clusters including balance updates, liquidation checks, validations and data operations
  */
 library ClusterLib {
-    using Types64 for uint64;
     using ProtocolLib for StorageProtocol;
 
     /**
@@ -31,8 +30,18 @@ library ClusterLib {
         uint64 currentNetworkFeeIndex
     ) internal pure {
         uint64 networkFee = uint64(currentNetworkFeeIndex - cluster.networkFeeIndex) * cluster.validatorCount;
-        uint64 usage = (newIndex - cluster.index) * cluster.validatorCount + networkFee;
-        cluster.balance = usage.expand() > cluster.balance ? 0 : cluster.balance - usage.expand();
+        PackedETH usage = PackedETH.wrap((newIndex - cluster.index) * cluster.validatorCount + networkFee);
+        cluster.balance = PackedETHLib.unpack(usage) > cluster.balance ? 0 : cluster.balance - PackedETHLib.unpack(usage);
+    }
+
+    function updateBalanceSSV(
+        ISSVNetworkCore.Cluster memory cluster,
+        uint64 newIndex,
+        uint64 currentNetworkFeeIndex
+    ) internal pure {
+        uint64 networkFee = uint64(currentNetworkFeeIndex - cluster.networkFeeIndex) * cluster.validatorCount;
+        PackedSSV usage = PackedSSV.wrap((newIndex - cluster.index) * cluster.validatorCount + networkFee);
+        cluster.balance = PackedSSVLib.unpack(usage) > cluster.balance ? 0 : cluster.balance - PackedSSVLib.unpack(usage);
     }
 
     /**
@@ -49,15 +58,15 @@ library ClusterLib {
         uint64 burnRate,
         uint64 networkFee,
         uint64 minimumBlocksBeforeLiquidation,
-        uint64 minimumLiquidationCollateral
+        PackedSSV minimumLiquidationCollateral
     ) internal pure returns (bool liquidatable) {
         if (cluster.validatorCount != 0) {
-            if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
+            if (cluster.balance < PackedSSVLib.unpack(minimumLiquidationCollateral)) return true;
             uint64 liquidationThreshold = minimumBlocksBeforeLiquidation *
                 (burnRate + networkFee) *
                 cluster.validatorCount;
 
-            return cluster.balance < liquidationThreshold.expand();
+            return cluster.balance < PackedSSVLib.unpack(PackedSSV.wrap(liquidationThreshold));
         }
     }
 
@@ -77,10 +86,10 @@ library ClusterLib {
         uint64 burnRate,
         uint64 networkFee,
         uint64 minimumBlocksBeforeLiquidation,
-        uint64 minimumLiquidationCollateral
+        PackedETH minimumLiquidationCollateral
     ) internal view returns (bool liquidatable) {
         if (cluster.validatorCount == 0) return false;
-        if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
+        if (cluster.balance < PackedETHLib.unpack(minimumLiquidationCollateral)) return true;
 
         uint64 vUnits = getVUnits(clusterId, cluster.validatorCount);
         uint128 units = vUnits;
@@ -88,7 +97,7 @@ library ClusterLib {
         uint128 thresholdUnits = (uint128(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
 
         uint64 liquidationThreshold = uint64(thresholdUnits);
-        return cluster.balance < liquidationThreshold.expand();
+        return cluster.balance < PackedETHLib.unpack(PackedETH.wrap(liquidationThreshold));
     }
 
     /**
@@ -107,17 +116,17 @@ library ClusterLib {
         uint64 burnRate,
         uint64 networkFee,
         uint64 minimumBlocksBeforeLiquidation,
-        uint64 minimumLiquidationCollateral
+        PackedETH minimumLiquidationCollateral
     ) internal pure returns (bool liquidatable) {
         if (cluster.validatorCount == 0) return false;
-        if (cluster.balance < minimumLiquidationCollateral.expand()) return true;
+        if (cluster.balance < PackedETHLib.unpack(minimumLiquidationCollateral)) return true;
 
         uint128 units = vUnits;
         uint128 rate = burnRate + networkFee;
         uint128 thresholdUnits = (uint128(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
 
         uint64 liquidationThreshold = uint64(thresholdUnits);
-        return cluster.balance < liquidationThreshold.expand();
+        return cluster.balance < PackedETHLib.unpack(PackedETH.wrap(liquidationThreshold));
     }
 
     /**
@@ -265,7 +274,7 @@ library ClusterLib {
                 cluster,
                 hashedCluster,
                 burnRate,
-                sp.ethNetworkFee,
+                PackedETH.unwrap(sp.ethNetworkFee),
                 sp.minimumBlocksBeforeLiquidation,
                 sp.minimumLiquidationCollateral
             )
@@ -317,8 +326,8 @@ library ClusterLib {
         uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
         uint128 usageUnits = (idxOp * units) / VUNITS_PRECISION + networkFeeUnits;
 
-        uint64 usage = uint64(usageUnits);
-        cluster.balance = usage.expand() > cluster.balance ? 0 : cluster.balance - usage.expand();
+        PackedETH usage = PackedETH.wrap(uint64(usageUnits));
+        cluster.balance = PackedETHLib.unpack(usage) > cluster.balance ? 0 : cluster.balance - PackedETHLib.unpack(usage);
     }
 
     /**
@@ -343,12 +352,12 @@ library ClusterLib {
     ) internal view returns (bytes32 clusterData, uint8 version) {
         clusterData = s.ethClusters[hashedCluster];
         if (clusterData != bytes32(0)) {
-            return (clusterData, CoreLib.VERSION_ETH);
+            return (clusterData, VERSION_ETH);
         }
 
         clusterData = s.clusters[hashedCluster];
         if (clusterData != bytes32(0)) {
-            return (clusterData, CoreLib.VERSION_SSV);
+            return (clusterData, VERSION_SSV);
         }
 
         revert ISSVNetworkCore.ClusterDoesNotExist();

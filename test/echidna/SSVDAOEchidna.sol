@@ -6,11 +6,12 @@ import "../../contracts/libraries/storage/SSVStorage.sol";
 import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/storage/SSVStorageStaking.sol";
-import "../../contracts/libraries/Types.sol";
 import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
+import {PackedETH, PackedSSV} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract DAOUser {
     ISSVDAO public dao;
@@ -96,7 +97,7 @@ contract SSVDAOEchidna is SSVDAO {
 
     function action_update_network_fee(uint256 seed) external {
         uint64 feeUnits = _boundShrunk(seed, MAX_FEE_UNITS);
-        uint256 fee = uint256(feeUnits) * DEDUCTED_DIGITS;
+        uint256 fee = uint256(feeUnits) * ETH_DEDUCTED_DIGITS;
         try this.updateNetworkFee(fee) {} catch {}
     }
 
@@ -133,7 +134,7 @@ contract SSVDAOEchidna is SSVDAO {
 
     function action_update_min_liquidation_collateral(uint256 seed) external {
         uint64 value = _boundShrunk(seed, MAX_FEE_UNITS);
-        uint256 amount = uint256(value) * DEDUCTED_DIGITS;
+        uint256 amount = uint256(value) * ETH_DEDUCTED_DIGITS;
         try this.updateMinimumLiquidationCollateral(amount) {} catch {}
     }
 
@@ -151,11 +152,6 @@ contract SSVDAOEchidna is SSVDAO {
     function action_update_min_operator_eth_fee(uint64 minFee) external {
         uint64 value = minFee;
         try this.updateMinimumOperatorEthFee(value) {} catch {}
-    }
-
-    function action_update_max_operator_fee_ssv(uint64 maxFee) external {
-        uint64 value = maxFee;
-        try this.updateMaximumOperatorFeeSSV(value) {} catch {}
     }
 
     function action_set_quorum(uint16 quorum) external {
@@ -176,7 +172,7 @@ contract SSVDAOEchidna is SSVDAO {
 
     function action_add_earnings(uint256 seed) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        uint64 currentBalance = sp.daoBalance;
+        uint64 currentBalance = PackedSSV.unwrap(sp.daoBalance);
         uint64 maxAdd = type(uint64).max - currentBalance;
         uint64 addUnits = _boundShrunk(seed, maxAdd);
         if (addUnits == 0) return;
@@ -184,12 +180,12 @@ contract SSVDAOEchidna is SSVDAO {
 
         token.mint(address(this), amount);
 
-        sp.daoBalance = currentBalance + addUnits;
+        sp.daoBalance = PackedSSV.wrap(currentBalance + addUnits);
         sp.daoIndexBlockNumber = uint32(block.number);
     }
 
     function action_withdraw(uint256 seed, uint8 userSeed) external {
-        uint64 available = SSVStorageProtocol.load().daoBalance;
+        uint64 available = PackedSSV.unwrap(SSVStorageProtocol.load().daoBalance);
         uint64 amountUnits;
 
         if (seed % 5 == 0) {
@@ -204,7 +200,7 @@ contract SSVDAOEchidna is SSVDAO {
         DAOUser caller = _withdrawUser(userSeed);
 
         uint256 beforeToken = token.balanceOf(address(this));
-        uint64 beforeDao = SSVStorageProtocol.load().daoBalance;
+        uint64 beforeDao = PackedSSV.unwrap(SSVStorageProtocol.load().daoBalance);
 
         try caller.withdraw(amount) {
             if (amountUnits > available) {
@@ -213,7 +209,7 @@ contract SSVDAOEchidna is SSVDAO {
             }
 
             uint256 afterToken = token.balanceOf(address(this));
-            uint64 afterDao = SSVStorageProtocol.load().daoBalance;
+            uint64 afterDao = PackedSSV.unwrap(SSVStorageProtocol.load().daoBalance);
 
             if (afterDao != beforeDao - amountUnits) withdrawMismatch = true;
             if (afterToken != beforeToken - amount) withdrawMismatch = true;
@@ -257,7 +253,7 @@ contract SSVDAOEchidna is SSVDAO {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         if (sp.ethNetworkFeeIndexBlockNumber > block.number) return false;
         uint256 diff = block.number - sp.ethNetworkFeeIndexBlockNumber;
-        uint256 currentIndex = uint256(sp.ethNetworkFeeIndex) + diff * uint256(sp.ethNetworkFee);
+        uint256 currentIndex = uint256(sp.ethNetworkFeeIndex) + diff * uint256(PackedETH.unwrap(sp.ethNetworkFee));
         return currentIndex >= sp.ethNetworkFeeIndex;
     }
 
@@ -265,7 +261,7 @@ contract SSVDAOEchidna is SSVDAO {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         if (sp.networkFeeIndexBlockNumber > block.number) return false;
         uint256 diff = block.number - sp.networkFeeIndexBlockNumber;
-        uint256 currentIndex = uint256(sp.networkFeeIndex) + diff * uint256(sp.networkFee);
+        uint256 currentIndex = uint256(sp.networkFeeIndex) + diff * uint256(PackedSSV.unwrap(sp.networkFee));
         return currentIndex >= sp.networkFeeIndex;
     }
 
@@ -289,7 +285,7 @@ contract SSVDAOEchidna is SSVDAO {
 
     function echidna_dao_balance_matches_expected() external view returns (bool) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        return token.balanceOf(address(this)) == uint256(sp.daoBalance) * DEDUCTED_DIGITS;
+        return token.balanceOf(address(this)) == uint256(PackedSSV.unwrap(sp.daoBalance)) * DEDUCTED_DIGITS;
     }
 
     function echidna_withdraw_limits_enforced() external view returns (bool) {

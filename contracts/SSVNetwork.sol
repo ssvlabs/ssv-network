@@ -12,7 +12,7 @@ import "./interfaces/ISSVViews.sol";
 import "./interfaces/ISSVStaking.sol";
 import "./interfaces/external/ISSVWhitelistingContract.sol";
 
-import {Types256} from "./libraries/Types.sol";
+import {PackedETHLib} from "./libraries/SSVPackedLib.sol";
 import {CoreLib} from "./libraries/CoreLib.sol";
 import {StorageProtocol, SSVStorageProtocol} from "./libraries/storage/SSVStorageProtocol.sol";
 import {StorageData, SSVModules} from "./libraries/storage/SSVStorage.sol";
@@ -36,8 +36,6 @@ contract SSVNetwork is
     ISSVStaking,
     SSVProxy
 {
-    using Types256 for uint256;
-
     /****************/
     /* Initializers */
     /****************/
@@ -79,7 +77,7 @@ contract SSVNetwork is
         s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
         s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
         sp.minimumBlocksBeforeLiquidation = params.minimumBlocksBeforeLiquidation;
-        sp.minimumLiquidationCollateral = params.minimumLiquidationCollateral.shrink();
+        sp.minimumLiquidationCollateral = PackedETHLib.pack(params.minimumLiquidationCollateral);
         sp.validatorsPerOperatorLimit = params.validatorsPerOperatorLimit;
         sp.declareOperatorFeePeriod = params.declareOperatorFeePeriod;
         sp.executeOperatorFeePeriod = params.executeOperatorFeePeriod;
@@ -375,15 +373,11 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function updateMaximumOperatorFee(uint64 maxFee) external override onlyOwner {
+    function updateMaximumOperatorFee(uint256 maxFee) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function updateMaximumOperatorFeeSSV(uint64 maxFee) external onlyOwner {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
-    }
-
-    function updateMinimumOperatorEthFee(uint64 minFee) external override onlyOwner {
+    function updateMinimumOperatorEthFee(uint256 minFee) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 

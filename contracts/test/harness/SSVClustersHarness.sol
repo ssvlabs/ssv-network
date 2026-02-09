@@ -7,7 +7,8 @@ import {ISSVNetworkCore} from "../../interfaces/ISSVNetworkCore.sol";
 import {SSVStorage, StorageData} from "../../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../../libraries/storage/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../../libraries/storage/SSVStorageEB.sol";
-import {Types256} from "../../libraries/Types.sol";
+import {PackedETHLib, PackedSSVLib} from "../../libraries/SSVPackedLib.sol";
+import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../libraries/SSVCoreTypes.sol";
 import "../../libraries/ClusterLib.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
@@ -15,7 +16,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SSVClustersHarness is SSVClusters, SSVValidators {
     using Counters for Counters.Counter;
-    using Types256 for uint256;
     using ClusterLib for Cluster;
 
     function mockOperator(
@@ -31,20 +31,20 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
 
         s.operators[id] = ISSVNetworkCore.Operator({
             validatorCount: 0,
-            fee: 0,
+            fee: PACKED_SSV_ZERO,
             owner: owner,
             snapshot: ISSVNetworkCore.Snapshot({
             block: uint32(block.number),
             index: 0,
-            balance: 0
+            balance: PACKED_SSV_ZERO
         }),
             whitelisted: setPrivate,
             ethValidatorCount: 0,
-            ethFee: fee.shrink(),
-            ethSnapshot: ISSVNetworkCore.Snapshot({
+            ethFee: PackedETHLib.pack(fee),
+            ethSnapshot: ISSVNetworkCore.EthSnapshot({
             block: uint32(block.number),
             index: 0,
-            balance: 0
+            balance: PACKED_ETH_ZERO
         })
         });
 
@@ -67,7 +67,7 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     }
 
     function getOperatorEthFee(uint64 operatorId) external view returns (uint64) {
-        return SSVStorage.load().operators[operatorId].ethFee;
+        return PackedETH.unwrap(SSVStorage.load().operators[operatorId].ethFee);
     }
 
     function getClusterVUnits(bytes32 clusterId) external view returns (uint64) {
@@ -89,8 +89,8 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     }
 
     function getOperatorEthSnapshot(uint64 operatorId) external view returns (uint64 index, uint32 blockNumber, uint64 balance) {
-        ISSVNetworkCore.Snapshot storage snap = SSVStorage.load().operators[operatorId].ethSnapshot;
-        return (snap.index, snap.block, snap.balance);
+        ISSVNetworkCore.EthSnapshot storage snap = SSVStorage.load().operators[operatorId].ethSnapshot;
+        return (snap.index, snap.block, PackedETH.unwrap(snap.balance));
     }
 
     function getDaoEthValidatorCount() external view returns (uint32) {
@@ -98,7 +98,7 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     }
 
     function getDaoEthBalance() external view returns (uint64) {
-        return SSVStorageProtocol.load().ethDaoBalance;
+        return PackedETH.unwrap(SSVStorageProtocol.load().ethDaoBalance);
     }
 
     function getDaoEthIndexBlockNumber() external view returns (uint32) {
@@ -132,7 +132,7 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
 
     function mockEthNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.ethNetworkFee = fee;
+        sp.ethNetworkFee = PackedETH.wrap(fee);
     }
 
     function mockMinimumBlocksBeforeLiquidation(uint64 blocks) external {
@@ -142,7 +142,7 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
 
     function mockMinimumLiquidationCollateral(uint64 collateral) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.minimumLiquidationCollateral = collateral;
+        sp.minimumLiquidationCollateral = PackedETH.wrap(collateral);
     }
 
     function mockMinimumBlocksBeforeLiquidationSSV(uint64 blocks) external {
@@ -152,12 +152,12 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
 
     function mockMinimumLiquidationCollateralSSV(uint64 collateral) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.minimumLiquidationCollateralSSV = collateral;
+        sp.minimumLiquidationCollateralSSV = PackedSSV.wrap(collateral);
     }
 
     function mockSSVNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        sp.networkFee = fee;
+        sp.networkFee = PackedSSV.wrap(fee);
     }
 
     function mockCurrentNetworkFeeIndexSSV(uint64 index) external {
@@ -168,7 +168,7 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
 
     function getCurrentNetworkFeeIndexSSV() external view returns (uint64) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        return sp.networkFeeIndex + uint64(block.number - sp.networkFeeIndexBlockNumber) * sp.networkFee;
+        return sp.networkFeeIndex + uint64(block.number - sp.networkFeeIndexBlockNumber) * PackedSSV.unwrap(sp.networkFee);
     }
 
     function getNetworkFeeIndexSSV() external view returns (uint64) {
@@ -177,7 +177,7 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
 
     function mockOperatorSSVFee(uint64 operatorId, uint64 fee) external {
         StorageData storage s = SSVStorage.load();
-        s.operators[operatorId].fee = fee;
+        s.operators[operatorId].fee = PackedSSVLib.pack(fee);
         s.operators[operatorId].snapshot.block = uint32(block.number);
     }
 

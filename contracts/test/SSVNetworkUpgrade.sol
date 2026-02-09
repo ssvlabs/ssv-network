@@ -9,12 +9,12 @@ import "../interfaces/ISSVValidators.sol";
 import "../interfaces/ISSVDAO.sol";
 import "../interfaces/ISSVViews.sol";
 
-import "../libraries/Types.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/storage/SSVStorage.sol";
 import "../libraries/storage/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ClusterLib.sol";
+import {PackedETHLib} from "../libraries/SSVPackedLib.sol";
 
 import {SSVModules} from "../libraries/storage/SSVStorage.sol";
 
@@ -33,7 +33,6 @@ abstract contract SSVNetworkUpgrade is
     ISSVDAO,
     ISSVValidators
 {
-    using Types256 for uint256;
     using ClusterLib for Cluster;
 
     /****************/
@@ -92,7 +91,7 @@ abstract contract SSVNetworkUpgrade is
         s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
         s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
         sp.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        sp.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
+        sp.minimumLiquidationCollateral = PackedETHLib.pack(minimumLiquidationCollateral_);
         sp.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
         sp.declareOperatorFeePeriod = declareOperatorFeePeriod_;
         sp.executeOperatorFeePeriod = executeOperatorFeePeriod_;
@@ -455,14 +454,14 @@ abstract contract SSVNetworkUpgrade is
         );
     }
 
-    function updateMaximumOperatorFee(uint64 maxFee) external override {
+    function updateMaximumOperatorFee(uint256 maxFee) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
             abi.encodeWithSignature("updateMaximumOperatorFee(uint64)", maxFee)
         );
     }
 
-    function updateMinimumOperatorEthFee(uint64 minFee) external override onlyOwner {
+    function updateMinimumOperatorEthFee(uint256 minFee) external override onlyOwner {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
             abi.encodeWithSignature("updateMinimumOperatorEthFee(uint64)", minFee)

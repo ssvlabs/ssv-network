@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
+import {PackedSSV, PackedETH} from "./SSVCoreTypes.sol";
+
 /// @title SSV Network Storage Protocol
 /// @notice Represents the operational settings and parameters required by the SSV Network
 struct StorageProtocol {
@@ -13,15 +15,15 @@ struct StorageProtocol {
     /// @notice The maximum limit of validators per operator
     uint32 validatorsPerOperatorLimit;
     /// @notice The current network fee value
-    uint64 networkFee;
+    PackedSSV networkFee;
     /// @notice The current network fee index value
     uint64 networkFeeIndex;
     /// @notice The current balance of the DAO
-    uint64 daoBalance;
+    PackedSSV daoBalance;
     /// @notice The minimum number of blocks before a liquidation event can be triggered for SSV cluster
     uint64 minimumBlocksBeforeLiquidationSSV;
     /// @notice The minimum collateral required for liquidation of SSV clusters
-    uint64 minimumLiquidationCollateralSSV;
+    PackedSSV minimumLiquidationCollateralSSV;
     /// @notice The period in which an operator can declare a fee change
     uint64 declareOperatorFeePeriod;
     /// @notice The period in which an operator fee change can be executed
@@ -39,23 +41,23 @@ struct StorageProtocol {
     /// @notice The block number when the DAO index was last updated for eth
     uint32 ethDaoIndexBlockNumber;
     /// @notice The current network fee value for eth clusters
-    uint64 ethNetworkFee;
+    PackedETH ethNetworkFee;
     /// @notice The current network fee index value for eth clusters
     uint64 ethNetworkFeeIndex;
     /// @notice The current balance of the DAO for eth clusters
-    uint64 ethDaoBalance;
+    PackedETH ethDaoBalance;
     /// @notice The minimum collateral required for liquidation
-    uint64 minimumLiquidationCollateral;
+    PackedETH minimumLiquidationCollateral;
     /// @notice The minimum number of blocks before a liquidation event can be triggered
     uint64 minimumBlocksBeforeLiquidation;
     /// @notice The maximum value in operator fee that is allowed (ETH)
-    uint64 operatorMaxFee;
+    PackedETH operatorMaxFee;
 
     // EB
     /// @notice The current total ETH vUnits
     uint64 daoTotalEthVUnits;
     /// @notice The minimum operator ETH fee (DAO-governed)
-    uint64 minimumOperatorEthFee;
+    PackedETH minimumOperatorEthFee;
 }
 
 library SSVStorageProtocol {

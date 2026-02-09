@@ -585,19 +585,6 @@
         "type": "uint64"
       }
     ],
-    "name": "OperatorMaximumFeeSSVUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "maxFee",
-        "type": "uint64"
-      }
-    ],
     "name": "OperatorMaximumFeeUpdated",
     "type": "event"
   },
@@ -843,19 +830,6 @@
       }
     ],
     "name": "updateMaximumOperatorFee",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "maxFee",
-        "type": "uint64"
-      }
-    ],
-    "name": "updateMaximumOperatorFeeSSV",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

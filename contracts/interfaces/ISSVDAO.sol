@@ -77,19 +77,13 @@ interface ISSVDAO is ISSVNetworkCore {
      * @dev Emitted when the maximum operator fee is updated
      * @param maxFee The new maximum fee
      */
-    event OperatorMaximumFeeUpdated(uint64 maxFee);
-
-    /**
-     * @dev Emitted when the SSV maximum operator fee is updated
-     * @param maxFee The new maximum fee
-     */
-    event OperatorMaximumFeeSSVUpdated(uint64 maxFee);
+    event OperatorMaximumFeeUpdated(uint256 maxFee);
 
     /**
      * @dev Emitted when the minimum operator ETH fee is updated
      * @param minFee The new minimum fee
      */
-    event MinimumOperatorEthFeeUpdated(uint64 minFee);
+    event MinimumOperatorEthFeeUpdated(uint256 minFee);
 
     /**
      * @dev Emitted when an EB Merkle root is committed for a given block
