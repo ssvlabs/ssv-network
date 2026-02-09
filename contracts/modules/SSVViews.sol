@@ -270,7 +270,7 @@ contract SSVViews is ISSVViews {
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndexSSV());
+        cluster.updateBalanceSSV(clusterIndex, sp.currentNetworkFeeIndexSSV());
         return
             cluster.isLiquidatable(
                 burnRate,
