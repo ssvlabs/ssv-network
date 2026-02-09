@@ -21,7 +21,7 @@ library CoreLib {
      * @return Version string
      */
     function getVersion() internal pure returns (string memory) {
-        return "v1.3.0";
+        return "v2.0.0";
     }
 
     /**

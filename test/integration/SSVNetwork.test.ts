@@ -61,7 +61,7 @@ describe("SSVNetwork full integration tests", () => {
       expect(await cssvToken.getAddress()).to.be.properAddress;
       expect(await ssvToken.getAddress()).to.be.properAddress;
 
-      expect(await views.getVersion()).to.be.equal("v1.3.0");
+      expect(await views.getVersion()).to.be.equal("v2.0.0");
 
       const version = await network.getVersion();
       expect(version).to.be.a("string").and.not.empty;

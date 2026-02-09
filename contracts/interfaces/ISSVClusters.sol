@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
-import {ClusterLib} from "../libraries/ClusterLib.sol";
 
 /**
  * @title SSV Clusters Interface
