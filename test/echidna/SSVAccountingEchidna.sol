@@ -276,7 +276,6 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             record.cluster.balance += amount;
             record.cluster.index = _currentClusterIndexEth(operatorIdsLocal);
             record.cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
-            sp.daoTotalEthVUnits += uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
             unallocatedEth -= amount;
 
             SSVStorage.load().ethClusters[clusterId] = record.cluster.hashClusterData();
@@ -412,19 +411,11 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
         uint256 liquidatorBefore = address(liquidator).balance;
         try liquidator.liquidate(record.owner, operatorIdsLocal, cluster) {
-            StorageProtocol storage sp = SSVStorageProtocol.load();
             _settleEthCluster(clusterId, record, operatorIdsLocal);
             record.cluster.active = false;
             record.cluster.balance = 0;
             record.cluster.index = 0;
             record.cluster.networkFeeIndex = 0;
-
-            uint64 deltaVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-            if (sp.daoTotalEthVUnits >= deltaVUnits) {
-                sp.daoTotalEthVUnits -= deltaVUnits;
-            } else {
-                sp.daoTotalEthVUnits = 0;
-            }
             totalEthOut += address(liquidator).balance - liquidatorBefore;
             SSVStorage.load().ethClusters[clusterId] = record.cluster.hashClusterData();
         } catch {}
