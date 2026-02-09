@@ -7,9 +7,9 @@ import {ISSVStaking} from "../interfaces/ISSVStaking.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
-import {SSVStorage} from "../libraries/SSVStorage.sol";
-import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/SSVStorageStaking.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorage} from "../libraries/storage/SSVStorage.sol";
+import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/storage/SSVStorageStaking.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 import {PackedETH} from "../libraries/SSVCoreTypes.sol";
 import {PackedETHLib, ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
@@ -28,10 +28,16 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         CSSV_ADDRESS = _cssv;
     }
 
+    /**
+     * @inheritdoc ISSVStaking
+     */
     function syncFees() external nonReentrant {
         _syncFees(SSVStorageStaking.load());
     }
 
+    /**
+     * @inheritdoc ISSVStaking
+     */
     function stake(uint256 amount) external nonReentrant {
         if (amount == 0) {
             revert ZeroAmount();
@@ -54,6 +60,9 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         emit Staked(msg.sender, amount);
     }
 
+    /**
+     * @inheritdoc ISSVStaking
+     */
     function requestUnstake(uint256 amount) external nonReentrant {
         if (amount == 0) {
             revert ZeroAmount();
@@ -84,23 +93,9 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         emit UnstakeRequested(msg.sender, amount, unlockTime);
     }
 
-    function calculateTotalUnfrozenBalance(StorageStaking storage s) internal returns (uint256) {
-        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
-        uint256 total = 0;
-        uint256 i = 0;
-
-        while (i < requests.length) {
-            if (requests[i].unlockTime <= block.timestamp) {
-                total += requests[i].amount;
-                requests[i] = requests[requests.length - 1];
-                requests.pop();
-            } else {
-                i++;
-            }
-        }
-        return total;
-    }
-
+    /**
+     * @inheritdoc ISSVStaking
+     */
     function withdrawUnlocked() external nonReentrant {
         StorageStaking storage s = SSVStorageStaking.load();
         uint256 amount = calculateTotalUnfrozenBalance(s);
@@ -113,6 +108,9 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         emit UnstakedWithdrawn(msg.sender, amount);
     }
 
+    /**
+     * @inheritdoc ISSVStaking
+     */
     function claimEthRewards() external nonReentrant {
         StorageStaking storage s = SSVStorageStaking.load();
 
@@ -146,6 +144,9 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         emit RewardsClaimed(msg.sender, payout);
     }
 
+    /**
+     * @inheritdoc ISSVStaking
+     */
     function rescueERC20(address token, address to, uint256 amount) external nonReentrant {
         if (token == address(0) || to == address(0)) revert ZeroAddress();
         if (token == address(SSVStorage.load().token) || token == CSSV_ADDRESS) {
@@ -162,6 +163,9 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         emit ERC20Rescued(token, to, amount);
     }
 
+    /**
+     * @inheritdoc ISSVStaking
+     */
     function onCSSVTransfer(address from, address to, uint256 amount) external virtual {
         if (msg.sender != CSSV_ADDRESS) revert NotCSSV();
 
@@ -217,5 +221,22 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
 
         s.userIndex[user] = idx;
         emit RewardsSettled(user, pending, s.accrued[user], idx);
+    }
+
+    function calculateTotalUnfrozenBalance(StorageStaking storage s) internal returns (uint256) {
+        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
+        uint256 total = 0;
+        uint256 i = 0;
+
+        while (i < requests.length) {
+            if (requests[i].unlockTime <= block.timestamp) {
+                total += requests[i].amount;
+                requests[i] = requests[requests.length - 1];
+                requests.pop();
+            } else {
+                i++;
+            }
+        }
+        return total;
     }
 }

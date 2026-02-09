@@ -9,15 +9,15 @@ import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
 import {PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
 import {PackedETHLib} from "../libraries/SSVPackedLib.sol";
-import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
     SSVStorageEB,
     StorageEB,
     ClusterEBSnapshot,
     VUNITS_PRECISION,
     MAX_EB_PER_VALIDATOR
-} from "../libraries/SSVStorageEB.sol";
+} from "../libraries/storage/SSVStorageEB.sol";
 
 
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
@@ -28,6 +28,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
 
+    /**
+     * @inheritdoc ISSVClusters
+     */
     function liquidate(address clusterOwner, uint64[] calldata operatorIds, Cluster memory cluster) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
@@ -64,6 +67,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         _executeLiquidation(clusterOwner, msg.sender, hashedCluster, operatorIds, cluster, s, sp, seb);
     }
 
+    /**
+     * @inheritdoc ISSVClusters
+     */
     function liquidateSSV(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -120,6 +126,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         emit ClusterLiquidated(clusterOwner, operatorIds, cluster);
     }
 
+    /**
+     * @inheritdoc ISSVClusters
+     */
     function reactivate(
         uint64[] calldata operatorIds,
         Cluster memory cluster
@@ -171,6 +180,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         emit ClusterReactivated(msg.sender, operatorIds, cluster);
     }
 
+    /**
+     * @inheritdoc ISSVClusters
+     */
     function deposit(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -188,6 +200,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         emit ClusterDeposited(clusterOwner, operatorIds, msg.value, cluster);
     }
 
+    /**
+     * @inheritdoc ISSVClusters
+     */
     function withdraw(uint64[] calldata operatorIds, uint256 amount, Cluster memory cluster) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
@@ -239,6 +254,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         emit ClusterWithdrawn(msg.sender, operatorIds, amount, cluster);
     }
 
+    /**
+     * @inheritdoc ISSVClusters
+     */
     function migrateClusterToETH(uint64[] calldata operatorIds, Cluster memory cluster) external payable override {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -246,8 +264,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         ClusterLib.validateClusterVersion(version, VERSION_SSV);
         bool isLiquidated = !cluster.active; // A liquidated SSV cluster already had its SSV counts removed
-
-        uint256 ssvBalance = cluster.balance;
 
         // compute cluster data using ETH fields
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsMigration(
@@ -257,6 +273,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             sp,
             isLiquidated
         );
+
+        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndexSSV());
+        uint256 ssvBalance = cluster.balance;
 
         cluster.balance = msg.value;
         cluster.active = true;
@@ -321,6 +340,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, effectiveBalance, cluster);
     }
 
+    /**
+     * @inheritdoc ISSVClusters
+     */
     function updateClusterBalance(
         uint64 blockNum,
         address clusterOwner,
@@ -402,16 +424,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         cluster.updateBalanceWithEB(clusterId, clusterIndex, networkFeeIndex);
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = networkFeeIndex;
-    }
-
-    function _emitClusterBalanceUpdated(
-        address clusterOwner,
-        uint64[] calldata operatorIds,
-        uint64 blockNum,
-        uint32 eb,
-        Cluster memory cluster
-    ) internal {
-        emit ClusterBalanceUpdated(clusterOwner, operatorIds, blockNum, eb, cluster);
     }
 
     function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {

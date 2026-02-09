@@ -10,20 +10,20 @@ import "../interfaces/ISSVDAO.sol";
 import "../interfaces/ISSVViews.sol";
 
 import "../libraries/CoreLib.sol";
-import "../libraries/SSVStorage.sol";
-import "../libraries/SSVStorageProtocol.sol";
+import "../libraries/storage/SSVStorage.sol";
+import "../libraries/storage/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/ClusterLib.sol";
 import {PackedETHLib} from "../libraries/SSVPackedLib.sol";
 
-import {SSVModules} from "../libraries/SSVStorage.sol";
+import {SSVModules} from "../libraries/storage/SSVStorage.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract SSVNetworkUpgrade is
+abstract contract SSVNetworkUpgrade is
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
     ReentrancyGuardUpgradeable,
@@ -384,17 +384,6 @@ contract SSVNetworkUpgrade is
         );
     }
 
-    function updateClusterBalance(
-        uint64 blockNum,
-        address clusterOwner,
-        uint64[] calldata operatorIds,
-        ISSVNetworkCore.Cluster memory cluster,
-        uint32 effectiveBalance,
-        bytes32[] calldata merkleProof
-    ) external override {
-        // TODO _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
-    }
-
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS],
@@ -509,22 +498,5 @@ contract SSVNetworkUpgrade is
     // Upgrade functions
     function updateModule(SSVModules moduleId, address moduleAddress) external onlyOwner {
         CoreLib.setModuleContract(moduleId, moduleAddress);
-    }
-
-    function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
-        // TODO _delegateCall(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
-    }
-
-    function setOracleTimingConfig(
-        uint64 firstStartEpoch,
-        uint64 firstInterval,
-        uint64 secondStartEpoch,
-        uint64 secondInterval
-    ) external onlyOwner {
-        // TODO _delegateCall(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
-    }
-
-    function setUnstakeCooldownDuration(uint64 duration) external onlyOwner {
-        // TODO
     }
 }

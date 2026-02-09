@@ -2,10 +2,10 @@
 pragma solidity 0.8.24;
 
 import {SSVDAO} from "../../modules/SSVDAO.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../../libraries/SSVStorageProtocol.sol";
-import {SSVStorageStaking, StorageStaking} from "../../libraries/SSVStorageStaking.sol";
-import {SSVStorageEB, StorageEB} from "../../libraries/SSVStorageEB.sol";
-import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../../libraries/storage/SSVStorageProtocol.sol";
+import {SSVStorageStaking, StorageStaking} from "../../libraries/storage/SSVStorageStaking.sol";
+import {SSVStorageEB, StorageEB} from "../../libraries/storage/SSVStorageEB.sol";
+import {SSVStorage, StorageData} from "../../libraries/storage/SSVStorage.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PackedETH, PackedSSV} from "../../libraries/SSVCoreTypes.sol";
 import {PackedETHLib} from "../../libraries/SSVPackedLib.sol";

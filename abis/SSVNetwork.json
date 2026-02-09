@@ -69,7 +69,7 @@
   },
   {
     "inputs": [],
-    "name": "ClusterDoesNotExists",
+    "name": "ClusterDoesNotExist",
     "type": "error"
   },
   {
@@ -239,7 +239,17 @@
   },
   {
     "inputs": [],
+    "name": "MaxPrecisionExceeded",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "MaxRequestsAmountReached",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxValueExceeded",
     "type": "error"
   },
   {
@@ -305,6 +315,11 @@
   {
     "inputs": [],
     "name": "OracleAlreadyAssigned",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OracleHasZeroWeight",
     "type": "error"
   },
   {
@@ -996,6 +1011,19 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "minFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "MinimumOperatorEthFeeUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "enum SSVModules",
         "name": "moduleId",
@@ -1198,9 +1226,9 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "uint64",
+        "internalType": "uint256",
         "name": "maxFee",
-        "type": "uint64"
+        "type": "uint256"
       }
     ],
     "name": "OperatorMaximumFeeUpdated",
@@ -2896,9 +2924,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint64",
+        "internalType": "uint256",
         "name": "maxFee",
-        "type": "uint64"
+        "type": "uint256"
       }
     ],
     "name": "updateMaximumOperatorFee",
@@ -2928,6 +2956,19 @@
       }
     ],
     "name": "updateMinimumLiquidationCollateralSSV",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "minFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateMinimumOperatorEthFee",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

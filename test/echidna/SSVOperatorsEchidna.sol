@@ -5,9 +5,9 @@ import "../../contracts/modules/SSVOperators.sol";
 import "../../contracts/interfaces/ISSVOperators.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
-import "../../contracts/libraries/SSVStorage.sol";
-import "../../contracts/libraries/SSVStorageProtocol.sol";
-import "../../contracts/libraries/SSVStorageEB.sol";
+import "../../contracts/libraries/storage/SSVStorage.sol";
+import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
+import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {PackedETHLib, PackedSSVLib, DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
@@ -71,7 +71,7 @@ contract OperatorUser {
 contract SSVOperatorsEchidna is SSVOperators(0) {
     using PackedETHLib for PackedETH;
     using PackedSSVLib for PackedSSV;
-    
+
     uint256 private constant DEFAULT_MIN_OPERATOR_ETH_FEE = 10_000_000;
     uint64 private constant MAX_OPERATORS = 8;
     uint32 private constant MAX_ADVANCE_BLOCKS = 8;
@@ -814,29 +814,29 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         // Unpack packed values to get actual fee amounts
         uint256 maxFeeWei = PackedETHLib.unpack(sp.operatorMaxFee);
         uint256 minFeeWei = PackedETHLib.unpack(sp.minimumOperatorEthFee);
-        
+
         if (maxFeeWei == 0) return 0;
-    
+
         uint256 units = seed % (maxFeeWei + 1);
         uint256 fee = units;
-    
+
         if (fee != 0 && fee < minFeeWei) {
             fee = minFeeWei;
         }
-    
+
         if (fee > maxFeeWei) {
             if (maxFeeWei < minFeeWei) return 0;
             fee = maxFeeWei;
             if (fee < minFeeWei) return 0;
         }
-    
+
         return fee;
     }
 
    function _boundFeeSSV(uint256 seed) internal view returns (uint256) {
         uint64 maxFee = SSVStorageProtocol.load().operatorMaxFeeSSV;
         if (maxFee == 0) return 0;
-        
+
         uint256 shrunkFee = seed % (uint256(maxFee) + 1);
         return shrunkFee * DEDUCTED_DIGITS;
     }
@@ -845,10 +845,10 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         uint256 minFeeWei = PackedETHLib.unpack(SSVStorageProtocol.load().minimumOperatorEthFee);
         if (currentFee == 0) return 0;
         if (currentFee <= minFeeWei) return 0;
-        
+
         uint256 range = currentFee - minFeeWei;
         uint256 fee = minFeeWei + (seed % range);
-        
+
         return fee;
     }
 

@@ -4,8 +4,8 @@ pragma solidity 0.8.24;
 import {ISSVOperators} from "../interfaces/ISSVOperators.sol";
 import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
-import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
@@ -25,10 +25,9 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         UPGRADE_TIMESTAMP = upgradeTimestamp;
     }
 
-    /*******************************/
-    /* Operator External Functions */
-    /*******************************/
-
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function registerOperator(
         bytes calldata publicKey,
         uint256 fee,
@@ -68,6 +67,9 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         emit OperatorPrivacyStatusUpdated(operatorIds, setPrivate);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function removeOperator(uint64 operatorId) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
         Operator storage operator = s.operators[operatorId];
@@ -92,6 +94,9 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         emit OperatorRemoved(operatorId);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
@@ -114,7 +119,6 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        // todo double check -1, prevision needed for min fee
         uint64 maxAllowedFee = (operatorFee.raw() * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease) + PRECISION_FACTOR - 1) / PRECISION_FACTOR;
 
         if (shrunkFee.raw() > maxAllowedFee) revert FeeExceedsIncreaseLimit();
@@ -127,6 +131,9 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function executeOperatorFee(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
@@ -156,6 +163,9 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, PackedETHLib.unpack(PackedETH.wrap(feeChangeRequest.fee)));
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function cancelDeclaredOperatorFee(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
@@ -167,6 +177,9 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         emit OperatorFeeDeclarationCancelled(msg.sender, operatorId);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
@@ -187,24 +200,39 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
         OperatorLib.updatePrivacyStatus(operatorIds, true, SSVStorage.load());
         emit OperatorPrivacyStatusUpdated(operatorIds, true);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external override {
         OperatorLib.updatePrivacyStatus(operatorIds, false, SSVStorage.load());
         emit OperatorPrivacyStatusUpdated(operatorIds, false);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, amount, VERSION_ETH);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function withdrawAllOperatorEarnings(uint64 operatorId) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, 0, VERSION_ETH);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override nonReentrant {
         StorageData storage s = SSVStorage.load();        
         s.operators[operatorId].checkOwner();
@@ -229,10 +257,16 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         }
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, amount, VERSION_SSV);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override nonReentrant {
         _withdrawOperatorEarnings(operatorId, 0, VERSION_SSV);
     }

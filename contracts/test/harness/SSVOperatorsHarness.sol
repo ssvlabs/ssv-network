@@ -2,8 +2,8 @@
 pragma solidity 0.8.24;
 
 import {SSVOperators} from "../../modules/SSVOperators.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../../libraries/SSVStorageProtocol.sol";
-import {SSVStorage, StorageData} from "../../libraries/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../../libraries/storage/SSVStorageProtocol.sol";
+import {SSVStorage, StorageData} from "../../libraries/storage/SSVStorage.sol";
 import {ISSVNetworkCore} from "../../interfaces/ISSVNetworkCore.sol";
 import {ISSVOperators} from "../../interfaces/ISSVOperators.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";

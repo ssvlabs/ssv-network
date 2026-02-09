@@ -2,91 +2,121 @@
 pragma solidity ^0.8.20;
 
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
+import {MAX_DELEGATION_SLOTS} from "../libraries/storage/SSVStorageStaking.sol";
 
+/**
+ * @title SSV Staking Interface
+ * @author SSV Labs
+ * @notice Interface for SSV staking operations including staking tokens, requesting unstakes, withdrawing, claiming rewards and managing fees
+ */
 interface ISSVStaking is ISSVNetworkCore {
-    /// @notice Updates the global ETH reward index by pulling new earnings from the protocol storage
-    function syncFees() external;
-
-    /// @notice Stakes SSV tokens to mint cSSV and start earning ETH rewards
-    /// @param amount The amount of SSV tokens to stake
-    function stake(uint256 amount) external;
-
-    /// @notice Requests to unstake a specific amount of SSV, burning cSSV immediately
-    /// @dev Starts the cooldown period for the user
-    /// @param amount The amount of cSSV to burn (1:1 with SSV)
-    function requestUnstake(uint256 amount) external;
-
-    /// @notice Withdraws the unstaked SSV tokens after the cooldown period has passed
-    function withdrawUnlocked() external;
-
-    /// @notice Claims accrued ETH rewards for the caller
-    function claimEthRewards() external;
-
-    /// @notice Rescues accidental ERC20 transfers to the contract (cannot rescue SSV or cSSV)
-    /// @param token The address of the token to rescue
-    /// @param to The recipient address
-    /// @param amount The amount to transfer
-    function rescueERC20(address token, address to, uint256 amount) external;
-
-    /// @notice Hook called by cSSV token before any transfer (except mint/burn by this contract)
-    /// @dev Updates reward indexes for both sender and receiver to prevent reward theft/loss
-    /// @param from The sender address
-    /// @param to The recipient address
-    /// @param amount The amount of cSSV being transferred
-    function onCSSVTransfer(address from, address to, uint256 amount) external;
-
     /**
-     * @dev Emitted when SSV tokens are staked.
-     * @param user The address of the user staking tokens.
-     * @param amount The amount of SSV tokens staked.
+     * @dev Emitted when SSV tokens are staked
+     * @param user The user who staked tokens
+     * @param amount The amount of SSV staked
      */
     event Staked(address indexed user, uint256 amount);
 
     /**
-     * @dev Emitted when an unstake request is made.
-     * @param user The address of the user requesting unstake.
-     * @param amount The amount of cSSV burned/SSV requested.
-     * @param unlockTime The timestamp when the tokens will be available for withdrawal.
+     * @dev Emitted when an unstake is requested
+     * @param user The user requesting the unstake
+     * @param amount The amount of cSSV burned (matches SSV amount)
+     * @param unlockTime When the SSV can be withdrawn
      */
     event UnstakeRequested(address indexed user, uint256 amount, uint256 unlockTime);
 
     /**
-     * @dev Emitted when unstaked tokens are withdrawn.
-     * @param user The address of the user withdrawing tokens.
-     * @param amount The amount of SSV tokens withdrawn.
+     * @dev Emitted when unstaked SSV is withdrawn
+     * @param user The user withdrawing
+     * @param amount The amount of SSV withdrawn
      */
     event UnstakedWithdrawn(address indexed user, uint256 amount);
 
     /**
-     * @dev Emitted when global fees are synced from the protocol.
-     * @param newFeesWei The amount of new fees in Wei since the last sync.
-     * @param accEthPerShare The updated accumulated ETH per share.
+     * @dev Emitted when fees are synced within the protocol
+     * @param newFeesWei New fees amount in wei
+     * @param accEthPerShare Updated accumulated ETH per share
      */
     event FeesSynced(uint256 newFeesWei, uint256 accEthPerShare);
 
     /**
-     * @dev Emitted when a user's rewards are settled.
-     * @param user The address of the user.
-     * @param pending The pending rewards calculated for this settlement.
-     * @param accrued The total accrued rewards for the user.
-     * @param userIndex The user's reward index after settlement.
+     * @dev Emitted when a user's rewards are settled
+     * @param user The user's address
+     * @param pending Pending rewards for this settlement
+     * @param accrued Total accrued rewards
+     * @param userIndex User's reward index after settlement
      */
     event RewardsSettled(address indexed user, uint256 pending, uint256 accrued, uint256 userIndex);
 
     /**
-     * @dev Emitted when rewards are claimed.
-     * @param user The address of the user claiming rewards.
-     * @param amount The amount of ETH rewards claimed.
+     * @dev Emitted when ETH rewards are claimed
+     * @param user The user claiming
+     * @param amount The ETH amount claimed
      */
     event RewardsClaimed(address indexed user, uint256 amount);
 
     /**
-     * @dev Emitted when ERC20 tokens are rescued.
-     * @param token The address of the rescued token.
-     * @param to The recipient address.
-     * @param amount The amount of tokens rescued.
+     * @dev Emitted when ERC20 tokens are rescued
+     * @param token The token rescued
+     * @param to The recipient
+     * @param amount The amount rescued
      */
     event ERC20Rescued(address indexed token, address indexed to, uint256 amount);
 
-    event DelegationUpdated(address indexed user, uint32[4] oracleIds, uint256[4] amounts);
+    /**
+     * @dev Emitted when delegation is updated
+     * @param user The user
+     * @param oracleIds Array of oracle IDs
+     * @param amounts Array of amounts
+     */
+    event DelegationUpdated(
+        address indexed user,
+        uint32[MAX_DELEGATION_SLOTS] oracleIds,
+        uint256[MAX_DELEGATION_SLOTS] amounts
+    );
+
+    /**
+     * @notice Updates the global ETH reward index from protocol storage
+     */
+    function syncFees() external;
+
+    /**
+     * @notice Stakes SSV tokens to mint cSSV and earn ETH rewards
+     * @param amount Amount of SSV to stake
+     */
+    function stake(uint256 amount) external;
+
+    /**
+     * @notice Requests to unstake SSV by burning cSSV
+     * @notice Starts cooldown period
+     * @param amount Amount of cSSV to burn (1:1 with SSV)
+     */
+    function requestUnstake(uint256 amount) external;
+
+    /**
+     * @notice Withdraws unlocked SSV after cooldown
+     */
+    function withdrawUnlocked() external;
+
+    /**
+     * @notice Claims earned ETH rewards
+     */
+    function claimEthRewards() external;
+
+    /**
+     * @notice Rescues stuck ERC20 tokens (not SSV or cSSV)
+     * @param token Token address
+     * @param to Recipient
+     * @param amount Amount to rescue
+     */
+    function rescueERC20(address token, address to, uint256 amount) external;
+
+    /**
+     * @dev Hook for cSSV transfers
+     * @dev Updates rewards for sender and receiver
+     * @param from Sender
+     * @param to Recipient
+     * @param amount cSSV amount
+     */
+    function onCSSVTransfer(address from, address to, uint256 amount) external;
 }

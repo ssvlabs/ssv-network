@@ -8,20 +8,23 @@ import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
 import {VERSION_ETH} from "../libraries/SSVCoreTypes.sol";
-import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
+import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
     SSVStorageEB,
     StorageEB,
     ClusterEBSnapshot,
     VUNITS_PRECISION
-} from "../libraries/SSVStorageEB.sol";
+} from "../libraries/storage/SSVStorageEB.sol";
 
 contract SSVValidators is ISSVValidators {
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
     using ProtocolLib for StorageProtocol;
 
+    /**
+     * @inheritdoc ISSVValidators
+     */
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
@@ -37,6 +40,9 @@ contract SSVValidators is ISSVValidators {
         _bulkRegisterValidator(msg.sender, msg.value, publicKeys, operatorIds, shares, cluster);
     }
 
+    /**
+     * @inheritdoc ISSVValidators
+     */
     function bulkRegisterValidator(
         bytes[] memory publicKeys,
         uint64[] memory operatorIds,
@@ -46,6 +52,9 @@ contract SSVValidators is ISSVValidators {
         _bulkRegisterValidator(msg.sender, msg.value, publicKeys, operatorIds, sharesData, cluster);
     }
 
+    /**
+     * @inheritdoc ISSVValidators
+     */
     function removeValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
@@ -57,6 +66,9 @@ contract SSVValidators is ISSVValidators {
         _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster);
     }
 
+    /**
+     * @inheritdoc ISSVValidators
+     */
     function bulkRemoveValidator(
         bytes[] calldata publicKeys,
         uint64[] memory operatorIds,
@@ -65,6 +77,9 @@ contract SSVValidators is ISSVValidators {
         _bulkRemoveValidator(msg.sender, publicKeys, operatorIds, cluster);
     }
 
+    /**
+     * @inheritdoc ISSVValidators
+     */
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
         if (
             !ValidatorLib.validateCorrectState(
@@ -76,6 +91,9 @@ contract SSVValidators is ISSVValidators {
         emit ValidatorExited(msg.sender, operatorIds, publicKey);
     }
 
+    /**
+     * @inheritdoc ISSVValidators
+     */
     function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
         if (publicKeys.length == 0) {
             revert ISSVNetworkCore.ValidatorDoesNotExist();

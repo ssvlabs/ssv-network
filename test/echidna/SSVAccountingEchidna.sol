@@ -7,9 +7,9 @@ import "../../contracts/interfaces/ISSVOperators.sol";
 import "../../contracts/libraries/ClusterLib.sol";
 import "../../contracts/libraries/OperatorLib.sol";
 import "../../contracts/libraries/ProtocolLib.sol";
-import "../../contracts/libraries/SSVStorage.sol";
-import "../../contracts/libraries/SSVStorageEB.sol";
-import "../../contracts/libraries/SSVStorageProtocol.sol";
+import "../../contracts/libraries/storage/SSVStorage.sol";
+import "../../contracts/libraries/storage/SSVStorageEB.sol";
+import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/modules/SSVClusters.sol";
 import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/modules/SSVOperators.sol";
@@ -276,7 +276,6 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             record.cluster.balance += amount;
             record.cluster.index = _currentClusterIndexEth(operatorIdsLocal);
             record.cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
-            sp.daoTotalEthVUnits += uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
             unallocatedEth -= amount;
 
             SSVStorage.load().ethClusters[clusterId] = record.cluster.hashClusterData();
@@ -412,19 +411,11 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
         uint256 liquidatorBefore = address(liquidator).balance;
         try liquidator.liquidate(record.owner, operatorIdsLocal, cluster) {
-            StorageProtocol storage sp = SSVStorageProtocol.load();
             _settleEthCluster(clusterId, record, operatorIdsLocal);
             record.cluster.active = false;
             record.cluster.balance = 0;
             record.cluster.index = 0;
             record.cluster.networkFeeIndex = 0;
-
-            uint64 deltaVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
-            if (sp.daoTotalEthVUnits >= deltaVUnits) {
-                sp.daoTotalEthVUnits -= deltaVUnits;
-            } else {
-                sp.daoTotalEthVUnits = 0;
-            }
             totalEthOut += address(liquidator).balance - liquidatorBefore;
             SSVStorage.load().ethClusters[clusterId] = record.cluster.hashClusterData();
         } catch {}
@@ -551,6 +542,28 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
     function echidna_ssv_solvency() external view returns (bool) {
         return token.balanceOf(address(this)) <= totalSsvIn;
+    }
+
+    function echidna_vunits_deviation_consistent() external view returns (bool) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        uint256 expected;
+        uint256 count = ethClusterIds.length;
+        for (uint256 i; i < count; ++i) {
+            bytes32 clusterId = ethClusterIds[i];
+            ClusterRecord storage record = ethClusters[clusterId];
+            if (!record.exists || !record.cluster.active) continue;
+
+            uint64 vUnits = seb.clusterEB[clusterId].vUnits;
+            if (vUnits == 0) {
+                vUnits = uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
+            }
+
+            expected += vUnits;
+        }
+
+        return uint256(sp.daoTotalEthVUnits) == expected;
     }
 
     function _initProtocolDefaults() internal {

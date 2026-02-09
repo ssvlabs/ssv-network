@@ -72,7 +72,7 @@ When deploying to live networks like Holesky or Mainnet, please double check the
 
 We use [UUPS Proxy Upgrade pattern](https://docs.openzeppelin.com/contracts/4.x/api/proxy) for `SSVNetwork` and `SSVNetworkViews` contracts to have an ability to upgrade them later.
 
-**Important**: It's critical to not add any state variable to `SSVNetwork` nor `SSVNetworkViews` when upgrading. All the state variables are managed by [SSVStorage](../contracts/libraries/SSVStorage.sol) and [SSVStorageProtocol](../contracts/libraries/SSVStorageProtocol.sol). Only modify the logic part of the main contracts or the modules.
+**Important**: It's critical to not add any state variable to `SSVNetwork` nor `SSVNetworkViews` when upgrading. All the state variables are managed by [SSVStorage](../contracts/libraries/storage/SSVStorage.sol) and [SSVStorageProtocol](../contracts/libraries/storage/SSVStorageProtocol.sol). Only modify the logic part of the main contracts or the modules.
 
 ### Upgrade SSVNetwork / SSVNetworkViews
 

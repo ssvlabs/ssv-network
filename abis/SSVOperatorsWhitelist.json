@@ -64,7 +64,7 @@
   },
   {
     "inputs": [],
-    "name": "ClusterDoesNotExists",
+    "name": "ClusterDoesNotExist",
     "type": "error"
   },
   {
@@ -300,6 +300,11 @@
   {
     "inputs": [],
     "name": "OracleAlreadyAssigned",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OracleHasZeroWeight",
     "type": "error"
   },
   {

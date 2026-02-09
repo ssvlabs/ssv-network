@@ -14,14 +14,6 @@ async function main() {
 
   console.log(`Upgrading existing network on ${targetNetwork} at ${networkProxyAddr}`);
 
-  const { address: ssvStakingAddr } = await deployContract(ethers, "SSVStaking");
-  saveImplementation(targetNetwork, "SSVStaking", ssvStakingAddr);
-
-  await attachModule(ethers, networkProxyAddr, "SSVStaking", ssvStakingAddr);
-
-  const { address: cssvTokenAddr } = await deployContract(ethers, "CSSVToken", [networkProxyAddr]);
-  saveImplementation(targetNetwork, "CSSVToken", cssvTokenAddr);
-
   const { address: upgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
   saveImplementation(targetNetwork, "SSVNetworkSSVStakingUpgrade", upgradeImplAddr);
 
@@ -34,8 +26,8 @@ async function main() {
     networkProxyAddr,
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
-    "initializeSSVStaking(address,uint64,uint32[4])",
-    [cssvTokenAddr, cooldown, defaultOracles]
+    "initializeSSVStaking(uint64,uint32[4])",
+    [cooldown, defaultOracles]
   );
 }
 

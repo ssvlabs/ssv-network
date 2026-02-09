@@ -2,9 +2,9 @@
 pragma solidity 0.8.24;
 
 import "../../contracts/modules/SSVStaking.sol";
-import "../../contracts/libraries/SSVStorageProtocol.sol";
-import "../../contracts/libraries/SSVStorageStaking.sol";
-import "../../contracts/libraries/SSVStorage.sol";
+import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
+import "../../contracts/libraries/storage/SSVStorageStaking.sol";
+import "../../contracts/libraries/storage/SSVStorage.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -117,7 +117,7 @@ contract SSVStakingEchidna is SSVStaking {
 
     constructor() SSVStaking(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
-        cssv = new CSSVTokenMock(address(this));
+        cssv = CSSVTokenMock(CSSV_ADDRESS);
 
         _mockSetToken(address(token));
 

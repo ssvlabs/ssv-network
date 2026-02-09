@@ -2,17 +2,28 @@
 pragma solidity 0.8.24;
 
 import "../interfaces/ISSVNetworkCore.sol";
-import {StorageData} from "./SSVStorage.sol";
-import {StorageProtocol} from "./SSVStorageProtocol.sol";
-import {DEFAULT_EB_PER_VALIDATOR, SSVStorageEB, StorageEB, VUNITS_PRECISION} from "./SSVStorageEB.sol";
+import {StorageData} from "./storage/SSVStorage.sol";
+import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
+import {DEFAULT_EB_PER_VALIDATOR, SSVStorageEB, StorageEB, VUNITS_PRECISION} from "./storage/SSVStorageEB.sol";
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
 import {PackedSSV, PackedETH, VERSION_SSV, VERSION_ETH} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 
+/**
+ * @title SSV Cluster Library
+ * @author SSV Labs
+ * @notice Library functions for managing SSV clusters including balance updates, liquidation checks, validations and data operations
+ */
 library ClusterLib {
     using ProtocolLib for StorageProtocol;
 
+    /**
+     * @notice Updates cluster balance by calculating and deducting fees
+     * @param cluster Cluster data
+     * @param newIndex New operator index
+     * @param currentNetworkFeeIndex Current network fee index
+     */
     function updateBalance(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 newIndex,
@@ -33,6 +44,15 @@ library ClusterLib {
         cluster.balance = PackedSSVLib.unpack(usage) > cluster.balance ? 0 : cluster.balance - PackedSSVLib.unpack(usage);
     }
 
+    /**
+     * @notice Checks if cluster is liquidatable based on balance thresholds
+     * @param cluster Cluster data
+     * @param burnRate Cluster burn rate
+     * @param networkFee Network fee
+     * @param minimumBlocksBeforeLiquidation Minimum blocks before liquidation
+     * @param minimumLiquidationCollateral Minimum collateral for liquidation
+     * @return liquidatable True if cluster can be liquidated
+     */
     function isLiquidatable(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 burnRate,
@@ -50,6 +70,16 @@ library ClusterLib {
         }
     }
 
+    /**
+     * @notice Checks if cluster is liquidatable using effective balance
+     * @param cluster Cluster data
+     * @param clusterId Cluster ID
+     * @param burnRate Cluster burn rate
+     * @param networkFee Network fee
+     * @param minimumBlocksBeforeLiquidation Minimum blocks before liquidation
+     * @param minimumLiquidationCollateral Minimum collateral for liquidation
+     * @return liquidatable True if cluster can be liquidated
+     */
     function isLiquidatableWithEB(
         ISSVNetworkCore.Cluster memory cluster,
         bytes32 clusterId,
@@ -70,6 +100,16 @@ library ClusterLib {
         return cluster.balance < PackedETHLib.unpack(PackedETH.wrap(liquidationThreshold));
     }
 
+    /**
+     * @notice Checks if cluster is liquidatable using provided vUnits
+     * @param cluster Cluster data
+     * @param vUnits cluster VUnits
+     * @param burnRate Cluster burn rate
+     * @param networkFee Network fee
+     * @param minimumBlocksBeforeLiquidation Minimum blocks before liquidation
+     * @param minimumLiquidationCollateral Minimum collateral for liquidation
+     * @return liquidatable True if cluster can be liquidated
+     */
     function isLiquidatableWithVUnits(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 vUnits,
@@ -89,10 +129,23 @@ library ClusterLib {
         return cluster.balance < PackedETHLib.unpack(PackedETH.wrap(liquidationThreshold));
     }
 
+    /**
+     * @notice Validates that cluster is not liquidated
+     * @param cluster Cluster data
+     */
     function validateClusterIsNotLiquidated(ISSVNetworkCore.Cluster memory cluster) internal pure {
         if (!cluster.active) revert ISSVNetworkCore.ClusterIsLiquidated();
     }
 
+    /**
+     * @notice Validates and hashes cluster data
+     * @param cluster Cluster data
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs
+     * @param s Storage data
+     * @return hashedCluster Hashed cluster ID
+     * @return version Cluster version
+     */
     function validateHashedCluster(
         ISSVNetworkCore.Cluster memory cluster,
         address owner,
@@ -112,6 +165,12 @@ library ClusterLib {
         return (hashedCluster, detectedVersion);
     }
 
+    /**
+     * @notice Updates cluster data with new indexes
+     * @param cluster Cluster data
+     * @param clusterIndex New cluster index
+     * @param currentNetworkFeeIndex Current network fee index
+     */
     function updateClusterData(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 clusterIndex,
@@ -122,6 +181,11 @@ library ClusterLib {
         cluster.networkFeeIndex = currentNetworkFeeIndex;
     }
 
+    /**
+     * @notice Hashes cluster data
+     * @param cluster Cluster data
+     * @return Hashed cluster data
+     */
     function hashClusterData(ISSVNetworkCore.Cluster memory cluster) internal pure returns (bytes32) {
         return
             keccak256(
@@ -135,6 +199,14 @@ library ClusterLib {
             );
     }
 
+    /**
+     * @notice Validates cluster state for registration
+     * @param cluster Cluster data
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs
+     * @param s Storage data
+     * @return hashedCluster Hashed cluster ID
+     */
     function validateClusterOnRegistration(
         ISSVNetworkCore.Cluster memory cluster,
         address owner,
@@ -167,6 +239,15 @@ library ClusterLib {
         }
     }
 
+    /**
+     * @notice Updates cluster on registration
+     * @param cluster Cluster data
+     * @param operatorIds Operator IDs
+     * @param hashedCluster Hashed cluster ID
+     * @param validatorCountDelta Change in validator count
+     * @param s Storage data
+     * @param sp Storage protocol
+     */
     function updateClusterOnRegistration(
         ISSVNetworkCore.Cluster memory cluster,
         uint64[] memory operatorIds,
@@ -204,6 +285,12 @@ library ClusterLib {
         s.ethClusters[hashedCluster] = hashClusterData(cluster);
     }
 
+    /**
+     * @notice Gets VUnits for cluster
+     * @param clusterId Cluster ID
+     * @param validatorCount Validator count
+     * @return vUnits cluster VUnits
+     */
     function getVUnits(bytes32 clusterId, uint32 validatorCount) internal view returns (uint64) {
         StorageEB storage seb = SSVStorageEB.load();
         uint64 vUnits = seb.clusterEB[clusterId].vUnits;
@@ -218,6 +305,13 @@ library ClusterLib {
         return vUnits;
     }
 
+    /**
+     * @notice Updates cluster balance using effective balance
+     * @param cluster Cluster data
+     * @param clusterId Cluster ID
+     * @param newIndex New operator index
+     * @param currentNetworkFeeIndex Current network fee index
+     */
     function updateBalanceWithEB(
         ISSVNetworkCore.Cluster memory cluster,
         bytes32 clusterId,
@@ -236,10 +330,22 @@ library ClusterLib {
         cluster.balance = PackedETHLib.unpack(usage) > cluster.balance ? 0 : cluster.balance - PackedETHLib.unpack(usage);
     }
 
+    /**
+     * @notice Validates cluster version and throws error if version is not the expected one
+     * @param clusterVersion Detected version
+     * @param expectedVersion Expected version
+     */
     function validateClusterVersion(uint8 clusterVersion, uint8 expectedVersion) internal pure {
         if (clusterVersion != expectedVersion) revert ISSVNetworkCore.IncorrectClusterVersion();
     }
 
+    /**
+     * @notice Gets cluster data from storage
+     * @param hashedCluster Hashed cluster ID
+     * @param s Storage data
+     * @return clusterData Hashed cluster data
+     * @return version Cluster version
+     */
     function getClusterData(
         bytes32 hashedCluster,
         StorageData storage s
@@ -257,9 +363,11 @@ library ClusterLib {
         revert ISSVNetworkCore.ClusterDoesNotExist();
     }
 
-    /// @notice Convert effective balance to vUnits using ceiling division (write path)
-    /// @param effectiveBalance The effective balance in ETH
-    /// @return vUnits value with VUNITS_PRECISION scaling
+    /**
+     * @notice Converts effective balance to v units using ceiling division
+     * @param effectiveBalance Effective balance in ETH
+     * @return vUnits v units scaled by precision
+     */
     function ebToVUnits(uint32 effectiveBalance) internal pure returns (uint64) {
         uint256 vUnits = uint256(effectiveBalance) * VUNITS_PRECISION;
         uint256 vUnitsPerValidator = DEFAULT_EB_PER_VALIDATOR / 1 ether;
@@ -267,9 +375,11 @@ library ClusterLib {
         return uint64(vUnits == 0 ? 0 : (vUnits - 1) / vUnitsPerValidator + 1);
     }
 
-    /// @notice Convert vUnits to effective balance using floor division (read path)
-    /// @param vUnits The vUnits value with VUNITS_PRECISION scaling
-    /// @return effectiveBalance in ETH
+    /**
+     * @notice Converts v units to effective balance using floor division
+     * @param vUnits v units scaled by precision
+     * @return effectiveBalance Effective balance in ETH
+     */
     function vUnitsToEB(uint64 vUnits) internal pure returns (uint32) {
         return uint32((uint256(vUnits) * (DEFAULT_EB_PER_VALIDATOR / 1 ether)) / VUNITS_PRECISION);
     }

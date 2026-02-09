@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import {PackedSSV, PackedETH} from "./SSVCoreTypes.sol";
+import {PackedSSV, PackedETH} from "../SSVCoreTypes.sol";
 
 /// @title SSV Network Storage Protocol
 /// @notice Represents the operational settings and parameters required by the SSV Network
@@ -20,7 +20,6 @@ struct StorageProtocol {
     uint64 networkFeeIndex;
     /// @notice The current balance of the DAO
     PackedSSV daoBalance;
-    // todo double check separation
     /// @notice The minimum number of blocks before a liquidation event can be triggered for SSV cluster
     uint64 minimumBlocksBeforeLiquidationSSV;
     /// @notice The minimum collateral required for liquidation of SSV clusters
@@ -47,7 +46,6 @@ struct StorageProtocol {
     uint64 ethNetworkFeeIndex;
     /// @notice The current balance of the DAO for eth clusters
     PackedETH ethDaoBalance;
-    // todo double check
     /// @notice The minimum collateral required for liquidation
     PackedETH minimumLiquidationCollateral;
     /// @notice The minimum number of blocks before a liquidation event can be triggered
