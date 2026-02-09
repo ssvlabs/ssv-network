@@ -2,7 +2,7 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import { getTestConnection } from '../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../setup/fixtures.ts';
-import type { NetworkHelpersType, OperatorTuple } from '../common/types.ts';
+import type { NetworkHelpersType, OperatorTuple, UnstakeRequest } from '../common/types.ts';
 import {
   addValidatorsToCluster, buildEBMerkleForDefaultClusters,
   calculateInitialBurnRate,
@@ -2804,62 +2804,89 @@ describe("SSVNetwork full integration tests", () => {
   });
 
   describe("Function requestUnstake()", async function() {
-    it("For full amount, creates unstake request, burns CSSV and removes delegation", async function(){
+    it("For full amount, creates unstake request, burns CSSV and removes delegation", async function () {
       const { network, views, ssvToken, cssvToken } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+      await ssvToken
+        .connect(randomUser)
+        .approve(await network.getAddress(), connection.ethers.MaxUint256);
       await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
-      await network.connect(randomUser).stake(STAKE_AMOUNT)
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
 
       const tx = await network.connect(randomUser).requestUnstake(STAKE_AMOUNT);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.REQUEST_UNSTAKE]);
+
       const block = await tx.getBlock();
+      const expectedUnlockTime =
+        BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
 
       await expect(tx)
         .to.emit(network, Events.UNSTAKE_REQUESTED)
-        .withArgs(randomUser.address, STAKE_AMOUNT, BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN)
+        .withArgs(randomUser.address, STAKE_AMOUNT, expectedUnlockTime);
 
-      expect(await views.pendingUnstake(randomUser.address))
-        .to.be.deep.equal([[STAKE_AMOUNT], [BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]]);
+      const requests: UnstakeRequest[] =
+        await views.pendingUnstake(randomUser.address);
 
-      expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(0);
-      expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(0);
+      expect(requests.length).to.equal(1);
+      expect(requests[0].amount).to.equal(STAKE_AMOUNT);
+      expect(requests[0].unlockTime).to.equal(expectedUnlockTime);
+
+      expect(await cssvToken.balanceOf(randomUser.address)).to.equal(0);
+      expect(await views.stakedBalanceOf(randomUser.address)).to.equal(0);
     });
 
     it("For partial amount, creates unstake request, burns CSSV and removes delegation", async function(){
       const { network, views, ssvToken } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+      await ssvToken
+        .connect(randomUser)
+        .approve(await network.getAddress(), connection.ethers.MaxUint256);
       await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
-      await network.connect(randomUser).stake(STAKE_AMOUNT)
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
 
+// First unstake
       const tx = await network.connect(randomUser).requestUnstake(STAKE_AMOUNT / 2n);
       await tx.wait();
       const block = await tx.getBlock();
 
+      const firstUnlockTime =
+        BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
       await expect(tx)
         .to.emit(network, Events.UNSTAKE_REQUESTED)
-        .withArgs(randomUser.address, STAKE_AMOUNT / 2n, BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN)
+        .withArgs(randomUser.address, STAKE_AMOUNT / 2n, firstUnlockTime);
 
-      expect(await views.pendingUnstake(randomUser.address))
-        .to.be.deep.equal([[STAKE_AMOUNT / 2n], [BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]]);
+      let requests: UnstakeRequest[] =
+        await views.pendingUnstake(randomUser.address);
 
-      const secondTx = await network.connect(randomUser).requestUnstake(STAKE_AMOUNT / 2n);
+      expect(requests.length).to.equal(1);
+      expect(requests[0].amount).to.equal(STAKE_AMOUNT / 2n);
+      expect(requests[0].unlockTime).to.equal(firstUnlockTime);
+
+// Second unstake
+      const secondTx = await network
+        .connect(randomUser)
+        .requestUnstake(STAKE_AMOUNT / 2n);
       await secondTx.wait();
       const secondBlock = await secondTx.getBlock();
 
+      const secondUnlockTime =
+        BigInt(secondBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
       await expect(secondTx)
         .to.emit(network, Events.UNSTAKE_REQUESTED)
-        .withArgs(randomUser.address, STAKE_AMOUNT / 2n, BigInt(secondBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN);
+        .withArgs(randomUser.address, STAKE_AMOUNT / 2n, secondUnlockTime);
 
-      expect(await views.pendingUnstake(randomUser.address))
-        .to.be.deep.equal([
-        [STAKE_AMOUNT / 2n, STAKE_AMOUNT / 2n],
-        [BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN, BigInt(secondBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN]
-      ]);
+      requests = await views.pendingUnstake(randomUser.address);
+
+      expect(requests.length).to.equal(2);
+      expect(requests[0].amount).to.equal(STAKE_AMOUNT / 2n);
+      expect(requests[0].unlockTime).to.equal(firstUnlockTime);
+      expect(requests[1].amount).to.equal(STAKE_AMOUNT / 2n);
+      expect(requests[1].unlockTime).to.equal(secondUnlockTime);
     });
 
     it("Is reverted with 'MaxRequestsAmountReached' if more than 10 pending requests", async function() {

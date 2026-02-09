@@ -54,13 +54,13 @@ contract SSVViews is ISSVViews {
         return PackedSSVLib.unpack(SSVStorage.load().operators[operatorId].fee);
     }
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (bool, uint256, uint64, uint64) {
+    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (OperatorDeclaredFeeData memory) {
         StorageData storage s = SSVStorage.load();
         OperatorFeeChangeRequest memory opFeeChangeRequest = s.operatorFeeChangeRequests[operatorId];
 
         bool isETHOperator = s.operators[operatorId].ethSnapshot.block != 0;
 
-        return (
+        return OperatorDeclaredFeeData(
             opFeeChangeRequest.approvalBeginTime != 0,
             isETHOperator ? PackedETHLib.unpack(PackedETH.wrap(opFeeChangeRequest.fee)) : PackedSSVLib.unpack(PackedSSV.wrap(opFeeChangeRequest.fee)),
             opFeeChangeRequest.approvalBeginTime,
@@ -70,52 +70,30 @@ contract SSVViews is ISSVViews {
 
     function getOperatorById(
         uint64 operatorId
-    )
-        external
-        view
-        override
-        returns (
-            address owner,
-            uint256 ethFee,
-            uint32 ethValidatorCount,
-            address whitelistedAddress,
-            bool isPrivate,
-            bool isActive
-        )
+    ) external view override returns (OperatorData memory op)
     {
         ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
 
-        owner = operator.owner;
-        ethFee = PackedETHLib.unpack(operator.ethFee);
-        ethValidatorCount = operator.ethValidatorCount;
-        whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
-        isPrivate = operator.whitelisted;
-        isActive = operator.ethSnapshot.block != 0;
+        op.owner = operator.owner;
+        op.fee = PackedETHLib.unpack(operator.ethFee);
+        op.validatorCount = operator.ethValidatorCount;
+        op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
+        op.isPrivate = operator.whitelisted;
+        op.isActive = operator.ethSnapshot.block != 0;
     }
 
     function getOperatorByIdSSV(
         uint64 operatorId
-    )
-        external
-        view
-        override
-        returns (
-            address owner,
-            uint256 fee,
-            uint32 validatorCount,
-            address whitelistedAddress,
-            bool isPrivate,
-            bool isActive
-        )
+    ) external view override returns (OperatorData memory op)
     {
         ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
 
-        owner = operator.owner;
-        fee = PackedSSVLib.unpack(operator.fee);
-        validatorCount = operator.validatorCount;
-        whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
-        isPrivate = operator.whitelisted;
-        isActive = operator.snapshot.block != 0;
+        op.owner = operator.owner;
+        op.fee = PackedSSVLib.unpack(operator.fee);
+        op.validatorCount = operator.validatorCount;
+        op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
+        op.isPrivate = operator.whitelisted;
+        op.isActive = operator.snapshot.block != 0;
     }
 
     function getWhitelistedOperators(
@@ -475,8 +453,11 @@ contract SSVViews is ISSVViews {
         return SSVStorageProtocol.load().minimumOperatorEthFee.unpack();
     }
 
-    function getOperatorFeePeriods() external view override returns (uint64, uint64) {
-        return (SSVStorageProtocol.load().declareOperatorFeePeriod, SSVStorageProtocol.load().executeOperatorFeePeriod);
+    function getOperatorFeePeriods() external view override returns (OperatorFeePeriodsData memory) {
+        return OperatorFeePeriodsData(
+            SSVStorageProtocol.load().declareOperatorFeePeriod,
+            SSVStorageProtocol.load().executeOperatorFeePeriod
+        );
     }
 
     function getLiquidationThresholdPeriod() external view override returns (uint64) {
@@ -515,15 +496,18 @@ contract SSVViews is ISSVViews {
         return ICSSVToken(CSSV_ADDRESS).balanceOf(user);
     }
 
-    function pendingUnstake(address user) external view override returns (uint256[] memory amounts, uint256[] memory unlockTimes) {
+    function pendingUnstake(address user) external view override returns (UnstakeRequestsData[] memory data) {
         StorageStaking storage s = SSVStorageStaking.load();
         UnstakeRequest[] storage requests = s.withdrawalRequests[user];
+
         uint256 len = requests.length;
-        amounts = new uint256[](len);
-        unlockTimes = new uint256[](len);
-        for (uint256 j = 0; j < len; j++) {
-            amounts[j] = requests[j].amount;
-            unlockTimes[j] = requests[j].unlockTime;
+        data = new UnstakeRequestsData[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            data[i] = UnstakeRequestsData({
+                amount: requests[i].amount,
+                unlockTime: requests[i].unlockTime
+            });
         }
     }
 
