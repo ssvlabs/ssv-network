@@ -86,6 +86,14 @@ function parseOptionalArg(argName: string): string | undefined {
   return value;
 }
 
+function parseOptionalBooleanArg(argName: string, fallback: boolean): boolean {
+  const raw = parseOptionalArg(argName);
+  if (raw === undefined) return fallback;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  throw new Error(`Invalid --${argName} value: ${raw}. Use true|false`);
+}
+
 function resolveDeployedConfigPath(initConfigPath: string, outputArg?: string): string {
   if (outputArg) {
     return resolve(outputArg);
@@ -243,7 +251,11 @@ async function setBalance(provider: any, address: string, balanceHex: string) {
   }
 }
 
-async function getSignerForAddress(ethers: any, address: string): Promise<{ signer: any; impersonated: boolean }> {
+async function getSignerForAddress(
+  ethers: any,
+  address: string,
+  useGetImpersonatedSigner: boolean
+): Promise<{ signer: any; impersonated: boolean }> {
   const signers = await ethers.getSigners();
   for (const signer of signers) {
     if ((await signer.getAddress()).toLowerCase() === address.toLowerCase()) {
@@ -251,6 +263,17 @@ async function getSignerForAddress(ethers: any, address: string): Promise<{ sign
       await trySend(ethers.provider, "hardhat_setBalance", [address, "0x56bc75e2d63100000"]);
       await trySend(ethers.provider, "anvil_setBalance", [address, "0x56bc75e2d63100000"]);
       return { signer, impersonated: false };
+    }
+  }
+
+  if (useGetImpersonatedSigner && typeof ethers.getImpersonatedSigner === "function") {
+    try {
+      const signer = await ethers.getImpersonatedSigner(address);
+      await trySend(ethers.provider, "hardhat_setBalance", [address, "0x56bc75e2d63100000"]);
+      await trySend(ethers.provider, "anvil_setBalance", [address, "0x56bc75e2d63100000"]);
+      return { signer, impersonated: true };
+    } catch {
+      // Fall back to manual RPC impersonation
     }
   }
 
@@ -262,6 +285,7 @@ async function getSignerForAddress(ethers: any, address: string): Promise<{ sign
 async function main() {
   const targetNetwork = parseArg("network");
   const initConfigPath = resolve(parseArg("config"));
+  const useGetImpersonatedSigner = parseOptionalBooleanArg("use-get-impersonated-signer", true);
   const deployedConfigPath = resolveDeployedConfigPath(
     initConfigPath,
     parseOptionalArg("output-config")
@@ -323,11 +347,15 @@ async function main() {
     ? requireAddress(config.viewsOwner, "viewsOwner address")
     : await viewsProxy.owner();
 
-  const { signer: ownerSigner, impersonated: networkOwnerImpersonated } = await getSignerForAddress(ethers, ownerAddr);
+  const { signer: ownerSigner, impersonated: networkOwnerImpersonated } = await getSignerForAddress(
+    ethers,
+    ownerAddr,
+    useGetImpersonatedSigner
+  );
   const { signer: viewsOwnerSigner, impersonated: viewsOwnerImpersonated } =
     viewsOwnerAddr.toLowerCase() === ownerAddr.toLowerCase()
       ? { signer: ownerSigner, impersonated: networkOwnerImpersonated }
-      : await getSignerForAddress(ethers, viewsOwnerAddr);
+      : await getSignerForAddress(ethers, viewsOwnerAddr, useGetImpersonatedSigner);
 
   const networkOwner = network.connect(ownerSigner);
   const viewsOwner = viewsProxy.connect(viewsOwnerSigner);
@@ -335,6 +363,7 @@ async function main() {
 
   console.log(`Network owner: ${ownerAddr}${networkOwnerImpersonated ? " (impersonated)" : ""}`);
   console.log(`Views owner:   ${viewsOwnerAddr}${viewsOwnerImpersonated ? " (impersonated)" : ""}`);
+  console.log(`Impersonation mode: ${useGetImpersonatedSigner ? "getImpersonatedSigner+fallback" : "manual RPC only"}`);
   console.log("[1/6] Deploying implementations (SSVNetwork, staking upgrade, SSVNetworkViews)");
   // const { address: networkImplAddr } = await deployContract(ethers, "SSVNetwork", [], ownerSigner);
   const { address: stakingUpgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade", [], ownerSigner);

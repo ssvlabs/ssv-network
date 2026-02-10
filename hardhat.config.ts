@@ -58,7 +58,6 @@ export default defineConfig({
       type: "http",
       chainType: "l1",
       url: process.env.HOODI_LOCAL_RPC_URL ?? "http://127.0.0.1:8545",
-      accounts: process.env.HOODI_PRIVATE_KEY ? [process.env.HOODI_PRIVATE_KEY] : [],
     },
     hoodi: {
       type: "http",

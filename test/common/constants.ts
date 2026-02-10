@@ -1,21 +1,7 @@
 import { ethers } from "ethers";
 import { SSVModules } from "./types.ts";
 import type { Cluster } from "./types.ts";
-
-function envBigInt(name: string, fallback: bigint): bigint {
-  const raw = process.env[name];
-  if (!raw || raw.trim() === "") return fallback;
-  return BigInt(raw);
-}
-
-function envBigIntArray(name: string, fallback: bigint[]): bigint[] {
-  const raw = process.env[name];
-  if (!raw || raw.trim() === "") return fallback;
-  return raw
-    .split(",")
-    .map(v => BigInt(v.trim()))
-    .filter(v => v > 0n);
-}
+import { envBigInt, envBigIntArray } from "./env-helpers.ts";
 
 export const EMPTY_CLUSTER: Cluster = {
   validatorCount: 0n,
