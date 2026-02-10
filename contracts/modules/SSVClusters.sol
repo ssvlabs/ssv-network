@@ -274,7 +274,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             isLiquidated
         );
 
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndexSSV());
+        cluster.updateBalanceSSV(clusterIndex, sp.currentNetworkFeeIndexSSV());
         uint256 ssvBalance = cluster.balance;
 
         cluster.balance = msg.value;

@@ -381,8 +381,8 @@ library OperatorLib {
                 }
             }
 
-            cumulativeFee += PackedETH.unwrap(operator.ethFee);
-            cumulativeIndex += operator.ethSnapshot.index;
+            cumulativeFee += PackedSSV.unwrap(operator.fee);
+            cumulativeIndex += operator.snapshot.index;
         }
     }
 
