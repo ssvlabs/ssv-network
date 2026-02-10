@@ -1043,7 +1043,7 @@ suite("SSVNetwork upgrade scenarios", () => {
       await expect(ethReceived).to.be.equal(0n);
     });
 
-    it.skip("can declare fee before, execute fee after upgrade", async function () {
+    it("can declare fee before, execute fee after upgrade", async function () {
       const { network: mainnetNetwork, views: mainnetViews, ssvToken } =
         await networkHelpers.loadFixture(getMainnetFixture);
 
@@ -1149,7 +1149,7 @@ suite("SSVNetwork upgrade scenarios", () => {
       await expect(feeETH).to.be.equal(0n);
     });
 
-    it.skip("can reduce fee before, reduce fee after upgrade", async function () {
+    it("can reduce fee before, reduce fee after upgrade", async function () {
       const { network: mainnetNetwork, views: mainnetViews, ssvToken } =
         await networkHelpers.loadFixture(getMainnetFixture);
 
@@ -2283,7 +2283,7 @@ suite("SSVNetwork upgrade scenarios", () => {
       await expect(clusterBalanceAfter).to.be.at.most(expectedBalance + tolerance);
     });
 
-    it.only("migrated cluster fees are correctly adjusted after operators removal", async function () {
+    it("migrated cluster fees are correctly adjusted after operators removal", async function () {
       const { network: mainnetNetwork, views: mainnetViews, ssvToken } =
         await networkHelpers.loadFixture(getMainnetFixture);
 
