@@ -384,13 +384,24 @@ export async function ssvNetworkFullForkedFixture(
       [cooldown, DEFAULT_ORACLE_IDS]
     );
 
-    await daoNetwork.upgradeToAndCall(stakingUpgradeImplAddr, initData);
-    await daoNetwork.upgradeTo(networkImplAddr);
+    try {
+      await (await daoNetwork.upgradeToAndCall(stakingUpgradeImplAddr, initData)).wait();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.includes("Initializable: contract is already initialized")) {
+        throw err;
+      }
+      console.warn(
+        "[FORK] initializeSSVStaking already executed on this proxy; continuing with non-init upgrade path."
+      );
+      await (await daoNetwork.upgradeTo(stakingUpgradeImplAddr)).wait();
+    }
+    await (await daoNetwork.upgradeTo(networkImplAddr)).wait();
 
     const viewsFactory = await ethers.getContractFactory("SSVNetworkViews");
     const views = viewsFactory.attach(ForkConfig.SSV_NETWORK_VIEWS);
     const daoViews = views.connect(daoSigner);
-    await daoViews.upgradeTo(viewsImplAddr);
+    await (await daoViews.upgradeTo(viewsImplAddr)).wait();
 
     for (const [moduleName, moduleAddress] of Object.entries(modules)) {
       const moduleEnumKey = moduleName as keyof typeof SSVModules;
@@ -404,15 +415,15 @@ export async function ssvNetworkFullForkedFixture(
     const ssvTokenFactory = await ethers.getContractFactory("SSVToken");
     const ssvToken = ssvTokenFactory.attach(ForkConfig.SSV_TOKEN);
 
-    await daoNetwork.updateNetworkFeeSSV(NETWORK_FEE);
-    await daoNetwork.updateNetworkFee(NETWORK_FEE_ETH);
-    await daoNetwork.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL);
-    await daoNetwork.updateMinimumLiquidationCollateralSSV(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL);
-    await daoNetwork.updateLiquidationThresholdPeriod(MINIMUM_BLOCKS_BEFORE_LIQUIDATION);
-    await daoNetwork.updateLiquidationThresholdPeriodSSV(MINIMUM_BLOCKS_BEFORE_LIQUIDATION);
-    await daoNetwork.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE);
-    await daoNetwork.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
-    await daoNetwork.updateMinimumOperatorEthFee(MINIMAL_OPERATOR_ETH_FEE);
+    await (await daoNetwork.updateNetworkFeeSSV(NETWORK_FEE)).wait();
+    await (await daoNetwork.updateNetworkFee(NETWORK_FEE_ETH)).wait();
+    await (await daoNetwork.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL)).wait();
+    await (await daoNetwork.updateMinimumLiquidationCollateralSSV(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL)).wait();
+    await (await daoNetwork.updateLiquidationThresholdPeriod(MINIMUM_BLOCKS_BEFORE_LIQUIDATION)).wait();
+    await (await daoNetwork.updateLiquidationThresholdPeriodSSV(MINIMUM_BLOCKS_BEFORE_LIQUIDATION)).wait();
+    await (await daoNetwork.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE)).wait();
+    await (await daoNetwork.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE)).wait();
+    await (await daoNetwork.updateMinimumOperatorEthFee(MINIMAL_OPERATOR_ETH_FEE)).wait();
 
     return { network, views, cssvToken, ssvToken, modules, daoSigner };
   };
