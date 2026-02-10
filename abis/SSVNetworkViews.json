@@ -213,6 +213,11 @@
   },
   {
     "inputs": [],
+    "name": "InvalidQuorum",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidToken",
     "type": "error"
   },
