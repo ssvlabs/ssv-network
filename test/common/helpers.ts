@@ -1,7 +1,9 @@
 import {
+  BPS_DENOMINATOR,
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
+  OPERATOR_FEE_PRECISION,
   MINIMAL_OPERATOR_ETH_FEE,
   SSV_MODULE_CONTRACTS,
   VUNITS_PRECISION,
@@ -76,6 +78,59 @@ export async function registerOperators(network: any, owner: any, count: number)
   }
 
   return operatorIds;
+}
+
+type OperatorFeeViews = Pick<
+  SSVNetworkViews,
+  "getOperatorFee" | "getMaximumOperatorFee" | "getOperatorFeeIncreaseLimit"
+>;
+
+export async function getOperatorFeeBounds(
+  views: OperatorFeeViews,
+  operatorId: bigint
+): Promise<{
+  currentRaw: bigint;
+  maxOperatorRaw: bigint;
+  maxAllowedRaw: bigint;
+}> {
+  const currentFee = await views.getOperatorFee(operatorId);
+  const maxOperatorFee = await views.getMaximumOperatorFee();
+  const increaseLimitBps = await views.getOperatorFeeIncreaseLimit();
+
+  const currentRaw = currentFee / OPERATOR_FEE_PRECISION;
+  const maxOperatorRaw = maxOperatorFee / OPERATOR_FEE_PRECISION;
+  const maxAllowedRaw =
+    (currentRaw * (BPS_DENOMINATOR + increaseLimitBps) + (BPS_DENOMINATOR - 1n)) / BPS_DENOMINATOR;
+
+  return {
+    currentRaw,
+    maxOperatorRaw,
+    maxAllowedRaw,
+  };
+}
+
+export async function getValidOperatorFeeIncrease(
+  views: OperatorFeeViews,
+  operatorId: bigint
+): Promise<bigint> {
+  const { currentRaw, maxOperatorRaw, maxAllowedRaw } = await getOperatorFeeBounds(views, operatorId);
+  const upperRaw = maxAllowedRaw < maxOperatorRaw ? maxAllowedRaw : maxOperatorRaw;
+  if (upperRaw <= currentRaw) {
+    throw new Error("No valid fee increase available for current fork configuration");
+  }
+  return upperRaw * OPERATOR_FEE_PRECISION;
+}
+
+export async function getFeeAboveIncreaseLimit(
+  views: OperatorFeeViews,
+  operatorId: bigint
+): Promise<bigint> {
+  const { maxOperatorRaw, maxAllowedRaw } = await getOperatorFeeBounds(views, operatorId);
+  const candidateRaw = maxAllowedRaw + 1n;
+  if (candidateRaw > maxOperatorRaw) {
+    throw new Error("Cannot construct FeeExceedsIncreaseLimit case without hitting FeeTooHigh first");
+  }
+  return candidateRaw * OPERATOR_FEE_PRECISION;
 }
 
 export async function whitelistAddresses(network: any, signer: HardhatEthersSigner, operators: number[], addresses: string[]): Promise<void> {

@@ -45,6 +45,21 @@ export default defineConfig({
         blockNumber: process.env.FORK_BLOCK_NUMBER ? Number(process.env.FORK_BLOCK_NUMBER) : undefined,
       }
     },
+    hardhat_forked_hoodi_local: {
+      type: 'edr-simulated',
+      allowUnlimitedContractSize: true,
+      blockGasLimit: 100_000_000,
+      forking: {
+        url: process.env.HOODI_LOCAL_RPC_URL ?? "http://127.0.0.1:8545",
+        blockNumber: process.env.FORK_BLOCK_NUMBER ? Number(process.env.FORK_BLOCK_NUMBER) : undefined,
+      }
+    },
+    hoodi_local: {
+      type: "http",
+      chainType: "l1",
+      url: process.env.HOODI_LOCAL_RPC_URL ?? "http://127.0.0.1:8545",
+      accounts: process.env.HOODI_PRIVATE_KEY ? [process.env.HOODI_PRIVATE_KEY] : [],
+    },
     hoodi: {
       type: "http",
       chainType: "l1",
