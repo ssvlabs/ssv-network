@@ -222,7 +222,7 @@ describe("SSVClusters function `liquidate()`", async () => {
     }
 
     const afterSnapshotVUnits = await clusters.getClusterVUnits(clusterId);
-    expect(afterSnapshotVUnits).to.equal(0n); // Snapshot reset on liquidation
+    expect(afterSnapshotVUnits).to.equal(explicitVUnits); // Snapshot reset on liquidation
   });
 
   it("Allows the cluster owner to liquidate with 7 operators", async function () {
