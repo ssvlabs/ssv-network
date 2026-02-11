@@ -345,7 +345,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     // Test completed successfully - accounting validated
   });
 
-  it.only("Correctly updates SSV snapshot and settles fees for already-ETH operators during migration", async function () {
+  it("Correctly updates SSV snapshot and settles fees for already-ETH operators during migration", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
@@ -362,7 +362,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     await clusters.mockSSVNetworkFee(ssvNetworkFee);
     await clusters.mockCurrentNetworkFeeIndexSSV(0n);
 
-    const ethNetworkFee = 1770n; 
+    const ethNetworkFee = 1770n;
     await clusters.mockEthNetworkFee(ethNetworkFee);
     await clusters.mockCurrentNetworkFeeIndex(0n);
 
