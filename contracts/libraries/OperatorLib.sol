@@ -360,7 +360,12 @@ library OperatorLib {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
-            // Update SSV snapshot before validator count changes
+            // skip removed operators
+            if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
+                continue;
+            }
+
+            // update SSV snapshot before validator count changes
             updateSnapshotStSSV(operator);
             cumulativeIndexSSV += operator.snapshot.index;
 

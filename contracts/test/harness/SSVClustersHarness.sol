@@ -146,6 +146,23 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         seb.ebRoots[blockNum] = root;
     }
 
+    function mockRemoveOperator(uint64 operatorId) external {
+        StorageData storage s = SSVStorage.load();
+        // Set both snapshots to 0 to simulate removed operator
+        s.operators[operatorId].snapshot.block = 0;
+        s.operators[operatorId].snapshot.index = 0;
+        s.operators[operatorId].snapshot.balance = PACKED_SSV_ZERO;
+        s.operators[operatorId].ethSnapshot.block = 0;
+        s.operators[operatorId].ethSnapshot.index = 0;
+        s.operators[operatorId].ethSnapshot.balance = PACKED_ETH_ZERO;
+        s.operators[operatorId].validatorCount = 0;
+        s.operators[operatorId].ethValidatorCount = 0;
+    }
+
+    function mockSetOperatorFee(uint64 operatorId, uint256 fee) external {
+        SSVStorage.load().operators[operatorId].ethFee = PackedETHLib.pack(fee);
+    }
+    
     function mockEthNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethNetworkFee = PackedETH.wrap(fee);
