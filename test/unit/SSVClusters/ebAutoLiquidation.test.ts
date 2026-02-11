@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { ethers } from "ethers";
@@ -26,6 +26,10 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
 
   const deployClustersWithFee = async () => {
     return ssvClustersHarnessFixture(connection, 4, OPERATOR_FEE);
+  };
+
+  const deployClustersWithFeeAndEightOperators = async () => {
+    return ssvClustersHarnessFixture(connection, 8, OPERATOR_FEE);
   };
 
   const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
@@ -232,5 +236,67 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
     const clusterAfterEB2048 = parseClusterFromEvent(clusters, ebReceipt2, Events.CLUSTER_LIQUIDATED);
     expect(clusterAfterEB2048.active).to.equal(false,
       "Auto-liquidation correctly fires when cluster is insolvent");
+  });
+
+  it("Blocks reentrant guarded calls during updateClusterBalance auto-liquidation callback", async function () {
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFeeAndEightOperators);
+
+    const Malicious = await connection.ethers.getContractFactory("MaliciousUpdateClusterBalance");
+    const malicious = await Malicious.deploy(await clusters.getAddress());
+    await malicious.waitForDeployment();
+
+    const liquidationOps = operatorIds.slice(0, 4);
+    const withdrawOps = operatorIds.slice(4, 8);
+    const maliciousAddress = await malicious.getAddress();
+
+    await clusters.mockEthNetworkFee(100_000n);
+    await clusters.mockMinimumBlocksBeforeLiquidation(100n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+
+    const regLiquidationTx = await malicious.registerValidator(
+      makePublicKey(1),
+      liquidationOps,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: ethers.parseEther("0.0001") }
+    );
+    const regLiquidationReceipt = await regLiquidationTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, regLiquidationReceipt, Events.VALIDATOR_ADDED);
+
+    const liquidationClusterId = getClusterId(maliciousAddress, liquidationOps);
+    await clusters.mockSetEBRoot(1, getEBRoot(liquidationClusterId, 32));
+
+    const ebTx1 = await clusters.updateClusterBalance(
+      1,
+      maliciousAddress,
+      liquidationOps,
+      clusterAfterRegister,
+      32,
+      []
+    );
+    const ebReceipt1 = await ebTx1.wait();
+    const clusterAfterEB32 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
+
+    const regWithdrawTx = await malicious.registerValidator(
+      makePublicKey(2),
+      withdrawOps,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const regWithdrawReceipt = await regWithdrawTx.wait();
+    const clusterForWithdraw = parseClusterFromEvent(clusters, regWithdrawReceipt, Events.VALIDATOR_ADDED);
+
+    await malicious.setReentryParams(withdrawOps, 0n, clusterForWithdraw);
+    await clusters.mockSetEBRoot(2, getEBRoot(liquidationClusterId, 2048));
+    await malicious.setLiquidationParams(2, liquidationOps, clusterAfterEB32, 2048, []);
+
+    const attackTx = await malicious.attack();
+    const attackReceipt = await attackTx.wait();
+    const clusterAfterAttack = parseClusterFromEvent(clusters, attackReceipt, Events.CLUSTER_LIQUIDATED);
+
+    expect(clusterAfterAttack.active).to.equal(false);
+    expect(await malicious.attemptedReenter()).to.equal(true);
+    expect(await malicious.reenterSucceeded()).to.equal(false);
   });
 });
