@@ -78,7 +78,7 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getMaximumOperatorFee()).to.equal(MAXIMUM_OPERATORS_FEE);
       expect(await views.getMinimumOperatorEthFee()).to.equal(MINIMAL_OPERATOR_ETH_FEE);
 
-      expect(await views.cooldownDuration()).to.equal(7n * 24n * 60n * 60n);
+      expect(await views.cooldownDuration()).to.equal(DEFAULT_UNSTAKE_COOLDOWN);
 
       expect(await views.getNetworkEarnings()).to.equal(0n);
       expect(await views.getNetworkEarningsSSV()).to.equal(0n);

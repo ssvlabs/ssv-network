@@ -87,7 +87,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(await views.getNetworkFeeSSV()).to.equal(NETWORK_FEE);
 
-      await expect(await views.cooldownDuration()).to.equal(50120);
+      await expect(await views.cooldownDuration()).to.equal(DEFAULT_UNSTAKE_COOLDOWN);
 
       await expect(await views.getNetworkEarnings()).to.equal(0n);
       await expect(await views.totalStaked()).to.equal(0n);
