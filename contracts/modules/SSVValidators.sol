@@ -137,7 +137,8 @@ contract SSVValidators is ISSVValidators {
 
         cluster.balance += value;
 
-        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
+        bool isExistingCluster = _isClusterExisting(hashedCluster, s);
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), isExistingCluster, s, sp);
 
         {
             // Deviation-only model: baseline comes from ethValidatorCount (already updated above)
@@ -243,5 +244,9 @@ contract SSVValidators is ISSVValidators {
         for (uint i; i < validatorsLength; ++i) {
             emit ValidatorRemoved(owner, operatorIds, publicKeys[i], cluster);
         }
+    }
+
+    function _isClusterExisting(bytes32 hashedCluster, StorageData storage s) internal view returns (bool) {
+        return s.clusters[hashedCluster] != 0 || s.ethClusters[hashedCluster] != 0;
     }
 }

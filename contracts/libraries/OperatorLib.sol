@@ -153,6 +153,7 @@ library OperatorLib {
      * @notice Updates cluster operators on registration
      * @param operatorIds Operator IDs
      * @param deltaValidatorCount Validator count delta
+     * @param isExistingCluster If cluster already exists
      * @param s Storage data
      * @param sp Storage protocol
      * @return cumulativeIndex Cumulative index
@@ -161,6 +162,7 @@ library OperatorLib {
     function updateClusterOperatorsOnRegistration(
         uint64[] memory operatorIds,
         uint32 deltaValidatorCount,
+        bool isExistingCluster,
         StorageData storage s,
         StorageProtocol storage sp
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
@@ -182,6 +184,20 @@ library OperatorLib {
             }
             ensureETHDefaults(s.operators[operatorId]);
             ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
+
+            if (!isExistingCluster) {
+                if (
+                    operator.owner == address(0) ||
+                    operator.ethSnapshot.block == 0 ||
+                    operator.snapshot.block == 0
+                ) {
+                    revert ISSVNetworkCore.OperatorDoesNotExist();
+                }
+            } else {
+                if (operator.owner == address(0)) {
+                    revert ISSVNetworkCore.OperatorDoesNotExist();
+                }
+            }
 
             // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
