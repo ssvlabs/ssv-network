@@ -200,7 +200,7 @@ contract SSVValidators is ISSVValidators {
                 sp
             );
 
-            cluster.updateClusterData(clusterIndex, sp.currentNetworkFeeIndex());
+            cluster.updateClusterData(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
             sp.updateDAO(false, validatorsRemoved);
         }
