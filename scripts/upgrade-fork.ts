@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { isAddress } from "ethers";
-import { deployContract, getEthers, parseArg } from "./common/helpers.ts";
+import { deployContract, getDeployer, getEthers, parseArg } from "./common/helpers.ts";
 import { SSVModules } from "./common/modules.ts";
 
 type ModuleName = keyof typeof SSVModules;
@@ -347,15 +347,50 @@ async function main() {
     ? requireAddress(config.viewsOwner, "viewsOwner address")
     : await viewsProxy.owner();
 
-  const { signer: ownerSigner, impersonated: networkOwnerImpersonated } = await getSignerForAddress(
-    ethers,
-    ownerAddr,
-    useGetImpersonatedSigner
-  );
-  const { signer: viewsOwnerSigner, impersonated: viewsOwnerImpersonated } =
-    viewsOwnerAddr.toLowerCase() === ownerAddr.toLowerCase()
-      ? { signer: ownerSigner, impersonated: networkOwnerImpersonated }
-      : await getSignerForAddress(ethers, viewsOwnerAddr, useGetImpersonatedSigner);
+  const deployerSigner = await getDeployer(ethers);
+  const deployerAddress = ((await deployerSigner.getAddress()) as string).toLowerCase();
+  const ownerAddressLower = ownerAddr.toLowerCase();
+  const viewsOwnerAddressLower = viewsOwnerAddr.toLowerCase();
+  const targetRpcUrl =
+    targetNetwork === "hoodi_local"
+      ? process.env.HOODI_LOCAL_RPC_URL
+      : targetNetwork === "hoodi"
+      ? process.env.HOODI_RPC_URL
+      : targetNetwork === "mainnet"
+      ? process.env.MAINNET_RPC_URL
+      : undefined;
+  const usesLocalRpc =
+    !!targetRpcUrl && (targetRpcUrl.includes("127.0.0.1") || targetRpcUrl.includes("localhost"));
+  const canImpersonate =
+    targetNetwork.includes("hardhat") || targetNetwork.includes("local") || targetNetwork === "localhost" || usesLocalRpc;
+
+  let ownerSigner = deployerSigner;
+  let viewsOwnerSigner = deployerSigner;
+  let networkOwnerImpersonated = false;
+  let viewsOwnerImpersonated = false;
+
+  if (deployerAddress !== ownerAddressLower || deployerAddress !== viewsOwnerAddressLower) {
+    if (!canImpersonate) {
+      throw new Error(
+        `Deployer ${deployerAddress} is not the required owner(s). ` +
+        `network.owner=${ownerAddressLower}, views.owner=${viewsOwnerAddressLower}. ` +
+        `Use the owner private key in env (e.g. HOODI_PRIVATE_KEY) or pass explicit owner/viewsOwner in config.`
+      );
+    }
+
+    const ownerResolved = await getSignerForAddress(ethers, ownerAddr, useGetImpersonatedSigner);
+    ownerSigner = ownerResolved.signer;
+    networkOwnerImpersonated = ownerResolved.impersonated;
+
+    if (viewsOwnerAddressLower === ownerAddressLower) {
+      viewsOwnerSigner = ownerSigner;
+      viewsOwnerImpersonated = networkOwnerImpersonated;
+    } else {
+      const viewsResolved = await getSignerForAddress(ethers, viewsOwnerAddr, useGetImpersonatedSigner);
+      viewsOwnerSigner = viewsResolved.signer;
+      viewsOwnerImpersonated = viewsResolved.impersonated;
+    }
+  }
 
   const networkOwner = network.connect(ownerSigner);
   const viewsOwner = viewsProxy.connect(viewsOwnerSigner);
