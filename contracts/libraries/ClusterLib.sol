@@ -18,22 +18,6 @@ import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 library ClusterLib {
     using ProtocolLib for StorageProtocol;
 
-    /**
-     * @notice Updates cluster balance by calculating and deducting fees
-     * @param cluster Cluster data
-     * @param newIndex New operator index
-     * @param currentNetworkFeeIndex Current network fee index
-     */
-    function updateBalance(
-        ISSVNetworkCore.Cluster memory cluster,
-        uint64 newIndex,
-        uint64 currentNetworkFeeIndex
-    ) internal pure {
-        uint64 networkFee = uint64(currentNetworkFeeIndex - cluster.networkFeeIndex) * cluster.validatorCount;
-        PackedETH usage = PackedETH.wrap((newIndex - cluster.index) * cluster.validatorCount + networkFee);
-        cluster.balance = PackedETHLib.unpack(usage) > cluster.balance ? 0 : cluster.balance - PackedETHLib.unpack(usage);
-    }
-
     function updateBalanceSSV(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 newIndex,
@@ -166,17 +150,19 @@ library ClusterLib {
     }
 
     /**
-     * @notice Updates cluster data with new indexes
+     * @notice Updates cluster data with new indexes using EB-weighted fee settlement
      * @param cluster Cluster data
+     * @param hashedCluster Hashed cluster ID for EB lookup
      * @param clusterIndex New cluster index
      * @param currentNetworkFeeIndex Current network fee index
      */
     function updateClusterData(
         ISSVNetworkCore.Cluster memory cluster,
+        bytes32 hashedCluster,
         uint64 clusterIndex,
         uint64 currentNetworkFeeIndex
-    ) internal pure {
-        updateBalance(cluster, clusterIndex, currentNetworkFeeIndex);
+    ) internal view {
+        updateBalanceWithEB(cluster, hashedCluster, clusterIndex, currentNetworkFeeIndex);
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = currentNetworkFeeIndex;
     }
@@ -263,7 +249,7 @@ library ClusterLib {
             sp
         );
 
-        updateClusterData(cluster, clusterIndex, sp.currentNetworkFeeIndex());
+        updateClusterData(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
         sp.updateDAO(true, validatorCountDelta);
 
