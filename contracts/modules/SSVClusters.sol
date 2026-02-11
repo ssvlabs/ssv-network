@@ -353,7 +353,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         Cluster memory cluster,
         uint32 effectiveBalance,
         bytes32[] calldata merkleProof
-    ) external override {
+    ) external override nonReentrant {
         UpdateCtx memory ctx;
         StorageData storage s = SSVStorage.load();
 
