@@ -20,10 +20,6 @@ struct Delegation {
 }
 
 struct StorageStaking {
-    /// @notice Address of the cSSV token used as the staking receipt token
-    /// @dev deprecated
-    address DEPRECATED_cssv;
-    /// @notice Cooldown duration for unstaking
     uint64 cooldownDuration;
     /// @notice Total ETH-denominated rewards (shrunk) allocated to the staking pool
     PackedETH stakingEthPoolBalance;
@@ -39,12 +35,6 @@ struct StorageStaking {
     mapping(uint32 => address) oracles;
     /// @notice Reverse lookup: oracle address => oracle ID (0 if not registered)
     mapping(address => uint32) oracleIdOf;
-    /// @notice Aggregated weight (in cSSV amount) for each oracle ID
-    /// @dev deprecated, kept for v2
-    mapping(uint32 => uint256) DEPRECATED_oracleWeights;
-    /// @notice Per-user delegation data
-    /// @dev deprecated, kept for v2
-    mapping(address => Delegation) DEPRECATED_userDelegations;
     /// @notice Default oracle IDs to use for new delegations (equal split)
     uint32[MAX_DELEGATION_SLOTS] defaultOracleIds;
     /// @notice Quorum threshold in basis points (e.g. 7000 = 70%)
