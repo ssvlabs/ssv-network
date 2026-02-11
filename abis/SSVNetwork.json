@@ -852,31 +852,6 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint32[4]",
-        "name": "oracleIds",
-        "type": "uint32[4]"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256[4]",
-        "name": "amounts",
-        "type": "uint256[4]"
-      }
-    ],
-    "name": "DelegationUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
         "name": "token",
         "type": "address"
       },

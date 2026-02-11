@@ -45,5 +45,4 @@ export const Events = {
   REWARDS_SETTLED: "RewardsSettled",
   REWARDS_CLAIMED: "RewardsClaimed",
   ERC20_RESCUED: "ERC20Rescued",
-  DELEGATION_UPDATED: "DelegationUpdated",
 } as const;

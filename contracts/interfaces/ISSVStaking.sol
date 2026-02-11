@@ -64,18 +64,6 @@ interface ISSVStaking is ISSVNetworkCore {
     event ERC20Rescued(address indexed token, address indexed to, uint256 amount);
 
     /**
-     * @dev Emitted when delegation is updated
-     * @param user The user
-     * @param oracleIds Array of oracle IDs
-     * @param amounts Array of amounts
-     */
-    event DelegationUpdated(
-        address indexed user,
-        uint32[MAX_DELEGATION_SLOTS] oracleIds,
-        uint256[MAX_DELEGATION_SLOTS] amounts
-    );
-
-    /**
      * @notice Updates the global ETH reward index from protocol storage
      */
     function syncFees() external;
