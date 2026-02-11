@@ -71,6 +71,32 @@ async function getLatestCommittedBlockFromStorage(
   return BigInt(rawSlotValue) & MAX_UINT64;
 }
 
+async function getClusterVUnitsFromStorage(
+  connection: NetworkConnection<"generic">,
+  networkAddress: string,
+  clusterId: string
+): Promise<bigint> {
+  const ethers = connection.ethers;
+  const baseSlot = BigInt(ethers.keccak256(ethers.toUtf8Bytes(EB_STORAGE_POSITION))) - 1n;
+  const clusterEbMappingSlot = baseSlot + 1n; // clusterEB mapping slot
+
+  const clusterEntrySlot = ethers.keccak256(
+    ethers.AbiCoder.defaultAbiCoder().encode(
+      ["bytes32", "uint256"],
+      [clusterId, clusterEbMappingSlot]
+    )
+  );
+
+  const rawSlotValue = await ethers.provider.send("eth_getStorageAt", [
+    networkAddress,
+    clusterEntrySlot,
+    "latest",
+  ]);
+
+  // ClusterEBSnapshot slot-0 layout: uint64 vUnits | uint64 lastRootBlockNum | uint64 lastUpdateBlock
+  return BigInt(rawSlotValue) & MAX_UINT64;
+}
+
 async function getSafeCommitBlockNumber(
   connection: NetworkConnection<"generic">,
   networkHelpers: NetworkHelpersType,
@@ -161,9 +187,28 @@ suite("SSVNetwork effective balance scenarios", () => {
       await expect(
         await forkedViews.getClusterAssetType(clusterOwner.address, operatorIds)
       ).to.equal(CLUSTER_VERSION_ETH);
+      
       await expect(
         await forkedViews.getEffectiveBalance(clusterOwner.address, operatorIds, clusterData)
       ).to.equal(DEFAULT_ETH_EB_PER_VALIDATOR * BigInt(initialValidators));
+
+      const networkFeePerBlock = await forkedViews.getNetworkFee();
+      let sumOperatorFeePerBlock = 0n;
+      for (const id of operatorIds) {
+        sumOperatorFeePerBlock += await forkedViews.getOperatorFee(id);
+      }
+      const baseFeePerBlock = networkFeePerBlock + sumOperatorFeePerBlock;
+
+      // Baseline check before EB update (implicit 32 ETH per validator): 1 block.
+      await connection.networkHelpers.mine(1);
+      const balanceAfterOneBlockBaseline = await forkedViews.getBalance(
+        clusterOwner.address,
+        operatorIds,
+        clusterData
+      );
+      const baselineDeduction = BigInt(clusterData.balance) - balanceAfterOneBlockBaseline;
+      const expectedBaselineDeduction = baseFeePerBlock * BigInt(initialValidators);
+      await expect(baselineDeduction).to.equal(expectedBaselineDeduction);
 
       await setSSVBalanceViaStorage(
         connection,
@@ -235,6 +280,18 @@ suite("SSVNetwork effective balance scenarios", () => {
       const blocksToAge = 10n;
       await connection.networkHelpers.mine(Number(blocksToAge));
 
+      const clusterVUnits = await getClusterVUnitsFromStorage(
+        connection,
+        await forkedNetwork.getAddress(),
+        clusterId
+      );
+      const expectedVUnits = (BigInt(clusterEffectiveBalance) * VUNITS_PRECISION + (DEFAULT_ETH_EB_PER_VALIDATOR - 1n)) /
+        DEFAULT_ETH_EB_PER_VALIDATOR;
+      await expect(clusterVUnits).to.equal(expectedVUnits);
+
+      const expectedDeductionByVUnits =
+        ((baseFeePerBlock * clusterVUnits) / VUNITS_PRECISION) * blocksToAge;
+
       const balanceAfter10Blocks = await forkedViews.getBalance(
         clusterOwner.address,
         operatorIds,
@@ -247,6 +304,7 @@ suite("SSVNetwork effective balance scenarios", () => {
         clusterAfterEbUpdate
       );
       await expect(deductionBeforeRegistration).to.equal(ebBurnRatePerBlock * blocksToAge);
+      await expect(deductionBeforeRegistration).to.equal(expectedDeductionByVUnits);
 
       const registerDeposit = ethers.parseEther("1");
       await connection.ethers.provider.send("hardhat_setBalance", [
@@ -267,6 +325,12 @@ suite("SSVNetwork effective balance scenarios", () => {
         registerReceipt,
         Events.VALIDATOR_ADDED
       );
+      const balanceAfterRegisterView = await forkedViews.getBalance(
+        clusterOwner.address,
+        operatorIds,
+        clusterAfterRegister
+      );
+      await expect(balanceAfterRegisterView).to.equal(BigInt(clusterAfterRegister.balance));
 
       const observedRegisterDeduction =
         BigInt(clusterAfterEbUpdate.balance) + registerDeposit - BigInt(clusterAfterRegister.balance);
@@ -280,16 +344,17 @@ suite("SSVNetwork effective balance scenarios", () => {
         (clusterIndexDelta * validatorCountBefore + networkFeeIndexDelta * validatorCountBefore) *
         ETH_DEDUCTED_DIGITS;
 
-      const vUnitsBefore =
-        (BigInt(clusterEffectiveBalance) * VUNITS_PRECISION + (DEFAULT_ETH_EB_PER_VALIDATOR - 1n)) /
-        DEFAULT_ETH_EB_PER_VALIDATOR;
       const expectedEbAwareDeduction =
-        ((clusterIndexDelta * vUnitsBefore) / VUNITS_PRECISION +
-          (networkFeeIndexDelta * vUnitsBefore) / VUNITS_PRECISION) *
+        ((clusterIndexDelta * clusterVUnits) / VUNITS_PRECISION +
+          (networkFeeIndexDelta * clusterVUnits) / VUNITS_PRECISION) *
         ETH_DEDUCTED_DIGITS;
 
       await expect(expectedEbAwareDeduction).to.be.greaterThan(expectedFlatDeduction);
-      await expect(observedRegisterDeduction).to.equal(expectedEbAwareDeduction);
+      await expect(
+        observedRegisterDeduction,
+        `expected EB/vUnits settlement ${expectedEbAwareDeduction.toString()} ` +
+          `but observed ${observedRegisterDeduction.toString()} (flat math ${expectedFlatDeduction.toString()})`
+      ).to.equal(expectedEbAwareDeduction);
     });
   });
 });
