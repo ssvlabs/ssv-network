@@ -360,6 +360,11 @@ library OperatorLib {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
+            // skip removed operators
+            if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
+                continue;
+            }
+
             // update SSV validator count for both new ETH-initialized and existing ETH-initialized operators
             if (!isClusterLiquidated) {
                 operator.validatorCount -= validatorCount;
