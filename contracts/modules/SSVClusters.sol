@@ -398,15 +398,28 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
                 burnRate = _applyClusterFeeUpdates(operatorIds, cluster, effectiveOldVUnits, s, sp);
             }
 
-            bool liquidated = _liquidateAfterEBUpdateIfNeeded(cluster, clusterId, ctx.clusterOwner, operatorIds, burnRate, s, sp, seb);
+            bool shouldLiquidate = false;
+            if (cluster.active && cluster.validatorCount != 0) {
+                shouldLiquidate = cluster.isLiquidatableWithVUnits(
+                    newVUnits,
+                    burnRate,
+                    PackedETH.unwrap(sp.ethNetworkFee),
+                    sp.minimumBlocksBeforeLiquidation,
+                    sp.minimumLiquidationCollateral
+                );
+            }
 
-            if (!liquidated && cluster.active) {
-                // Use effectiveOldVUnits to avoid double counting default values
+            if (shouldLiquidate) {
+                for (uint256 i = 0; i < operatorIds.length; ++i) {
+                    s.operators[operatorIds[i]].ethValidatorCount -= cluster.validatorCount;
+                }
+                _executeLiquidation(ctx.clusterOwner, msg.sender, clusterId, operatorIds, cluster, s, sp, seb);
+            }
+            else if (cluster.active) {
                 if (newVUnits != effectiveOldVUnits) {
                     _updateOperatorVUnits(operatorIds, seb, effectiveOldVUnits, newVUnits);
                     sp.updateDAOEthVUnits(effectiveOldVUnits, newVUnits);
                 }
-
                 _updateEBSnapshot(seb, clusterId, ctx.blockNum, newVUnits);
                 s.ethClusters[clusterId] = cluster.hashClusterData();
             }
