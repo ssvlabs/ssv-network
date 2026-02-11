@@ -159,7 +159,7 @@ contract SSVValidatorsEchidna is SSVValidators {
             if (validatorKeyToId[validatorKey] == validatorId) {
                 validatorKeyToId[validatorKey] = 0;
             }
-            _recordRemoval(clusterRecord, operatorIds);
+            _recordRemoval(clusterRecord, clusterId, operatorIds);
             _updateExpectedOperatorCounts(operatorIds, false);
         } catch {}
     }
@@ -369,7 +369,7 @@ contract SSVValidatorsEchidna is SSVValidators {
         uint64 clusterIndex = _clusterIndexFromStorage(operatorIds, s);
         uint64 networkFeeIndex = sp.currentNetworkFeeIndex();
 
-        cluster.updateClusterData(clusterIndex, networkFeeIndex);
+        cluster.updateClusterData(clusterId, clusterIndex, networkFeeIndex);
         cluster.validatorCount += 1;
         cluster.active = true;
 
@@ -395,7 +395,7 @@ contract SSVValidatorsEchidna is SSVValidators {
         validatorKeyToId[validatorKey] = nextValidatorId;
     }
 
-    function _recordRemoval(ClusterRecord storage record, uint64[] memory operatorIds) internal {
+    function _recordRemoval(ClusterRecord storage record, bytes32 clusterId, uint64[] memory operatorIds) internal {
         if (!record.exists) return;
 
         ISSVNetworkCore.Cluster memory cluster = record.cluster;
@@ -406,7 +406,7 @@ contract SSVValidatorsEchidna is SSVValidators {
             StorageProtocol storage sp = SSVStorageProtocol.load();
             uint64 clusterIndex = _clusterIndexFromStorage(operatorIds, s);
             uint64 networkFeeIndex = sp.currentNetworkFeeIndex();
-            cluster.updateClusterData(clusterIndex, networkFeeIndex);
+            cluster.updateClusterData(clusterId, clusterIndex, networkFeeIndex);
         }
 
         if (cluster.validatorCount > 0) {

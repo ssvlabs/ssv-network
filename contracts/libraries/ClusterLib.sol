@@ -14,7 +14,8 @@ library ClusterLib {
     using Types64 for uint64;
     using ProtocolLib for StorageProtocol;
 
-    function updateBalance(
+    /// @notice Settles SSV-denominated balance during migration (legacy, non-EB)
+    function settleSSVBalance(
         ISSVNetworkCore.Cluster memory cluster,
         uint64 newIndex,
         uint64 currentNetworkFeeIndex
@@ -105,10 +106,11 @@ library ClusterLib {
 
     function updateClusterData(
         ISSVNetworkCore.Cluster memory cluster,
+        bytes32 hashedCluster,
         uint64 clusterIndex,
         uint64 currentNetworkFeeIndex
-    ) internal pure {
-        updateBalance(cluster, clusterIndex, currentNetworkFeeIndex);
+    ) internal view {
+        updateBalanceWithEB(cluster, hashedCluster, clusterIndex, currentNetworkFeeIndex);
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = currentNetworkFeeIndex;
     }
@@ -173,7 +175,7 @@ library ClusterLib {
             sp
         );
 
-        updateClusterData(cluster, clusterIndex, sp.currentNetworkFeeIndex());
+        updateClusterData(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
         sp.updateDAO(true, validatorCountDelta);
 
