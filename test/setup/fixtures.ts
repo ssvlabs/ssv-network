@@ -451,6 +451,7 @@ export async function ssvNetworkFullForkedFixture(
   await daoNetwork.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE);
   await daoNetwork.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
   await daoNetwork.updateMinimumOperatorEthFee(MINIMAL_OPERATOR_ETH_FEE);
+  await daoNetwork.setQuorumBps(QUORUM_BPS);
 
   return { network, views, cssvToken, ssvToken, modules, daoSigner };
 }
