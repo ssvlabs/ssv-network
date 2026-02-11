@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { isAddress } from "ethers";
 import { deployContract, getDeployer, getEthers, parseArg } from "./common/helpers.ts";
 import { SSVModules } from "./common/modules.ts";
+import { DEFAULT_UNSTAKE_COOLDOWN } from "../test/common/constants.ts";
 
 type ModuleName = keyof typeof SSVModules;
 type ModuleAddresses = Record<ModuleName, string>;
@@ -315,7 +316,7 @@ async function main() {
     "minimumLiquidationCollateralSSV"
   );
   const unstakeCooldownDuration = parseUint(config.unstakeCooldownDuration, "unstakeCooldownDuration");
-  const cooldownDuration = parseUint(config.cooldownDuration, "cooldownDuration") ?? 7n * 24n * 60n * 60n;
+  const cooldownDuration = parseUint(config.cooldownDuration, "cooldownDuration") ?? DEFAULT_UNSTAKE_COOLDOWN;
   const upgradeTimestamp = parseUint(config.upgradeTimestamp, "upgradeTimestamp") ?? 0n;
   const quorumBps = parseQuorum(config.quorumBps);
   const oracles = normalizeOracles(config.oracles);

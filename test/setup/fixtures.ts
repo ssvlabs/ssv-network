@@ -13,6 +13,7 @@ import {
 import { CSSVToken, SSVNetwork, SSVNetworkViews, SSVToken } from '../../types/ethers-contracts/index.js';
 import {
   DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
+  DEFAULT_UNSTAKE_COOLDOWN,
   MAXIMUM_OPERATORS_FEE, MINIMAL_LIQUIDATION_THRESHOLD,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
@@ -164,7 +165,7 @@ export async function ssvDAOHarnessFixture(
 
 export async function ssvStakingHarnessFixture(
   connection: NetworkConnection<"generic">,
-  cooldownDuration = 604800n // 7 days in seconds
+  cooldownDuration = DEFAULT_UNSTAKE_COOLDOWN
 ): Promise<{
   staking: SSVStakingHarness;
   ssvToken: SSVToken;
@@ -293,7 +294,7 @@ export async function ssvNetworkFullFixture(
 
   const { address: upgradeImplAddr } = await deployContract(connection.ethers, "SSVNetworkSSVStakingUpgrade");
 
-  const cooldown = 7n * 24n * 60n * 60n;
+  const cooldown = DEFAULT_UNSTAKE_COOLDOWN;
 
   await upgradeProxy(
     connection.ethers,
@@ -377,7 +378,7 @@ export async function ssvNetworkFullForkedFixture(
     const network = networkFactory.attach(ForkConfig.SSV_NETWORK_ADDRESS);
     const daoNetwork = network.connect(daoSigner);
 
-    const cooldown = 7n * 24n * 60n * 60n;
+    const cooldown = DEFAULT_UNSTAKE_COOLDOWN;
     const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
     const initData = upgradeFactory.interface.encodeFunctionData(
       "initializeSSVStaking(uint64,uint32[4])",
