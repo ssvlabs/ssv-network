@@ -8,7 +8,7 @@ import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
 import {PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
-import {PackedETHLib} from "../libraries/SSVPackedLib.sol";
+import {PackedETHLib, ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
@@ -474,14 +474,14 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
         uint128 operatorFeeUnits = (idxOp * units) / VUNITS_PRECISION;
-        PackedETH totalFees = PackedETH.wrap(uint64(networkFeeUnits) + uint64(operatorFeeUnits));
+        uint256 totalFees = (uint256(networkFeeUnits) + uint256(operatorFeeUnits)) * ETH_DEDUCTED_DIGITS;
 
         // Update indexes
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = currentNetworkFeeIndex;
 
-        if (cluster.balance >= PackedETHLib.unpack(totalFees)) {
-            cluster.balance -= PackedETHLib.unpack(totalFees);
+        if (cluster.balance >= totalFees) {
+            cluster.balance -= totalFees;
         } else {
             cluster.balance = 0;
         }

@@ -308,9 +308,8 @@ library ClusterLib {
 
         uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
         uint128 usageUnits = (idxOp * units) / VUNITS_PRECISION + networkFeeUnits;
-
-        PackedETH usage = PackedETH.wrap(uint64(usageUnits));
-        cluster.balance = PackedETHLib.unpack(usage) > cluster.balance ? 0 : cluster.balance - PackedETHLib.unpack(usage);
+        uint256 usage = uint256(usageUnits) * ETH_DEDUCTED_DIGITS;
+        cluster.balance = usage > cluster.balance ? 0 : cluster.balance - usage;
     }
 
     /**
