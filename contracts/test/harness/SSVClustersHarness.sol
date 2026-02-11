@@ -71,8 +71,11 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     }
 
     function getClusterVUnits(bytes32 clusterId) external view returns (uint64) {
-        StorageEB storage seb = SSVStorageEB.load();
-        return seb.clusterEB[clusterId].vUnits;
+        return SSVStorageEB.load().clusterEB[clusterId].vUnits;
+    }
+
+    function getDaoTotalEthVUnits() external view returns (uint64) {
+        return SSVStorageProtocol.load().daoTotalEthVUnits;
     }
 
     function getValidatorData(bytes calldata publicKey, address owner) external view returns (bytes32) {
