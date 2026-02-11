@@ -225,7 +225,7 @@ library OperatorLib {
     }
 
     /**
-     * @notice Updates cluster operators
+     * @notice Updates ETH cluster operators
      * @param operatorIds Operator IDs
      * @param increaseValidatorCount Increase flag
      * @param deltaValidatorCount Validator count delta
