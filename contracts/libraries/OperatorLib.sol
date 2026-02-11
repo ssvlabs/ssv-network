@@ -360,6 +360,10 @@ library OperatorLib {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
+            // Update SSV snapshot before validator count changes
+            updateSnapshotStSSV(operator);
+            cumulativeIndexSSV += operator.snapshot.index;
+
             // update SSV validator count for both new ETH-initialized and existing ETH-initialized operators
             if (!isClusterLiquidated) {
                 operator.validatorCount -= validatorCount;
@@ -367,25 +371,20 @@ library OperatorLib {
 
             if (operator.ethSnapshot.block == 0) {
                 // first-time ETH usage or migration
-                updateSnapshotStSSV(operator);
-
                 ensureETHDefaults(operator);
-
-                // initialize ETH validator count
-                if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
-                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-                }
-
-                cumulativeIndexSSV += operator.snapshot.index;
+                
             } else {
                 // already ETH operator
                 updateSnapshotSt(operator, operatorId);
-                if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
-                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-                }
 
                 cumulativeIndexETH += operator.ethSnapshot.index;
             }
+            
+            // update ETH validator count for both new ETH-initialized and existing ETH-initialized operators
+            if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
+                revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+            }
+
             cumulativeFeeETH += PackedETH.unwrap(operator.ethFee);
         }
     }

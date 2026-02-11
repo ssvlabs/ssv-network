@@ -101,6 +101,10 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         return (snap.index, snap.block, PackedSSV.unwrap(snap.balance));
     }
 
+    function getOperatorValidatorCount(uint64 operatorId) external view returns (uint32) {
+        return SSVStorage.load().operators[operatorId].validatorCount;
+    }
+
     function getOperatorSSVFee(uint64 operatorId) external view returns (uint64) {
         return PackedSSV.unwrap(SSVStorage.load().operators[operatorId].fee);
     }
