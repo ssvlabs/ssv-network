@@ -356,5 +356,140 @@ suite("SSVNetwork effective balance scenarios", () => {
           `but observed ${observedRegisterDeduction.toString()} (flat math ${expectedFlatDeduction.toString()})`
       ).to.equal(expectedEbAwareDeduction);
     });
+
+    it("should keep 1000 EfBalance after liquidate/reactivate without EB update", async function () {
+      const { network: forkedNetwork, views: forkedViews, daoSigner, ssvToken: forkedSsvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
+
+      const operatorIds = await registerOperators(forkedNetwork, operatorOwner, 4);
+      await whitelistAddresses(forkedNetwork, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      const initialDeposit = ethers.parseEther("5");
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (initialDeposit + ethers.parseEther("10")).toString(16),
+      ]);
+
+      const registerTx = await forkedNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(7001),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: initialDeposit }
+      );
+      const registerReceipt = await registerTx.wait();
+      const clusterAfterRegister = parseClusterFromEvent(
+        forkedNetwork,
+        registerReceipt,
+        Events.VALIDATOR_ADDED
+      );
+
+      await setSSVBalanceViaStorage(
+        connection,
+        ForkConfig.SSV_TOKEN,
+        randomUser.address,
+        STAKE_AMOUNT + ethers.parseEther("1")
+      );
+      await forkedSsvToken.connect(randomUser).approve(forkedNetwork.target, ethers.MaxUint256);
+      await forkedNetwork.connect(randomUser).stake(STAKE_AMOUNT);
+
+      const oracles = (await connection.ethers.getSigners()).slice(14, 18);
+      for (const oracle of oracles) {
+        await connection.ethers.provider.send("hardhat_setBalance", [
+          oracle.address,
+          "0x56bc75e2d63100000",
+        ]);
+      }
+
+      await forkedNetwork.connect(daoSigner).replaceOracle(1, oracles[0].address);
+      await forkedNetwork.connect(daoSigner).replaceOracle(2, oracles[1].address);
+      await forkedNetwork.connect(daoSigner).replaceOracle(3, oracles[2].address);
+      await forkedNetwork.connect(daoSigner).replaceOracle(4, oracles[3].address);
+
+      const clusterId = connection.ethers.keccak256(
+        connection.ethers.solidityPacked(["address", "uint64[]"], [clusterOwner.address, operatorIds])
+      );
+
+      const clusterEffectiveBalance = 1000;
+      const { root, proofs } = generateMerkleForClusterEB(connection, [
+        { clusterId, effectiveBalance: clusterEffectiveBalance },
+      ]);
+
+      const blockNum = await getSafeCommitBlockNumber(
+        connection,
+        networkHelpers,
+        await forkedNetwork.getAddress()
+      );
+      for (let i = 0; i < 3; i++) {
+        await forkedNetwork.connect(oracles[i]).commitRoot(root, blockNum);
+      }
+
+      const clusterStructBeforeEbUpdate = {
+        validatorCount: Number(clusterAfterRegister.validatorCount),
+        networkFeeIndex: BigInt(clusterAfterRegister.networkFeeIndex),
+        index: BigInt(clusterAfterRegister.index),
+        active: clusterAfterRegister.active,
+        balance: BigInt(clusterAfterRegister.balance),
+      };
+
+      const updateTx = await forkedNetwork.updateClusterBalance(
+        blockNum,
+        clusterOwner.address,
+        operatorIds.map(id => BigInt(id)),
+        clusterStructBeforeEbUpdate,
+        clusterEffectiveBalance,
+        proofs[clusterId]
+      );
+      const updateReceipt = await updateTx.wait();
+      const clusterAfterEbUpdate = parseClusterFromEvent(
+        forkedNetwork,
+        updateReceipt,
+        Events.CLUSTER_BALANCE_UPDATED
+      );
+
+      await expect(
+        await forkedViews.getEffectiveBalance(clusterOwner.address, operatorIds, clusterAfterEbUpdate)
+      ).to.equal(clusterEffectiveBalance);
+
+      const liquidateTx = await forkedNetwork.connect(clusterOwner).liquidate(
+        clusterOwner.address,
+        operatorIds,
+        clusterAfterEbUpdate
+      );
+      const liquidateReceipt = await liquidateTx.wait();
+      const liquidatedCluster = parseClusterFromEvent(
+        forkedNetwork,
+        liquidateReceipt,
+        Events.CLUSTER_LIQUIDATED
+      );
+
+      const reactivateDeposit = ethers.parseEther("2");
+      await connection.ethers.provider.send("hardhat_setBalance", [
+        clusterOwner.address,
+        "0x" + (reactivateDeposit + ethers.parseEther("10")).toString(16),
+      ]);
+
+      const reactivateTx = await forkedNetwork.connect(clusterOwner).reactivate(
+        operatorIds,
+        liquidatedCluster,
+        { value: reactivateDeposit }
+      );
+      const reactivateReceipt = await reactivateTx.wait();
+      const reactivatedCluster = parseClusterFromEvent(
+        forkedNetwork,
+        reactivateReceipt,
+        Events.CLUSTER_REACTIVATED
+      );
+
+      const effectiveBalanceAfterReactivate = await forkedViews.getEffectiveBalance(
+        clusterOwner.address,
+        operatorIds,
+        reactivatedCluster
+      );
+      await expect(
+        effectiveBalanceAfterReactivate,
+        `expected EfBalance to stay ${clusterEffectiveBalance} after liquidate/reactivate, got ${effectiveBalanceAfterReactivate.toString()}`
+      ).to.equal(clusterEffectiveBalance);
+    });
   });
 });
