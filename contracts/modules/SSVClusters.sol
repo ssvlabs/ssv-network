@@ -533,6 +533,11 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             sp.minimumBlocksBeforeLiquidation,
             sp.minimumLiquidationCollateral
         )) {
+
+            for (uint256 i; i < operatorIds.length; ++i) {
+                s.operators[operatorIds[i]].ethValidatorCount -= cluster.validatorCount;
+            }
+
             _executeLiquidation(clusterOwner, msg.sender, clusterId, operatorIds, cluster, s, sp, seb);
             return true;
         }
