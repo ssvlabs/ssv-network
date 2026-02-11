@@ -379,11 +379,13 @@ library OperatorLib {
                 cumulativeIndexSSV += operator.snapshot.index;
             } else {
                 // already ETH operator
+                updateSnapshotStSSV(operator);
                 updateSnapshotSt(operator, operatorId);
                 if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
                     revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
                 }
 
+                cumulativeIndexSSV += operator.snapshot.index;
                 cumulativeIndexETH += operator.ethSnapshot.index;
             }
             cumulativeFeeETH += PackedETH.unwrap(operator.ethFee);

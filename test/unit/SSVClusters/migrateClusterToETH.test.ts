@@ -4,7 +4,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
+import { getCurrentClusterState, makePublicKey, parseClusterFromEvent } from '../../common/helpers.ts';
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION, DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
@@ -16,11 +16,12 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
   let networkHelpers: NetworkHelpersType;
 
   let clusterOwner: HardhatEthersSigner;
+  let anotherOwner: HardhatEthersSigner;
 
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
 
-    [clusterOwner] = await connection.ethers.getSigners();
+    [clusterOwner, anotherOwner] = await connection.ethers.getSigners();
   });
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
@@ -342,5 +343,69 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     }
 
     // Test completed successfully - accounting validated
+  });
+
+  it.only("Correctly updates SSV snapshot and settles fees for already-ETH operators during migration", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const dummyPublicKey = makePublicKey(999);
+    await clusters.connect(anotherOwner).registerValidator(
+      dummyPublicKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+
+    const ssvNetworkFee = 1000000n;
+    await clusters.mockSSVNetworkFee(ssvNetworkFee);
+    await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+
+    const ethNetworkFee = 1770n; 
+    await clusters.mockEthNetworkFee(ethNetworkFee);
+    await clusters.mockCurrentNetworkFeeIndex(0n);
+
+    const mockToken = await connection.ethers.deployContract("MockToken", []);
+    await mockToken.waitForDeployment();
+    const tokenAddress = await mockToken.getAddress();
+    const harnessAddress = await clusters.getAddress();
+    await clusters.mockSetToken(tokenAddress);
+
+    const ssvBalance = connection.ethers.parseEther("10");
+    await mockToken.mint(harnessAddress, ssvBalance);
+
+    const validatorCount = 4n;
+    const ssvCluster = {
+      validatorCount: validatorCount,
+      networkFeeIndex: 0,
+      index: 0,
+      balance: ssvBalance,
+      active: true,
+    };
+
+    const ssvPublicKey = makePublicKey(1000);
+    await clusters.mockRegisterSSVValidator(ssvPublicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+    const blocksToMine = 750;
+    await networkHelpers.mine(blocksToMine);
+
+    const ownerSSVBefore = await mockToken.balanceOf(clusterOwner.address);
+
+    const migrateTx = await clusters.connect(clusterOwner).migrateClusterToETH(
+      operatorIds,
+      ssvCluster,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await migrateTx.wait();
+    const eventArgs = getMigratedToETHEventArgs(clusters, receipt);
+
+    await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
+    expect(eventArgs.ethDeposited).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+    expect(eventArgs.ssvRefunded).to.be.greaterThan(0n);
+    expect(eventArgs.ssvRefunded).to.be.lessThan(ssvBalance);
+
+    const ownerSSVAfter = await mockToken.balanceOf(clusterOwner.address);
+    expect(ownerSSVAfter - ownerSSVBefore).to.equal(eventArgs.ssvRefunded);
   });
 });
