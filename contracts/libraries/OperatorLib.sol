@@ -182,14 +182,13 @@ library OperatorLib {
                     revert ISSVNetworkCore.OperatorsListNotUnique();
                 }
             }
-            ensureETHDefaults(s.operators[operatorId]);
             ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
 
             if (!isExistingCluster) {
                 if (
                     operator.owner == address(0) ||
-                    operator.ethSnapshot.block == 0 ||
-                    operator.snapshot.block == 0
+                    (operator.ethSnapshot.block == 0 &&
+                    operator.snapshot.block == 0)
                 ) {
                     revert ISSVNetworkCore.OperatorDoesNotExist();
                 }
@@ -199,6 +198,7 @@ library OperatorLib {
                 }
             }
 
+            ensureETHDefaults(s.operators[operatorId]);
             // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
                 // Handle bitmap-based whitelisting
