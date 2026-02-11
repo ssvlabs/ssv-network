@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -26,6 +26,10 @@ describe("SSVClusters function `withdraw()`", async () => {
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
     return ssvClustersHarnessFixture(connection);
+  };
+
+  const deploySSVClustersWithLowFeesFixture = async () => {
+    return ssvClustersHarnessFixture(connection, 4, 100_000n);
   };
 
   const registerCluster = async (clusters: any, operatorIds: bigint[]) => {
@@ -110,6 +114,35 @@ describe("SSVClusters function `withdraw()`", async () => {
       1n,
       clusterBeforeWithdraw
     )).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
+  });
+
+  it("Settles full fees when usageUnits exceeds uint64", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersWithLowFeesFixture);
+
+    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+
+    await connection.ethers.provider.send("evm_mine", []);
+
+    const maxUint64 = (1n << 64n) - 1n;
+    await clusters.mockEthNetworkFee(0n);
+    await clusters.mockCurrentNetworkFeeIndex(maxUint64);
+    await clusters.mockMinimumBlocksBeforeLiquidation(0n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+
+    const withdrawTx = await clusters.withdraw(operatorIds, 0n, clusterBeforeWithdraw);
+    const withdrawReceipt = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    const units = clusterBeforeWithdraw.validatorCount * VUNITS_PRECISION;
+    const idxOp = clusterAfterWithdraw.index - clusterBeforeWithdraw.index;
+    const idxNet = maxUint64 - clusterBeforeWithdraw.networkFeeIndex;
+    const usageUnits = (idxOp * units) / VUNITS_PRECISION + (idxNet * units) / VUNITS_PRECISION;
+    const wrappedUsageUnits = usageUnits & maxUint64;
+
+    expect(usageUnits).to.be.greaterThan(maxUint64);
+    expect(wrappedUsageUnits * 100_000n).to.be.lessThan(clusterBeforeWithdraw.balance);
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
   });
 
   it("Is reverted with 'IncorrectClusterVersion' when withdrawing from an SSV cluster", async function () {

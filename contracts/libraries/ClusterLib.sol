@@ -8,7 +8,7 @@ import {DEFAULT_EB_PER_VALIDATOR, SSVStorageEB, StorageEB, VUNITS_PRECISION} fro
 import "./OperatorLib.sol";
 import "./ProtocolLib.sol";
 import {PackedSSV, PackedETH, VERSION_SSV, VERSION_ETH} from "../libraries/SSVCoreTypes.sol";
-import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
+import {PackedSSVLib, PackedETHLib, ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
 
 /**
  * @title SSV Cluster Library
@@ -78,10 +78,9 @@ library ClusterLib {
         uint64 vUnits = getVUnits(clusterId, cluster.validatorCount);
         uint128 units = vUnits;
         uint128 rate = burnRate + networkFee;
-        uint128 thresholdUnits = (uint128(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
-
-        uint64 liquidationThreshold = uint64(thresholdUnits);
-        return cluster.balance < PackedETHLib.unpack(PackedETH.wrap(liquidationThreshold));
+        uint256 thresholdUnits = (uint256(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
+        uint256 liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
+        return cluster.balance < liquidationThreshold;
     }
 
     /**
@@ -107,10 +106,9 @@ library ClusterLib {
 
         uint128 units = vUnits;
         uint128 rate = burnRate + networkFee;
-        uint128 thresholdUnits = (uint128(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
-
-        uint64 liquidationThreshold = uint64(thresholdUnits);
-        return cluster.balance < PackedETHLib.unpack(PackedETH.wrap(liquidationThreshold));
+        uint256 thresholdUnits = (uint256(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
+        uint256 liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
+        return cluster.balance < liquidationThreshold;
     }
 
     /**
@@ -310,9 +308,8 @@ library ClusterLib {
 
         uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
         uint128 usageUnits = (idxOp * units) / VUNITS_PRECISION + networkFeeUnits;
-
-        PackedETH usage = PackedETH.wrap(uint64(usageUnits));
-        cluster.balance = PackedETHLib.unpack(usage) > cluster.balance ? 0 : cluster.balance - PackedETHLib.unpack(usage);
+        uint256 usage = uint256(usageUnits) * ETH_DEDUCTED_DIGITS;
+        cluster.balance = usage > cluster.balance ? 0 : cluster.balance - usage;
     }
 
     /**

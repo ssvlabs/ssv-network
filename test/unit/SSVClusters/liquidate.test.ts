@@ -328,6 +328,46 @@ describe("SSVClusters function `liquidate()`", async () => {
     expect(clusterAfterLiquidation.balance).to.equal(0n);
   });
 
+  it("Allows a third party to liquidate when liquidation threshold units exceed uint64", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith13Operators);
+
+    const registerTx = await clusters.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const maxUint64 = (1n << 64n) - 1n;
+    const rate = 1n << 20n;
+    const minimumBlocksBeforeLiquidation = (1n << 44n) + 1n;
+    const thresholdUnits = minimumBlocksBeforeLiquidation * rate;
+    const wrappedThresholdUnits = thresholdUnits & maxUint64;
+
+    expect(thresholdUnits).to.be.greaterThan(maxUint64);
+    expect(wrappedThresholdUnits * ETH_DEDUCTED_DIGITS).to.be.lessThan(clusterAfterRegister.balance);
+
+    await clusters.mockMinimumLiquidationCollateral(0n);
+    await clusters.mockEthNetworkFee(rate);
+    await clusters.mockMinimumBlocksBeforeLiquidation(minimumBlocksBeforeLiquidation);
+
+    const liquidateTx = await clusters.connect(otherAccount).liquidate(
+      clusterOwner.address,
+      operatorIds,
+      clusterAfterRegister
+    );
+    const liquidateReceipt = await liquidateTx.wait();
+    const clusterAfterLiquidation = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
+
+    await expect(liquidateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+    expect(clusterAfterLiquidation.active).to.equal(false);
+    expect(clusterAfterLiquidation.balance).to.equal(0n);
+  });
+
   it("Is reverted with 'ClusterNotLiquidatable' when a third party tries to liquidate a healthy cluster", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
