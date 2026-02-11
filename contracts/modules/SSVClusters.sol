@@ -398,16 +398,16 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
                 burnRate = _applyClusterFeeUpdates(operatorIds, cluster, effectiveOldVUnits, s, sp);
             }
 
+            // Apply new vUnits BEFORE liquidation check so auto-liquidation
+            if (cluster.active && newVUnits != effectiveOldVUnits) {
+                _updateOperatorVUnits(operatorIds, seb, effectiveOldVUnits, newVUnits);
+                sp.updateDAOEthVUnits(effectiveOldVUnits, newVUnits);
+            }
+            _updateEBSnapshot(seb, clusterId, ctx.blockNum, newVUnits);
+
             bool liquidated = _liquidateAfterEBUpdateIfNeeded(cluster, clusterId, ctx.clusterOwner, operatorIds, burnRate, s, sp, seb);
 
             if (!liquidated && cluster.active) {
-                // Use effectiveOldVUnits to avoid double counting default values
-                if (newVUnits != effectiveOldVUnits) {
-                    _updateOperatorVUnits(operatorIds, seb, effectiveOldVUnits, newVUnits);
-                    sp.updateDAOEthVUnits(effectiveOldVUnits, newVUnits);
-                }
-
-                _updateEBSnapshot(seb, clusterId, ctx.blockNum, newVUnits);
                 s.ethClusters[clusterId] = cluster.hashClusterData();
             }
         } else {
