@@ -49,7 +49,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             sp
         );
 
-        _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+        cluster.updateClusterData(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
         if (
             clusterOwner != msg.sender &&
@@ -174,6 +174,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         }
 
         sp.updateDAO(true, cluster.validatorCount);
+        if (clusterDeviation > 0) {
+            sp.daoTotalEthVUnits += clusterDeviation;
+        }
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
@@ -227,7 +230,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
                 }
             }
 
-            _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+            cluster.updateClusterData(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
         }
         if (cluster.balance < amount) revert InsufficientBalance();
 
@@ -415,17 +418,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         emit ClusterBalanceUpdated(ctx.clusterOwner, operatorIds, ctx.blockNum, ctx.effectiveBalance, cluster);
     }
 
-    function _updateClusterDataWithEB(
-        Cluster memory cluster,
-        bytes32 clusterId,
-        uint64 clusterIndex,
-        uint64 networkFeeIndex
-    ) internal view {
-        cluster.updateBalanceWithEB(clusterId, clusterIndex, networkFeeIndex);
-        cluster.index = clusterIndex;
-        cluster.networkFeeIndex = networkFeeIndex;
-    }
-
     function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {
         if (seb.ebRoots[ctx.blockNum] == bytes32(0)) {
             revert RootNotFound();
@@ -594,8 +586,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             }
             // If vUnitsCluster == baselineVUnits, deviation is 0, nothing to update
             
-            // Reset snapshot
-            ebSnapshot.vUnits = 0;
         }
         // For implicit clusters (vUnitsCluster == 0): no deviation to remove
 

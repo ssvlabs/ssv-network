@@ -17,7 +17,7 @@ import {
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
   MINIMAL_OPERATOR_ETH_FEE,
-  NETWORK_FEE, OPERATOR_MAX_FEE_INCREASE, VALIDATORS_PER_OPERATOR_LIMIT,
+  NETWORK_FEE, NETWORK_FEE_ETH, OPERATOR_MAX_FEE_INCREASE, VALIDATORS_PER_OPERATOR_LIMIT,
 } from '../common/constants.js';
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { ForkConfig } from '../test-forked/v2.0.0/config.ts';
@@ -336,84 +336,140 @@ export async function ssvNetworkFullForkedFixture(
   daoSigner: HardhatEthersSigner
 }> {
   const ethers = connection.ethers;
+  const useDeployedState = process.env.FORK_USE_DEPLOYED_STATE === "true";
+  const strictDeployedState = process.env.FORK_STRICT_DEPLOYED_STATE === "true";
+  const allowDeployedFallback = process.env.FORK_ALLOW_DEPLOYED_FALLBACK !== "false";
 
   await ethers.provider.send("hardhat_impersonateAccount", [ForkConfig.DAO_ADDRESS]);
   const daoSigner = await ethers.getSigner(ForkConfig.DAO_ADDRESS);
   await ethers.provider.send("hardhat_setBalance", [ForkConfig.DAO_ADDRESS, "0x" + (BigInt(1e18) * 100n).toString(16)]);
 
-  const { contract: cssvToken, address: cssvAddr } = await deployContract(ethers, "CSSVToken", [ForkConfig.SSV_NETWORK_ADDRESS]);
+  const runInTestUpgradePath = async () => {
+    const { contract: cssvToken } = await deployContract(ethers, "CSSVToken", [ForkConfig.SSV_NETWORK_ADDRESS]);
+    const modules: { [key: string]: string } = {};
 
-  const moduleNames = [
-    "SSVClusters",
-    "SSVOperatorsWhitelist",
-    "SSVValidators",
-  ];
-  const modules: { [key: string]: string } = {};
+    const { address: ssvOperatorsAddr } = await deployContract(ethers, "SSVOperators", [0]);
+    modules["SSVOperators"] = ssvOperatorsAddr;
 
-  const { address: ssvOperatorsAddr } = await deployContract(ethers, "SSVOperators", [0]);
-  modules["SSVOperators"] = ssvOperatorsAddr;
+    const { address: ssvClustersAddr } = await deployContract(ethers, "SSVClusters");
+    modules["SSVClusters"] = ssvClustersAddr;
 
-  const { address: ssvDaoAddr } = await deployContract(ethers, "SSVDAO", [await cssvToken.getAddress()]);
-  modules["SSVDAO"] = ssvDaoAddr;
+    const { address: ssvDaoAddr } = await deployContract(ethers, "SSVDAO", [await cssvToken.getAddress()]);
+    modules["SSVDAO"] = ssvDaoAddr;
 
-  const { address: ssvViewsAddr } = await deployContract(ethers, "SSVViews", [await cssvToken.getAddress()]);
-  modules["SSVViews"] = ssvViewsAddr;
+    const { address: ssvViewsAddr } = await deployContract(ethers, "SSVViews", [await cssvToken.getAddress()]);
+    modules["SSVViews"] = ssvViewsAddr;
 
-  const { address: ssvStakingAddr } = await deployContract(ethers, "SSVStaking", [await cssvToken.getAddress()]);
-  modules["SSVStaking"] = ssvStakingAddr;
+    const { address: ssvOperatorsWhitelistAddr } = await deployContract(ethers, "SSVOperatorsWhitelist");
+    modules["SSVOperatorsWhitelist"] = ssvOperatorsWhitelistAddr;
 
-  for (const mod of moduleNames) {
-    const { address } = await deployContract(ethers, mod);
-    modules[mod] = address;
+    const { address: ssvStakingAddr } = await deployContract(ethers, "SSVStaking", [await cssvToken.getAddress()]);
+    modules["SSVStaking"] = ssvStakingAddr;
+
+    const { address: ssvValidatorsAddr } = await deployContract(ethers, "SSVValidators");
+    modules["SSVValidators"] = ssvValidatorsAddr;
+
+    const { address: networkImplAddr } = await deployContract(ethers, "SSVNetwork");
+    const { address: stakingUpgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
+    const { address: viewsImplAddr } = await deployContract(ethers, "SSVNetworkViews");
+
+    const networkFactory = await ethers.getContractFactory("SSVNetwork");
+    const network = networkFactory.attach(ForkConfig.SSV_NETWORK_ADDRESS);
+    const daoNetwork = network.connect(daoSigner);
+
+    const cooldown = 7n * 24n * 60n * 60n;
+    const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
+    const initData = upgradeFactory.interface.encodeFunctionData(
+      "initializeSSVStaking(uint64,uint32[4])",
+      [cooldown, DEFAULT_ORACLE_IDS]
+    );
+
+    try {
+      await (await daoNetwork.upgradeToAndCall(stakingUpgradeImplAddr, initData)).wait();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.includes("Initializable: contract is already initialized")) {
+        throw err;
+      }
+      console.warn(
+        "[FORK] initializeSSVStaking already executed on this proxy; continuing with non-init upgrade path."
+      );
+      await (await daoNetwork.upgradeTo(stakingUpgradeImplAddr)).wait();
+    }
+    await (await daoNetwork.upgradeTo(networkImplAddr)).wait();
+
+    const viewsFactory = await ethers.getContractFactory("SSVNetworkViews");
+    const views = viewsFactory.attach(ForkConfig.SSV_NETWORK_VIEWS);
+    const daoViews = views.connect(daoSigner);
+    await (await daoViews.upgradeTo(viewsImplAddr)).wait();
+
+    for (const [moduleName, moduleAddress] of Object.entries(modules)) {
+      const moduleEnumKey = moduleName as keyof typeof SSVModules;
+      if (SSVModules[moduleEnumKey] === undefined) {
+        throw new Error(`Invalid module: ${moduleName}`);
+      }
+      const tx = await daoNetwork.updateModule(SSVModules[moduleEnumKey], moduleAddress);
+      await tx.wait();
+    }
+
+    const ssvTokenFactory = await ethers.getContractFactory("SSVToken");
+    const ssvToken = ssvTokenFactory.attach(ForkConfig.SSV_TOKEN);
+
+    await (await daoNetwork.updateNetworkFeeSSV(NETWORK_FEE)).wait();
+    await (await daoNetwork.updateNetworkFee(NETWORK_FEE_ETH)).wait();
+    await (await daoNetwork.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL)).wait();
+    await (await daoNetwork.updateMinimumLiquidationCollateralSSV(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL)).wait();
+    await (await daoNetwork.updateLiquidationThresholdPeriod(MINIMUM_BLOCKS_BEFORE_LIQUIDATION)).wait();
+    await (await daoNetwork.updateLiquidationThresholdPeriodSSV(MINIMUM_BLOCKS_BEFORE_LIQUIDATION)).wait();
+    await (await daoNetwork.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE)).wait();
+    await (await daoNetwork.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE)).wait();
+    await (await daoNetwork.updateMinimumOperatorEthFee(MINIMAL_OPERATOR_ETH_FEE)).wait();
+
+    return { network, views, cssvToken, ssvToken, modules, daoSigner };
+  };
+
+  if (!useDeployedState) {
+    return runInTestUpgradePath();
   }
 
-  const { address: networkImplAddr } = await deployContract(ethers, "SSVNetwork");
+  if (!ForkConfig.CSSV_TOKEN) {
+    throw new Error(
+      "FORK_USE_DEPLOYED_STATE=true requires cssvToken in FORK_CONFIG_PATH or FORK_CSSV_TOKEN env var"
+    );
+  }
 
   const networkFactory = await ethers.getContractFactory("SSVNetwork");
-  let network = networkFactory.attach(ForkConfig.SSV_NETWORK_ADDRESS);
+  const network = networkFactory.attach(ForkConfig.SSV_NETWORK_ADDRESS);
 
-  const daoNetwork = network.connect(daoSigner);
-  await daoNetwork.upgradeTo(networkImplAddr);
-
-  const { address: stakingUpgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
-  const cooldown = 7n * 24n * 60n * 60n; // 7 days
-  const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
-  const initData = upgradeFactory.interface.encodeFunctionData(
-    "initializeSSVStaking(uint64,uint32[4])",
-    [
-      cooldown,
-      DEFAULT_ORACLE_IDS
-    ]
-  );
-
-  await daoNetwork.upgradeToAndCall(stakingUpgradeImplAddr, initData);
-
-  const { address: viewsImplAddr } = await deployContract(ethers, "SSVNetworkViews");
   const viewsFactory = await ethers.getContractFactory("SSVNetworkViews");
-  let views = viewsFactory.attach(ForkConfig.SSV_NETWORK_VIEWS);
-  const daoViews = views.connect(daoSigner);
-  await daoViews.upgradeTo(viewsImplAddr);
+  const views = viewsFactory.attach(ForkConfig.SSV_NETWORK_VIEWS);
 
-  for (const mod of moduleNames) {
-    const moduleEnumKey = mod as keyof typeof SSVModules;
-    if (SSVModules[moduleEnumKey] === undefined) {
-      throw new Error(`Invalid module: ${mod}`);
-    }
-    const tx = await daoNetwork.updateModule(SSVModules[moduleEnumKey], modules[mod]);
-    await tx.wait();
-  }
-  await daoNetwork.updateModule(SSVModules.SSVOperators, ssvOperatorsAddr);
+  const cssvTokenFactory = await ethers.getContractFactory("CSSVToken");
+  const cssvToken = cssvTokenFactory.attach(ForkConfig.CSSV_TOKEN);
 
   const ssvTokenFactory = await ethers.getContractFactory("SSVToken");
-  let ssvToken = ssvTokenFactory.attach(ForkConfig.SSV_TOKEN);
+  const ssvToken = ssvTokenFactory.attach(ForkConfig.SSV_TOKEN);
 
-  await daoNetwork.updateNetworkFeeSSV(NETWORK_FEE);
-  await daoNetwork.updateNetworkFee(NETWORK_FEE);
-  await daoNetwork.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL);
-  await daoNetwork.updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD);
-  await daoNetwork.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE);
-  await daoNetwork.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
-  await daoNetwork.updateMinimumOperatorEthFee(MINIMAL_OPERATOR_ETH_FEE);
+  try {
+    await views.getVersion();
+    await views.getNetworkFee();
+    await views.getActiveOracleIds();
+  } catch (err) {
+    if (strictDeployedState || !allowDeployedFallback) {
+      throw new Error(
+        "FORK_USE_DEPLOYED_STATE=true but deployed instances are not readable via SSVNetworkViews. " +
+        "Re-run `just deploy-test-fork <rpc>` against the same HOODI_LOCAL_RPC_URL and ensure no stale FORK_BLOCK_NUMBER.",
+        { cause: err as Error }
+      );
+    }
 
+    console.warn(
+      "[FORK] Deployed state is unreadable via SSVNetworkViews; falling back to in-test upgrade path. " +
+      "Set FORK_STRICT_DEPLOYED_STATE=true to enforce strict mode."
+    );
+    return runInTestUpgradePath();
+  }
+
+  const modules: { [key: string]: string } = { ...ForkConfig.MODULES };
   return { network, views, cssvToken, ssvToken, modules, daoSigner };
 }
