@@ -2,6 +2,8 @@ import hre from "hardhat";
 import { parseArg, getEthers, getDeployer, deployContract, attachModule, upgradeProxy } from "./common/helpers.ts";
 import { saveImplementation } from "./common/address-book.js";
 
+const DEFAULT_UNSTAKE_COOLDOWN = 50_120n;
+
 async function main() {
   const targetNetwork = parseArg("network");
   const ethers = await getEthers(targetNetwork);
@@ -17,7 +19,7 @@ async function main() {
   const { address: upgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
   saveImplementation(targetNetwork, "SSVNetworkSSVStakingUpgrade", upgradeImplAddr);
 
-  const cooldown = 7n * 24n * 60n * 60n;
+  const cooldown = DEFAULT_UNSTAKE_COOLDOWN;
   const defaultOracles = [1,2,3,4];
 
   await upgradeProxy(

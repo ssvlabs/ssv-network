@@ -61,6 +61,8 @@ const MODULE_ORDER: ModuleName[] = [
   "SSVValidators",
 ];
 
+const DEFAULT_UNSTAKE_COOLDOWN = 50_120n;
+
 function parseUint(value: unknown, label: string): bigint | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value === "number") {
@@ -315,7 +317,7 @@ async function main() {
     "minimumLiquidationCollateralSSV"
   );
   const unstakeCooldownDuration = parseUint(config.unstakeCooldownDuration, "unstakeCooldownDuration");
-  const cooldownDuration = parseUint(config.cooldownDuration, "cooldownDuration") ?? 7n * 24n * 60n * 60n;
+  const cooldownDuration = parseUint(config.cooldownDuration, "cooldownDuration") ?? DEFAULT_UNSTAKE_COOLDOWN;
   const upgradeTimestamp = parseUint(config.upgradeTimestamp, "upgradeTimestamp") ?? 0n;
   const quorumBps = parseQuorum(config.quorumBps);
   const oracles = normalizeOracles(config.oracles);
