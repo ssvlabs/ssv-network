@@ -71,8 +71,11 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     }
 
     function getClusterVUnits(bytes32 clusterId) external view returns (uint64) {
-        StorageEB storage seb = SSVStorageEB.load();
-        return seb.clusterEB[clusterId].vUnits;
+        return SSVStorageEB.load().clusterEB[clusterId].vUnits;
+    }
+
+    function getDaoTotalEthVUnits() external view returns (uint64) {
+        return SSVStorageProtocol.load().daoTotalEthVUnits;
     }
 
     function getValidatorData(bytes calldata publicKey, address owner) external view returns (bytes32) {
@@ -96,6 +99,10 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     function getOperatorSnapshot(uint64 operatorId) external view returns (uint64 index, uint32 blockNumber, uint64 balance) {
         ISSVNetworkCore.Snapshot storage snap = SSVStorage.load().operators[operatorId].snapshot;
         return (snap.index, snap.block, PackedSSV.unwrap(snap.balance));
+    }
+
+    function getOperatorValidatorCount(uint64 operatorId) external view returns (uint32) {
+        return SSVStorage.load().operators[operatorId].validatorCount;
     }
 
     function getOperatorSSVFee(uint64 operatorId) external view returns (uint64) {
@@ -139,6 +146,23 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         seb.ebRoots[blockNum] = root;
     }
 
+    function mockRemoveOperator(uint64 operatorId) external {
+        StorageData storage s = SSVStorage.load();
+        // Set both snapshots to 0 to simulate removed operator
+        s.operators[operatorId].snapshot.block = 0;
+        s.operators[operatorId].snapshot.index = 0;
+        s.operators[operatorId].snapshot.balance = PACKED_SSV_ZERO;
+        s.operators[operatorId].ethSnapshot.block = 0;
+        s.operators[operatorId].ethSnapshot.index = 0;
+        s.operators[operatorId].ethSnapshot.balance = PACKED_ETH_ZERO;
+        s.operators[operatorId].validatorCount = 0;
+        s.operators[operatorId].ethValidatorCount = 0;
+    }
+
+    function mockSetOperatorFee(uint64 operatorId, uint256 fee) external {
+        SSVStorage.load().operators[operatorId].ethFee = PackedETHLib.pack(fee);
+    }
+    
     function mockEthNetworkFee(uint64 fee) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethNetworkFee = PackedETH.wrap(fee);

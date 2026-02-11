@@ -8,7 +8,7 @@ import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
 import {PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
-import {PackedETHLib} from "../libraries/SSVPackedLib.sol";
+import {PackedETHLib, ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
@@ -174,6 +174,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         }
 
         sp.updateDAO(true, cluster.validatorCount);
+        if (clusterDeviation > 0) {
+            sp.daoTotalEthVUnits += clusterDeviation;
+        }
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
@@ -471,14 +474,14 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
         uint128 operatorFeeUnits = (idxOp * units) / VUNITS_PRECISION;
-        PackedETH totalFees = PackedETH.wrap(uint64(networkFeeUnits) + uint64(operatorFeeUnits));
+        uint256 totalFees = (uint256(networkFeeUnits) + uint256(operatorFeeUnits)) * ETH_DEDUCTED_DIGITS;
 
         // Update indexes
         cluster.index = clusterIndex;
         cluster.networkFeeIndex = currentNetworkFeeIndex;
 
-        if (cluster.balance >= PackedETHLib.unpack(totalFees)) {
-            cluster.balance -= PackedETHLib.unpack(totalFees);
+        if (cluster.balance >= totalFees) {
+            cluster.balance -= totalFees;
         } else {
             cluster.balance = 0;
         }
@@ -533,6 +536,11 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             sp.minimumBlocksBeforeLiquidation,
             sp.minimumLiquidationCollateral
         )) {
+
+            for (uint256 i; i < operatorIds.length; ++i) {
+                s.operators[operatorIds[i]].ethValidatorCount -= cluster.validatorCount;
+            }
+
             _executeLiquidation(clusterOwner, msg.sender, clusterId, operatorIds, cluster, s, sp, seb);
             return true;
         }
@@ -583,8 +591,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             }
             // If vUnitsCluster == baselineVUnits, deviation is 0, nothing to update
             
-            // Reset snapshot
-            ebSnapshot.vUnits = 0;
         }
         // For implicit clusters (vUnitsCluster == 0): no deviation to remove
 
