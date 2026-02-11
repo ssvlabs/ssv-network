@@ -540,7 +540,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
             for (uint256 i; i < operatorIds.length; ++i) {
                 ISSVOperators.Operator storage op = s.operators[operatorIds[i]];
-                if (op.ethSnapshot.block == 0 && op.snapshot.block == 0) {
+                if (op.ethSnapshot.block != 0 && op.snapshot.block != 0) {
                     op.ethValidatorCount -= cluster.validatorCount;
                 }
             }
