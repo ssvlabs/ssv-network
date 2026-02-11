@@ -234,7 +234,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 
-  it.only("Validates full migration accounting correctness from SSV cluster to ETH cluster after time passes", async function () {
+  it("Validates full migration accounting correctness from SSV cluster to ETH cluster after time passes", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
