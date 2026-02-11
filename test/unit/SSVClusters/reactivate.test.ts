@@ -34,6 +34,35 @@ describe("SSVClusters function `reactivate()`", async () => {
     );
   };
 
+  const createAndFundCluster = async (clusters: any, operatorIds: bigint[], depositValue: bigint) => {
+    const registerTx = await clusters.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: depositValue }
+    );
+    const receipt = await registerTx.wait();
+    return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+  };
+
+  const setEB = async (clusters: any, clusterId: string, effectiveBalance: number, cluster: any, operatorIds: bigint[]) => {
+    const blockNum = 1;
+    const coder = ethers.AbiCoder.defaultAbiCoder();
+    const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
+    const root = ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
+    
+    await clusters.mockSetEBRoot(blockNum, root);
+    await clusters.updateClusterBalance(
+      blockNum,
+      clusterOwner.address,
+      operatorIds,
+      cluster,
+      effectiveBalance,
+      []
+    );
+  };
+
   const registerAndLiquidate = async (clusters: any, operatorIds: bigint[]) => {
     const registerTx = await clusters.registerValidator(
       makePublicKey(1),
@@ -264,6 +293,79 @@ describe("SSVClusters function `reactivate()`", async () => {
       // Explicit snapshot of 12000 vUnits with baseline of 10000 (1 validator) = deviation of 2000
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(2_000n); // deviation only
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(12_000n); // baseline + deviation
+    }
+  });
+
+  it("Maintains daoTotalEthVUnits consistency through liquidation/reactivation", async function () {
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+    
+    // Create cluster with EB deviation
+    const cluster = await createAndFundCluster(clusters, operatorIds, ethers.parseEther("10"));
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    
+    // Set EB to create deviation (1000 ETH, 31.25x baseline)
+    const effectiveBalance = 1000;
+    await setEB(clusters, clusterId, effectiveBalance, cluster, operatorIds);
+    
+    // Get initial DAO vUnits
+    const initialDaoVUnits = await clusters.getDaoTotalEthVUnits();
+    const clusterVUnits = await clusters.getClusterVUnits(clusterId);
+    const baselineVUnits = cluster.validatorCount * VUNITS_PRECISION;
+    
+    // Calculate expected deviation (EB creates positive deviation)
+    const expectedDeviation = clusterVUnits > baselineVUnits ? clusterVUnits - baselineVUnits : 0n;
+    
+    // The liquidation subtracts deviation from each operator, but DAO vUnits can't go negative
+    const totalDeviationToSubtract = expectedDeviation * BigInt(operatorIds.length);
+    const expectedAfterLiquidation = totalDeviationToSubtract > initialDaoVUnits ? 0n : initialDaoVUnits - totalDeviationToSubtract;
+    
+    // Liquidate cluster
+    const liquidateTx = await clusters.liquidate(
+      clusterOwner.address,
+      operatorIds,
+      cluster
+    );
+    const liquidateReceipt = await liquidateTx.wait();
+    const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
+    
+    // Verify DAO vUnits decreased correctly (can't go negative)
+    const afterLiquidation = await clusters.getDaoTotalEthVUnits();
+    expect(afterLiquidation).to.equal(expectedAfterLiquidation);
+    
+    // Reactivate cluster using the liquidated cluster state
+    const reactivateTx = await clusters.reactivate(
+      operatorIds,
+      liquidatedCluster,
+      { value: ethers.parseEther("20") }
+    );
+    await reactivateTx.wait();
+    
+    // Verify DAO vUnits restored to initial value
+    const afterReactivation = await clusters.getDaoTotalEthVUnits();
+    expect(afterReactivation).to.equal(initialDaoVUnits);
+    
+    // Verify EB snapshot preserved through liquidation/reactivation cycle
+    const finalClusterVUnits = await clusters.getClusterVUnits(clusterId);
+    expect(finalClusterVUnits).to.equal(clusterVUnits);
+    
+    // Additional EB preservation checks:
+    // 1. Verify the EB snapshot still exists after reactivation
+    const ebSnapshotAfterReactivation = await clusters.getClusterVUnits(clusterId);
+    expect(ebSnapshotAfterReactivation).to.be.greaterThan(0, "EB snapshot should still exist after reactivation");
+    
+    // 2. Verify the EB value matches the original effective balance
+    const expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
+    expect(finalClusterVUnits).to.equal(expectedVUnits, "EB vUnits should match original effective balance calculation");
+    
+    // 3. Verify the deviation is still correctly calculated
+    const finalBaselineVUnits = liquidatedCluster.validatorCount * VUNITS_PRECISION;
+    const finalDeviation = finalClusterVUnits > finalBaselineVUnits ? finalClusterVUnits - finalBaselineVUnits : 0n;
+    expect(finalDeviation).to.equal(expectedDeviation, "Deviation should be preserved through liquidation/reactivation");
+    
+    // 4. Verify operator deviation vUnits are preserved
+    for (const operatorId of operatorIds) {
+      const operatorEthVUnits = await clusters.getOperatorEthVUnits(operatorId);
+      expect(operatorEthVUnits).to.equal(finalDeviation, "Each operator should have the deviation vUnits preserved");
     }
   });
 });

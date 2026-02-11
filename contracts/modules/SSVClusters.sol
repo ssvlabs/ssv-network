@@ -174,6 +174,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         }
 
         sp.updateDAO(true, cluster.validatorCount);
+        if (clusterDeviation > 0) {
+            sp.daoTotalEthVUnits += clusterDeviation;
+        }
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
 
@@ -583,8 +586,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             }
             // If vUnitsCluster == baselineVUnits, deviation is 0, nothing to update
             
-            // Reset snapshot
-            ebSnapshot.vUnits = 0;
         }
         // For implicit clusters (vUnitsCluster == 0): no deviation to remove
 
