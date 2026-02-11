@@ -12,13 +12,6 @@ struct UnstakeRequest {
     uint64 unlockTime;
 }
 
-struct Delegation {
-    /// @notice Oracle IDs delegated to (up to MAX_DELEGATION_SLOTS). Stable across replacements.
-    uint32[MAX_DELEGATION_SLOTS] oracleIds;
-    /// @notice Amount of cSSV delegated to each oracle ID
-    uint256[MAX_DELEGATION_SLOTS] amounts;
-}
-
 struct StorageStaking {
     uint64 cooldownDuration;
     /// @notice Total ETH-denominated rewards (shrunk) allocated to the staking pool

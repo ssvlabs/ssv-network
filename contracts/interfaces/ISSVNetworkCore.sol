@@ -310,16 +310,6 @@ interface ISSVNetworkCore {
     error EBExceedsMaximum(); // 0xf5ca7cb9
 
     /**
-     * @dev Thrown when oracle is not authorized
-     */
-    error NotAuthorizedOracle(); // 0x0b7b9fc7
-
-    /**
-     * @dev Thrown when interval is zero
-     */
-    error ZeroInterval(); // 0x346ff607
-
-    /**
      * @dev Thrown when EB is below minimum
      */
     error EBBelowMinimum(); // 0x9fecdce5
@@ -394,11 +384,4 @@ interface ISSVNetworkCore {
      */
     error MaxRequestsAmountReached(); // 0xee0e82ff
 
-    // legacy errors
-    error ValidatorAlreadyExists(); // 0x8d09a73e
-    error IncorrectValidatorState(); // 0x2feda3c1
-    error ExceedValidatorLimit(uint64 operatorId); // 0x8ddf7de4
-    error CallerNotOwner(); // 0x5cd83192
-    error TargetModuleDoesNotExist(); // 0x8f9195fb
-    error CallerNotWhitelisted(); // 0x8c6e5d71
 }
