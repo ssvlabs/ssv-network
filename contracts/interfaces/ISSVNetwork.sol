@@ -45,7 +45,7 @@ interface ISSVNetwork {
      * @param version The version string of the upgrade
      * @param blockNumber The block number at which the upgrade occurred
      */
-    event SSVNetworkUpgradeBlock(string indexed version, uint256 blockNumber);
+    event SSVNetworkUpgradeBlock(string version, uint256 blockNumber);
 
     /**
      * @notice Initializes the SSV Network contract
