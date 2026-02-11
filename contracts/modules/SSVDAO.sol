@@ -182,9 +182,8 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         seb.rootCommitments[commitmentKey] += weight;
 
         uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];
-        uint256 totalSupply = ICSSVToken(CSSV_ADDRESS).totalSupply();
 
-        uint256 threshold = (totalSupply * s.quorumBps) / BPS_DENOMINATOR;
+        uint256 threshold = (totalStaked * s.quorumBps) / BPS_DENOMINATOR;
 
         if (accumulatedWeight >= threshold) {
             seb.ebRoots[blockNum] = merkleRoot;
