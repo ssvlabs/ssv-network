@@ -23,10 +23,11 @@ export async function getDeployer(ethers: HardhatEthersHelpers): Promise<Signer>
 export async function deployContract(
   ethers: HardhatEthersHelpers,
   contractName: string,
-  args: any[] = []
+  args: any[] = [],
+  signer?: Signer
 ): Promise<{ contract: any; address: string }> {
   const network = await ethers.provider.getNetwork()
-  const factory = await ethers.getContractFactory(contractName);
+  const factory = await ethers.getContractFactory(contractName, signer);
   const contract = await factory.deploy(...args);
   await contract.waitForDeployment();
   const address = await contract.getAddress();

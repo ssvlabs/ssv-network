@@ -7,7 +7,8 @@ export async function getForkedConnection(): Promise<{
   ethers: NetworkConnection<"generic">["ethers"];
   networkHelpers: NetworkHelpersType;
 }> {
-  const connection = await hre.network.connect("hardhat_forked");
+  const selectedForkNetwork = process.env.FORK_TEST_NETWORK ?? "hardhat_forked";
+  const connection = await hre.network.connect(selectedForkNetwork as any);
 
   return {
     connection,

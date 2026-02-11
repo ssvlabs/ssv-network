@@ -96,6 +96,15 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         return (snap.index, snap.block, PackedETH.unwrap(snap.balance));
     }
 
+    function getOperatorSnapshot(uint64 operatorId) external view returns (uint64 index, uint32 blockNumber, uint64 balance) {
+        ISSVNetworkCore.Snapshot storage snap = SSVStorage.load().operators[operatorId].snapshot;
+        return (snap.index, snap.block, PackedSSV.unwrap(snap.balance));
+    }
+
+    function getOperatorSSVFee(uint64 operatorId) external view returns (uint64) {
+        return PackedSSV.unwrap(SSVStorage.load().operators[operatorId].fee);
+    }
+
     function getDaoEthValidatorCount() external view returns (uint32) {
         return SSVStorageProtocol.load().ethDaoValidatorCount;
     }

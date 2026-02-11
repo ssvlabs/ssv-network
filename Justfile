@@ -46,6 +46,19 @@ upgrade-ssv-staking proxy network:
     npx hardhat compile --force
     npx tsx scripts/staking-upgrade.ts --network {{network}} --proxy-address {{proxy}}
 
+upgrade-fork rpc:
+    npx hardhat compile --force
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/upgrade-fork.ts --network hoodi_local --config deployments/hoodi-fork.config.json --output-config deployments/hoodi-fork-deployed.config.json
+
+test-forked-local rpc:
+    npx hardhat compile --force
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/hoodi-fork-deployed.config.json --use-deployed-state true --strict-deployed-state false --allow-deployed-fallback true --no-gas-enforce true
+
+deploy-test-fork rpc:
+    npx hardhat compile --force
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/upgrade-fork.ts --network hoodi_local --config deployments/hoodi-fork.config.json --output-config deployments/hoodi-fork-deployed.config.json
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/hoodi-fork-deployed.config.json --use-deployed-state true --strict-deployed-state false --allow-deployed-fallback true --no-gas-enforce true
+
 verify address network:
     npx hardhat verify --network "{{network}}" "{{address}}"
 

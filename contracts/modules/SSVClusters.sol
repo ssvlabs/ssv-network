@@ -49,7 +49,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             sp
         );
 
-        _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+        cluster.updateClusterData(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
         if (
             clusterOwner != msg.sender &&
@@ -230,7 +230,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
                 }
             }
 
-            _updateClusterDataWithEB(cluster, hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+            cluster.updateClusterData(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
         }
         if (cluster.balance < amount) revert InsufficientBalance();
 
@@ -269,7 +269,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         bool isLiquidated = !cluster.active; // A liquidated SSV cluster already had its SSV counts removed
 
         // compute cluster data using ETH fields
-        (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsMigration(
+        (uint64 clusterIndexSSV, uint64 clusterIndexETH, uint64 burnRateETH) = OperatorLib.updateClusterOperatorsMigration(
             operatorIds,
             cluster.validatorCount,
             s,
@@ -277,12 +277,12 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             isLiquidated
         );
 
-        cluster.updateBalance(clusterIndex, sp.currentNetworkFeeIndexSSV());
-        uint256 ssvBalance = cluster.balance;
+        cluster.updateBalanceSSV(clusterIndexSSV, sp.currentNetworkFeeIndexSSV());
+        uint256 ssvClusterBalance = cluster.balance;
 
         cluster.balance = msg.value;
         cluster.active = true;
-        cluster.index = clusterIndex;
+        cluster.index = clusterIndexETH;
         cluster.networkFeeIndex = sp.currentNetworkFeeIndex();
 
         if (!isLiquidated) {
@@ -293,7 +293,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         if (
             cluster.isLiquidatableWithEB(
                 hashedCluster,
-                burnRate,
+                burnRateETH,
                 PackedETH.unwrap(sp.ethNetworkFee),
                 sp.minimumBlocksBeforeLiquidation,
                 sp.minimumLiquidationCollateral
@@ -304,10 +304,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
         delete s.clusters[hashedCluster];
-
-        if (ssvBalance != 0) {
-            CoreLib.transferTokenBalance(msg.sender, ssvBalance);
-        }
 
         StorageEB storage seb = SSVStorageEB.load();
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
@@ -340,7 +336,11 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             : uint64(cluster.validatorCount) * VUNITS_PRECISION;
         uint32 effectiveBalance = ClusterLib.vUnitsToEB(effectiveVUnits);
 
-        emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvBalance, effectiveBalance, cluster);
+        if (ssvClusterBalance != 0) {
+            CoreLib.transferTokenBalance(msg.sender, ssvClusterBalance);
+        }
+
+        emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvClusterBalance, effectiveBalance, cluster);
     }
 
     /**
@@ -416,17 +416,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         }
         
         emit ClusterBalanceUpdated(ctx.clusterOwner, operatorIds, ctx.blockNum, ctx.effectiveBalance, cluster);
-    }
-
-    function _updateClusterDataWithEB(
-        Cluster memory cluster,
-        bytes32 clusterId,
-        uint64 clusterIndex,
-        uint64 networkFeeIndex
-    ) internal view {
-        cluster.updateBalanceWithEB(clusterId, clusterIndex, networkFeeIndex);
-        cluster.index = clusterIndex;
-        cluster.networkFeeIndex = networkFeeIndex;
     }
 
     function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {

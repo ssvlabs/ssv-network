@@ -225,7 +225,7 @@ library OperatorLib {
     }
 
     /**
-     * @notice Updates cluster operators
+     * @notice Updates ETH cluster operators
      * @param operatorIds Operator IDs
      * @param increaseValidatorCount Increase flag
      * @param deltaValidatorCount Validator count delta
@@ -344,8 +344,9 @@ library OperatorLib {
      * @param s Storage data
      * @param sp Storage protocol
      * @param isClusterLiquidated Liquidated flag
-     * @return cumulativeIndex Cumulative index
-     * @return cumulativeFee Cumulative fee
+     * @return cumulativeIndexSSV Cumulative index SSV
+     * @return cumulativeIndexETH Cumulative index ETH
+     * @return cumulativeFeeETH Cumulative fee ETH
      */
     function updateClusterOperatorsMigration(
         uint64[] memory operatorIds,
@@ -353,19 +354,20 @@ library OperatorLib {
         StorageData storage s,
         StorageProtocol storage sp,
         bool isClusterLiquidated
-    ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
+    ) internal returns (uint64 cumulativeIndexSSV, uint64 cumulativeIndexETH, uint64 cumulativeFeeETH) {
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
+            // update SSV validator count for both new ETH-initialized and existing ETH-initialized operators
+            if (!isClusterLiquidated) {
+                operator.validatorCount -= validatorCount;
+            }
+
             if (operator.ethSnapshot.block == 0) {
                 // first-time ETH usage or migration
                 updateSnapshotStSSV(operator);
-
-                if (!isClusterLiquidated) {
-                    operator.validatorCount -= validatorCount;
-                }
 
                 ensureETHDefaults(operator);
 
@@ -373,16 +375,18 @@ library OperatorLib {
                 if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
                     revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
                 }
+
+                cumulativeIndexSSV += operator.snapshot.index;
             } else {
                 // already ETH operator
                 updateSnapshotSt(operator, operatorId);
                 if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
                     revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
                 }
-            }
 
-            cumulativeFee += PackedETH.unwrap(operator.ethFee);
-            cumulativeIndex += operator.ethSnapshot.index;
+                cumulativeIndexETH += operator.ethSnapshot.index;
+            }
+            cumulativeFeeETH += PackedETH.unwrap(operator.ethFee);
         }
     }
 
