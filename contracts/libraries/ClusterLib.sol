@@ -236,12 +236,14 @@ library ClusterLib {
         uint64[] memory operatorIds,
         bytes32 hashedCluster,
         uint32 validatorCountDelta,
+        bool isExistingCluster,
         StorageData storage s,
         StorageProtocol storage sp
     ) internal {
         (uint64 clusterIndex, uint64 burnRate) = OperatorLib.updateClusterOperatorsOnRegistration(
             operatorIds,
             validatorCountDelta,
+            isExistingCluster,
             s,
             sp
         );

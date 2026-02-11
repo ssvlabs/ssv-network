@@ -1734,6 +1734,26 @@ describe("SSVNetwork full integration tests", () => {
       await trackGasFromReceipt(receipt, [GasGroup.REGISTER_VALIDATOR_WITHOUT_DEPOSIT]);
     });
 
+    it("Is reverted with 'OperatorDoesNotExist' if one of operators is removed", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+
+      await expect(network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
+    });
+
     it("Is reverted with 'InvalidOperatorIdsLength' if the amount of operators is not the allowed one", async function () {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
