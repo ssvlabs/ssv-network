@@ -22,6 +22,7 @@ import {
 
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
+import {ISSVOperators} from "../interfaces/ISSVOperators.sol";
 
 contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     using ClusterLib for Cluster;
@@ -538,7 +539,10 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         )) {
 
             for (uint256 i; i < operatorIds.length; ++i) {
-                s.operators[operatorIds[i]].ethValidatorCount -= cluster.validatorCount;
+                ISSVOperators.Operator storage op = s.operators[operatorIds[i]];
+                if (op.ethSnapshot.block == 0 && op.snapshot.block == 0) {
+                    op.ethValidatorCount -= cluster.validatorCount;
+                }
             }
 
             _executeLiquidation(clusterOwner, msg.sender, clusterId, operatorIds, cluster, s, sp, seb);
