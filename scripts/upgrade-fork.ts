@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { isAddress } from "ethers";
 import { deployContract, getDeployer, getEthers, parseArg } from "./common/helpers.ts";
 import { SSVModules } from "./common/modules.ts";
+import { DEFAULT_UNSTAKE_COOLDOWN } from "../test/common/constants.ts";
 
 type ModuleName = keyof typeof SSVModules;
 type ModuleAddresses = Record<ModuleName, string>;
@@ -60,8 +61,6 @@ const MODULE_ORDER: ModuleName[] = [
   "SSVStaking",
   "SSVValidators",
 ];
-
-const DEFAULT_UNSTAKE_COOLDOWN = 50_120n;
 
 function parseUint(value: unknown, label: string): bigint | undefined {
   if (value === undefined || value === null) return undefined;

@@ -1,8 +1,7 @@
 import hre from "hardhat";
 import { parseArg, getEthers, getDeployer, deployContract, deployProxy, attachModule, upgradeProxy } from "./common/helpers.ts";
 import { saveImplementation } from "./common/address-book.js";
-
-const DEFAULT_UNSTAKE_COOLDOWN = 50_120n;
+import { DEFAULT_UNSTAKE_COOLDOWN } from "../test/common/constants.ts";
 
 async function main() {
   const targetNetwork = parseArg("network");
