@@ -399,7 +399,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             }
 
             // Apply new vUnits BEFORE liquidation check so auto-liquidation
-            // uses the new burn rate (fixes F-2: OLD vUnits check)
             if (cluster.active && newVUnits != effectiveOldVUnits) {
                 _updateOperatorVUnits(operatorIds, seb, effectiveOldVUnits, newVUnits);
                 sp.updateDAOEthVUnits(effectiveOldVUnits, newVUnits);
