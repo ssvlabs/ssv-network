@@ -7,8 +7,7 @@ import {
     MAX_DELEGATION_SLOTS,
     SSVStorageStaking,
     StorageStaking,
-    UnstakeRequest,
-    Delegation
+    UnstakeRequest
 } from "../../libraries/storage/SSVStorageStaking.sol";
 import {SSVStorage, StorageData} from "../../libraries/storage/SSVStorage.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";

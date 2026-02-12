@@ -93,13 +93,6 @@ interface ISSVDAO is ISSVNetworkCore {
     event RootCommitted(bytes32 indexed merkleRoot, uint64 indexed blockNum);
 
     /**
-     * @dev Emitted when a root is proposed
-     * @param merkleRoot The proposed Merkle root
-     * @param blockNum The block number
-     */
-    event RootProposed(bytes32 indexed merkleRoot, uint64 indexed blockNum);
-
-    /**
      * @dev Emitted when the unstake cooldown duration is updated
      * @param newCooldownDuration The new duration
      */

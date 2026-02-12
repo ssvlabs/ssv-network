@@ -36,7 +36,6 @@ export const Events = {
   NETWORK_FEE_UPDATED_SSV: "NetworkFeeUpdatedSSV",
   NETWORK_EARNINGS_WITHDRAWN: "NetworkEarningsWithdrawn",
   ROOT_COMMITTED: "RootCommitted",
-  ROOT_PROPOSED: "RootProposed",
   WEIGHTED_ROOT_PROPOSED: "WeightedRootProposed",
   COOLDOWN_DURATION_UPDATED: "CooldownDurationUpdated",
   ORACLE_REPLACED: "OracleReplaced",
@@ -45,5 +44,4 @@ export const Events = {
   REWARDS_SETTLED: "RewardsSettled",
   REWARDS_CLAIMED: "RewardsClaimed",
   ERC20_RESCUED: "ERC20Rescued",
-  DELEGATION_UPDATED: "DelegationUpdated",
 } as const;
