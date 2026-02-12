@@ -50,9 +50,17 @@ upgrade-fork rpc:
     npx hardhat compile --force
     HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/upgrade-fork.ts --network hoodi_local --config deployments/hoodi-fork.config.json --output-config deployments/hoodi-fork-deployed.config.json
 
+upgrade-hoodi rpc:
+    npx hardhat compile --force
+    HOODI_RPC_URL={{rpc}} npx tsx scripts/upgrade-hoodi.ts --network hoodi --config deployments/hoodi-fork.config.json --output-config deployments/hoodi-deployed.config.json
+
 test-forked-local rpc:
     npx hardhat compile --force
     HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/hoodi-fork-deployed.config.json --use-deployed-state true --strict-deployed-state false --allow-deployed-fallback true --no-gas-enforce true
+
+test-forked-local-deployed rpc:
+    npx hardhat compile --force
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/hoodi-fork-deployed.config.json --use-deployed-state true --strict-deployed-state true --allow-deployed-fallback false --no-gas-enforce true
 
 deploy-test-fork rpc:
     npx hardhat compile --force
