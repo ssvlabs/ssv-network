@@ -61,6 +61,7 @@ const MODULE_ORDER: ModuleName[] = [
   "SSVStaking",
   "SSVValidators",
 ];
+const LOCAL_FORK_RPC_URL = "http://127.0.0.1:8545";
 
 function parseUint(value: unknown, label: string): bigint | undefined {
   if (value === undefined || value === null) return undefined;
@@ -99,16 +100,25 @@ function resolveDeployedConfigPath(initConfigPath: string, outputArg?: string): 
   if (outputArg) {
     return resolve(outputArg);
   }
+  if (initConfigPath.endsWith("-upgrade.config.json")) {
+    return initConfigPath.replace(/-upgrade\.config\.json$/, "-upgrade.result.json");
+  }
+  if (initConfigPath.endsWith("-deploy.config.json")) {
+    return initConfigPath.replace(/-deploy\.config\.json$/, "-deploy.result.json");
+  }
+  if (initConfigPath.endsWith(".result.json")) {
+    return initConfigPath;
+  }
   if (initConfigPath.endsWith("-deployed.config.json")) {
     return initConfigPath;
   }
   if (initConfigPath.endsWith(".config.json")) {
-    return initConfigPath.replace(/\.config\.json$/, "-deployed.config.json");
+    return initConfigPath.replace(/\.config\.json$/, ".result.json");
   }
   if (initConfigPath.endsWith(".json")) {
-    return initConfigPath.replace(/\.json$/, "-deployed.json");
+    return initConfigPath.replace(/\.json$/, ".result.json");
   }
-  return `${initConfigPath}-deployed.json`;
+  return `${initConfigPath}.result.json`;
 }
 
 function parseQuorum(value: unknown): number | undefined {
@@ -352,13 +362,14 @@ async function main() {
   const deployerAddress = ((await deployerSigner.getAddress()) as string).toLowerCase();
   const ownerAddressLower = ownerAddr.toLowerCase();
   const viewsOwnerAddressLower = viewsOwnerAddr.toLowerCase();
+  const isLocalNetwork = targetNetwork === "local" || targetNetwork.endsWith("_local");
   const targetRpcUrl =
-    targetNetwork === "hoodi_local"
-      ? process.env.HOODI_LOCAL_RPC_URL
+    isLocalNetwork
+      ? LOCAL_FORK_RPC_URL
       : targetNetwork === "hoodi"
       ? process.env.HOODI_RPC_URL
       : targetNetwork === "mainnet"
-      ? process.env.MAINNET_RPC_URL
+      ? process.env.MAINNET_ETH_NODE_URL ?? process.env.MAINNET_RPC_URL
       : undefined;
   const usesLocalRpc =
     !!targetRpcUrl && (targetRpcUrl.includes("127.0.0.1") || targetRpcUrl.includes("localhost"));

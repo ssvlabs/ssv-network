@@ -41,8 +41,14 @@ function toEnvValue(value: string | number | undefined): string | undefined {
   return String(value);
 }
 
+const LOCAL_FORK_RPC_URL = "http://127.0.0.1:8545";
+
+function resolveSourceRpcUrl(): string {
+  return LOCAL_FORK_RPC_URL;
+}
+
 async function preflightSourceRpc(config: ForkConfigFile): Promise<void> {
-  const sourceRpcUrl = process.env.HOODI_LOCAL_RPC_URL ?? "http://127.0.0.1:8545";
+  const sourceRpcUrl = resolveSourceRpcUrl();
   const viewsAddress = config.ssvNetworkViews;
   const networkAddress = config.ssvNetworkProxy ?? config.ssvNetworkAddress;
 
@@ -90,7 +96,7 @@ async function preflightSourceRpc(config: ForkConfigFile): Promise<void> {
 async function main() {
   const configPath = resolve(parseArg("config"));
   const testPath = parseOptionalArg("test") ?? "test/test-forked/v2.0.0/fullIntegrationForked.test.ts";
-  const forkNetwork = parseOptionalArg("fork-network") ?? "hardhat_forked_hoodi_local";
+  const forkNetwork = parseOptionalArg("fork-network") ?? "hardhat_forked";
   const useDeployedState = parseOptionalArg("use-deployed-state") ?? "true";
   const noGasEnforce = parseOptionalArg("no-gas-enforce") ?? "true";
   const strictDeployedState = parseOptionalArg("strict-deployed-state") ?? "false";
@@ -99,9 +105,12 @@ async function main() {
 
   const rawConfig = await readFile(configPath, "utf8");
   const config = JSON.parse(rawConfig) as ForkConfigFile;
-  const forkBlockNumber =
-    forkBlockNumberArg ??
-    toEnvValue(config.forkBlockNumber ?? config.deployments?.forkBlockNumber);
+  const envForkBlockNumber = process.env.FORK_BLOCK_NUMBER?.trim();
+  let forkBlockNumber = forkBlockNumberArg ?? (envForkBlockNumber && envForkBlockNumber.length > 0 ? envForkBlockNumber : undefined);
+  if (!forkBlockNumber) {
+    const provider = new JsonRpcProvider(resolveSourceRpcUrl());
+    forkBlockNumber = String(await provider.getBlockNumber());
+  }
 
   if (useDeployedState === "true") {
     if (strictDeployedState === "true" || allowDeployedFallback === "false") {
@@ -149,7 +158,7 @@ async function main() {
   console.log(`FORK_STRICT_DEPLOYED_STATE=${strictDeployedState}`);
   console.log(`FORK_ALLOW_DEPLOYED_FALLBACK=${allowDeployedFallback}`);
   console.log(`NO_GAS_ENFORCE=${noGasEnforce}`);
-  console.log(`FORK_BLOCK_NUMBER=${forkBlockNumber ?? "<latest>"}`);
+  console.log(`FORK_BLOCK_NUMBER=${forkBlockNumber}`);
 
   await new Promise<void>((resolvePromise, rejectPromise) => {
     const child = spawn("npx", args, {

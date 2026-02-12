@@ -1,8 +1,8 @@
 {
-  "owner": "0xC564AF154621Ee8D0589758d535511aEc8f67b40",
-  "ssvNetworkProxy": "0x58410Bef803ECd7E63B23664C586A6DB72DAf59c",
-  "ssvNetworkViews": "0x5AdDb3f1529C5ec70D77400499eE4bbF328368fe",
-  "ssvToken": "0x9F5d4Ec84fC4785788aB44F9de973cF34F7A038e",
+  "owner": "0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6",
+  "ssvNetworkProxy": "0xDD9BC35aE942eF0cFa76930954a156B3fF30a4E1",
+  "ssvNetworkViews": "0xafE830B6Ee262ba11cce5F32fDCd760FFE6a66e4",
+  "ssvToken": "0x9D65fF81a3c488d585bBfb0Bfe3c7707c7917f54",
   "cooldownDuration": 604800,
   "upgradeTimestamp": 2219200,
   "quorumBps": 7500,

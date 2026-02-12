@@ -91,16 +91,25 @@ function resolveDeployedConfigPath(initConfigPath: string, outputArg?: string): 
   if (outputArg) {
     return resolve(outputArg);
   }
+  if (initConfigPath.endsWith("-upgrade.config.json")) {
+    return initConfigPath.replace(/-upgrade\.config\.json$/, "-upgrade.result.json");
+  }
+  if (initConfigPath.endsWith("-deploy.config.json")) {
+    return initConfigPath.replace(/-deploy\.config\.json$/, "-deploy.result.json");
+  }
+  if (initConfigPath.endsWith(".result.json")) {
+    return initConfigPath;
+  }
   if (initConfigPath.endsWith("-deployed.config.json")) {
     return initConfigPath;
   }
   if (initConfigPath.endsWith(".config.json")) {
-    return initConfigPath.replace(/\.config\.json$/, "-deployed.config.json");
+    return initConfigPath.replace(/\.config\.json$/, ".result.json");
   }
   if (initConfigPath.endsWith(".json")) {
-    return initConfigPath.replace(/\.json$/, "-deployed.json");
+    return initConfigPath.replace(/\.json$/, ".result.json");
   }
-  return `${initConfigPath}-deployed.json`;
+  return `${initConfigPath}.result.json`;
 }
 
 function parseQuorum(value: unknown): number | undefined {
