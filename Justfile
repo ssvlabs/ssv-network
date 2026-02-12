@@ -29,7 +29,7 @@ deploy-all network:
 
 deploy-mainnet:
     npx hardhat compile --force
-    npx tsx scripts/deploy-mainnet.ts --network mainnet --config deployments/deploy.config.json --output-config deployments/deploy.result.json
+    npx tsx scripts/deploy-mainnet.ts --network mainnet --config deployments/mainnet-deploy.config.json --output-config deployments/mainnet-deploy.result.json
 
 update-module module proxy network *args:
     npx hardhat compile --force
@@ -52,24 +52,41 @@ upgrade-ssv-staking proxy network:
 
 upgrade-fork rpc:
     npx hardhat compile --force
-    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/upgrade-fork.ts --network hoodi_local --config deployments/deploy.config.json --output-config deployments/deploy.result.json
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/upgrade-fork.ts --network hoodi_local --config deployments/hoodi-deploy.config.json --output-config deployments/hoodi-deploy.result.json
+
+upgrade-mainnet-fork rpc:
+    npx hardhat compile --force
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/upgrade-fork.ts --network hoodi_local --config deployments/mainnet-deploy.config.json --output-config deployments/mainnet-deploy.result.json
 
 upgrade-hoodi rpc:
     npx hardhat compile --force
-    HOODI_RPC_URL={{rpc}} npx tsx scripts/upgrade-hoodi.ts --network hoodi --config deployments/deploy.config.json --output-config deployments/deploy.result.json
+    HOODI_RPC_URL={{rpc}} npx tsx scripts/upgrade-hoodi.ts --network hoodi --config deployments/hoodi-deploy.config.json --output-config deployments/hoodi-deploy.result.json
 
 test-forked-local rpc:
     npx hardhat compile --force
-    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/deploy.result.json --use-deployed-state true --strict-deployed-state false --allow-deployed-fallback true --no-gas-enforce true
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/hoodi-deploy.result.json --use-deployed-state true --strict-deployed-state false --allow-deployed-fallback true --no-gas-enforce true
 
 test-forked-local-deployed rpc:
     npx hardhat compile --force
-    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/deploy.result.json --use-deployed-state true --strict-deployed-state true --allow-deployed-fallback false --no-gas-enforce true
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/hoodi-deploy.result.json --use-deployed-state true --strict-deployed-state true --allow-deployed-fallback false --no-gas-enforce true
+
+test-mainnet-fork rpc:
+    npx hardhat compile --force
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/mainnet-deploy.result.json --use-deployed-state true --strict-deployed-state false --allow-deployed-fallback true --no-gas-enforce true
+
+test-mainnet-fork-deployed rpc:
+    npx hardhat compile --force
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/mainnet-deploy.result.json --use-deployed-state true --strict-deployed-state true --allow-deployed-fallback false --no-gas-enforce true
 
 deploy-test-fork rpc:
     npx hardhat compile --force
-    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/upgrade-fork.ts --network hoodi_local --config deployments/deploy.config.json --output-config deployments/deploy.result.json
-    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/deploy.result.json --use-deployed-state true --strict-deployed-state false --allow-deployed-fallback true --no-gas-enforce true
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/upgrade-fork.ts --network hoodi_local --config deployments/hoodi-deploy.config.json --output-config deployments/hoodi-deploy.result.json
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/hoodi-deploy.result.json --use-deployed-state true --strict-deployed-state false --allow-deployed-fallback true --no-gas-enforce true
+
+deploy-test-mainnet-fork rpc:
+    npx hardhat compile --force
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/upgrade-fork.ts --network hoodi_local --config deployments/mainnet-deploy.config.json --output-config deployments/mainnet-deploy.result.json
+    HOODI_LOCAL_RPC_URL={{rpc}} npx tsx scripts/run-forked-local-tests.ts --config deployments/mainnet-deploy.result.json --use-deployed-state true --strict-deployed-state false --allow-deployed-fallback true --no-gas-enforce true
 
 verify address network:
     npx hardhat verify --network "{{network}}" "{{address}}"
