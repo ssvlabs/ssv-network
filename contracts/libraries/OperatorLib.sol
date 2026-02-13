@@ -140,9 +140,6 @@ library OperatorLib {
      * @param operator Operator storage reference
      */
     function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
-        if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
-            return;
-        }
         if (operator.ethSnapshot.block == 0) {
             operator.ethSnapshot.block = uint32(block.number);
             operator.ethSnapshot.balance = PACKED_ETH_ZERO;
