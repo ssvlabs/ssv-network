@@ -158,20 +158,15 @@ library OperatorLib {
         ISSVNetworkCore.Operator storage operator,
         bool isExistingCluster
     ) internal view {
-        if (isExistingCluster) {
-            if (
-                operator.owner == address(0) ||
-                (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0)
-            ) {
-                revert ISSVNetworkCore.OperatorDoesNotExist();
-            }
-        } else {
-            if (
-                operator.owner == address(0) ||
-                (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0)
-            ) {
-                revert ISSVNetworkCore.OperatorDoesNotExist();
-            }
+        bool operatorDoesNotExist =
+            operator.owner == address(0) ||
+            (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0);
+
+        if (isExistingCluster && operator.owner == address(0)) {
+            revert ISSVNetworkCore.OperatorDoesNotExist();
+        }
+        if (operatorDoesNotExist) {
+            revert ISSVNetworkCore.OperatorDoesNotExist();
         }
     }
 
