@@ -182,23 +182,20 @@ library OperatorLib {
                     revert ISSVNetworkCore.OperatorsListNotUnique();
                 }
             }
-            ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
+            ISSVNetworkCore.Operator storage operatorSt = s.operators[operatorId];
 
-            if (!isExistingCluster) {
-                if (
-                    operator.owner == address(0) ||
-                    (operator.ethSnapshot.block == 0 &&
-                    operator.snapshot.block == 0)
-                ) {
-                    revert ISSVNetworkCore.OperatorDoesNotExist();
-                }
-            } else {
-                if (operator.owner == address(0)) {
-                    revert ISSVNetworkCore.OperatorDoesNotExist();
-                }
+            bool operatorDoesNotExist = operatorSt.owner == address(0) ||
+                (operatorSt.ethSnapshot.block == 0 && operatorSt.snapshot.block == 0);
+
+            if (isExistingCluster && operatorSt.owner == address(0)) {
+                revert ISSVNetworkCore.OperatorDoesNotExist();
+            }
+            if (operatorDoesNotExist) {
+                revert ISSVNetworkCore.OperatorDoesNotExist();
             }
 
-            ensureETHDefaults(s.operators[operatorId]);
+            ensureETHDefaults(operatorSt);
+            ISSVNetworkCore.Operator memory operator = operatorSt;
             // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
                 // Handle bitmap-based whitelisting
@@ -393,14 +390,14 @@ library OperatorLib {
             if (operator.ethSnapshot.block == 0) {
                 // first-time ETH usage or migration
                 ensureETHDefaults(operator);
-                
+
             } else {
                 // already ETH operator
                 updateSnapshotSt(operator, operatorId);
 
                 cumulativeIndexETH += operator.ethSnapshot.index;
             }
-            
+
             // update ETH validator count for both new ETH-initialized and existing ETH-initialized operators
             if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
                 revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
