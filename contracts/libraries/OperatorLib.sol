@@ -140,13 +140,16 @@ library OperatorLib {
      * @param operator Operator storage reference
      */
     function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
-        if (operator.ethSnapshot.block == 0) {
-            operator.ethSnapshot.block = uint32(block.number);
-            operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        if(operator.ethSnapshot.block == 0 || operator.snapshot.block == 0){
+            if (operator.ethSnapshot.block == 0) {
+                operator.ethSnapshot.block = uint32(block.number);
+                operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+            }
+            if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
+                operator.ethFee = defaultOperatorEthFee();
+            }
         }
-        if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
-            operator.ethFee = defaultOperatorEthFee();
-        }
+        // we don't want to revert here because this will block the migration flow
     }
 
     /**
