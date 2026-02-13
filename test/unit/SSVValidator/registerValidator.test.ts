@@ -57,6 +57,27 @@ describe("SSVClusters function `registerValidator()`", async () => {
     await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
   });
 
+  it("Initializes ETH defaults for legacy SSV operators and keeps them after registration", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    for (const operatorId of operatorIds) {
+      await validators.mockSetOperatorLegacySSV(operatorId, 1);
+    }
+
+    await validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+
+    for (const operatorId of operatorIds) {
+      expect(await validators.getOperatorEthFee(operatorId)).to.be.greaterThan(0n);
+    }
+  });
+
   it("Updates operatorEthVUnits even when cluster EB snapshot is not set", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
