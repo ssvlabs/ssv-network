@@ -150,6 +150,32 @@ library OperatorLib {
     }
 
     /**
+     * @notice Validates operator state for validator registration
+     * @param operator Operator storage reference
+     * @param isExistingCluster If cluster already exists
+     */
+    function ensureOperatorExist(
+        ISSVNetworkCore.Operator storage operator,
+        bool isExistingCluster
+    ) internal view {
+        if (isExistingCluster) {
+            if (
+                operator.owner == address(0) ||
+                (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0)
+            ) {
+                revert ISSVNetworkCore.OperatorDoesNotExist();
+            }
+        } else {
+            if (
+                operator.owner == address(0) ||
+                (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0)
+            ) {
+                revert ISSVNetworkCore.OperatorDoesNotExist();
+            }
+        }
+    }
+
+    /**
      * @notice Updates cluster operators on registration
      * @param operatorIds Operator IDs
      * @param deltaValidatorCount Validator count delta
@@ -183,16 +209,7 @@ library OperatorLib {
                 }
             }
             ISSVNetworkCore.Operator storage operatorSt = s.operators[operatorId];
-
-            bool operatorDoesNotExist = operatorSt.owner == address(0) ||
-                (operatorSt.ethSnapshot.block == 0 && operatorSt.snapshot.block == 0);
-
-            if (isExistingCluster && operatorSt.owner == address(0)) {
-                revert ISSVNetworkCore.OperatorDoesNotExist();
-            }
-            if (operatorDoesNotExist) {
-                revert ISSVNetworkCore.OperatorDoesNotExist();
-            }
+            ensureOperatorExist(operatorSt, isExistingCluster);
 
             ensureETHDefaults(operatorSt);
             ISSVNetworkCore.Operator memory operator = operatorSt;
