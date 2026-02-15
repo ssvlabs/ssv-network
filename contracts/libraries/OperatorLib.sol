@@ -182,23 +182,25 @@ library OperatorLib {
                     revert ISSVNetworkCore.OperatorsListNotUnique();
                 }
             }
-            ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
-
-            if (!isExistingCluster) {
-                if (
-                    operator.owner == address(0) ||
-                    (operator.ethSnapshot.block == 0 &&
-                    operator.snapshot.block == 0)
-                ) {
-                    revert ISSVNetworkCore.OperatorDoesNotExist();
+            {
+                ISSVNetworkCore.Operator storage opStorage = s.operators[operatorId];
+                if (!isExistingCluster) {
+                    if (
+                        opStorage.owner == address(0) ||
+                        (opStorage.ethSnapshot.block == 0 &&
+                        opStorage.snapshot.block == 0)
+                    ) {
+                        revert ISSVNetworkCore.OperatorDoesNotExist();
+                    }
+                } else {
+                    if (opStorage.owner == address(0)) {
+                        revert ISSVNetworkCore.OperatorDoesNotExist();
+                    }
                 }
-            } else {
-                if (operator.owner == address(0)) {
-                    revert ISSVNetworkCore.OperatorDoesNotExist();
-                }
+                // Set default ETH fee for pre-upgrade operators before copying to memory
+                ensureETHDefaults(opStorage);
             }
-
-            ensureETHDefaults(s.operators[operatorId]);
+            ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
             // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
                 // Handle bitmap-based whitelisting
