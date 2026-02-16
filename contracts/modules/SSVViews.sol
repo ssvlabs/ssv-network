@@ -86,11 +86,12 @@ contract SSVViews is ISSVViews {
         ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
 
         op.owner = operator.owner;
-        if (operator.ethSnapshot.block == 0 && operator.fee.neq(PACKED_SSV_ZERO)) {
-            op.fee = DEFAULT_OPERATOR_ETH_FEE;
-        } else {
+        if (operator.ethSnapshot.block != 0) {
             op.fee = PackedETHLib.unpack(operator.ethFee);
+        } else if (PackedSSV.unwrap(operator.fee) != 0) {
+            op.fee = DEFAULT_OPERATOR_ETH_FEE;
         }
+
         op.validatorCount = operator.ethValidatorCount;
         op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
         op.isPrivate = operator.whitelisted;
