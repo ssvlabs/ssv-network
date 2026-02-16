@@ -140,12 +140,36 @@ library OperatorLib {
      * @param operator Operator storage reference
      */
     function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
-        if (operator.ethSnapshot.block == 0) {
-            operator.ethSnapshot.block = uint32(block.number);
-            operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        if(operator.ethSnapshot.block == 0 || operator.snapshot.block == 0){
+            if (operator.ethSnapshot.block == 0) {
+                operator.ethSnapshot.block = uint32(block.number);
+                operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+            }
+            if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
+                operator.ethFee = defaultOperatorEthFee();
+            }
         }
-        if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
-            operator.ethFee = defaultOperatorEthFee();
+        // we don't want to revert here because this will block the migration flow
+    }
+
+    /**
+     * @notice Validates operator state for validator registration
+     * @param operator Operator storage reference
+     * @param isExistingCluster If cluster already exists
+     */
+    function ensureOperatorExist(
+        ISSVNetworkCore.Operator storage operator,
+        bool isExistingCluster
+    ) internal view {
+        bool operatorDoesNotExist =
+            operator.owner == address(0) ||
+            (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0);
+
+        if (isExistingCluster && operator.owner == address(0)) {
+            revert ISSVNetworkCore.OperatorDoesNotExist();
+        }
+        if (operatorDoesNotExist) {
+            revert ISSVNetworkCore.OperatorDoesNotExist();
         }
     }
 
@@ -182,23 +206,11 @@ library OperatorLib {
                     revert ISSVNetworkCore.OperatorsListNotUnique();
                 }
             }
-            ISSVNetworkCore.Operator memory operator = s.operators[operatorId];
+            ISSVNetworkCore.Operator storage operatorSt = s.operators[operatorId];
+            ensureOperatorExist(operatorSt, isExistingCluster);
 
-            if (!isExistingCluster) {
-                if (
-                    operator.owner == address(0) ||
-                    (operator.ethSnapshot.block == 0 &&
-                    operator.snapshot.block == 0)
-                ) {
-                    revert ISSVNetworkCore.OperatorDoesNotExist();
-                }
-            } else {
-                if (operator.owner == address(0)) {
-                    revert ISSVNetworkCore.OperatorDoesNotExist();
-                }
-            }
-
-            ensureETHDefaults(s.operators[operatorId]);
+            ensureETHDefaults(operatorSt);
+            ISSVNetworkCore.Operator memory operator = operatorSt;
             // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
                 // Handle bitmap-based whitelisting
@@ -393,14 +405,14 @@ library OperatorLib {
             if (operator.ethSnapshot.block == 0) {
                 // first-time ETH usage or migration
                 ensureETHDefaults(operator);
-                
+
             } else {
                 // already ETH operator
                 updateSnapshotSt(operator, operatorId);
 
                 cumulativeIndexETH += operator.ethSnapshot.index;
             }
-            
+
             // update ETH validator count for both new ETH-initialized and existing ETH-initialized operators
             if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
                 revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);

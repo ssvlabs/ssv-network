@@ -168,6 +168,18 @@ contract SSVValidatorsHarness is SSVValidators {
         s.operators[operatorId].snapshot.block = uint32(block.number);
     }
 
+    function mockSetOperatorLegacySSV(uint64 operatorId, uint64 ssvFee) external {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+        operator.fee = PackedSSV.wrap(ssvFee);
+        operator.snapshot.block = uint32(block.number);
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.index = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+    }
+
     function mockRegisterSSVValidator(
         bytes calldata publicKey,
         uint64[] calldata operatorIds,

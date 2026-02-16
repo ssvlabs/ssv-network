@@ -61,7 +61,6 @@ const MODULE_ORDER: ModuleName[] = [
   "SSVStaking",
   "SSVValidators",
 ];
-const LOCAL_FORK_RPC_URL = "http://127.0.0.1:8545";
 
 function parseUint(value: unknown, label: string): bigint | undefined {
   if (value === undefined || value === null) return undefined;
@@ -86,14 +85,6 @@ function parseOptionalArg(argName: string): string | undefined {
   const value = process.argv[index + 1];
   if (!value) throw new Error(`Missing value for --${argName}`);
   return value;
-}
-
-function parseOptionalBooleanArg(argName: string, fallback: boolean): boolean {
-  const raw = parseOptionalArg(argName);
-  if (raw === undefined) return fallback;
-  if (raw === "true") return true;
-  if (raw === "false") return false;
-  throw new Error(`Invalid --${argName} value: ${raw}. Use true|false`);
 }
 
 function resolveDeployedConfigPath(initConfigPath: string, outputArg?: string): string {
@@ -235,68 +226,9 @@ function logObserved(label: string, value: unknown): void {
   console.log(`[VERIFY] ${label} = ${formatValue(value)}`);
 }
 
-async function trySend(provider: any, method: string, params: unknown[]) {
-  try {
-    await provider.send(method, params);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function impersonate(provider: any, address: string) {
-  const ok =
-    (await trySend(provider, "hardhat_impersonateAccount", [address])) ||
-    (await trySend(provider, "anvil_impersonateAccount", [address]));
-  if (!ok) {
-    throw new Error("Impersonation not supported by the RPC node");
-  }
-}
-
-async function setBalance(provider: any, address: string, balanceHex: string) {
-  const ok =
-    (await trySend(provider, "hardhat_setBalance", [address, balanceHex])) ||
-    (await trySend(provider, "anvil_setBalance", [address, balanceHex]));
-  if (!ok) {
-    throw new Error("Setting balance not supported by the RPC node");
-  }
-}
-
-async function getSignerForAddress(
-  ethers: any,
-  address: string,
-  useGetImpersonatedSigner: boolean
-): Promise<{ signer: any; impersonated: boolean }> {
-  const signers = await ethers.getSigners();
-  for (const signer of signers) {
-    if ((await signer.getAddress()).toLowerCase() === address.toLowerCase()) {
-      // Best-effort top up to avoid insufficient funds on forks
-      await trySend(ethers.provider, "hardhat_setBalance", [address, "0x56bc75e2d63100000"]);
-      await trySend(ethers.provider, "anvil_setBalance", [address, "0x56bc75e2d63100000"]);
-      return { signer, impersonated: false };
-    }
-  }
-
-  if (useGetImpersonatedSigner && typeof ethers.getImpersonatedSigner === "function") {
-    try {
-      const signer = await ethers.getImpersonatedSigner(address);
-      await trySend(ethers.provider, "hardhat_setBalance", [address, "0x56bc75e2d63100000"]);
-      await trySend(ethers.provider, "anvil_setBalance", [address, "0x56bc75e2d63100000"]);
-      return { signer, impersonated: true };
-    } catch {
-      // Fall back to manual RPC impersonation
-    }
-  }
-
-  await impersonate(ethers.provider, address);
-  await setBalance(ethers.provider, address, "0x56bc75e2d63100000");
-  return { signer: await ethers.getSigner(address), impersonated: true };
-}
-
 async function main() {
   const targetNetwork = parseArg("network");
   const initConfigPath = resolve(parseArg("config"));
-  const useGetImpersonatedSigner = parseOptionalBooleanArg("use-get-impersonated-signer", true);
   const deployedConfigPath = resolveDeployedConfigPath(
     initConfigPath,
     parseOptionalArg("output-config")
@@ -339,14 +271,14 @@ async function main() {
   if (networkCode === "0x") {
     throw new Error(
       `No contract code at ssvNetworkProxy ${ssvNetworkProxy} on ${targetNetwork}. ` +
-      `Check your fork RPC and fork block number.`
+      `Check your RPC URL and network selection.`
     );
   }
   const viewsCode = await ethers.provider.getCode(ssvNetworkViews);
   if (viewsCode === "0x") {
     throw new Error(
       `No contract code at ssvNetworkViews ${ssvNetworkViews} on ${targetNetwork}. ` +
-      `Check your fork RPC and fork block number.`
+      `Check your RPC URL and network selection.`
     );
   }
 
@@ -362,55 +294,24 @@ async function main() {
   const deployerAddress = ((await deployerSigner.getAddress()) as string).toLowerCase();
   const ownerAddressLower = ownerAddr.toLowerCase();
   const viewsOwnerAddressLower = viewsOwnerAddr.toLowerCase();
-  const isLocalNetwork = targetNetwork === "local" || targetNetwork.endsWith("_local");
-  const targetRpcUrl =
-    isLocalNetwork
-      ? LOCAL_FORK_RPC_URL
-      : targetNetwork === "hoodi"
-      ? process.env.HOODI_RPC_URL
-      : targetNetwork === "mainnet"
-      ? process.env.MAINNET_ETH_NODE_URL ?? process.env.MAINNET_RPC_URL
-      : undefined;
-  const usesLocalRpc =
-    !!targetRpcUrl && (targetRpcUrl.includes("127.0.0.1") || targetRpcUrl.includes("localhost"));
-  const canImpersonate =
-    targetNetwork.includes("hardhat") || targetNetwork.includes("local") || targetNetwork === "localhost" || usesLocalRpc;
 
   let ownerSigner = deployerSigner;
   let viewsOwnerSigner = deployerSigner;
-  let networkOwnerImpersonated = false;
-  let viewsOwnerImpersonated = false;
 
   if (deployerAddress !== ownerAddressLower || deployerAddress !== viewsOwnerAddressLower) {
-    if (!canImpersonate) {
-      throw new Error(
-        `Deployer ${deployerAddress} is not the required owner(s). ` +
-        `network.owner=${ownerAddressLower}, views.owner=${viewsOwnerAddressLower}. ` +
-        `Use the owner private key in env (e.g. HOODI_PRIVATE_KEY) or pass explicit owner/viewsOwner in config.`
-      );
-    }
-
-    const ownerResolved = await getSignerForAddress(ethers, ownerAddr, useGetImpersonatedSigner);
-    ownerSigner = ownerResolved.signer;
-    networkOwnerImpersonated = ownerResolved.impersonated;
-
-    if (viewsOwnerAddressLower === ownerAddressLower) {
-      viewsOwnerSigner = ownerSigner;
-      viewsOwnerImpersonated = networkOwnerImpersonated;
-    } else {
-      const viewsResolved = await getSignerForAddress(ethers, viewsOwnerAddr, useGetImpersonatedSigner);
-      viewsOwnerSigner = viewsResolved.signer;
-      viewsOwnerImpersonated = viewsResolved.impersonated;
-    }
+    throw new Error(
+      `Deployer ${deployerAddress} is not the required owner(s). ` +
+      `network.owner=${ownerAddressLower}, views.owner=${viewsOwnerAddressLower}. ` +
+      `Use the owner private key in env (e.g. HOODI_PRIVATE_KEY) or pass explicit owner/viewsOwner in config.`
+    );
   }
 
   const networkOwner = network.connect(ownerSigner);
   const viewsOwner = viewsProxy.connect(viewsOwnerSigner);
   const views = viewsProxy.connect(ownerSigner);
 
-  console.log(`Network owner: ${ownerAddr}${networkOwnerImpersonated ? " (impersonated)" : ""}`);
-  console.log(`Views owner:   ${viewsOwnerAddr}${viewsOwnerImpersonated ? " (impersonated)" : ""}`);
-  console.log(`Impersonation mode: ${useGetImpersonatedSigner ? "getImpersonatedSigner+fallback" : "manual RPC only"}`);
+  console.log(`Network owner: ${ownerAddr}`);
+  console.log(`Views owner:   ${viewsOwnerAddr}`);
   console.log("[1/6] Deploying implementations (SSVNetwork, staking upgrade, SSVNetworkViews)");
   // const { address: networkImplAddr } = await deployContract(ethers, "SSVNetwork", [], ownerSigner);
   const { address: stakingUpgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade", [], ownerSigner);
@@ -650,7 +551,7 @@ async function main() {
   console.log("Upgrade complete");
   console.log(`Init config: ${initConfigPath}`);
   console.log(`Deployed config written at: ${deployedConfigPath}`);
-  console.log(`Fork block pinned at: ${updatedConfig.forkBlockNumber}`);
+  console.log(`Block recorded at: ${updatedConfig.forkBlockNumber}`);
   // console.log(
   //   `NetworkImpl=${networkImplAddr} ViewsImpl=${viewsImplAddr} CSSV=${cssvAddr}`
   // );

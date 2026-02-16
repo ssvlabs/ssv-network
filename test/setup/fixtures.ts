@@ -459,7 +459,7 @@ export async function ssvNetworkFullForkedFixture(
     if (strictDeployedState || !allowDeployedFallback) {
       throw new Error(
         "FORK_USE_DEPLOYED_STATE=true but deployed instances are not readable via SSVNetworkViews. " +
-        "Re-run `just deploy-test-fork <rpc>` against the same HOODI_LOCAL_RPC_URL and ensure no stale FORK_BLOCK_NUMBER.",
+        "Re-run `just upgrade-test-fork` against the same local Anvil endpoint and ensure no stale FORK_BLOCK_NUMBER.",
         { cause: err as Error }
       );
     }

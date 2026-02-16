@@ -5,9 +5,30 @@ import '@nomicfoundation/hardhat-ethers-chai-matchers';
 import '@nomicfoundation/hardhat-verify';
 
 const isCoverage = process.env.COVERAGE === "true";
+const envValue = (name: string): string | undefined => {
+  const value = process.env[name];
+  return value && value.trim().length > 0 ? value : undefined;
+};
+const localForkRpcUrl = "http://127.0.0.1:8545";
+const localForkChainId = 31337;
+const mainnetRpcUrl =
+  envValue("MAINNET_ETH_NODE_URL") ??
+  envValue("MAINNET_RPC_URL") ??
+  configVariable("MAINNET_RPC_URL");
 
 export default defineConfig({
   plugins: [hardhatToolboxMochaEthersPlugin],
+  chainDescriptors: {
+    [localForkChainId]: {
+      name: "Local Anvil Fork",
+      chainType: "l1",
+      hardforkHistory: {
+        // Local Anvil forks report chainId 31337 with upstream block numbers.
+        // EDR needs an explicit history for custom chain IDs to execute historical calls.
+        cancun: { blockNumber: 0 },
+      },
+    },
+  },
   solidity: {
     npmFilesToBuild: ["@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol"],
     compilers: [
@@ -38,26 +59,18 @@ export default defineConfig({
     },
     hardhat_forked: {
       type: 'edr-simulated',
+      chainType: "l1",
       allowUnlimitedContractSize: true,
       blockGasLimit: 100_000_000,
       forking: {
-        url: configVariable("MAINNET_RPC_URL"),
+        url: localForkRpcUrl,
         blockNumber: process.env.FORK_BLOCK_NUMBER ? Number(process.env.FORK_BLOCK_NUMBER) : undefined,
       }
     },
-    hardhat_forked_hoodi_local: {
-      type: 'edr-simulated',
-      allowUnlimitedContractSize: true,
-      blockGasLimit: 100_000_000,
-      forking: {
-        url: process.env.HOODI_LOCAL_RPC_URL ?? "http://127.0.0.1:8545",
-        blockNumber: process.env.FORK_BLOCK_NUMBER ? Number(process.env.FORK_BLOCK_NUMBER) : undefined,
-      }
-    },
-    hoodi_local: {
+    local: {
       type: "http",
       chainType: "l1",
-      url: process.env.HOODI_LOCAL_RPC_URL ?? "http://127.0.0.1:8545",
+      url: localForkRpcUrl,
     },
     hoodi: {
       type: "http",
@@ -69,7 +82,7 @@ export default defineConfig({
     mainnet: {
       type: "http",
       chainType: "l1",
-      url: configVariable("MAINNET_RPC_URL"),
+      url: mainnetRpcUrl,
       accounts: [configVariable("MAINNET_PRIVATE_KEY")],
       ssvToken: process.env.MAINNET_SSVTOKEN_ADDRESS
     }

@@ -1754,6 +1754,40 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
     });
 
+    it("Is reverted with 'OperatorDoesNotExist' if one of operators is removed for an existing cluster", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const existingCluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds
+      );
+
+      await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+
+      await expect(network.connect(clusterOwner).registerValidator(
+        makePublicKey(2),
+        operatorIds,
+        DEFAULT_SHARES,
+        existingCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
+    });
+
     it("Is reverted with 'InvalidOperatorIdsLength' if the amount of operators is not the allowed one", async function () {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
