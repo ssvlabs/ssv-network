@@ -140,7 +140,7 @@ library OperatorLib {
      * @param operator Operator storage reference
      */
     function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
-        if(operator.ethSnapshot.block == 0 || operator.snapshot.block == 0){
+        if(operator.ethSnapshot.block == 0){
             if (operator.ethSnapshot.block == 0) {
                 operator.ethSnapshot.block = uint32(block.number);
                 operator.ethSnapshot.balance = PACKED_ETH_ZERO;
@@ -155,19 +155,12 @@ library OperatorLib {
     /**
      * @notice Validates operator state for validator registration
      * @param operator Operator storage reference
-     * @param isExistingCluster If cluster already exists
      */
-    function ensureOperatorExist(
-        ISSVNetworkCore.Operator storage operator,
-        bool isExistingCluster
-    ) internal view {
+    function ensureOperatorExist(ISSVNetworkCore.Operator storage operator) internal view {
         bool operatorDoesNotExist =
             operator.owner == address(0) ||
             (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0);
 
-        if (isExistingCluster && operator.owner == address(0)) {
-            revert ISSVNetworkCore.OperatorDoesNotExist();
-        }
         if (operatorDoesNotExist) {
             revert ISSVNetworkCore.OperatorDoesNotExist();
         }
@@ -177,7 +170,6 @@ library OperatorLib {
      * @notice Updates cluster operators on registration
      * @param operatorIds Operator IDs
      * @param deltaValidatorCount Validator count delta
-     * @param isExistingCluster If cluster already exists
      * @param s Storage data
      * @param sp Storage protocol
      * @return cumulativeIndex Cumulative index
@@ -186,7 +178,6 @@ library OperatorLib {
     function updateClusterOperatorsOnRegistration(
         uint64[] memory operatorIds,
         uint32 deltaValidatorCount,
-        bool isExistingCluster,
         StorageData storage s,
         StorageProtocol storage sp
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
@@ -207,7 +198,7 @@ library OperatorLib {
                 }
             }
             ISSVNetworkCore.Operator storage operatorSt = s.operators[operatorId];
-            ensureOperatorExist(operatorSt, isExistingCluster);
+            ensureOperatorExist(operatorSt);
 
             ensureETHDefaults(operatorSt);
             ISSVNetworkCore.Operator memory operator = operatorSt;

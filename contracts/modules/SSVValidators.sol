@@ -137,8 +137,7 @@ contract SSVValidators is ISSVValidators {
 
         cluster.balance += value;
 
-        bool isExistingCluster = _isClusterExisting(hashedCluster, s);
-        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), isExistingCluster, s, sp);
+        cluster.updateClusterOnRegistration(operatorIds, hashedCluster, uint32(validatorsLength), s, sp);
 
         {
             // Deviation-only model: baseline comes from ethValidatorCount (already updated above)
@@ -193,6 +192,7 @@ contract SSVValidators is ISSVValidators {
 
         if (cluster.active) {
             StorageProtocol storage sp = SSVStorageProtocol.load();
+            // slither-disable-next-line unused-return
             (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
                 operatorIds,
                 false,
@@ -246,7 +246,4 @@ contract SSVValidators is ISSVValidators {
         }
     }
 
-    function _isClusterExisting(bytes32 hashedCluster, StorageData storage s) internal view returns (bool) {
-        return s.clusters[hashedCluster] != 0 || s.ethClusters[hashedCluster] != 0;
-    }
 }
