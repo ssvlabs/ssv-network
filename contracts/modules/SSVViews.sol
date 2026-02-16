@@ -46,10 +46,11 @@ contract SSVViews is ISSVViews {
      */
     function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
         ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
-        if (operator.ethSnapshot.block == 0 && operator.fee.neq(PACKED_SSV_ZERO)) {
+        if (operator.ethSnapshot.block != 0) {
+            return PackedETHLib.unpack(operator.ethFee);
+        } else if (PackedSSV.unwrap(operator.fee) != 0) {
             return DEFAULT_OPERATOR_ETH_FEE;
         }
-        return PackedETHLib.unpack(operator.ethFee);
     }
 
     /**
