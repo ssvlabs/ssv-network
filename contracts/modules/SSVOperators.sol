@@ -55,9 +55,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         op.whitelisted = setPrivate;
         op.ethFee = PackedETHLib.pack(fee);
 
-        uint32 blockNum = uint32(block.number);
-        op.snapshot.block = blockNum;
-        op.ethSnapshot.block = blockNum;
+        op.ethSnapshot.block = uint32(block.number);
         s.operatorsPKs[hashedPk] = id;
 
         uint64[] memory operatorIds = new uint64[](1);
