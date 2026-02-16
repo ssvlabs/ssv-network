@@ -23,6 +23,8 @@ jobs:
       - name: Run Slither
         uses: crytic/slither-action@v0.3.2
         id: slither
+        env:
+          FOUNDRY_PROFILE: slither
         with:
           fail-on: high
           target: .

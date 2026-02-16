@@ -8,6 +8,10 @@ via_ir = true
 optimizer = false
 evm_version = "cancun"
 
+[profile.slither]
+optimizer = true
+optimizer_runs = 200
+
 remappings = [
     "forge-std/=lib/forge-std/src/",
     "@openzeppelin/=node_modules/@openzeppelin/"
