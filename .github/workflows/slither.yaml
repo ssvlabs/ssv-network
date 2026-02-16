@@ -12,6 +12,14 @@ jobs:
         with:
           node-version: '22.x'
 
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Verify Foundry
+        run: forge --version
+
       - name: Install dependencies
         run: npm ci
         env:
@@ -25,7 +33,8 @@ jobs:
         id: slither
         env:
           FOUNDRY_PROFILE: slither
+          PATH: /home/runner/.foundry/bin:${{ env.PATH }}
         with:
           fail-on: high
           target: contracts
-          slither-args: --hardhat-ignore-compile --exclude-dependencies --filter-paths "node_modules|lib|contracts/test|contracts/test/mocks|test" --exclude controlled-delegatecall,incorrect-return
+          slither-args: --hardhat-ignore-compile --exclude controlled-delegatecall,incorrect-return --filter-paths "contracts/test/" --exclude-informational --exclude-dependencies
