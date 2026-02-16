@@ -3243,6 +3243,51 @@ describe("SSVNetwork full integration tests", () => {
       await expect(network.connect(randomUser).onCSSVTransfer(randomUser.address, randomUser.address, 123))
         .to.be.revertedWithCustomError(network, Errors.NOT_CSSV);
     });
+
+    it("CSSV transfer is reverted with 'InvalidRecipient' if trying to send tokens to SSVNetwork contract", async function() {
+      const { network, ssvToken, cssvToken } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
+
+      const oracles = (await connection.ethers.getSigners()).slice(10, 14);
+
+      await network.replaceOracle(1, oracles[0].address);
+      await network.replaceOracle(2, oracles[1].address);
+      await network.replaceOracle(3, oracles[2].address);
+      await network.replaceOracle(4, oracles[3].address);
+
+      const operatorIds =  await registerOperators(network, operatorOwner, 4)
+      const clusters = await registerDefaultClusters(
+        connection,
+        network,
+        operatorIds,
+        operatorOwner,
+        8
+      );
+      const merkleData = buildEBMerkleForDefaultClusters(connection, clusters, 33);
+
+      const block = await connection.ethers.provider.getBlock('latest');
+      const blockNum = block!.number
+
+      for (let i = 0; i < 3; i++) {
+        await network.connect(oracles[i]).commitRoot(merkleData.root, blockNum);
+      }
+
+      await updateClusterBalancesForDefaultClusters(
+        network,
+        clusters,
+        merkleData,
+        blockNum,
+        33
+      );
+
+      await expect(cssvToken.connect(randomUser).transfer(await network.getAddress(), 123))
+        .to.be.revertedWithCustomError(cssvToken, Errors.INVALID_RECIPIENT);
+    });
   });
 
   describe("Reentrancy Guard Tests", async function () {
