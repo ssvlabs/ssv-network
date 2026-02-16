@@ -5,7 +5,8 @@ out = "out"
 libs = ["node_modules", "lib"]
 auto_detect_solc = true
 via_ir = true
-optimizer = false
+optimizer = true
+optimizer_runs = 200
 evm_version = "cancun"
 
 remappings = [

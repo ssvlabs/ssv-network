@@ -43,7 +43,7 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
     "solidity-coverage": "NO_GAS_ENFORCE=1 npx hardhat test --coverage",
-    "slither": "slither contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin",
+    "slither": "npx hardhat compile --force && slither . --hardhat-ignore-compile --solc-remaps @openzeppelin=node_modules/@openzeppelin --filter-paths \"contracts/test/\" --exclude-informational --exclude-dependencies",
     "size-contracts": "npx hardhat size-contracts"
   },
   "devDependencies": {
