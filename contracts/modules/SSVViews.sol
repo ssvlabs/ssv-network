@@ -8,7 +8,7 @@ import "../libraries/ClusterLib.sol";
 import "../libraries/OperatorLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ProtocolLib.sol";
-import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSV, PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
@@ -45,7 +45,12 @@ contract SSVViews is ISSVViews {
      * @inheritdoc ISSVViews
      */
     function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
-        return PackedETHLib.unpack(SSVStorage.load().operators[operatorId].ethFee);
+        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
+        if (operator.ethSnapshot.block != 0) {
+            return PackedETHLib.unpack(operator.ethFee);
+        } else if (PackedSSV.unwrap(operator.fee) != 0) {
+            return DEFAULT_OPERATOR_ETH_FEE;
+        }
     }
 
     /**
@@ -82,7 +87,12 @@ contract SSVViews is ISSVViews {
         ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
 
         op.owner = operator.owner;
-        op.fee = PackedETHLib.unpack(operator.ethFee);
+        if (operator.ethSnapshot.block != 0) {
+            op.fee = PackedETHLib.unpack(operator.ethFee);
+        } else if (PackedSSV.unwrap(operator.fee) != 0) {
+            op.fee = DEFAULT_OPERATOR_ETH_FEE;
+        }
+
         op.validatorCount = operator.ethValidatorCount;
         op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
         op.isPrivate = operator.whitelisted;
