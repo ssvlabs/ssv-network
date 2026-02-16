@@ -157,11 +157,8 @@ library OperatorLib {
      * @param operator Operator storage reference
      */
     function ensureOperatorExist(ISSVNetworkCore.Operator storage operator) internal view {
-        bool operatorDoesNotExist =
-            operator.owner == address(0) ||
-            (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0);
-
-        if (operatorDoesNotExist) {
+        if (operator.owner == address(0) ||
+            (operator.ethSnapshot.block == 0 && operator.snapshot.block == 0)) {
             revert ISSVNetworkCore.OperatorDoesNotExist();
         }
     }

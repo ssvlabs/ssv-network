@@ -121,7 +121,7 @@ describe("SSVNetwork full integration tests", () => {
         0,
         connection.ethers.ZeroAddress,
         true,
-        true
+        false // isActive = false: new operators are ETH-only (snapshot.block == 0)
       ]);
     });
 
