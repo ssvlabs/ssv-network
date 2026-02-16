@@ -10,6 +10,7 @@ interface ISSVStaking {
 contract CSSVToken is ERC20 {
     error NotSSVStaking();
     error ZeroAddress();
+    error InvalidRecipient();
 
     address public immutable ssvStaking;
 
@@ -24,6 +25,10 @@ contract CSSVToken is ERC20 {
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
+        if (to == address(this) || to == ssvStaking) {
+            revert InvalidRecipient();
+        }
+
         if (from != to && from != address(0) && to != address(0) && msg.sender != ssvStaking && amount > 0) {
             ISSVStaking(ssvStaking).onCSSVTransfer(from, to, amount);
         }
