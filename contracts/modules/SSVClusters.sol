@@ -342,6 +342,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         }
 
         emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvClusterBalance, effectiveBalance, cluster);
+        if (isLiquidated) {
+            emit ClusterReactivated(msg.sender, operatorIds, cluster);
+        }
     }
 
     /**
