@@ -28,4 +28,4 @@ jobs:
         with:
           fail-on: high
           target: contracts
-          slither-args: --hardhat-ignore-compile --filter-paths "contracts/test|contracts/mocks|test" --exclude controlled-delegatecall,incorrect-return
+          slither-args: --hardhat-ignore-compile --exclude-dependencies --filter-paths "node_modules|lib|contracts/test|contracts/test/mocks|test" --exclude controlled-delegatecall,incorrect-return

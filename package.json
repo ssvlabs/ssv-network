@@ -43,7 +43,7 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint --fix . --ext .ts",
     "solidity-coverage": "NO_GAS_ENFORCE=1 npx hardhat test --coverage",
-    "slither": "FOUNDRY_PROFILE=slither slither contracts --filter-paths \"contracts/test|contracts/mocks|test\" --solc-remaps @openzeppelin=node_modules/@openzeppelin --fail-none",
+    "slither": "FOUNDRY_PROFILE=slither slither contracts --filter-paths \"node_modules|lib|contracts/test|contracts/test/mocks|test\" --exclude-dependencies --solc-remaps @openzeppelin=node_modules/@openzeppelin --fail-none",
     "size-contracts": "npx hardhat size-contracts"
   },
   "devDependencies": {
