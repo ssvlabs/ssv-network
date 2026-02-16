@@ -54,18 +54,21 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
     }
 
     function getOperatorDeclaredFee(uint64 operatorId) external view override returns (OperatorDeclaredFeeData memory) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.getOperatorDeclaredFee(operatorId);
     }
 
     function getOperatorById(
         uint64 operatorId
     ) external view override returns (OperatorData memory) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.getOperatorById(operatorId);
     }
 
     function getOperatorByIdSSV(
         uint64 operatorId
     ) external view override returns (OperatorData memory) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.getOperatorByIdSSV(operatorId);
     }
 
@@ -205,6 +208,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
     }
 
     function getOperatorFeePeriods() external view override returns (OperatorFeePeriodsData memory) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.getOperatorFeePeriods();
     }
 
@@ -249,6 +253,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
     }
 
     function pendingUnstake(address user) external view override returns (UnstakeRequestsData[] memory) {
+        // slither-disable-next-line unused-return
         return ssvNetwork.pendingUnstake(user);
     }
 

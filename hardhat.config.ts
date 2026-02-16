@@ -4,7 +4,7 @@ import { defineConfig, configVariable } from "hardhat/config";
 import '@nomicfoundation/hardhat-ethers-chai-matchers';
 import '@nomicfoundation/hardhat-verify';
 
-const isCoverage = process.env.COVERAGE === "true";
+const isCoverage = process.env.COVERAGE === "true" || process.argv.includes("--coverage");
 const envValue = (name: string): string | undefined => {
   const value = process.env[name];
   return value && value.trim().length > 0 ? value : undefined;
@@ -55,6 +55,7 @@ export default defineConfig({
     hardhat: {
       type: 'edr-simulated',
       allowUnlimitedContractSize: true,
+      hardfork: "cancun",
       blockGasLimit: 500_000_000,
     },
     hardhat_forked: {

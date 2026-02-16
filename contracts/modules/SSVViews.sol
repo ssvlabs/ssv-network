@@ -215,6 +215,7 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
+        // slither-disable-next-line unused-return
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         ClusterLib.validateClusterVersion(version, VERSION_ETH);
 
@@ -252,6 +253,7 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
+        // slither-disable-next-line unused-return
         (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         ClusterLib.validateClusterVersion(version, VERSION_SSV);
 
@@ -288,6 +290,7 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
+        // slither-disable-next-line unused-return
         cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         return !cluster.active;
     }
@@ -300,6 +303,7 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
+        // slither-disable-next-line unused-return
         (bytes32 hashedCluster, ) = cluster.validateHashedCluster(
             clusterOwner,
             operatorIds,
@@ -333,6 +337,7 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
+        // slither-disable-next-line unused-return
         (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
 
         if (version != VERSION_SSV) {
@@ -380,6 +385,7 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256 balance) {
+        // slither-disable-next-line unused-return
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         if (version != VERSION_ETH) {
             return 0;
@@ -431,6 +437,7 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view returns (uint32 effectiveBalance) {
+        // slither-disable-next-line unused-return
         (bytes32 hashedCluster, ) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
         cluster.validateClusterIsNotLiquidated();
 
