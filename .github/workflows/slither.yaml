@@ -27,5 +27,5 @@ jobs:
           FOUNDRY_PROFILE: slither
         with:
           fail-on: high
-          target: .
-          slither-args: --hardhat-ignore-compile --exclude controlled-delegatecall,incorrect-return
+          target: contracts
+          slither-args: --hardhat-ignore-compile --filter-paths "contracts/test|contracts/mocks|test" --exclude controlled-delegatecall,incorrect-return
