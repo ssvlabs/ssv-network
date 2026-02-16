@@ -46,7 +46,7 @@ contract SSVViews is ISSVViews {
      */
     function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
         ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
-        if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
+        if (operator.ethSnapshot.block == 0 && operator.fee.neq(PACKED_SSV_ZERO)) {
             return DEFAULT_OPERATOR_ETH_FEE;
         }
         return PackedETHLib.unpack(operator.ethFee);
@@ -86,7 +86,7 @@ contract SSVViews is ISSVViews {
         ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
 
         op.owner = operator.owner;
-        if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
+        if (operator.ethSnapshot.block == 0 && operator.fee.neq(PACKED_SSV_ZERO)) {
             op.fee = DEFAULT_OPERATOR_ETH_FEE;
         } else {
             op.fee = PackedETHLib.unpack(operator.ethFee);
