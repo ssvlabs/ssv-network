@@ -8,7 +8,7 @@ import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
 import {PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
-import {PackedETHLib, ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
+import {ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
@@ -342,6 +342,9 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         }
 
         emit ClusterMigratedToETH(msg.sender, operatorIds, msg.value, ssvClusterBalance, effectiveBalance, cluster);
+        if (isLiquidated) {
+            emit ClusterReactivated(msg.sender, operatorIds, cluster);
+        }
     }
 
     /**
