@@ -54,6 +54,7 @@ export default defineConfig({
   networks: {
     hardhat: {
       type: 'edr-simulated',
+      hardfork: 'cancun',
       allowUnlimitedContractSize: true,
       blockGasLimit: 500_000_000,
     },

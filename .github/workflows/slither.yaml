@@ -26,4 +26,4 @@ jobs:
         with:
           fail-on: high
           target: .
-          slither-args: --hardhat-ignore-compile --exclude controlled-delegatecall,incorrect-return
+          slither-args: --hardhat-ignore-compile --exclude controlled-delegatecall,incorrect-return --filter-paths "contracts/test/" --exclude-informational --exclude-dependencies
