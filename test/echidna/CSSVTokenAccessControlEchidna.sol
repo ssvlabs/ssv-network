@@ -65,6 +65,6 @@ contract CSSVTokenAccessControlEchidna is CSSVToken {
     }
     
     function echidna_only_self_is_staking() public view returns (bool) {
-        return ssvStaking == address(this);
+        return ssvNetwork == address(this);
     }
 }

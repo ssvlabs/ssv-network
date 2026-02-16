@@ -151,7 +151,7 @@ contract CSSVTokenEchidna is CSSVToken {
     }
 
     function echidna_staking_is_self() public view returns (bool) {
-        return ssvStaking == address(this);
+        return ssvNetwork == address(this);
     }
 
     function echidna_name_immutable() public view returns (bool) {

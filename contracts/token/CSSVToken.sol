@@ -12,25 +12,25 @@ contract CSSVToken is ERC20 {
     error ZeroAddress();
     error InvalidRecipient();
 
-    address public immutable ssvStaking;
+    address public immutable ssvNetwork;
 
     modifier onlySSVStaking() {
-        if (msg.sender != ssvStaking) revert NotSSVStaking();
+        if (msg.sender != ssvNetwork) revert NotSSVStaking();
         _;
     }
 
-    constructor(address ssvStaking_) ERC20("cSSV", "cSSV") {
-        if (ssvStaking_ == address(0)) revert ZeroAddress();
-        ssvStaking = ssvStaking_;
+    constructor(address ssvNetwork_) ERC20("cSSV", "cSSV") {
+        if (ssvNetwork_ == address(0)) revert ZeroAddress();
+        ssvNetwork = ssvNetwork_;
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        if (to == address(this) || to == ssvStaking) {
+        if (to == address(this) || to == ssvNetwork) {
             revert InvalidRecipient();
         }
 
-        if (from != to && from != address(0) && to != address(0) && msg.sender != ssvStaking && amount > 0) {
-            ISSVStaking(ssvStaking).onCSSVTransfer(from, to, amount);
+        if (from != to && from != address(0) && to != address(0) && msg.sender != ssvNetwork && amount > 0) {
+            ISSVStaking(ssvNetwork).onCSSVTransfer(from, to, amount);
         }
         super._beforeTokenTransfer(from, to, amount);
     }
