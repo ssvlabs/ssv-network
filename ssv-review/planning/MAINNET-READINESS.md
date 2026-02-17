@@ -13,7 +13,7 @@
 |----|------|------|----------|--------|
 | BUG-1 | ~~`ensureETHDefaults` overwritten by stale memory copy~~ | Critical Bug Fix | P0 | ✅ Fixed |
 | BUG-2 | ~~`_resetOperatorState` doesn't clear `operator.owner`~~ | ~~Critical Bug Fix~~ Won't Fix | ~~P0~~ | By design |
-| BUG-3 | `ensureETHDefaults` resurrects removed operators | Critical Bug Fix | P0 | M |
+| BUG-3 | ~~`ensureETHDefaults` resurrects removed operators~~ | Critical Bug Fix | P0 | ✅ Mitigated |
 | BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | M |
 | BUG-5 | `_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators | Critical Bug Fix | P1 | S |
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | S |
@@ -152,37 +152,28 @@ Updated documentation in `docs/FLOWS.md` section 4.2 to reflect this design with
 ---
 
 ### [BUG-3] `ensureETHDefaults` resurrects removed operators
-- **Type:** Critical Bug Fix
-- **Priority:** P0
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Type:** ~~Critical Bug Fix~~ Mitigated
+- **Priority:** ~~P0~~ N/A
+- **Status:** Closed (mitigated by upstream guards on `ssv-staking`)
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
-**Requirement:**
+**Original Requirement:**
 `ensureETHDefaults` must not set `ethSnapshot.block` on removed operators. Add a guard to skip operators that have been removed.
 
-**Context:**
-`OperatorLib.sol:142-150`: A removed operator has `ethSnapshot.block == 0` (reset by `_resetOperatorState`). When `ensureETHDefaults` is called, line 143 checks `ethSnapshot.block == 0` → true → sets `ethSnapshot.block = currentBlock`. This partially resurrects the operator's ETH snapshot, putting it in an invalid half-alive state. If BUG-2 is fixed (owner cleared), the guard can simply check `operator.owner != address(0)`. Otherwise, use `operator.snapshot.block == 0 && operator.ethSnapshot.block == 0`.
+**Resolution — All call sites are already guarded:**
+While `ensureETHDefaults` itself has no removed-operator guard, no code path can reach it with a removed operator:
+
+1. **`updateClusterOperatorsOnRegistration` (line 200):** `ensureOperatorExist` (line 198) reverts first for removed operators (both snapshot blocks are 0).
+2. **`declareOperatorFee` (SSVOperators.sol:107):** `checkOwner` (line 100) reverts first for removed operators (both snapshot blocks are 0).
+3. **`updateClusterOperatorsMigration` (line 395):** Explicit `continue` at line 380 skips removed operators (`snapshot.block == 0 && ethSnapshot.block == 0`). Only operators with at least one non-zero snapshot block reach `ensureETHDefaults`.
 
 **Acceptance Criteria:**
-- [ ] `ensureETHDefaults` does not modify removed operators
-- [ ] Removed operators keep `ethSnapshot.block == 0` after any call path
-- [ ] New validators cannot be registered to clusters containing removed operators (already enforced by #410, verify still works)
-- [ ] Existing migration and registration tests still pass
-
-**Agent Instructions:**
-1. Read `contracts/libraries/OperatorLib.sol`, focus on `ensureETHDefaults` (line 142).
-2. If BUG-2 is already fixed (owner cleared on removal), add `if (operator.owner == address(0)) return;` as the first line of `ensureETHDefaults`.
-3. If BUG-2 is NOT yet fixed, use the alternative guard: `if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0 && operator.fee.eq(PACKED_SSV_ZERO)) return;` — this detects fully-reset operators.
-4. Coordinate with BUG-2 — ideally fix BUG-2 first so the guard in BUG-3 is clean.
-5. Add a unit test that calls a code path triggering `ensureETHDefaults` on a removed operator and verifies `ethSnapshot.block` remains 0.
-6. Run `npm run test:unit`.
-
-#### Sub-items:
-- [ ] Sub-task 1: Add removed-operator guard to `ensureETHDefaults`
-- [ ] Sub-task 2: Write unit test for `ensureETHDefaults` on removed operator
-- [ ] Sub-task 3: Run full test suite
+- [x] `ensureETHDefaults` does not modify removed operators (unreachable via all call sites)
+- [x] Removed operators keep `ethSnapshot.block == 0` after any call path
+- [x] New validators cannot be registered to clusters containing removed operators (enforced by `ensureOperatorExist`, PR #410)
+- [x] Existing migration and registration tests still pass
 
 ---
 
