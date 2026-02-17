@@ -18,6 +18,10 @@ This document is the detailed technical specification for the SSV Staking upgrad
 12. [Error Codes](#12-error-codes)
 13. [Constants](#13-constants)
 
+### Related Documents
+
+- [Validator Registration — All State Combinations](./SPEC_VALIDATOR_REGISTRATION.md): Exhaustive analysis of `registerValidator`/`bulkRegisterValidator` covering all operator states, cluster states, EB states, and their cross-products.
+
 ---
 
 ## 1. ETH Payments
@@ -179,7 +183,7 @@ Effective Balance Oracles track validator balances on the beacon chain and commi
 
 1. Oracle calls `commitRoot(merkleRoot, blockNum)`
 2. Contract validates: `blockNum > latestCommittedBlock` (monotonic), `blockNum <= block.number` (not future)
-3. Requires `cSSV.totalSupply() > 0` (staking must be active)
+3. Requires `cSSV.totalSupply() > 0` (reverts with `OracleHasZeroWeight` otherwise)
 4. Each oracle has equal weight: `weight = totalCSSVSupply / 4`
 5. Accumulated weight tracked per `commitmentKey = keccak256(blockNum, merkleRoot)`
 6. When `accumulatedWeight >= (totalCSSVSupply * quorumBps) / 10_000`:
@@ -697,7 +701,7 @@ userIndex[user] = accEthPerShare
 
 | Parameter | Initial Value | Update Function |
 |---|---|---|
-| `cooldownDuration` | 50,120 blocks (~7 days) | `setUnstakeCooldownDuration(uint64)` |
+| `cooldownDuration` | 604,800 seconds (7 days) | `setUnstakeCooldownDuration(uint64)` |
 
 ### Oracle Parameters
 
@@ -723,26 +727,49 @@ userIndex[user] = accEthPerShare
 - `ClusterAlreadyEnabled` — reactivating an already active cluster
 - `ClusterIsLiquidated` — operating on a liquidated cluster
 - `ClusterNotLiquidatable` — liquidation attempted but cluster is solvent
+- `ClusterDoesNotExist` — cluster not found
 - `InsufficientBalance` — balance too low for operation
 - `InvalidPublicKeyLength` — validator public key wrong length
-- `ValidatorAlreadyExists` — validator already registered
+- `ValidatorAlreadyExistsWithData(bytes publicKey)` — validator already registered
 - `ValidatorDoesNotExist` — validator not found
 - `IncorrectClusterState` — submitted cluster struct doesn't match stored hash
-- `IncorrectValidatorState` / `IncorrectValidatorStateWithData` — validator state mismatch
+- `IncorrectClusterVersion` — operating on wrong cluster version (e.g. SSV cluster for ETH operation)
+- `IncorrectValidatorStateWithData(bytes publicKey)` — validator state mismatch
 - `NewBlockPeriodIsBelowMinimum` — liquidation threshold too low
+- `InvalidOperatorIdsLength` — wrong number of operator IDs
+- `UnsortedOperatorsList` — operator IDs not sorted
+- `EmptyPublicKeysList` — no public keys provided
+- `PublicKeysSharesLengthMismatch` — public keys and shares arrays differ in length
 
 ### Operator Errors
-- `CallerNotOwner` — msg.sender not operator owner
-- `CallerNotWhitelisted` / `CallerNotWhitelistedWithData` — whitelist check failed
+- `CallerNotOwnerWithData(address caller, address owner)` — msg.sender not operator owner
+- `CallerNotWhitelistedWithData(uint64 operatorId)` — whitelist check failed
 - `OperatorAlreadyExists` — duplicate operator registration
 - `OperatorDoesNotExist` — operator not found
 - `InsufficientBalance` — insufficient earnings to withdraw
+- `FeeTooLow` — fee below minimum operator ETH fee
+- `FeeTooHigh` — fee exceeds maximum operator fee
 - `FeeExceedsIncreaseLimit` — fee increase exceeds max allowed
 - `FeeIncreaseNotAllowed` — zero-fee operator cannot increase
+- `SameFeeChangeNotAllowed` — declared fee same as current
 - `ApprovalNotWithinTimeframe` — fee execute outside window
-- `TargetModuleDoesNotExist` — module not registered
-- `MaxPrecisionExceeded` — fee value not divisible by precision factor
+- `NoFeeDeclared` — no pending fee change request
+- `ExceedValidatorLimitWithData(uint64 operatorId)` — operator at validator capacity
+- `TargetModuleDoesNotExistWithData(uint8 moduleId)` — module not registered
+- `IncorrectOperatorVersion(uint8 operatorVersion)` — wrong operator version for operation
 - `LegacyOperatorFeeDeclarationInvalid` — pre-migration fee declaration
+- `OperatorsListNotUnique` — duplicate operator IDs in list
+
+### Whitelist Errors
+- `InvalidContractAddress` — invalid whitelist contract address
+- `AddressIsWhitelistingContract(address contractAddress)` — address already a whitelisting contract
+- `InvalidWhitelistingContract(address contractAddress)` — contract doesn't implement interface
+- `InvalidWhitelistAddressesLength` — whitelist address array length mismatch
+- `ZeroAddressNotAllowed` — zero address not permitted
+
+### Packing Errors
+- `MaxValueExceeded` — packed value overflow
+- `MaxPrecisionExceeded` — fee value not divisible by precision factor
 
 ### Oracle/EB Errors
 - `NotOracle` — caller not registered oracle
@@ -756,11 +783,24 @@ userIndex[user] = accEthPerShare
 - `EBBelowMinimum` — effective balance below minimum
 - `EBExceedsMaximum` — effective balance above maximum
 - `OracleAlreadyAssigned` — oracle address already in use
+- `OracleHasZeroWeight` — cSSV totalSupply is zero (no oracle weight)
+- `InvalidQuorum` — quorum value out of valid range
 
 ### Staking Errors
 - `NothingToWithdraw` — no unlocked unstake requests
-- `TooManyPendingRequests` — exceeded MAX_PENDING_REQUESTS (10)
-- `InsufficientStakingBalance` — unstake amount exceeds balance
+- `NothingToClaim` — no accrued rewards to claim
+- `MaxRequestsAmountReached` — exceeded MAX_PENDING_REQUESTS (10)
+- `UnstakeAmountExceedsBalance` — unstake amount exceeds cSSV balance
+- `StakeTooLow` — stake amount below MINIMAL_STAKING_AMOUNT
+- `ZeroAmount` — amount is zero
+- `InvalidToken` — cannot rescue protected tokens
+- `NotCSSV` — caller is not the cSSV token contract
+
+### General Errors
+- `NotAuthorized` — unauthorized action
+- `ZeroAddress` — zero address not allowed
+- `ETHTransferFailed` — ETH transfer reverted
+- `TokenTransferFailed` — ERC-20 transfer reverted
 
 ---
 

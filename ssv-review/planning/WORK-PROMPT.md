@@ -6,7 +6,7 @@ Use this prompt when working on any item from `MAINNET-READINESS.md`. Copy it, f
 
 ## Prompt Template
 
-```
+
 You are working on SSV Network v2.0.0 smart contracts — a mainnet-critical Solidity codebase.
 
 ## Your Assignment
@@ -15,6 +15,8 @@ Work on item **[ITEM-ID]** from the mainnet readiness checklist.
 
 Read the full item details from: `ssv-review/planning/MAINNET-READINESS.md`
 Read the project guide from: `CLAUDE.md`
+Read the project specs from: `docs/SPEC.md`
+Read the security best practices from: `docs/SOLIDITY_BEST_PRACTICES.md`
 
 ## Mandatory Workflow
 
@@ -22,7 +24,7 @@ Follow every step below. Do not skip any step. Each step must be completed befor
 
 ### Phase 1: Understand
 
-1. **Read CLAUDE.md** — Understand the architecture, storage pattern, module system, security rules, and testing conventions.
+1. **Read CLAUDE.md and SPEC.md** — Understand the architecture, storage pattern, module system, security rules, and testing conventions.
 
 2. **Read the item** from MAINNET-READINESS.md — understand the Requirement, Context, Acceptance Criteria, and Agent Instructions fully.
 
@@ -39,11 +41,12 @@ Follow every step below. Do not skip any step. Each step must be completed befor
 ### Phase 2: Implement
 
 6. **Create a feature branch** off `ssv-staking`:
-   ```
-   git checkout ssv-staking
-   git pull origin ssv-staking
-   git checkout -b fix/[ITEM-ID]-short-description
-   ```
+
+  ```bash
+  git checkout ssv-staking
+  git pull origin ssv-staking
+  git checkout -b fix/[ITEM-ID]-short-description
+  ```
 
 7. **Make the fix** following these rules:
 
@@ -174,6 +177,7 @@ Follow every step below. Do not skip any step. Each step must be completed befor
 |---------|------|
 | Project guide | `CLAUDE.md` |
 | Full specification | `docs/SPEC.md` |
+| Security best practices | `docs/SOLIDITY_BEST_PRACTICES.md` |
 | Contract flows | `docs/FLOWS.md` |
 | Readiness checklist | `ssv-review/planning/MAINNET-READINESS.md` |
 | Test helpers | `test/helpers/contract-helpers.ts` |
@@ -197,4 +201,4 @@ subtask draft fix/BUG-1 --base-branch ssv-staking --title "Fix ensureETHDefaults
 EOF
 subtask send fix/BUG-1 "Go ahead."
 ```
-```
+
