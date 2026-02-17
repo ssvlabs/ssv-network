@@ -17,7 +17,7 @@
 | BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | [PR #429](https://github.com/ssvlabs/ssv-network/pull/429) |
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
-| BUG-7 | `DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec | Critical Bug Fix | P1 | S |
+| BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
 | BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix | P1 | S |
 | BUG-9 | `uint64(delta)` silent truncation in operator earnings accumulation | Critical Bug Fix | P1 | S |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
@@ -69,6 +69,7 @@
 | TEST-30 | Resolve TODO comments with deferred assertions | Unit Test Completeness | P1 | M |
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
 | TEST-32 | Add access control tests for DAO governance functions | Unit Test Completeness | P1 | S |
+| TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
 | ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
 | DEPLOY-1 | Fix `deploy-all.ts` broken signature and constructor args | Deployment & Scripts | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
@@ -304,13 +305,15 @@ All executed atomically in a single Safe multisig batch transaction.
 
 ---
 
-### [BUG-7] `DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec
-- **Type:** Critical Bug Fix
-- **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+### [BUG-7] ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~
+- **Type:** ~~Critical Bug Fix~~
+- **Priority:** ~~P1~~ Closed
+- **Status:** ✅ Closed (negligible)
+- **Owner:** N/A
+- **Timeline:** N/A
+- **Github Link:** N/A
+
+**Resolution:** Difference is ~0.31% (~0.0000143 ETH/year per validator). Negligible. Mainnet config uses the DIP-X intended value adjusted for packability.
 - **DIP-X Review Source:** ETH Payments review findings ETH-7, ETH-14
 
 **Requirement:**
@@ -2076,6 +2079,65 @@ All 11+ governance functions (`updateNetworkFee`, `updateLiquidationThresholdPer
 - [ ] Sub-task 1: Identify all governance functions requiring access control tests
 - [ ] Sub-task 2: Add non-owner revert test for each function
 - [ ] Sub-task 3: Run full test suite
+
+---
+
+### [TEST-33] Mainnet governance config validation & edge-case tests
+- **Type:** Unit Test Completeness
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add a dedicated test suite that uses the exact mainnet governance parameters and validates system behavior at the boundaries implied by those values. This ensures the production config is safe before deployment.
+
+**Mainnet Config (from deployment spreadsheet):**
+| Param | Value | Wei/Raw |
+|-------|-------|---------|
+| ethNetworkFee | 0.000000003550929823 ETH/block | 3,550,929,823 |
+| minimumLiquidationCollateral | 0.00094 ETH | 940,000,000,000 |
+| minimumBlocksBeforeLiquidation | ~5 days | 35,800 |
+| operatorMinFee | 0.000000001065278947 ETH/block | 1,065,278,947 |
+| operatorMaxFee | 0.000000005326394735 ETH/block | 5,326,394,735 |
+| defaultOperatorETHFee | 0.000000001775464912 ETH/block | 1,775,464,912 |
+| quorumBps | 75% | 7,500 |
+| cooldownDuration | 7 days | 50,120 |
+
+**Test scenarios:**
+1. **Packability** — verify all fee values survive pack/unpack round-trip without precision loss (divisible by `ETH_DEDUCTED_DIGITS`). If a value isn't packable, document the closest packable equivalent.
+2. **Liquidation threshold math** — with 4 operators at defaultOperatorETHFee + ethNetworkFee, calculate exactly how many blocks / how much balance keeps a cluster solvent vs liquidatable. Verify `isLiquidatable` agrees.
+3. **Operator fee boundaries** — declare fees at operatorMinFee and operatorMaxFee, verify both accepted. Declare fee at operatorMinFee-1 and operatorMaxFee+1, verify both rejected.
+4. **Cluster burn rate** — with mainnet fees and varying validator counts (1, 4, 13), compute expected burn rate per block. Verify `getBalance` returns correct remaining balance after N blocks.
+5. **Cooldown duration** — set cooldownDuration to 50,120. Request unstake, verify cannot claim before 50,120 blocks/seconds elapse, can claim after. (Also clarifies the blocks-vs-seconds question from BUG-8.)
+6. **Quorum** — with 4 oracles and quorumBps=7500, verify exactly 3 votes are needed to commit a root. 2 votes should fail, 3 should succeed.
+7. **Liquidation collateral** — deposit exactly minimumLiquidationCollateral, verify cluster is NOT liquidatable at block 0. Verify it IS liquidatable after enough blocks to exhaust balance below threshold.
+8. **Long-running clusters** — with mainnet fees, simulate a cluster running for 1 year (~2,628,000 blocks). Verify no overflow in fee index calculations and balance accounting remains correct.
+
+**Acceptance Criteria:**
+- [ ] Test file `test/unit/mainnet-config-validation.test.ts` (or similar) created
+- [ ] All 8 test scenarios above implemented with exact mainnet values
+- [ ] Each test includes numeric assertions (expected vs actual) with comments showing the math
+- [ ] All tests pass
+- [ ] Any packability issues documented (values that need rounding for on-chain use)
+
+**Agent Instructions:**
+1. Read `test/setup/fixtures.ts` and `test/common/` for test patterns and constants.
+2. Create a new test file for mainnet config validation.
+3. Use the exact wei values from the table above as test constants.
+4. For each scenario, include a comment with the expected math (e.g., "4 operators × 1,775,464,912 wei/block × 35,800 blocks = X wei burn").
+5. For packability tests, use `SSVPackedLib` to pack/unpack each value and assert round-trip equality.
+6. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Create test file with mainnet config constants
+- [ ] Sub-task 2: Implement packability round-trip tests
+- [ ] Sub-task 3: Implement liquidation/solvency boundary tests
+- [ ] Sub-task 4: Implement operator fee boundary tests
+- [ ] Sub-task 5: Implement burn rate and long-running cluster tests
+- [ ] Sub-task 6: Implement cooldown and quorum tests
+- [ ] Sub-task 7: Run full test suite
 
 ---
 
