@@ -30,7 +30,7 @@
 | SEC-8 | `reactivate` not emitting warning for removed operators | Security Hardening | P2 | S |
 | SEC-9 | `operatorMaxFee` function signature differs from DIP-X spec | Security Hardening | P2 | S |
 | SEC-10 | cSSV token lacks governance/voting extensions (ERC20Votes) | Security Hardening | P2 | M |
-| SEC-11 | `hasDeviation` reactivation optimization uses global counter for per-operator decision | Security Hardening | P1 | S |
+| SEC-11 | ~~`hasDeviation` reactivation optimization uses global counter for per-operator decision~~ | Security Hardening | ~~P1~~ P3 | ✅ Closed (BUG-4 fix resolves root cause) |
 | SEC-12 | `deposit()` accepts deposits to liquidated ETH clusters without fee settlement | Security Hardening | P2 | S |
 | SEC-13 | `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals | Security Hardening | P2 | S |
 | SEC-14 | `commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot | Security Hardening | P2 | S |
@@ -765,15 +765,17 @@ The DIP-X states: "Staked SSV, represented by cSSV, retains full governance and 
 
 ---
 
-### [SEC-11] `hasDeviation` reactivation optimization uses global counter for per-operator decision
+### [SEC-11] ~~`hasDeviation` reactivation optimization uses global counter for per-operator decision~~
 - **Type:** Security Hardening
-- **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Priority:** ~~P1~~ P3 (downgraded)
+- **Status:** ✅ Closed (BUG-4 fix resolves root cause)
+- **Owner:** N/A
+- **Timeline:** N/A
+- **Github Link:** N/A
 
-**Requirement:**
+**Resolution:** The only known path to make `daoTotalEthVUnits` wrong was BUG-4 (double-subtraction on liquidated cluster validator removal), which is fixed in PR #429. The optimization is valid when the global counter is accurate. Removing it wouldn't provide a real safeguard — per-operator `operatorEthVUnits` values are updated by the same code paths as the global counter, so if a bug corrupts one, it likely corrupts both.
+
+**Original requirement:**
 Replace the global `daoTotalEthVUnits` optimization in `updateClusterOperatorsOnReactivation` with per-operator `operatorEthVUnits` reads.
 
 **Context:**
