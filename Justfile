@@ -116,3 +116,10 @@ deploy-mainnet:
 prepare-upgrade rpc-url:
     npx hardhat compile --force
     npx tsx scripts/prepare-upgrade.ts --network mainnet --rpc-url "{{rpc-url}}" --config ${PREPARE_UPGRADE_CONFIG_PATH:-deployments/prepare-upgrade.config.json} --output-config ${PREPARE_UPGRADE_RESULT_PATH:-deployments/prepare-upgrade.result.json}
+
+# Prepare testnet upgrade bundle (staking/views implementations + modules, no CSSVToken deploy)
+# Args: rpc-url=<url>
+# Uses PREPARE_UPGRADE_TESTNET_CONFIG_PATH, PREPARE_UPGRADE_TESTNET_RESULT_PATH env vars
+prepare-upgrade-testnet rpc-url:
+    npx hardhat compile --force
+    npx tsx scripts/prepare-upgrade-testnet.ts --network hoodi --rpc-url "{{rpc-url}}" --config ${PREPARE_UPGRADE_TESTNET_CONFIG_PATH:-deployments/prepare-upgrade-testnet.config.json} --output-config ${PREPARE_UPGRADE_TESTNET_RESULT_PATH:-deployments/prepare-upgrade-testnet.result.json}
