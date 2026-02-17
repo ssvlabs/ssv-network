@@ -67,6 +67,10 @@
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | S |
+| FUZZ-1 | Strengthen 5 partially-covered echidna invariants | Echidna Invariant Suite | P1 | M |
+| FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
+| FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
+| FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
 
 ---
 
@@ -1960,6 +1964,118 @@ Update `.env.example` with v2.0.0 parameter names and values.
 - [ ] Sub-task 1: Update existing params
 - [ ] Sub-task 2: Add ETH-specific params
 - [ ] Sub-task 3: Add inline comments
+
+---
+
+## Echidna Invariant Suite
+
+**Current state:** 73 invariants across 9 test contracts (see `test/echidna/README.md` for full master list).
+**Source:** Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` — cross-referenced all 50 proposed invariants against existing 73, identified 30 new + 5 strengthening items.
+
+### [FUZZ-1] Strengthen 5 partially-covered echidna invariants
+- **Type:** Echidna Invariant Suite
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Upgrade 5 existing invariants from partial to full coverage:
+1. `echidna_network_fee_matches_expected` → add explicit monotonicity tracking (ref A8)
+2. `echidna_cssv_supply_matches_users` → add per-operation mint/burn delta assertions (ref A11)
+3. `echidna_user_index_leq_acc` → strengthen to exact equality after `_settle` (ref A14)
+4. `echidna_pool_matches_dao_balance` → add per-claim delta tracking (ref A16)
+5. `echidna_accrued_within_pool` → add cumulative payout tracking (ref C2)
+
+**Acceptance Criteria:**
+- [ ] Each upgraded invariant catches the class of bugs described in the ref
+- [ ] All echidna tests still pass after modifications
+- [ ] Harness bookkeeping added (prev-value tracking, per-claim deltas, cumulative payout counter)
+
+---
+
+### [FUZZ-2] Add 16 high-priority new echidna invariants
+- **Type:** Echidna Invariant Suite
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add 16 new invariants covering critical gaps. Full list with descriptions in `test/echidna/README.md` under "High Priority — New Invariants". Summary:
+
+**Oracle / EB Governance (3):** Finalized weight cleared (A4), commitment weight ≤ supply (A5), finalization implies quorum (B1)
+
+**DAO Accounting (2):** DAO earnings monotonicity (A9), DAO index block ≤ current (A10)
+
+**Staking Rewards Precision (3):** cSSV transfer settles both (A15), claim payout precision (A17), no free rewards on transfer (C3)
+
+**EB Snapshot Safety (2):** Snapshot block ≤ current (A18), snapshot root monotonic per cluster (A19)
+
+**EB Update Correctness (3):** Update requires root (B3), frequency enforced (B4), staleness enforced (B5)
+
+**Fee Settlement (2):** Fee index current after settle (B9), fee uses old vUnits on EB change (B11)
+
+**Liquidation Completeness (2):** Liquidation clears EB snapshot (B13), liquidation pays exact balance (B14)
+
+**Acceptance Criteria:**
+- [ ] All 16 invariants implemented and passing
+- [ ] Harness features added: prev-value tracking, touched-key arrays, 2-actor reward tracking
+- [ ] Each invariant documented in `test/echidna/README.md`
+
+---
+
+### [FUZZ-3] Add 8 medium-priority echidna invariants
+- **Type:** Echidna Invariant Suite
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add 8 medium-priority invariants requiring more harness setup. Full list in `test/echidna/README.md` under "Medium Priority". Summary:
+
+**EB Proof (3):** Merkle proof verified (B6), EB bounds enforced (B7), snapshot fields exact (B8)
+
+**Operator Fee Gov (2):** Declare fee from zero reverts (B17), execute rejects legacy declarations (B19)
+
+**Legacy SSV (1):** SSV liquidation resets and pays (B15)
+
+**DAO Formula (1):** DAO earnings matches formula exactly (C4)
+
+**Acceptance Criteria:**
+- [ ] All 8 invariants implemented and passing
+- [ ] Merkle tree builder added to harness for valid proof happy paths
+- [ ] Each invariant documented in `test/echidna/README.md`
+
+---
+
+### [FUZZ-4] Add 6 lower-priority echidna invariants (heavy harness)
+- **Type:** Echidna Invariant Suite
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add 6 lower-priority invariants requiring significant harness work. Full list in `test/echidna/README.md` under "Lower Priority". Summary:
+
+**vUnit Aggregation (2):** DAO vUnits = sum of clusters (C5), operator vUnits matches clusters (C6)
+
+**Migration (1):** Migration one-way and returns SSV (C7)
+
+**Overflow/Extreme (3):** ETH accrual no overflow (X4), SSV accrual no overflow (X5), intermediate mul no overflow (X6), pack reverts on overflow (X7)
+
+**Acceptance Criteria:**
+- [ ] All invariants implemented and passing
+- [ ] Delta-block simulator added for overflow testing
+- [ ] Max-parameter configurator added
+- [ ] Per-cluster EB tracking arrays added
+- [ ] Each invariant documented in `test/echidna/README.md`
 
 ---
 
