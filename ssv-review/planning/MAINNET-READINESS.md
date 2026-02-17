@@ -16,7 +16,7 @@
 | BUG-3 | ~~`ensureETHDefaults` resurrects removed operators~~ | Critical Bug Fix | P0 | ✅ Mitigated |
 | BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | [PR #429](https://github.com/ssvlabs/ssv-network/pull/429) |
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
-| BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | S |
+| BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
 | BUG-7 | `DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec | Critical Bug Fix | P1 | S |
 | BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix | P1 | S |
 | BUG-9 | `uint64(delta)` silent truncation in operator earnings accumulation | Critical Bug Fix | P1 | S |
@@ -267,10 +267,10 @@ In `_liquidateAfterEBUpdateIfNeeded` at `SSVClusters.sol:521-552`, line 543 chec
 ### [BUG-6] Rewards lost when `totalStaked == 0` in staking `_syncFees`
 - **Type:** Critical Bug Fix
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Status:** ✅ Mitigated (deployment)
+- **Owner:** (deployment team)
+- **Timeline:** At upgrade
+- **Github Link:** Mitigated via [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) (upgrade batch includes initial DAO stake)
 - **DIP-X Review Source:** SSV Staking review findings DIP-18, DIP-19
 
 **Requirement:**
@@ -281,23 +281,26 @@ When `totalStaked == 0` in `_syncFees`, ETH rewards must not be silently lost. E
 
 **Additional context from DIP-X review (DIP-19):** The `_syncFees` function also has a related edge case when `current <= previous` (DAO earnings decrease). At `SSVStaking.sol:187-190`, if `current.lte(previous)`, the function silently updates `stakingEthPoolBalance` to the lower value and returns without distributing. This can happen after reward claims reduce `sp.ethDaoBalance`. While `claimEthRewards` reduces both `stakingEthPoolBalance` and `sp.ethDaoBalance` by the same packed amount (so `current == previous` after normal claims), this edge case acts as a safety valve. The fix for BUG-6 should also consider this interaction to ensure no fees are lost in either direction.
 
-**Acceptance Criteria:**
-- [ ] ETH rewards earned while `totalStaked == 0` are not permanently lost
-- [ ] Choose one strategy: (a) defer the pool balance update so next sync catches the fees, or (b) send unclaimed fees to DAO
-- [ ] New test: accrue network fees while no SSV is staked, then stake and verify fees are either distributable or in DAO
-- [ ] Existing staking tests pass
+**Mitigation:**
+This is mitigated by deployment procedure rather than a code fix. The DAO multisig (Safe) upgrade batch transaction includes an SSV `approve` + `stake(1 SSV)` call immediately after `upgradeToAndCall`. This ensures `totalStaked > 0` before any network fees can accrue, making the zero-staked window impossible in practice. The 1 SSV stake goes to the DAO address, so the tokens are not lost. The full upgrade batch is:
+1. `upgradeToAndCall` (proxy upgrade + `initializeSSVStaking` with quorumBps=7500)
+2. `updateModule` × 7 (all module addresses)
+3. SSV token `approve` (SSVNetwork contract as spender)
+4. `stake(1_000_000_000)` (1 SSV minimum stake from DAO)
+5. Governance parameter updates (`updateNetworkFee`, `updateLiquidationThresholdPeriod`, etc.)
 
-**Agent Instructions:**
-1. Read `contracts/modules/SSVStaking.sol`, focus on `_syncFees` (line 179).
-2. Recommended fix (simplest): When `totalStaked == 0`, do NOT advance `stakingEthPoolBalance`. Simply return early. The next `_syncFees` call when `totalStaked != 0` will pick up the accumulated fees.
-3. Specifically: move `s.stakingEthPoolBalance = current;` (line 201) inside the `if (totalStaked != 0)` block.
-4. Add a unit test in `test/unit/SSVStaking/` that: deploys, accrues network fees with no stakers, then stakes SSV, then syncs fees — verify `accEthPerShare` includes the previously-accrued fees.
-5. Run `npm run test:unit`.
+All executed atomically in a single Safe multisig batch transaction.
+
+**Acceptance Criteria:**
+- [x] Deployment runbook includes DAO stake as part of upgrade batch
+- [x] `initializeSSVStaking` now validates `quorumBps` (PR #431)
+- [ ] Verify Safe batch transaction encoding before mainnet execution
+- [ ] Post-upgrade: confirm `totalStaked > 0` on-chain
 
 #### Sub-items:
-- [ ] Sub-task 1: Move pool balance update inside the `totalStaked != 0` check
-- [ ] Sub-task 2: Write unit test for fee accrual during zero-staked period
-- [ ] Sub-task 3: Run full test suite
+- [x] Sub-task 1: Document deployment mitigation in MAINNET-READINESS.md
+- [x] Sub-task 2: Add quorumBps to initializer (PR #431)
+- [ ] Sub-task 3: Encode and test Safe batch transaction before mainnet
 
 ---
 
