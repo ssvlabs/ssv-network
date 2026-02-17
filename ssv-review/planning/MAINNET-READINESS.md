@@ -14,7 +14,7 @@
 | BUG-1 | ~~`ensureETHDefaults` overwritten by stale memory copy~~ | Critical Bug Fix | P0 | ✅ Fixed |
 | BUG-2 | ~~`_resetOperatorState` doesn't clear `operator.owner`~~ | ~~Critical Bug Fix~~ Won't Fix | ~~P0~~ | By design |
 | BUG-3 | ~~`ensureETHDefaults` resurrects removed operators~~ | Critical Bug Fix | P0 | ✅ Mitigated |
-| BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | [PR #429](https://github.com/ssvlabs/ssv-network/pull/429) |
+| BUG-4 | ~~Double deviation cleanup on liquidated cluster validator removal~~ | Critical Bug Fix | P0 | ✅ Fixed ([PR #429](https://github.com/ssvlabs/ssv-network/pull/429)) |
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
@@ -196,13 +196,13 @@ While `ensureETHDefaults` itself has no removed-operator guard, no code path can
 
 ---
 
-### [BUG-4] Double deviation cleanup on liquidated cluster validator removal
+### [BUG-4] ~~Double deviation cleanup on liquidated cluster validator removal~~
 - **Type:** Critical Bug Fix
 - **Priority:** P0
-- **Status:** In Review
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** [PR #429](https://github.com/ssvlabs/ssv-network/pull/429)
+- **Status:** ✅ Fixed
+- **Owner:** N/A
+- **Timeline:** Merged 2026-02-17
+- **Github Link:** [PR #429](https://github.com/ssvlabs/ssv-network/pull/429) (merged)
 
 **Requirement:**
 Fix `_bulkRemoveValidator` so that when removing the last validators from a liquidated cluster with explicit EB tracking, deviation is not double-subtracted from `operatorEthVUnits` and `daoTotalEthVUnits`.
