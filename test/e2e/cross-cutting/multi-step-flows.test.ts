@@ -251,11 +251,13 @@ describe("Cross-Cutting: Multi-Step Flows (CC-3, CC-7, CC-9)", () => {
         //   deviation for 3 validators, EB=192 → vUnits=60000 → deviation = 60000 - 30000 = 30000
         //   effectiveVUnits = 30000 + 3 * 10000 = 60000
         // Phase 4 (fee execution to liquidation): op1 earned at newOpFeePacked with same vUnits
-        // We verify that total earnings >= phase 3 + phase 4 contributions (a tight lower bound)
+        // We verify total earnings >= phase 3 contribution (lower bound — exact would require
+        // tracking all intermediate block numbers across EB update, fee change, and liquidation)
         const op1Earnings = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[0])));
         const op1Phase3 = calcOperatorFeeAccrual(
           BigInt(step5Block - step3Block), ethFeePacked, expectedVUnits,
         ) * ETH_DEDUCTED_DIGITS;
+        // Lower-bound check: total earnings include phase 1+2+3+4; phase 3 alone is the minimum
         expect(op1Earnings).to.be.greaterThanOrEqual(op1Phase3);
 
         const txWithdraw = await network.connect(operatorOwner).withdrawAllOperatorEarnings(operatorIds[0]);
@@ -363,27 +365,26 @@ describe("Cross-Cutting: Multi-Step Flows (CC-3, CC-7, CC-9)", () => {
       const blockDiffPhase1 = BigInt(blockB - blockA);
 
       // Cluster B's index captures the cumulative operator index at 2nd registration.
-      // Each operator's index has been advancing since creation. The cluster index = sum
-      // of all 4 operators' accumulated indexes. Since all operators have the same fee
-      // and were created at the same block, the cluster index = 4 * perOperatorIndex.
-      // Per-operator index from A registration (blockA) to B's 2nd registration:
-      //   (blockB2 - blockA) * ethFeePacked
-      // We verify the index >= the phase-1 contribution (blockB - blockA blocks * 4 ops)
+      // The index = sum of all 4 operator indices. Each operator's index started at its
+      // registration block (before blockA), so the exact index > 4 * (blockB2 - blockA) * ethFee.
+      // We use a lower bound based on blockA as the latest possible operator start.
       const blockB2 = receiptB2!.blockNumber;
-      const expectedMinIndex = 4n * blockDiffPhase1 * ethFeePacked;
-      expect(clusterB.index).to.be.greaterThanOrEqual(expectedMinIndex);
-      // And verify the full index = 4 * totalPerOpIndex from creation to blockB2
       const perOpIndexAtB2 = BigInt(blockB2 - blockA) * ethFeePacked;
-      expect(clusterB.index).to.be.greaterThanOrEqual(4n * perOpIndexAtB2);
+      const expectedMinIndex = 4n * perOpIndexAtB2;
+      expect(clusterB.index).to.be.greaterThanOrEqual(expectedMinIndex);
       const vUnitsPhase1 = defaultVUnits(1n); // 10000
-      const expectedPerOpPhase1 = calcOperatorFeeAccrual(
-        blockDiffPhase1, ethFeePacked, vUnitsPhase1,
-      ) * ETH_DEDUCTED_DIGITS;
 
       // Advance and check earnings
       await mineBlocks(provider, 100);
+      const viewBlock = BigInt(await getBlockNumber(provider));
 
-      // Read operator earnings (include both phase 1 and phase 2)
+      // Operator earnings lower bound: phase-1 alone (100 blocks, 1 validator).
+      // Exact computation is non-trivial because getOperatorEarnings uses snapshot-based
+      // accounting where each registerValidator call updates the snapshot with the current
+      // ethValidatorCount. The trailing blocks use the final count (3), so actual earnings
+      // exceed the phase-1-only lower bound.
+      const expectedPerOpPhase1 =
+        calcOperatorFeeAccrual(blockDiffPhase1, ethFeePacked, defaultVUnits(1n)) * ETH_DEDUCTED_DIGITS;
       const op1Earnings = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[0])));
       expect(op1Earnings).to.be.greaterThan(expectedPerOpPhase1);
 

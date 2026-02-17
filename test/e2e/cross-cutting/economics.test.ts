@@ -448,7 +448,8 @@ describe("Cross-Cutting: Economics (CC-1, CC-2, CC-5)", () => {
       const opEffectiveVUnitsPostEB = 35000n; // deviation 15000 + baseline 20000
       const postEBEarningsPacked = calcOperatorFeeAccrual(postEBBlocks, ethFeePacked, opEffectiveVUnitsPostEB);
       const postEBEarningsWei = postEBEarningsPacked * ETH_DEDUCTED_DIGITS;
-      // Total must be at least the post-EB earnings (plus pre-EB earnings from registration phases)
+      // Lower-bound: total includes pre-EB earnings from registration phases + post-EB earnings.
+      // Exact computation would require tracking all intermediate EB update block numbers.
       const op1Earnings = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[0])));
       expect(op1Earnings).to.be.greaterThanOrEqual(postEBEarningsWei);
 
@@ -546,8 +547,9 @@ describe("Cross-Cutting: Economics (CC-1, CC-2, CC-5)", () => {
       //   deviation after liq = 15000 - 10000 (A's dev removed) = 5000 + 1 * 10000 = 15000
       //   effectiveVUnits = 5000 + 1 * 10000 = 15000
       // But the exact block numbers for each phase depend on liquidation timing.
-      // Instead, verify each operator's earnings is at least the phase C contribution
-      // (post-liquidation period of 100 blocks at vUnits=15000).
+      // Lower-bound: each operator's total earnings includes all phases (A+B registration,
+      // EB updates, liquidation, post-liquidation). The exact computation depends on liquidation
+      // timing which varies with runtime state. Verify at least the post-liquidation contribution.
       const postLiqEarningsPacked = calcOperatorFeeAccrual(100n, ethFeePacked, vUnitsB);
       const postLiqEarningsWei = postLiqEarningsPacked * ETH_DEDUCTED_DIGITS;
       for (const earnings of opEarnings) {

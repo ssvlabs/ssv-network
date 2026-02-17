@@ -371,9 +371,9 @@ describe("E2E: Migration SSV → ETH (CM-5, CM-6, CM-7, CM-8)", () => {
       // Verify migration succeeded
       await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
 
-      // All operators should have ethValidatorCount incremented by 1
+      // All operators should have ethValidatorCount incremented by exactly 1
       for (const opId of operatorIds) {
-        expect(await clusters.getOperatorEthValidatorCount(opId)).to.be.greaterThanOrEqual(1);
+        expect(await clusters.getOperatorEthValidatorCount(opId)).to.equal(1);
       }
 
       // SSV validatorCount decremented (non-liquidated cluster)

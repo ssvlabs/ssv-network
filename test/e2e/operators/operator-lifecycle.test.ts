@@ -92,6 +92,7 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       await expect(tx)
         .to.emit(network, "OperatorAdded")
         .withArgs(1n, operatorOwner.address, pubkey, fee);
+      // TODO(DISC-OV-1): registerOperator always emits OperatorPrivacyStatusUpdated even for public operators — FLOWS.md does not document this event
       await expect(tx)
         .to.emit(network, "OperatorPrivacyStatusUpdated")
         .withArgs([1n], false);

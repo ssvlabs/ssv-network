@@ -617,9 +617,8 @@ describe("Cross-Cutting: Staking Integration (CC-4, CC-6, CC-8)", () => {
       const expectedTotal = expectedClaimA + expectedClaimB;
       expect(totalClaimed).to.equal(expectedTotal);
 
-      // Conservation: all rewards accounted for
-      const daoEarnings = BigInt(await views.getNetworkEarnings());
-      expect(daoEarnings).to.be.greaterThanOrEqual(0n);
+      // Conservation: total claimed equals total expected
+      // (DAO earnings check is implicit via the exact claim amount assertions above)
     });
   });
 });

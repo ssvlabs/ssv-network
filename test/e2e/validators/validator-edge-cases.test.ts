@@ -1161,7 +1161,7 @@ describe("Validator Edge Cases (OV-19, OV-20, OV-22, OV-25–OV-27, OV-30–OV-3
       const clusterAfterDeposit = await getCurrentClusterState(
         connection, network, clusterOwner.address, opIds,
       );
-      // Balance = old balance + deposit (deposit does NOT settle fees per DISC-OV-8)
+      // TODO(DISC-OV-8): deposit does NOT settle fees — balance = old + deposit with no deductions
       expect(BigInt(clusterAfterDeposit.balance)).to.equal(
         BigInt(cluster.balance) + depositAmount,
       );

@@ -198,6 +198,7 @@ describe("E2E: Operator vUnit Tracking (ES-11)", () => {
         expect(BigInt(op[2])).to.equal(5n);
       }
 
+      // TODO(DISC-ES-6): _updateOperatorVUnits applies FULL delta to EACH operator individually
       // Total effective vUnits per operator = 20,000 deviation + 5 * 10,000 baseline = 70,000
       // This means operator earns as if serving 7 standard validators
       // Cluster A contributes 30,000 vUnits (3 standard equiv)

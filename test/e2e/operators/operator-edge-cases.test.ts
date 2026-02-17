@@ -73,6 +73,7 @@ describe("Operator Edge Cases (OV-21, OV-23, OV-24, OV-28, OV-29)", () => {
       expect(opBefore.owner).to.equal(operatorOwner.address);
       expect(opBefore.isActive).to.be.true;
 
+      // TODO(DISC-CC-1): removeOperator does NOT delete operatorFeeChangeRequests — pending fee changes survive removal
       // Remove operator
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
@@ -327,7 +328,7 @@ describe("Operator Edge Cases (OV-21, OV-23, OV-24, OV-28, OV-29)", () => {
       // Advance some blocks to accrue fees
       await mineBlocks(provider, 50);
 
-      // Operator 1 owner removes operator 1 (operator with active validators — DISC-OV-3)
+      // TODO(DISC-OV-3): removeOperator does NOT check validatorCount == 0 && ethValidatorCount == 0 — allows removal with active validators
       const removeOpTx = await network.connect(operatorOwner2).removeOperator(opIds[0]);
       const removeOpBlock = BigInt(await getTxBlock(removeOpTx));
 

@@ -99,7 +99,7 @@ describe("E2E: ETH Cluster Lifecycle (CM-1, CM-2, CM-3, CM-9, CM-10)", () => {
       expect(cluster.active).to.equal(true);
 
       // Step 2: Deposit 5 ETH at B0+50
-      // DISC-CM-1: Deposit does NOT settle fees
+      // TODO(DISC-OV-8): deposit does NOT update operator snapshots or settle cluster fees — test matches code behavior, FLOWS.md says otherwise
       await mineBlocks(provider, 49);
       const depositVal = 5n * 10n ** 18n;
       const depTx = await clusters.deposit(
@@ -142,8 +142,7 @@ describe("E2E: ETH Cluster Lifecycle (CM-1, CM-2, CM-3, CM-9, CM-10)", () => {
       const contractBalAfter = await snapshotContractBalance(provider, await clusters.getAddress());
       expect(contractBalBefore - contractBalAfter).to.equal(withdrawAmount);
 
-      // DISC-CM-3: Operator snapshots NOT updated during withdraw
-      // Operator earnings won't reflect blocks since last snapshot update
+      // TODO(DISC-CM-3): withdraw does NOT update operator snapshots to storage — earnings lag until next snapshot-updating call
       // (we verify indirectly: if snapshots were updated, the balance would differ)
     });
 
@@ -163,7 +162,7 @@ describe("E2E: ETH Cluster Lifecycle (CM-1, CM-2, CM-3, CM-9, CM-10)", () => {
       );
       cluster = parseClusterFromEvent(clusters, await depTx.wait(), Events.CLUSTER_DEPOSITED);
 
-      // DISC-CM-1: Balance = initial + deposit, no fees
+      // TODO(DISC-OV-8): deposit does NOT settle fees — balance = initial + deposit with no deductions
       expect(cluster.balance).to.equal(15n * 10n ** 18n);
     });
 
@@ -191,7 +190,7 @@ describe("E2E: ETH Cluster Lifecycle (CM-1, CM-2, CM-3, CM-9, CM-10)", () => {
       );
       cluster = parseClusterFromEvent(clusters, await depTx.wait(), Events.CLUSTER_DEPOSITED);
 
-      // DISC-CM-1: All deposits accumulated without fee settlement
+      // TODO(DISC-OV-8): all deposits accumulated without fee settlement — code behavior diverges from FLOWS.md
       expect(cluster.balance).to.equal(10n * 10n ** 18n);
     });
   });
@@ -489,7 +488,7 @@ describe("E2E: ETH Cluster Lifecycle (CM-1, CM-2, CM-3, CM-9, CM-10)", () => {
       const reactivateBlock = reactivateReceipt!.blockNumber;
       cluster = parseClusterFromEvent(clusters, reactivateReceipt, Events.CLUSTER_REACTIVATED);
 
-      // DISC-CM-5: balance += msg.value (0 + 5e18 = 5e18)
+      // TODO(DISC-CM-5): reactivate uses cluster.balance += msg.value (additive, not replacement) — test matches code, FLOWS.md implies replacement
       expect(cluster.active).to.equal(true);
       expect(cluster.balance).to.equal(reactivateAmount);
 
@@ -539,7 +538,7 @@ describe("E2E: ETH Cluster Lifecycle (CM-1, CM-2, CM-3, CM-9, CM-10)", () => {
       expect(cluster.active).to.equal(false);
       expect(cluster.balance).to.equal(0n);
 
-      // Step 2: DISC-CM-2 — Deposit into liquidated cluster succeeds
+      // TODO(DISC-OV-9): deposit does NOT check cluster.active — allows deposit into liquidated cluster
       const deposit1 = 3n * 10n ** 18n;
       const dep1Tx = await clusters.deposit(
         clusterOwner.address, operatorIds, cluster, { value: deposit1 },
@@ -557,7 +556,7 @@ describe("E2E: ETH Cluster Lifecycle (CM-1, CM-2, CM-3, CM-9, CM-10)", () => {
       expect(cluster.active).to.equal(false);
       expect(cluster.balance).to.equal(deposit1 + deposit2);
 
-      // Step 4: DISC-CM-5 — Reactivation uses += so balance = previous deposits + msg.value
+      // TODO(DISC-CM-5): reactivation uses += so balance = previous deposits + msg.value
       const reactivateAmount = 1n * 10n ** 18n;
       const reactivateTx = await clusters.reactivate(
         operatorIds, cluster, { value: reactivateAmount },

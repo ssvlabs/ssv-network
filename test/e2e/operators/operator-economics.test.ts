@@ -431,10 +431,10 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
       const earningsOp4 = await views.getOperatorEarnings(
         BigInt(operatorIds[3]),
       );
-      // All should be within 1 ETH_DEDUCTED_DIGITS of each other (rounding)
-      expect(earningsAt200).to.be.closeTo(earningsOp2, Number(ETH_DEDUCTED_DIGITS));
-      expect(earningsAt200).to.be.closeTo(earningsOp3, Number(ETH_DEDUCTED_DIGITS));
-      expect(earningsAt200).to.be.closeTo(earningsOp4, Number(ETH_DEDUCTED_DIGITS));
+      // All operators experienced the same fee and validator count changes, so earnings must be equal
+      expect(earningsAt200).to.equal(earningsOp2);
+      expect(earningsAt200).to.equal(earningsOp3);
+      expect(earningsAt200).to.equal(earningsOp4);
     });
   });
 

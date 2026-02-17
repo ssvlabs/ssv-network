@@ -280,7 +280,7 @@ describe("CM-30: Full End-to-End — SSV Cluster Creation → Fee Accrual → Mi
 
     // ═══════════════════════════════════════════════════════════
     // Verify: operator ETH state — snapshots were updated by migration,
-    // but NOT updated by withdraw (DISC-CM-3)
+    // TODO(DISC-CM-3): operator snapshots set by migration but NOT updated by withdraw
     // ═══════════════════════════════════════════════════════════
     for (const opId of operatorIds) {
       const [index, blockNumber] = await clusters.getOperatorEthSnapshot(opId);

@@ -234,6 +234,7 @@ describe("ETH Cluster Edge Cases (CM-19, CM-20, CM-23, CM-24, CM-26)", () => {
 
   // ─── CM-23: Withdraw — Operator Snapshots NOT Updated ───
 
+  // TODO(DISC-CM-3): withdraw does NOT update operator snapshots to storage — test verifies code behavior, FLOWS.md says snapshots should be updated
   describe("CM-23: Withdraw — Operator Snapshots NOT Updated (DISC-CM-3)", () => {
     const deployFixture = async () => {
       const result = await ssvClustersHarnessFixture(connection, 4, MINIMAL_OPERATOR_ETH_FEE);
