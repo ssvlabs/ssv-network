@@ -20,7 +20,7 @@
 | BUG-7 | `DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec | Critical Bug Fix | P1 | S |
 | BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix | P1 | S |
 | BUG-9 | `uint64(delta)` silent truncation in operator earnings accumulation | Critical Bug Fix | P1 | S |
-| SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P0 | S |
+| SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
 | SEC-3 | `replaceOracle` doesn't invalidate pending votes | Security Hardening | P1 | M |
 | SEC-4 | `setUnstakeCooldownDuration` allows zero cooldown | Security Hardening | P1 | S |
@@ -421,17 +421,19 @@ In `OperatorLib.sol:68-69` (also lines 93-94, 326-327), `PackedETH.wrap(uint64(d
 
 ### [SEC-1] `setQuorumBps(0)` allows zero-threshold oracle commits
 - **Type:** Security Hardening
-- **Priority:** P0
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Priority:** P2 (downgraded from P0)
+- **Status:** ✅ Mitigated (owner-only)
+- **Owner:** N/A
+- **Timeline:** N/A
+- **Github Link:** N/A
 
 **Requirement:**
 Add a minimum quorum validation to `setQuorumBps`. A quorum of 0 allows a single oracle vote to commit any root.
 
 **Context:**
 `SSVDAO.sol:234-239`: The function only checks `quorum > BPS_DENOMINATOR` (max bound). Setting `quorumBps = 0` makes the threshold in `commitRoot` (line 186) equal to 0, meaning any single oracle can unilaterally commit roots. Combined with SEC-2 (quorum defaults to 0 after upgrade), this is an immediate post-upgrade vulnerability.
+
+**Mitigation:** Downgraded to P2. `setQuorumBps` is owner-only (DAO multisig). A compromised or negligent owner can already upgrade the entire contract, so zero-quorum via the setter is not an independent attack vector. The critical path (SEC-2: quorum defaulting to 0 after upgrade) is already fixed in PR #431 by validating quorumBps in the initializer.
 
 **Acceptance Criteria:**
 - [ ] `setQuorumBps(0)` reverts with `InvalidQuorum()`
