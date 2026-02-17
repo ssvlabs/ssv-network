@@ -19,7 +19,7 @@
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
 | BUG-8 | ~~Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug) |
-| BUG-9 | `uint64(delta)` silent truncation in operator earnings accumulation | Critical Bug Fix | P1 | S |
+| BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
 | SEC-3 | `replaceOracle` doesn't invalidate pending votes | Security Hardening | P1 | M |
@@ -386,18 +386,17 @@ The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" w
 
 ---
 
-### [BUG-9] `uint64(delta)` silent truncation in operator earnings accumulation
-- **Type:** Critical Bug Fix
-- **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+### [BUG-9] ~~`uint64(delta)` silent truncation in operator earnings accumulation~~
+- **Type:** ~~Critical Bug Fix~~
+- **Priority:** ~~P1~~ Closed
+- **Status:** ✅ Closed (not realistic)
+- **Owner:** N/A
+- **Timeline:** N/A
+- **Github Link:** N/A
 
-**Requirement:**
-Fix `PackedETH.wrap(uint64(delta))` to use SafeCast or a bounds check instead of silently truncating when `delta` exceeds `uint64.max`.
+**Resolution:** Overflow is not realistic under DAO-enforced fee caps. Worst case with `maxOperatorEthFee = 5,326,300,000` wei/block (DAO cap), 500 validators at max EB (2048 ETH), and 1 year without any snapshot update: `delta ≈ 4.48e15`, which is **4,100x below** `uint64.max` (1.845e19). Even at 10 years with zero snapshot updates (impossible in practice — every cluster operation triggers a snapshot), delta would still be 400x below the threshold. The original audit example used an unrestricted fee value not bounded by the DAO's `maxOperatorEthFee`.
 
-**Context:**
+**Original context (for reference):**
 In `OperatorLib.sol:68-69` (also lines 93-94, 326-327), `PackedETH.wrap(uint64(delta))` silently truncates when delta exceeds `uint64.max` (1.845e19). With 500 validators at max EB (2048 ETH), 2.7 years between snapshots: `delta = 4.078e21`, which is 221x larger than `uint64.max`. The operator loses ~99.5% of accumulated earnings.
 
 **Concrete example:** Operator with `effectiveVUnits=320,000,000`, `ethFee=17,700` packed, `7,200,000` block gap → `delta = 320_000_000 * 17_700 * 7_200_000 = 4.078e16 * 100_000 = 4.078e21`, which overflows `uint64.max` and silently truncates.
