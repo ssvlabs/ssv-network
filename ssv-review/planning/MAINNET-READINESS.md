@@ -22,8 +22,8 @@
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
-| SEC-3 | `replaceOracle` doesn't invalidate pending votes | Security Hardening | P1 | M |
-| SEC-4 | `setUnstakeCooldownDuration` allows zero cooldown | Security Hardening | P1 | S |
+| SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
+| SEC-4 | ~~`setUnstakeCooldownDuration` allows zero cooldown~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only, no accounting risk) |
 | SEC-5 | `totalStaked` changes between oracle votes (front-running) | Security Hardening | P1 | L |
 | SEC-6 | Add `nonReentrant` to `migrateClusterToETH` | Security Hardening | P2 | S |
 | SEC-7 | Add `nonReentrant` to `onCSSVTransfer` | Security Hardening | P2 | S |
@@ -494,18 +494,17 @@ Set `quorumBps` during the upgrade initializer (`reinitializer(3)`) to prevent a
 
 ---
 
-### [SEC-3] `replaceOracle` doesn't invalidate pending votes
+### [SEC-3] ~~`replaceOracle` doesn't invalidate pending votes~~
 - **Type:** Security Hardening
-- **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Priority:** ~~P1~~ P2 (downgraded)
+- **Status:** ✅ Mitigated (owner-only + coordinated oracles)
+- **Owner:** N/A
+- **Timeline:** N/A
+- **Github Link:** N/A
 
-**Requirement:**
-When an oracle is replaced, invalidate any pending votes cast by the old oracle for uncommitted commitments, OR document this as accepted behavior with explicit risks.
+**Resolution:** `replaceOracle` is owner-only (DAO multisig), and the oracle set is a small coordinated group working with the DAO. If an oracle is compromised and replaced mid-vote, the remaining honest oracles can simply propose and vote on a correct root — the compromised oracle's stale vote alone cannot reach quorum (needs 3-of-4). Any edge case is resolvable operationally by the DAO + oracle operators.
 
-**Context:**
+**Original context (for reference):**
 `SSVDAO.sol:205-229`: When `replaceOracle` is called, the old oracle's address is removed from `oracleIdOf` but the `oracleId` stays the same. The `hasVoted` mapping uses `oracleId`, so: (1) the old oracle's votes persist and count toward quorum, (2) the new oracle cannot re-vote on pending commitments since `hasVoted[commitmentKey][oracleId]` is already true. A compromised oracle replaced mid-vote still influences quorum.
 
 **Acceptance Criteria:**
@@ -529,18 +528,17 @@ When an oracle is replaced, invalidate any pending votes cast by the old oracle 
 
 ---
 
-### [SEC-4] `setUnstakeCooldownDuration` allows zero cooldown
+### [SEC-4] ~~`setUnstakeCooldownDuration` allows zero cooldown~~
 - **Type:** Security Hardening
-- **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Priority:** ~~P1~~ P2 (downgraded)
+- **Status:** ✅ Mitigated (owner-only, no accounting risk)
+- **Owner:** N/A
+- **Timeline:** N/A
+- **Github Link:** N/A
 
-**Requirement:**
-Add a minimum cooldown duration to prevent instant unstaking which undermines the staking security model.
+**Resolution:** `setUnstakeCooldownDuration` is owner-only (DAO multisig). Zero cooldown allows instant unstaking but causes no accounting issues — `requestUnstake` still goes through `_syncFees`, `_settleWithBalance`, cSSV burn, and proper reward settlement. The "stake/vote/unstake" attack described below isn't viable because oracle voting is based on oracle addresses (not staking), and staking weight only affects quorum threshold which is DAO-controlled. Same owner-trust argument as SEC-1/SEC-3.
 
-**Context:**
+**Original context (for reference):**
 `SSVDAO.sol:245-248`: No minimum check. Zero cooldown allows stake/vote/unstake in one block, defeating the economic security mechanism. An attacker could stake, earn oracle voting rights, manipulate a vote, and immediately unstake.
 
 **Acceptance Criteria:**
