@@ -1,7 +1,7 @@
 # SSV Network v2.0.0 — Mainnet Readiness Checklist
 
 **Generated:** 2026-02-17
-**Updated:** 2026-02-17 (DIP-X review findings folded in)
+**Updated:** 2026-02-17 (new audit findings folded in)
 **Sources:** Verified bug report, verified test coverage gap analysis, verified scripts & ops audit, DIP-X vs implementation review reports (ETH Payments, Effective Balance, SSV Staking)
 **Branch:** `ssv-staking` (base for all feature branches)
 
@@ -15,10 +15,11 @@
 | BUG-2 | ~~`_resetOperatorState` doesn't clear `operator.owner`~~ | ~~Critical Bug Fix~~ Won't Fix | ~~P0~~ | By design |
 | BUG-3 | ~~`ensureETHDefaults` resurrects removed operators~~ | Critical Bug Fix | P0 | ✅ Mitigated |
 | BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | M |
-| BUG-5 | `_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators | Critical Bug Fix | P1 | S |
+| BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | S |
 | BUG-7 | `DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec | Critical Bug Fix | P1 | S |
 | BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix | P1 | S |
+| BUG-9 | `uint64(delta)` silent truncation in operator earnings accumulation | Critical Bug Fix | P1 | S |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P0 | S |
 | SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | S |
 | SEC-3 | `replaceOracle` doesn't invalidate pending votes | Security Hardening | P1 | M |
@@ -29,6 +30,12 @@
 | SEC-8 | `reactivate` not emitting warning for removed operators | Security Hardening | P2 | S |
 | SEC-9 | `operatorMaxFee` function signature differs from DIP-X spec | Security Hardening | P2 | S |
 | SEC-10 | cSSV token lacks governance/voting extensions (ERC20Votes) | Security Hardening | P2 | M |
+| SEC-11 | `hasDeviation` reactivation optimization uses global counter for per-operator decision | Security Hardening | P1 | S |
+| SEC-12 | `deposit()` accepts deposits to liquidated ETH clusters without fee settlement | Security Hardening | P2 | S |
+| SEC-13 | `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals | Security Hardening | P2 | S |
+| SEC-14 | `commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot | Security Hardening | P2 | S |
+| SEC-15 | Min/max operator fee can be set to contradictory values | Security Hardening | P2 | S |
+| SEC-16 | Missing zero-value/zero-address guards on deposit and withdraw | Security Hardening | P2 | S |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
 | TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
 | TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |
@@ -56,6 +63,11 @@
 | TEST-25 | Upgrade path (reinitializer) tests | Unit Test Completeness | P2 | S |
 | TEST-26 | Zero-validator cluster operations | Unit Test Completeness | P2 | S |
 | TEST-27 | Operator at max validator limit | Unit Test Completeness | P2 | S |
+| TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
+| TEST-29 | Add contract ETH balance delta assertions to deposit tests | Unit Test Completeness | P1 | S |
+| TEST-30 | Resolve TODO comments with deferred assertions | Unit Test Completeness | P1 | M |
+| TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
+| TEST-32 | Add access control tests for DAO governance functions | Unit Test Completeness | P1 | S |
 | ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
 | DEPLOY-1 | Fix `deploy-all.ts` broken signature and constructor args | Deployment & Scripts | P0 | S |
@@ -64,6 +76,11 @@
 | DEPLOY-4 | Remove unused error declarations in `ISSVNetworkCore.sol` | Deployment & Scripts | P2 | S |
 | DEPLOY-5 | Document `operatorMinFee` governance parameter in DIP-X | Deployment & Scripts | P2 | S |
 | DEPLOY-6 | DIP-X unstaking description doesn't match implementation | Deployment & Scripts | P2 | S |
+| DEPLOY-7 | Deploy scripts import from test files | Deployment & Scripts | P2 | S |
+| QUALITY-1 | `operatorFeeChangeRequests` not cleared on operator removal | Code Quality | P2 | S |
+| QUALITY-2 | Redundant `SSVStorage.load()` calls in view function loops | Code Quality | P2 | S |
+| QUALITY-3 | `withdraw` in SSVClusters duplicates operator loop inline | Code Quality | P2 | S |
+| QUALITY-4 | `_resetOperatorState` returns unused `Operator memory` | Code Quality | P3 | S |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | S |
@@ -217,9 +234,9 @@ In `SSVValidators.sol:164-247`, when a cluster is liquidated (`!cluster.active`)
 ### [BUG-5] `_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators
 - **Type:** Critical Bug Fix
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -357,6 +374,42 @@ The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" w
 - [ ] Sub-task 2: Verify upgrade initializer sets correct value for chosen unit
 - [ ] Sub-task 3: Update interface parameter name if needed
 - [ ] Sub-task 4: Run full test suite
+
+---
+
+### [BUG-9] `uint64(delta)` silent truncation in operator earnings accumulation
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Fix `PackedETH.wrap(uint64(delta))` to use SafeCast or a bounds check instead of silently truncating when `delta` exceeds `uint64.max`.
+
+**Context:**
+In `OperatorLib.sol:68-69` (also lines 93-94, 326-327), `PackedETH.wrap(uint64(delta))` silently truncates when delta exceeds `uint64.max` (1.845e19). With 500 validators at max EB (2048 ETH), 2.7 years between snapshots: `delta = 4.078e21`, which is 221x larger than `uint64.max`. The operator loses ~99.5% of accumulated earnings.
+
+**Concrete example:** Operator with `effectiveVUnits=320,000,000`, `ethFee=17,700` packed, `7,200,000` block gap → `delta = 320_000_000 * 17_700 * 7_200_000 = 4.078e16 * 100_000 = 4.078e21`, which overflows `uint64.max` and silently truncates.
+
+**Acceptance Criteria:**
+- [ ] `delta` exceeding `uint64.max` either reverts with a clear error or is safely handled
+- [ ] Use `SafeCast.toUint64(delta)` or add `require(delta <= type(uint64).max)` at all three locations
+- [ ] Existing tests pass
+- [ ] New test: operator with high vUnits and long gap → verify no silent truncation
+
+**Agent Instructions:**
+1. Read `contracts/libraries/OperatorLib.sol`, focus on lines 68-69, 93-94, and 326-327.
+2. Import OpenZeppelin's `SafeCast` or add manual bounds checks.
+3. Replace `uint64(delta)` with `SafeCast.toUint64(delta)` at all three locations.
+4. Add a unit test with high vUnits and long block gap to verify the fix catches overflow.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Replace `uint64(delta)` with SafeCast at all three locations in OperatorLib.sol
+- [ ] Sub-task 2: Add unit test for operator earnings overflow scenario
+- [ ] Sub-task 3: Run full test suite
 
 ---
 
@@ -699,6 +752,210 @@ The DIP-X states: "Staked SSV, represented by cSSV, retains full governance and 
 - [ ] Sub-task 1: Get team decision on governance mechanism
 - [ ] Sub-task 2: Implement chosen approach (Snapshot config update or ERC20Votes addition)
 - [ ] Sub-task 3: Update DIP-X governance section
+
+---
+
+### [SEC-11] `hasDeviation` reactivation optimization uses global counter for per-operator decision
+- **Type:** Security Hardening
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Replace the global `daoTotalEthVUnits` optimization in `updateClusterOperatorsOnReactivation` with per-operator `operatorEthVUnits` reads.
+
+**Context:**
+In `OperatorLib.sol:305`, `bool hasDeviation = sp.daoTotalEthVUnits != uint64(sp.ethDaoValidatorCount) * VUNITS_PRECISION` uses a global signal for per-operator decisions. While deviations are always non-negative (EB floor=32), this couples correctness to BUG-4's accounting accuracy. If `daoTotalEthVUnits` is ever incorrect (from BUG-4's double-subtraction), reactivation could skip reading actual per-operator deviation, leading to incorrect vUnit accounting.
+
+**Acceptance Criteria:**
+- [ ] Reactivation always reads `seb.operatorEthVUnits[operatorId]` instead of relying on the global optimization
+- [ ] No behavior change when global and per-operator values are consistent
+- [ ] Correct behavior even when BUG-4 causes `daoTotalEthVUnits` to be incorrect
+- [ ] Existing reactivation tests pass
+
+**Agent Instructions:**
+1. Read `contracts/libraries/OperatorLib.sol`, focus on `updateClusterOperatorsOnReactivation` (line 295), particularly the `hasDeviation` check at line 305.
+2. Remove the `hasDeviation` optimization and always read `seb.operatorEthVUnits[operatorId]` for each operator.
+3. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Remove global `hasDeviation` optimization, use per-operator reads
+- [ ] Sub-task 2: Run full test suite
+
+---
+
+### [SEC-12] `deposit()` accepts deposits to liquidated ETH clusters without fee settlement
+- **Type:** Security Hardening
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add `validateClusterIsNotLiquidated()` to the ETH `deposit()` function, or document the current behavior as intentional.
+
+**Context:**
+In `SSVClusters.sol:190-205`, `deposit()` has no `validateClusterIsNotLiquidated()` check and no fee settlement. Compare with `withdraw()` at line 210 which does both. A user can deposit ETH into a liquidated cluster, but the deposit does not settle fees or reactivate the cluster. The event shows a misleading balance. The user must call `reactivate()` separately to resume the cluster.
+
+**Concrete example:** Cluster liquidated with `balance=0`, user deposits 1 ETH. No fee settlement occurs. Event shows misleading balance. User must call `reactivate()` separately.
+
+**Acceptance Criteria:**
+- [ ] Either: `deposit()` reverts on liquidated clusters with `ClusterIsLiquidated()`
+- [ ] Or: behavior is explicitly documented as intentional with rationale
+- [ ] Test: deposit to liquidated cluster → verify defined behavior
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVClusters.sol`, focus on `deposit` (line 190).
+2. Compare with `withdraw()` at line 210 which validates cluster is not liquidated.
+3. Add `cluster.validateClusterIsNotLiquidated()` before the balance update.
+4. Add a test in `test/unit/SSVClusters/deposit.test.ts` for deposit to liquidated cluster.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Add liquidation check to `deposit()` or document as intentional
+- [ ] Sub-task 2: Add test for deposit to liquidated cluster
+- [ ] Sub-task 3: Run full test suite
+
+---
+
+### [SEC-13] `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals
+- **Type:** Security Hardening
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add distinguishable events for ETH vs SSV operator withdrawals, or add a `version` parameter to the existing `OperatorWithdrawn` event.
+
+**Context:**
+In `SSVOperators.sol:337-344`, both `_transferOperatorBalanceUnsafe` (ETH) and `_transferOperatorTokenBalanceUnsafe` (SSV) emit the same `OperatorWithdrawn` event. Off-chain indexers (oracle, dashboard) cannot distinguish between ETH and SSV withdrawal events, making it impossible to correctly track operator earnings by denomination.
+
+**Acceptance Criteria:**
+- [ ] Either: separate `OperatorETHWithdrawn` and `OperatorSSVWithdrawn` events
+- [ ] Or: existing event gains a `version` parameter (0 = SSV, 1 = ETH)
+- [ ] Off-chain indexers can distinguish ETH vs SSV withdrawals
+- [ ] Backward compatibility impact documented (oracle ABI change)
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVOperators.sol`, focus on `_transferOperatorBalanceUnsafe` and `_transferOperatorTokenBalanceUnsafe` (lines 337-344).
+2. Define separate events in `contracts/interfaces/ISSVOperators.sol`.
+3. Update both functions to emit the correct event.
+4. Document the ABI change impact on oracle and indexer clients.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Define separate events or add version parameter
+- [ ] Sub-task 2: Update withdrawal functions to emit correct events
+- [ ] Sub-task 3: Update tests for new event signatures
+- [ ] Sub-task 4: Run full test suite
+
+---
+
+### [SEC-14] `commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot
+- **Type:** Security Hardening
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add a zero-root check to `commitRoot` to prevent permanently wasting a block slot with an unusable root.
+
+**Context:**
+In `SSVDAO.sol:155`, `commitRoot` accepts `bytes32(0)` as a valid merkle root. The zero root is stored but unusable — `SSVClusters.sol:426` reverts on zero root during `updateClusterBalance`. Meanwhile, `latestCommittedBlock` advances, so the block slot is permanently consumed and cannot be reused.
+
+**Acceptance Criteria:**
+- [ ] `commitRoot` reverts with `InvalidRoot()` when `merkleRoot == bytes32(0)`
+- [ ] Define `InvalidRoot` error if it doesn't exist
+- [ ] Test: commit zero root → expect revert
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVDAO.sol`, focus on `commitRoot` (line 155).
+2. Add `if (merkleRoot == bytes32(0)) revert InvalidRoot();` near the top of the function.
+3. Define `InvalidRoot` error in `contracts/interfaces/ISSVNetworkCore.sol` if not already defined.
+4. Add test in `test/unit/SSVDAO/commitRoot.test.ts`.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Add zero-root validation to `commitRoot`
+- [ ] Sub-task 2: Add test for zero-root revert
+- [ ] Sub-task 3: Run full test suite
+
+---
+
+### [SEC-15] Min/max operator fee can be set to contradictory values
+- **Type:** Security Hardening
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add cross-validation between `updateMinimumOperatorEthFee` and `updateMaximumOperatorFee` to prevent contradictory values where `minFee > maxFee`.
+
+**Context:**
+In `SSVDAO.sol:138-149`, neither setter cross-validates against the other. If `minFee > maxFee`, no valid non-zero fee exists for operator registration, effectively blocking all new operator registrations and fee changes. While both are owner-only functions, a configuration mistake could cause unexpected operational impact.
+
+**Acceptance Criteria:**
+- [ ] `updateMinimumOperatorEthFee` reverts if the new min would exceed current max
+- [ ] `updateMaximumOperatorFee` reverts if the new max would be below current min
+- [ ] Test: set contradictory min/max → expect revert
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVDAO.sol`, focus on `updateMinimumOperatorEthFee` (line 147) and `updateMaximumOperatorFee` (line 138).
+2. In `updateMinimumOperatorEthFee`: add check `if (packed > sp.operatorMaxFeeETH) revert ...;`.
+3. In `updateMaximumOperatorFee`: add check `if (packed < sp.operatorMinFeeETH) revert ...;`.
+4. Add tests for both cross-validation directions.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Add cross-validation to both fee setters
+- [ ] Sub-task 2: Add tests for contradictory fee values
+- [ ] Sub-task 3: Run full test suite
+
+---
+
+### [SEC-16] Missing zero-value/zero-address guards on deposit and withdraw
+- **Type:** Security Hardening
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add zero-value and zero-address guards to deposit and withdraw functions to prevent meaningless transactions.
+
+**Context:**
+- `SSVClusters.sol:190` (`deposit`): no zero-address check for `clusterOwner`, no `msg.value > 0` check.
+- `SSVClusters.sol:210` (`withdraw`): no zero-amount check.
+- `SSVDAO.sol:52` (`withdrawNetworkSSVEarnings`): no zero-amount check.
+These allow gas-wasting no-op transactions that emit misleading events with zero values.
+
+**Acceptance Criteria:**
+- [ ] `deposit()` reverts when `msg.value == 0`
+- [ ] `withdraw()` reverts when `amount == 0`
+- [ ] `withdrawNetworkSSVEarnings()` reverts when `amount == 0`
+- [ ] Tests added for each zero-value guard
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVClusters.sol`, focus on `deposit` (line 190) and `withdraw` (line 210).
+2. Read `contracts/modules/SSVDAO.sol`, focus on `withdrawNetworkSSVEarnings` (line 52).
+3. Add `require(msg.value > 0)` to deposit, `require(amount > 0)` to withdraw functions.
+4. Add tests for each guard.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Add zero-value guards to deposit and withdraw
+- [ ] Sub-task 2: Add tests for zero-value reverts
+- [ ] Sub-task 3: Run full test suite
 
 ---
 
@@ -1581,6 +1838,170 @@ Test `VALIDATORS_PER_OPERATOR_LIMIT` (3000) boundary.
 
 ---
 
+### [TEST-28] Uncomment SSV reentrancy test assertions
+- **Type:** Unit Test Completeness
+- **Priority:** P0
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Uncomment the three commented-out assertions in the SSV operator reentrancy test and verify they pass.
+
+**Context:**
+In `test/unit/SSVOperators/reentrancy.test.ts:101-107`, three assertions are commented out inside `/* */`. The SSV token reentrancy guard is effectively untested. The ETH reentrancy test in the same file IS properly asserted. This means the SSV withdrawal path has no verified reentrancy protection.
+
+**Acceptance Criteria:**
+- [ ] Lines 101-107 uncommented
+- [ ] All three assertions pass
+- [ ] If assertions fail, fix the mock contract or reentrancy guard to make them pass
+
+**Agent Instructions:**
+1. Read `test/unit/SSVOperators/reentrancy.test.ts`, focus on lines 95-110.
+2. Uncomment the three assertions at lines 101-107.
+3. Run `npm run test:unit` to verify they pass.
+4. If they fail, investigate whether the mock reentrancy contract or the reentrancy guard needs fixing.
+
+#### Sub-items:
+- [ ] Sub-task 1: Uncomment SSV reentrancy assertions
+- [ ] Sub-task 2: Verify test passes (fix if needed)
+
+---
+
+### [TEST-29] Add contract ETH balance delta assertions to deposit tests
+- **Type:** Unit Test Completeness
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add `address(contract).balance` before/after assertions to ETH deposit tests. Currently tests verify cluster balance in events but never check the actual contract ETH balance change.
+
+**Context:**
+In `test/unit/SSVClusters/deposit.test.ts`, tests verify cluster balance in events but never check `address(contract).balance` before and after the deposit. This means the contract could emit the correct event but not actually receive the ETH.
+
+**Concrete test:** Register with 10 ETH, deposit 5 ETH, assert `contractBalance_after - contractBalance_before == 5 ETH`.
+
+**Acceptance Criteria:**
+- [ ] At least one deposit test captures contract ETH balance before and after
+- [ ] Asserts `balanceAfter - balanceBefore == msg.value`
+- [ ] Both single and bulk deposit scenarios covered
+
+**Agent Instructions:**
+1. Read `test/unit/SSVClusters/deposit.test.ts` for existing patterns.
+2. Add balance capture: `const before = await ethers.provider.getBalance(ssvNetwork.address)`.
+3. After deposit: `const after = await ethers.provider.getBalance(ssvNetwork.address)`.
+4. Assert: `expect(after - before).to.equal(depositAmount)`.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Add ETH balance delta assertion to deposit test
+- [ ] Sub-task 2: Run full test suite
+
+---
+
+### [TEST-30] Resolve TODO comments with deferred assertions
+- **Type:** Unit Test Completeness
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Resolve the 12 TODO comments across test files that indicate event args not verified against computed expected values.
+
+**Context:**
+In `test/unit/SSVValidator/registerValidator.test.ts:56`, `bulkRegisterValidator.test.ts:58`, and 10 other locations, TODO comments indicate that event arguments are not being verified against independently computed expected values. These represent deferred test assertions that should be completed.
+
+**Acceptance Criteria:**
+- [ ] All 12 TODO comments identified and resolved
+- [ ] Each TODO replaced with actual assertion or removed with justification
+- [ ] No new test failures introduced
+
+**Agent Instructions:**
+1. Grep for `TODO` across all test files to identify the 12 locations.
+2. For each TODO: read the surrounding test context, compute the expected value, add the assertion.
+3. Run `npm run test:unit` after each batch of changes.
+
+#### Sub-items:
+- [ ] Sub-task 1: Identify all 12 TODO locations
+- [ ] Sub-task 2: Resolve each TODO with actual assertions
+- [ ] Sub-task 3: Run full test suite
+
+---
+
+### [TEST-31] Expand onCSSVTransfer test coverage
+- **Type:** Unit Test Completeness
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Expand `onCSSVTransfer` tests from the current 2 tests to cover multi-transfer sequences, transfers after fee accruals, and transfers between users with pending rewards.
+
+**Context:**
+In `test/unit/SSVStaking/onCSSVTransfer.test.ts`, only 2 tests exist. Missing scenarios: multi-transfer sequences, transfer after fee accruals, transfer between users with pending rewards. The `onCSSVTransfer` hook is critical for correct reward settlement during cSSV transfers.
+
+**Concrete test:** User A (100 cSSV) transfers 50 to User B (200 cSSV) after fee sync. Verify both parties' rewards settled correctly using `pendingReward = cSSVBalance * (accEthPerShare - userIndex) / 1e18`.
+
+**Acceptance Criteria:**
+- [ ] Test: multi-transfer sequence (A→B→C) with reward verification at each step
+- [ ] Test: transfer after fee accruals — verify accumulated rewards settled before transfer
+- [ ] Test: transfer between users with pending rewards — verify both rewards correct
+- [ ] At least 5 total test cases for `onCSSVTransfer`
+
+**Agent Instructions:**
+1. Read `test/unit/SSVStaking/onCSSVTransfer.test.ts` for existing patterns.
+2. Read `contracts/modules/SSVStaking.sol`, focus on `onCSSVTransfer` (line 169).
+3. Add multi-transfer, fee-accrual, and pending-reward test scenarios.
+4. Calculate expected rewards independently using the accumulator formula.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Multi-transfer sequence test
+- [ ] Sub-task 2: Transfer after fee accrual test
+- [ ] Sub-task 3: Transfer with pending rewards test
+
+---
+
+### [TEST-32] Add access control tests for DAO governance functions
+- **Type:** Unit Test Completeness
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add non-owner revert tests for all DAO governance functions. Currently all SSVDAO test files only test happy path from owner.
+
+**Context:**
+All 11+ governance functions (`updateNetworkFee`, `updateLiquidationThresholdPeriod`, `replaceOracle`, `setQuorumBps`, `setUnstakeCooldownDuration`, `updateMaximumOperatorFee`, `updateMinimumOperatorEthFee`, etc.) are tested only from the owner account. No test verifies that non-owner calls are rejected.
+
+**Acceptance Criteria:**
+- [ ] Each governance function has a test calling from non-owner that expects revert
+- [ ] Revert reason matches expected access control error (e.g., `OwnableUnauthorizedAccount`)
+- [ ] All 11+ functions covered
+
+**Agent Instructions:**
+1. Read `test/unit/SSVDAO/` directory for all existing DAO test files.
+2. For each governance function, add a test that calls from a non-owner signer.
+3. Assert revert with the expected access control error.
+4. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Identify all governance functions requiring access control tests
+- [ ] Sub-task 2: Add non-owner revert test for each function
+- [ ] Sub-task 3: Run full test suite
+
+---
+
 ## Integration / E2E Tests
 
 ### [ITEST-1] `commitRoot` → `updateClusterBalance` E2E flow
@@ -1846,6 +2267,40 @@ The DIP-X describes unstaking as "lock cSSV → wait → burn cSSV + return SSV"
 
 ---
 
+### [DEPLOY-7] Deploy scripts import from test files
+- **Type:** Deployment & Scripts
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Move shared constants out of test files so deploy scripts don't import from test directories.
+
+**Context:**
+`scripts/deploy-all.ts:4`, `scripts/staking-upgrade.ts:4`, and `scripts/upgrade-fork.ts:6` all import `DEFAULT_UNSTAKE_COOLDOWN` from `"../test/common/constants.ts"`. Deploy scripts should not depend on test files — this creates a fragile dependency where test refactors can break deployment.
+
+**Acceptance Criteria:**
+- [ ] Shared constants moved to a non-test location (e.g., `scripts/constants.ts` or `contracts/libraries/`)
+- [ ] Deploy scripts import from the new location
+- [ ] Test files import from the new location (or keep their own copy)
+- [ ] All scripts compile and run correctly
+
+**Agent Instructions:**
+1. Read `scripts/deploy-all.ts`, `scripts/staking-upgrade.ts`, `scripts/upgrade-fork.ts` to identify all test imports.
+2. Create `scripts/constants.ts` with the shared constants.
+3. Update import paths in deploy scripts.
+4. Optionally update test files to also import from the shared location.
+5. Run `npx hardhat compile` and verify scripts.
+
+#### Sub-items:
+- [ ] Sub-task 1: Create shared constants file
+- [ ] Sub-task 2: Update deploy script imports
+- [ ] Sub-task 3: Verify scripts still work
+
+---
+
 ## Operational Readiness
 
 ### [OPS-1] Create mainnet deployment runbook
@@ -2066,6 +2521,112 @@ Add 6 lower-priority invariants requiring significant harness work. Full list in
 
 ---
 
+## Code Quality
+
+### [QUALITY-1] `operatorFeeChangeRequests` not cleared on operator removal
+- **Type:** Code Quality
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Clear `operatorFeeChangeRequests[operatorId]` in `_resetOperatorState` when an operator is removed.
+
+**Context:**
+In `SSVOperators.sol:324-335`, `_resetOperatorState` doesn't delete stale fee change requests for the removed operator. No functional impact since `declareOperatorFee` and `executeOperatorFee` both check `checkOwner()` first (which reverts for removed operators), but the stale data wastes storage and could confuse off-chain readers querying operator fee change requests.
+
+**Acceptance Criteria:**
+- [ ] `delete s.operatorFeeChangeRequests[operatorId]` added to `_resetOperatorState`
+- [ ] Existing removal tests pass
+- [ ] New test: declare fee change, remove operator, verify fee change request is cleared
+
+#### Sub-items:
+- [ ] Sub-task 1: Add fee change request cleanup to `_resetOperatorState`
+- [ ] Sub-task 2: Add test verifying cleanup
+- [ ] Sub-task 3: Run full test suite
+
+---
+
+### [QUALITY-2] Redundant `SSVStorage.load()` calls in view function loops
+- **Type:** Code Quality
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Hoist `SSVStorage.load()` out of loops in `SSVViews.sol` to avoid redundant storage slot computation.
+
+**Context:**
+In `SSVViews.sol` at 6 locations, `SSVStorage.load()` is called every loop iteration instead of once before the loop. Each call computes `keccak256` of the storage slot string, costing ~1200 gas per call. With 13 operators (maximum), this wastes ~15,600 gas per view call. While view functions are typically free (off-chain calls), they cost real gas when called from other contracts.
+
+**Acceptance Criteria:**
+- [ ] `SSVStorage.load()` called once before each loop, stored in a local variable
+- [ ] Same pattern applied to `SSVStorageProtocol.load()` and `SSVStorageEB.load()` if they have the same issue
+- [ ] Existing view tests pass with identical return values
+
+#### Sub-items:
+- [ ] Sub-task 1: Identify all redundant `load()` calls in loops
+- [ ] Sub-task 2: Hoist to pre-loop variables
+- [ ] Sub-task 3: Run full test suite
+
+---
+
+### [QUALITY-3] `withdraw` in SSVClusters duplicates operator loop inline
+- **Type:** Code Quality
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Refactor the inline operator loop in `SSVClusters.withdraw()` to use the shared function from `OperatorLib`.
+
+**Context:**
+In `SSVClusters.sol:220-231`, the `withdraw` function inlines a read-only version of the operator loop instead of calling the shared function in `OperatorLib.sol:253-282`. This means future changes to the index formula must be updated in two places, creating a maintenance burden and risk of divergence.
+
+**Acceptance Criteria:**
+- [ ] `withdraw()` uses a shared function from `OperatorLib` instead of inline loop
+- [ ] Behavior is identical before and after refactor
+- [ ] All withdrawal tests pass
+
+#### Sub-items:
+- [ ] Sub-task 1: Extract shared function or reuse existing one
+- [ ] Sub-task 2: Replace inline loop in `withdraw()`
+- [ ] Sub-task 3: Run full test suite
+
+---
+
+### [QUALITY-4] `_resetOperatorState` returns unused `Operator memory`
+- **Type:** Code Quality
+- **Priority:** P3
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Remove the unused return value from `_resetOperatorState` to save gas.
+
+**Context:**
+In `SSVOperators.sol:324`, `_resetOperatorState` returns `Operator memory` but the caller at line 82 discards the return value. The unnecessary SLOAD to populate the return struct wastes ~2100 gas per operator removal.
+
+**Acceptance Criteria:**
+- [ ] `_resetOperatorState` changed to return `void` (no return value)
+- [ ] Caller at line 82 updated to not expect a return value
+- [ ] Existing operator removal tests pass
+
+#### Sub-items:
+- [ ] Sub-task 1: Remove return value from `_resetOperatorState`
+- [ ] Sub-task 2: Update caller
+- [ ] Sub-task 3: Run full test suite
+
+---
+
 ## Changes from DIP-X Review
 
 **Date:** 2026-02-17
@@ -2116,3 +2677,41 @@ Add 6 lower-priority invariants requiring significant harness work. Full list in
 | DIP-14 (uint128 overflow) | PARTIAL | Theoretically possible but practically impossible for realistic scenarios |
 | DIP-20 (flash-loan prevention) | MATCH | Not vulnerable in current permissioned oracle model |
 | DIP-25–28 | MATCH | Revenue source, views, ordering, minting ratio all correct |
+
+---
+
+## Changes from New Audit Findings
+
+**Date:** 2026-02-17
+**Sources:** Research-driven gap analysis audit
+
+### Status Updates (4)
+
+| ID | Previous Status | New Status | Rationale |
+|----|----------------|------------|-----------|
+| BUG-1 | Fixed (verified on `ssv-staking`) | ✅ Fixed | Confirmed fixed in Monday.com |
+| BUG-2 | Closed (by design) | Won't Fix (By Design) | Confirmed by-design in Monday.com |
+| BUG-3 | Closed (mitigated) | ✅ Mitigated | Confirmed mitigated in Monday.com |
+| BUG-5 | Open | ✅ Fixed | Confirmed fixed in Monday.com |
+
+### New Items Added (16)
+
+| ID | Title | Type | Priority |
+|----|-------|------|----------|
+| BUG-9 | `uint64(delta)` silent truncation in operator earnings accumulation | Critical Bug Fix | P1 |
+| SEC-11 | `hasDeviation` reactivation optimization uses global counter for per-operator decision | Security Hardening | P1 |
+| SEC-12 | `deposit()` accepts deposits to liquidated ETH clusters without fee settlement | Security Hardening | P2 |
+| SEC-13 | `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals | Security Hardening | P2 |
+| SEC-14 | `commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot | Security Hardening | P2 |
+| SEC-15 | Min/max operator fee can be set to contradictory values | Security Hardening | P2 |
+| SEC-16 | Missing zero-value/zero-address guards on deposit and withdraw | Security Hardening | P2 |
+| TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 |
+| TEST-29 | Add contract ETH balance delta assertions to deposit tests | Unit Test Completeness | P1 |
+| TEST-30 | Resolve TODO comments with deferred assertions | Unit Test Completeness | P1 |
+| TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 |
+| TEST-32 | Add access control tests for DAO governance functions | Unit Test Completeness | P1 |
+| DEPLOY-7 | Deploy scripts import from test files | Deployment & Scripts | P2 |
+| QUALITY-1 | `operatorFeeChangeRequests` not cleared on operator removal | Code Quality | P2 |
+| QUALITY-2 | Redundant `SSVStorage.load()` calls in view function loops | Code Quality | P2 |
+| QUALITY-3 | `withdraw` in SSVClusters duplicates operator loop inline | Code Quality | P2 |
+| QUALITY-4 | `_resetOperatorState` returns unused `Operator memory` | Code Quality | P3 |
