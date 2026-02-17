@@ -465,7 +465,7 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       const reduceTx = await network
         .connect(operatorOwner)
         .reduceOperatorFee(1n, reducedFee);
-      await reduceTx.wait();
+      const reduceBlock = BigInt(await getTxBlock(reduceTx));
 
       await expect(reduceTx).to.emit(network, "OperatorFeeExecuted");
 
@@ -474,8 +474,11 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       expect(newFee).to.equal(reducedFee);
 
       // Verify earnings were preserved (accrued at old fee before reduction)
+      const blockDiff = reduceBlock - regBlock;
+      const vUnits = defaultVUnits(1n);
+      const expectedEarnings = calcOperatorFeeAccrual(blockDiff, packedInitialFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const earnings = await views.getOperatorEarnings(1n);
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.equal(expectedEarnings);
     });
 
     it("OV-12 edge: reduce to exactly current fee reverts FeeIncreaseNotAllowed", async () => {
@@ -585,7 +588,7 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         clusterOwner.address,
         "0x" + (10n ** 20n).toString(16),
       ]);
-      await network
+      const regTx = await network
         .connect(clusterOwner)
         .registerValidator(
           makePublicKey(1),
@@ -594,13 +597,17 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
           EMPTY_CLUSTER,
           { value: ethers.parseEther("10") },
         );
+      const regBlock = BigInt(await getTxBlock(regTx));
+      const vUnits = defaultVUnits(1n);
 
       // Advance 100 blocks
       await mineBlocks(provider, 100);
 
       // Check earnings accumulated
+      const earningsBlock = BigInt(await getBlockNumber(provider));
+      const expectedEarningsBefore = calcOperatorFeeAccrual(earningsBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const earningsBefore = await views.getOperatorEarnings(1n);
-      expect(earningsBefore).to.be.greaterThan(0n);
+      expect(earningsBefore).to.equal(expectedEarningsBefore);
 
       // Partial withdrawal
       const partialAmount = earningsBefore / 2n;
@@ -629,11 +636,15 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       );
 
       // Advance 100 more blocks
+      const partialBlock = BigInt(await getTxBlock(partialTx));
       await mineBlocks(provider, 100);
 
       // Full withdrawal
+      const fullViewBlock = BigInt(await getBlockNumber(provider));
+      const expectedEarningsBeforeFull =
+        calcOperatorFeeAccrual(fullViewBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS - alignedPartial;
       const earningsBeforeFull = await views.getOperatorEarnings(1n);
-      expect(earningsBeforeFull).to.be.greaterThan(0n);
+      expect(earningsBeforeFull).to.equal(expectedEarningsBeforeFull);
 
       const ownerBalBefore2 = await provider.getBalance(
         operatorOwner.address,
@@ -643,17 +654,17 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .withdrawAllOperatorEarnings(1n);
       const fullReceipt = await fullTx.wait();
       const fullGas = fullReceipt.gasUsed * fullReceipt.gasPrice;
+      const fullBlock = BigInt(await getTxBlock(fullTx));
 
       const ownerBalAfter2 = await provider.getBalance(
         operatorOwner.address,
       );
 
-      // After full withdrawal, earnings should be 0
-      const earningsAfterFull = await views.getOperatorEarnings(1n);
-      // Earnings might be non-zero because the withdrawal tx itself advanced a block
-      // But the balance should have been transferred
-      expect(ownerBalAfter2 - ownerBalBefore2 + fullGas).to.be.greaterThan(
-        0n,
+      // The full withdrawal settles 1 more block of earnings beyond the view
+      const expectedFullTransfer =
+        calcOperatorFeeAccrual(fullBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS - alignedPartial;
+      expect(ownerBalAfter2 - ownerBalBefore2 + fullGas).to.equal(
+        expectedFullTransfer,
       );
     });
   });
@@ -689,7 +700,7 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         clusterOwner.address,
         "0x" + (10n ** 20n).toString(16),
       ]);
-      await network
+      const valRegTx = await network
         .connect(clusterOwner)
         .registerValidator(
           makePublicKey(1),
@@ -698,6 +709,9 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
           EMPTY_CLUSTER,
           { value: ethers.parseEther("10") },
         );
+      const regBlock = BigInt(await getTxBlock(valRegTx));
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
 
       // Advance 50 blocks
       await mineBlocks(provider, 50);
@@ -709,13 +723,16 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         clusterOwner.address,
         [1, 2, 3, 4],
       );
-      await network
+      const removeValTx = await network
         .connect(clusterOwner)
         .removeValidator(makePublicKey(1), [1, 2, 3, 4], cluster);
+      const removeValBlock = BigInt(await getTxBlock(removeValTx));
 
       // Check earnings accumulated before removal
+      // Earnings accrued from regBlock to removeValBlock (0 validators after, no more accrual)
+      const expectedEarnings = calcOperatorFeeAccrual(removeValBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const earningsBefore = await views.getOperatorEarnings(1n);
-      expect(earningsBefore).to.be.greaterThan(0n);
+      expect(earningsBefore).to.equal(expectedEarnings);
 
       // Remove operator
       const ownerBalBefore = await provider.getBalance(
@@ -732,12 +749,12 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       await expect(removeTx).to.emit(network, "OperatorRemoved").withArgs(1n);
       await expect(removeTx).to.emit(network, "OperatorWithdrawn");
 
-      // Verify ETH transferred to owner
+      // Verify ETH transferred to owner (same as earningsBefore since 0 validators = 0 more accrual)
       const ownerBalAfter = await provider.getBalance(
         operatorOwner.address,
       );
-      expect(ownerBalAfter - ownerBalBefore + removeGas).to.be.greaterThan(
-        0n,
+      expect(ownerBalAfter - ownerBalBefore + removeGas).to.equal(
+        expectedEarnings,
       );
 
       // Verify operator is now inactive

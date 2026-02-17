@@ -24,7 +24,7 @@ import {
   EMPTY_CLUSTER,
   MINIMAL_OPERATOR_ETH_FEE,
   ETH_DEDUCTED_DIGITS,
-  NETWORK_FEE_ETH,
+  NETWORK_FEE,
   VUNITS_PRECISION,
 } from "../../common/constants.ts";
 import {
@@ -152,24 +152,32 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       await mineBlocks(provider, 100);
 
       // Verify operator earnings after 100 blocks
+      const viewBlock = BigInt(await getBlockNumber(provider));
+      const blockDiff = viewBlock - regBlock;
+      const vUnits = defaultVUnits(1n);
+      const expectedEarnings = calcOperatorFeeAccrual(blockDiff, packedFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const earnings = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      // Expected accrual: 100+ blocks * packedFee * vUnits/VUNITS_PRECISION * ETH_DEDUCTED_DIGITS
-      // With 1 validator: effectiveVUnits = 10_000, packedFee = 17_700
-      // Per block per operator: (17_700 * 10_000) / 10_000 * 100_000 = 17_700 * 100_000 = 1_770_000_000
-      // Over 100 blocks: 100 * 1_770_000_000 = 177_000_000_000
-      // Note: actual earnings include extra blocks from transactions
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.equal(expectedEarnings);
 
       // Verify cluster balance decreased
+      const packedNetworkFee = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
+      const expectedBurn = calcClusterBurn({
+        blockDiff,
+        numOperators: BigInt(operatorIds.length),
+        ethFee: packedFee,
+        networkFee: packedNetworkFee,
+        effectiveVUnits: vUnits,
+      });
+      const expectedClusterBalance = depositEth - expectedBurn;
       const clusterBalance = await views.getBalance(
         clusterOwner.address,
         operatorIds,
         cluster,
       );
       expect(clusterBalance).to.be.lessThan(depositEth);
-      expect(clusterBalance).to.be.greaterThan(0n);
+      expect(clusterBalance).to.equal(expectedClusterBalance);
     });
 
     it("OV-4 edge: register on operators with fee=0 — zero fee accrual", async () => {
@@ -226,7 +234,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       await fundAccount(provider, clusterOwner.address, deposit1);
 
       // Register first validator
-      await network
+      const reg1Tx = await network
         .connect(clusterOwner)
         .registerValidator(
           makePublicKey(1),
@@ -235,6 +243,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
           EMPTY_CLUSTER,
           { value: deposit1 },
         );
+      const block1 = BigInt(await getTxBlock(reg1Tx));
 
       let cluster = await getCurrentClusterState(
         connection,
@@ -244,22 +253,23 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       );
       expect(BigInt(cluster.validatorCount)).to.equal(1n);
 
-      const block1 = BigInt(await getBlockNumber(provider));
-
       // Advance 50 blocks
       await mineBlocks(provider, 50);
 
       // Record operator earnings before second registration
+      const earningsViewBlock = BigInt(await getBlockNumber(provider));
+      const vUnits1 = defaultVUnits(1n);
+      const expectedEarningsBeforeSecond = calcOperatorFeeAccrual(earningsViewBlock - block1, packedFee, vUnits1) * ETH_DEDUCTED_DIGITS;
       const earningsBeforeSecond = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      expect(earningsBeforeSecond).to.be.greaterThan(0n);
+      expect(earningsBeforeSecond).to.equal(expectedEarningsBeforeSecond);
 
       // Register second validator
       const deposit2 = ethers.parseEther("5");
       await fundAccount(provider, clusterOwner.address, deposit2);
 
-      await network
+      const reg2Tx = await network
         .connect(clusterOwner)
         .registerValidator(
           makePublicKey(2),
@@ -268,6 +278,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
           cluster,
           { value: deposit2 },
         );
+      const block2 = BigInt(await getTxBlock(reg2Tx));
 
       cluster = await getCurrentClusterState(
         connection,
@@ -286,8 +297,17 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       }
 
       // Verify cluster balance = deposit1 + deposit2 - fees for first period
+      const packedNetworkFee = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
+      const firstPeriodBurn = calcClusterBurn({
+        blockDiff: block2 - block1,
+        numOperators: BigInt(operatorIds.length),
+        ethFee: packedFee,
+        networkFee: packedNetworkFee,
+        effectiveVUnits: vUnits1,
+      });
+      const expectedClusterBalance = deposit1 + deposit2 - firstPeriodBurn;
       expect(BigInt(cluster.balance)).to.be.lessThan(deposit1 + deposit2);
-      expect(BigInt(cluster.balance)).to.be.greaterThan(0n);
+      expect(BigInt(cluster.balance)).to.equal(expectedClusterBalance);
 
       // Advance 100 more blocks at 2-validator rate
       await mineBlocks(provider, 100);
@@ -583,7 +603,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       await fundAccount(provider, clusterOwner.address, depositEth * 2n);
 
       // Register 2 validators
-      await network
+      const reg1Tx = await network
         .connect(clusterOwner)
         .registerValidator(
           makePublicKey(1),
@@ -592,6 +612,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
           EMPTY_CLUSTER,
           { value: depositEth },
         );
+      const blockR1 = BigInt(await getTxBlock(reg1Tx));
       let cluster = await getCurrentClusterState(
         connection,
         network,
@@ -600,7 +621,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       );
 
       await fundAccount(provider, clusterOwner.address, depositEth);
-      await network
+      const reg2Tx = await network
         .connect(clusterOwner)
         .registerValidator(
           makePublicKey(2),
@@ -609,6 +630,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
           cluster,
           { value: ethers.parseEther("5") },
         );
+      const blockR2 = BigInt(await getTxBlock(reg2Tx));
       cluster = await getCurrentClusterState(
         connection,
         network,
@@ -621,10 +643,15 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       await mineBlocks(provider, 100);
 
       // Record state before removal
+      const earningsViewBlock = BigInt(await getBlockNumber(provider));
+      const expectedEarningsBeforeRemove = (
+        calcOperatorFeeAccrual(blockR2 - blockR1, packedFee, defaultVUnits(1n)) +
+        calcOperatorFeeAccrual(earningsViewBlock - blockR2, packedFee, defaultVUnits(2n))
+      ) * ETH_DEDUCTED_DIGITS;
       const earningsBeforeRemove = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      expect(earningsBeforeRemove).to.be.greaterThan(0n);
+      expect(earningsBeforeRemove).to.equal(expectedEarningsBeforeRemove);
 
       const clusterBalanceBefore = await views.getBalance(
         clusterOwner.address,
@@ -740,7 +767,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       await fundAccount(provider, clusterOwner.address, depositEth);
 
       // Register 1 validator
-      await network
+      const regTx = await network
         .connect(clusterOwner)
         .registerValidator(
           makePublicKey(1),
@@ -749,6 +776,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
           EMPTY_CLUSTER,
           { value: depositEth },
         );
+      const regBlock = BigInt(await getTxBlock(regTx));
 
       // Advance 50 blocks
       await mineBlocks(provider, 50);
@@ -763,7 +791,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       const removeTx = await network
         .connect(clusterOwner)
         .removeValidator(makePublicKey(1), operatorIds, cluster);
-      await removeTx.wait();
+      const removeBlock = BigInt(await getTxBlock(removeTx));
 
       // Verify cluster state after removal
       cluster = await getCurrentClusterState(
@@ -775,8 +803,18 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       expect(BigInt(cluster.validatorCount)).to.equal(0n);
       expect(cluster.active).to.equal(true); // cluster not deactivated
 
-      // Cluster balance should be > 0 (remaining after fee settlement)
-      expect(BigInt(cluster.balance)).to.be.greaterThan(0n);
+      // Cluster balance should equal deposit minus fees burned during the active period
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
+      const packedNetworkFee = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const burn = calcClusterBurn({
+        blockDiff: removeBlock - regBlock,
+        numOperators: BigInt(operatorIds.length),
+        ethFee: packedFee,
+        networkFee: packedNetworkFee,
+        effectiveVUnits: vUnits,
+      });
+      expect(BigInt(cluster.balance)).to.equal(depositEth - burn);
 
       // Verify each operator has 0 validators
       for (const opId of operatorIds) {
@@ -816,7 +854,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
 
       const fee = 2_000_000_000n; // 2 gwei
       const packedFee = fee / ETH_DEDUCTED_DIGITS; // 20_000
-      const networkFee = NETWORK_FEE_ETH;
+      const networkFee = NETWORK_FEE;
       const packedNetworkFee = networkFee / ETH_DEDUCTED_DIGITS;
 
       const operatorIds = await registerOps(network, 4, fee);
@@ -852,10 +890,13 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       await mineBlocks(provider, 100);
 
       // Verify earnings accrued
+      const vUnits = defaultVUnits(1n);
+      const phase2ViewBlock = BigInt(await getBlockNumber(provider));
+      const expectedEarningsPhase2 = calcOperatorFeeAccrual(phase2ViewBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const earningsPhase2 = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      expect(earningsPhase2).to.be.greaterThan(0n);
+      expect(earningsPhase2).to.equal(expectedEarningsPhase2);
 
       // Phase 3: Remove validator
       cluster = await getCurrentClusterState(
@@ -869,7 +910,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       const removeTx = await network
         .connect(clusterOwner)
         .removeValidator(makePublicKey(1), operatorIds, cluster);
-      await removeTx.wait();
+      const removeBlock = BigInt(await getTxBlock(removeTx));
 
       cluster = await getCurrentClusterState(
         connection,
@@ -880,9 +921,16 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       expect(BigInt(cluster.validatorCount)).to.equal(0n);
 
       // Cluster balance decreased due to fee settlement
+      const expectedBurn = calcClusterBurn({
+        blockDiff: removeBlock - regBlock,
+        numOperators: BigInt(operatorIds.length),
+        ethFee: packedFee,
+        networkFee: packedNetworkFee,
+        effectiveVUnits: vUnits,
+      });
       const balanceAfterRemove = BigInt(cluster.balance);
       expect(balanceAfterRemove).to.be.lessThan(depositEth);
-      expect(balanceAfterRemove).to.be.greaterThan(0n);
+      expect(balanceAfterRemove).to.equal(depositEth - expectedBurn);
 
       // Phase 4: Advance 50 blocks — no validators, no new fees
       await mineBlocks(provider, 50);
@@ -915,7 +963,8 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
         operatorOwner.address,
       );
       const operatorWithdrawal = ownerBalAfter - ownerBalBefore + gasUsed;
-      expect(operatorWithdrawal).to.be.greaterThan(0n);
+      // 0 validators since removal, so withdrawal = earningsPhase4 (no extra accrual)
+      expect(operatorWithdrawal).to.equal(earningsPhase4);
 
       // Verify after withdrawal, earnings are 0 (or minimal from new block)
       const earningsAfterWithdraw = await views.getOperatorEarnings(
@@ -954,7 +1003,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
 
       const fee = 2_000_000_000n; // 2 gwei
       const packedFee = fee / ETH_DEDUCTED_DIGITS; // 20_000
-      const networkFee = NETWORK_FEE_ETH;
+      const networkFee = NETWORK_FEE;
       const packedNetworkFee = networkFee / ETH_DEDUCTED_DIGITS;
 
       const operatorIds = await registerOps(network, 4, fee);
@@ -996,30 +1045,11 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
       );
       const expectedAccrualWei = expectedAccrualPacked * ETH_DEDUCTED_DIGITS;
 
-      // Get actual earnings
-      // Note: getOperatorEarnings calls updateSnapshot which adds 1 more block
-      // We check at current block, so the view will compute at current+1 block
+      // Get actual earnings — view calls are static (eth_call) and don't mine blocks
       const actualEarnings = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-
-      // The view adds 1 block (the call itself), so expected is blockDiff+1
-      const expectedWithViewBlock = calcOperatorFeeAccrual(
-        blockDiff + 1n, // +1 for the view call block
-        packedFee,
-        vUnits,
-      ) * ETH_DEDUCTED_DIGITS;
-
-      // Earnings should be close to expected value.
-      // The view call itself is a read-only static call and doesn't mine a block,
-      // but there may be off-by-one from tx block counting.
-      // Allow a generous margin of a few blocks of earnings per operator.
-      const oneBlockEarnings = packedFee * vUnits / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS;
-      const tolerance = oneBlockEarnings * 5n; // ±5 blocks tolerance
-      const diff = actualEarnings > expectedAccrualWei
-        ? actualEarnings - expectedAccrualWei
-        : expectedAccrualWei - actualEarnings;
-      expect(diff).to.be.lessThanOrEqual(tolerance);
+      expect(actualEarnings).to.equal(expectedAccrualWei);
 
       // Verify cluster balance via views
       const cluster = await getCurrentClusterState(
@@ -1028,6 +1058,14 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
         clusterOwner.address,
         operatorIds,
       );
+      const expectedClusterBurn = calcClusterBurn({
+        blockDiff,
+        numOperators: BigInt(operatorIds.length),
+        ethFee: packedFee,
+        networkFee: packedNetworkFee,
+        effectiveVUnits: vUnits,
+      });
+      const expectedClusterBalance = depositEth - expectedClusterBurn;
       const clusterBalance = await views.getBalance(
         clusterOwner.address,
         operatorIds,
@@ -1036,7 +1074,7 @@ describe("Validator Lifecycle (OV-4 to OV-10)", function () {
 
       // cluster balance should be less than deposit (fees were burned)
       expect(clusterBalance).to.be.lessThan(depositEth);
-      expect(clusterBalance).to.be.greaterThan(0n);
+      expect(clusterBalance).to.equal(expectedClusterBalance);
 
       // Verify conservation: cluster + all operator earnings + network earnings ≈ deposit
       const networkEarnings = await views.getNetworkEarnings();

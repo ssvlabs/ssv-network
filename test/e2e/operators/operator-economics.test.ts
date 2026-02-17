@@ -140,9 +140,11 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
       // Each operator with 1 validator at default fee:
       // effectiveVUnits = 1 * 10_000 = 10_000
       // accrual per block = (packedFee * 10_000) / 10_000 = packedFee = 17_700 (packed)
+      const vUnits = defaultVUnits(1n);
+      const earningsViewBlock = BigInt(await getBlockNumber(provider));
+      const expectedEarnings1 = calcOperatorFeeAccrual(earningsViewBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const earnings1 = await views.getOperatorEarnings(1n);
-      // earnings includes blocks from regBlock to current (100 blocks + the getOperatorEarnings tx block)
-      expect(earnings1).to.be.greaterThan(0n);
+      expect(earnings1).to.equal(expectedEarnings1);
 
       // Partial withdrawal (half)
       const half = (earnings1 / (2n * ETH_DEDUCTED_DIGITS)) * ETH_DEDUCTED_DIGITS;
@@ -151,10 +153,11 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         .withdrawOperatorEarnings(1n, half);
       await expect(partialTx).to.emit(network, "OperatorWithdrawn");
 
-      // Remaining earnings
+      // Remaining earnings = total accrued up to partialBlock minus withdrawn half
+      const partialBlock = BigInt(await getTxBlock(partialTx));
+      const expectedAfterPartial = calcOperatorFeeAccrual(partialBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS - half;
       const earningsAfterPartial = await views.getOperatorEarnings(1n);
-      // Should be > 0 (remaining + newly accrued)
-      expect(earningsAfterPartial).to.be.greaterThan(0n);
+      expect(earningsAfterPartial).to.equal(expectedAfterPartial);
 
       // Full withdrawal
       await mineBlocks(provider, 50);
@@ -310,7 +313,7 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
       ]);
 
       // User A: register 2 validators
-      await fundAndRegisterValidator(
+      const regA1Tx = await fundAndRegisterValidator(
         network,
         provider,
         clusterOwnerA,
@@ -319,6 +322,7 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         ethers.parseEther("10"),
         EMPTY_CLUSTER,
       );
+      const blockA1 = BigInt(await getTxBlock(regA1Tx));
       let clusterA = await getCurrentClusterState(
         connection,
         network,
@@ -330,7 +334,7 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         clusterOwnerA.address,
         "0x" + (ethers.parseEther("10") + 10n ** 18n).toString(16),
       ]);
-      await network
+      const regA2Tx = await network
         .connect(clusterOwnerA)
         .registerValidator(
           makePublicKey(2),
@@ -339,6 +343,7 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
           clusterA,
           { value: ethers.parseEther("5") },
         );
+      const blockA2 = BigInt(await getTxBlock(regA2Tx));
       clusterA = await getCurrentClusterState(
         connection,
         network,
@@ -351,13 +356,14 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         clusterOwnerB.address,
         "0x" + (ethers.parseEther("30") + 10n ** 18n).toString(16),
       ]);
-      await network.connect(clusterOwnerB).bulkRegisterValidator(
+      const regBTx = await network.connect(clusterOwnerB).bulkRegisterValidator(
         [makePublicKey(10), makePublicKey(11), makePublicKey(12)],
         operatorIds,
         [DEFAULT_SHARES, DEFAULT_SHARES, DEFAULT_SHARES],
         EMPTY_CLUSTER,
         { value: ethers.parseEther("20") },
       );
+      const blockB = BigInt(await getTxBlock(regBTx));
 
       // Verify operator 1 has 5 validators total (2 from A + 3 from B)
       const opData = await views.getOperatorById(BigInt(operatorIds[0]));
@@ -367,10 +373,17 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
       await mineBlocks(provider, 100);
 
       // Check earnings: operator with 5 validators
+      // Earnings = accrual(blockA1→blockA2, 1 val) + accrual(blockA2→blockB, 2 vals) + accrual(blockB→now, 5 vals)
+      const viewBlock = BigInt(await getBlockNumber(provider));
+      const expectedEarningsAt100 = (
+        calcOperatorFeeAccrual(blockA2 - blockA1, packedFee, defaultVUnits(1n)) +
+        calcOperatorFeeAccrual(blockB - blockA2, packedFee, defaultVUnits(2n)) +
+        calcOperatorFeeAccrual(viewBlock - blockB, packedFee, defaultVUnits(5n))
+      ) * ETH_DEDUCTED_DIGITS;
       const earningsAt100 = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      expect(earningsAt100).to.be.greaterThan(0n);
+      expect(earningsAt100).to.equal(expectedEarningsAt100);
 
       // User A: remove both validators
       clusterA = await getCurrentClusterState(
@@ -443,7 +456,7 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
       await whitelistAddresses(network, operatorOwner, operatorIds, [
         clusterOwnerA.address,
       ]);
-      await fundAndRegisterValidator(
+      const reg1Tx = await fundAndRegisterValidator(
         network,
         provider,
         clusterOwnerA,
@@ -452,6 +465,7 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         ethers.parseEther("10"),
         EMPTY_CLUSTER,
       );
+      const blockR1 = BigInt(await getTxBlock(reg1Tx));
       let cluster = await getCurrentClusterState(
         connection,
         network,
@@ -463,7 +477,7 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         clusterOwnerA.address,
         "0x" + (ethers.parseEther("10") + 10n ** 18n).toString(16),
       ]);
-      await network
+      const reg2Tx = await network
         .connect(clusterOwnerA)
         .registerValidator(
           makePublicKey(2),
@@ -472,6 +486,7 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
           cluster,
           { value: ethers.parseEther("5") },
         );
+      const blockR2 = BigInt(await getTxBlock(reg2Tx));
 
       // Advance 100 blocks (2 validators accruing)
       await mineBlocks(provider, 100);
@@ -483,9 +498,10 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         clusterOwnerA.address,
         operatorIds,
       );
-      await network
+      const removeVal1Tx = await network
         .connect(clusterOwnerA)
         .removeValidator(makePublicKey(1), operatorIds, cluster);
+      const blockV1 = BigInt(await getTxBlock(removeVal1Tx));
 
       // Verify validatorCount decreased
       const opAfterRemove1 = await views.getOperatorById(
@@ -503,9 +519,10 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         clusterOwnerA.address,
         operatorIds,
       );
-      await network
+      const removeVal2Tx = await network
         .connect(clusterOwnerA)
         .removeValidator(makePublicKey(2), operatorIds, cluster);
+      const blockV2 = BigInt(await getTxBlock(removeVal2Tx));
 
       const opAfterRemove2 = await views.getOperatorById(
         BigInt(operatorIds[0]),
@@ -515,10 +532,18 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
       // Advance 50 more blocks (0 validators, no new earnings)
       await mineBlocks(provider, 50);
 
+      // Compute exact expected earnings across all periods
+      const expectedEarnings = (
+        calcOperatorFeeAccrual(blockR2 - blockR1, packedFee, defaultVUnits(1n)) +
+        calcOperatorFeeAccrual(blockV1 - blockR2, packedFee, defaultVUnits(2n)) +
+        calcOperatorFeeAccrual(blockV2 - blockV1, packedFee, defaultVUnits(1n))
+      ) * ETH_DEDUCTED_DIGITS;
+
       // Check earnings — should not change during 0-validator period
       const earningsBeforeRemoval = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
+      expect(earningsBeforeRemoval).to.equal(expectedEarnings);
       await mineBlocks(provider, 50);
       const earningsAfterMoreBlocks = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
@@ -541,12 +566,12 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         .to.emit(network, "OperatorRemoved")
         .withArgs(BigInt(operatorIds[0]));
 
-      // Verify ETH was transferred
+      // Verify ETH was transferred (0 validators = no extra accrual at removal)
       const ownerBalAfter = await provider.getBalance(
         operatorOwner.address,
       );
       const netTransfer = ownerBalAfter - ownerBalBefore + removeGas;
-      expect(netTransfer).to.be.greaterThan(0n);
+      expect(netTransfer).to.equal(expectedEarnings);
       // The transferred amount should match the earnings
       expect(netTransfer).to.equal(earningsBeforeRemoval);
 
@@ -574,13 +599,14 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
       const provider = connection.ethers.provider;
 
       const fee = MINIMAL_OPERATOR_ETH_FEE;
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
       const operatorIds = await registerOps(network, 4, fee);
 
       // Register validator to generate ETH earnings
       await whitelistAddresses(network, operatorOwner, operatorIds, [
         clusterOwnerA.address,
       ]);
-      await fundAndRegisterValidator(
+      const regTx = await fundAndRegisterValidator(
         network,
         provider,
         clusterOwnerA,
@@ -589,15 +615,19 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
         ethers.parseEther("10"),
         EMPTY_CLUSTER,
       );
+      const regBlock = BigInt(await getTxBlock(regTx));
+      const vUnits = defaultVUnits(1n);
 
       // Advance blocks to accrue ETH earnings
       await mineBlocks(provider, 100);
 
       // Verify ETH earnings exist
+      const ethViewBlock = BigInt(await getBlockNumber(provider));
+      const expectedEthEarnings = calcOperatorFeeAccrual(ethViewBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const ethEarnings = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      expect(ethEarnings).to.be.greaterThan(0n);
+      expect(ethEarnings).to.equal(expectedEthEarnings);
 
       // Withdraw all version earnings
       const ownerBalBefore = await provider.getBalance(
@@ -609,13 +639,15 @@ describe("Operator Economics (OV-13, OV-15 to OV-18)", function () {
       const withdrawReceipt = await withdrawTx.wait();
       const gasUsed =
         withdrawReceipt.gasUsed * withdrawReceipt.gasPrice;
+      const withdrawBlock = BigInt(await getTxBlock(withdrawTx));
 
-      // Verify ETH transferred
+      // Verify ETH transferred (includes 1 extra block of accrual beyond the view)
+      const expectedTransfer = calcOperatorFeeAccrual(withdrawBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const ownerBalAfter = await provider.getBalance(
         operatorOwner.address,
       );
       const netTransfer = ownerBalAfter - ownerBalBefore + gasUsed;
-      expect(netTransfer).to.be.greaterThan(0n);
+      expect(netTransfer).to.equal(expectedTransfer);
 
       // After withdrawal, ETH earnings should be 0 (or minimal from the withdrawal block)
       const earningsAfter = await views.getOperatorEarnings(
