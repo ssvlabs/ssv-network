@@ -14,7 +14,7 @@ type ImplementationAddresses = {
 
 type ImplementationAddressesConfig = Partial<ImplementationAddresses>;
 
-type PrepareUpgradeTestnetDeployments = {
+type PrepareUpgradeNoCssvDeployments = {
   ssvNetworkStakingUpgradeImplementation?: string;
   ssvNetworkViewsImplementation?: string;
   cssvToken?: string;
@@ -26,13 +26,13 @@ type PrepareUpgradeTestnetDeployments = {
   updatedAt?: string;
 };
 
-type PrepareUpgradeTestnetConfig = {
+type PrepareUpgradeNoCssvConfig = {
   ssvNetworkProxy: string;
   cssvToken: string;
   upgradeTimestamp?: string | number;
   modules?: ModuleAddressesConfig;
   implementations?: ImplementationAddressesConfig;
-  deployments?: PrepareUpgradeTestnetDeployments;
+  deployments?: PrepareUpgradeNoCssvDeployments;
 };
 
 function parseArg(argName: string): string {
@@ -92,7 +92,7 @@ async function main() {
   const targetNetwork = parseArg("network");
   const configPath = resolve(parseArg("config"));
   const outputPath = resolveOutputPath(configPath, parseOptionalArg("output-config"));
-  const rpcUrl = parseOptionalArg("rpc-url") ?? process.env.PREPARE_UPGRADE_TESTNET_RPC_URL;
+  const rpcUrl = parseOptionalArg("rpc-url") ?? process.env.PREPARE_UPGRADE_NO_CSSV_RPC_URL;
 
   if (rpcUrl) {
     // Hardhat reads these env vars during network config resolution.
@@ -107,7 +107,7 @@ async function main() {
   const { deployContract, getDeployer, getEthers } = await import("./common/helpers.ts");
 
   const raw = await readFile(configPath, "utf8");
-  const config = JSON.parse(raw) as PrepareUpgradeTestnetConfig;
+  const config = JSON.parse(raw) as PrepareUpgradeNoCssvConfig;
   const ssvNetworkProxy = requireAddress(config.ssvNetworkProxy, "ssvNetworkProxy");
   const cssvToken = requireAddress(config.cssvToken, "cssvToken");
   const upgradeTimestamp = parseUint(config.upgradeTimestamp, "upgradeTimestamp") ?? 0n;
@@ -130,7 +130,7 @@ async function main() {
   console.log(`SSVNetwork proxy: ${ssvNetworkProxy}`);
   console.log(`CSSVToken: ${cssvToken} (from config)`);
   if (rpcUrl) {
-    console.log("RPC URL override: provided via --rpc-url/PREPARE_UPGRADE_TESTNET_RPC_URL");
+    console.log("RPC URL override: provided via --rpc-url/PREPARE_UPGRADE_NO_CSSV_RPC_URL");
   }
 
   console.log(
@@ -175,7 +175,7 @@ async function main() {
 
   const deployBlockNumber = await ethers.provider.getBlockNumber();
 
-  const result: PrepareUpgradeTestnetConfig = {
+  const result: PrepareUpgradeNoCssvConfig = {
     ...config,
     ssvNetworkProxy,
     cssvToken,
@@ -196,7 +196,7 @@ async function main() {
 
   await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
 
-  console.log("Prepare-upgrade-testnet deployment complete");
+  console.log("Prepare-upgrade-no-cssv deployment complete");
   console.log(`Config: ${configPath}`);
   console.log(`Result: ${outputPath}`);
 }

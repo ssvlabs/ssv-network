@@ -117,9 +117,13 @@ prepare-upgrade rpc-url:
     npx hardhat compile --force
     npx tsx scripts/prepare-upgrade.ts --network mainnet --rpc-url "{{rpc-url}}" --config ${PREPARE_UPGRADE_CONFIG_PATH:-deployments/prepare-upgrade.config.json} --output-config ${PREPARE_UPGRADE_RESULT_PATH:-deployments/prepare-upgrade.result.json}
 
-# Prepare testnet upgrade bundle (staking/views implementations + modules, no CSSVToken deploy)
+# Prepare upgrade bundle without CSSVToken deploy (staking/views implementations + modules)
 # Args: rpc-url=<url>
-# Uses PREPARE_UPGRADE_TESTNET_CONFIG_PATH, PREPARE_UPGRADE_TESTNET_RESULT_PATH env vars
-prepare-upgrade-testnet rpc-url:
+# Uses PREPARE_UPGRADE_NO_CSSV_CONFIG_PATH, PREPARE_UPGRADE_NO_CSSV_RESULT_PATH env vars
+prepare-upgrade-no-cssv rpc-url:
     npx hardhat compile --force
-    npx tsx scripts/prepare-upgrade-testnet.ts --network hoodi --rpc-url "{{rpc-url}}" --config ${PREPARE_UPGRADE_TESTNET_CONFIG_PATH:-deployments/prepare-upgrade-testnet.config.json} --output-config ${PREPARE_UPGRADE_TESTNET_RESULT_PATH:-deployments/prepare-upgrade-testnet.result.json}
+    npx tsx scripts/prepare-upgrade-no-cssv.ts --network hoodi --rpc-url "{{rpc-url}}" --config ${PREPARE_UPGRADE_NO_CSSV_CONFIG_PATH:-deployments/prepare-upgrade-no-cssv.config.json} --output-config ${PREPARE_UPGRADE_NO_CSSV_RESULT_PATH:-deployments/prepare-upgrade-no-cssv.result.json}
+
+# Deprecated alias for backwards compatibility
+prepare-upgrade-testnet rpc-url:
+    just prepare-upgrade-no-cssv "{{rpc-url}}"
