@@ -223,4 +223,54 @@ contract SSVValidatorsHarness is SSVValidators {
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
     }
+
+    // ===== Regression test helpers =====
+
+    /// @dev Simulate pre-v2 operator: clear ETH fields, keep SSV fields
+    function mockClearOperatorEthState(uint64 operatorId) external {
+        StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].ethFee = PACKED_ETH_ZERO;
+        s.operators[operatorId].ethSnapshot.block = 0;
+        s.operators[operatorId].ethSnapshot.index = 0;
+        s.operators[operatorId].ethSnapshot.balance = PACKED_ETH_ZERO;
+    }
+
+    /// @dev Simulate removed operator (mirrors SSVClustersHarness.mockRemoveOperator)
+    function mockRemoveOperator(uint64 operatorId) external {
+        StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].snapshot.block = 0;
+        s.operators[operatorId].snapshot.index = 0;
+        s.operators[operatorId].snapshot.balance = PACKED_SSV_ZERO;
+        s.operators[operatorId].ethSnapshot.block = 0;
+        s.operators[operatorId].ethSnapshot.index = 0;
+        s.operators[operatorId].ethSnapshot.balance = PACKED_ETH_ZERO;
+        s.operators[operatorId].validatorCount = 0;
+        s.operators[operatorId].ethValidatorCount = 0;
+    }
+
+    /// @dev Set operator EB deviation for regression tests
+    function mockSetOperatorEthVUnits(uint64 operatorId, uint64 vUnits) external {
+        SSVStorageEB.load().operatorEthVUnits[operatorId] = vUnits;
+    }
+
+    /// @dev Set DAO total EB deviation for regression tests
+    function mockSetDaoTotalEthVUnits(uint64 vUnits) external {
+        SSVStorageProtocol.load().daoTotalEthVUnits = vUnits;
+    }
+
+    /// @dev Get operator SSV snapshot
+    function getOperatorSnapshot(uint64 operatorId) external view returns (uint64 index, uint32 blockNumber, uint64 balance) {
+        ISSVNetworkCore.Snapshot storage snap = SSVStorage.load().operators[operatorId].snapshot;
+        return (snap.index, snap.block, PackedSSV.unwrap(snap.balance));
+    }
+
+    /// @dev Get operator owner
+    function getOperatorOwner(uint64 operatorId) external view returns (address) {
+        return SSVStorage.load().operators[operatorId].owner;
+    }
+
+    /// @dev Get DAO total ETH vUnits
+    function getDaoTotalEthVUnitsValue() external view returns (uint64) {
+        return SSVStorageProtocol.load().daoTotalEthVUnits;
+    }
 }
