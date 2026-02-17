@@ -1,7 +1,8 @@
 # SSV Network v2.0.0 — Mainnet Readiness Checklist
 
 **Generated:** 2026-02-17
-**Sources:** Verified bug report, verified test coverage gap analysis, verified scripts & ops audit
+**Updated:** 2026-02-17 (DIP-X review findings folded in)
+**Sources:** Verified bug report, verified test coverage gap analysis, verified scripts & ops audit, DIP-X vs implementation review reports (ETH Payments, Effective Balance, SSV Staking)
 **Branch:** `ssv-staking` (base for all feature branches)
 
 ---
@@ -16,6 +17,8 @@
 | BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | M |
 | BUG-5 | `_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators | Critical Bug Fix | P1 | S |
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | S |
+| BUG-7 | `DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec | Critical Bug Fix | P1 | S |
+| BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix | P1 | S |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P0 | S |
 | SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | S |
 | SEC-3 | `replaceOracle` doesn't invalidate pending votes | Security Hardening | P1 | M |
@@ -24,6 +27,8 @@
 | SEC-6 | Add `nonReentrant` to `migrateClusterToETH` | Security Hardening | P2 | S |
 | SEC-7 | Add `nonReentrant` to `onCSSVTransfer` | Security Hardening | P2 | S |
 | SEC-8 | `reactivate` not emitting warning for removed operators | Security Hardening | P2 | S |
+| SEC-9 | `operatorMaxFee` function signature differs from DIP-X spec | Security Hardening | P2 | S |
+| SEC-10 | cSSV token lacks governance/voting extensions (ERC20Votes) | Security Hardening | P2 | M |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
 | TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
 | TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |
@@ -57,6 +62,8 @@
 | DEPLOY-2 | Verify `liquidationThresholdPeriod` config vs spec mismatch | Deployment & Scripts | P1 | S |
 | DEPLOY-3 | Verify `ethNetworkFee` rounding in config | Deployment & Scripts | P2 | S |
 | DEPLOY-4 | Remove unused error declarations in `ISSVNetworkCore.sol` | Deployment & Scripts | P2 | S |
+| DEPLOY-5 | Document `operatorMinFee` governance parameter in DIP-X | Deployment & Scripts | P2 | S |
+| DEPLOY-6 | DIP-X unstaking description doesn't match implementation | Deployment & Scripts | P2 | S |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | S |
@@ -255,12 +262,15 @@ In `_liquidateAfterEBUpdateIfNeeded` at `SSVClusters.sol:521-552`, line 543 chec
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
+- **DIP-X Review Source:** SSV Staking review findings DIP-18, DIP-19
 
 **Requirement:**
 When `totalStaked == 0` in `_syncFees`, ETH rewards must not be silently lost. Either accumulate them for the next sync when stakers exist, or redirect them to the DAO.
 
 **Context:**
 `SSVStaking.sol:179-203`: When `totalStaked == 0`, line 196 skips the `accEthPerShare` increment but line 201 still advances `stakingEthPoolBalance`. The fees earned during the zero-staked period are permanently locked in the contract — they can never be distributed to future stakers.
+
+**Additional context from DIP-X review (DIP-19):** The `_syncFees` function also has a related edge case when `current <= previous` (DAO earnings decrease). At `SSVStaking.sol:187-190`, if `current.lte(previous)`, the function silently updates `stakingEthPoolBalance` to the lower value and returns without distributing. This can happen after reward claims reduce `sp.ethDaoBalance`. While `claimEthRewards` reduces both `stakingEthPoolBalance` and `sp.ethDaoBalance` by the same packed amount (so `current == previous` after normal claims), this edge case acts as a safety valve. The fix for BUG-6 should also consider this interaction to ensure no fees are lost in either direction.
 
 **Acceptance Criteria:**
 - [ ] ETH rewards earned while `totalStaked == 0` are not permanently lost
@@ -279,6 +289,83 @@ When `totalStaked == 0` in `_syncFees`, ETH rewards must not be silently lost. E
 - [ ] Sub-task 1: Move pool balance update inside the `totalStaked != 0` check
 - [ ] Sub-task 2: Write unit test for fee accrual during zero-staked period
 - [ ] Sub-task 3: Run full test suite
+
+---
+
+### [BUG-7] `DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+- **DIP-X Review Source:** ETH Payments review findings ETH-7, ETH-14
+
+**Requirement:**
+The `DEFAULT_OPERATOR_ETH_FEE` constant is set to `1,770,000,000` wei (1.77 gwei) but the DIP-X specifies `0.000000001775464912 ETH` (1,775,464,912 wei = 1.775464912 gwei). The DIP value is not packable (not divisible by `ETH_DEDUCTED_DIGITS = 100,000`), so a rounded value must be used. The implementation chose `1,770,000,000` which is further from the spec than necessary. The closest packable value rounding up is `1,775,500,000`.
+
+**Context:**
+`SSVCoreTypes.sol:14`: `DEFAULT_OPERATOR_ETH_FEE = 1770_000_000`. The DIP value `1,775,464,912 % 100,000 = 64,912` (not divisible), so it would revert with `MaxPrecisionExceeded`. The closest valid values are `1,775,400,000` (rounding down) or `1,775,500,000` (rounding up). The current value under-delivers by ~0.31% on the stated fee. Per-block difference: 5,464,912 wei. Annual impact per validator: ~0.0000143 ETH less than DIP target.
+
+**Acceptance Criteria:**
+- [ ] `DEFAULT_OPERATOR_ETH_FEE` updated to `1_775_500_000` (closest packable value rounding up) or team explicitly documents acceptance of the current rounded value
+- [ ] Value is verified to be divisible by `ETH_DEDUCTED_DIGITS` (100,000)
+- [ ] DIP-X document updated to note the rounding constraint if current value is kept
+- [ ] Existing unit tests still pass with updated constant
+
+**Agent Instructions:**
+1. Read `contracts/libraries/SSVCoreTypes.sol`, find the `DEFAULT_OPERATOR_ETH_FEE` constant.
+2. Verify `1_775_500_000 % 100_000 == 0` (it is).
+3. Change `DEFAULT_OPERATOR_ETH_FEE = 1770_000_000` to `DEFAULT_OPERATOR_ETH_FEE = 1_775_500_000`.
+4. Run `npx hardhat compile` to verify compilation.
+5. Run `npm run test:unit` to verify no regressions.
+6. If tests fail due to hardcoded expectations, update test constants to match.
+
+#### Sub-items:
+- [ ] Sub-task 1: Update `DEFAULT_OPERATOR_ETH_FEE` constant or document acceptance of current value
+- [ ] Sub-task 2: Verify packability and run tests
+- [ ] Sub-task 3: Update DIP-X if needed
+
+---
+
+### [BUG-8] Cooldown duration uses `block.timestamp` but DIP specifies blocks
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+- **DIP-X Review Source:** SSV Staking review finding DIP-8
+
+**Requirement:**
+The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" with initial value "50120 (7 days)" and setter `setUnstakeCooldownDuration(uint64 blocks)`. However, the implementation uses `block.timestamp` (seconds-based), not `block.number`. This creates a critical configuration risk: if `cooldownDuration` is initialized to 50120 thinking it's blocks, the actual cooldown would be ~13.9 hours instead of 7 days.
+
+**Context:**
+`SSVStaking.sol:88`: `uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration)`. The `UnstakeRequest` struct field is named `unlockTime` (timestamp-like), and `SSVStaking.sol:232` checks `requests[i].unlockTime <= block.timestamp`. Using `block.timestamp` is actually more reliable for user-facing cooldowns (block times can vary), so the implementation choice is reasonable — but the DIP/spec and the initial value must align. If using seconds, the correct 7-day value is 604,800, not 50,120.
+
+**Acceptance Criteria:**
+- [ ] Either: DIP-X updated to say "in seconds" and initial value changed to `604800` (7 days in seconds)
+- [ ] Or: implementation changed to use `block.number` instead of `block.timestamp` to match DIP
+- [ ] The upgrade initializer sets the correct value for whichever unit is chosen
+- [ ] `setUnstakeCooldownDuration` parameter is documented with correct units
+- [ ] Existing tests verified to use the correct unit
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVStaking.sol`, focus on `requestUnstake` (line 66) and `calculateTotalUnfrozenBalance` (line 226).
+2. Read `contracts/modules/SSVDAO.sol`, focus on `setUnstakeCooldownDuration` (line 245).
+3. Read `contracts/upgrades/stage/hoodi/SSVNetworkSSVStakingUpgrade.sol` for the initial value set during upgrade.
+4. Recommended fix (simpler): Keep `block.timestamp` usage (it's better UX), but:
+   a. Update the DIP-X governance table to say "in seconds" instead of "in blocks"
+   b. Ensure the upgrade initializer sets `cooldownDuration = 604800` (7 days in seconds)
+   c. Update `setUnstakeCooldownDuration` parameter name from `blocks` to `duration` in the interface
+5. Check deployment configs (`hoodi-fork.config.json`) for the cooldown value and verify it matches the chosen unit.
+6. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Decide on units (seconds vs blocks) and align implementation + DIP
+- [ ] Sub-task 2: Verify upgrade initializer sets correct value for chosen unit
+- [ ] Sub-task 3: Update interface parameter name if needed
+- [ ] Sub-task 4: Run full test suite
 
 ---
 
@@ -547,6 +634,80 @@ When a cluster is reactivated and one or more of its operators have been removed
 - [ ] Sub-task 1: Define and emit inactive operator event
 - [ ] Sub-task 2: Write test for reactivation with removed operator event
 - [ ] Sub-task 3: Run full test suite
+
+---
+
+### [SEC-9] `operatorMaxFee` function signature differs from DIP-X spec
+- **Type:** Security Hardening
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+- **DIP-X Review Source:** ETH Payments review finding ETH-13
+
+**Requirement:**
+The DIP-X governance table specifies `updateMaximumOperatorFee(uint64 maxFee)` but the implementation uses `updateMaximumOperatorFee(uint256 maxFee)`. While the `uint256` parameter is more user-friendly (users pass the full wei value, packing handles conversion), the DIP and implementation should be aligned.
+
+**Context:**
+`SSVDAO.sol:138`: `function updateMaximumOperatorFee(uint256 maxFee)`. The `uint256` value is packed into `PackedETH` (uint64) internally via `PackedETHLib.pack(maxFee)`. This is a cosmetic interface difference, not a functional issue. The `uint256` parameter prevents users from needing to pre-pack their values. However, ABIs and documentation should be consistent.
+
+**Acceptance Criteria:**
+- [ ] Either: DIP-X updated to document `uint256` parameter type (recommended — matches implementation's user-friendly design)
+- [ ] Or: implementation changed to `uint64` to match DIP (not recommended — less user-friendly)
+- [ ] ABI documentation updated to match
+
+**Agent Instructions:**
+1. This is primarily a documentation alignment task.
+2. Read `contracts/modules/SSVDAO.sol`, focus on `updateMaximumOperatorFee` (line 138).
+3. Read `contracts/interfaces/ISSVDAO.sol` for the interface declaration.
+4. Update the DIP-X governance table to specify `uint256` instead of `uint64`.
+5. No code change needed if DIP is updated.
+
+#### Sub-items:
+- [ ] Sub-task 1: Align DIP-X and implementation on parameter type
+- [ ] Sub-task 2: Update ABI documentation
+
+---
+
+### [SEC-10] cSSV token lacks governance/voting extensions (ERC20Votes)
+- **Type:** Security Hardening
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+- **DIP-X Review Source:** SSV Staking review finding DIP-10
+
+**Requirement:**
+The DIP-X states: "Staked SSV, represented by cSSV, retains full governance and voting power. Holding cSSV does not reduce a user's ability to participate in DAO governance compared to holding unstaked SSV." However, `CSSVToken.sol` is a plain `ERC20` with no `ERC20Votes` or delegation mechanism. Whether governance rights are preserved depends entirely on off-chain configuration (e.g., Snapshot strategy).
+
+**Context:**
+`CSSVToken.sol:10`: `contract CSSVToken is ERC20`. No `ERC20Votes`, no `ERC20VotesComp`, no delegation mechanism. The SSV DAO uses Snapshot (off-chain governance), which can be configured to count cSSV balances. If the Snapshot strategy includes cSSV, the DIP claim holds. If on-chain governance is ever needed, cSSV holders would lose voting power compared to SSV holders.
+
+**Acceptance Criteria:**
+- [ ] Decision documented: is off-chain governance (Snapshot) the permanent governance mechanism?
+- [ ] If yes: verify the Snapshot strategy is updated to include cSSV balances before mainnet launch
+- [ ] If on-chain governance is planned: add `ERC20Votes` extension to `CSSVToken`
+- [ ] DIP-X updated to clarify governance mechanism (on-chain vs off-chain)
+
+**Agent Instructions:**
+1. Read `contracts/token/CSSVToken.sol` fully.
+2. This is primarily a governance/product decision, not a pure code fix.
+3. If the team confirms Snapshot is the permanent mechanism:
+   a. Ensure the Snapshot space strategy counts cSSV
+   b. Document this in the DIP and deployment runbook
+4. If on-chain governance is needed:
+   a. Add `ERC20Votes` to `CSSVToken` inheritance
+   b. Override `_afterTokenTransfer` (or `_update` in OZ v5) to call `_transferVotingUnits`
+   c. Add `clock()` and `CLOCK_MODE()` overrides
+   d. This requires careful upgrade planning since `CSSVToken` is not upgradeable
+5. Flag this for team decision before proceeding.
+
+#### Sub-items:
+- [ ] Sub-task 1: Get team decision on governance mechanism
+- [ ] Sub-task 2: Implement chosen approach (Snapshot config update or ERC20Votes addition)
+- [ ] Sub-task 3: Update DIP-X governance section
 
 ---
 
@@ -1572,12 +1733,15 @@ Resolve the mismatch between `liquidationThresholdPeriod` in `hoodi-fork.config.
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
+- **DIP-X Review Source:** ETH Payments review finding ETH-10
 
 **Requirement:**
 Verify whether the rounding of `ethNetworkFee` (config: 3,550,900,000 vs spec: 3,550,929,823) is acceptable or needs correction.
 
 **Context:**
 The config rounds to 3,550,900,000 while the spec says 3,550,929,823. The difference is ~30k wei, which over millions of blocks could accumulate to meaningful amounts.
+
+**Additional context from DIP-X review (ETH-10):** The DIP-specified value `3,550,929,823 % 100,000 = 29,823` — it is NOT divisible by `ETH_DEDUCTED_DIGITS (100,000)`, so the exact DIP value cannot be stored in `PackedETH`. The closest packable values are `3,550,900,000` (rounding down) or `3,551,000,000` (rounding up). The DIP should be updated to note this packing constraint. The initial value is set at deployment/upgrade time (not hardcoded), so the contract itself has no validation that a specific initial value is used — this is a governance responsibility.
 
 **Acceptance Criteria:**
 - [ ] Decision documented: acceptable rounding or needs exact value
@@ -1623,6 +1787,71 @@ Remove unused error declarations `NotAuthorized()` and `InvalidContractAddress()
 - [ ] Sub-task 1: Verify errors are unused
 - [ ] Sub-task 2: Remove declarations
 - [ ] Sub-task 3: Verify compilation
+
+---
+
+### [DEPLOY-5] Document `operatorMinFee` governance parameter in DIP-X
+- **Type:** Deployment & Scripts
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+- **DIP-X Review Source:** ETH Payments review finding ETH-20
+
+**Requirement:**
+The DIP-X governance table leaves the `operatorMinFee` update function and initial value cells blank/empty. The implementation provides `updateMinimumOperatorEthFee(uint256 minFee)` as a fully-functional governance parameter (`SSVDAO.sol:147-150`), used for validation during operator registration and fee changes. The DIP should document this parameter completely.
+
+**Context:**
+`SSVDAO.sol:147`: `function updateMinimumOperatorEthFee(uint256 minFee)`. Used in: `SSVOperators.registerOperator()` line 38, `declareOperatorFee()` line 106, `reduceOperatorFee()` line 187. The parameter exists and is enforced but the DIP specification does not document its update function or initial value.
+
+**Acceptance Criteria:**
+- [ ] DIP-X governance table updated with: update function = `updateMinimumOperatorEthFee(uint256 minFee)`, initial value = (team to specify)
+- [ ] Deployment config (`hoodi-fork.config.json`) verified to include a reasonable initial value
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVDAO.sol`, focus on `updateMinimumOperatorEthFee` (line 147).
+2. Read `deployments/hoodi-fork.config.json` for current config value.
+3. Update the DIP-X governance table to document the update function and initial value.
+4. This is a documentation task — no code change needed.
+
+#### Sub-items:
+- [ ] Sub-task 1: Document `operatorMinFee` in DIP-X governance table
+- [ ] Sub-task 2: Verify deployment config includes the parameter
+
+---
+
+### [DEPLOY-6] DIP-X unstaking description doesn't match implementation
+- **Type:** Deployment & Scripts
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+- **DIP-X Review Source:** SSV Staking review finding DIP-7
+
+**Requirement:**
+The DIP-X describes unstaking as "lock cSSV → wait → burn cSSV + return SSV", but the implementation does "burn cSSV + create withdrawal request → wait → return SSV". The economic effect is identical but the mechanism and user experience differ (users see cSSV balance decrease immediately on `requestUnstake`, not at `withdrawUnlocked`). The DIP should be updated to match the implementation.
+
+**Context:**
+`SSVStaking.sol:66-94` (`requestUnstake`): Burns cSSV immediately at line 91 via `ICSSVToken(CSSV_ADDRESS).burn(msg.sender, amount)`, then creates `UnstakeRequest{amount, unlockTime}` at line 89. The DIP says the request "locks the specified amount of cSSV" and that "The locked cSSV is burned" at finalization. The implementation is arguably better (simpler, no locked-cSSV tracking mechanism needed).
+
+**Acceptance Criteria:**
+- [ ] DIP-X unstaking section updated to describe the actual burn-first mechanism
+- [ ] User-facing documentation (SDK docs, webapp) reflects the correct behavior
+- [ ] No code change needed — the implementation is correct and simpler
+
+**Agent Instructions:**
+1. This is purely a documentation task.
+2. Read `contracts/modules/SSVStaking.sol`, focus on `requestUnstake` (line 66) and `withdrawUnlocked` (line 99) to confirm the actual flow.
+3. Update the DIP-X section on unstaking to describe:
+   - Step 1: `requestUnstake(amount)` — burns cSSV immediately, creates withdrawal request with unlock time
+   - Step 2: `withdrawUnlocked()` — after cooldown, returns SSV 1:1
+4. Note that rewards stop accruing immediately because cSSV is burned (reducing the user's share of `totalSupply`).
+
+#### Sub-items:
+- [ ] Sub-task 1: Update DIP-X unstaking section
+- [ ] Sub-task 2: Verify user-facing documentation
 
 ---
 
@@ -1731,3 +1960,56 @@ Update `.env.example` with v2.0.0 parameter names and values.
 - [ ] Sub-task 1: Update existing params
 - [ ] Sub-task 2: Add ETH-specific params
 - [ ] Sub-task 3: Add inline comments
+
+---
+
+## Changes from DIP-X Review
+
+**Date:** 2026-02-17
+**Sources:** `ssv-review/planning/verified/dip-review-eth-payments.md`, `ssv-review/planning/verified/dip-review-effective-balance.md`, `ssv-review/planning/verified/dip-review-ssv-staking.md`
+
+### New Items Added (6)
+
+| ID | Title | Source Finding | Rationale |
+|----|-------|---------------|-----------|
+| BUG-7 | `DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec | ETH-7, ETH-14 | Implementation uses 1,770,000,000 wei but closest packable value to DIP spec is 1,775,500,000 wei (~0.31% deviation) |
+| BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | DIP-8 | HIGH risk: if initial value set as 50120 (blocks), actual cooldown would be ~13.9 hours instead of 7 days |
+| SEC-9 | `operatorMaxFee` function signature differs from DIP-X spec | ETH-13 | DIP says `uint64`, implementation uses `uint256`; cosmetic but should be aligned |
+| SEC-10 | cSSV token lacks governance/voting extensions | DIP-10 | DIP claims cSSV retains governance power, but `CSSVToken` has no `ERC20Votes`; depends on off-chain Snapshot config |
+| DEPLOY-5 | Document `operatorMinFee` governance parameter in DIP-X | ETH-20 | DIP leaves update function and initial value blank; implementation has `updateMinimumOperatorEthFee(uint256)` |
+| DEPLOY-6 | DIP-X unstaking description doesn't match implementation | DIP-7 | DIP says "lock cSSV → burn later"; code does "burn immediately → return SSV later"; same economics, different UX |
+
+### Existing Items Updated (2)
+
+| ID | Change | Source Finding |
+|----|--------|---------------|
+| BUG-6 | Added DIP-X review source tag; added context about `_syncFees` behavior when DAO earnings decrease (`current <= previous` edge case) | DIP-18, DIP-19 |
+| DEPLOY-3 | Added DIP-X review source tag; added context explaining why DIP value is not packable (`3,550,929,823 % 100,000 = 29,823`) and noting this is a governance responsibility | ETH-10 |
+
+### DIP-X Findings Already Covered by Existing Items (4)
+
+| DIP Finding | Already Covered By | Notes |
+|---|---|---|
+| EB-OBS-1 (auto-liquidation operator decrement condition) | BUG-5 | Same issue: `_liquidateAfterEBUpdateIfNeeded` condition `op.ethSnapshot.block != 0 && op.snapshot.block != 0` is too strict vs `updateClusterOperators` which only checks `ethSnapshot.block != 0` |
+| ETH-19 (migrateClusterToETH lacks nonReentrant) | SEC-6 | Exact same recommendation |
+| DIP-18 (zero totalStaked fee loss) | BUG-6 | Exact same issue and recommended fix |
+| DIP-23/DIP-24 (no bounds on cooldown/quorum) | SEC-4, SEC-1 | Already covered with same recommendations |
+
+### DIP-X Findings Not Requiring Action (informational only)
+
+| DIP Finding | Verdict | Reason No Action Needed |
+|---|---|---|
+| ETH-1 through ETH-6 | MATCH | Implementation matches DIP specification |
+| ETH-8, ETH-9, ETH-11, ETH-12 | MATCH | Implementation matches DIP specification |
+| ETH-15, ETH-16, ETH-21, ETH-22 | MATCH | Implementation matches DIP specification |
+| ETH-17, ETH-18, ETH-23 | EXTRA | Implementation adds beneficial features beyond DIP |
+| ETH-24 | MATCH | Liquidation check correctly uses vUnit model |
+| ETH-25 (no SSV cluster withdrawal) | GAP (minor) | More restrictive than DIP but aligns with migration intent; users can migrate or self-liquidate to recover SSV |
+| EB-01 through EB-25 (excl. OBS-1) | MATCH | All core EB accounting claims implemented correctly |
+| DIP-1, DIP-2, DIP-4–6 | MATCH | Staking core mechanics implemented correctly |
+| DIP-3 (auto-delegation) | PARTIAL | By-design for initial phase; future per-user delegation requires upgrade |
+| DIP-9 (min staking amount) | GAP | Implementation adds reasonable dust-prevention constraint not in DIP |
+| DIP-11–13, DIP-15–17 | MATCH | Oracle and reward mechanics correct |
+| DIP-14 (uint128 overflow) | PARTIAL | Theoretically possible but practically impossible for realistic scenarios |
+| DIP-20 (flash-loan prevention) | MATCH | Not vulnerable in current permissioned oracle model |
+| DIP-25–28 | MATCH | Revenue source, views, ordering, minting ratio all correct |
