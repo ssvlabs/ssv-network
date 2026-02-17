@@ -128,7 +128,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         0,
         connection.ethers.ZeroAddress,
         true,
-        true
+        false
       ]);
     });
 
