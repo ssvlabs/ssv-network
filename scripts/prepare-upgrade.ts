@@ -8,7 +8,6 @@ type ModuleAddresses = Record<ModuleName, string>;
 type ModuleAddressesConfig = Partial<Record<ModuleName, string>>;
 
 type ImplementationAddresses = {
-  ssvNetworkImplementation: string;
   ssvNetworkStakingUpgradeImplementation: string;
   ssvNetworkViewsImplementation: string;
 };
@@ -16,7 +15,6 @@ type ImplementationAddresses = {
 type ImplementationAddressesConfig = Partial<ImplementationAddresses>;
 
 type PrepareUpgradeDeployments = {
-  ssvNetworkImplementation?: string;
   ssvNetworkStakingUpgradeImplementation?: string;
   ssvNetworkViewsImplementation?: string;
   cssvToken?: string;
@@ -129,8 +127,9 @@ async function main() {
     console.log("RPC URL override: provided via --rpc-url/PREPARE_UPGRADE_RPC_URL");
   }
 
-  console.log("[1/3] Deploying upgrade implementations (SSVNetwork, staking upgrade, SSVNetworkViews)");
-  const { address: networkImplAddr } = await deployContract(ethers, "SSVNetwork", [], deployer);
+  console.log(
+    "[1/3] Deploying upgrade implementations (SSVNetworkSSVStakingUpgrade, SSVNetworkViews)"
+  );
   const { address: stakingUpgradeImplAddr } = await deployContract(
     ethers,
     "SSVNetworkSSVStakingUpgrade",

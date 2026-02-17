@@ -29,9 +29,9 @@
       "SSVValidators": "0xF988C7917b6fd16c4e3D2C0d22b1fdA537488646"
     },
     "targetNetwork": "mainnet",
-    "deployBlockNumber": 2252354,
+    "deployBlockNumber": 2252386,
     "chainId": "560048",
     "deployer": "0xC564AF154621Ee8D0589758d535511aEc8f67b40",
-    "updatedAt": "2026-02-17T09:19:28.704Z"
+    "updatedAt": "2026-02-17T09:27:25.452Z"
   }
 }

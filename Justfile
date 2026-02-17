@@ -110,7 +110,7 @@ deploy-mainnet:
     npx hardhat compile --force
     npx tsx scripts/deploy-mainnet.ts --network mainnet --config ${MAINNET_DEPLOY_CONFIG_PATH:-deployments/mainnet-upgrade.config.json} --output-config ${MAINNET_DEPLOY_RESULT_PATH:-deployments/mainnet-upgrade.result.json}
 
-# Prepare upgrade deployment bundle (implementations + modules + CSSVToken)
+# Prepare upgrade deployment bundle (staking/views implementations + modules + CSSVToken)
 # Args: rpc-url=<url>
 # Uses PREPARE_UPGRADE_CONFIG_PATH, PREPARE_UPGRADE_RESULT_PATH env vars
 prepare-upgrade rpc-url:
