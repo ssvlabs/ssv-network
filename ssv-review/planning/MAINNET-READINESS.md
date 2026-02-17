@@ -25,17 +25,17 @@
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
 | SEC-4 | ~~`setUnstakeCooldownDuration` allows zero cooldown~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only, no accounting risk) |
 | SEC-5 | ~~`totalStaked` changes between oracle votes (front-running)~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (impractical) |
-| SEC-6 | Add `nonReentrant` to `migrateClusterToETH` | Security Hardening | P2 | S |
-| SEC-7 | Add `nonReentrant` to `onCSSVTransfer` | Security Hardening | P2 | S |
+| SEC-6 | ~~Add `nonReentrant` to `migrateClusterToETH`~~ | Security Hardening | P2 | ✅ Closed (no callback risk) |
+| SEC-7 | ~~Add `nonReentrant` to `onCSSVTransfer`~~ | Security Hardening | P2 | ✅ Closed (trusted cSSV contract) |
 | SEC-8 | `reactivate` not emitting warning for removed operators | Security Hardening | P2 | S |
-| SEC-9 | `operatorMaxFee` function signature differs from DIP-X spec | Security Hardening | P2 | S |
-| SEC-10 | cSSV token lacks governance/voting extensions (ERC20Votes) | Security Hardening | P2 | M |
+| SEC-9 | ~~`operatorMaxFee` function signature differs from DIP-X spec~~ | Security Hardening | P2 | ✅ Closed (by design, PR #390) |
+| SEC-10 | ~~cSSV token lacks governance/voting extensions (ERC20Votes)~~ | Security Hardening | P2 | ✅ Closed (Snapshot-based governance, same as SSV) |
 | SEC-11 | ~~`hasDeviation` reactivation optimization uses global counter for per-operator decision~~ | Security Hardening | ~~P1~~ P3 | ✅ Closed (BUG-4 fix resolves root cause) |
 | SEC-12 | `deposit()` accepts deposits to liquidated ETH clusters without fee settlement | Security Hardening | P2 | S |
 | SEC-13 | `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals | Security Hardening | P2 | S |
-| SEC-14 | `commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot | Security Hardening | P2 | S |
-| SEC-15 | Min/max operator fee can be set to contradictory values | Security Hardening | P2 | S |
-| SEC-16 | Missing zero-value/zero-address guards on deposit and withdraw | Security Hardening | P2 | S |
+| SEC-14 | ~~`commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot~~ | Security Hardening | P2 | ✅ Closed (coordinated oracles) |
+| SEC-15 | ~~Min/max operator fee can be set to contradictory values~~ | Security Hardening | P2 | ✅ Closed (owner-only setters) |
+| SEC-16 | ~~Missing zero-value/zero-address guards on deposit and withdraw~~ | Security Hardening | P2 | ✅ Closed |
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
 | TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
@@ -74,15 +74,15 @@
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
 | DEPLOY-1 | Fix `deploy-all.ts` broken signature and constructor args | Deployment & Scripts | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
 | DEPLOY-2 | Verify `liquidationThresholdPeriod` config vs spec mismatch | Deployment & Scripts | P1 | S |
-| DEPLOY-3 | Verify `ethNetworkFee` rounding in config | Deployment & Scripts | P2 | S |
-| DEPLOY-4 | Remove unused error declarations in `ISSVNetworkCore.sol` | Deployment & Scripts | P2 | S |
-| DEPLOY-5 | Document `operatorMinFee` governance parameter in DIP-X | Deployment & Scripts | P2 | S |
-| DEPLOY-6 | DIP-X unstaking description doesn't match implementation | Deployment & Scripts | P2 | S |
+| DEPLOY-3 | ~~Verify `ethNetworkFee` rounding in config~~ | Deployment & Scripts | P2 | ✅ Closed (negligible) |
+| DEPLOY-4 | Remove unused error declarations in `ISSVNetworkCore.sol` | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate |
+| DEPLOY-5 | Document `operatorMinFee` governance parameter in DIP-X | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate (spec doc) |
+| DEPLOY-6 | DIP-X unstaking description doesn't match implementation | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate (spec doc) |
 | DEPLOY-7 | Deploy scripts import from test files | Deployment & Scripts | P2 | S |
 | QUALITY-1 | `operatorFeeChangeRequests` not cleared on operator removal | Code Quality | P2 | S |
-| QUALITY-2 | Redundant `SSVStorage.load()` calls in view function loops | Code Quality | P2 | S |
+| QUALITY-2 | Redundant `SSVStorage.load()` calls in view function loops | Code Quality | P2 | 🧹 Cleanup PR candidate |
 | QUALITY-3 | `withdraw` in SSVClusters duplicates operator loop inline | Code Quality | P2 | S |
-| QUALITY-4 | `_resetOperatorState` returns unused `Operator memory` | Code Quality | P3 | S |
+| QUALITY-4 | ~~`_resetOperatorState` returns unused `Operator memory`~~ | Code Quality | P3 | ✅ Closed (cosmetic) |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | S |
