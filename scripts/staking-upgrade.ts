@@ -20,6 +20,7 @@ async function main() {
 
   const cooldown = DEFAULT_UNSTAKE_COOLDOWN;
   const defaultOracles = [1,2,3,4];
+  const quorumBps = 7500;
 
   await upgradeProxy(
     ethers,
@@ -27,8 +28,8 @@ async function main() {
     networkProxyAddr,
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
-    "initializeSSVStaking(uint64,uint32[4])",
-    [cooldown, defaultOracles]
+    "initializeSSVStaking(uint64,uint32[4],uint16)",
+    [cooldown, defaultOracles, quorumBps]
   );
 }
 

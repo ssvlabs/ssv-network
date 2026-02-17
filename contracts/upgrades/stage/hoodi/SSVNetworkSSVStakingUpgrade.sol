@@ -7,14 +7,19 @@ import {MAX_DELEGATION_SLOTS} from "../../../libraries/storage/SSVStorageStaking
 contract SSVNetworkSSVStakingUpgrade is SSVNetwork {
     function initializeSSVStaking(
         uint64 cooldownDuration,
-        uint32[MAX_DELEGATION_SLOTS] memory defaultOracleIds
+        uint32[MAX_DELEGATION_SLOTS] memory defaultOracleIds,
+        uint16 quorumBps
     ) external onlyOwner reinitializer(3) {
+        if (quorumBps == 0 || quorumBps > 10_000) revert InvalidQuorum();
+
         // save staking storage updates
         StorageStaking storage s = SSVStorageStaking.load();
         s.cooldownDuration = cooldownDuration;
         s.defaultOracleIds = defaultOracleIds;
+        s.quorumBps = quorumBps;
 
         emit CooldownDurationUpdated(cooldownDuration);
+        emit QuorumUpdated(quorumBps);
         emit SSVNetworkUpgradeBlock("v2.0.0", block.number);
     }
 }

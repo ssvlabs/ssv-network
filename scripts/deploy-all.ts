@@ -105,8 +105,8 @@ async function main() {
     networkProxyAddr,
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
-    "initializeSSVStaking(address,uint64)",
-    [cssvTokenAddr, cooldown]
+    "initializeSSVStaking(uint64,uint32[4],uint16)",
+    [cooldown, defaultOracleIds, quorumBps]
   );
 }
 
