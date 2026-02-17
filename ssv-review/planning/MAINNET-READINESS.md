@@ -24,7 +24,7 @@
 | SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
 | SEC-4 | ~~`setUnstakeCooldownDuration` allows zero cooldown~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only, no accounting risk) |
-| SEC-5 | `totalStaked` changes between oracle votes (front-running) | Security Hardening | P1 | L |
+| SEC-5 | ~~`totalStaked` changes between oracle votes (front-running)~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (impractical) |
 | SEC-6 | Add `nonReentrant` to `migrateClusterToETH` | Security Hardening | P2 | S |
 | SEC-7 | Add `nonReentrant` to `onCSSVTransfer` | Security Hardening | P2 | S |
 | SEC-8 | `reactivate` not emitting warning for removed operators | Security Hardening | P2 | S |
@@ -560,10 +560,12 @@ Set `quorumBps` during the upgrade initializer (`reinitializer(3)`) to prevent a
 
 ---
 
-### [SEC-5] `totalStaked` changes between oracle votes (front-running risk)
+### [SEC-5] ~~`totalStaked` changes between oracle votes (front-running risk)~~
 - **Type:** Security Hardening
-- **Priority:** P1
-- **Status:** Open
+- **Priority:** ~~P1~~ P2 (downgraded)
+- **Status:** ✅ Mitigated (impractical)
+
+**Resolution:** Oracles vote 3 times per day across separate blocks. To block quorum, an attacker would need to stake exponentially increasing amounts of SSV between each vote (e.g., 9K → 90K → 900K). This is economically impractical — the attacker's SSV is locked in cooldown, and the capital requirement grows exponentially per blocked commitment. Even if one commitment is blocked, oracles simply propose a new one. Pure liveness attack with no safety impact (can't force bad roots).
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
