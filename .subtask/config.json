@@ -1,7 +1,0 @@
-{
-  "harness": "claude",
-  "max_workspaces": 20,
-  "options": {
-    "model": "opus"
-  }
-}

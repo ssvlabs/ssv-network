@@ -25,6 +25,9 @@ out/
 gas-report.json
 crytic-export/combined_solc.json
 
+# subtask working files
+.subtask/
+
 # ssv-review — keep only mainnet-readiness docs and DIP-X on remote
 ssv-review/*
 !ssv-review/Internal - [DIP-X] SSV Staking.txt
