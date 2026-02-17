@@ -5,6 +5,9 @@ import "../../../SSVNetwork.sol";
 import {MAX_DELEGATION_SLOTS} from "../../../libraries/storage/SSVStorageStaking.sol";
 
 contract SSVNetworkSSVStakingUpgrade is SSVNetwork {
+    /// @notice One-time initializer for the SSV Staking upgrade
+    /// @param cooldownDuration Unstake cooldown duration in seconds (e.g. 604800 for 7 days)
+    /// @param defaultOracleIds Default oracle IDs for new delegations
     function initializeSSVStaking(
         uint64 cooldownDuration,
         uint32[MAX_DELEGATION_SLOTS] memory defaultOracleIds

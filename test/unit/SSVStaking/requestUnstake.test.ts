@@ -187,6 +187,27 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     expect(cssvBalance).to.equal(STAKE_AMOUNT - firstAmount - secondAmount);
   });
 
+  it("Uses block.timestamp (seconds) for unlockTime, not block.number (BUG-8 regression)", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeFirst);
+
+    const unstakeAmount = STAKE_AMOUNT / 2n;
+    const receipt = await trackGas(
+      staking.requestUnstake(unstakeAmount),
+      [GasGroup.REQUEST_UNSTAKE]
+    );
+
+    const block = await connection.ethers.provider.getBlock(receipt.blockNumber);
+    const [, unlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
+
+    // unlockTime must equal block.timestamp + cooldown (seconds-based)
+    const expectedFromTimestamp = BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+    expect(unlockTime).to.equal(expectedFromTimestamp);
+
+    // unlockTime must NOT equal block.number + cooldown (blocks-based)
+    const incorrectFromBlockNumber = BigInt(block!.number) + DEFAULT_UNSTAKE_COOLDOWN;
+    expect(unlockTime).to.not.equal(incorrectFromBlockNumber);
+  });
+
   it("Settles pending rewards before unstaking when fees have accrued", async function () {
     const { staking, cssvToken } = await networkHelpers.loadFixture(stakeFirst);
 
