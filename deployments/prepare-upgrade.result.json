@@ -9,7 +9,7 @@
     "SSVViews": "0x4032213C5B7D84FeC5F890F98C545A894398aF25",
     "SSVOperatorsWhitelist": "0xa63ff97f678C63C0d04bd17cB15A61dEDAfC0D59",
     "SSVStaking": "0x918af28EfECD1e7126058422D4055657a743561C",
-    "SSVValidators": "0x462CBb19b2eD1E64A63Cb2c2066d2F663264d57E"
+    "SSVValidators": "0x595C6686684933130f913d75EbF58c4929aF1C68"
   },
   "implementations": {
     "ssvNetworkStakingUpgradeImplementation": "0xc65aD29e55a4DAc2d855980FF8784c0926b8BE70",
