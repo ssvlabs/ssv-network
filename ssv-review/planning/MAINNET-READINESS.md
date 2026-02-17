@@ -11,7 +11,7 @@
 
 | ID | Task | Type | Priority | Effort |
 |----|------|------|----------|--------|
-| BUG-1 | `ensureETHDefaults` overwritten by stale memory copy | Critical Bug Fix | P0 | M |
+| BUG-1 | ~~`ensureETHDefaults` overwritten by stale memory copy~~ | Critical Bug Fix | P0 | ✅ Fixed |
 | BUG-2 | `_resetOperatorState` doesn't clear `operator.owner` | Critical Bug Fix | P0 | S |
 | BUG-3 | `ensureETHDefaults` resurrects removed operators | Critical Bug Fix | P0 | M |
 | BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | M |
@@ -79,9 +79,9 @@
 ### [BUG-1] `ensureETHDefaults` overwritten by stale memory copy
 - **Type:** Critical Bug Fix
 - **Priority:** P0
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** Fixed (verified on `ssv-staking`)
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -90,11 +90,14 @@ Fix `updateClusterOperatorsOnRegistration` so that the memory copy of an operato
 **Context:**
 In `OperatorLib.sol:185`, the operator is loaded into memory. At line 201, `ensureETHDefaults` correctly writes to storage. But at line 239, `s.operators[operatorId] = operator` overwrites storage with the stale memory copy where `ethFee == 0` and `ethSnapshot.block == 0`. For pre-v2 operators that never had ETH fields initialized, this means they silently get zero ETH fees and cluster liquidation thresholds use an incorrect burn rate. This is the highest-severity bug in the codebase.
 
+**Resolution:**
+Code refactored on `ssv-staking` — the function now uses a storage reference (`operatorSt`), calls `ensureOperatorExist` and `ensureETHDefaults` on it, and only then copies to memory. See `OperatorLib.sol:197-201`.
+
 **Acceptance Criteria:**
-- [ ] Operator loaded into memory AFTER `ensureETHDefaults` is called, or `ensureETHDefaults` is called on the memory copy and then written back
-- [ ] Pre-v2 operators get correct `ethFee` (default ETH fee) after first validator registration
-- [ ] Pre-v2 operators get correct `ethSnapshot.block` (current block) after first registration
-- [ ] `cumulativeFee` accumulates correctly (not zero) for clusters with pre-v2 operators
+- [x] Operator loaded into memory AFTER `ensureETHDefaults` is called, or `ensureETHDefaults` is called on the memory copy and then written back
+- [x] Pre-v2 operators get correct `ethFee` (default ETH fee) after first validator registration
+- [x] Pre-v2 operators get correct `ethSnapshot.block` (current block) after first registration
+- [x] `cumulativeFee` accumulates correctly (not zero) for clusters with pre-v2 operators
 - [ ] Existing unit tests still pass
 - [ ] New unit test covers registering a validator with a pre-v2 operator and verifying `ethFee != 0`
 
