@@ -36,6 +36,7 @@
 | SEC-14 | `commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot | Security Hardening | P2 | S |
 | SEC-15 | Min/max operator fee can be set to contradictory values | Security Hardening | P2 | S |
 | SEC-16 | Missing zero-value/zero-address guards on deposit and withdraw | Security Hardening | P2 | S |
+| SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
 | TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
 | TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |
@@ -956,6 +957,77 @@ These allow gas-wasting no-op transactions that emit misleading events with zero
 - [ ] Sub-task 1: Add zero-value guards to deposit and withdraw
 - [ ] Sub-task 2: Add tests for zero-value reverts
 - [ ] Sub-task 3: Run full test suite
+
+---
+
+### [SEC-17] DAO governance functions lack input guardrails (min/max/non-zero)
+- **Type:** Security Hardening
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add input validation guardrails (non-zero, min/max bounds) to all DAO-governed setter functions in `SSVDAO.sol`. Currently most functions accept any value including `0`, which can be harmful to the protocol. While the DAO multisig (5/7) mitigates the risk of accidental misconfiguration, defense-in-depth requires on-chain guardrails.
+
+**⚠️ Action required:** Consult Product/governance team to define the concrete min/max bounds for each parameter before implementation. The table below uses `TBD` placeholders.
+
+**Context:**
+`SSVDAO.sol` contains 12 setter functions. Only 2 have any input validation today:
+- `updateLiquidationThresholdPeriod` / `updateLiquidationThresholdPeriodSSV`: enforce `>= MINIMAL_LIQUIDATION_THRESHOLD` (21,480 blocks)
+- `setQuorumBps`: enforces `<= BPS_DENOMINATOR` (10,000) — but allows 0 (see SEC-1)
+
+All other setters accept any value, including 0 and extreme values that could break protocol invariants.
+
+**Affected functions and proposed guardrails:**
+
+| # | Function | Parameter | Current guard | Proposed guardrail | Risk if unguarded |
+|---|---|---|---|---|---|
+| 1 | `updateNetworkFee` | `fee` (wei/block) | None | `fee <= TBD_MAX_NETWORK_FEE` | Extreme fee drains all clusters rapidly |
+| 2 | `updateNetworkFeeSSV` | `fee` (SSV/block) | None | `fee <= TBD_MAX_NETWORK_FEE_SSV` | Same as above for SSV clusters |
+| 3 | `updateOperatorFeeIncreaseLimit` | `percentage` | None | `percentage > 0 && percentage <= TBD_MAX_INCREASE_LIMIT` | `0` blocks all operator fee increases forever; extreme value allows unlimited fee jumps |
+| 4 | `updateDeclareOperatorFeePeriod` | `timeInSeconds` | None | `timeInSeconds >= TBD_MIN_DECLARE_PERIOD && timeInSeconds <= TBD_MAX_DECLARE_PERIOD` | `0` allows instant fee declarations (no review window); extreme value blocks fee changes |
+| 5 | `updateExecuteOperatorFeePeriod` | `timeInSeconds` | None | `timeInSeconds >= TBD_MIN_EXECUTE_PERIOD && timeInSeconds <= TBD_MAX_EXECUTE_PERIOD` | `0` allows instant fee execution (no user reaction window); extreme value blocks fee changes |
+| 6 | `updateLiquidationThresholdPeriod` | `blocks` | `>= 21,480` ✅ | Add max: `blocks <= TBD_MAX_LIQUIDATION_THRESHOLD` | ✅ Min exists. Extreme max could make liquidation economically unviable |
+| 7 | `updateLiquidationThresholdPeriodSSV` | `blocks` | `>= 21,480` ✅ | Add max: `blocks <= TBD_MAX_LIQUIDATION_THRESHOLD_SSV` | Same as above for SSV |
+| 8 | `updateMinimumLiquidationCollateral` | `amount` (wei) | None | `amount > 0 && amount <= TBD_MAX_MIN_COLLATERAL` | `0` allows clusters with no safety margin; extreme value blocks cluster creation |
+| 9 | `updateMinimumLiquidationCollateralSSV` | `amount` (SSV) | None | `amount > 0 && amount <= TBD_MAX_MIN_COLLATERAL_SSV` | Same as above for SSV |
+| 10 | `updateMaximumOperatorFee` | `maxFee` (wei) | None | `maxFee > 0 && maxFee >= sp.minimumOperatorEthFee` | `0` blocks all operator registrations; see also SEC-15 for cross-validation |
+| 11 | `updateMinimumOperatorEthFee` | `minFee` (wei) | None | `minFee <= sp.operatorMaxFee` | Extreme value blocks operator registrations; see also SEC-15 for cross-validation |
+| 12 | `setQuorumBps` | `quorum` | `<= 10,000` | Add min: `quorum >= TBD_MIN_QUORUM_BPS` | `0` allows single-oracle root commits; see SEC-1 |
+| 13 | `setUnstakeCooldownDuration` | `duration` | None | `duration >= TBD_MIN_COOLDOWN && duration <= TBD_MAX_COOLDOWN` | `0` allows instant unstaking (no cooldown); see SEC-4 |
+
+**Note:** Items 10-11 overlap with SEC-15, and items 12-13 overlap with SEC-1/SEC-4. Those items can be closed as sub-items of this one, or this item can reference them as "already covered" — team's choice.
+
+**Acceptance Criteria:**
+- [ ] Product/governance team provides concrete min/max values for all `TBD` placeholders
+- [ ] Each function in the table above has the agreed guardrail implemented
+- [ ] Existing guardrails (liquidation threshold min) are preserved
+- [ ] Cross-validation between related parameters (min/max operator fee) is enforced
+- [ ] All new guards revert with descriptive custom errors
+- [ ] Unit tests cover each boundary: at min, at max, below min (revert), above max (revert)
+- [ ] Existing tests updated where they set extreme/zero values that now revert
+- [ ] No behavioral change for values within the accepted range
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVDAO.sol` fully — all setter functions.
+2. Read `contracts/libraries/ProtocolLib.sol` — `updateNetworkFee` and `updateNetworkFeeSSV` delegate here.
+3. Read `contracts/libraries/storage/SSVStorageProtocol.sol` for the `StorageProtocol` struct fields.
+4. Read `contracts/libraries/storage/SSVStorageStaking.sol` for the `StorageStaking` struct fields.
+5. **Wait for Product to fill in `TBD` values before implementing.** If values are not yet defined, implement only the non-zero guards (where `0` is clearly harmful) and add `// TODO: add max bound per SEC-17` comments.
+6. Define new custom errors in `contracts/interfaces/ISSVNetworkCore.sol` as needed (e.g., `InvalidParameter()`, `ValueOutOfRange()`).
+7. For each function, add the guard at the top before any state changes.
+8. Update tests in `test/unit/SSVDAO/` for each modified function.
+9. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Get Product sign-off on min/max bounds for all parameters
+- [ ] Sub-task 2: Implement non-zero guards for all unguarded setters
+- [ ] Sub-task 3: Implement min/max bounds once Product provides values
+- [ ] Sub-task 4: Add unit tests for each boundary (at min, at max, below min, above max)
+- [ ] Sub-task 5: Reconcile with SEC-1, SEC-4, SEC-15 (close or cross-reference)
+- [ ] Sub-task 6: Run full test suite
 
 ---
 
