@@ -24,8 +24,9 @@ This document describes every contract flow with preconditions, step-by-step sta
    - [Declare Operator Fee](#43-declare-operator-fee)
    - [Execute Operator Fee](#44-execute-operator-fee)
    - [Reduce Operator Fee](#45-reduce-operator-fee)
-   - [Withdraw Operator Earnings (ETH)](#46-withdraw-operator-earnings-eth)
-   - [Withdraw Operator Earnings (SSV)](#47-withdraw-operator-earnings-ssv)
+   - [Cancel Declared Operator Fee](#46-cancel-declared-operator-fee)
+   - [Withdraw Operator Earnings (ETH)](#47-withdraw-operator-earnings-eth)
+   - [Withdraw Operator Earnings (SSV)](#48-withdraw-operator-earnings-ssv)
 5. [Staking Flows](#5-staking-flows)
    - [Stake SSV](#51-stake-ssv)
    - [Request Unstake](#52-request-unstake)
@@ -323,6 +324,7 @@ emit ClusterReactivated(owner, operatorIds, cluster);
 
 #### Preconditions
 - Cluster must exist in `s.clusters` (VERSION_SSV)
+- Cluster can be active or liquidated — if liquidated, migration also reactivates it
 - Caller must be cluster owner
 - msg.value must be sufficient to pass ETH liquidation check
 
@@ -365,6 +367,9 @@ emit ClusterReactivated(owner, operatorIds, cluster);
 #### Events
 ```solidity
 emit ClusterMigratedToETH(owner, operatorIds, msg.value, ssvRefunded, effectiveBalance, cluster);
+
+// If the SSV cluster was liquidated, migration also reactivates it:
+if (isLiquidated) emit ClusterReactivated(owner, operatorIds, cluster);
 ```
 
 #### Postcondition Invariants
@@ -701,7 +706,30 @@ emit OperatorFeeExecuted(owner, operatorId, block.number, fee);
 
 ---
 
-### 4.6 Withdraw Operator Earnings (ETH)
+### 4.6 Cancel Declared Operator Fee
+
+**Caller:** Operator owner
+
+#### Preconditions
+- Operator must exist
+- Caller must be operator owner
+- A pending fee change request must exist (`approvalBeginTime != 0`)
+
+#### State Mutations
+1. Delete the pending `OperatorFeeChangeRequest` for this operator
+
+#### Events
+```solidity
+emit OperatorFeeDeclarationCancelled(owner, operatorId);
+```
+
+#### Postcondition Invariants
+- No pending fee change request for this operator
+- Operator's current fee is unchanged
+
+---
+
+### 4.7 Withdraw Operator Earnings (ETH)
 
 **Caller:** Operator owner
 **nonReentrant:** Yes
@@ -727,9 +755,9 @@ emit OperatorWithdrawn(owner, operatorId, amount);
 
 ---
 
-### 4.7 Withdraw Operator Earnings (SSV)
+### 4.8 Withdraw Operator Earnings (SSV)
 
-Same as 4.6 but for SSV-denominated earnings. SSV token transferred instead of ETH.
+Same as 4.7 but for SSV-denominated earnings. SSV token transferred instead of ETH.
 
 ---
 
