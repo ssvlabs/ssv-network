@@ -14,14 +14,14 @@
 | BUG-1 | ~~`ensureETHDefaults` overwritten by stale memory copy~~ | Critical Bug Fix | P0 | ✅ Fixed |
 | BUG-2 | ~~`_resetOperatorState` doesn't clear `operator.owner`~~ | ~~Critical Bug Fix~~ Won't Fix | ~~P0~~ | By design |
 | BUG-3 | ~~`ensureETHDefaults` resurrects removed operators~~ | Critical Bug Fix | P0 | ✅ Mitigated |
-| BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | M |
+| BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | [PR #429](https://github.com/ssvlabs/ssv-network/pull/429) |
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | S |
 | BUG-7 | `DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec | Critical Bug Fix | P1 | S |
 | BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix | P1 | S |
 | BUG-9 | `uint64(delta)` silent truncation in operator earnings accumulation | Critical Bug Fix | P1 | S |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P0 | S |
-| SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | S |
+| SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
 | SEC-3 | `replaceOracle` doesn't invalidate pending votes | Security Hardening | P1 | M |
 | SEC-4 | `setUnstakeCooldownDuration` allows zero cooldown | Security Hardening | P1 | S |
 | SEC-5 | `totalStaked` changes between oracle votes (front-running) | Security Hardening | P1 | L |
@@ -71,7 +71,7 @@
 | TEST-32 | Add access control tests for DAO governance functions | Unit Test Completeness | P1 | S |
 | ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
-| DEPLOY-1 | Fix `deploy-all.ts` broken signature and constructor args | Deployment & Scripts | P0 | S |
+| DEPLOY-1 | Fix `deploy-all.ts` broken signature and constructor args | Deployment & Scripts | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
 | DEPLOY-2 | Verify `liquidationThresholdPeriod` config vs spec mismatch | Deployment & Scripts | P1 | S |
 | DEPLOY-3 | Verify `ethNetworkFee` rounding in config | Deployment & Scripts | P2 | S |
 | DEPLOY-4 | Remove unused error declarations in `ISSVNetworkCore.sol` | Deployment & Scripts | P2 | S |
@@ -198,10 +198,10 @@ While `ensureETHDefaults` itself has no removed-operator guard, no code path can
 ### [BUG-4] Double deviation cleanup on liquidated cluster validator removal
 - **Type:** Critical Bug Fix
 - **Priority:** P0
-- **Status:** Open
+- **Status:** In Review
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Github Link:** [PR #429](https://github.com/ssvlabs/ssv-network/pull/429)
 
 **Requirement:**
 Fix `_bulkRemoveValidator` so that when removing the last validators from a liquidated cluster with explicit EB tracking, deviation is not double-subtracted from `operatorEthVUnits` and `daoTotalEthVUnits`.
@@ -453,10 +453,10 @@ Add a minimum quorum validation to `setQuorumBps`. A quorum of 0 allows a single
 ### [SEC-2] `quorumBps` not initialized during upgrade — zero by default
 - **Type:** Security Hardening
 - **Priority:** P0
-- **Status:** Open
+- **Status:** In Review
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Github Link:** [PR #431](https://github.com/ssvlabs/ssv-network/pull/431)
 
 **Requirement:**
 Set `quorumBps` during the upgrade initializer (`reinitializer(3)`) to prevent a window where any oracle can unilaterally commit roots.
@@ -2143,10 +2143,10 @@ Migration with EB snapshot is tested but edge cases with multiple prior EB updat
 ### [DEPLOY-1] Fix `deploy-all.ts` broken signature and constructor args
 - **Type:** Deployment & Scripts
 - **Priority:** P0
-- **Status:** Open
+- **Status:** In Review
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Github Link:** [PR #431](https://github.com/ssvlabs/ssv-network/pull/431)
 
 **Requirement:**
 Fix `scripts/deploy-all.ts` so that fresh deployments work. Currently has wrong `initializeSSVStaking` signature and missing constructor args for 3 modules.
