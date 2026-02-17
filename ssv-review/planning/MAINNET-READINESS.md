@@ -12,7 +12,7 @@
 | ID | Task | Type | Priority | Effort |
 |----|------|------|----------|--------|
 | BUG-1 | ~~`ensureETHDefaults` overwritten by stale memory copy~~ | Critical Bug Fix | P0 | ✅ Fixed |
-| BUG-2 | `_resetOperatorState` doesn't clear `operator.owner` | Critical Bug Fix | P0 | S |
+| BUG-2 | ~~`_resetOperatorState` doesn't clear `operator.owner`~~ | ~~Critical Bug Fix~~ Won't Fix | ~~P0~~ | By design |
 | BUG-3 | `ensureETHDefaults` resurrects removed operators | Critical Bug Fix | P0 | M |
 | BUG-4 | Double deviation cleanup on liquidated cluster validator removal | Critical Bug Fix | P0 | M |
 | BUG-5 | `_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators | Critical Bug Fix | P1 | S |
@@ -121,34 +121,27 @@ Code refactored on `ssv-staking` — the function now uses a storage reference (
 ---
 
 ### [BUG-2] `_resetOperatorState` doesn't clear `operator.owner`
-- **Type:** Critical Bug Fix
-- **Priority:** P0
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Type:** ~~Critical Bug Fix~~ Informational — Won't Fix
+- **Priority:** ~~P0~~ N/A
+- **Status:** Closed (by design)
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
-**Requirement:**
+**Original Requirement:**
 When an operator is removed via `removeOperator`, the `_resetOperatorState` function must also clear `operator.owner` to ensure removed operators are consistently detectable across all code paths.
 
-**Context:**
-`SSVOperators.sol:326-337` resets most operator fields but leaves `owner` intact. Some code paths detect removed operators via `snapshot.block == 0 && ethSnapshot.block == 0` (correct), but `updateClusterOperatorsOnRegistration` at `OperatorLib.sol:196` uses `operator.owner == address(0)` — which passes for removed operators since owner is still set. This inconsistency is the root cause enabling BUG-1 and BUG-3. The recent fix (#410) to forbid creating clusters with removed operators added a check using `snapshot.block`, but the owner field inconsistency remains.
+**Resolution — Intentional Design:**
+Preserving `operator.owner` after removal is intentional behavior, consistent since v1 (`main` branch). Reasons:
 
-**Acceptance Criteria:**
-- [ ] `_resetOperatorState` sets `operator.owner = address(0)`
-- [ ] All code paths that check operator existence agree on how to detect removed operators
-- [ ] `checkOwner` in `OperatorLib.sol` still correctly reverts for removed operators
-- [ ] Existing tests for `removeOperator` still pass
-- [ ] New unit test verifies that after removal, `operator.owner == address(0)`
+1. **Off-chain queryability:** `getOperatorById` (SSVViews.sol:89) returns the preserved owner so explorers/UIs can display who owned a removed operator. Clearing it would lose this information on-chain.
+2. **All on-chain guards are already safe:**
+   - `checkOwner` (OperatorLib.sol:131): catches removed operators via `snapshot.block == 0 && ethSnapshot.block == 0` — never reaches the owner check
+   - `ensureOperatorExist` (OperatorLib.sol:159): catches via `(ethSnapshot.block == 0 && snapshot.block == 0)` — second condition fires even though `owner != address(0)`
+   - `getSSVBurnRate` (SSVViews.sol:356): removed operators pass `owner != address(0)` but contribute zero fee (fee is already zeroed) — no impact
+3. **No exploit path:** there is no code path where a non-zero owner on a removed operator leads to incorrect state mutation or access control bypass.
 
-**Agent Instructions:**
-1. Read `contracts/modules/SSVOperators.sol`, focus on `_resetOperatorState` (line 326).
-2. Read `contracts/libraries/OperatorLib.sol`, focus on `checkOwner` (line 131) and `updateClusterOperatorsOnRegistration` (line 162, particularly line 196).
-3. Add `operator.owner = address(0);` to `_resetOperatorState` after the existing field resets.
-4. Verify that `checkOwner` at `OperatorLib.sol:131` handles `owner == address(0)` correctly — it should already revert via `OperatorDoesNotExist` when both `snapshot.block` and `ethSnapshot.block` are 0.
-5. Check if any other code relies on `operator.owner` being set after removal (grep for `operator.owner` across all contract files).
-6. Do NOT change the `whitelisted` field behavior — it's separate.
-7. Run `npm run test:unit` to verify.
+Updated documentation in `docs/FLOWS.md` section 4.2 to reflect this design with a full detection-method table.
 
 #### Sub-items:
 - [ ] Sub-task 1: Add `operator.owner = address(0)` to `_resetOperatorState`

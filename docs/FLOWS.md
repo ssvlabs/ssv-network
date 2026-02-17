@@ -601,11 +601,12 @@ if (setPrivate) emit OperatorPrivacyStatusUpdated([operatorId], true);
 #### State Mutations
 1. Update SSV snapshot (final earnings)
 2. Update ETH snapshot (final earnings)
-3. Withdraw all SSV earnings to owner (if any)
-4. Withdraw all ETH earnings to owner (if any)
-5. Delete operator (zero out the struct)
-6. Delete public key mapping
-7. Delete fee change request (if any)
+3. Reset operator state via `_resetOperatorState`: zeros `ethSnapshot`, `snapshot`, `ethFee`, `fee`, `ethValidatorCount`, `validatorCount`
+4. **`operator.owner` is intentionally preserved** — allows off-chain systems (explorer, `getOperatorById`) to query the original owner after removal
+5. Withdraw all SSV earnings to owner (if any)
+6. Withdraw all ETH earnings to owner (if any)
+7. Delete whitelist mapping
+8. Delete fee change request (if any)
 
 #### Events
 ```solidity
@@ -614,8 +615,20 @@ if (ethEarnings > 0) emit OperatorWithdrawn(owner, operatorId, ethEarnings);
 emit OperatorRemoved(operatorId);
 ```
 
+#### Removed Operator Detection
+
+After removal, different code paths detect removed operators via different checks — all are consistent:
+
+| Check | Location | How it detects removed operators |
+|-------|----------|--------------------------------|
+| `checkOwner` | `OperatorLib.sol:131` | `snapshot.block == 0 && ethSnapshot.block == 0` → reverts `OperatorDoesNotExist` |
+| `ensureOperatorExist` | `OperatorLib.sol:159` | `owner == address(0)` OR `(ethSnapshot.block == 0 && snapshot.block == 0)` → reverts (catches via second condition since owner is preserved) |
+| `getSSVBurnRate` | `SSVViews.sol:356` | `owner != address(0)` — removed operators pass this but contribute zero fee (fee already zeroed) |
+| `getOperatorById` | `SSVViews.sol:83` | Returns preserved `owner`; `isActive = false` (`ethSnapshot.block == 0`) |
+
 #### Postcondition Invariants
-- `operators[id]` is zeroed out
+- `operators[id].owner` preserves the original owner address (non-zero)
+- All other operator fields are zeroed: snapshots, fees, validator counts
 - No earnings remain in the system for this operator
 - Public key can be re-registered
 
