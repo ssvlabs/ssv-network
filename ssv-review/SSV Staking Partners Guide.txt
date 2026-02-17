@@ -1,0 +1,313 @@
+﻿SSV Staking Partners Guide
+	
+
+	
+
+  
+
+
+
+
+
+SSV Staking
+  
+Partners guide
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Executive Summary
+This guide provides an early overview of upcoming changes to the SSV Network related to ETH-denominated payments, effective balance accounting, and SSV staking. 
+The goal is to help partners understand what is changing, how it affects cluster economics and operations, and how to prepare ahead of the transition.
+
+All changes described in this document are subject to DAO approval. Timelines, parameters, and final behavior depend on the outcome of the governance proposal. 
+	Table of Contents
+ETH Payments        2
+Implications for Clusters        2
+Breaking Changes for Programmatic Integrations        3
+Cluster Migration        5
+Pre-funding before migration period        5
+Liquidation parameters for ETH clusters        6
+Implications for Operators        6
+Effective Balance (EB) Accounting        7
+Implications for Clusters        7
+Effective Balance Maintenance        7
+Funding considerations        8
+Incentivized Mainnet Program (IMP) Implications        9
+SSV Staking        10
+Timelines        11
+Public Testnet (Start of February)        11
+Mainnet (Start of March)        12
+Further Reading & Discussion        12
+Appendix: Migration Guide        13
+Webapp Migration Flow        13
+Smart Contract Migration Function        16
+
+
+________________
+ETH Payments
+SSV Network is transitioning from SSV-denominated payments to ETH-denominated payments for network and operator fees.
+This change aligns the protocol’s economic flow with how validators operate on Ethereum: validators earn rewards in ETH, and clusters now pay fees in ETH. By removing the asset mismatch between rewards and operational costs, cluster funding, fee accrual, and runway can all be expressed directly in the same asset.
+In practice, this simplifies cluster operations and makes runway behavior more predictable, as an ETH balance directly reflects a cluster’s ability to continue operating.
+Implications for Clusters
+New Clusters
+New clusters operate with ETH payments from the outset. ETH is deposited upfront to fund the cluster’s operational runway, and all network and operator fees accrue and settle in ETH.
+Existing Clusters
+Existing clusters continue operating under the SSV payment model but cannot be operationally modified. This means they:
+* Cannot add or remove validators
+* Cannot extend runway by depositing additional SSV
+* Cannot reactivate liquidated clusters
+As a result, these clusters can only continue operating as long as their existing runway allows. Migration to ETH payments is the only forward-compatible path for maintaining and operating To continue operating and maintaining clusters over time, migration to ETH payments will be required.
+________________
+Breaking Changes for Programmatic Integrations
+As part of the transition from SSV-denominated payments to ETH-denominated payments, several contract function signatures are changing.
+Previously, because SSV is an ERC-20 token, functions related to cluster and validator management required an explicit amount parameter (e.g. when registering validators, depositing funds, or reactivating clusters). With ETH payments, value is supplied natively via msg.value, and these amount parameters are no longer required.
+⚠️ Partners with custom, direct smart contract integrations will need to update their implementations once the upgrade is released.
+	Changes are applied to the following functions:
+Old function signature
+	New function signature
+	Description
+	function registerValidator(
+bytes memory publicKey,
+uint64[] memory operatorIds,
+bytes calldata sharesData,
+uint256 amount,
+Cluster memory cluster
+) external override 
+	function registerValidator(
+bytes memory publicKey,
+uint64[] memory operatorIds,
+bytes calldata sharesData,
+Cluster memory cluster
+) external payable override 
+	Function parameter amount is removed.
+Function is now payable, so deposits to the cluster have to be supplied as msg.value of the function call instead.
+	function bulkRegisterValidator(
+bytes[] memory publicKeys,
+uint64[] memory operatorIds,
+bytes[] calldata sharesData,
+uint256 amount,
+Cluster memory cluster
+) external override
+	function bulkRegisterValidator(
+bytes[] memory publicKeys,
+uint64[] memory operatorIds,
+bytes[] calldata sharesData,
+Cluster memory cluster
+) external payable override
+	Function parameter amount is removed.
+Function is now payable, so deposits to the cluster have to be supplied as msg.value of the function call instead.
+	function deposit(
+Address clusterOwner,
+uint64[] calldata operatorIds,
+uint256 amount,
+Cluster memory cluster
+) external override
+	function deposit(
+Address clusterOwner,
+uint64[] calldata operatorIds,
+Cluster memory cluster
+) external payable override
+	Function parameter amount is removed.
+Function is now payable, so deposits to the cluster have to be supplied as msg.value of the function call instead.
+	function reactivate(
+uint64[] calldata operatorIds, 
+uint256 amount,
+Cluster memory cluster
+) external override
+	function reactivate(
+uint64[] calldata operatorIds,
+Cluster memory cluster
+) external payable override
+	Function parameter amount is removed.
+Function is now payable, so deposits to the cluster have to be supplied as msg.value of the function call instead.
+	getBalance(operatorIds, cluster) returns (uint256 balance)
+	getBalance(
+operatorIds, 
+cluster
+) returns (
+uint256 balance, 
+uint256 ebBalance
+)
+	Now it also returns the Effective Balance of the ETH cluster.
+To get the balance of SSV clusters, use getBalanceSSV.
+	SDK Users
+Partners who integrated programmatically using the SSV SDK do not need to make changes.
+We will release a new SDK version that abstracts these changes and remains compliant  throughout testnet and mainnet. The updated SDK will be available on testnet ahead of mainnet deployment so partners can validate their flows in advance.
+Testing on testnet
+All partners with programmatic integrations - custom or SDK-based - are strongly encouraged to test their flows on testnet. This ensures:
+* Contract interface changes are correctly handled
+* ETH value handling via msg.value is properly implemented
+* Cluster and validator management flows are mainnet-ready
+________________
+Cluster Migration
+Migration applies at the cluster level and is executed in a single interaction.
+When a cluster is migrated:
+   * Accounting switches from SSV to ETH
+   * ETH is deposited to fund future operation
+   * Any remaining SSV balance is automatically refunded to the cluster owner
+Migration is one-way and irreversible.
+Detailed migration instructions, including smart contract functions and a webapp walkthrough, are provided in the Appendix: Migration Guide.
+Pre-funding before migration period
+Because existing clusters cannot be modified while still operating under SSV payments, teams that expect migration to take additional time should ensure that sufficient runway funding is provided in advance.
+Pre-funding allows clusters to continue operating uninterrupted until they are ready to migrate.
+________________
+Liquidation parameters for ETH clusters
+The transition to ETH payments introduces a new liquidation framework specifically for ETH-denominated clusters.
+Because network fees, collateral, and liquidation execution are all denominated in ETH, the overall risk profile is materially lower than under the SSV-based model. This allows liquidation parameters to be significantly more capital-efficient while maintaining safety.
+Parameter
+	ETH Clusters (proposed)
+	SSV Clusters (current)
+	Network fee
+	1% (~0.00928 ETH)
+	1% (6.33 SSV)
+	Liquidation threshold
+	~7 days
+	14 days
+	Minimum liquidation collateral
+	~0.00094 ETH
+	~0.9 SSV
+	Implications for Operators
+For private cluster owners, operator behavior remains largely unchanged. Operators continue to operate as normal, with the primary change being that fees are now settled in ETH rather than SSV.
+Existing Operators
+   * Are assigned a default ETH fee
+   * Operators with a 0 SSV fee default to a 0 ETH fee
+   * Operators with a non-zero SSV fee receive a network-defined default ETH fee (~0.00928 ETH)
+   * Functionality to define or update fees in SSV is disabled going forward
+New Operators
+   * Can only register and set fees in ETH
+Effective Balance (EB) Accounting
+Effective Balance Accounting updates how fees and runway are calculated by replacing the fixed assumption that each validator represents 32 ETH. Instead, fees scale with the actual effective balance secured by validators, reflecting real validator state as it evolves on Ethereum.
+This change is required to support post-Pectra validators, where a single validator can secure significantly more than 32 ETH, and ensures that cluster accounting remains correct as validator structures evolve.
+Implications for Clusters
+New Clusters
+Effective balance accounting applies natively. Fees and runway scale dynamically with the total effective balance managed by the cluster.
+Existing Clusters
+Existing clusters continue using the legacy per-validator accounting model, where each validator is assumed to represent 32 ETH. Effective balance accounting does not apply until the cluster migrates to ETH payments.
+Effective Balance Maintenance
+Effective balance accounting is maintained through a dedicated set of oracles that track validator balances on Ethereum and periodically update aggregated cluster balances on-chain.
+From a partner perspective:
+   * Updates are automated
+   * No manual actions are required
+   * Balance changes are reflected periodically rather than continuously
+When oracles update a cluster’s effective balance, the updated status is committed on-chain and a ClusterBalanceUpdated event is emitted. The same event is also emitted when protocol actions that affect a cluster’s effective balance occur, such as registering or removing validators. Partners can monitor this event to receive updates on the status of their clusters.
+For convenience, partners who prefer to read the state directly on-chain can query getBalance(operatorIds, cluster), which now returns the cluster’s effective balance (ebBalance) alongside the cluster balance.
+Funding considerations 
+Effective balance accounting changes how clusters should think about funding and runway:
+Rather than funding purely based on validator count, clusters must consider the total effective balance they intend to secure. Validators with higher effective balances accrue fees proportionally, which directly affects runway consumption once those balances are reflected on-chain.
+This makes funding more realistic, but also places more responsibility on cluster owners to plan for the effective balance they are onboarding.
+Operational considerations for balance updates
+When validators are onboarded, their effective balance is not immediately reflected on-chain.
+Operationally:
+   * Newly onboarded validators are initially treated as 32 ETH each
+   * Their actual effective balance is applied only when the next oracle sweep updates the cluster
+   * If a validator’s true effective balance is significantly higher (e.g. consolidated validators), fee accrual can increase sharply at that point
+This creates an important operational consideration:
+clusters must have sufficient ETH runway to support the effective balance they are onboarding before the oracle update occurs. Failing to do so may result in accelerated runway depletion or liquidation once balances are updated.
+To help address this:
+   * The webapp includes an effective balance estimation step during validator onboarding, allowing cluster owners to input the expected effective balance and receive a more realistic runway calculation
+   * This estimation cannot infer balances for validators that are not yet deposited on Ethereum; in those cases, user input is required
+   * When onboarding validators programmatically via direct contract interaction, cluster owners must evaluate effective balance assumptions and funding requirements themselves
+Incentivized Mainnet Program (IMP) Implications
+ETH-based clusters remain eligible for Incentivized Mainnet Program (IMP) incentives.
+Because ETH clusters use effective balance accounting natively on-chain, network fees are calculated and enforced directly at the protocol level. As a result, the legacy off-chain fee deduction logic used by the IMP program no longer applies to ETH-based clusters, including those operating consolidated validators.
+This simplifies incentive accounting and ensures that rewards and fees are handled consistently within the protocol.
+________________
+SSV Staking
+SSV staking allows SSV holders to stake their tokens and accrue protocol revenue denominated in ETH, turning SSV into an ETH-accrual asset tied directly to network usage.
+At a high level:
+   * SSV is staked at a 1:1 ratio and represented by cSSV
+   * ETH rewards accrue continuously
+   * Rewards can be claimed at any time
+   * Unstaking involves a 7-day cooldown period, during which rewards do not accrue
+Strategic context for partners
+Staking partners are among the largest recipients of SSV emissions through network incentives. 
+SSV staking provides an opportunity to accumulate SSV ahead of the transition and earn a proportionally larger share of protocol ETH revenue once staking is live.
+From a strategic perspective, staking SSV incentives can also be viewed as a way to earn back part of the ETH network fees paid by clusters going forward, creating a partial economic offset between operational costs and protocol participation.
+Reward simulations and scenarios are available at:  https://ethaccrualtoken.com/
+________________
+Timelines
+All timelines are subject to DAO approval. The dates below are provided to help partners plan testing, preparation, and migration readiness.
+Public Testnet (Start of February) 
+The public testnet period is a critical preparation phase for all partners.
+During testnet, partners are strongly encouraged to update and test their setups against ETH-denominated payments and effective balance accounting, ensuring that cluster funding, runway calculations, and monitoring behave as expected under the new model.
+Testing the migration flow
+⚠️ Partners who want to test the cluster migration flow must have validators and clusters onboarded before the testnet contracts are upgraded, as clusters created after the upgrade will be ETH-based by default and cannot be used to test migration from SSV to ETH.
+	Funding and operational planning
+Testnet should be used to understand how long migration will take operationally and to ensure that sufficient ETH capital is available in advance to support continuous cluster operation once clusters are migrated to ETH payments.
+This allows partners to determine how much SSV runway they need to pre-fund on mainnet in order to maintain uninterrupted operation until migration is completed, since additional SSV deposits will no longer be possible once mainnet is upgraded.
+Mainnet (Start of March) 
+Once mainnet is live and following DAO approval, partners are encouraged to begin migrating clusters gradually.
+A recommended approach is to:
+   * Start by migrating a small number of clusters
+   * Observe behavior, accounting, and monitoring under ETH payments
+   * Proceed with migrating the remaining clusters once confidence is established
+Further communication will be provided ahead of mainnet activation with final dates and reminders.
+Further Reading & Discussion
+Partners who want to dive deeper into the technical design and rationale behind these changes are encouraged to review the ongoing forum discussion.
+________________
+Appendix: Migration Guide
+Webapp Migration Flow
+To migrate your cluster from SSV to ETH fees, open the Clusters tab on our Web App:
+   1. Choose the cluster you wish to migrate and open its page
+  
+
+   2. Click on “Switch to ETH”
+  
+
+   3. Inspect the fee comparison and proceed with the switch
+  
+
+   4. Input the Effective Balance of the validators in your cluster
+  
+
+
+
+
+
+
+
+   5. Select your runway/funding period and deposit ETH to the cluster balance
+  
+
+
+
+   6. Confirm the cluster balance and fees warning
+
+   7. Carefully check the changes, amount of ETH deposited, amount of SSV withdrawn, and sign the transaction
+  
+
+
+
+      8. Once the transaction is confirmed, your migration is complete.
+Smart Contract Migration Function
+migrateClusterToETH (operatorIds, cluster)
+Description: Migrates an SSV-based cluster to ETH. Returns any existing SSV balance to the owner and accepts an ETH top-up via msg.value as the new cluster balance. The migration will fail if the provided ETH balance is insufficient and the cluster would be immediately liquidatable after migration.
+Parameter
+	Type
+	Description
+	operatorIds
+	unit64[]        
+	List of cluster operators Ids.
+	cluster
+	tuple[]        
+	Object containing the latest cluster snapshot data
+	
+Events:
+      * ClusterMigratedToETH(address indexed owner, uint64[] operatorIds, uint256 ethDeposited, uint256 ssvRefunded, uint32 effectiveBalance, Cluster cluster)
