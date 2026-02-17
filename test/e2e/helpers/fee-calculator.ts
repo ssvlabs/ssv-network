@@ -9,6 +9,7 @@
 import {
   VUNITS_PRECISION,
   ETH_DEDUCTED_DIGITS,
+  DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 
 // DEFAULT_EB_PER_VALIDATOR is not exported from constants as a bigint in ETH.
@@ -148,4 +149,63 @@ export function calcStakingReward(
   userIndex: bigint,
 ): bigint {
   return (cSSVBalance * (accEthPerShare - userIndex)) / 10n ** 18n;
+}
+
+/**
+ * SSV cluster fee calculation.
+ *
+ * Given individual operator snapshot data and network fee index data,
+ * computes the total packed SSV fees for a cluster.
+ *
+ * operatorFee (packed) = sum_i( (currentBlock - opSnapshot[i].block) * opFeeRaw + opSnapshot[i].index ) * validatorCount
+ *                      - cluster.index * validatorCount
+ * networkFee (packed) = ( (currentBlock - netFeeBlock) * netFeeRaw - cluster.networkFeeIndex ) * validatorCount
+ *
+ * Total SSV usage (wei) = (operatorFee + networkFee) * DEDUCTED_DIGITS
+ *
+ * @param currentBlock - the block number at which fees are computed (e.g., liquidation or migration block)
+ * @param opSnapshots - array of { block, index } per operator (SSV snapshot)
+ * @param opFeeRaw - raw SSV fee per operator (e.g. 2_000)
+ * @param netFeeBlock - block at which networkFeeIndex was last set
+ * @param netFeeRaw - raw SSV network fee (e.g. 1_000)
+ * @param storedNetFeeIndex - stored networkFeeIndex value (0 if freshly set)
+ * @param validatorCount - number of validators in the cluster
+ * @param clusterIndex - stored cluster index (usually 0)
+ * @param clusterNetworkFeeIndex - stored cluster network fee index (usually 0)
+ * @returns total SSV fees in wei (unpacked)
+ */
+export function calcSSVClusterFees(params: {
+  currentBlock: bigint;
+  opSnapshots: { block: bigint; index: bigint }[];
+  opFeeRaw: bigint;
+  netFeeBlock: bigint;
+  netFeeRaw: bigint;
+  storedNetFeeIndex: bigint;
+  validatorCount: bigint;
+  clusterIndex: bigint;
+  clusterNetworkFeeIndex: bigint;
+}): bigint {
+  const {
+    currentBlock, opSnapshots, opFeeRaw, netFeeBlock, netFeeRaw,
+    storedNetFeeIndex, validatorCount, clusterIndex, clusterNetworkFeeIndex,
+  } = params;
+
+  // Cumulative operator index
+  let cumulativeOpIndex = 0n;
+  for (const snap of opSnapshots) {
+    const blockDiff = currentBlock - snap.block;
+    const currentIndex = snap.index + blockDiff * opFeeRaw;
+    cumulativeOpIndex += currentIndex;
+  }
+
+  // Operator fee (packed) = (cumulativeOpIndex - clusterIndex) * validatorCount
+  const opFeePacked = (cumulativeOpIndex - clusterIndex) * validatorCount;
+
+  // Network fee index at currentBlock
+  const currentNetFeeIndex = storedNetFeeIndex + (currentBlock - netFeeBlock) * netFeeRaw;
+  // Network fee (packed) = (currentNetFeeIndex - clusterNetworkFeeIndex) * validatorCount
+  const netFeePacked = (currentNetFeeIndex - clusterNetworkFeeIndex) * validatorCount;
+
+  // Total in wei
+  return (opFeePacked + netFeePacked) * DEDUCTED_DIGITS;
 }

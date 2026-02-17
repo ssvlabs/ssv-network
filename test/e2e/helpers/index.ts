@@ -14,6 +14,7 @@ export {
   calcLiquidationThreshold,
   calcAccEthPerShareDelta,
   calcStakingReward,
+  calcSSVClusterFees,
 } from "./fee-calculator.ts";
 
 export {
