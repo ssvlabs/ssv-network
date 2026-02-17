@@ -223,8 +223,9 @@ contract SSVValidators is ISSVValidators {
                 // When cluster becomes empty, clean up any remaining deviation
                 if (cluster.validatorCount == 0) {
                     uint64 remainingVUnits = ebSnapshot.vUnits;
-                    if (remainingVUnits > 0) {
+                    if (remainingVUnits > 0 && cluster.active) {
                         // remainingVUnits is pure deviation (no baseline left since validatorCount=0)
+                        // Skip for liquidated clusters: deviation already cleaned up in _executeLiquidation
                         uint256 operatorsLength = operatorIds.length;
                         for (uint256 i; i < operatorsLength; ++i) {
                             seb.operatorEthVUnits[operatorIds[i]] -= remainingVUnits;
