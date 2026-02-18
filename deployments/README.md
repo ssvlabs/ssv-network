@@ -180,17 +180,6 @@ This deploys `SSVNetworkSSVStakingUpgrade` and `SSVNetworkViews` implementations
 - `PREPARE_UPGRADE_RPC_URL`
   - Optional fallback RPC URL when `--rpc-url` is not passed.
 
-### Prepare-upgrade no-cssv bundle
-
-- `PREPARE_UPGRADE_NO_CSSV_CONFIG_PATH`
-  - Defaults to `deployments/prepare-upgrade-no-cssv.config.json`.
-
-- `PREPARE_UPGRADE_NO_CSSV_RESULT_PATH`
-  - Defaults to `deployments/prepare-upgrade-no-cssv.result.json`.
-
-- `PREPARE_UPGRADE_NO_CSSV_RPC_URL`
-  - Optional fallback RPC URL when `--rpc-url` is not passed.
-
 ## Block Selection Policy (`test-fork`)
 
 `run-forked-local-tests.ts` picks fork block in this order:
