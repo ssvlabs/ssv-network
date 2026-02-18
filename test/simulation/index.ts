@@ -50,3 +50,11 @@ export {
 // Logger
 export { SimLogger } from "./sim-logger.ts";
 export type { SimSummary } from "./sim-logger.ts";
+
+// Invariants
+export {
+  runPeriodicInvariants,
+  runFinalInvariants,
+  createInvariantContext,
+} from "./invariants.ts";
+export type { InvariantResult, InvariantContext } from "./invariants.ts";
