@@ -1,4 +1,22 @@
 {
-  "ssvNetworkProxy": "0xc07B3E9671f884FDa67E1e7D43d952E0e1369fd8",
-  "upgradeTimestamp": 2219200
+  "owner": "",
+  "ssvNetworkProxy": "",
+  "ssvNetworkViews": "",
+  "ssvToken": "",
+  "cooldownDuration": 604800,
+  "upgradeTimestamp": 2219200,
+  "quorumBps": 7500,
+  "defaultOracleIds": [1, 2, 3, 4],
+  "networkFeeEth": "",
+  "maxOperatorEthFee": "",
+  "defaultOperatorEthFee": "",
+  "minOperatorEthFee": "",
+  "minimumLiquidationCollateralEth": "",
+  "liquidationThresholdPeriod": "",
+  "oracles": {
+    "1": "",
+    "2": "",
+    "3": "",
+    "4": ""
+  }
 }
