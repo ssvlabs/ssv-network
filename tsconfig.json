@@ -9,6 +9,7 @@
     "moduleResolution": "node16",
     "outDir": "dist",
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "resolveJsonModule": true,
   }
 }
