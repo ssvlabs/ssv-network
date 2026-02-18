@@ -63,6 +63,7 @@ export type SimAction = (state: SimulationState) => Promise<ActionResult>;
 export const ACTION_REGISTRY: Record<string, SimAction> = {
   // SSV cluster operations
   ssvDeposit: actionDepositSsv,
+  ssvWithdraw: async () => ({ name: "ssvWithdraw", success: true }), // SSV withdraw not implemented on fork
   ssvLiquidate: actionLiquidateSsv,
   ssvRegisterValidator: actionRegisterValidator, // reuses ETH register (will create ETH cluster)
 
