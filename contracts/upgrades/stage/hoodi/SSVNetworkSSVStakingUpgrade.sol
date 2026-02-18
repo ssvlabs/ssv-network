@@ -8,7 +8,7 @@ contract SSVNetworkSSVStakingUpgrade is SSVNetwork {
     function initializeSSVStaking(
         uint64 cooldownDuration,
         uint32[MAX_DELEGATION_SLOTS] memory defaultOracleIds
-    ) external onlyOwner reinitializer(4) {
+    ) external onlyOwner reinitializer(3) {
         // save staking storage updates
         StorageStaking storage s = SSVStorageStaking.load();
         s.cooldownDuration = cooldownDuration;

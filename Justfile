@@ -116,3 +116,10 @@ deploy-mainnet:
 prepare-upgrade rpc-url:
     npx hardhat compile --force
     npx tsx scripts/prepare-upgrade.ts --network mainnet --rpc-url "{{rpc-url}}" --config ${PREPARE_UPGRADE_CONFIG_PATH:-deployments/prepare-upgrade.config.json} --output-config ${PREPARE_UPGRADE_RESULT_PATH:-deployments/prepare-upgrade.result.json}
+
+# Prepare upgrade deployment bundle (staking/views implementations + modules + CSSVToken)
+# Args: rpc-url=<url>
+# Uses PREPARE_UPGRADE_CONFIG_PATH, PREPARE_UPGRADE_RESULT_PATH env vars
+prepare-upgrade-no-cssv rpc-url:
+    npx hardhat compile --force
+    npx tsx scripts/prepare-upgrade-no-cssv --network mainnet --rpc-url "{{rpc-url}}" --config ${PREPARE_UPGRADE_CONFIG_PATH:-deployments/prepare-upgrade-no-cssv.config.json} --output-config ${PREPARE_UPGRADE_RESULT_PATH:-deployments/prepare-upgrade-no-cssv.result.json}
