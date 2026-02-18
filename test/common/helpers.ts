@@ -7,11 +7,21 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   SSV_MODULE_CONTRACTS,
   VUNITS_PRECISION,
+  MINIMAL_OPERATOR_FEE_SSV,
+  DEFAULT_UNSTAKE_COOLDOWN,
+  DEFAULT_ORACLES_IDS,
+  NETWORK_FEE,
+  NETWORK_FEE_ETH,
+  MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+  MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+  MAXIMUM_OPERATORS_FEE,
+  OPERATOR_MAX_FEE_INCREASE,
 } from './constants.ts';
 import type { NetworkConnection } from 'hardhat/types/network';
 import type { Cluster, ClusterTuple, OperatorTuple, SSVModules } from './types.ts';
 import type { SSVNetwork, SSVNetworkViews } from '../../types/ethers-contracts/index.js';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
+import { attachModule, deployContract, getDeployer, upgradeProxy } from '../../scripts/common/helpers.js';
 
 export function makePublicKey(seed: number): string {
   return `0x${seed.toString(16).padStart(96, "0")}`;
@@ -72,6 +82,26 @@ export async function registerOperators(network: any, owner: any, count: number)
       .connect(owner)
       .registerOperator(
         makeOperatorKey(i + 1), MINIMAL_OPERATOR_ETH_FEE, true
+      );
+    await tx.wait();
+    operatorIds.push(expectedId);
+  }
+
+  return operatorIds;
+}
+
+export async function registerOperatorsSSV(network: any, owner: any, count: number): Promise<number[]> {
+  const operatorIds: number[] = [];
+
+  for (let i = 0; i < count; i += 1) {
+    const expectedId = await network.connect(owner).registerOperator.staticCall(
+      makeOperatorKey(i + 1), MINIMAL_OPERATOR_FEE_SSV, true
+    );
+
+    const tx = await network
+      .connect(owner)
+      .registerOperator(
+        makeOperatorKey(i + 1), MINIMAL_OPERATOR_FEE_SSV, true
       );
     await tx.wait();
     operatorIds.push(expectedId);
@@ -236,6 +266,7 @@ const EVENT_ABI = [
   'event ClusterReactivated(address indexed owner, uint64[] operatorIds, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
   'event ValidatorAdded(address indexed owner, uint64[] operatorIds, bytes publicKey, bytes shares, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
   'event ValidatorRemoved(address indexed owner, uint64[] operatorIds, bytes publicKey, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
+  'event ClusterMigratedToETH(address indexed owner, uint64[] operatorIds, uint256 ethDeposited, uint256 ssvRefunded, uint32 effectiveBalance, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
 ] as const;
 
 export function parseClusterFromEvent(contract: any, receipt: any, eventName: string): Cluster {
@@ -571,4 +602,111 @@ export async function updateClusterBalancesForDefaultClusters(
 
     await tx.wait();
   }
+}
+
+export async function upgradeToStakingVersion(
+  connection: any,
+  network: any,
+  views: any,
+): Promise<{
+  cssv: any;
+  newNetwork: SSVNetwork;
+  newViews: SSVNetworkViews;
+}> {
+  const deployer = await getDeployer(connection.ethers);
+  const networkAddress = await network.getAddress();
+
+  const { contract: cssv, address: cssvTokenAddress } =
+    await deployContract(connection.ethers, "CSSVToken", [networkAddress]);
+
+  const latestBlock = await connection.ethers.provider.getBlock("latest");
+  const upgradeBlockNum = latestBlock.number;
+
+  const { address: upgradeImplAddr } =
+    await deployContract(connection.ethers, "SSVNetworkSSVStakingUpgrade");
+
+  await upgradeProxy(
+    connection.ethers,
+    deployer,
+    networkAddress,
+    upgradeImplAddr,
+    "SSVNetworkSSVStakingUpgrade",
+    "initializeSSVStaking(uint64,uint32[4])",
+    [DEFAULT_UNSTAKE_COOLDOWN, DEFAULT_ORACLES_IDS]
+  );
+
+  const networkFactory =
+    await connection.ethers.getContractFactory("SSVNetwork");
+  const upgradedNetwork = networkFactory.attach(networkAddress);
+
+  const moduleNames = [
+    "SSVClusters",
+    "SSVOperatorsWhitelist",
+    "SSVValidators",
+  ];
+  const moduleAddresses: Record<string, string> = {};
+
+  const { address: ssvOperatorsAddr } =
+    await deployContract(connection.ethers, "SSVOperators", [upgradeBlockNum]);
+  moduleAddresses["SSVOperators"] = ssvOperatorsAddr;
+
+  const { address: ssvDaoAddr } =
+    await deployContract(connection.ethers, "SSVDAO", [cssvTokenAddress]);
+  moduleAddresses["SSVDAO"] = ssvDaoAddr;
+
+  const { address: ssvViewsAddr } =
+    await deployContract(connection.ethers, "SSVViews", [cssvTokenAddress]);
+  moduleAddresses["SSVViews"] = ssvViewsAddr;
+
+  const { address: ssvStakingAddr } =
+    await deployContract(connection.ethers, "SSVStaking", [cssvTokenAddress]);
+  moduleAddresses["SSVStaking"] = ssvStakingAddr;
+
+  for (const mod of moduleNames) {
+    const { address } = await deployContract(connection.ethers, mod);
+    moduleAddresses[mod] = address;
+  }
+
+  for (const [name, addr] of Object.entries(moduleAddresses)) {
+    await attachModule(connection.ethers, networkAddress, name, addr);
+  }
+
+  const { address: newViewsImpl } =
+    await deployContract(connection.ethers, "SSVNetworkViews");
+
+  await views.upgradeTo(newViewsImpl);
+
+  const viewsFactory =
+    await connection.ethers.getContractFactory("SSVNetworkViews");
+  const upgradedViews = viewsFactory.attach(await views.getAddress());
+
+  await (await upgradedNetwork.updateNetworkFeeSSV(NETWORK_FEE)).wait();
+  await (await upgradedNetwork.updateNetworkFee(NETWORK_FEE_ETH)).wait();
+  await (await upgradedNetwork.updateMinimumLiquidationCollateral(
+    MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
+  )).wait();
+  await (await upgradedNetwork.updateMinimumLiquidationCollateralSSV(
+    MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
+  )).wait();
+  await (await upgradedNetwork.updateLiquidationThresholdPeriod(
+    MINIMUM_BLOCKS_BEFORE_LIQUIDATION
+  )).wait();
+  await (await upgradedNetwork.updateLiquidationThresholdPeriodSSV(
+    MINIMUM_BLOCKS_BEFORE_LIQUIDATION
+  )).wait();
+  await (await upgradedNetwork.updateMaximumOperatorFee(
+    MAXIMUM_OPERATORS_FEE
+  )).wait();
+  await (await upgradedNetwork.updateOperatorFeeIncreaseLimit(
+    OPERATOR_MAX_FEE_INCREASE
+  )).wait();
+  await (await upgradedNetwork.updateMinimumOperatorEthFee(
+    MINIMAL_OPERATOR_ETH_FEE
+  )).wait();
+
+  return {
+    cssv,
+    newNetwork: upgradedNetwork,
+    newViews: upgradedViews,
+  };
 }

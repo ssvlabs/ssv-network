@@ -1,28 +1,44 @@
-import type { NetworkConnection } from "hardhat/types/network";
-import { SSVClustersHarness, SSVValidatorsHarness, SSVOperatorsHarness, SSVDAOHarness, SSVStakingHarness } from '../../types/ethers-contracts/index.js';
+import type { NetworkConnection } from 'hardhat/types/network';
+import {
+  CSSVToken,
+  SSVClustersHarness,
+  SSVDAOHarness,
+  SSVNetwork,
+  SSVNetworkViews,
+  SSVOperatorsHarness,
+  SSVStakingHarness,
+  SSVToken,
+  SSVValidatorsHarness,
+} from '../../types/ethers-contracts/index.js';
 import { deployHarnessModule } from './deploy.ts';
 import { SSVModules } from '../common/types.ts';
 import { makeOperatorKey } from '../common/helpers.ts';
+import { attachModule, deployContract, deployProxy, getDeployer, upgradeProxy } from '../../scripts/common/helpers.ts';
 import {
-  getDeployer,
-  deployContract,
-  deployProxy,
-  attachModule,
-  upgradeProxy,
-} from "../../scripts/common/helpers.ts";
-import { CSSVToken, SSVNetwork, SSVNetworkViews, SSVToken } from '../../types/ethers-contracts/index.js';
-import {
-  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
+  DECLARE_OPERATOR_FEE_PERIOD,
   DEFAULT_UNSTAKE_COOLDOWN,
-  MAXIMUM_OPERATORS_FEE, MINIMAL_LIQUIDATION_THRESHOLD,
+  EXECUTE_OPERATOR_FEE_PERIOD,
+  MAXIMUM_OPERATORS_FEE,
+  MINIMAL_LIQUIDATION_THRESHOLD,
+  MINIMAL_OPERATOR_ETH_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
-  MINIMAL_OPERATOR_ETH_FEE,
-  NETWORK_FEE, NETWORK_FEE_ETH, OPERATOR_MAX_FEE_INCREASE, VALIDATORS_PER_OPERATOR_LIMIT,
+  NETWORK_FEE,
+  NETWORK_FEE_ETH,
+  OPERATOR_MAX_FEE_INCREASE,
+  VALIDATORS_PER_OPERATOR_LIMIT,
 } from '../common/constants.js';
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { ForkConfig } from '../test-forked/v2.0.0/config.ts';
 import { ethers } from 'ethers';
+
+import legacyNetworkArtifact from './artifacts/SSVNetworkLegacy.json' assert { type: 'json' };
+import legacySSVNetworkViewsArtifact from "./artifacts/SSVNetworkViewsLegacy.json" assert { type: 'json' }
+import legacyClustersArtifact from "./artifacts/SSVClustersLegacy.json" assert { type: "json" };
+import legacyOperatorsArtifact from "./artifacts/SSVOperatorsLegacy.json" assert { type: "json" };
+import legacyDAOLegacyArtifact from "./artifacts/SSVDAOLegacy.json" assert { type: "json" };
+import legacyOperatorsWhitelistArtifact from "./artifacts/SSVOperatorsWhitelistLegacy.json" assert { type: "json" };
+import legacyViewsModuleArtifact from "./artifacts/SSVViewsLegacy.json" assert { type: "json" };
 
 export async function ssvClustersHarnessFixture(
   connection: NetworkConnection<"generic">,
@@ -473,4 +489,119 @@ export async function ssvNetworkFullForkedFixture(
 
   const modules: { [key: string]: string } = { ...ForkConfig.MODULES };
   return { network, views, cssvToken, ssvToken, modules, daoSigner };
+}
+
+
+export async function ssvNetworkFullPreUpgradeFixture(
+  connection: NetworkConnection<"generic">
+): Promise<{
+  network: any;
+  views: any;
+  ssvToken: SSVToken;
+}> {
+  const deployer = await getDeployer(connection.ethers);
+
+  const { contract: ssvToken } = await deployContract(
+    connection.ethers,
+    "SSVToken"
+  );
+
+  const oldNetworkFactory =
+    await connection.ethers.getContractFactoryFromArtifact(
+      legacyNetworkArtifact
+    );
+
+  const legacyNetworkImpl = await oldNetworkFactory.deploy();
+  await legacyNetworkImpl.waitForDeployment();
+
+  const networkInitData = oldNetworkFactory.interface.encodeFunctionData(
+    "initialize",
+    [
+      await ssvToken.getAddress(),
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      params.minimumBlocksBeforeLiquidation,
+      params.minimumLiquidationCollateral,
+      params.validatorsPerOperatorLimit,
+      params.declareOperatorFeePeriod,
+      params.executeOperatorFeePeriod,
+      params.operatorMaxFeeIncrease,
+    ]
+  );
+
+  const { address: networkProxyAddr } = await deployProxy(
+    connection.ethers,
+    deployer,
+    await legacyNetworkImpl.getAddress(),
+    networkInitData
+  );
+
+  const legacyModules = {
+    SSVOperators: legacyOperatorsArtifact,
+    SSVClusters: legacyClustersArtifact,
+    SSVDAO: legacyDAOLegacyArtifact,
+    SSVViews: legacyViewsModuleArtifact,
+    SSVOperatorsWhitelist: legacyOperatorsWhitelistArtifact,
+  };
+
+  const moduleAddresses: Record<string, string> = {};
+
+  for (const [moduleName, artifact] of Object.entries(legacyModules)) {
+    const factory =
+      await connection.ethers.getContractFactoryFromArtifact(artifact);
+
+    const impl = await factory.deploy();
+    await impl.waitForDeployment();
+
+    moduleAddresses[moduleName] = await impl.getAddress();
+  }
+
+  const network = oldNetworkFactory.attach(networkProxyAddr);
+
+  for (const [moduleName, moduleAddress] of Object.entries(
+    moduleAddresses
+  )) {
+    await attachModule(
+      connection.ethers,
+      networkProxyAddr,
+      moduleName,
+      moduleAddress
+    );
+  }
+
+  const oldViewsFactory =
+    await connection.ethers.getContractFactoryFromArtifact(
+      legacySSVNetworkViewsArtifact
+    );
+
+  const legacyViewsImpl = await oldViewsFactory.deploy();
+  await legacyViewsImpl.waitForDeployment();
+
+  const viewsInitData = oldViewsFactory.interface.encodeFunctionData(
+    "initialize",
+    [networkProxyAddr]
+  );
+
+  const { address: viewsProxyAddr } = await deployProxy(
+    connection.ethers,
+    deployer,
+    await legacyViewsImpl.getAddress(),
+    viewsInitData
+  );
+
+  const views = oldViewsFactory.attach(viewsProxyAddr);
+
+  await (await network.updateNetworkFee(NETWORK_FEE)).wait();
+  await (await network.updateMinimumLiquidationCollateral(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL)).wait();
+  await (await network.updateLiquidationThresholdPeriod(MINIMUM_BLOCKS_BEFORE_LIQUIDATION)).wait();
+  await (await network.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE)).wait();
+  await (await network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE)).wait();
+
+  return {
+    network,
+    views,
+    ssvToken,
+  };
 }
