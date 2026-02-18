@@ -96,17 +96,17 @@ async function provisionStakers(
       "0x" + (BigInt(100e18)).toString(16),
     ]);
 
-    // Deal SSV tokens via hardhat_setStorageAt
-    // SSV Token uses OZ ERC20 — balances mapping is at slot 0
+    // Mint SSV tokens via impersonated owner (DAO address)
     const ssvAmount = connection.ethers.parseEther("100000");
-    const balanceSlot = connection.ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [signer.address, 0]),
-    );
-    await connection.ethers.provider.send("hardhat_setStorageAt", [
-      ssvTokenAddr,
-      balanceSlot,
-      ethers.zeroPadValue(ethers.toBeHex(ssvAmount), 32),
+    const tokenOwner = await fixture.ssvToken.owner();
+    await connection.ethers.provider.send("hardhat_impersonateAccount", [tokenOwner]);
+    await connection.ethers.provider.send("hardhat_setBalance", [
+      tokenOwner,
+      "0x" + BigInt(1e18).toString(16),
     ]);
+    const ownerSigner = await connection.ethers.getSigner(tokenOwner);
+    await fixture.ssvToken.connect(ownerSigner).mint(signer.address, ssvAmount);
+    await connection.ethers.provider.send("hardhat_stopImpersonatingAccount", [tokenOwner]);
 
     // Approve SSV tokens for the network contract
     await fixture.ssvToken.connect(signer).approve(networkAddr, ethers.MaxUint256);
