@@ -67,8 +67,8 @@ This document describes every contract flow with preconditions, step-by-step sta
    - `cluster.balance += msg.value`
    - `cluster.index = current cumulative operator ETH index`
    - `cluster.networkFeeIndex = current ETH network fee index`
-4. Update DAO: `ethDaoValidatorCount++`, `daoTotalEthVUnits += VUNITS_PRECISION` (baseline 32 ETH)
-5. If cluster has explicit EB: update operator and DAO deviation vUnits
+4. Update DAO: `ethDaoValidatorCount++`, `daoTotalEthVUnits += VUNITS_PRECISION` — baseline EB of 32 ETH per validator is always applied here for all ETH clusters
+5. If cluster has explicit EB (oracle has previously submitted an EB update): also update `ebSnapshot.vUnits` to include the new validators' baseline. Operator and DAO deviation vUnits are NOT updated — new validators start at exactly 32 ETH so their deviation is zero
 6. Store cluster hash in `ethClusters`
 7. Liquidation check: cluster must not be liquidatable after registration
 
@@ -670,7 +670,7 @@ emit OperatorFeeDeclared(owner, operatorId, block.number, fee);
 - Fee still within `operatorMaxFee`
 
 #### State Mutations
-1. Update operator ETH snapshot
+1. Update operator ETH snapshot (settles all pending earnings at the **old** fee up to this block; the new fee only applies to blocks going forward — no retroactive impact on cluster index calculations)
 2. Set `operator.ethFee = request.fee`
 3. Delete fee change request
 
@@ -695,7 +695,7 @@ emit OperatorFeeExecuted(owner, operatorId, block.number, fee);
 - New fee strictly less than current
 
 #### State Mutations
-1. Update ETH snapshot
+1. Update operator ETH snapshot (settles all pending earnings at the **old** fee up to this block; the new fee only applies to blocks going forward — no retroactive impact on cluster index calculations)
 2. Set `operator.ethFee = packed(newFee)`
 3. Delete any pending fee change request
 
@@ -761,6 +761,36 @@ Same as 4.7 but for SSV-denominated earnings. SSV token transferred instead of E
 
 ---
 
+### 4.9 Withdraw All Operator Earnings (ETH + SSV)
+
+**Caller:** Operator owner
+**nonReentrant:** Yes
+
+#### Preconditions
+- Operator must exist
+
+#### State Mutations
+1. Update both ETH and SSV snapshots (accumulate latest earnings for both)
+2. Deduct full ETH balance from `ethSnapshot.balance` (set to zero)
+3. Deduct full SSV balance from `snapshot.balance` (set to zero)
+4. Transfer full ETH earnings to operator owner (if non-zero)
+5. Transfer full SSV token earnings to operator owner (if non-zero)
+
+#### Events
+```solidity
+emit OperatorWithdrawn(owner, operatorId, ethAmount);  // ETH portion
+emit OperatorWithdrawnSSV(owner, operatorId, ssvAmount);  // SSV portion
+```
+
+#### Postcondition Invariants
+- `operator.ethSnapshot.balance == 0`
+- `operator.snapshot.balance == 0`
+- `owner.balance == previous + ethEarnings`
+- `owner.ssvBalance == previous + ssvEarnings`
+- `contract.balance == previous - ethEarnings`
+
+---
+
 ## 5. Staking Flows
 
 ### 5.1 Stake SSV
@@ -772,6 +802,8 @@ Same as 4.7 but for SSV-denominated earnings. SSV token transferred instead of E
 - `amount > 0`
 - `amount >= MINIMAL_STAKING_AMOUNT` (1,000,000,000)
 - User has approved SSV token transfer to contract
+
+> **Note — cSSV supply cap:** `cSSV.totalSupply` can never exceed `SSV.totalSupply` by construction. `mint(amount)` is only called after `transferFrom` succeeds, so cSSV is always backed 1:1 by SSV already held in the contract. No explicit supply cap check is needed.
 
 #### State Mutations
 1. `_syncFees()`: Update `accEthPerShare` with latest DAO ETH earnings
@@ -823,7 +855,7 @@ sequenceDiagram
 #### Preconditions
 - `amount > 0`
 - `amount <= cSSV.balanceOf(msg.sender)`
-- Pending unstake requests < MAX_PENDING_REQUESTS (10)
+- Pending unstake requests < MAX_PENDING_REQUESTS (2000)
 
 #### State Mutations
 1. `_syncFees()`: Update `accEthPerShare`

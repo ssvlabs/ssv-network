@@ -34,13 +34,14 @@ ETH replaces SSV as the payment asset for network and operator fees. All new clu
 
 - Operator fees paid in ETH
 - Network fees paid in ETH
+- Operates with EB accounting
 - ETH deposited upfront for runway
 - Fees scale with effective balance (vUnits), not validator count
 
 ### Existing Clusters (SSV-based, Legacy)
 
 - Continue running with existing SSV runway
-- **Blocked operations**: add validators, remove validators, reactivate, deposit SSV
+- **Blocked operations**: add validators, remove validators, reactivate, deposit SSV, withdraw SSV
 - **Allowed operations**: self-liquidate, migrate to ETH, exit validators
 - SSV fee accrual continues normally until runway depletes or migration occurs
 
@@ -51,6 +52,7 @@ ETH replaces SSV as the payment asset for network and operator fees. All new clu
 - Remaining SSV balance refunded to cluster owner
 - ETH deposited via `msg.value` as new cluster balance
 - Must pass ETH liquidation check post-migration or reverts with `InsufficientBalance`
+- Reactivates a liquidated cluster and emits the `ClusterReactivated` event in addition to `ClusterMigratedToETH`
 
 ### Operator Fee Transition
 
@@ -79,7 +81,7 @@ ETH replaces SSV as the payment asset for network and operator fees. All new clu
 
 ### Overview
 
-Fees are calculated based on a cluster's total effective balance (in whole ETH) rather than validator count. This supports post-Pectra validators with variable effective balances (32–2048 ETH per validator).
+Fees are calculated based on a cluster's total effective balance rather than validator count. Effective balance is always an integer number of ETH (e.g. 32 ETH, 64 ETH) — fractional values are not valid, matching the beacon chain's own representation. This supports post-Pectra validators with variable effective balances (32–2048 ETH per validator).
 
 ### vUnit System
 
