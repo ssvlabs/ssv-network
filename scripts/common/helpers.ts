@@ -31,7 +31,7 @@ export async function deployContract(
   const contract = await factory.deploy(...args);
   await contract.waitForDeployment();
   const address = await contract.getAddress();
-  if (!network.name.includes("hardhat")) console.log(`${contractName} at: ${address}`);
+  console.log(`${contractName} deployed at: ${address}`);
   return { contract, address };
 }
 
@@ -64,10 +64,10 @@ export async function attachModule(
   }
   const networkFactory = await ethers.getContractFactory("SSVNetwork");
   const ssvNetwork = networkFactory.attach(proxyAddress);
-  if (!network.name.includes("hardhat")) console.log(`Attaching ${moduleName} (${moduleAddress})...`);
+  console.log(`Attaching ${moduleName} (${moduleAddress})...`);
   const tx = await ssvNetwork.updateModule(SSVModules[moduleEnumKey], moduleAddress);
   await tx.wait();
-  if (!network.name.includes("hardhat")) console.log(`Attached ${moduleName} at ${moduleAddress}`);
+  console.log(`Attached ${moduleName} at ${moduleAddress}`);
 }
 
 export async function upgradeProxy(
