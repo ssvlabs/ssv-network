@@ -2930,9 +2930,9 @@ describe("SSVNetwork full integration tests", () => {
       await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
       await network.connect(randomUser).stake(STAKE_AMOUNT);
 
-      const smallAmount = STAKE_AMOUNT / 11n;
+      const smallAmount = STAKE_AMOUNT / 20000n;
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 2000; i++) {
         await network.connect(randomUser).requestUnstake(smallAmount);
       }
 
