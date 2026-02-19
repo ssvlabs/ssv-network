@@ -24,7 +24,7 @@ import type { ISSVViewsTypes } from '../../types/ethers-contracts/contracts/SSVN
 import { Errors } from '../common/errors.js';
 import { Events } from '../common/events.js';
 
-describe.only("SSVNetwork full integration tests with performing an upgrade on a legacy artifact", () => {
+describe("SSVNetwork full integration tests with performing an upgrade on a legacy artifact", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
 
