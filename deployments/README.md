@@ -1,6 +1,6 @@
 # Deployments
 
-Per-environment deployment configs and results for SSV Network v2.
+Per-environment deployment configs and results for SSV Network.
 
 ## Environments
 
