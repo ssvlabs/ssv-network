@@ -32,11 +32,12 @@
 | SEC-10 | ~~cSSV token lacks governance/voting extensions (ERC20Votes)~~ | Security Hardening | P2 | ✅ Closed (Snapshot-based governance, same as SSV) |
 | SEC-11 | ~~`hasDeviation` reactivation optimization uses global counter for per-operator decision~~ | Security Hardening | ~~P1~~ P3 | ✅ Closed (BUG-4 fix resolves root cause) |
 | SEC-12 | ~~`deposit()` accepts deposits to liquidated ETH clusters without fee settlement~~ | Security Hardening | P2 | ✅ Closed (by design — document in FLOWS.md) |
-| SEC-13 | `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals | Security Hardening | P2 | ⏳ Awaiting product decision |
+| SEC-13 | `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals | Security Hardening | P2 | Keep `OperatorWithdrawn` for ETH; add `OperatorWithdrawnSSV` for SSV |
 | SEC-14 | ~~`commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot~~ | Security Hardening | P2 | ✅ Closed (coordinated oracles) |
 | SEC-15 | ~~Min/max operator fee can be set to contradictory values~~ | Security Hardening | P2 | ✅ Closed (owner-only setters) |
 | SEC-16 | ~~Missing zero-value/zero-address guards on deposit and withdraw~~ | Security Hardening | P2 | ✅ Closed |
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
+| SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
 | TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
 | TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |
@@ -842,28 +843,34 @@ In `SSVClusters.sol:190-205`, `deposit()` has no `validateClusterIsNotLiquidated
 - **Github Link:** (empty)
 
 **Requirement:**
-Add distinguishable events for ETH vs SSV operator withdrawals, or add a `version` parameter to the existing `OperatorWithdrawn` event.
+Keep `OperatorWithdrawn` for ETH withdrawals and introduce a new `OperatorWithdrawnSSV` event for SSV withdrawal earnings. This ensures 3rd-party SDKs and off-chain indexers can correctly track operator earnings by denomination without breaking existing integrations that already listen to `OperatorWithdrawn`.
 
 **Context:**
-In `SSVOperators.sol:337-344`, both `_transferOperatorBalanceUnsafe` (ETH) and `_transferOperatorTokenBalanceUnsafe` (SSV) emit the same `OperatorWithdrawn` event. Off-chain indexers (oracle, dashboard) cannot distinguish between ETH and SSV withdrawal events, making it impossible to correctly track operator earnings by denomination.
+In `SSVOperators.sol:337-344`, both `_transferOperatorBalanceUnsafe` (ETH) and `_transferOperatorTokenBalanceUnsafe` (SSV) emit the same `OperatorWithdrawn` event. Off-chain indexers (SDK, oracle, dashboard) cannot distinguish between ETH and SSV withdrawal events, making it impossible to correctly calculate total accumulated operator earnings per denomination.
+
+**Decision:**
+- `OperatorWithdrawn(operatorId, owner, value)` — **kept as-is**, emitted only by `_transferOperatorBalanceUnsafe` (ETH withdrawals)
+- `OperatorWithdrawnSSV(operatorId, owner, value)` — **new event**, emitted only by `_transferOperatorTokenBalanceUnsafe` (SSV withdrawals)
 
 **Acceptance Criteria:**
-- [ ] Either: separate `OperatorETHWithdrawn` and `OperatorSSVWithdrawn` events
-- [ ] Or: existing event gains a `version` parameter (0 = SSV, 1 = ETH)
-- [ ] Off-chain indexers can distinguish ETH vs SSV withdrawals
-- [ ] Backward compatibility impact documented (oracle ABI change)
+- [ ] `OperatorWithdrawnSSV` event defined in `contracts/interfaces/ISSVOperators.sol`
+- [ ] `_transferOperatorBalanceUnsafe` emits `OperatorWithdrawn` (ETH) — no change
+- [ ] `_transferOperatorTokenBalanceUnsafe` emits `OperatorWithdrawnSSV` instead of `OperatorWithdrawn`
+- [ ] Off-chain indexers and SDK updated to listen to `OperatorWithdrawnSSV` for SSV earnings
+- [ ] ABI change impact documented for oracle and SDK clients
 
 **Agent Instructions:**
 1. Read `contracts/modules/SSVOperators.sol`, focus on `_transferOperatorBalanceUnsafe` and `_transferOperatorTokenBalanceUnsafe` (lines 337-344).
-2. Define separate events in `contracts/interfaces/ISSVOperators.sol`.
-3. Update both functions to emit the correct event.
-4. Document the ABI change impact on oracle and indexer clients.
-5. Run `npm run test:unit`.
+2. Add `event OperatorWithdrawnSSV(uint64 indexed operatorId, address indexed owner, uint256 value);` to `contracts/interfaces/ISSVOperators.sol`.
+3. In `_transferOperatorTokenBalanceUnsafe`, replace `emit OperatorWithdrawn(...)` with `emit OperatorWithdrawnSSV(...)`.
+4. Leave `_transferOperatorBalanceUnsafe` unchanged.
+5. Update any tests that assert `OperatorWithdrawn` was emitted for SSV withdrawals to expect `OperatorWithdrawnSSV` instead.
+6. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Define separate events or add version parameter
-- [ ] Sub-task 2: Update withdrawal functions to emit correct events
-- [ ] Sub-task 3: Update tests for new event signatures
+- [ ] Sub-task 1: Define `OperatorWithdrawnSSV` event in `ISSVOperators.sol`
+- [ ] Sub-task 2: Update `_transferOperatorTokenBalanceUnsafe` to emit `OperatorWithdrawnSSV`
+- [ ] Sub-task 3: Update tests for new event signature
 - [ ] Sub-task 4: Run full test suite
 
 ---
@@ -1039,6 +1046,40 @@ All other setters accept any value, including 0 and extreme values that could br
 - [ ] Sub-task 4: Add unit tests for each boundary (at min, at max, below min, above max)
 - [ ] Sub-task 5: Reconcile with SEC-1, SEC-4, SEC-15 (close or cross-reference)
 - [ ] Sub-task 6: Run full test suite
+
+---
+
+### [SEC-18] ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas)
+- **Type:** Security Hardening
+- **Priority:** P3
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add an early-exit guard in `withdrawOperatorEarningsSSV` (or its underlying helper) that reverts when called by the owner of an ETH-only operator, preventing a pointless transaction that wastes gas.
+
+**Context:**
+Operators registered after the v2.0.0 migration may be ETH-only (`snapshot.block == 0`, `ethSnapshot.block != 0`). New validator registrations for these operators use the ETH payment path exclusively, so they can never accumulate SSV earnings. Despite this, nothing prevents their owner from calling `withdrawOperatorEarningsSSV`. The call will succeed (the SSV balance is 0, so no tokens move), but the user pays gas for a no-op. Echidna invariants already confirm that the accounting system cannot credit SSV earnings to ETH-only operators, so there is no risk of fund loss — this is purely a UX/gas waste issue.
+
+**Acceptance Criteria:**
+- [ ] `withdrawOperatorEarningsSSV` reverts with a descriptive error (e.g., `NoSSVEarnings()`) when the operator has `snapshot.block == 0` (ETH-only)
+- [ ] ETH-capable operators (both `snapshot.block != 0` and `ethSnapshot.block != 0`) are unaffected
+- [ ] Confirm via Echidna that SSV balance of ETH-only operators cannot be artificially inflated
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVOperators.sol`, focus on `withdrawOperatorEarningsSSV` and its internal helper.
+2. After the `checkOwner` call, add: `if (operator.snapshot.block == 0) revert NoSSVEarnings();`
+3. Define `NoSSVEarnings` error in `contracts/interfaces/ISSVNetworkCore.sol` if not already present.
+4. Add a unit test: register an ETH-only operator → call `withdrawOperatorEarningsSSV` → expect revert with `NoSSVEarnings`.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Add ETH-only operator guard to `withdrawOperatorEarningsSSV`
+- [ ] Sub-task 2: Define `NoSSVEarnings` custom error
+- [ ] Sub-task 3: Add unit test for ETH-only operator calling SSV withdrawal
+- [ ] Sub-task 4: Run full test suite
 
 ---
 
