@@ -1,3 +1,8 @@
+/**
+ * @deprecated Use the directory-based config structure in deployments/<env>/
+ * with config.json and deploy-result.json instead. This module is kept for
+ * backward compatibility with deploy-module.ts and attach-module.ts.
+ */
 import fs from "fs";
 import path from "path";
 

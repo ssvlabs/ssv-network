@@ -1,5 +1,4 @@
 import { parseArg, getEthers, getDeployer, deployContract, deployProxy } from "./common/helpers.ts";
-import { saveImplementation } from "./common/address-book.js";
 
 async function main() {
   const targetNetwork = parseArg("network");
@@ -34,7 +33,6 @@ async function main() {
   console.log(`Deploying SSVNetwork proxy on ${targetNetwork}`);
 
   const { address: implAddress } = await deployContract(ethers, "SSVNetwork");
-  saveImplementation(targetNetwork, "SSVNetwork", implAddress);
 
   const Factory = await ethers.getContractFactory("SSVNetwork");
   const initData = Factory.interface.encodeFunctionData("initialize", [
@@ -56,7 +54,8 @@ async function main() {
   ]);
 
   const { address: proxyAddress } = await deployProxy(ethers, deployer, implAddress, initData);
-  saveImplementation(targetNetwork, "SSVNetworkProxy", proxyAddress);
+  console.log(`SSVNetwork impl: ${implAddress}`);
+  console.log(`SSVNetwork proxy: ${proxyAddress}`);
 }
 
 main().catch(err => {

@@ -1,0 +1,14 @@
+{
+  "protocolParams": {
+    "liquidationThresholdPeriod": "214800",
+    "minimumLiquidationCollateralEth": "1000000000000000",
+    "validatorsPerOperatorLimit": "3000",
+    "declareOperatorFeePeriod": "604800",
+    "executeOperatorFeePeriod": "604800",
+    "operatorFeeIncreaseLimit": "10000"
+  },
+  "quorumBps": 7500,
+  "defaultOracleIds": [1, 2, 3, 4],
+  "cooldownDuration": 604800,
+  "upgradeTimestamp": 0
+}

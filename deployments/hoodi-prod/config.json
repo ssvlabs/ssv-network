@@ -1,4 +1,7 @@
 {
+  "currentVersion": "v2.0.0",
+  "targetVersion": "v2.0.0",
+  "skipInitializer": true,
   "owner": "0xC564AF154621Ee8D0589758d535511aEc8f67b40",
   "ssvNetworkProxy": "0x461b238F2a3B6772C0232c1802c05Dbd683E2db3",
   "ssvNetworkViews": "0x839F87e0D81E9Fc22259103600bcF4c45e8b41ba",
@@ -7,12 +10,16 @@
   "upgradeTimestamp": 2219200,
   "quorumBps": 7500,
   "defaultOracleIds": [1, 2, 3, 4],
-  "networkFeeEth": "3550900000",
-  "maxOperatorEthFee": "5326300000",
-  "defaultOperatorEthFee": "1775464912",
-  "minOperatorEthFee": "1065200000",
-  "minimumLiquidationCollateralEth": "940000000000000",
-  "liquidationThresholdPeriod": "35800",
+  "protocolParams": {
+    "networkFeeEth": "3550900000",
+    "maxOperatorEthFee": "5326300000",
+    "minOperatorEthFee": "1065200000",
+    "minimumLiquidationCollateralEth": "940000000000000",
+    "liquidationThresholdPeriod": "35800",
+    "operatorFeeIncreaseLimit": "1000",
+    "declareOperatorFeePeriod": "604800",
+    "executeOperatorFeePeriod": "604800"
+  },
   "oracles": {
     "1": "0x6b6fa15717beeb5a40fac6610c3e92776037a30e",
     "2": "0x01E7e108eD97B4EA08e1a184aBA793b9D282E565",

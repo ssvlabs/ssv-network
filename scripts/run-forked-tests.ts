@@ -3,7 +3,10 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { JsonRpcProvider } from "ethers";
 import { parseArg } from "./common/helpers.ts";
-import { parseOptionalArg } from "./common/config.ts";
+import {
+  parseOptionalArg,
+  resolveUpgradeResultPath,
+} from "./common/config.ts";
 import {
   type ForkConfigFile,
   resolveSourceRpcUrl,
@@ -12,7 +15,15 @@ import {
 } from "./common/fork-test.ts";
 
 async function main() {
-  const configPath = resolve(parseArg("config"));
+  // Support both --env and --config
+  const envFlag = parseOptionalArg("env");
+  let configPath: string;
+  if (envFlag) {
+    configPath = resolveUpgradeResultPath(envFlag);
+  } else {
+    configPath = resolve(parseArg("config"));
+  }
+
   const testPath = parseOptionalArg("test") ?? "test/test-forked/v2.0.0/fullIntegrationForked.test.ts";
   const forkNetwork = parseOptionalArg("fork-network") ?? "hardhat_forked";
   const useDeployedState = parseOptionalArg("use-deployed-state") ?? "true";
