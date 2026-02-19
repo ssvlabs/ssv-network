@@ -271,8 +271,8 @@ async function main() {
   } else {
     const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
     const initData = upgradeFactory.interface.encodeFunctionData(
-      "initializeSSVStaking(uint64,uint32[4])",
-      [cooldownDuration, defaultOracleIds]
+      "initializeSSVStaking(uint64,uint32[4],uint16)",
+      [cooldownDuration, defaultOracleIds, quorumBps]
     );
     await (await networkOwner.upgradeToAndCall(stakingUpgradeImplAddr, initData)).wait();
   }

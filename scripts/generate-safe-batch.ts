@@ -123,11 +123,12 @@ async function main() {
     });
   } else {
     const stakingUpgradeIface = new Interface([
-      "function initializeSSVStaking(uint64 cooldownDuration, uint32[4] defaultOracleIds)",
+      "function initializeSSVStaking(uint64 cooldownDuration, uint32[4] defaultOracleIds, uint16 quorumBps)",
     ]);
     const initData = stakingUpgradeIface.encodeFunctionData("initializeSSVStaking", [
       cooldownDuration,
       defaultOracleIds,
+      quorumBps,
     ]);
     transactions.push({
       to: ssvNetworkProxy,

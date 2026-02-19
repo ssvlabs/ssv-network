@@ -119,8 +119,8 @@ async function main() {
 
   const stakingUpgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
   const stakingInitData = stakingUpgradeFactory.interface.encodeFunctionData(
-    "initializeSSVStaking(uint64,uint32[4])",
-    [cooldown, defaultOracleIds]
+    "initializeSSVStaking(uint64,uint32[4],uint16)",
+    [cooldown, defaultOracleIds, quorumBps]
   );
 
   const networkWithSigner = await ethers.getContractAt("SSVNetwork", networkProxyAddr, deployer);
