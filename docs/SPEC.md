@@ -412,6 +412,7 @@ event OperatorFeeDeclared(address indexed owner, uint64 indexed operatorId, uint
 event OperatorFeeDeclarationCancelled(address indexed owner, uint64 indexed operatorId);
 event OperatorFeeExecuted(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 event OperatorWithdrawn(address indexed owner, uint64 indexed operatorId, uint256 value);
+event OperatorWithdrawnSSV(address indexed owner, uint64 indexed operatorId, uint256 value);
 event OperatorPrivacyStatusUpdated(uint64[] operatorIds, bool toPrivate);
 event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress);
 ```
@@ -694,10 +695,12 @@ userIndex[user] = accEthPerShare
 
 ### SSV Cluster Parameters (Legacy)
 
-| Parameter | Current Value | Proposed Value |
-|---|---|---|
-| `minimumLiquidationCollateralSSV` | 1.53 SSV | 0.883 SSV |
-| `minimumBlocksBeforeLiquidationSSV` | 100,380 (~14 days) | 100,380 (~14 days) |
+| Parameter | Current Value | Proposed Value | Update Function |
+|---|---|---|---|
+| `networkFee` (SSV) | current | current | `updateNetworkFeeSSV(uint256)` |
+| `minimumLiquidationCollateralSSV` | 1.53 SSV | 0.883 SSV | `updateMinimumLiquidationCollateralSSV(uint256)` |
+| `minimumBlocksBeforeLiquidationSSV` | 100,380 (~14 days) | 100,380 (~14 days) | `updateLiquidationThresholdPeriodSSV(uint64)` |
+| `operatorMaxFeeSSV` | current | -- | No update function (read-only, frozen) |
 
 ### Staking Parameters
 

@@ -615,7 +615,7 @@ if (setPrivate) emit OperatorPrivacyStatusUpdated([operatorId], true);
 
 #### Events
 ```solidity
-if (ssvEarnings > 0) emit OperatorWithdrawn(owner, operatorId, ssvEarnings);
+if (ssvEarnings > 0) emit OperatorWithdrawnSSV(owner, operatorId, ssvEarnings);
 if (ethEarnings > 0) emit OperatorWithdrawn(owner, operatorId, ethEarnings);
 emit OperatorRemoved(operatorId);
 ```
@@ -680,7 +680,7 @@ emit OperatorFeeExecuted(owner, operatorId, block.number, fee);
 ```
 
 #### Postcondition Invariants
-- `operator.ethFee == packed(newFee)`
+- `operator.ethFee == packed(request.fee)`
 - No pending fee change request
 - ETH snapshot block updated to current
 
@@ -758,6 +758,11 @@ emit OperatorWithdrawn(owner, operatorId, amount);
 ### 4.8 Withdraw Operator Earnings (SSV)
 
 Same as 4.7 but for SSV-denominated earnings. SSV token transferred instead of ETH.
+
+#### Events
+```solidity
+emit OperatorWithdrawnSSV(owner, operatorId, amount);
+```
 
 ---
 
