@@ -441,10 +441,13 @@ async function main() {
   console.log("[4/6] Upgrading network proxy and views proxy");
   // Perform staking upgrade first to run reinitializer(3) against the existing proxy.
   // Doing this after upgrading to the latest base implementation may change reinitializer behavior.
+  if (quorumBps === undefined) {
+    throw new Error("quorumBps is required in config for staking upgrade initializer");
+  }
   const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
   const initData = upgradeFactory.interface.encodeFunctionData(
-    "initializeSSVStaking(uint64,uint32[4])",
-    [cooldownDuration, defaultOracleIds]
+    "initializeSSVStaking(uint64,uint32[4],uint16)",
+    [cooldownDuration, defaultOracleIds, quorumBps]
   );
   await (await networkOwner.upgradeToAndCall(stakingUpgradeImplAddr, initData)).wait();
   // await (await networkOwner.upgradeTo(networkImplAddr)).wait();
