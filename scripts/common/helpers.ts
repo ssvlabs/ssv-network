@@ -84,12 +84,8 @@ export async function upgradeProxy(
   const proxy = await ethers.getContractAt("SSVNetwork", proxyAddress, deployer);
 
   if (initFunction) {
-    let fragment;
-    if (initFunction.includes("(")) {
-      fragment = factory.interface.getFunction(initFunction);
-    } else {
-      fragment = factory.interface.getFunction(initFunction);
-    }
+    const fragment = factory.interface.getFunction(initFunction);
+    if (!fragment) throw new Error(`Function ${initFunction} not found in ${contractName} ABI`);
     const initData = factory.interface.encodeFunctionData(fragment, params);
 
     const tx = await proxy.upgradeToAndCall(implAddress, initData);
