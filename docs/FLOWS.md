@@ -121,7 +121,7 @@ Same as 1.1 but for multiple validators in one transaction. Each validator emits
 
 #### Preconditions
 - Validator must exist and be owned by caller
-- Cluster must exist (ETH or SSV version)
+- Cluster must exist as ETH cluster (VERSION_ETH)
 - Operator IDs must match the registered operator set
 
 #### State Mutations (ETH cluster)
@@ -155,13 +155,12 @@ emit ValidatorRemoved(owner, operatorIds, publicKey, cluster);
 
 #### Preconditions
 - Cluster must exist as ETH cluster (VERSION_ETH)
-- Cluster must be active
+
+> **Note — deposits allowed on liquidated clusters:** `deposit` does not require the cluster to be active. Depositing to a liquidated cluster, and later reactivating it, will accumulate both the deposit and the reactivation amount.
 
 #### State Mutations
-1. Update operator snapshots
-2. Settle cluster fees
-3. `cluster.balance += msg.value`
-4. Update stored cluster hash
+1. `cluster.balance += msg.value`
+2. Update stored cluster hash
 
 #### Events
 ```solidity
@@ -183,8 +182,6 @@ sequenceDiagram
     Anyone->>SSVNetwork: deposit{value: ETH}(owner, opIds, cluster)
     SSVNetwork->>Clusters: delegatecall
     Clusters->>Storage: Validate cluster (ETH version, active)
-    Clusters->>Storage: Update operator snapshots
-    Clusters->>Storage: Settle cluster fees
     Clusters->>Storage: cluster.balance += msg.value
     Clusters->>Storage: Store updated cluster hash
     Clusters-->>Anyone: emit ClusterDeposited
@@ -309,7 +306,7 @@ emit ClusterReactivated(owner, operatorIds, cluster);
 
 #### Postcondition Invariants
 - `cluster.active == true`
-- `cluster.balance == msg.value`
+- `cluster.balance += msg.value`
 - `contract.balance == previous + msg.value`
 - Cluster is not liquidatable
 
@@ -505,7 +502,7 @@ sequenceDiagram
    - Else: `storedVUnits`
 3. If cluster active: settle operator and network fees using OLD vUnits
 4. If `newVUnits != effectiveOldVUnits` AND cluster active:
-   - For each operator: `operatorEthVUnits[opId] += (newVUnits - effectiveOldVUnits) / operatorCount`
+   - For each operator: `operatorEthVUnits[opId] += (newVUnits - effectiveOldVUnits)` — **full delta applied to every operator, no division by operator count**
    - `daoTotalEthVUnits += (newVUnits - effectiveOldVUnits)`
 5. Update EB snapshot: `{vUnits: newVUnits, lastRootBlockNum: blockNum, lastUpdateBlock: block.number}`
 6. **Auto-liquidation check**: if cluster now undercollateralized:
@@ -981,6 +978,54 @@ emit FeesSynced(newFeesWei, accEthPerShare);
 
 ---
 
+### 5.6 cSSV Transfer (Reward Settlement Hook)
+
+**Caller:** Any cSSV holder (triggered automatically on ERC-20 transfer)
+**nonReentrant:** No (hook is called from within the cSSV token contract)
+
+#### Purpose
+Ensures that rewards accrued by the sender up to the moment of transfer remain claimable by the sender, and that the receiver starts accruing rewards only from the moment they receive cSSV. Without this hook, a receiver could claim rewards earned before they held the tokens.
+
+#### Hook Trigger
+`CSSVToken._beforeTokenTransfer` calls `SSVStaking.onCSSVTransfer(from, to, amount)` before every transfer, **except**:
+- Mint (`from == address(0)`)
+- Burn (`to == address(0)`)
+- Self-transfer (`from == to`)
+- Calls originating from the staking contract itself (`msg.sender == ssvStaking`) — covers internal mint/burn during `stake` and `requestUnstake`
+
+#### State Mutations
+1. `_syncFees()`: Update global `accEthPerShare` with latest DAO ETH earnings
+2. `_settle(from)`: Snapshot sender's accrued rewards at current `accEthPerShare` using their **pre-transfer** balance
+3. `_settle(to)`: Snapshot receiver's accrued rewards at current `accEthPerShare` using their **pre-transfer** balance
+
+After the hook returns, the ERC-20 transfer executes, changing both balances. Future `_settle` calls will compute rewards from the new balances, but only from this block forward.
+
+#### Events
+None emitted by the hook itself. The ERC-20 `Transfer` event is emitted by the token contract after the hook.
+
+#### Postcondition Invariants
+- `userIndex[from] == accEthPerShare` (sender's rewards locked in at pre-transfer share)
+- `userIndex[to] == accEthPerShare` (receiver starts accruing from now, not before)
+- `accrued[from]` includes all rewards earned up to this block
+- `accrued[to]` includes all rewards earned up to this block (on their existing balance, if any)
+
+```mermaid
+sequenceDiagram
+    participant Sender
+    participant cSSV as CSSVToken
+    participant Staking as SSVStaking
+
+    Sender->>cSSV: transfer(to, amount)
+    cSSV->>Staking: onCSSVTransfer(from, to, amount)
+    Staking->>Staking: _syncFees() — update accEthPerShare
+    Staking->>Staking: _settle(from) — lock in sender rewards at pre-transfer balance
+    Staking->>Staking: _settle(to) — lock in receiver rewards at pre-transfer balance
+    cSSV->>cSSV: ERC-20 transfer executes (balances change)
+    cSSV-->>Sender: emit Transfer(from, to, amount)
+```
+
+---
+
 ## 6. DAO Governance Flows
 
 ### 6.1 Update Network Fee
@@ -1032,7 +1077,7 @@ These invariants should be verified across all flows:
 
 1. **ETH conservation**: `contract.ETH_balance >= Σ(all active ETH cluster balances) + Σ(all operator ETH earnings) + staking_pool_balance`
 2. **SSV conservation**: `contract.SSV_balance >= Σ(all active SSV cluster balances) + Σ(all operator SSV earnings) + Σ(staked SSV)`
-3. **Validator count consistency**: `ethDaoValidatorCount == Σ(operator.ethValidatorCount)` across all operators (accounting for shared operators)
+3. **Validator count consistency**: `ethDaoValidatorCount == Σ(cluster.validatorCount)` across all active ETH clusters — note: `Σ(operator.ethValidatorCount)` is NOT equivalent because operators are shared across clusters and would double-count
 4. **vUnit consistency**: `daoTotalEthVUnits == ethDaoValidatorCount * VUNITS_PRECISION + Σ(cluster_deviations)`
 5. **Cluster hash integrity**: Every cluster operation must end with `s.ethClusters[key] = cluster.hashClusterData()` matching the actual cluster state
 6. **cSSV supply**: `cSSV.totalSupply() == Σ(all staked SSV that has not been unstake-requested)`

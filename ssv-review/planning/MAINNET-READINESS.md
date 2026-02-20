@@ -91,6 +91,47 @@
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
 | FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
+| DISC-1 | Unstaking model deviates from DIP-X: burn-then-wait vs lock-then-burn | Design Discussion | P1 | TBD |
+
+---
+
+## Design Discussion
+
+### [DISC-1] Unstaking model deviates from DIP-X: burn-then-wait vs lock-then-burn
+- **Type:** Design Discussion
+- **Priority:** P1
+- **Status:** 🔍 Open — decision pending
+- **Owner:** TBD
+
+**Requirement:**
+Align the unstaking implementation with the DIP-X proposal's lock-then-burn model.
+
+**Context:**
+The DIP-X proposal ("Unstaking" section) describes a two-step process where cSSV is **locked** at request time and **burned only at finalization**:
+> *"First, the staker submits a withdrawal request, which locks the specified amount of cSSV and stops reward accrual for that portion... Once the lock period ends, the staker can finalize the unstake. The locked cSSV is burned, and the underlying SSV is returned at a 1:1 ratio."*
+
+The current implementation (`SSVStaking.sol:requestUnstake`) does the opposite — **burn-then-wait**:
+1. `requestUnstake(amount)`: cSSV is burned immediately (`ICSSVToken.burn`, line 91); an `UnstakeRequest{amount, unlockTime}` is stored.
+2. `withdrawUnlocked()`: SSV is returned after cooldown; no cSSV interaction.
+
+This has two material consequences relative to the proposal:
+- **Reward accrual**: Both models stop accrual at request time (burn reduces `balanceOf`, which drives `_settleWithBalance`). Behaviourally equivalent on rewards.
+- **Governance/voting power**: Under burn-then-wait, cSSV is destroyed at request time — voting power is lost immediately. Under lock-then-burn, voting power would be retained until finalization.
+- **cSSV total supply**: Under burn-then-wait, `totalSupply` drops at request time, slightly accelerating `accEthPerShare` for remaining stakers. Under lock-then-burn, supply would not decrease until finalization.
+
+**Alternative implementations evaluated:**
+- **Option A — New `lockedBalance[user]` mapping**: Settle rewards first, then add `amount` to `lockedBalance[user]`. `_settle` uses `balanceOf - lockedBalance` as effective balance. Burn at `withdrawUnlocked`. Matches DIP-X exactly but adds a new storage slot and gas overhead on every `_settle` call.
+- **Option B — Sum pending `UnstakeRequest[]` in `_settle`**: No new storage, but O(n) per settle call — prohibitive with `MAX_PENDING_REQUESTS = 2000`.
+- **Option C — Keep current burn-then-wait**: No storage changes, cheapest gas. Deviates from DIP-X on governance timing only; reward accrual behaviour is equivalent.
+
+**Acceptance Criteria:**
+- [ ] Approach selected (Option A — `lockedBalance[user]` mapping, or Option B — sum `UnstakeRequest[]` in `_settle`)
+- [ ] `requestUnstake`: settle rewards first, then lock cSSV (no burn); burn deferred to `withdrawUnlocked`
+- [ ] `_settle` uses effective balance (`balanceOf - locked`) so locked portion stops accruing rewards
+- [ ] `withdrawUnlocked`: burns the unlocked cSSV amount before returning SSV
+- [ ] cSSV transfers of locked tokens handled correctly (guard or adjust lock on `onCSSVTransfer`)
+- [ ] `SPEC.md` and `FLOWS.md` updated to reflect lock-then-burn semantics
+- [ ] Tests updated: `requestUnstake` no longer reduces `cSSV.totalSupply`; `withdrawUnlocked` does
 
 ---
 

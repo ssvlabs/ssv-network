@@ -168,7 +168,7 @@ userIndex[user] = accEthPerShare
 
 ### Unstaking (Two-Step)
 
-1. **`requestUnstake(amount)`**: Burns cSSV, creates `UnstakeRequest{amount, unlockTime = now + cooldownDuration}`. Max 10 pending requests per user.
+1. **`requestUnstake(amount)`**: Burns cSSV, creates `UnstakeRequest{amount, unlockTime = now + cooldownDuration}`. Max 2000 pending requests per user.
 2. **`withdrawUnlocked()`**: After cooldown, returns SSV at 1:1. Uses swap-and-pop for O(1) removal.
 
 Rewards STOP accruing for the unstaked portion at the moment of `requestUnstake`.
