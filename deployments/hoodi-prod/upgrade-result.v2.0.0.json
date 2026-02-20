@@ -1,4 +1,7 @@
 {
+  "currentVersion": "v2.0.0",
+  "targetVersion": "v2.0.0",
+  "skipInitializer": true,
   "owner": "0xC564AF154621Ee8D0589758d535511aEc8f67b40",
   "ssvNetworkProxy": "0x58410Bef803ECd7E63B23664C586A6DB72DAf59c",
   "ssvNetworkViews": "0x5AdDb3f1529C5ec70D77400499eE4bbF328368fe",
@@ -12,12 +15,20 @@
     3,
     4
   ],
-  "networkFeeEth": "3550900000",
-  "maxOperatorEthFee": "5326300000",
-  "defaultOperatorEthFee": "1775464912",
-  "minOperatorEthFee": "1065200000",
-  "minimumLiquidationCollateralEth": "940000000000000",
-  "liquidationThresholdPeriod": "35800",
+  "protocolParams": {
+    "networkFeeEth": "3550900000",
+    "maxOperatorEthFee": "5326300000",
+    "minOperatorEthFee": "1065200000",
+    "minimumLiquidationCollateralEth": "940000000000000",
+    "liquidationThresholdPeriod": "35800",
+    "operatorFeeIncreaseLimit": "1000",
+    "declareOperatorFeePeriod": "604800",
+    "executeOperatorFeePeriod": "604800",
+    "networkFeeSSV": "382640000000",
+    "minimumLiquidationCollateralSSV": "1000000000000000000",
+    "validatorsPerOperatorLimit": "3000",
+    "unstakeCooldownDuration": "604800"
+  },
   "oracles": {
     "1": "0x6b6fa15717beeb5a40fac6610c3e92776037a30e",
     "2": "0x01E7e108eD97B4EA08e1a184aBA793b9D282E565",
@@ -25,7 +36,7 @@
     "4": "0xFe33f6cb66ee2A85748458556D6ccEC3716D2173"
   },
   "cssvToken": "0x6e1a5d27361c666f681af06535c8Ac773E571d4d",
-  "forkBlockNumber": 2219349,
+  "deployBlockNumber": 2266091,
   "modules": {
     "SSVOperators": "0x2E3F725C5B3954978FA5fc6f05195B32f2Cc6657",
     "SSVClusters": "0xddA2b40DE56b1a3e7F2868580A431b8044d89b20",
@@ -36,8 +47,8 @@
     "SSVValidators": "0x579cA021C1C9DAc52Fd61D36E7730CeA5c8ddd5b"
   },
   "deployments": {
-    "ssvNetworkStakingUpgradeImplementation": "0xc51b63d68188936d71EF82b3794d6157bc351B89",
-    "ssvNetworkViewsImplementation": "0xdf0355E29F9288ae922cC863977A9aE3cE94B6a1",
+    "ssvNetworkStakingUpgradeImplementation": "0x0a18da6EDAF94b146e8C305425b242d232B929d2",
+    "ssvNetworkViewsImplementation": "0x6200cFa8b7EdcD5289AbA464e602AFDCe6c4385c",
     "cssvToken": "0x6e1a5d27361c666f681af06535c8Ac773E571d4d",
     "modules": {
       "SSVOperators": "0x2E3F725C5B3954978FA5fc6f05195B32f2Cc6657",
@@ -48,17 +59,9 @@
       "SSVStaking": "0x871d5A127C7FAA5070E36A364BCED3E5728d5614",
       "SSVValidators": "0x579cA021C1C9DAc52Fd61D36E7730CeA5c8ddd5b"
     },
-    "targetNetwork": "hoodi_local",
-    "forkBlockNumber": 2219349,
+    "targetNetwork": "local",
+    "deployBlockNumber": 2266091,
     "chainId": "560048",
-    "updatedAt": "2026-02-12T08:57:50.602Z"
-  },
-  "networkFeeSSV": "382640000000",
-  "operatorFeeIncreaseLimit": "1000",
-  "declareOperatorFeePeriod": "604800",
-  "executeOperatorFeePeriod": "604800",
-  "minimumLiquidationCollateralSSV": "1000000000000000000",
-  "validatorsPerOperatorLimit": "3000",
-  "unstakeCooldownDuration": "604800"
+    "updatedAt": "2026-02-19T11:33:48.006Z"
+  }
 }
-
