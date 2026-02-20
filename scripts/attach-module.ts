@@ -1,5 +1,4 @@
 import { parseArg, getEthers, attachModule } from "./common/helpers.ts";
-import { saveImplementation } from "./common/address-book.js";
 
 async function main() {
   const targetNetwork = parseArg("network");
@@ -10,8 +9,6 @@ async function main() {
   const proxyAddress = parseArg("proxy-address");
 
   await attachModule(ethers, proxyAddress, moduleName, moduleAddress);
-
-  saveImplementation(targetNetwork, moduleName, moduleAddress);
 }
 
 main().catch((err) => {
