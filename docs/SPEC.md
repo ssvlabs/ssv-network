@@ -201,7 +201,7 @@ Rewards STOP accruing for the unstaked portion at the moment of `requestUnstake`
 
 Effective Balance Oracles track validator balances on the beacon chain and commit Merkle roots on-chain. The protocol uses a permissioned set of 4 oracles with a 3-of-4 (75%) quorum threshold.
 
-**Initialization:** Oracle addresses and cooldown duration are bootstrapped during the upgrade via `initializeSSVStaking`, which sets `StorageStaking.defaultOracleIds` and `cooldownDuration` atomically. There is no window where the contract is live but oracles are uninitialized. Note: `quorumBps` is **not** set in the initializer and defaults to `0` — see SEC-2 in MAINNET-READINESS.md.
+**Initialization:** Oracle addresses, cooldown duration, and quorum are bootstrapped during the upgrade via `initializeSSVStaking`, which sets `StorageStaking.defaultOracleIds`, `cooldownDuration`, and `quorumBps` atomically. The initializer validates `quorumBps != 0 && quorumBps <= 10_000` — zero or out-of-range values revert with `InvalidQuorum`. There is no window where the contract is live with oracles uninitialized or quorum unset.
 
 ### Commit Flow (`commitRoot`)
 

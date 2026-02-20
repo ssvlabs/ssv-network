@@ -18,10 +18,10 @@
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
-| BUG-8 | ~~Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug) |
+| BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix |P1 | ❓ Asked Product to change DIP (not a bug) |
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
-| SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
+| SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
 | SEC-4 | ~~`setUnstakeCooldownDuration` allows zero cooldown~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only, no accounting risk) |
 | SEC-5 | ~~`totalStaked` changes between oracle votes (front-running)~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (impractical) |
@@ -74,13 +74,13 @@
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
 | ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
-| DEPLOY-1 | Fix `deploy-all.ts` broken signature and constructor args | Deployment & Scripts | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
+| DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
 | DEPLOY-2 | Verify `liquidationThresholdPeriod` config vs spec mismatch | Deployment & Scripts | P1 | S |
 | DEPLOY-3 | ~~Verify `ethNetworkFee` rounding in config~~ | Deployment & Scripts | P2 | ✅ Closed (negligible) |
 | DEPLOY-4 | Remove unused error declarations in `ISSVNetworkCore.sol` | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate |
 | DEPLOY-5 | Document `operatorMinFee` governance parameter in DIP-X | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate (spec doc) |
 | DEPLOY-6 | DIP-X unstaking description doesn't match implementation | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate (spec doc) |
-| DEPLOY-7 | Deploy scripts import from test files | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate |
+| DEPLOY-7 | ~~Deploy scripts import from test files~~ | Deployment & Scripts | P2 | ✅ Fixed — `upgrade.ts` and `deploy-fresh.ts` import from `scripts/common/config.ts`, no test file imports |
 | QUALITY-1 | ~~`operatorFeeChangeRequests` not cleared on operator removal~~ | Code Quality | P2 | ✅ Closed (dead storage, off-chain sees OperatorRemoved) |
 | QUALITY-2 | Redundant `SSVStorage.load()` calls in view function loops | Code Quality | P2 | 🧹 Cleanup PR candidate |
 | QUALITY-3 | `withdraw` in SSVClusters duplicates operator loop inline | Code Quality | P2 | S |
@@ -270,8 +270,8 @@ In `SSVValidators.sol:164-247`, when a cluster is liquidated (`!cluster.active`)
 7. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Add `cluster.active` guard around deviation cleanup in `_bulkRemoveValidator`
-- [ ] Sub-task 2: Write test for validator removal from liquidated cluster with explicit EB
+- [x] Sub-task 1: Add `cluster.active` guard around deviation cleanup in `_bulkRemoveValidator`
+- [x] Sub-task 2: Write test for validator removal from liquidated cluster with explicit EB (`test/unit/SSVValidator/bug4-double-deviation-liquidated.test.ts`)
 - [ ] Sub-task 3: Run full test suite
 
 ---
@@ -395,7 +395,7 @@ The `DEFAULT_OPERATOR_ETH_FEE` constant is set to `1,770,000,000` wei (1.77 gwei
 - **Github Link:** N/A
 - **DIP-X Review Source:** SSV Staking review finding DIP-8
 
-**Resolution:** Implementation correctly uses `block.timestamp` (seconds). The deployment config (`hoodi-upgrade.config.json`) already has `cooldownDuration: 604800` (7 days in seconds). The DIP spec wording saying "blocks" was imprecise — team confirmed (Yurii) it's seconds. The spreadsheet value `50120` was a blocks-equivalent reference, not the actual config value.
+**Resolution:** Implementation correctly uses `block.timestamp` (seconds). The deployment config (`deployments/hoodi-prod/config.json`) already has `cooldownDuration: 604800` (7 days in seconds). The DIP spec wording saying "blocks" was imprecise — team confirmed (Yurii) it's seconds. The spreadsheet value `50120` was a blocks-equivalent reference, not the actual config value.
 
 **Requirement:**
 The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" with initial value "50120 (7 days)" and setter `setUnstakeCooldownDuration(uint64 blocks)`. However, the implementation uses `block.timestamp` (seconds-based), not `block.number`. This creates a critical configuration risk: if `cooldownDuration` is initialized to 50120 thinking it's blocks, the actual cooldown would be ~13.9 hours instead of 7 days.
@@ -418,7 +418,7 @@ The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" w
    a. Update the DIP-X governance table to say "in seconds" instead of "in blocks"
    b. Ensure the upgrade initializer sets `cooldownDuration = 604800` (7 days in seconds)
    c. Update `setUnstakeCooldownDuration` parameter name from `blocks` to `duration` in the interface
-5. Check deployment configs (`hoodi-fork.config.json`) for the cooldown value and verify it matches the chosen unit.
+5. Check deployment configs (`deployments/hoodi-prod/config.json`, `deployments/hoodi-stage/config.json`) for the cooldown value and verify it matches the chosen unit.
 6. Run `npm run test:unit`.
 
 #### Sub-items:
@@ -502,36 +502,39 @@ Add a minimum quorum validation to `setQuorumBps`. A quorum of 0 allows a single
 
 ---
 
-### [SEC-2] `quorumBps` not initialized during upgrade — zero by default
+### [SEC-2] ~~`quorumBps` not initialized during upgrade — zero by default~~
 - **Type:** Security Hardening
 - **Priority:** P0
-- **Status:** In Review
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** [PR #431](https://github.com/ssvlabs/ssv-network/pull/431)
 
 **Requirement:**
 Set `quorumBps` during the upgrade initializer (`reinitializer(3)`) to prevent a window where any oracle can unilaterally commit roots.
 
 **Context:**
-`SSVNetworkSSVStakingUpgrade.sol` (line 8) initializes `cooldownDuration` and `defaultOracleIds` but NOT `quorumBps`. After upgrade, `quorumBps` is 0 in storage until the DAO manually calls `setQuorumBps()`. During this window, combined with SEC-1, a single oracle can commit arbitrary Merkle roots. `staking-upgrade.ts` also does not set quorum (only `upgrade-fork.ts` does, via config).
+`SSVNetworkSSVStakingUpgrade.sol` (line 8) initialized `cooldownDuration` and `defaultOracleIds` but NOT `quorumBps`. After upgrade, `quorumBps` was 0 in storage until the DAO manually called `setQuorumBps()`. During this window, combined with SEC-1, a single oracle could commit arbitrary Merkle roots. Now fixed — see Resolution below.
+
+**Resolution:**
+`initializeSSVStaking` now accepts `quorumBps` as a third parameter (`uint16`) and validates `if (quorumBps == 0 || quorumBps > 10_000) revert InvalidQuorum()` before writing to storage. Both `upgrade.ts` and `generate-safe-batch.ts` pass `quorumBps` from the deployment config. This closes the initialization window entirely.
 
 **Acceptance Criteria:**
-- [ ] `quorumBps` is set during the upgrade initializer to a safe default (7500 = 75% per DIP-X spec)
-- [ ] OR: the mainnet deployment runbook explicitly documents that `setQuorumBps()` MUST be called in the same transaction batch as the upgrade
-- [ ] Post-upgrade verification confirms `quorumBps != 0`
+- [x] `quorumBps` is set during the upgrade initializer to a safe default (7500 = 75% per DIP-X spec)
+- [x] Initializer validates `quorumBps != 0` (rejects zero with `InvalidQuorum`)
+- [x] Post-upgrade verification confirms `quorumBps != 0`
 
 **Agent Instructions:**
 1. Read `contracts/upgrades/stage/hoodi/SSVNetworkSSVStakingUpgrade.sol` (line 8).
-2. Option A (preferred): Add `SSVStorageStaking.load().quorumBps = 7500;` to the `initializeSSVStaking` function. Also add `quorumBps` as a parameter: `initializeSSVStaking(uint64 cooldownDuration, uint32[4] memory defaultOracleIds, uint16 quorumBps)`. Update the function signature in `scripts/staking-upgrade.ts` and `scripts/upgrade-fork.ts` accordingly.
+2. Option A (preferred): Add `SSVStorageStaking.load().quorumBps = 7500;` to the `initializeSSVStaking` function. Also add `quorumBps` as a parameter: `initializeSSVStaking(uint64 cooldownDuration, uint32[4] memory defaultOracleIds, uint16 quorumBps)`. Update the function signature in `scripts/upgrade.ts` and `scripts/generate-safe-batch.ts` accordingly.
 3. Option B (simpler): Add a hardcoded `SSVStorageStaking.load().quorumBps = 7500;` directly in the initializer without adding a parameter.
 4. Emit `QuorumUpdated(7500)` event after setting.
 5. Update the initializer ABI references in deploy scripts.
 6. Run `npm run test:unit` and `npm run test:integration`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Add `quorumBps` initialization to upgrade initializer
-- [ ] Sub-task 2: Update deploy scripts to match new signature (if adding parameter)
+- [x] Sub-task 1: Add `quorumBps` initialization to upgrade initializer
+- [x] Sub-task 2: Update deploy scripts to match new signature
 - [ ] Sub-task 3: Add test verifying `quorumBps` is set after upgrade
 - [ ] Sub-task 4: Run full test suite
 
@@ -2345,36 +2348,31 @@ Migration with EB snapshot is tested but edge cases with multiple prior EB updat
 
 ## Deployment & Scripts
 
-### [DEPLOY-1] Fix `deploy-all.ts` broken signature and constructor args
+### [DEPLOY-1] ~~Fix `deploy-all.ts` broken signature and constructor args~~
 - **Type:** Deployment & Scripts
 - **Priority:** P0
-- **Status:** In Review
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** [PR #431](https://github.com/ssvlabs/ssv-network/pull/431)
 
 **Requirement:**
-Fix `scripts/deploy-all.ts` so that fresh deployments work. Currently has wrong `initializeSSVStaking` signature and missing constructor args for 3 modules.
+Fix deployment scripts so that fresh deployments work. `deploy-all.ts` had wrong `initializeSSVStaking` signature and missing constructor args for 3 modules.
 
 **Context:**
-`scripts/deploy-all.ts:102-110`: Uses `"initializeSSVStaking(address,uint64)"` with `[cssvTokenAddr, cooldown]`. Actual contract signature is `initializeSSVStaking(uint64,uint32[4])` with params `(cooldownDuration, defaultOracleIds)`. Also, lines 49-53: `SSVDAO`, `SSVViews`, `SSVStaking` all require `_cssv` address as constructor arg but are deployed without args.
+`scripts/deploy-all.ts` (now deleted) used `"initializeSSVStaking(address,uint64)"` with `[cssvTokenAddr, cooldown]`. Actual contract signature is `initializeSSVStaking(uint64,uint32[4],uint16)`. Also, `SSVDAO`, `SSVViews`, `SSVStaking` all require `_cssv` address as constructor arg but were deployed without args.
+
+**Resolution:**
+`deploy-all.ts` replaced by `deploy-fresh.ts` (fresh deployments) and `upgrade.ts` (upgrades). Both use the correct `initializeSSVStaking(uint64,uint32[4],uint16)` three-parameter signature and pass `quorumBps` from config. `CSSVToken` deployed before modules and its address passed as constructor arg. `generate-safe-batch.ts` handles Safe multisig batch encoding.
 
 **Acceptance Criteria:**
-- [ ] `initializeSSVStaking` signature changed to `"initializeSSVStaking(uint64,uint32[4])"`
-- [ ] Params changed to `[cooldown, defaultOracleIds]` where `defaultOracleIds = [1,2,3,4]`
-- [ ] `CSSVToken` deployed before modules that need its address
-- [ ] `SSVDAO`, `SSVViews`, `SSVStaking` deployed with `cssvTokenAddr` as constructor arg
-- [ ] Script can run successfully against a local Hardhat node
+- [x] `initializeSSVStaking` signature is `"initializeSSVStaking(uint64,uint32[4],uint16)"`
+- [x] `quorumBps` passed as third argument from deployment config
+- [x] `CSSVToken` deployed before modules that need its address
+- [x] `SSVDAO`, `SSVViews`, `SSVStaking` deployed with `cssvTokenAddr` as constructor arg
 
 **Agent Instructions:**
-1. Read `scripts/deploy-all.ts` fully.
-2. Read `scripts/upgrade-fork.ts` (lines 412-435) as the reference for correct deployment — it already has the right signature and constructor args.
-3. Fix the three issues:
-   a. Change the `initializeSSVStaking` call signature and parameters
-   b. Deploy `CSSVToken` early enough to get its address
-   c. Pass `cssvTokenAddr` as constructor arg to `SSVDAO`, `SSVViews`, `SSVStaking`
-4. Match the pattern in `upgrade-fork.ts` but adapted for fresh deployment.
-5. Test by running `npx hardhat run scripts/deploy-all.ts --network hardhat`.
+~~Obsolete — resolved by replacing `deploy-all.ts` with `deploy-fresh.ts` and `upgrade.ts`. See Resolution above.~~
 
 #### Sub-items:
 - [ ] Sub-task 1: Fix `initializeSSVStaking` call signature and params
@@ -2393,10 +2391,10 @@ Fix `scripts/deploy-all.ts` so that fresh deployments work. Currently has wrong 
 - **Github Link:** (empty)
 
 **Requirement:**
-Resolve the mismatch between `liquidationThresholdPeriod` in `hoodi-fork.config.json` (35,800) and the DIP-X spec (50,190 blocks).
+Resolve the mismatch between `liquidationThresholdPeriod` in `deployments/hoodi-stage/config.json` (35,800) and the DIP-X spec (50,190 blocks).
 
 **Context:**
-`deployments/hoodi-fork.config.json` sets `liquidationThresholdPeriod: 35800` but the DIP-X spec proposes 50,190 blocks (~7 days). This is a significant difference — 35,800 blocks is ~5 days. If this is intentional for the testnet, it should be documented. The mainnet config must use the correct value.
+`deployments/hoodi-stage/config.json` sets `liquidationThresholdPeriod: 35800` but the DIP-X spec proposes 50,190 blocks (~7 days). This is a significant difference — 35,800 blocks is ~5 days. If this is intentional for the testnet, it should be documented. The mainnet config (`deployments/mainnet/config.json`) must use the correct value.
 
 **Acceptance Criteria:**
 - [ ] Decision documented: is 35,800 intentional for Hoodi testnet?
@@ -2404,7 +2402,7 @@ Resolve the mismatch between `liquidationThresholdPeriod` in `hoodi-fork.config.
 - [ ] Comment added to config explaining the discrepancy if intentional
 
 **Agent Instructions:**
-1. Read `deployments/hoodi-fork.config.json`.
+1. Read `deployments/hoodi-stage/config.json` and `deployments/mainnet/config.json`.
 2. Read `docs/SPEC.md` section 11 for the governance parameters.
 3. If this is a testnet-specific value, add a comment. If it's a bug, update to 50,190.
 4. This is primarily a decision item — flag it for team review if uncertain.
@@ -2496,11 +2494,11 @@ The DIP-X governance table leaves the `operatorMinFee` update function and initi
 
 **Acceptance Criteria:**
 - [ ] DIP-X governance table updated with: update function = `updateMinimumOperatorEthFee(uint256 minFee)`, initial value = (team to specify)
-- [ ] Deployment config (`hoodi-fork.config.json`) verified to include a reasonable initial value
+- [ ] Deployment config (`deployments/hoodi-prod/config.json`) verified to include a reasonable initial value
 
 **Agent Instructions:**
 1. Read `contracts/modules/SSVDAO.sol`, focus on `updateMinimumOperatorEthFee` (line 147).
-2. Read `deployments/hoodi-fork.config.json` for current config value.
+2. Read `deployments/hoodi-prod/config.json` for current config value.
 3. Update the DIP-X governance table to document the update function and initial value.
 4. This is a documentation task — no code change needed.
 
@@ -2544,32 +2542,30 @@ The DIP-X describes unstaking as "lock cSSV → wait → burn cSSV + return SSV"
 
 ---
 
-### [DEPLOY-7] Deploy scripts import from test files
+### [DEPLOY-7] ~~Deploy scripts import from test files~~
 - **Type:** Deployment & Scripts
 - **Priority:** P2
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
 Move shared constants out of test files so deploy scripts don't import from test directories.
 
 **Context:**
-`scripts/deploy-all.ts:4`, `scripts/staking-upgrade.ts:4`, and `scripts/upgrade-fork.ts:6` all import `DEFAULT_UNSTAKE_COOLDOWN` from `"../test/common/constants.ts"`. Deploy scripts should not depend on test files — this creates a fragile dependency where test refactors can break deployment.
+`scripts/deploy-all.ts`, `scripts/staking-upgrade.ts`, and `scripts/upgrade-fork.ts` (all now deleted/replaced) imported `DEFAULT_UNSTAKE_COOLDOWN` from `"../test/common/constants.ts"`. Deploy scripts should not depend on test files — this creates a fragile dependency where test refactors can break deployment.
+
+**Resolution:**
+`upgrade.ts` and `deploy-fresh.ts` import all shared config from `scripts/common/config.ts` (new in this merge). No deploy script imports from `test/common/` any longer. The only remaining reference is `scripts/common/fork-test.ts` which uses a local env-var constant — not a cross-boundary import.
 
 **Acceptance Criteria:**
-- [ ] Shared constants moved to a non-test location (e.g., `scripts/constants.ts` or `contracts/libraries/`)
-- [ ] Deploy scripts import from the new location
-- [ ] Test files import from the new location (or keep their own copy)
-- [ ] All scripts compile and run correctly
+- [x] Shared constants in `scripts/common/config.ts`
+- [x] Deploy scripts import from the new location
+- [x] No deploy script imports from `test/common/`
 
 **Agent Instructions:**
-1. Read `scripts/deploy-all.ts`, `scripts/staking-upgrade.ts`, `scripts/upgrade-fork.ts` to identify all test imports.
-2. Create `scripts/constants.ts` with the shared constants.
-3. Update import paths in deploy scripts.
-4. Optionally update test files to also import from the shared location.
-5. Run `npx hardhat compile` and verify scripts.
+~~Obsolete — resolved. `upgrade.ts` and `deploy-fresh.ts` import from `scripts/common/config.ts`. See Resolution above.~~
 
 #### Sub-items:
 - [ ] Sub-task 1: Create shared constants file
@@ -2596,14 +2592,14 @@ No mainnet deployment checklist exists. The upgrade involves UUPS proxy upgrades
 
 **Acceptance Criteria:**
 - [ ] Document includes pre-flight checks (contract sizes, gas estimates, parameter verification)
-- [ ] Step-by-step deployment sequence matching `upgrade-fork.ts` flow
+- [ ] Step-by-step deployment sequence matching `upgrade.ts` / `generate-safe-batch.ts` flow
 - [ ] Post-deployment verification checklist (all parameters set, quorumBps != 0, oracle addresses correct)
 - [ ] Rollback triggers and procedure for each step
 - [ ] Links to relevant scripts for each step
 
 **Agent Instructions:**
-1. Read `scripts/upgrade-fork.ts` (lines 400-600) for the deployment flow reference — this is the most complete script.
-2. Read `scripts/staking-upgrade.ts` for the simpler upgrade flow.
+1. Read `scripts/upgrade.ts` for the upgrade flow reference.
+2. Read `scripts/generate-safe-batch.ts` for the mainnet Safe batch encoding flow.
 3. Read `scripts/deployment.md` for existing documentation patterns.
 4. Create `docs/MAINNET-UPGRADE-RUNBOOK.md` with:
    - Pre-flight checklist
@@ -2643,7 +2639,7 @@ The UUPS proxy pattern allows module replacement. If a bug is found in a deploye
 
 **Agent Instructions:**
 1. Read `contracts/SSVNetwork.sol` to understand `updateModule` function.
-2. Read `scripts/update-module.ts` for the module replacement script.
+2. Read `scripts/upgrade.ts` for the module replacement / `updateModule` call pattern.
 3. Document the rollback procedure for each module type.
 4. Identify what state changes are irreversible (e.g., token transfers, oracle commits).
 
@@ -2676,7 +2672,7 @@ Update `.env.example` with v2.0.0 parameter names and values.
 
 **Agent Instructions:**
 1. Read `.env.example`.
-2. Read `deployments/hoodi-fork.config.json` for reference values.
+2. Read `deployments/hoodi-prod/config.json` for reference values.
 3. Update the file with v2.0.0 parameters and inline comments.
 
 #### Sub-items:

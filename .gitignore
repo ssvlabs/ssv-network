@@ -35,4 +35,6 @@ ssv-review/*
 !ssv-review/planning
 ssv-review/planning/*
 !ssv-review/planning/MAINNET-READINESS.md
+!ssv-review/planning/WORK_PROMPT.md
+!ssv-review/planning/WORK_PLAN.md
 !ssv-review/planning/verified

@@ -36,7 +36,7 @@ This file tracks open questions and unspecified behaviors identified during the 
 | # | Gap | Proposal | SPEC | Resolution |
 |---|-----|----------|------|------------|
 | 3.1 | `MINIMAL_STAKING_AMOUNT = 1,000,000,000` — what unit is this (SSV wei)? What is the rationale? | Silent | Documented as constant | ❓ Ask product |
-| 3.2 | `MAX_PENDING_REQUESTS = 2000` — code currently has 10. Which is the intended value? | Silent | ⚠️ Updated to 2000 in docs, pending to update contracts | |
+| 3.2 | `MAX_PENDING_REQUESTS = 2000` — code currently has 10. Which is the intended value? | Silent | Referenced | ✅ Code updated to 2000 (`SSVStaking.sol:23`). Docs and code now aligned. |
 | 3.3 | Can a user **stake 0**? Which error is returned? | Silent | Silent | ✅ Reverts with `ZeroAmount`, Staking Errors updated in SPECS|
 | 3.4 | What happens if a user **stakes before any oracle is initialized**? Does it revert or succeed? | Silent | `OracleHasZeroWeight` on `commitRoot` | ✅ `stake()` has no oracle dependency — succeeds regardless of oracle state. `OracleHasZeroWeight` is thrown by `commitRoot` (not `stake`) when `totalStaked == 0`. Oracles are bootstrapped at upgrade time via `initializeSSVStaking` (`s.defaultOracleIds = defaultOracleIds`), so they are always initialized before any user interaction. Documented in SPEC 4. |
 | 3.5 | `withdrawUnlocked` — what if **no matured requests** exist? Does it revert (`NothingToWithdraw`) or no-op? | Silent | Referenced | ✅ Reverts with `NothingToWithdraw` — `calculateTotalUnfrozenBalance` returns 0 if no requests have passed `unlockTime`, and the zero-amount check fires immediately. |
