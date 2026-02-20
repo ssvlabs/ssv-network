@@ -49,9 +49,13 @@ ETH replaces SSV as the payment asset for network and operator fees. All new clu
 
 - One-way, irreversible
 - Single transaction: switches accounting from SSV to ETH
+- Only callable by the cluster owner
 - Remaining SSV balance refunded to cluster owner
 - ETH deposited via `msg.value` as new cluster balance
 - Must pass ETH liquidation check post-migration or reverts with `InsufficientBalance`
+- Minimum ETH required: `max(minimumLiquidationCollateral, minimumBlocksBeforeLiquidation × (operatorFeeSum + networkFee) × validatorCount × ETH_DEDUCTED_DIGITS)` where fees are in packed ETH units (wei per block per validator, EB-weighted)
+- With zero-fee operators the minimum collapses to the network-fee-only term; the absolute floor is always `minimumLiquidationCollateral`
+- Removed/inactive operators are skipped during migration
 - Reactivates a liquidated cluster and emits the `ClusterReactivated` event in addition to `ClusterMigratedToETH`
 
 ### Operator Fee Transition
@@ -119,6 +123,22 @@ daoTotalEthVUnits = ethDaoValidatorCount * VUNITS_PRECISION + Σ(cluster_deviati
 
 Where deviation = `cluster.vUnits - (cluster.validatorCount * VUNITS_PRECISION)` for clusters with explicit EB.
 
+### Operator vUnit Deviation Cleanup on Liquidation
+
+When a cluster is liquidated (via `liquidate`, `liquidateSSV`, or auto-liquidation in `updateClusterBalance`):
+- **Baseline** is removed by decrementing `operator.ethValidatorCount` for each operator
+- **Deviation** (explicit EB above baseline) is removed from `operatorEthVUnits[opId]` and `daoTotalEthVUnits`
+- Implicit clusters (`clusterEB.vUnits == 0`) have no deviation — only baseline removal applies
+
+### Stale EB Risk on Reactivation
+
+Oracles do not update EB for liquidated clusters (fee/accounting updates are skipped). During the liquidation period, the beacon-chain EB may diverge from the stored snapshot:
+
+- **EB increases** (e.g. owner consolidates validators): reactivation solvency check uses stale lower EB → cluster passes with less ETH than the next oracle update will require → auto-liquidation risk on next `updateClusterBalance`
+- **EB decreases** (e.g. slashing): reactivation solvency check uses stale higher EB → cluster passes with less ETH than the actual burn rate will demand → same auto-liquidation risk
+
+In both cases the cluster owner should account for potential EB drift when choosing how much ETH to deposit on reactivation. This is a known limitation of the oracle-based model and is not considered a protocol bug — the oracle update after reactivation will correct the accounting.
+
 ---
 
 ## 3. SSV Staking
@@ -130,7 +150,7 @@ SSV holders stake tokens → receive cSSV (ERC-20, 1:1 ratio) → earn pro-rata 
 ### Staking Flow
 
 1. User approves SSV token transfer
-2. User calls `stake(amount)` — minimum `MINIMAL_STAKING_AMOUNT` (1,000,000,000)
+2. User calls `stake(amount)` — minimum `MINIMAL_STAKING_AMOUNT` (1,000,000,000) SSV wei
 3. SSV tokens transferred to contract
 4. cSSV minted to user at 1:1 ratio
 5. Rewards begin accruing immediately
@@ -168,8 +188,8 @@ userIndex[user] = accEthPerShare
 
 ### Unstaking (Two-Step)
 
-1. **`requestUnstake(amount)`**: Burns cSSV, creates `UnstakeRequest{amount, unlockTime = now + cooldownDuration}`. Max 2000 pending requests per user.
-2. **`withdrawUnlocked()`**: After cooldown, returns SSV at 1:1. Uses swap-and-pop for O(1) removal.
+1. **`requestUnstake(amount)`**: Burns cSSV, creates `UnstakeRequest{amount, unlockTime = now + cooldownDuration}`. Max `MAX_PENDING_REQUESTS` pending requests per user. Reverts with `ZeroAmount` if `amount == 0`, `MaxRequestsAmountReached` if limit exceeded.
+2. **`withdrawUnlocked()`**: After cooldown, returns SSV at 1:1. Processes **all** matured requests in a single call — iterates the full request array, removes every entry where `unlockTime <= block.timestamp` via swap-and-pop, and transfers the cumulative sum. Immature requests are left in place. Reverts with `NothingToWithdraw` if no matured requests exist.
 
 Rewards STOP accruing for the unstaked portion at the moment of `requestUnstake`.
 
@@ -180,6 +200,8 @@ Rewards STOP accruing for the unstaked portion at the moment of `requestUnstake`
 ### Overview
 
 Effective Balance Oracles track validator balances on the beacon chain and commit Merkle roots on-chain. The protocol uses a permissioned set of 4 oracles with a 3-of-4 (75%) quorum threshold.
+
+**Initialization:** Oracle addresses and cooldown duration are bootstrapped during the upgrade via `initializeSSVStaking`, which sets `StorageStaking.defaultOracleIds` and `cooldownDuration` atomically. There is no window where the contract is live but oracles are uninitialized. Note: `quorumBps` is **not** set in the initializer and defaults to `0` — see SEC-2 in MAINNET-READINESS.md.
 
 ### Commit Flow (`commitRoot`)
 
@@ -217,6 +239,8 @@ Permissionless — anyone can submit a valid proof:
 5. Verify EB limits (32–2048 ETH per validator)
 6. Convert to vUnits, apply fee settlements, update operator/DAO vUnit deviations
 7. Auto-liquidate if cluster becomes undercollateralized
+
+**Behavior on liquidated clusters:** The EB snapshot (`clusterEB[clusterId].vUnits`) is **always updated**, even if the cluster is liquidated (`cluster.active == false`). Fee settlements, vUnit deviation updates, and the auto-liquidation check are all skipped. `ClusterBalanceUpdated` is still emitted. This means the stale EB is corrected in storage even while the cluster is inactive, so that reactivation uses the latest known EB.
 
 ### Oracle API (External Reference)
 
@@ -794,12 +818,13 @@ userIndex[user] = accEthPerShare
 ### Staking Errors
 - `NothingToWithdraw` — no unlocked unstake requests
 - `NothingToClaim` — no accrued rewards to claim
-- `MaxRequestsAmountReached` — exceeded MAX_PENDING_REQUESTS (10)
+- `MaxRequestsAmountReached` — exceeded MAX_PENDING_REQUESTS (2000)
 - `UnstakeAmountExceedsBalance` — unstake amount exceeds cSSV balance
 - `StakeTooLow` — stake amount below MINIMAL_STAKING_AMOUNT
 - `ZeroAmount` — amount is zero
 - `InvalidToken` — cannot rescue protected tokens
 - `NotCSSV` — caller is not the cSSV token contract
+- `ZeroAmount` — SSV amount to stake is zero
 
 ### General Errors
 - `NotAuthorized` — unauthorized action
@@ -826,7 +851,7 @@ uint256 constant DEFAULT_OPERATOR_ETH_FEE = 1_770_000_000;  // 1.77 gwei/vUnit/b
 
 // Protocol Limits
 uint64 constant MINIMAL_LIQUIDATION_THRESHOLD = 21_480;  // blocks
-uint256 constant MAX_PENDING_REQUESTS = 10;
+uint256 constant MAX_PENDING_REQUESTS = 2000;
 uint256 constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
 uint256 constant MAX_DELEGATION_SLOTS = 4;
 

@@ -38,6 +38,7 @@
 | SEC-16 | ~~Missing zero-value/zero-address guards on deposit and withdraw~~ | Security Hardening | P2 | ✅ Closed |
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
 | SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
+| SEC-19 | `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled | Security Hardening | P1 | S |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
 | TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
 | TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |
@@ -1124,6 +1125,55 @@ Operators registered after the v2.0.0 migration may be ETH-only (`snapshot.block
 
 ---
 
+### [SEC-19] `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled
+- **Type:** Security Hardening
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Initialize `minBlocksBetweenUpdates` to a non-zero value during the upgrade, and add a governance setter so it can be adjusted post-deployment.
+
+**Context:**
+`StorageEB.minBlocksBetweenUpdates` is a `uint32` in diamond storage. It is read by `_verifyEBUpdateFrequency` to rate-limit how often a cluster's EB can be updated:
+
+```solidity
+if (ebSnapshot.lastUpdateBlock != 0 && block.number < ebSnapshot.lastUpdateBlock + seb.minBlocksBetweenUpdates) {
+    revert UpdateTooFrequent();
+}
+```
+
+Because the field is never set — neither in the upgrade initializer nor via any governance function — it defaults to `0`. The condition `block.number < lastUpdateBlock + 0` is always `false`, so the rate limit is **completely inoperative**. Any caller can submit a valid `updateClusterBalance` proof every block for every cluster.
+
+The threat model (`docs/audit/07-trust-boundaries-integrations.md`) explicitly lists this rate limit as a mitigation against forced EB update spam and auto-liquidation attacks. With it disabled, an attacker holding a valid oracle proof of a cluster's reduced EB can trigger auto-liquidation in the same block as a root commitment, with no cooldown.
+
+**Acceptance Criteria:**
+- [ ] `minBlocksBetweenUpdates` initialized to a non-zero value in the upgrade reinitializer (suggested: `7200` blocks ≈ 1 day, matching oracle sweep frequency)
+- [ ] Governance setter added (e.g. `setMinBlocksBetweenUpdates(uint32)`, owner-only)
+- [ ] Setter emits an event (e.g. `MinBlocksBetweenUpdatesUpdated(uint32)`)
+- [ ] Unit test: second `updateClusterBalance` within the cooldown window reverts with `UpdateTooFrequent`
+- [ ] Unit test: `updateClusterBalance` succeeds after cooldown window passes
+- [ ] Governance parameter documented in SPEC.md §11 and FLOWS.md
+
+**Agent Instructions:**
+1. In the upgrade reinitializer, add: `SSVStorageEB.load().minBlocksBetweenUpdates = 7200;`
+2. Add a governance setter in `SSVDAO.sol` (or equivalent): `function setMinBlocksBetweenUpdates(uint32 blocks) external onlyOwner`.
+3. Emit `MinBlocksBetweenUpdatesUpdated(blocks)` from the setter.
+4. Add the event to `ISSVNetworkCore.sol` or the DAO interface.
+5. Add unit tests covering both the cooldown revert and the post-cooldown success path.
+6. Update SPEC.md §11 governance parameters table and FLOWS.md §3.3 preconditions.
+7. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Initialize `minBlocksBetweenUpdates` in upgrade reinitializer
+- [ ] Sub-task 2: Add governance setter and event
+- [ ] Sub-task 3: Unit tests for rate-limit enforcement
+- [ ] Sub-task 4: Update SPEC.md and FLOWS.md
+
+---
+
 ## Unit Test Completeness
 
 ### [TEST-1] Validator register/remove with non-zero operator fees
@@ -1964,16 +2014,19 @@ Add tests for clusters with 0 validators.
 - [ ] Test: Deposit into cluster with 0 validators → verify no fees accrue
 - [ ] Test: Withdraw from cluster with 0 validators → verify full balance withdrawable
 - [ ] Test: EB update on cluster with 0 validators → verify no vUnits change
+- [ ] Test: Oracle EB report (`effectiveBalance = 0`) on active cluster with `validatorCount == 0` (all validators removed, cluster not deleted) → verify: (a) `_verifyEBLimits` passes (`0 >= 0 * 32`), (b) `ebToVUnits(0)` returns `0`, (c) `clusterEB.vUnits` written as `0` (resets any prior explicit EB back to implicit-EB sentinel), (d) no `operatorEthVUnits` or `daoTotalEthVUnits` changes, (e) no auto-liquidation triggered, (f) `ClusterBalanceUpdated` emitted with `effectiveBalance = 0`
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/deposit.test.ts` and `test/unit/SSVClusters/withdraw.test.ts`.
 2. Create a cluster, remove all validators, then perform operations.
-3. Run `npm run test:unit`.
+3. For sub-task 4: register a cluster with explicit EB (run one `updateClusterBalance` with non-zero EB first), then remove all validators, then submit a valid oracle proof with `effectiveBalance = 0`. Assert all storage fields and events per acceptance criteria above.
+4. Run `npm run test:unit`.
 
 #### Sub-items:
 - [ ] Sub-task 1: Deposit with 0 validators
 - [ ] Sub-task 2: Withdrawal with 0 validators
-- [ ] Sub-task 3: EB update with 0 validators
+- [ ] Sub-task 3: EB update with 0 validators (generic)
+- [ ] Sub-task 4: Oracle EB report with `effectiveBalance = 0` on active zero-validator cluster — full state assertion (see DISC.md §2.2)
 
 ---
 

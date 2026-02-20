@@ -291,12 +291,15 @@ Same flow as 1.6 but for SSV clusters. Uses `s.clusters` instead of `s.ethCluste
 - Cluster must exist as ETH cluster
 - Cluster must be liquidated (`active == false`)
 
+
+> **Note — Stale EB risk:** The solvency check on reactivation uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed while the cluster was liquidated. Oracles do not update the EB snapshot for liquidated clusters. If real EB has increased since liquidation (e.g. validator consolidation), the burn rate will jump on the next `updateClusterBalance` call and the cluster may be immediately auto-liquidated. Cluster owners should deposit extra ETH buffer to account for potential EB drift during the liquidation period. In the case the EB is updated via `updateClusterBalance`, the snapshot write always runs, but fee/accounting updates do not.
+
 #### State Mutations
 1. Update operator ETH snapshots
 2. Increment `operator.ethValidatorCount` for each operator
 3. Set cluster: `active = true, balance = msg.value, index = current, networkFeeIndex = current`
 4. Update DAO: `ethDaoValidatorCount += cluster.validatorCount`, add vUnits
-5. Liquidation check: must not be immediately liquidatable
+5. Liquidation check: must not be immediately liquidatable (uses stored `clusterEB.vUnits`)
 6. Update stored cluster hash
 
 #### Events
@@ -494,6 +497,8 @@ sequenceDiagram
 - EB limits: `32 * validatorCount <= effectiveBalance <= 2048 * validatorCount`
 - Cluster must exist (ETH or SSV)
 
+> **Note — Liquidated clusters:** The EB snapshot (`clusterEB[clusterId].vUnits`) is **always updated** regardless of cluster state. Steps 3, 4, 6, and 7 are skipped when `cluster.active == false`. `ClusterBalanceUpdated` is still emitted. This keeps the stored EB current so that reactivation uses the latest known value rather than a stale one.
+
 #### State Mutations (ETH Cluster)
 
 1. Convert `effectiveBalance` to `newVUnits = ebToVUnits(effectiveBalance)`
@@ -505,7 +510,7 @@ sequenceDiagram
    - For each operator: `operatorEthVUnits[opId] += (newVUnits - effectiveOldVUnits)` — **full delta applied to every operator, no division by operator count**
    - `daoTotalEthVUnits += (newVUnits - effectiveOldVUnits)`
 5. Update EB snapshot: `{vUnits: newVUnits, lastRootBlockNum: blockNum, lastUpdateBlock: block.number}`
-6. **Auto-liquidation check**: if cluster now undercollateralized:
+6. **Auto-liquidation check** (active clusters only): if cluster now undercollateralized:
    - Liquidate immediately (same as liquidate flow)
    - Bounty goes to `msg.sender` (updater)
 7. If not liquidated: store updated cluster hash
@@ -646,6 +651,8 @@ After removal, different code paths detect removed operators via different check
 - Fee increase limited by `operatorMaxFeeIncrease` (percentage)
 - Cannot increase if both SSV fee = 0 AND ETH fee = 0
 
+> **Note — Existing pre-upgrade declarations:** Previous declarations (before the upgrade timestamp, `UPGRADE_TIMESTAMP` in `SSVOperators`) are rejected when executing the fee update via `executeOperatorFee`. The operator owner can declare a new fee at any time.
+
 #### State Mutations
 1. Store `OperatorFeeChangeRequest{fee: packed(newFee), approvalBeginTime: now + declarePeriod, approvalEndTime: now + declarePeriod + executePeriod}`
 
@@ -668,7 +675,7 @@ emit OperatorFeeDeclared(owner, operatorId, block.number, fee);
 
 #### State Mutations
 1. Update operator ETH snapshot (settles all pending earnings at the **old** fee up to this block; the new fee only applies to blocks going forward — no retroactive impact on cluster index calculations)
-2. Set `operator.ethFee = request.fee`
+2. Set `operator.ethFee = request.fee` (packed)
 3. Delete fee change request
 
 #### Events
@@ -677,7 +684,7 @@ emit OperatorFeeExecuted(owner, operatorId, block.number, fee);
 ```
 
 #### Postcondition Invariants
-- `operator.ethFee == packed(request.fee)`
+- `operator.ethFee == request.fee` (packed)
 - No pending fee change request
 - ETH snapshot block updated to current
 
@@ -888,12 +895,14 @@ emit UnstakeRequested(user, amount, unlockTime);
 **nonReentrant:** Yes
 
 #### Preconditions
-- At least one `UnstakeRequest` where `unlockTime <= block.timestamp`
+- At least one `UnstakeRequest` where `unlockTime <= block.timestamp` — reverts with `NothingToWithdraw` if none exist or all are still within cooldown
 
 #### State Mutations
-1. Iterate withdrawal requests, remove all matured entries (swap-and-pop)
-2. Sum total unlocked amount
+1. Iterate **all** withdrawal requests in a single pass; remove every matured entry via swap-and-pop (O(1) per removal, order of remaining entries may change)
+2. Sum total unlocked amount across all removed entries
 3. Transfer `totalAmount` SSV tokens to user
+
+> **Note:** A single `withdrawUnlocked` call drains **all** matured requests at once — there is no per-request granularity. Immature requests remain untouched in the array.
 
 #### Events
 ```solidity
@@ -1008,6 +1017,7 @@ None emitted by the hook itself. The ERC-20 `Transfer` event is emitted by the t
 - `userIndex[to] == accEthPerShare` (receiver starts accruing from now, not before)
 - `accrued[from]` includes all rewards earned up to this block
 - `accrued[to]` includes all rewards earned up to this block (on their existing balance, if any)
+- If sender's cSSV balance reaches 0 after the transfer, `accrued[from]` is still non-zero and fully claimable via `claimEthRewards()` — rewards are stored in `accrued` independently of cSSV balance
 
 ```mermaid
 sequenceDiagram
