@@ -524,10 +524,10 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
 
-      const smallAmount = STAKE_AMOUNT / 12n; // Small enough for 10+ requests
+      const smallAmount = STAKE_AMOUNT / 20000n; // Small enough for 10+ requests
 
       // Create 10 requests
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 2000; i++) {
         await network.connect(staker).requestUnstake(smallAmount);
       }
 
