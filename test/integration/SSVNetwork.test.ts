@@ -2468,13 +2468,21 @@ describe("SSVNetwork full integration tests", () => {
 
       const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
+      const networkAddress = await network.getAddress();
       const callerBalanceBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
+      const contractBalanceBefore = await connection.ethers.provider.getBalance(networkAddress);
 
-      await expect(network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster))
-        .to.emit(network, Events.CLUSTER_LIQUIDATED);
+      const tx = await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster);
+      await expect(tx).to.emit(network, Events.CLUSTER_LIQUIDATED);
+      const receipt = await tx.wait();
+      const gasCost = receipt!.gasUsed * (receipt!.effectiveGasPrice ?? receipt!.gasPrice);
 
       const callerBalanceAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
-      expect(callerBalanceAfter).to.be.greaterThan(callerBalanceBefore);
+      const contractBalanceAfter = await connection.ethers.provider.getBalance(networkAddress);
+
+      const payout = contractBalanceBefore - contractBalanceAfter;
+      expect(payout).to.be.greaterThan(0n);
+      expect(callerBalanceAfter - callerBalanceBefore + gasCost).to.equal(payout);
 
       const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       expect(await views.isLiquidated(clusterOwner.address, operatorIds, newClusterState)).to.be.equal(true);
@@ -2498,13 +2506,21 @@ describe("SSVNetwork full integration tests", () => {
       const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       await network.updateLiquidationThresholdPeriod(1000000000);
 
+      const networkAddress = await network.getAddress();
       const callerBalanceBefore = await connection.ethers.provider.getBalance(randomUser.address);
+      const contractBalanceBefore = await connection.ethers.provider.getBalance(networkAddress);
 
-      await expect(network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, cluster))
-        .to.emit(network, Events.CLUSTER_LIQUIDATED);
+      const tx = await network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, cluster);
+      await expect(tx).to.emit(network, Events.CLUSTER_LIQUIDATED);
+      const receipt = await tx.wait();
+      const gasCost = receipt!.gasUsed * (receipt!.effectiveGasPrice ?? receipt!.gasPrice);
 
       const callerBalanceAfter = await connection.ethers.provider.getBalance(randomUser.address);
-      expect(callerBalanceAfter).to.be.greaterThan(callerBalanceBefore);
+      const contractBalanceAfter = await connection.ethers.provider.getBalance(networkAddress);
+
+      const payout = contractBalanceBefore - contractBalanceAfter;
+      expect(payout).to.be.greaterThan(0n);
+      expect(callerBalanceAfter - callerBalanceBefore + gasCost).to.equal(payout);
 
       const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       expect(await views.isLiquidated(clusterOwner.address, operatorIds, newClusterState)).to.be.equal(true);
