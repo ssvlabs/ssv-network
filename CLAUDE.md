@@ -17,12 +17,12 @@ This release introduces three tightly coupled upgrades:
 
 ```bash
 npm install                    # Install dependencies
-npx hardhat compile            # Compile contracts
-npm run test                   # Run all tests
-npm run test:unit              # Run unit tests only
-npm run test:integration       # Run integration tests only
-npm run test-forked            # Run fork tests (requires fork config)
-npx hardhat coverage           # Generate coverage report
+just build                     # Compile contracts (force recompile)
+just test                      # Run all tests
+just test-unit                 # Run unit tests only (test/unit/)
+just test-integration          # Run integration tests only (test/integration/)
+just test-forked               # Run fork tests (requires MAINNET_ETH_NODE_URL in .env)
+just coverage                  # Generate coverage report + HTML output
 ```
 
 **Foundry (for Echidna fuzzing):**

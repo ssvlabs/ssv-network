@@ -64,7 +64,7 @@ export default defineConfig({
       allowUnlimitedContractSize: true,
       blockGasLimit: 100_000_000,
       forking: {
-        url: localForkRpcUrl,
+        url: mainnetRpcUrl,
         blockNumber: process.env.FORK_BLOCK_NUMBER ? Number(process.env.FORK_BLOCK_NUMBER) : undefined,
       }
     },
