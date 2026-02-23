@@ -10,6 +10,18 @@ clean:
 test:
     NO_GAS_ENFORCE=true npx hardhat test
 
+# Run unit tests only (test/unit/)
+test-unit:
+    NO_GAS_ENFORCE=true npx hardhat test $(find test/unit -name "*.test.ts" | xargs)
+
+# Run integration tests only (test/integration/)
+test-integration:
+    NO_GAS_ENFORCE=true npx hardhat test $(find test/integration -maxdepth 1 -name "*.test.ts" | xargs)
+
+# Run fork tests against mainnet state (requires MAINNET_ETH_NODE_URL in .env)
+test-forked:
+    NO_GAS_ENFORCE=true RUN_FORK=true npx hardhat test $(find test/test-forked -name "*.test.ts" | xargs)
+
 # Run tests with coverage report, then generate HTML report
 coverage:
     COVERAGE=true npx hardhat test --coverage
