@@ -108,6 +108,8 @@ Examples:
 - **Implicit** (default): `clusterEB.vUnits == 0` → system uses `validatorCount * VUNITS_PRECISION`
 - **Explicit**: Set after first `updateClusterBalance` call with oracle Merkle proof
 
+> **Note — EB tracking vs EB-based accounting:** While both ETH and SSV clusters can have their EB snapshot updated via `updateClusterBalance`, **only ETH clusters use EB for fee accounting**. SSV legacy clusters store the EB snapshot (for future migration) but continue to use validator-count-based fee calculations (`validatorCount * fee`). The EB snapshot does not affect SSV cluster balance deductions.
+
 ### EB Update Constraints
 
 - `effectiveBalance >= validatorCount * 32` (minimum 32 ETH per validator)
@@ -188,10 +190,13 @@ userIndex[user] = accEthPerShare
 
 ### Unstaking (Two-Step)
 
-1. **`requestUnstake(amount)`**: Burns cSSV, creates `UnstakeRequest{amount, unlockTime = now + cooldownDuration}`. Max `MAX_PENDING_REQUESTS` pending requests per user. Reverts with `ZeroAmount` if `amount == 0`, `MaxRequestsAmountReached` if limit exceeded.
-2. **`withdrawUnlocked()`**: After cooldown, returns SSV at 1:1. Processes **all** matured requests in a single call — iterates the full request array, removes every entry where `unlockTime <= block.timestamp` via swap-and-pop, and transfers the cumulative sum. Immature requests are left in place. Reverts with `NothingToWithdraw` if no matured requests exist.
+Stakers may submit multiple withdrawal requests over time. When finalizing an unstake, the staker can claim the **cumulative amount of all requests whose lock period has fully elapsed**, while any requests still in their lock period remain locked. A maximum of **2,000 active withdrawal requests per staker** is supported.
 
-Rewards STOP accruing for the unstaked portion at the moment of `requestUnstake`.
+1. **`requestUnstake(amount)`**: Burns cSSV, creates `UnstakeRequest{amount, unlockTime = now + cooldownDuration}`. Reverts with `ZeroAmount` if `amount == 0`, `MaxRequestsAmountReached` if pending request count exceeds `MAX_PENDING_REQUESTS` (2000).
+
+2. **`withdrawUnlocked()`**: After cooldown, returns SSV at 1:1. Processes **all** matured requests in a single call — iterates the full request array, removes every entry where `unlockTime <= block.timestamp` via swap-and-pop, and transfers the cumulative sum. **Immature requests (still in lock period) remain untouched** in the array. Reverts with `NothingToWithdraw` if no matured requests exist.
+
+**Rewards behavior:** Rewards STOP accruing for the unstaked portion at the moment of `requestUnstake`. Previously accrued rewards remain claimable via `claimEthRewards`.
 
 ---
 
@@ -237,10 +242,13 @@ Permissionless — anyone can submit a valid proof:
 3. Verify staleness (blockNum > last root used for this cluster)
 4. Verify Merkle proof against committed root
 5. Verify EB limits (32–2048 ETH per validator)
-6. Convert to vUnits, apply fee settlements, update operator/DAO vUnit deviations
-7. Auto-liquidate if cluster becomes undercollateralized
+6. Convert to vUnits, update EB snapshot
+7. **ETH clusters only**: apply fee settlements, update operator/DAO vUnit deviations, auto-liquidate if undercollateralized
+8. **SSV clusters**: no fee/accounting updates; EB snapshot stored for future migration only
 
 **Behavior on liquidated clusters:** The EB snapshot (`clusterEB[clusterId].vUnits`) is **always updated**, even if the cluster is liquidated (`cluster.active == false`). Fee settlements, vUnit deviation updates, and the auto-liquidation check are all skipped. `ClusterBalanceUpdated` is still emitted. This means the stale EB is corrected in storage even while the cluster is inactive, so that reactivation uses the latest known EB.
+
+**SSV cluster accounting:** Legacy SSV clusters continue to use `validatorCount`-based fee calculations (see "SSV Cluster Balance Update (Legacy)" in Accounting Formulas). The EB snapshot is stored but does not affect fee deductions — it only prepares the cluster for future migration to ETH.
 
 ### Oracle API (External Reference)
 
