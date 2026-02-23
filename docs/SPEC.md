@@ -132,12 +132,12 @@ When a cluster is liquidated (via `liquidate`, `liquidateSSV`, or auto-liquidati
 
 ### Stale EB Risk on Reactivation
 
-Oracles do not update EB for liquidated clusters (fee/accounting updates are skipped). During the liquidation period, the beacon-chain EB may diverge from the stored snapshot:
+Liquidated clusters do not accrue fees, and `updateClusterBalance` skips fee/accounting side effects while the cluster is inactive. However, `updateClusterBalance` can still be called on a liquidated cluster and will refresh only the EB snapshot (`clusterEB`). If no one submits such an update during the liquidation period, the beacon-chain EB may diverge from the stored snapshot:
 
 - **EB increases** (e.g. owner consolidates validators): reactivation solvency check uses stale lower EB → cluster passes with less ETH than the next oracle update will require → auto-liquidation risk on next `updateClusterBalance`
 - **EB decreases** (e.g. slashing): reactivation solvency check uses stale higher EB → cluster passes with less ETH than the actual burn rate will demand → same auto-liquidation risk
 
-In both cases the cluster owner should account for potential EB drift when choosing how much ETH to deposit on reactivation. This is a known limitation of the oracle-based model and is not considered a protocol bug — the oracle update after reactivation will correct the accounting.
+In both cases the cluster owner should account for potential EB drift when choosing how much ETH to deposit on reactivation. This is a known limitation of the oracle-based model and is not considered a protocol bug. A permissionless `updateClusterBalance` call while the cluster is still liquidated can refresh the EB snapshot before reactivation; otherwise the next EB update after reactivation will correct the accounting.
 
 ---
 

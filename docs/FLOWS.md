@@ -181,7 +181,7 @@ sequenceDiagram
 
     Anyone->>SSVNetwork: deposit{value: ETH}(owner, opIds, cluster)
     SSVNetwork->>Clusters: delegatecall
-    Clusters->>Storage: Validate cluster (ETH version, active)
+    Clusters->>Storage: Validate cluster (ETH version; active not required)
     Clusters->>Storage: cluster.balance += msg.value
     Clusters->>Storage: Store updated cluster hash
     Clusters-->>Anyone: emit ClusterDeposited
@@ -292,7 +292,7 @@ Same flow as 1.6 but for SSV clusters. Uses `s.clusters` instead of `s.ethCluste
 - Cluster must be liquidated (`active == false`)
 
 
-> **Note — Stale EB risk:** The solvency check on reactivation uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed while the cluster was liquidated. Oracles do not update the EB snapshot for liquidated clusters. If real EB has increased since liquidation (e.g. validator consolidation), the burn rate will jump on the next `updateClusterBalance` call and the cluster may be immediately auto-liquidated. Cluster owners should deposit extra ETH buffer to account for potential EB drift during the liquidation period. In the case the EB is updated via `updateClusterBalance`, the snapshot write always runs, but fee/accounting updates do not.
+> **Note — Stale EB risk:** The solvency check on reactivation uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed while the cluster was liquidated. A liquidated cluster can still receive a permissionless `updateClusterBalance` call, and that call will refresh the EB snapshot even while inactive (fee/accounting updates are skipped). If no such update is submitted during the liquidation period and real EB has increased since liquidation (e.g. validator consolidation), the burn rate will jump on the next `updateClusterBalance` call after reactivation and the cluster may be immediately auto-liquidated. Cluster owners should deposit extra ETH buffer to account for potential EB drift.
 
 #### State Mutations
 1. Update operator ETH snapshots
