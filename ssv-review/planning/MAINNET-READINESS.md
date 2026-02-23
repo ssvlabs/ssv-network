@@ -2983,7 +2983,7 @@ In `SSVOperators.sol:324`, `_resetOperatorState` returns `Operator memory` but t
 
 ---
 
-### [QUALITY-5] Remove liquidation check in `withdraw` function
+### [BUG-10] Remove liquidation check in `withdraw` function
 - **Type:** Code Quality
 - **Priority:** P2
 - **Status:** Open

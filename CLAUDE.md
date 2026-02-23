@@ -124,7 +124,7 @@ Rewards settle on: stake, requestUnstake, claimEthRewards, cSSV transfer (via on
 | minimumLiquidationCollateral | 0.00094 ETH | `updateMinimumLiquidationCollateral(uint256)` |
 | minimumBlocksBeforeLiquidation | 50190 (~7 days) | `updateLiquidationThresholdPeriod(uint64)` |
 | defaultOperatorETHFee | 0.000000001775464912 ETH/block (~0.00464 ETH/year) | Hardcoded in contract |
-| cooldownDuration | 50120 blocks (~7 days) | `setUnstakeCooldownDuration(uint64)` |
+| cooldownDuration | 604,800 seconds (7 days) | `setUnstakeCooldownDuration(uint64)` |
 | quorumBps | 7500 (75%) | `setQuorumBps(uint16)` |
 | Oracle set | 4 oracles, 3-of-4 threshold | `replaceOracle(uint32, address)` |
 
@@ -220,7 +220,7 @@ test/
 ├── integration/                      # Full integration tests
 ├── sanity/                           # Sanity/regression tests
 ├── echidna/                          # Foundry-based fuzzing
-├── test-forked/                      # Fork tests against v2.0.0
+├── test-forked/                      # Fork tests against v1.2.0
 ├── helpers/                          # Test utilities
 ├── common/                           # Constants, errors, events, types
 └── setup/                            # Deploy, fixtures, fork setup

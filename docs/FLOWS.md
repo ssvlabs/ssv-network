@@ -266,7 +266,7 @@ sequenceDiagram
 
     Anyone->>SSVNetwork: deposit{value: ETH}(owner, opIds, cluster)
     SSVNetwork->>Clusters: delegatecall
-    Clusters->>Storage: Validate cluster (ETH version, active)
+    Clusters->>Storage: Validate cluster (ETH version; active not required)
     Clusters->>Storage: cluster.balance += msg.value
     Clusters->>Storage: Store updated cluster hash
     Clusters-->>Anyone: emit ClusterDeposited
@@ -382,7 +382,7 @@ Same flow as 1.9 but for SSV clusters. Uses `s.clusters` instead of `s.ethCluste
 - Cluster must be liquidated (`active == false`)
 
 
-> **Note — Stale EB risk:** The solvency check on reactivation uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed while the cluster was liquidated. Oracles do not update the EB snapshot for liquidated clusters. If real EB has increased since liquidation (e.g. validator consolidation), the burn rate will jump on the next `updateClusterBalance` call and the cluster may be immediately auto-liquidated. Cluster owners should deposit extra ETH buffer to account for potential EB drift during the liquidation period. In the case the EB is updated via `updateClusterBalance`, the snapshot write always runs, but fee/accounting updates do not.
+> **Note — Stale EB risk:** The solvency check on reactivation uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed while the cluster was liquidated. SSV oracles typically do not proactively update liquidated clusters in their regular sweeps. However, **the protocol allows permissionless EB updates** — anyone (especially the cluster owner) can call `updateClusterBalance` on a liquidated cluster to refresh the EB snapshot **before reactivation**. If the owner does not perform this update and real EB has increased since liquidation (e.g. validator consolidation), the burn rate will jump on the next `updateClusterBalance` call and the cluster may be immediately auto-liquidated. Cluster owners should either: (1) call `updateClusterBalance` before reactivation to sync the EB snapshot, or (2) deposit a conservative ETH buffer to account for potential EB drift during the liquidation period. When `updateClusterBalance` is called on liquidated clusters, the snapshot write always runs, but fee/accounting updates do not.
 
 #### State Mutations
 1. Update operator ETH snapshots
@@ -526,7 +526,12 @@ sequenceDiagram
    - Store root: `ebRoots[blockNum] = merkleRoot`
    - Update: `latestCommittedBlock = blockNum`
    - Cleanup: `delete rootCommitments[commitmentKey]`
-6. **If quorum not reached**: no root storage
+   - **Note:** `hasVoted` mappings are intentionally NOT deleted to prevent re-voting on the same key
+6. **If quorum not reached**: no root storage, no cleanup
+   - `hasVoted[commitmentKey][oracleId]` remains `true` indefinitely
+   - `rootCommitments[commitmentKey]` retains accumulated weight
+   - Oracle cannot re-vote on this exact `(blockNum, merkleRoot)` pair
+   - Oracle CAN vote on same `blockNum` with different `merkleRoot` (new `commitmentKey`)
 
 #### Events
 ```solidity
@@ -540,7 +545,11 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 #### Postcondition Invariants
 - If quorum reached: `ebRoots[blockNum] == merkleRoot`
 - If quorum reached: `latestCommittedBlock == blockNum`
-- Oracle cannot vote again for same `(blockNum, merkleRoot)`
+- If quorum reached: `rootCommitments[commitmentKey]` is deleted (cleanup)
+- If quorum NOT reached: `rootCommitments[commitmentKey]` persists with accumulated weight
+- If quorum NOT reached: all `hasVoted[commitmentKey][*]` entries persist
+- Oracle cannot vote again for same `(blockNum, merkleRoot)` (same `commitmentKey`)
+- Oracle can vote for same `blockNum` with different `merkleRoot` (different `commitmentKey`)
 - Total votes for this commitment <= oracle count
 
 ```mermaid
@@ -588,7 +597,7 @@ sequenceDiagram
 - EB limits: `32 * validatorCount <= effectiveBalance <= 2048 * validatorCount`
 - Cluster must exist (ETH or SSV)
 
-> **Note — Liquidated clusters:** The EB snapshot (`clusterEB[clusterId].vUnits`) is **always updated** regardless of cluster state. Steps 3, 4, 6, and 7 are skipped when `cluster.active == false`. `ClusterBalanceUpdated` is still emitted. This keeps the stored EB current so that reactivation uses the latest known value rather than a stale one.
+> **Note — Liquidated clusters:** The EB snapshot (`clusterEB[clusterId].vUnits`) is **always updated** regardless of cluster state. Steps 3, 4, 6, and 7 are skipped when `cluster.active == false`. `ClusterBalanceUpdated` is still emitted. This keeps the stored EB current so that reactivation uses the latest known value rather than a stale one. **Use case:** Cluster owners preparing to reactivate a liquidated cluster can call this function permissionlessly to refresh the EB snapshot before depositing ETH for reactivation, ensuring accurate solvency checks and avoiding immediate auto-liquidation due to stale EB data.
 
 #### State Mutations (ETH Cluster)
 

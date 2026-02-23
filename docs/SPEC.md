@@ -134,12 +134,14 @@ When a cluster is liquidated (via `liquidate`, `liquidateSSV`, or auto-liquidati
 
 ### Stale EB Risk on Reactivation
 
-Oracles do not update EB for liquidated clusters (fee/accounting updates are skipped). During the liquidation period, the beacon-chain EB may diverge from the stored snapshot:
+**Oracle behavior:** SSV oracles typically do not proactively update EB for liquidated clusters in their regular sweeps (since fee/accounting updates are skipped for inactive clusters and there is no economic benefit to the liquidated cluster owner). However, **the protocol allows permissionless EB updates** — the `updateClusterBalance` function can be called by anyone (including the cluster owner) on liquidated clusters to refresh the EB snapshot in preparation for reactivation.
 
-- **EB increases** (e.g. owner consolidates validators): reactivation solvency check uses stale lower EB → cluster passes with less ETH than the next oracle update will require → auto-liquidation risk on next `updateClusterBalance`
-- **EB decreases** (e.g. slashing): reactivation solvency check uses stale higher EB → cluster passes with less ETH than the actual burn rate will demand → same auto-liquidation risk
+**Why this matters:** During the liquidation period, the beacon-chain EB may diverge from the stored snapshot:
 
-In both cases the cluster owner should account for potential EB drift when choosing how much ETH to deposit on reactivation. This is a known limitation of the oracle-based model and is not considered a protocol bug — the oracle update after reactivation will correct the accounting.
+- **EB increases** (e.g. owner consolidates validators): reactivation solvency check uses stale lower EB → cluster passes with less ETH than required → auto-liquidation risk on next `updateClusterBalance` (if not updated before reactivation)
+- **EB decreases** (e.g. slashing): reactivation solvency check uses stale higher EB → cluster owner overestimates required deposit → wastes ETH (conservative but safe)
+
+**Mitigation:** Cluster owners (or any interested party) can call `updateClusterBalance` on a liquidated cluster **before reactivation** to ensure the stored EB snapshot reflects current beacon-chain state. This eliminates the risk of immediate auto-liquidation after reactivation. If the owner does not perform this update, they should deposit a conservative ETH buffer to account for potential EB drift during the liquidation period.
 
 ---
 
@@ -218,8 +220,16 @@ Effective Balance Oracles track validator balances on the beacon chain and commi
 6. When `accumulatedWeight >= (totalCSSVSupply * quorumBps) / 10_000`:
    - Root is committed: `ebRoots[blockNum] = merkleRoot`
    - `latestCommittedBlock = blockNum`
+   - Cleanup: `delete rootCommitments[commitmentKey]`
    - Emits `RootCommitted`
 7. Below quorum: emits `WeightedRootProposed`
+
+**Failed Quorum Behavior:**
+- If a proposal fails to reach quorum (e.g., only 2 of 4 oracles vote), the `hasVoted[commitmentKey][oracleId]` mappings and `rootCommitments[commitmentKey]` persist indefinitely
+- Oracles cannot re-vote on the exact same `(blockNum, merkleRoot)` pair (reverts with `AlreadyVoted`)
+- Oracles **can** vote on the same `blockNum` with a **different** `merkleRoot` since the `commitmentKey` is computed from both parameters
+- No automatic cleanup occurs for failed proposals — storage entries remain until overwritten by future successful commits or contract upgrade
+- If the last oracle to vote still does not bring the proposal to quorum, the state remains unchanged (no root is committed, no cleanup occurs)
 
 ### Merkle Tree Structure (OpenZeppelin StandardMerkleTree compatible)
 
