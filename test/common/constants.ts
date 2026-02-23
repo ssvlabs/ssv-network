@@ -43,6 +43,7 @@ export const PRECISION_FACTOR = 10000n;
 export const MINIMAL_LIQUIDATION_THRESHOLD = 21480n;
 export const STAKE_AMOUNT = ethers.parseEther("10");
 export const DEFAULT_ORACLES_IDS = envBigIntArray("FORK_DEFAULT_ORACLE_IDS", [1n, 2n, 3n, 4n]);
+export const QUORUM_BPS = envBigInt("FORK_QUORUM_BPS", 7500n);
 export const DEFAULT_UNSTAKE_COOLDOWN = envBigInt(
   "FORK_DEFAULT_UNSTAKE_COOLDOWN",
   7n * 24n * 60n * 60n

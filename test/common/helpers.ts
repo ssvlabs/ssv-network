@@ -10,6 +10,7 @@ import {
   MINIMAL_OPERATOR_FEE_SSV,
   DEFAULT_UNSTAKE_COOLDOWN,
   DEFAULT_ORACLES_IDS,
+  QUORUM_BPS,
   NETWORK_FEE,
   NETWORK_FEE_ETH,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
@@ -631,8 +632,8 @@ export async function upgradeToStakingVersion(
     networkAddress,
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
-    "initializeSSVStaking(uint64,uint32[4])",
-    [DEFAULT_UNSTAKE_COOLDOWN, DEFAULT_ORACLES_IDS]
+    "initializeSSVStaking(uint64,uint32[4],uint16)",
+    [DEFAULT_UNSTAKE_COOLDOWN, DEFAULT_ORACLES_IDS, QUORUM_BPS]
   );
 
   const networkFactory =
