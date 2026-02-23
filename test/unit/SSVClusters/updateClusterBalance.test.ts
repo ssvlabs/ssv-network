@@ -290,6 +290,131 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(await clusters.getClusterHash(clusterId)).to.equal(ethers.ZeroHash);
   });
 
+  it("Succeeds on a liquidated cluster: updates EB snapshot but skips fee settlement and vUnit updates", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const cluster = await registerCluster(clusters, operatorIds);
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+
+    const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, cluster);
+    const liquidateReceipt = await liquidateTx.wait();
+    const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
+    expect(liquidatedCluster.active).to.equal(false);
+    expect(liquidatedCluster.balance).to.equal(0n);
+
+    const operatorVUnitsBefore = await clusters.getOperatorEthVUnits(operatorIds[0]);
+    expect(operatorVUnitsBefore).to.equal(0n);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
+
+    const blockNum = 1;
+    const effectiveBalance = 33; // 33 ETH → vUnits = ceil(33 * 10000 / 32) = 10313
+    const root = getEBRoot(clusterId, effectiveBalance);
+    await clusters.mockSetEBRoot(blockNum, root);
+
+    const tx = await clusters.updateClusterBalance(
+      blockNum,
+      clusterOwner.address,
+      operatorIds,
+      liquidatedCluster,
+      effectiveBalance,
+      []
+    );
+    const receipt = await tx.wait();
+
+    await expect(tx).to.emit(clusters, Events.CLUSTER_BALANCE_UPDATED);
+    const eventArgs = getClusterBalanceUpdatedEventArgs(clusters, receipt);
+    expect(eventArgs.effectiveBalance).to.equal(effectiveBalance);
+
+    const clusterAfter = parseClusterFromEvent(clusters, receipt, Events.CLUSTER_BALANCE_UPDATED);
+    expect(clusterAfter.active).to.equal(false);
+    expect(clusterAfter.balance).to.equal(0n);
+
+    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n;
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
+
+    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(operatorVUnitsBefore);
+  });
+
+  it("EB update on insolvent liquidated cluster does not corrupt operator or DAO vUnit accounting", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    // Register cluster (1 validator, implicit EB)
+    const cluster = await registerCluster(clusters, operatorIds);
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+
+    // Step 1: Update EB to 64 ETH while cluster is ACTIVE — establishes deviation in operatorEthVUnits
+    const blockNum1 = 1;
+    const effectiveBalance1 = 64; // 64 ETH → vUnits = 20000
+    const root1 = getEBRoot(clusterId, effectiveBalance1);
+    await clusters.mockSetEBRoot(blockNum1, root1);
+
+    const tx1 = await clusters.updateClusterBalance(
+      blockNum1,
+      clusterOwner.address,
+      operatorIds,
+      cluster,
+      effectiveBalance1,
+      []
+    );
+    const receipt1 = await tx1.wait();
+    const clusterAfterEB = parseClusterFromEvent(clusters, receipt1, Events.CLUSTER_BALANCE_UPDATED);
+
+    // Verify deviation was applied: deviation = 20000 - 10000 = 10000 per operator
+    const deviationAfterEBUpdate = 10000n; // (64 ETH / 32) * 10000 - baseline 10000
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(deviationAfterEBUpdate);
+    }
+
+    // Step 2: Liquidate the cluster — _executeLiquidation cleans up deviation
+    const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB);
+    const liquidateReceipt = await liquidateTx.wait();
+    const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
+    expect(liquidatedCluster.active).to.equal(false);
+
+    // Deviation cleaned up by _executeLiquidation: both operator and DAO vUnits back to 0
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+    }
+    const daoVUnitsAfterLiquidation = await clusters.getDaoTotalEthVUnits();
+
+    // Step 3: Call updateClusterBalance with even HIGHER EB (128 ETH) on the liquidated cluster
+    // This simulates an oracle reporting increased effective balance on an already-liquidated cluster
+    const blockNum2 = 2; // must be > blockNum1 to pass StaleUpdate check
+    const effectiveBalance2 = 128; // 128 ETH → vUnits = 40000
+    const root2 = getEBRoot(clusterId, effectiveBalance2);
+    await clusters.mockSetEBRoot(blockNum2, root2);
+
+    const tx2 = await clusters.updateClusterBalance(
+      blockNum2,
+      clusterOwner.address,
+      operatorIds,
+      liquidatedCluster,
+      effectiveBalance2,
+      []
+    );
+    const receipt2 = await tx2.wait();
+
+    // Succeeds and emits event
+    await expect(tx2).to.emit(clusters, Events.CLUSTER_BALANCE_UPDATED);
+    const clusterAfterUpdate = parseClusterFromEvent(clusters, receipt2, Events.CLUSTER_BALANCE_UPDATED);
+    expect(clusterAfterUpdate.active).to.equal(false);
+    expect(clusterAfterUpdate.balance).to.equal(0n);
+
+    // EB snapshot is updated — this is the ONLY state that changes
+    const expectedVUnits2 = (BigInt(effectiveBalance2) * VUNITS_PRECISION + 32n - 1n) / 32n; // 40000
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits2);
+
+    // Operator vUnits are NOT re-incremented — deviation stays at 0 (cleaned up during liquidation)
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+    }
+
+    // DAO vUnits unchanged from post-liquidation state — no additional accounting for liquidated clusters
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(daoVUnitsAfterLiquidation);
+  });
+
   it("Is reverted with 'EBBelowMinimum' when effective balance is below 32 ETH per validator", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
