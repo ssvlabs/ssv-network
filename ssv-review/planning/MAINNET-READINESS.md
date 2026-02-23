@@ -38,7 +38,7 @@
 | SEC-16 | ~~Missing zero-value/zero-address guards on deposit and withdraw~~ | Security Hardening | P2 | ✅ Closed |
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
 | SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
-| SEC-19 | `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled | Security Hardening | P1 | S |
+| SEC-19 | ~~`minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled~~ | Security Hardening | P1 | S |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
 | TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
 | TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |

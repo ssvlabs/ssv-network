@@ -146,6 +146,10 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         seb.ebRoots[blockNum] = root;
     }
 
+    function mockSetMinBlocksBetweenUpdates(uint32 blocks) external {
+        SSVStorageEB.load().minBlocksBetweenUpdates = blocks;
+    }
+
     function mockRemoveOperator(uint64 operatorId) external {
         StorageData storage s = SSVStorage.load();
         // Set both snapshots to 0 to simulate removed operator
