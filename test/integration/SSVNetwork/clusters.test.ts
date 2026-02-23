@@ -19,11 +19,13 @@ import {
   NETWORK_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+  VUNITS_PRECISION,
 } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.js';
 import { trackGasFromReceipt, GasGroup } from '../../helpers/gas-usage.ts';
+import { ethers } from 'ethers';
 
 /**
  * Enhanced Integration Tests for SSVNetwork Clusters
@@ -714,6 +716,72 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       await expect(
         network.connect(clusterOwner).withdraw(operatorIds, 1000n, EMPTY_CLUSTER)
       ).to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+
+    it("updateClusterBalance succeeds on a liquidated cluster, emits ClusterBalanceUpdated with cluster still inactive", async function() {
+      const { network, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const getClusterId = (ownerAddress: string, opIds: bigint[]) =>
+        ethers.keccak256(ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, opIds]));
+
+      const getEBRoot = (clusterId: string, effectiveBalance: number) => {
+        const coder = ethers.AbiCoder.defaultAbiCoder();
+        const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
+        return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
+      };
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const activeCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(activeCluster.active).to.equal(true);
+
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, activeCluster);
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+
+      await network.setQuorumBps(1000);
+      await network.replaceOracle(1, operatorOwner.address);
+
+      const stakeAmount = ethers.parseEther("10");
+      await ssvToken.mint(clusterOwner.address, stakeAmount);
+      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), stakeAmount);
+      await network.connect(clusterOwner).stake(stakeAmount);
+
+      const clusterId = getClusterId(clusterOwner.address, operatorIds);
+      const effectiveBalance = 33;
+      const ebRoot = getEBRoot(clusterId, effectiveBalance);
+
+      const blockNum = await connection.ethers.provider.getBlockNumber();
+
+      await network.connect(operatorOwner).commitRoot(ebRoot, blockNum);
+
+      const tx = await network.updateClusterBalance(
+        blockNum, clusterOwner.address, operatorIds, liquidatedCluster, effectiveBalance, []
+      );
+      const receipt = await tx.wait();
+      await expect(tx).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
+
+      const clusterAfterUpdate = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds)
+      expect(clusterAfterUpdate).to.not.be.null;
+      expect(clusterAfterUpdate!.active).to.equal(false);
+      expect(clusterAfterUpdate!.balance).to.equal(0n);
+
+      const effectiveBalance2 = 64;
+      const ebRoot2 = getEBRoot(clusterId, effectiveBalance2);
+
+      const blockNum2 = await connection.ethers.provider.getBlockNumber();
+      await network.connect(operatorOwner).commitRoot(ebRoot2, blockNum2);
+      const tx2 = await network.updateClusterBalance(
+        blockNum2, clusterOwner.address, operatorIds, liquidatedCluster, effectiveBalance2, []
+      );
+      await expect(tx2).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
+
+      const finalCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(finalCluster.active).to.equal(false);
     });
 
     it("Liquidated cluster cannot be withdrawn from", async function() {
