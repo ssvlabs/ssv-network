@@ -14,6 +14,7 @@ type LocalConfig = {
   ssvToken?: string;
   protocolParams?: {
     liquidationThresholdPeriod?: string | number;
+    minBlocksBetweenUpdates?: string | number;
     minimumLiquidationCollateralEth?: string | number;
     validatorsPerOperatorLimit?: string | number;
     declareOperatorFeePeriod?: string | number;
@@ -150,6 +151,12 @@ async function main() {
   for (const mod of MODULE_ORDER) {
     const moduleId = SSVModules[mod];
     await (await networkWithSigner.updateModule(moduleId, modules[mod])).wait();
+  }
+
+  // Optional override for EB update frequency cooldown (initializer defaults to 7200 blocks)
+  const minBlocksBetweenUpdates = parseUint(pp.minBlocksBetweenUpdates, "minBlocksBetweenUpdates");
+  if (minBlocksBetweenUpdates !== undefined) {
+    await (await networkWithSigner.setMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
   }
 
   const blockNumber = await ethers.provider.getBlockNumber();
