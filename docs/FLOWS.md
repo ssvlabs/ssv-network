@@ -1,6 +1,11 @@
 # SSV Network v2.0.0 — Contract Flows
 
-This document describes every contract flow with preconditions, step-by-step state mutations, events, postconditions, and invariants. Use this as a verification checklist for testing and code review.
+This document is the **implementation verification checklist** for the SSV Staking upgrade (v2.0.0). It describes every contract flow with preconditions, step-by-step state mutations, events, postconditions, and invariants. For design intent, rules, and accounting formulas, see [SPEC.md](./SPEC.md).
+
+| Document | Purpose |
+|---|---|
+| **SPEC.md** | Design intent · rules · formulas · invariants · source of truth |
+| **FLOWS.md** (this file) | Step-by-step execution · preconditions · state mutations · test checklist |
 
 ## Table of Contents
 
@@ -8,11 +13,14 @@ This document describes every contract flow with preconditions, step-by-step sta
    - [Register Validator (ETH)](#11-register-validator-eth)
    - [Bulk Register Validators (ETH)](#12-bulk-register-validators-eth)
    - [Remove Validator](#13-remove-validator)
-   - [Deposit ETH](#14-deposit-eth)
-   - [Withdraw ETH](#15-withdraw-eth)
-   - [Liquidate (ETH)](#16-liquidate-eth)
-   - [Liquidate (SSV Legacy)](#17-liquidate-ssv-legacy)
-   - [Reactivate](#18-reactivate)
+   - [Bulk Remove Validators](#14-bulk-remove-validators)
+   - [Exit Validator](#15-exit-validator)
+   - [Bulk Exit Validators](#16-bulk-exit-validators)
+   - [Deposit ETH](#17-deposit-eth)
+   - [Withdraw ETH](#18-withdraw-eth)
+   - [Liquidate (ETH)](#19-liquidate-eth)
+   - [Liquidate (SSV Legacy)](#110-liquidate-ssv-legacy)
+   - [Reactivate](#111-reactivate)
 2. [Migration Flows](#2-migration-flows)
    - [Migrate Cluster to ETH](#21-migrate-cluster-to-eth)
 3. [Effective Balance Flows](#3-effective-balance-flows)
@@ -36,6 +44,19 @@ This document describes every contract flow with preconditions, step-by-step sta
 6. [DAO Governance Flows](#6-dao-governance-flows)
    - [Update Network Fee](#61-update-network-fee)
    - [Replace Oracle](#62-replace-oracle)
+- [Global Invariants](#global-invariants)
+
+---
+
+## Global Invariants
+
+### ETH Contract Balance Accounting Invariant
+
+```
+address(this).balance == Σ(cluster.balance) + Σ(operator.ethEarnings) + ethDaoBalance + stakingEthPoolBalance
+```
+
+This invariant holds by construction across all ETH flows. If accounting is correct, every `cluster.balance` is always ≤ `address(this).balance` — no explicit contract-balance guard is needed in `withdraw`. A violation indicates a protocol bug, not a user error.
 
 ---
 
@@ -84,24 +105,6 @@ emit ValidatorAdded(owner, operatorIds, publicKey, shares, cluster);
 - Cluster is not liquidatable
 - Validator is retrievable via `getValidator(owner, publicKey)`
 
-```mermaid
-sequenceDiagram
-    participant User as Cluster Owner
-    participant SSVNetwork as SSVNetwork Proxy
-    participant Validators as SSVValidators Module
-    participant Storage as Diamond Storage
-
-    User->>SSVNetwork: registerValidator{value: ETH}(pubkey, opIds, shares, cluster)
-    SSVNetwork->>Validators: delegatecall
-    Validators->>Storage: Validate operator states & whitelist
-    Validators->>Storage: Update operator ETH snapshots
-    Validators->>Storage: Store validator record
-    Validators->>Storage: Update cluster state + balance
-    Validators->>Storage: Update DAO validator count
-    Validators->>Storage: Liquidation check
-    Validators-->>User: emit ValidatorAdded
-```
-
 ---
 
 ### 1.2 Bulk Register Validators (ETH)
@@ -148,7 +151,77 @@ emit ValidatorRemoved(owner, operatorIds, publicKey, cluster);
 
 ---
 
-### 1.4 Deposit ETH
+### 1.4 Bulk Remove Validators
+
+**Caller:** Cluster owner
+
+Same as 1.3 but removes multiple validators in one transaction. All validators must belong to the same cluster (same operator set). Each validator emits a separate `ValidatorRemoved` event. Cluster fee settlement and DAO accounting happen once for the full batch.
+
+#### Additional Invariants vs 1.3
+- `operator.ethValidatorCount == previous - N` for each operator (N = validators removed)
+- `ethDaoValidatorCount == previous - N`
+- `cluster.validatorCount == previous - N`
+- If cluster had explicit EB tracking (`ebSnapshot.vUnits > 0`): `ebSnapshot.vUnits -= N * VUNITS_PRECISION`
+- If `cluster.validatorCount` reaches 0 and cluster is active: any remaining deviation vUnits are cleaned from `operatorEthVUnits` and DAO
+
+---
+
+### 1.5 Exit Validator
+
+**Caller:** Cluster owner
+**nonReentrant:** No
+**Payable:** No
+
+#### Preconditions
+- Validator must exist and be owned by caller
+- Validator must be registered with the given operator set (state check via `validateCorrectState`)
+
+#### State Mutations
+None — `exitValidator` is a pure signal (event emission). No on-chain state is modified.
+
+#### Events
+```solidity
+emit ValidatorExited(owner, operatorIds, publicKey);
+```
+
+#### Postcondition Invariants
+- No storage state changes
+- Event is emitted; SSV oracle nodes observe it and initiate voluntary exit on the beacon chain
+- Validator record remains in storage until `removeValidator` is called
+
+> **Note:** Exit is a two-step off-chain process. `exitValidator` signals intent; the actual beacon-chain exit is performed by the SSV nodes network upon observing the event. The cluster continues to accrue fees until `removeValidator` is called.
+
+---
+
+### 1.6 Bulk Exit Validators
+
+**Caller:** Cluster owner
+**nonReentrant:** No
+**Payable:** No
+
+Same as 1.5 but signals exit for multiple validators in one transaction. All validators must belong to the same operator set. Each validator emits a separate `ValidatorExited` event.
+
+#### Preconditions
+- `publicKeys.length > 0` (empty list reverts with `ValidatorDoesNotExist`)
+- Each validator must exist and be owned by caller with the given operator set
+
+#### State Mutations
+None — pure signal, identical to 1.5 per validator.
+
+#### Events
+```solidity
+// emitted once per validator
+emit ValidatorExited(owner, operatorIds, publicKeys[i]);
+```
+
+#### Postcondition Invariants
+- No storage state changes
+- N `ValidatorExited` events emitted (one per validator)
+- All validator records remain in storage until `bulkRemoveValidator` is called
+
+---
+
+### 1.7 Deposit ETH
 
 **Caller:** Anyone (on behalf of cluster owner)
 **Payable:** Yes
@@ -172,41 +245,28 @@ emit ClusterDeposited(owner, operatorIds, msg.value, cluster);
 - `cluster.balance == previous_settled_balance + msg.value`
 - Cluster state hash is updated
 
-```mermaid
-sequenceDiagram
-    participant Anyone as Depositor
-    participant SSVNetwork as SSVNetwork Proxy
-    participant Clusters as SSVClusters Module
-    participant Storage as Diamond Storage
-
-    Anyone->>SSVNetwork: deposit{value: ETH}(owner, opIds, cluster)
-    SSVNetwork->>Clusters: delegatecall
-    Clusters->>Storage: Validate cluster (ETH version; active not required)
-    Clusters->>Storage: cluster.balance += msg.value
-    Clusters->>Storage: Store updated cluster hash
-    Clusters-->>Anyone: emit ClusterDeposited
-```
-
 ---
 
-### 1.5 Withdraw ETH
+### 1.8 Withdraw ETH
 
 **Caller:** Cluster owner
 **nonReentrant:** Yes
 
 #### Preconditions
 - Cluster must exist as ETH cluster (VERSION_ETH)
-- Cluster must be active
-- `amount <= cluster.balance` after fee settlement
-- Cluster must not become liquidatable after withdrawal
+- `amount <= cluster.balance` (after fee settlement if active)
+- If cluster is active and has validators: cluster must not become liquidatable after withdrawal
+
+> **Note — withdrawal allowed on liquidated clusters:** `withdraw` does not require the cluster to be active. A liquidated cluster may have received deposits (via `deposit`) in preparation for reactivation. If the owner decides not to reactivate, they can recover those funds via `withdraw`.
+>
+> **Note — operator removal and reactivation:** If one or more operators in a cluster's operator set have been removed (via `removeOperator`), the cluster can still be reactivated, but removed operators are silently skipped during `updateClusterOperatorsOnReactivation` (see `OperatorLib.sol:311`). The cluster will operate with reduced operator coverage (e.g., 3/4 instead of 4/4), which may compromise the cluster's fault tolerance. The reactivation fee calculation excludes removed operators' fees. No on-chain event signals which operators were skipped, but this is detectable off-chain by checking operator states before reactivation.
 
 #### State Mutations
-1. Update operator snapshots
-2. Settle cluster fees
-3. `cluster.balance -= amount`
-4. Liquidation check
-5. Update stored cluster hash
-6. Transfer `amount` ETH to caller
+1. If cluster is active: update operator snapshots and settle cluster fees
+2. `cluster.balance -= amount`
+3. If cluster is active and has validators: liquidation check
+4. Update stored cluster hash
+5. Transfer `amount` ETH to caller
 
 #### Events
 ```solidity
@@ -214,14 +274,15 @@ emit ClusterWithdrawn(owner, operatorIds, amount, cluster);
 ```
 
 #### Postcondition Invariants
-- `contract.balance == previous_contract_balance - amount`
 - `cluster.balance == previous_settled_balance - amount`
 - `owner.balance == previous_owner_balance + amount`
-- Cluster is not liquidatable
+- If cluster is active and has validators: cluster is not liquidatable
+
+> **Accounting invariant:** See [Global Invariants — ETH Contract Balance Accounting Invariant](#eth-contract-balance-accounting-invariant).
 
 ---
 
-### 1.6 Liquidate (ETH)
+### 1.9 Liquidate (ETH)
 
 **Caller:** Anyone (self-liquidation always allowed; third-party only if cluster is liquidatable)
 **nonReentrant:** Yes
@@ -234,11 +295,12 @@ emit ClusterWithdrawn(owner, operatorIds, amount, cluster);
 #### State Mutations
 1. Update operator snapshots with fee settlement
 2. Decrement `operator.ethValidatorCount` for each operator
-3. Compute liquidation bounty = remaining cluster balance
-4. Set cluster state: `active = false, balance = 0, index = 0, networkFeeIndex = 0`
-5. Update DAO: `ethDaoValidatorCount -= cluster.validatorCount`, reduce vUnits
-6. Update stored cluster hash
-7. Transfer bounty ETH to caller (liquidator)
+3. Reduce operators' effective balance (EB) tracking: decrement `operator.vUnits` by cluster's vUnits
+4. Compute liquidation bounty = remaining cluster balance
+5. Set cluster state: `active = false, balance = 0, index = 0, networkFeeIndex = 0`
+6. Update DAO: `ethDaoValidatorCount -= cluster.validatorCount`, reduce DAO vUnits and EB tracking
+7. Update stored cluster hash
+8. Transfer bounty ETH to caller (liquidator)
 
 #### Events
 ```solidity
@@ -253,36 +315,15 @@ emit ClusterLiquidated(owner, operatorIds, cluster);
 - Liquidator received bounty ETH
 - `contract.balance == previous - bounty`
 
-```mermaid
-sequenceDiagram
-    participant Liquidator
-    participant SSVNetwork as SSVNetwork Proxy
-    participant Clusters as SSVClusters Module
-    participant Storage as Diamond Storage
+---
 
-    Liquidator->>SSVNetwork: liquidate(owner, opIds, cluster)
-    SSVNetwork->>Clusters: delegatecall
-    Clusters->>Storage: Validate cluster (ETH, active)
-    alt Caller != Owner
-        Clusters->>Storage: Verify cluster is liquidatable
-    end
-    Clusters->>Storage: Settle operator fees
-    Clusters->>Storage: Decrement operator validator counts
-    Clusters->>Storage: Set cluster inactive, balance=0
-    Clusters->>Storage: Update DAO counts
-    Clusters->>Liquidator: Transfer bounty ETH
-    Clusters-->>Liquidator: emit ClusterLiquidated
-```
+### 1.10 Liquidate (SSV Legacy)
+
+Same flow as 1.9 but for SSV clusters. Uses `s.clusters` instead of `s.ethClusters`. SSV balance transferred via SSV token transfer (not ETH).
 
 ---
 
-### 1.7 Liquidate (SSV Legacy)
-
-Same flow as 1.6 but for SSV clusters. Uses `s.clusters` instead of `s.ethClusters`. SSV balance transferred via SSV token transfer (not ETH).
-
----
-
-### 1.8 Reactivate
+### 1.11 Reactivate
 
 **Caller:** Cluster owner
 **Payable:** Yes (msg.value = ETH deposit)
@@ -292,15 +333,16 @@ Same flow as 1.6 but for SSV clusters. Uses `s.clusters` instead of `s.ethCluste
 - Cluster must be liquidated (`active == false`)
 
 
-> **Note — Stale EB risk:** The solvency check on reactivation uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed while the cluster was liquidated. A liquidated cluster can still receive a permissionless `updateClusterBalance` call, and that call will refresh the EB snapshot even while inactive (fee/accounting updates are skipped). If no such update is submitted during the liquidation period and real EB has increased since liquidation (e.g. validator consolidation), the burn rate will jump on the next `updateClusterBalance` call after reactivation and the cluster may be immediately auto-liquidated. Cluster owners should deposit extra ETH buffer to account for potential EB drift.
+> **Note — Stale EB risk:** The solvency check uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed during liquidation. Ref: SPEC §2 "Stale EB Risk on Reactivation" for full analysis and mitigation options.
 
 #### State Mutations
 1. Update operator ETH snapshots
 2. Increment `operator.ethValidatorCount` for each operator
-3. Set cluster: `active = true, balance = msg.value, index = current, networkFeeIndex = current`
-4. Update DAO: `ethDaoValidatorCount += cluster.validatorCount`, add vUnits
-5. Liquidation check: must not be immediately liquidatable (uses stored `clusterEB.vUnits`)
-6. Update stored cluster hash
+3. Increase operators' effective balance (EB) tracking: increment `operator.vUnits` by cluster's vUnits
+4. Set cluster: `active = true, balance = msg.value, index = current, networkFeeIndex = current`
+5. Update DAO: `ethDaoValidatorCount += cluster.validatorCount`, add DAO vUnits and increase EB tracking
+6. Liquidation check: must not be immediately liquidatable (uses stored `clusterEB.vUnits`)
+7. Update stored cluster hash
 
 #### Events
 ```solidity
@@ -384,32 +426,6 @@ if (isLiquidated) emit ClusterReactivated(owner, operatorIds, cluster);
 - Cluster is not liquidatable under ETH rules
 - SSV cluster record is completely removed
 
-```mermaid
-sequenceDiagram
-    participant Owner as Cluster Owner
-    participant SSVNetwork as SSVNetwork Proxy
-    participant Clusters as SSVClusters Module
-    participant Storage as Diamond Storage
-    participant SSVToken as SSV Token
-
-    Owner->>SSVNetwork: migrateClusterToETH{value: ETH}(opIds, cluster)
-    SSVNetwork->>Clusters: delegatecall
-    Clusters->>Storage: Validate SSV cluster exists
-    Clusters->>Storage: Update SSV operator snapshots (final)
-    Clusters->>Storage: Decrement SSV validatorCounts
-    Clusters->>Storage: ensureETHDefaults for operators (if needed)
-    Clusters->>Storage: Update ETH operator snapshots
-    Clusters->>Storage: Increment ETH validatorCounts
-    Clusters->>Storage: Settle SSV balance → compute refund
-    Clusters->>Storage: Set ETH cluster state (balance=msg.value)
-    Clusters->>Storage: Update DAO (SSV count down, ETH count up)
-    Clusters->>Storage: ETH liquidation check
-    Clusters->>Storage: Store ethClusters[key], delete clusters[key]
-    Clusters->>Storage: Sync EB deviations (if applicable)
-    Clusters->>SSVToken: Transfer SSV refund to owner
-    Clusters-->>Owner: emit ClusterMigratedToETH
-```
-
 ---
 
 ## 3. Effective Balance Flows
@@ -435,7 +451,8 @@ sequenceDiagram
    - Store root: `ebRoots[blockNum] = merkleRoot`
    - Update: `latestCommittedBlock = blockNum`
    - Cleanup: `delete rootCommitments[commitmentKey]`
-6. **If quorum not reached**: no root storage
+   - **Note:** `hasVoted` mappings are intentionally NOT deleted to prevent re-voting on the same key
+6. **If quorum not reached**: no root storage, no cleanup — see SPEC §4 "Failed Quorum Behavior" for full persistence rules
 
 #### Events
 ```solidity
@@ -447,40 +464,10 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 ```
 
 #### Postcondition Invariants
-- If quorum reached: `ebRoots[blockNum] == merkleRoot`
-- If quorum reached: `latestCommittedBlock == blockNum`
-- Oracle cannot vote again for same `(blockNum, merkleRoot)`
+- If quorum reached: `ebRoots[blockNum] == merkleRoot`, `latestCommittedBlock == blockNum`, `rootCommitments[commitmentKey]` deleted
+- If quorum NOT reached: storage persists — ref SPEC §4 "Failed Quorum Behavior"
+- Oracle cannot vote again for same `(blockNum, merkleRoot)`; can vote same `blockNum` with different root
 - Total votes for this commitment <= oracle count
-
-```mermaid
-sequenceDiagram
-    participant Oracle1 as Oracle 1
-    participant Oracle2 as Oracle 2
-    participant Oracle3 as Oracle 3
-    participant SSVNetwork as SSVNetwork Proxy
-    participant DAO as SSVDAO Module
-    participant Storage as Diamond Storage
-
-    Oracle1->>SSVNetwork: commitRoot(root, blockNum)
-    SSVNetwork->>DAO: delegatecall
-    DAO->>Storage: Validate oracle, mark voted
-    DAO->>Storage: Accumulate weight (33.3%)
-    DAO-->>Oracle1: emit WeightedRootProposed
-
-    Oracle2->>SSVNetwork: commitRoot(root, blockNum)
-    SSVNetwork->>DAO: delegatecall
-    DAO->>Storage: Validate oracle, mark voted
-    DAO->>Storage: Accumulate weight (66.6%)
-    DAO-->>Oracle2: emit WeightedRootProposed
-
-    Oracle3->>SSVNetwork: commitRoot(root, blockNum)
-    SSVNetwork->>DAO: delegatecall
-    DAO->>Storage: Validate oracle, mark voted
-    DAO->>Storage: Accumulate weight (100%) ≥ 75% quorum
-    DAO->>Storage: Store ebRoots[blockNum] = root
-    DAO->>Storage: latestCommittedBlock = blockNum
-    DAO-->>Oracle3: emit RootCommitted
-```
 
 ---
 
@@ -491,13 +478,13 @@ sequenceDiagram
 
 #### Preconditions
 - Committed root exists for `blockNum`: `ebRoots[blockNum] != bytes32(0)`
-- Update frequency check: `block.number >= lastUpdateBlock + minBlocksBetweenUpdates` (initialized to `7200` in the v2.0.0 staking upgrade; adjustable via `setMinBlocksBetweenUpdates(uint32)`)
+- Update frequency check: `block.number >= lastUpdateBlock + minBlocksBetweenUpdates`
 - Staleness check: `blockNum > lastRootBlockNum` (strictly increasing)
 - Merkle proof valid: `verify(proof, ebRoots[blockNum], doubleHash(clusterId, effectiveBalance))`
 - EB limits: `32 * validatorCount <= effectiveBalance <= 2048 * validatorCount`
 - Cluster must exist (ETH or SSV)
 
-> **Note — Liquidated clusters:** The EB snapshot (`clusterEB[clusterId].vUnits`) is **always updated** regardless of cluster state. Steps 3, 4, 6, and 7 are skipped when `cluster.active == false`. `ClusterBalanceUpdated` is still emitted. This keeps the stored EB current so that reactivation uses the latest known value rather than a stale one.
+> **Note — Liquidated clusters:** The EB snapshot is **always updated** regardless of cluster state; fee/accounting steps are skipped when `cluster.active == false`. Ref: SPEC §4 "Behavior on liquidated clusters" for full rules and use cases.
 
 #### State Mutations (ETH Cluster)
 
@@ -516,8 +503,10 @@ sequenceDiagram
 7. If not liquidated: store updated cluster hash
 
 #### State Mutations (SSV Cluster)
-- Only stores EB snapshot (no balance/fee updates)
-- Prepares data for future migration
+- Only stores EB snapshot: `{vUnits: newVUnits, lastRootBlockNum: blockNum, lastUpdateBlock: block.number}`
+- **No balance/fee updates**: SSV clusters continue using `validatorCount`-based accounting (see section 1.10)
+- **No vUnit deviation tracking**: operator and DAO vUnit deviations are NOT updated for SSV clusters
+- Prepares data for future migration to ETH (see section 2.1)
 
 #### Events
 ```solidity
@@ -535,31 +524,6 @@ emit ClusterLiquidated(owner, operatorIds, cluster);
 - If EB decreased: future fee accrual is lower
 - Sum of all `operatorEthVUnits` deviations + baselines == `daoTotalEthVUnits`
 - If auto-liquidated: `cluster.active == false`, bounty transferred to caller
-
-```mermaid
-sequenceDiagram
-    participant Updater as Anyone
-    participant SSVNetwork as SSVNetwork Proxy
-    participant Clusters as SSVClusters Module
-    participant Storage as Diamond Storage
-
-    Updater->>SSVNetwork: updateClusterBalance(blockNum, owner, opIds, cluster, eb, proof)
-    SSVNetwork->>Clusters: delegatecall
-    Clusters->>Storage: Verify root exists for blockNum
-    Clusters->>Storage: Verify update frequency & staleness
-    Clusters->>Storage: Verify Merkle proof (double-hash)
-    Clusters->>Storage: Verify EB limits (32-2048 per validator)
-    Clusters->>Storage: Convert EB → vUnits
-    Clusters->>Storage: Settle fees with OLD vUnits
-    Clusters->>Storage: Update operator & DAO vUnit deviations
-    Clusters->>Storage: Store new EB snapshot
-    alt Cluster now undercollateralized
-        Clusters->>Storage: Auto-liquidate cluster
-        Clusters->>Updater: Transfer bounty ETH
-        Clusters-->>Updater: emit ClusterLiquidated
-    end
-    Clusters-->>Updater: emit ClusterBalanceUpdated
-```
 
 ---
 
@@ -603,12 +567,13 @@ if (setPrivate) emit OperatorPrivacyStatusUpdated([operatorId], true);
 #### Preconditions
 - Operator must exist (`snapshot.block != 0 || ethSnapshot.block != 0`)
 - Caller must be operator owner
-- Operator must have 0 validators in BOTH SSV and ETH counts
 
 #### State Mutations
 1. Update SSV snapshot (final earnings)
 2. Update ETH snapshot (final earnings)
-3. Reset operator state via `_resetOperatorState`: zeros `ethSnapshot`, `snapshot`, `ethFee`, `fee`, `ethValidatorCount`, `validatorCount`
+3. Reset operator state via `_resetOperatorState`: 
+   - Zeros `ethSnapshot.block`, `ethSnapshot.balance`, `snapshot.block`, `snapshot.balance`, `ethFee`, `fee`, `ethValidatorCount`, `validatorCount`
+   - Keeps `ethSnapshot.index`, `snapshot.index`
 4. **`operator.owner` is intentionally preserved** — allows off-chain systems (explorer, `getOperatorById`) to query the original owner after removal
 5. Withdraw all SSV earnings to owner (if any)
 6. Withdraw all ETH earnings to owner (if any)
@@ -653,8 +618,10 @@ After removal, different code paths detect removed operators via different check
 
 > **Note — Existing pre-upgrade declarations:** Previous declarations (before the upgrade timestamp, `UPGRADE_TIMESTAMP` in `SSVOperators`) are rejected when executing the fee update via `executeOperatorFee`. The operator owner can declare a new fee at any time.
 
+> **Note — Multiple declarations:** Calling `declareOperatorFee` multiple times within the declare period will override any pending fee change request. The most recent declaration replaces the previous one, resetting the approval begin/end times. Only the last declared fee can be executed.
+
 #### State Mutations
-1. Store `OperatorFeeChangeRequest{fee: packed(newFee), approvalBeginTime: now + declarePeriod, approvalEndTime: now + declarePeriod + executePeriod}`
+1. Store `OperatorFeeChangeRequest{fee: packed(newFee), approvalBeginTime: now + declarePeriod, approvalEndTime: now + declarePeriod + executePeriod}` (overwrites any existing pending request)
 
 #### Events
 ```solidity
@@ -674,7 +641,7 @@ emit OperatorFeeDeclared(owner, operatorId, block.number, fee);
 - Fee still within `operatorMaxFee`
 
 #### State Mutations
-1. Update operator ETH snapshot (settles all pending earnings at the **old** fee up to this block; the new fee only applies to blocks going forward — no retroactive impact on cluster index calculations)
+1. Update operator ETH snapshot — ref SPEC §10 "Fee Settlement Rule": settles at old fee up to this block; new fee applies only to future blocks
 2. Set `operator.ethFee = request.fee` (packed)
 3. Delete fee change request
 
@@ -699,7 +666,7 @@ emit OperatorFeeExecuted(owner, operatorId, block.number, fee);
 - New fee strictly less than current
 
 #### State Mutations
-1. Update operator ETH snapshot (settles all pending earnings at the **old** fee up to this block; the new fee only applies to blocks going forward — no retroactive impact on cluster index calculations)
+1. Update operator ETH snapshot — ref SPEC §10 "Fee Settlement Rule": settles at old fee up to this block; new fee applies only to future blocks
 2. Set `operator.ethFee = packed(newFee)`
 3. Delete any pending fee change request
 
@@ -835,31 +802,14 @@ emit Staked(user, amount);
 - `userIndex[user] == accEthPerShare` (freshly settled)
 - User begins earning pro-rata rewards immediately
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant SSVNetwork as SSVNetwork Proxy
-    participant Staking as SSVStaking Module
-    participant SSVToken as SSV Token
-    participant CSSVToken as cSSV Token
-    participant Storage as Diamond Storage
-
-    User->>SSVToken: approve(SSVNetwork, amount)
-    User->>SSVNetwork: stake(amount)
-    SSVNetwork->>Staking: delegatecall
-    Staking->>Storage: syncFees() - update accEthPerShare
-    Staking->>Storage: settle(user) - accrue pending rewards
-    Staking->>SSVToken: transferFrom(user, contract, amount)
-    Staking->>CSSVToken: mint(user, amount)
-    Staking-->>User: emit Staked
-```
-
 ---
 
 ### 5.2 Request Unstake
 
 **Caller:** cSSV holder
 **nonReentrant:** Yes
+
+> **Overview:** Multi-request unstaking with per-request cooldown. Ref: SPEC §3 "Unstaking (Two-Step)" for full semantics.
 
 #### Preconditions
 - `amount > 0`
@@ -894,15 +844,17 @@ emit UnstakeRequested(user, amount, unlockTime);
 **Caller:** User with matured unstake requests
 **nonReentrant:** Yes
 
+> **Overview:** Finalizes all matured unstake requests in one call. Ref: SPEC §3 "Unstaking (Two-Step)" for full semantics.
+
 #### Preconditions
 - At least one `UnstakeRequest` where `unlockTime <= block.timestamp` — reverts with `NothingToWithdraw` if none exist or all are still within cooldown
 
 #### State Mutations
 1. Iterate **all** withdrawal requests in a single pass; remove every matured entry via swap-and-pop (O(1) per removal, order of remaining entries may change)
-2. Sum total unlocked amount across all removed entries
+2. Sum total unlocked amount across all removed entries (`totalAmount = Σ matured request amounts`)
 3. Transfer `totalAmount` SSV tokens to user
 
-> **Note:** A single `withdrawUnlocked` call drains **all** matured requests at once — there is no per-request granularity. Immature requests remain untouched in the array.
+> **Note:** Immature requests (where `unlockTime > block.timestamp`) remain untouched in the array and will be processed in a future `withdrawUnlocked` call after their lock period expires.
 
 #### Events
 ```solidity
@@ -947,24 +899,6 @@ emit RewardsClaimed(user, payout);
 - `accrued[user] == previous_accrued - payout` (may have dust remainder < 100,000)
 - `stakingEthPoolBalance` decreased by packed(payout)
 - `ethDaoBalance` decreased by packed(payout)
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant SSVNetwork as SSVNetwork Proxy
-    participant Staking as SSVStaking Module
-    participant Storage as Diamond Storage
-
-    User->>SSVNetwork: claimEthRewards()
-    SSVNetwork->>Staking: delegatecall
-    Staking->>Storage: syncFees() - update accEthPerShare
-    Staking->>Storage: settle(user) - compute pending
-    Staking->>Storage: accrued[user] -= payout
-    Staking->>Storage: stakingEthPoolBalance -= packed(payout)
-    Staking->>Storage: ethDaoBalance -= packed(payout)
-    Staking->>User: Transfer payout ETH
-    Staking-->>User: emit RewardsClaimed
-```
 
 ---
 
@@ -1018,21 +952,6 @@ None emitted by the hook itself. The ERC-20 `Transfer` event is emitted by the t
 - `accrued[from]` includes all rewards earned up to this block
 - `accrued[to]` includes all rewards earned up to this block (on their existing balance, if any)
 - If sender's cSSV balance reaches 0 after the transfer, `accrued[from]` is still non-zero and fully claimable via `claimEthRewards()` — rewards are stored in `accrued` independently of cSSV balance
-
-```mermaid
-sequenceDiagram
-    participant Sender
-    participant cSSV as CSSVToken
-    participant Staking as SSVStaking
-
-    Sender->>cSSV: transfer(to, amount)
-    cSSV->>Staking: onCSSVTransfer(from, to, amount)
-    Staking->>Staking: _syncFees() — update accEthPerShare
-    Staking->>Staking: _settle(from) — lock in sender rewards at pre-transfer balance
-    Staking->>Staking: _settle(to) — lock in receiver rewards at pre-transfer balance
-    cSSV->>cSSV: ERC-20 transfer executes (balances change)
-    cSSV-->>Sender: emit Transfer(from, to, amount)
-```
 
 ---
 

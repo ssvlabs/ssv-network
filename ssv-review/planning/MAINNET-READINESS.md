@@ -20,6 +20,8 @@
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
 | BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix |P1 | ❓ Asked Product to change DIP (not a bug) |
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
+| BUG-10 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
+| BUG-11 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -36,9 +38,10 @@
 | SEC-14 | ~~`commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot~~ | Security Hardening | P2 | ✅ Closed (coordinated oracles) |
 | SEC-15 | ~~Min/max operator fee can be set to contradictory values~~ | Security Hardening | P2 | ✅ Closed (owner-only setters) |
 | SEC-16 | ~~Missing zero-value/zero-address guards on deposit and withdraw~~ | Security Hardening | P2 | ✅ Closed |
+| SEC-16b | Dust ETH stranded in `accrued` after full cSSV transfer + claim | Security Hardening | P1 | S |
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
 | SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
-| SEC-19 | ~~`minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled~~ | Security Hardening | P1 | S |
+| SEC-19 | `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled | Security Hardening | P1 | S |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
 | TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
 | TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |
@@ -72,6 +75,7 @@
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
 | TEST-32 | Add access control tests for DAO governance functions | Unit Test Completeness | P1 | S |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
+| TEST-34 | Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract | Unit Test Completeness | P1 | S |
 | ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
 | DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
@@ -92,47 +96,7 @@
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
 | FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
-| DISC-1 | Unstaking model deviates from DIP-X: burn-then-wait vs lock-then-burn | Design Discussion | P1 | TBD |
-
----
-
-## Design Discussion
-
-### [DISC-1] Unstaking model deviates from DIP-X: burn-then-wait vs lock-then-burn
-- **Type:** Design Discussion
-- **Priority:** P1
-- **Status:** 🔍 Open — decision pending
-- **Owner:** TBD
-
-**Requirement:**
-Align the unstaking implementation with the DIP-X proposal's lock-then-burn model.
-
-**Context:**
-The DIP-X proposal ("Unstaking" section) describes a two-step process where cSSV is **locked** at request time and **burned only at finalization**:
-> *"First, the staker submits a withdrawal request, which locks the specified amount of cSSV and stops reward accrual for that portion... Once the lock period ends, the staker can finalize the unstake. The locked cSSV is burned, and the underlying SSV is returned at a 1:1 ratio."*
-
-The current implementation (`SSVStaking.sol:requestUnstake`) does the opposite — **burn-then-wait**:
-1. `requestUnstake(amount)`: cSSV is burned immediately (`ICSSVToken.burn`, line 91); an `UnstakeRequest{amount, unlockTime}` is stored.
-2. `withdrawUnlocked()`: SSV is returned after cooldown; no cSSV interaction.
-
-This has two material consequences relative to the proposal:
-- **Reward accrual**: Both models stop accrual at request time (burn reduces `balanceOf`, which drives `_settleWithBalance`). Behaviourally equivalent on rewards.
-- **Governance/voting power**: Under burn-then-wait, cSSV is destroyed at request time — voting power is lost immediately. Under lock-then-burn, voting power would be retained until finalization.
-- **cSSV total supply**: Under burn-then-wait, `totalSupply` drops at request time, slightly accelerating `accEthPerShare` for remaining stakers. Under lock-then-burn, supply would not decrease until finalization.
-
-**Alternative implementations evaluated:**
-- **Option A — New `lockedBalance[user]` mapping**: Settle rewards first, then add `amount` to `lockedBalance[user]`. `_settle` uses `balanceOf - lockedBalance` as effective balance. Burn at `withdrawUnlocked`. Matches DIP-X exactly but adds a new storage slot and gas overhead on every `_settle` call.
-- **Option B — Sum pending `UnstakeRequest[]` in `_settle`**: No new storage, but O(n) per settle call — prohibitive with `MAX_PENDING_REQUESTS = 2000`.
-- **Option C — Keep current burn-then-wait**: No storage changes, cheapest gas. Deviates from DIP-X on governance timing only; reward accrual behaviour is equivalent.
-
-**Acceptance Criteria:**
-- [ ] Approach selected (Option A — `lockedBalance[user]` mapping, or Option B — sum `UnstakeRequest[]` in `_settle`)
-- [ ] `requestUnstake`: settle rewards first, then lock cSSV (no burn); burn deferred to `withdrawUnlocked`
-- [ ] `_settle` uses effective balance (`balanceOf - locked`) so locked portion stops accruing rewards
-- [ ] `withdrawUnlocked`: burns the unlocked cSSV amount before returning SSV
-- [ ] cSSV transfers of locked tokens handled correctly (guard or adjust lock on `onCSSVTransfer`)
-- [ ] `SPEC.md` and `FLOWS.md` updated to reflect lock-then-burn semantics
-- [ ] Tests updated: `requestUnstake` no longer reduces `cSSV.totalSupply`; `withdrawUnlocked` does
+| FUZZ-5 | ETH contract balance accounting invariant: `address(this).balance == Σ cluster.balance + Σ operator.ethEarnings + ethDaoBalance + stakingEthPoolBalance` | Echidna Invariant Suite | P1 | M |
 
 ---
 
@@ -1019,6 +983,49 @@ These allow gas-wasting no-op transactions that emit misleading events with zero
 #### Sub-items:
 - [ ] Sub-task 1: Add zero-value guards to deposit and withdraw
 - [ ] Sub-task 2: Add tests for zero-value reverts
+- [ ] Sub-task 3: Run full test suite
+
+---
+
+### [SEC-16b] Dust ETH stranded in `accrued` after full cSSV transfer + claim
+- **Type:** Security Hardening
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+When a user transfers all their cSSV tokens and then calls `claimEthRewards`, a sub-`ETH_DEDUCTED_DIGITS` dust remainder is left in `s.accrued[msg.sender]`. Because the user holds no cSSV, `_settle` will never add to it again, so the dust is permanently unclaimable (any future `claimEthRewards` call hits the `payout == 0` revert). From the user's perspective the UI shows a non-zero claimable balance that can never be withdrawn.
+
+**Context:**
+- `SSVStaking.sol:123`: `payout = claimable - (claimable % ETH_DEDUCTED_DIGITS)` — the remainder stays in `accrued`.
+- `SSVStaking.sol:139` (original): `s.accrued[msg.sender] = claimable - payout` — remainder is preserved even when the user holds 0 cSSV.
+- Reproduction: stake → transfer all cSSV to another address → call `claimEthRewards` → `accrued` contains dust that can never be claimed or grown.
+
+**Proposed Fix on claimEthRewards (pending product approval):**
+```solidity
+uint256 bal = ICSSVToken(CSSV_ADDRESS).balanceOf(msg.sender);
+s.accrued[msg.sender] = (bal == 0) ? 0 : claimable - payout;
+```
+When `bal == 0` the dust is zeroed rather than preserved. The zeroed wei remains in `stakingEthPoolBalance` and `ethDaoBalance` — it is never deducted from the pool — so it is effectively redistributed to remaining stakers via future `accEthPerShare` increments in `_syncFees`.
+
+**⚠️ Product approval required:** Confirm that silently absorbing dust into the shared pool (rather than returning it to the user or burning it) is acceptable behaviour before merging the fix.
+
+**Acceptance Criteria:**
+- [ ] Product sign-off on dust-absorption behaviour
+- [ ] `claimEthRewards` zeros `accrued` when caller holds 0 cSSV
+- [ ] After a full transfer + claim, `accrued[user] == 0`
+- [ ] Test: stake → transfer all cSSV → claim → assert `accrued == 0` and no further `NothingToClaim` revert on a second claim attempt
+
+**Agent Instructions:**
+1. Fix already applied at `SSVStaking.sol:139-140` — review and confirm correctness.
+2. Add a regression test covering the reproduction flow above.
+3. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Product approval on dust-absorption behaviour
+- [ ] Sub-task 2: Add regression test
 - [ ] Sub-task 3: Run full test suite
 
 ---
@@ -2282,6 +2289,46 @@ Add a dedicated test suite that uses the exact mainnet governance parameters and
 
 ---
 
+### [TEST-34] Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract
+- **Type:** Unit Test Completeness
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add invariant coverage for staking solvency: `cSSV.totalSupply() <= SSV.balanceOf(SSVStaking)` at all times.
+
+**Product concern:**
+Product asked for explicit safety validation to ensure cSSV issuance cannot exceed backing SSV even if future changes introduce bugs. Current implementation is by-construction (SSV transfer happens before cSSV mint), but the invariant should be continuously enforced by tests.
+
+**Context:**
+`SSVStaking.stake()` transfers SSV to staking contract before minting cSSV, and `requestUnstake()` burns cSSV before eventual SSV withdrawal. This implies the solvency relationship should always hold, but there is no explicit invariant test guarding against regressions.
+
+**Invariant to test:**
+`cSSV.totalSupply() <= SSV.balanceOf(address(SSVStaking))`
+
+**Acceptance Criteria:**
+- [ ] Add an Echidna invariant test that continuously asserts `cSSV.totalSupply() <= SSV.balanceOf(address(staking))` across stake/unstake/transfer/withdraw flows
+- [ ] Add at least one deterministic unit regression test for the invariant around `stake` and `requestUnstake` ordering
+- [ ] Include edge scenarios: multiple users, partial unstake requests, full unstake + withdraw cycle
+- [ ] No invariant violations in fuzz runs
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVStaking.sol` and `contracts/token/CSSVToken.sol` for mint/burn ordering.
+2. Extend the Echidna suite under `test/echidna/` with a dedicated solvency invariant check.
+3. Add a deterministic unit test in `test/unit/SSVStaking/` asserting the invariant before/after `stake`, `requestUnstake`, and `withdrawUnlocked`.
+4. Run the relevant unit tests and Echidna target.
+
+#### Sub-items:
+- [ ] Sub-task 1: Add Echidna solvency invariant
+- [ ] Sub-task 2: Add deterministic unit regression tests
+- [ ] Sub-task 3: Cover multi-user + partial/full unstake scenarios
+- [ ] Sub-task 4: Run unit + Echidna checks
+
+---
+
 ## Integration / E2E Tests
 
 ### [ITEST-1] `commitRoot` → `updateClusterBalance` E2E flow
@@ -2794,6 +2841,43 @@ Add 6 lower-priority invariants requiring significant harness work. Full list in
 
 ---
 
+### [FUZZ-5] ETH contract balance accounting invariant
+- **Type:** Echidna Invariant Suite
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add an Echidna invariant that continuously asserts the ETH accounting identity:
+
+```
+address(this).balance == Σ(cluster.balance) + Σ(operator.ethEarnings) + ethDaoBalance + stakingEthPoolBalance
+```
+
+**Context:**
+Product raised the question of whether `withdraw` needs an explicit `amount <= address(this).balance` guard. The answer is: not as a runtime check — if accounting is correct, `cluster.balance` is always ≤ `address(this).balance` by construction. However, this invariant should be continuously enforced by fuzzing to catch any accounting divergence (rounding errors, missed fee settlement paths, ETH drain via another function). A violation means a protocol bug, not a user error. See FLOWS.md §1.8 for the full rationale.
+
+**Acceptance Criteria:**
+- [ ] Echidna invariant `echidna_eth_balance_accounting` implemented in the staking/cluster harness
+- [ ] Invariant asserts `address(this).balance >= sum_of_all_cluster_balances + sum_of_operator_eth_earnings + ethDaoBalance + stakingEthPoolBalance` after every operation
+- [ ] Harness tracks all cluster balances and operator earnings across stake/unstake/deposit/withdraw/liquidate/reactivate flows
+- [ ] No invariant violations in fuzz runs
+
+**Agent Instructions:**
+1. Read `test/echidna/` for existing harness patterns and how cluster/operator state is tracked.
+2. Add a new invariant function that sums all tracked cluster balances and operator ETH earnings and compares to `address(this).balance`.
+3. Ensure the harness exercises all ETH-moving operations: `deposit`, `withdraw`, `liquidate`, `reactivate`, `claimEthRewards`, `withdrawNetworkETHEarnings`, `withdrawOperatorEarnings`.
+4. Run Echidna and confirm no violations.
+
+#### Sub-items:
+- [ ] Sub-task 1: Implement `echidna_eth_balance_accounting` invariant
+- [ ] Sub-task 2: Extend harness to track all ETH-moving operations
+- [ ] Sub-task 3: Run Echidna and confirm no violations
+
+---
+
 ## Code Quality
 
 ### [QUALITY-1] `operatorFeeChangeRequests` not cleared on operator removal
@@ -2897,6 +2981,86 @@ In `SSVOperators.sol:324`, `_resetOperatorState` returns `Operator memory` but t
 - [ ] Sub-task 1: Remove return value from `_resetOperatorState`
 - [ ] Sub-task 2: Update caller
 - [ ] Sub-task 3: Run full test suite
+
+---
+
+### [BUG-10] Remove liquidation check in `withdraw` function
+- **Type:** Code Quality
+- **Priority:** P2
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Remove the `cluster.validateClusterIsNotLiquidated()` check from the `withdraw` function in `SSVClusters.sol`.
+
+**Context:**
+In `SSVClusters.sol:215`, the `withdraw` function prevents withdrawals from liquidated clusters. This restriction is unnecessarily restrictive: users may deposit funds to prepare a liquidated cluster for reactivation but later decide not to reactivate. In this scenario, they should be able to withdraw their deposited funds without being forced to complete the reactivation. The liquidation check should be removed to allow this flexibility.
+
+**Rationale:**
+- Users can deposit to liquidated clusters (allowed by design, see SEC-12)
+- If users change their mind about reactivation, they should be able to retrieve their deposits
+- The balance accounting is correct whether the cluster is liquidated or not
+- **IMPORTANT:** Double-check this change with Product team before implementation to ensure it aligns with intended UX
+
+**Acceptance Criteria:**
+- [ ] Product team approval obtained for this change
+- [ ] Remove `cluster.validateClusterIsNotLiquidated()` from `withdraw` function (line 215)
+- [ ] Add test: deposit to liquidated cluster, then withdraw without reactivating
+- [ ] Verify existing withdrawal tests still pass
+- [ ] Update FLOWS.md to document that withdrawals are allowed on liquidated clusters
+
+#### Sub-items:
+- [ ] Sub-task 1: Get Product team approval
+- [ ] Sub-task 2: Remove liquidation check from withdraw function
+- [ ] Sub-task 3: Add test for withdraw from liquidated cluster
+- [ ] Sub-task 4: Update documentation in FLOWS.md
+
+---
+
+### [BUG-11] `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Allow `removeValidator` and `bulkRemoveValidator` to operate on legacy SSV clusters, not just ETH clusters.
+
+**Context:**
+`_bulkRemoveValidator` in `SSVValidators.sol:177` calls `ClusterLib.validateClusterVersion(version, VERSION_ETH)`, which reverts with `IncorrectClusterVersion` for any SSV cluster. This means owners of legacy SSV clusters cannot remove individual validators — they can only exit (signal off-chain) or migrate the entire cluster to ETH. This is a UX regression from v1.x where `removeValidator` worked on all clusters.
+
+The SSV cluster removal path is distinct from the ETH path in two ways:
+1. It uses `s.clusters` (SSV storage) instead of `s.ethClusters`
+2. It does not involve ETH snapshot updates or EB deviation cleanup
+
+The fix requires branching `_bulkRemoveValidator` on `version`: for `VERSION_SSV`, use the legacy SSV cluster removal path (update SSV operator snapshots, decrement `operator.validatorCount`, update SSV cluster hash in `s.clusters`); for `VERSION_ETH`, keep the existing ETH path.
+
+**Rationale:**
+- SSV cluster owners may want to remove specific validators without migrating the entire cluster
+- Without this, the only way to reduce validator count in a legacy cluster is full migration
+- The FLOWS.md and SPEC.md already document SSV cluster operations as including `removeValidator` (see FLOWS §1.10, SPEC §1 "Existing Clusters")
+- **IMPORTANT:** Confirm with Product team whether this is intentionally blocked or an oversight
+
+**Acceptance Criteria:**
+- [ ] Product team approval obtained
+- [ ] `_bulkRemoveValidator` branches on `version`: `VERSION_SSV` uses SSV cluster path, `VERSION_ETH` uses ETH cluster path
+- [ ] SSV path: updates SSV operator snapshots (`operator.snapshot`), decrements `operator.validatorCount`, updates `s.clusters[hashedCluster]`
+- [ ] SSV path: does NOT touch ETH snapshots, `ethValidatorCount`, `ethClusters`, or EB storage
+- [ ] Add test: remove validator from active SSV cluster, verify SSV cluster hash updated and operator count decremented
+- [ ] Add test: remove validator from liquidated SSV cluster (should be allowed — no active-cluster check in current code)
+- [ ] Existing ETH removal tests still pass
+- [ ] Update FLOWS §1.3 and §1.4 to document SSV cluster support
+
+#### Sub-items:
+- [ ] Sub-task 1: Get Product team approval
+- [ ] Sub-task 2: Branch `_bulkRemoveValidator` on cluster version
+- [ ] Sub-task 3: Implement SSV cluster removal path
+- [ ] Sub-task 4: Add unit tests
+- [ ] Sub-task 5: Update FLOWS.md §1.3 and §1.4
 
 ---
 
