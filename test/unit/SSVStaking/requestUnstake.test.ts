@@ -89,8 +89,8 @@ describe("SSVStaking function `requestUnstake()`", async () => {
   it("Is reverted with 'MaxRequestsAmountReached' when pending requests limit is reached", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeFirst);
 
-    const unstakeAmount = STAKE_AMOUNT / 20n;
-    for (let i = 0; i < 10; i += 1) {
+    const unstakeAmount = STAKE_AMOUNT / 20000n;
+    for (let i = 0; i < 2000; i += 1) {
       await (await staking.requestUnstake(unstakeAmount)).wait();
     }
 

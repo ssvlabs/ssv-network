@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
@@ -21,8 +23,11 @@ import { Errors } from "../common/errors.ts";
 import { ethers } from "ethers";
 
 /**
- * Uses exact mainnet deployment parameters (from deployments/hoodi-upgrade.config.json)
+ * Uses exact mainnet deployment parameters (from deployments/params-candidate.json)
  * to validate system behavior at the boundaries implied by those values.
+ *
+ * To propose new governance parameters: edit deployments/params-candidate.json and re-run
+ * the test suite. No test source changes are needed unless burn-rate assertions must be updated.
  *
  * Deployment Config (exact on-chain values — all fees are already packable):
  * | Param                          | Value                              | Raw               |
@@ -38,16 +43,32 @@ import { ethers } from "ethers";
  *
  */
 
+type ParamsCandidateJson = {
+  networkFeeEth: string;
+  minimumLiquidationCollateralEth: string;
+  liquidationThresholdPeriod: string;
+  minOperatorEthFee: string;
+  maxOperatorEthFee: string;
+  defaultOperatorEthFee: string;
+  quorumBps: number;
+  cooldownDuration: number;
+  defaultOracleIds: number[];
+};
+
+const _raw = JSON.parse(
+  readFileSync(resolve(process.cwd(), "deployments/params-candidate.json"), "utf8")
+) as ParamsCandidateJson;
+
 const CONFIG = {
-  networkFeeEth: 3_550_900_000n,                         // packable
-  minimumLiquidationCollateralEth: 940_000_000_000_000n, // 0.00094 ETH, packable
-  liquidationThresholdPeriod: 35_800n,                   // blocks
-  minOperatorEthFee: 1_065_200_000n,                     // packable
-  maxOperatorEthFee: 5_326_300_000n,                     // packable
-  defaultOperatorEthFee: 1770_000_000n,                  // packable
-  quorumBps: 7_500n,                                     // 75%
-  cooldownDuration: 604_800n,                            // seconds (7 days)
-  defaultOracleIds: [1, 2, 3, 4],
+  networkFeeEth: BigInt(_raw.networkFeeEth),
+  minimumLiquidationCollateralEth: BigInt(_raw.minimumLiquidationCollateralEth),
+  liquidationThresholdPeriod: BigInt(_raw.liquidationThresholdPeriod),
+  minOperatorEthFee: BigInt(_raw.minOperatorEthFee),
+  maxOperatorEthFee: BigInt(_raw.maxOperatorEthFee),
+  defaultOperatorEthFee: BigInt(_raw.defaultOperatorEthFee),
+  quorumBps: BigInt(_raw.quorumBps),
+  cooldownDuration: BigInt(_raw.cooldownDuration),
+  defaultOracleIds: _raw.defaultOracleIds,
 };
 
 // Original values (raw wei, some NOT packable). Kept for the packability documentation test.
@@ -65,6 +86,76 @@ describe("Mainnet Governance Config Validation", async () => {
 
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
+  });
+
+  describe("Config file (deployments/params-candidate.json)", () => {
+    const CONFIG_PATH = resolve(process.cwd(), "deployments/params-candidate.json");
+
+    it("exists and is readable from process.cwd()", () => {
+      expect(existsSync(CONFIG_PATH), `File not found: ${CONFIG_PATH}`).to.be.true;
+    });
+
+    it("contains all required fields", () => {
+      const required: (keyof ParamsCandidateJson)[] = [
+        "networkFeeEth",
+        "minimumLiquidationCollateralEth",
+        "liquidationThresholdPeriod",
+        "minOperatorEthFee",
+        "maxOperatorEthFee",
+        "defaultOperatorEthFee",
+        "quorumBps",
+        "cooldownDuration",
+        "defaultOracleIds",
+      ];
+      for (const field of required) {
+        expect(_raw[field], `Missing field: ${field}`).to.not.be.undefined;
+      }
+    });
+
+    it("fee fields are non-negative integer strings", () => {
+      const stringFields: (keyof ParamsCandidateJson)[] = [
+        "networkFeeEth",
+        "minimumLiquidationCollateralEth",
+        "liquidationThresholdPeriod",
+        "minOperatorEthFee",
+        "maxOperatorEthFee",
+        "defaultOperatorEthFee",
+      ];
+      for (const field of stringFields) {
+        const value = _raw[field];
+        expect(typeof value, `${field} must be a string`).to.equal("string");
+        expect(/^\d+$/.test(value as string)).to.be.true;
+      }
+    });
+
+    it("quorumBps is an integer in [1, 10000]", () => {
+      expect(Number.isInteger(_raw.quorumBps)).to.be.true;
+      expect(_raw.quorumBps).to.be.greaterThanOrEqual(1);
+      expect(_raw.quorumBps).to.be.lessThanOrEqual(10_000);
+    });
+
+    it("cooldownDuration is a positive integer", () => {
+      expect(Number.isInteger(_raw.cooldownDuration)).to.be.true;
+      expect(_raw.cooldownDuration).to.be.greaterThan(0);
+    });
+
+    it("defaultOracleIds is an array of 4 distinct valid oracle ids", () => {
+      expect(Array.isArray(_raw.defaultOracleIds)).to.be.true;
+      expect(_raw.defaultOracleIds.length).to.equal(4);
+      for (const id of _raw.defaultOracleIds) {
+        expect(Number.isInteger(id) && id > 0 && id <= 0xffffffff).to.be.true;
+      }
+      const unique = new Set(_raw.defaultOracleIds);
+      expect(unique.size).to.equal(4);
+    });
+
+    it("minOperatorEthFee <= defaultOperatorEthFee <= maxOperatorEthFee", () => {
+      const min = BigInt(_raw.minOperatorEthFee);
+      const def = BigInt(_raw.defaultOperatorEthFee);
+      const max = BigInt(_raw.maxOperatorEthFee);
+      expect(min <= def).to.be.true;
+      expect(def <= max).to.be.true;
+    });
   });
 
   describe("Packability", () => {
