@@ -567,12 +567,13 @@ if (setPrivate) emit OperatorPrivacyStatusUpdated([operatorId], true);
 #### Preconditions
 - Operator must exist (`snapshot.block != 0 || ethSnapshot.block != 0`)
 - Caller must be operator owner
-- Operator must have 0 validators in BOTH SSV and ETH counts
 
 #### State Mutations
 1. Update SSV snapshot (final earnings)
 2. Update ETH snapshot (final earnings)
-3. Reset operator state via `_resetOperatorState`: zeros `ethSnapshot`, `snapshot`, `ethFee`, `fee`, `ethValidatorCount`, `validatorCount`
+3. Reset operator state via `_resetOperatorState`: 
+   - Zeros `ethSnapshot.block`, `ethSnapshot.balance`, `snapshot.block`, `snapshot.balance`, `ethFee`, `fee`, `ethValidatorCount`, `validatorCount`
+   - Keeps `ethSnapshot.index`, `snapshot.index`
 4. **`operator.owner` is intentionally preserved** — allows off-chain systems (explorer, `getOperatorById`) to query the original owner after removal
 5. Withdraw all SSV earnings to owner (if any)
 6. Withdraw all ETH earnings to owner (if any)
