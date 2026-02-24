@@ -716,7 +716,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       ).to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
     });
 
-    it("Liquidated cluster cannot be withdrawn from", async function() {
+    it("Is reverted with 'InsufficientBalance' when withdrawing from a liquidated cluster with zero balance", async function() {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       // Use high network fee for faster liquidation
@@ -747,7 +747,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       await expect(
         network.connect(clusterOwner).withdraw(operatorIds, 1n, liquidatedCluster)
-      ).to.be.revertedWithCustomError(network, Errors.CLUSTER_IS_LIQUIDATED);
+      ).to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
     });
   });
 });

@@ -20,7 +20,7 @@
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
 | BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix |P1 | ❓ Asked Product to change DIP (not a bug) |
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
-| BUG-10 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
+| BUG-10 | ~~Remove liquidation check in `withdraw` function~~ | Critical Bug Fix | P2 | ✅ Fixed |
 | BUG-11 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
@@ -2987,9 +2987,9 @@ In `SSVOperators.sol:324`, `_resetOperatorState` returns `Operator memory` but t
 ### [BUG-10] Remove liquidation check in `withdraw` function
 - **Type:** Code Quality
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Fixed
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -3005,17 +3005,17 @@ In `SSVClusters.sol:215`, the `withdraw` function prevents withdrawals from liqu
 - **IMPORTANT:** Double-check this change with Product team before implementation to ensure it aligns with intended UX
 
 **Acceptance Criteria:**
-- [ ] Product team approval obtained for this change
-- [ ] Remove `cluster.validateClusterIsNotLiquidated()` from `withdraw` function (line 215)
-- [ ] Add test: deposit to liquidated cluster, then withdraw without reactivating
-- [ ] Verify existing withdrawal tests still pass
-- [ ] Update FLOWS.md to document that withdrawals are allowed on liquidated clusters
+- [x] Product team approval obtained for this change
+- [x] Remove `cluster.validateClusterIsNotLiquidated()` from `withdraw` function (line 215)
+- [x] Add test: deposit to liquidated cluster, then withdraw without reactivating
+- [x] Verify existing withdrawal tests still pass
+- [x] Update FLOWS.md to document that withdrawals are allowed on liquidated clusters
 
 #### Sub-items:
-- [ ] Sub-task 1: Get Product team approval
-- [ ] Sub-task 2: Remove liquidation check from withdraw function
-- [ ] Sub-task 3: Add test for withdraw from liquidated cluster
-- [ ] Sub-task 4: Update documentation in FLOWS.md
+- [x] Sub-task 1: Get Product team approval
+- [x] Sub-task 2: Remove `cluster.validateClusterIsNotLiquidated()` from `SSVClusters.sol:withdraw` (was line 215)
+- [x] Sub-task 3: Added tests: `withdraw.test.ts` — "Withdraws deposited funds from a liquidated cluster without reactivating" and "Withdraws full balance from a liquidated cluster that received multiple deposits"
+- [x] Sub-task 4: Updated `docs/FLOWS.md` §1.8 preconditions to explicitly allow liquidated clusters
 
 ---
 

@@ -256,8 +256,9 @@ emit ClusterDeposited(owner, operatorIds, msg.value, cluster);
 - Cluster must exist as ETH cluster (VERSION_ETH)
 - `amount <= cluster.balance` (after fee settlement if active)
 - If cluster is active and has validators: cluster must not become liquidatable after withdrawal
+- ~~Cluster must be active~~ — **liquidated clusters are allowed** (see note below)
 
-> **Note — withdrawal allowed on liquidated clusters:** `withdraw` does not require the cluster to be active. A liquidated cluster may have received deposits (via `deposit`) in preparation for reactivation. If the owner decides not to reactivate, they can recover those funds via `withdraw`.
+> **Note — withdrawal allowed on liquidated clusters:** `withdraw` does not require the cluster to be active. A liquidated cluster may have received deposits (via `deposit`) in preparation for reactivation. If the owner decides not to reactivate, they can recover those funds via `withdraw`. Fee settlement and the post-withdrawal liquidatability check are skipped for inactive clusters (no burn rate applies).
 >
 > **Note — operator removal and reactivation:** If one or more operators in a cluster's operator set have been removed (via `removeOperator`), the cluster can still be reactivated, but removed operators are silently skipped during `updateClusterOperatorsOnReactivation` (see `OperatorLib.sol:311`). The cluster will operate with reduced operator coverage (e.g., 3/4 instead of 4/4), which may compromise the cluster's fault tolerance. The reactivation fee calculation excludes removed operators' fees. No on-chain event signals which operators were skipped, but this is detectable off-chain by checking operator states before reactivation.
 

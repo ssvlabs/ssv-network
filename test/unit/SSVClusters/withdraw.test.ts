@@ -210,11 +210,15 @@ describe("SSVClusters function `withdraw()`", async () => {
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 
-  it("Is reverted with 'ClusterIsLiquidated' when attempting to withdraw from a liquidated cluster", async function () {
+  it("Withdraws deposited funds from a liquidated cluster without reactivating", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+    await clusters.mockEthNetworkFee(0);
+    await clusters.mockCurrentNetworkFeeIndex(0);
+
+    // Register then liquidate the cluster
+    await registerCluster(clusters, operatorIds);
     await clusters.mockSetClusterLiquidated(clusterOwner.address, operatorIds);
 
     const liquidatedCluster = {
@@ -225,10 +229,84 @@ describe("SSVClusters function `withdraw()`", async () => {
       active: false,
     };
 
-    await expect(clusters.withdraw(
+    // Deposit to the liquidated cluster in preparation for reactivation
+    const depositAmount = ethers.parseEther("0.1");
+    const depositTx = await clusters.deposit(
+      clusterOwner.address,
       operatorIds,
-      1n,
-      liquidatedCluster
-    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_IS_LIQUIDATED);
+      liquidatedCluster,
+      { value: depositAmount }
+    );
+    const depositReceipt = await depositTx.wait();
+    const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+
+    // Owner changes mind — withdraw the deposit without reactivating
+    const provider = connection.ethers.provider;
+    const ownerBalanceBefore = await provider.getBalance(clusterOwner.address);
+    const harnessAddress = await clusters.getAddress();
+    const harnessBalanceBefore = await provider.getBalance(harnessAddress);
+
+    const withdrawTx = await clusters.withdraw(operatorIds, depositAmount, clusterAfterDeposit);
+    const withdrawReceipt: any = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    const ownerBalanceAfter = await provider.getBalance(clusterOwner.address);
+    const harnessBalanceAfter = await provider.getBalance(harnessAddress);
+    const gasCost = withdrawReceipt.gasUsed * (withdrawReceipt.effectiveGasPrice ?? withdrawReceipt.gasPrice);
+
+    await expect(withdrawTx).to.emit(clusters, Events.CLUSTER_WITHDRAWN);
+
+    // Cluster balance returned to zero, ETH transferred back to owner
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+    expect(clusterAfterWithdraw.active).to.equal(false);
+    expect(harnessBalanceBefore - harnessBalanceAfter).to.equal(depositAmount);
+    expect(ownerBalanceAfter - ownerBalanceBefore + BigInt(gasCost)).to.equal(depositAmount);
+  });
+
+  it("Withdraws full balance from a liquidated cluster that received multiple deposits", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(0);
+    await clusters.mockCurrentNetworkFeeIndex(0);
+
+    // Register then liquidate
+    await registerCluster(clusters, operatorIds);
+    await clusters.mockSetClusterLiquidated(clusterOwner.address, operatorIds);
+
+    const liquidatedCluster = {
+      validatorCount: 0n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      balance: 0n,
+      active: false,
+    };
+
+    // Two separate deposits
+    const deposit1 = ethers.parseEther("0.05");
+    const deposit2 = ethers.parseEther("0.03");
+
+    const depositTx1 = await clusters.deposit(clusterOwner.address, operatorIds, liquidatedCluster, { value: deposit1 });
+    const receipt1 = await depositTx1.wait();
+    const clusterAfterDeposit1 = parseClusterFromEvent(clusters, receipt1, Events.CLUSTER_DEPOSITED);
+
+    const depositTx2 = await clusters.deposit(clusterOwner.address, operatorIds, clusterAfterDeposit1, { value: deposit2 });
+    const receipt2 = await depositTx2.wait();
+    const clusterAfterDeposit2 = parseClusterFromEvent(clusters, receipt2, Events.CLUSTER_DEPOSITED);
+
+    expect(clusterAfterDeposit2.balance).to.equal(deposit1 + deposit2);
+
+    // Withdraw the full accumulated balance
+    const withdrawTx = await clusters.withdraw(operatorIds, deposit1 + deposit2, clusterAfterDeposit2);
+    const withdrawReceipt: any = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+    expect(clusterAfterWithdraw.active).to.equal(false);
+
+    // Partial withdrawal should also succeed — confirm InsufficientBalance on over-withdrawal
+    await expect(
+      clusters.withdraw(operatorIds, 1n, clusterAfterWithdraw)
+    ).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
   });
 });
