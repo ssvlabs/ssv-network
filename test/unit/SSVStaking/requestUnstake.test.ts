@@ -187,7 +187,7 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     expect(cssvBalance).to.equal(STAKE_AMOUNT - firstAmount - secondAmount);
   });
 
-  it("Uses block.timestamp (seconds) for unlockTime, not block.number (BUG-8 regression)", async function () {
+  it("Uses block.timestamp (seconds) for unlockTime, not block.number", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeFirst);
 
     const unstakeAmount = STAKE_AMOUNT / 2n;
