@@ -120,10 +120,10 @@ Rewards settle on: stake, requestUnstake, claimEthRewards, cSSV transfer (via on
 
 | Parameter | Value | Update Function |
 |---|---|---|
-| ethNetworkFee | 0.000000003550929823 ETH/block (~0.00928 ETH/year) | `updateNetworkFee(uint256)` |
+| ethNetworkFee | 0.000000003550900000 ETH/block (~0.00928 ETH/year) | `updateNetworkFee(uint256)` |
 | minimumLiquidationCollateral | 0.00094 ETH | `updateMinimumLiquidationCollateral(uint256)` |
 | minimumBlocksBeforeLiquidation | 50190 (~7 days) | `updateLiquidationThresholdPeriod(uint64)` |
-| defaultOperatorETHFee | 0.000000001775464912 ETH/block (~0.00464 ETH/year) | Hardcoded in contract |
+| defaultOperatorETHFee | 0.000000001775400000 ETH/block (~0.00464 ETH/year) | Hardcoded in contract |
 | cooldownDuration | 604,800 seconds (7 days) | `setUnstakeCooldownDuration(uint64)` |
 | quorumBps | 7500 (75%) | `setQuorumBps(uint16)` |
 | Oracle set | 4 oracles, 3-of-4 threshold | `replaceOracle(uint32, address)` |
