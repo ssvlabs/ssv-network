@@ -2252,6 +2252,62 @@ describe("SSVNetwork full integration tests", () => {
       ))
         .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
     });
+
+    it("Is reverted with 'OperatorDoesNotExist' if one of operators is removed", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+
+      await expect(network.connect(clusterOwner).bulkRegisterValidator(
+        keys,
+        operatorIds,
+        shares,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
+    });
+
+    it("Is reverted with 'OperatorDoesNotExist' if one of operators is removed for an existing cluster", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const existingCluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds
+      );
+
+      await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+
+      const {keys, shares} = makeArrayOfKeysAndShares(2, 10);
+
+      await expect(network.connect(clusterOwner).bulkRegisterValidator(
+        keys,
+        operatorIds,
+        shares,
+        existingCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
+    });
   });
 
   it("Is reverted with 'EmptyPublicKeysList' if the array of public keys is empty", async function() {

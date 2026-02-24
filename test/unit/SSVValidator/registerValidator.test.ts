@@ -468,4 +468,18 @@ describe("SSVClusters function `registerValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_IS_LIQUIDATED);
   });
+
+  it("Is reverted with 'OperatorDoesNotExist' when one of the operators has been removed", async function () {
+    const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    await validators.mockRemoveOperator(operatorIds[1]);
+
+    await expect(validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    )).to.be.revertedWithCustomError(validators, Errors.OPERATOR_DOES_NOT_EXIST);
+  });
 });
