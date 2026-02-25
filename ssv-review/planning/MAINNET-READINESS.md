@@ -51,7 +51,7 @@
 | TEST-7 | Reentrancy in staking functions | Unit Test Completeness | P0 | S |
 | TEST-8 | Forbid creating clusters with removed operators | Unit Test Completeness | P0 | S |
 | TEST-9 | Migration balance accounting verification | Unit Test Completeness | P1 | M |
-| TEST-10 | Operator fee change + EB burn rate interaction | Unit Test Completeness | P1 | M |
+| TEST-10 | ~~Operator fee change + EB burn rate interaction~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-11 | Network fee update impact on active clusters | Unit Test Completeness | P1 | S |
 | TEST-12 | Multi-staker reward fairness | Unit Test Completeness | P1 | M |
 | TEST-13 | Liquidation + reactivation multi-cycle accounting | Unit Test Completeness | P1 | M |
@@ -1513,10 +1513,10 @@ Migration tests verify events and state but don't verify exact token transfer am
 
 ---
 
-### [TEST-10] Operator fee change + EB burn rate interaction
+### [TEST-10] ~~Operator fee change + EB burn rate interaction~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1528,9 +1528,9 @@ Add tests combining operator fee changes (declare/execute/reduce) with EB-weight
 No tests combine operator fee changes with EB-weighted clusters. The burn rate depends on both operator fee and vUnits, and fee changes must properly settle the old rate before applying the new one.
 
 **Acceptance Criteria:**
-- [ ] Test: Operator increases fee while serving EB=64 cluster → verify burn rate doubles
-- [ ] Test: Operator reduces fee with EB-weighted cluster → verify savings reflected
-- [ ] Test: Fee execution changes mid-block for EB-weighted cluster → verify boundary accounting
+- [x] Test: Operator increases fee while serving EB=64 cluster → verify burn rate doubles
+- [x] Test: Operator reduces fee with EB-weighted cluster → verify savings reflected
+- [x] Test: Fee execution changes mid-block for EB-weighted cluster → verify boundary accounting
 
 **Agent Instructions:**
 1. Read `test/unit/SSVOperators/declareOperatorFee.test.ts` and `test/unit/SSVOperators/executeOperatorFee.test.ts`.
@@ -1539,9 +1539,9 @@ No tests combine operator fee changes with EB-weighted clusters. The burn rate d
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Fee increase with EB-weighted cluster
-- [ ] Sub-task 2: Fee reduction with EB-weighted cluster
-- [ ] Sub-task 3: Fee change boundary accounting
+- [x] Sub-task 1: Fee increase with EB-weighted cluster
+- [x] Sub-task 2: Fee reduction with EB-weighted cluster
+- [x] Sub-task 3: Fee change boundary accounting
 
 ---
 
