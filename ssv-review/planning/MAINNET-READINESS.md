@@ -18,7 +18,7 @@
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
-| BUG-8 | Cooldown duration uses `block.timestamp` but DIP specifies blocks | Critical Bug Fix |P1 | ❓ Asked Product to change DIP (not a bug) |
+| BUG-8 | ~~ Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug, added NatSpec) |
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
 | BUG-10 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
 | BUG-11 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
