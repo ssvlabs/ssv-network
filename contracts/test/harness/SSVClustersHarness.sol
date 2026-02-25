@@ -10,6 +10,7 @@ import {SSVStorageEB, StorageEB} from "../../libraries/storage/SSVStorageEB.sol"
 import {PackedETHLib, PackedSSVLib} from "../../libraries/SSVPackedLib.sol";
 import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../libraries/SSVCoreTypes.sol";
 import "../../libraries/ClusterLib.sol";
+import {OperatorLib} from "../../libraries/OperatorLib.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -256,5 +257,14 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
 
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
+    }
+
+    function mockExecuteAllOperatorFees(uint64[] calldata operatorIds, uint256 newFee) external {
+        StorageData storage s = SSVStorage.load();
+        for (uint256 i; i < operatorIds.length; ++i) {
+            Operator storage operator = s.operators[operatorIds[i]];
+            OperatorLib.updateSnapshotSt(operator, operatorIds[i]);
+            operator.ethFee = PackedETHLib.pack(newFee);
+        }
     }
 }
