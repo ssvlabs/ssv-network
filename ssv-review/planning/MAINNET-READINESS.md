@@ -43,7 +43,7 @@
 | SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
 | SEC-19 | `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled | Security Hardening | P1 | S |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
-| TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
+| TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed |
 | TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |
 | TEST-4 | `updateClusterBalance` on liquidated clusters | Unit Test Completeness | P0 | S |
 | TEST-5 | Oracle quorum edge cases | Unit Test Completeness | P0 | M |
@@ -1231,10 +1231,10 @@ This is the #1 systemic test gap. The fee settlement mechanism (`updateClusterOp
 
 ---
 
-### [TEST-2] EB-weighted operator earnings accumulation
+### [TEST-2] ~~EB-weighted operator earnings accumulation~~
 - **Type:** Unit Test Completeness
 - **Priority:** P0
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
