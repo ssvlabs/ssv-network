@@ -17,6 +17,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
   let oracle1: HardhatEthersSigner;
   let oracle2: HardhatEthersSigner;
   let oracle3: HardhatEthersSigner;
+  let oracle4: HardhatEthersSigner;
   let nonOracle: HardhatEthersSigner;
 
   const totalSupply = ethers.parseEther("1000");
@@ -25,7 +26,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
 
-    [owner, oracle1, oracle2, oracle3, nonOracle] = await connection.ethers.getSigners();
+    [owner, oracle1, oracle2, oracle3, oracle4, nonOracle] = await connection.ethers.getSigners();
   });
 
   const deployDAOWithOraclesFixture = async () => {
@@ -34,6 +35,18 @@ describe("SSVDAO function `commitRoot()`", async () => {
     await dao.mockSetOracle(1, oracle1.address);
     await dao.mockSetOracle(2, oracle2.address);
     await dao.mockSetOracle(3, oracle3.address);
+    await dao.mockSetQuorumBps(7500);
+
+    return { dao, cssv };
+  };
+
+  const deployDAOWithFourOraclesFixture = async () => {
+    const { dao, cssv } = await ssvDAOHarnessFixture(connection);
+
+    await dao.mockSetOracle(1, oracle1.address);
+    await dao.mockSetOracle(2, oracle2.address);
+    await dao.mockSetOracle(3, oracle3.address);
+    await dao.mockSetOracle(4, oracle4.address);
     await dao.mockSetQuorumBps(7500);
 
     return { dao, cssv };
@@ -234,5 +247,227 @@ describe("SSVDAO function `commitRoot()`", async () => {
 
     const weight2 = await dao.getRootCommitmentWeight(commitmentKey);
     expect(weight2).to.equal(oracleWeight * 2n);
+  });
+
+  it("Requires all 4 oracle votes when quorumBps is 10000 (100%)", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithFourOraclesFixture);
+    await cssv.mint(owner.address, totalSupply);
+
+    await dao.mockSetQuorumBps(10000);
+
+    const root = ethers.keccak256(ethers.toUtf8Bytes("100-quorum"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+    const commitmentKey = getCommitmentKey(blockNum, root);
+
+    const weight = totalSupply / numberOfOracles;
+    const threshold = totalSupply;
+
+    const tx1 = await dao.connect(oracle1).commitRoot(root, blockNum);
+    await expect(tx1).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight, threshold, 1, oracle1.address);
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+
+    const tx2 = await dao.connect(oracle2).commitRoot(root, blockNum);
+    await expect(tx2).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 2n, threshold, 2, oracle2.address);
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+
+    const tx3 = await dao.connect(oracle3).commitRoot(root, blockNum);
+    await expect(tx3).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 3n, threshold, 3, oracle3.address);
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+    expect(await dao.getLatestCommittedBlock()).to.equal(0n);
+
+    const tx4 = await dao.connect(oracle4).commitRoot(root, blockNum);
+    await expect(tx4).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(root);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+    expect(await dao.getRootCommitmentWeight(commitmentKey)).to.equal(0n);
+  });
+
+  it("Single oracle vote commits root when quorumBps is 1 (1 bps = 0.01%)", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await cssv.mint(owner.address, totalSupply);
+
+    await dao.mockSetQuorumBps(1);
+
+    const root = ethers.keccak256(ethers.toUtf8Bytes("1-quorum"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+    const commitmentKey = getCommitmentKey(blockNum, root);
+
+    const tx = await dao.connect(oracle1).commitRoot(root, blockNum);
+    await expect(tx).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(root);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+    expect(await dao.getRootCommitmentWeight(commitmentKey)).to.equal(0n);
+    expect(await dao.hasOracleVoted(commitmentKey, 1)).to.equal(true);
+  });
+
+  it("Oracle replaced mid-vote: old oracle loses voting rights, new oracle gets AlreadyVoted for reused slot", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await cssv.mint(owner.address, totalSupply);
+
+    const root = ethers.keccak256(ethers.toUtf8Bytes("mid-replace"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+    const commitmentKey = getCommitmentKey(blockNum, root);
+
+    const weight = totalSupply / numberOfOracles;
+
+    await dao.connect(oracle1).commitRoot(root, blockNum);
+    expect(await dao.hasOracleVoted(commitmentKey, 1)).to.equal(true);
+    expect(await dao.getRootCommitmentWeight(commitmentKey)).to.equal(weight);
+
+    await dao.replaceOracle(1, oracle4.address);
+    expect(await dao.getOracleId(oracle1.address)).to.equal(0n);
+    expect(await dao.getOracleId(oracle4.address)).to.equal(1n);
+
+    await expect(dao.connect(oracle1).commitRoot(root, blockNum))
+      .to.be.revertedWithCustomError(dao, Errors.NOT_ORACLE);
+
+    await expect(dao.connect(oracle4).commitRoot(root, blockNum))
+      .to.be.revertedWithCustomError(dao, Errors.ALREADY_VOTED);
+
+    await dao.connect(oracle2).commitRoot(root, blockNum);
+    const finalTx = await dao.connect(oracle3).commitRoot(root, blockNum);
+    await expect(finalTx).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(root);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+  });
+
+  it("Oracle replaced with a completely new address: new oracle inherits the slot and can vote on subsequent blocks", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await cssv.mint(owner.address, totalSupply);
+
+    const brandNewOracle = (await connection.ethers.getSigners())[6];
+
+    const root = ethers.keccak256(ethers.toUtf8Bytes("brand-new-replacement"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+    const weight = totalSupply / numberOfOracles;
+    const threshold = (totalSupply * 7500n) / 10000n;
+
+    await dao.connect(oracle1).commitRoot(root, blockNum);
+
+    await dao.replaceOracle(1, brandNewOracle.address);
+    expect(await dao.getOracleAddress(1)).to.equal(brandNewOracle.address);
+    expect(await dao.getOracleId(brandNewOracle.address)).to.equal(1n);
+    expect(await dao.getOracleId(oracle1.address)).to.equal(0n);
+
+    await expect(dao.connect(brandNewOracle).commitRoot(root, blockNum))
+      .to.be.revertedWithCustomError(dao, Errors.ALREADY_VOTED);
+
+    const root2 = ethers.keccak256(ethers.toUtf8Bytes("brand-new-replacement-round2"));
+    const blockNum2 = await connection.ethers.provider.getBlockNumber();
+    const commitmentKey2 = getCommitmentKey(blockNum2, root2);
+
+    const tx = await dao.connect(brandNewOracle).commitRoot(root2, blockNum2);
+    await expect(tx).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root2, blockNum2, weight, threshold, 1, brandNewOracle.address);
+    expect(await dao.hasOracleVoted(commitmentKey2, 1)).to.equal(true);
+
+    await dao.connect(oracle2).commitRoot(root2, blockNum2);
+    const finalTx2 = await dao.connect(oracle3).commitRoot(root2, blockNum2);
+    await expect(finalTx2).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root2, blockNum2);
+    expect(await dao.getEBRoot(blockNum2)).to.equal(root2);
+  });
+
+  it("Lowering quorumBps between votes causes the next vote to evaluate against the new threshold", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await cssv.mint(owner.address, totalSupply);
+
+    const root = ethers.keccak256(ethers.toUtf8Bytes("mid-quorum-change"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+
+    const weight = totalSupply / numberOfOracles;
+    const initialThreshold = (totalSupply * 7500n) / 10000n;
+
+    // first vote with quorum = 75 %
+    const tx1 = await dao.connect(oracle1).commitRoot(root, blockNum);
+    await expect(tx1).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight, initialThreshold, 1, oracle1.address);
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+
+    // lower quorum to 50%
+    await dao.mockSetQuorumBps(5000);
+
+    // Second vote -> commit
+    const tx2 = await dao.connect(oracle2).commitRoot(root, blockNum);
+    await expect(tx2).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(root);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+  });
+
+  it("Raising quorumBps between votes requires additional votes to reach new threshold", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await cssv.mint(owner.address, totalSupply);
+
+    // Start with 50% quorum
+    await dao.mockSetQuorumBps(5000);
+
+    const root = ethers.keccak256(ethers.toUtf8Bytes("mid-quorum-raise"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+
+    const weight = totalSupply / numberOfOracles;
+    const initialThreshold = (totalSupply * 5000n) / 10000n;
+
+    // First vote with quorum = 50%
+    const tx1 = await dao.connect(oracle1).commitRoot(root, blockNum);
+    await expect(tx1).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight, initialThreshold, 1, oracle1.address);
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+
+    // Raise quorum to 75%
+    await dao.mockSetQuorumBps(7500);
+
+    const newThreshold = (totalSupply * 7500n) / 10000n;
+
+    // Second vote -> still not enough (only 50% accumulated)
+    const tx2 = await dao.connect(oracle2).commitRoot(root, blockNum);
+    await expect(tx2).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 2n, newThreshold, 2, oracle2.address);
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+
+    // Third vote -> now commit (75% reached)
+    const tx3 = await dao.connect(oracle3).commitRoot(root, blockNum);
+    await expect(tx3).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(root);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+  });
+
+  it("Conflicting roots for same block: first root to reach quorum is committed, further votes on the losing root revert", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await cssv.mint(owner.address, totalSupply);
+
+    await dao.mockSetQuorumBps(5000);
+
+    const rootA = ethers.keccak256(ethers.toUtf8Bytes("rootA"));
+    const rootB = ethers.keccak256(ethers.toUtf8Bytes("rootB"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+
+    const weight = totalSupply / numberOfOracles;
+    const threshold = (totalSupply * 5000n) / 10000n; // 50% of totalSupply
+
+    const txA1 = await dao.connect(oracle1).commitRoot(rootA, blockNum);
+    await expect(txA1).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(rootA, blockNum, weight, threshold, 1, oracle1.address);
+
+    const txB2 = await dao.connect(oracle2).commitRoot(rootB, blockNum);
+    await expect(txB2).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(rootB, blockNum, weight, threshold, 2, oracle2.address);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+
+    const txA3 = await dao.connect(oracle3).commitRoot(rootA, blockNum);
+    await expect(txA3).to.emit(dao, Events.ROOT_COMMITTED).withArgs(rootA, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(rootA);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+
+    await expect(dao.connect(oracle1).commitRoot(rootB, blockNum))
+      .to.be.revertedWithCustomError(dao, Errors.STALE_BLOCK_NUMBER);
   });
 });

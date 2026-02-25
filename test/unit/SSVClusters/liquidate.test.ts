@@ -107,10 +107,63 @@ describe("SSVClusters function `liquidate()`", async () => {
     const harnessBalanceAfter = await connection.ethers.provider.getBalance(harnessAddress);
 
     const payout = harnessBalanceBefore - harnessBalanceAfter;
-    expect(payout).to.be.greaterThan(0n);
+
+    expect(payout).to.equal(DEFAULT_ETH_REGISTER_VALUE);
 
     const gasCost = receipt!.gasUsed * (receipt.effectiveGasPrice ?? receipt!.gasPrice);
     expect(liquidatorBalanceAfter - liquidatorBalanceBefore + BigInt(gasCost)).to.equal(payout);
+  });
+
+  it("Transfers no ETH when cluster remaining balance is zero after fee accrual", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const registerTx = await clusters.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const drainFeeIndex = DEFAULT_ETH_REGISTER_VALUE / ETH_DEDUCTED_DIGITS;
+    await clusters.mockCurrentNetworkFeeIndex(drainFeeIndex);
+
+    const harnessAddress = await clusters.getAddress();
+    const harnessEthBefore = await connection.ethers.provider.getBalance(harnessAddress);
+
+    await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister);
+
+    const harnessEthAfter = await connection.ethers.provider.getBalance(harnessAddress);
+
+    expect(harnessEthAfter).to.equal(harnessEthBefore);
+  });
+
+  it("Self-liquidation returns remaining ETH balance to the cluster owner", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const registerTx = await clusters.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const ownerEthBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
+
+    const tx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister);
+    const receipt: any = await tx.wait();
+
+    const ownerEthAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
+    const gasCost = receipt!.gasUsed * (receipt.effectiveGasPrice ?? receipt!.gasPrice);
+
+    expect(ownerEthAfter - ownerEthBefore + BigInt(gasCost)).to.equal(DEFAULT_ETH_REGISTER_VALUE);
   });
 
   it("Updates operatorEthVUnits on liquidation even when cluster EB snapshot is not set", async function () {
