@@ -31,7 +31,7 @@ export async function deployContract(
   const contract = await factory.deploy(...args);
   await contract.waitForDeployment();
   const address = await contract.getAddress();
-  if (!network.name.includes("hardhat")) console.log(`${contractName} at: ${address}`);
+  console.log(`${contractName} deployed at: ${address}`);
   return { contract, address };
 }
 
@@ -64,10 +64,10 @@ export async function attachModule(
   }
   const networkFactory = await ethers.getContractFactory("SSVNetwork");
   const ssvNetwork = networkFactory.attach(proxyAddress);
-  if (!network.name.includes("hardhat")) console.log(`Attaching ${moduleName} (${moduleAddress})...`);
+  console.log(`Attaching ${moduleName} (${moduleAddress})...`);
   const tx = await ssvNetwork.updateModule(SSVModules[moduleEnumKey], moduleAddress);
   await tx.wait();
-  if (!network.name.includes("hardhat")) console.log(`Attached ${moduleName} at ${moduleAddress}`);
+  console.log(`Attached ${moduleName} at ${moduleAddress}`);
 }
 
 export async function upgradeProxy(
@@ -84,12 +84,8 @@ export async function upgradeProxy(
   const proxy = await ethers.getContractAt("SSVNetwork", proxyAddress, deployer);
 
   if (initFunction) {
-    let fragment;
-    if (initFunction.includes("(")) {
-      fragment = factory.interface.getFunction(initFunction);
-    } else {
-      fragment = factory.interface.getFunction(initFunction);
-    }
+    const fragment = factory.interface.getFunction(initFunction);
+    if (!fragment) throw new Error(`Function ${initFunction} not found in ${contractName} ABI`);
     const initData = factory.interface.encodeFunctionData(fragment, params);
 
     const tx = await proxy.upgradeToAndCall(implAddress, initData);
