@@ -378,6 +378,151 @@ it('should track gas usage for updateClusterBalance', async () => {
 });
 ```
 
+**Pattern 6: Exact Formula-Based Assertions (CRITICAL)**
+
+**❌ FORBIDDEN — Never use loose comparators:**
+```typescript
+// WRONG: Using greaterThan for fee calculations
+it('should accumulate operator earnings', async () => {
+  const earningsBefore = await network.getOperatorEarnings(operatorId);
+  
+  await network.registerValidator(publicKey, operatorIds, shares, cluster, { value: deposit });
+  await networkHelpers.mine(100);
+  
+  const earningsAfter = await network.getOperatorEarnings(operatorId);
+  
+  // ❌ FORBIDDEN: Loose comparator
+  expect(earningsAfter).to.be.greaterThan(earningsBefore);
+});
+
+// WRONG: Using greaterThanOrEqual for balance checks
+it('should deduct fees from cluster balance', async () => {
+  const balanceBefore = cluster.balance;
+  
+  await network.removeValidator(publicKey, operatorIds, cluster);
+  
+  const balanceAfter = (await network.getCluster(owner, operatorIds)).balance;
+  
+  // ❌ FORBIDDEN: Loose comparator
+  expect(balanceAfter).to.be.lessThan(balanceBefore);
+});
+```
+
+**✅ REQUIRED — Calculate exact expected values using SPEC.md formulas:**
+```typescript
+// CORRECT: Calculate exact operator earnings using SPEC.md formula
+it('should accumulate exact operator earnings per formula', async () => {
+  const operatorFee = 2_000_000n; // wei per block per validator
+  
+  const txRegister = await network.registerValidator(
+    publicKey,
+    operatorIds,
+    shares,
+    EMPTY_CLUSTER,
+    { value: DEFAULT_ETH_REGISTER_VALUE }
+  );
+  const receiptRegister = await txRegister.wait();
+  const blockRegister = receiptRegister!.blockNumber;
+  
+  await networkHelpers.mine(100);
+  
+  const txTrigger = await network.deposit(operatorIds, cluster, { value: 1n });
+  const receiptTrigger = await txTrigger.wait();
+  const blockTrigger = receiptTrigger!.blockNumber;
+  
+  // Calculate expected earnings using SPEC.md formula:
+  // earnings = blocksDelta * packedFee * vUnits / VUNITS_PRECISION
+  const blocksDelta = BigInt(blockTrigger - blockRegister);
+  const vUnits = 1n * VUNITS_PRECISION; // 1 validator = 10,000 vUnits
+  const packedFee = operatorFee / ETH_DEDUCTED_DIGITS; // 20
+  const expectedEarnings = (blocksDelta * packedFee * vUnits) / VUNITS_PRECISION;
+  
+  const [, , actualEarnings] = await network.getOperatorEthSnapshot(operatorIds[0]);
+  
+  // ✅ CORRECT: Exact equality assertion
+  expect(actualEarnings).to.equal(expectedEarnings);
+});
+
+// CORRECT: Calculate exact cluster balance deduction using SPEC.md formula
+it('should deduct exact fees from cluster balance per formula', async () => {
+  const operatorFee = 2_000_000n;
+  const networkFee = NETWORK_FEE; // From constants
+  
+  const txRegister = await network.registerValidator(
+    publicKey,
+    operatorIds,
+    shares,
+    EMPTY_CLUSTER,
+    { value: DEFAULT_ETH_REGISTER_VALUE }
+  );
+  const receiptRegister = await txRegister.wait();
+  const blockRegister = receiptRegister!.blockNumber;
+  const clusterAfterRegister = parseClusterFromEvent(network, receiptRegister, Events.VALIDATOR_ADDED);
+  
+  await networkHelpers.mine(50);
+  
+  const txRemove = await network.removeValidator(publicKey, operatorIds, clusterAfterRegister);
+  const receiptRemove = await txRemove.wait();
+  const blockRemove = receiptRemove!.blockNumber;
+  const clusterAfterRemove = parseClusterFromEvent(network, receiptRemove, Events.VALIDATOR_REMOVED);
+  
+  // Calculate expected balance deduction using SPEC.md formula:
+  // totalFees = blocksDelta * (sum(operatorFees) + networkFee) * vUnits / VUNITS_PRECISION
+  const blocksDelta = BigInt(blockRemove - blockRegister);
+  const vUnits = 1n * VUNITS_PRECISION;
+  const totalFeeRate = (operatorFee * BigInt(operatorIds.length) + networkFee) / ETH_DEDUCTED_DIGITS;
+  const expectedFeeDeduction = (blocksDelta * totalFeeRate * vUnits) / VUNITS_PRECISION;
+  
+  const expectedBalance = DEFAULT_ETH_REGISTER_VALUE - expectedFeeDeduction;
+  
+  // ✅ CORRECT: Exact equality assertion
+  expect(clusterAfterRemove.balance).to.equal(expectedBalance);
+});
+
+// CORRECT: Verify network fee accounting with exact formula
+it('should credit exact network fees to DAO balance per formula', async () => {
+  const networkFee = NETWORK_FEE;
+  const daoBalanceBefore = await network.getDAOBalance();
+  
+  const txRegister = await network.registerValidator(
+    publicKey,
+    operatorIds,
+    shares,
+    EMPTY_CLUSTER,
+    { value: DEFAULT_ETH_REGISTER_VALUE }
+  );
+  const receiptRegister = await txRegister.wait();
+  const blockRegister = receiptRegister!.blockNumber;
+  const clusterAfterRegister = parseClusterFromEvent(network, receiptRegister, Events.VALIDATOR_ADDED);
+  
+  await networkHelpers.mine(75);
+  
+  const txRemove = await network.removeValidator(publicKey, operatorIds, clusterAfterRegister);
+  const receiptRemove = await txRemove.wait();
+  const blockRemove = receiptRemove!.blockNumber;
+  
+  // Calculate expected network fees using SPEC.md formula
+  const blocksDelta = BigInt(blockRemove - blockRegister);
+  const vUnits = 1n * VUNITS_PRECISION;
+  const packedNetworkFee = networkFee / ETH_DEDUCTED_DIGITS;
+  const expectedNetworkFees = (blocksDelta * packedNetworkFee * vUnits) / VUNITS_PRECISION;
+  
+  const daoBalanceAfter = await network.getDAOBalance();
+  const actualNetworkFees = daoBalanceAfter - daoBalanceBefore;
+  
+  // ✅ CORRECT: Exact equality assertion
+  expect(actualNetworkFees).to.equal(expectedNetworkFees);
+});
+```
+
+**Key principles for exact assertions:**
+1. **Always reference SPEC.md or FLOWS.md** for the exact formula
+2. **Calculate expected values** using the same math as the contract
+3. **Use `.to.equal()`** for all financial/state comparisons
+4. **Track block numbers** to calculate `blocksDelta` precisely
+5. **Use constants** (`VUNITS_PRECISION`, `ETH_DEDUCTED_DIGITS`) from the codebase
+6. **Never approximate** — if the contract uses exact math, tests must too
+
 ### Step 6: Verify Coverage
 
 Run tests and check coverage metrics:
@@ -418,6 +563,8 @@ Before marking tests complete, run the test quality checklist:
 - [ ] Tests follow Arrange-Act-Assert pattern
 - [ ] Tests are isolated (no execution order dependency)
 - [ ] Tests use descriptive variable names
+- [ ] **CRITICAL: Tests use exact formula-based assertions (NEVER use `greaterThan`, `lessThan`, `greaterThanOrEqual`, `lessThanOrEqual`)**
+- [ ] **All financial calculations verified against SPEC.md/FLOWS.md formulas with `.to.equal()` assertions**
 - [ ] Tests verify exact values (not just "greater than zero")
 - [ ] Events verified with exact parameter matching
 - [ ] Revert tests use `.revertedWithCustomError()` with error name
