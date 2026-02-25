@@ -287,6 +287,38 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       // Burn rate should double with 2 validators
       expect(burnRateWith2Validators).to.equal(burnRateWith1Validator * 2n);
     });
+
+    it("removeValidator settles exact fee deduction from cluster balance", async function() {
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const clusterAfterReg = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      const burnRatePerBlock = (MINIMAL_OPERATOR_ETH_FEE * 4n) + NETWORK_FEE;
+      const blocksToMine = 100n;
+
+      await connection.networkHelpers.mine(blocksToMine);
+
+      await network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, clusterAfterReg);
+      const clusterAfterRemove = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      const totalFeeDeducted = (blocksToMine + 1n) * burnRatePerBlock;
+      const expectedBalance = DEFAULT_ETH_REGISTER_VALUE - totalFeeDeducted;
+
+      const remainingBalance = await views.getBalance(clusterOwner.address, operatorIds, clusterAfterRemove);
+      expect(remainingBalance).to.equal(expectedBalance);
+      expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    });
   });
 
   // ============================================================================
