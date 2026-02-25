@@ -19,11 +19,13 @@ import {
   NETWORK_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+  VUNITS_PRECISION,
 } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.js';
 import { trackGasFromReceipt, GasGroup } from '../../helpers/gas-usage.ts';
+import { ethers } from 'ethers';
 
 /**
  * Enhanced Integration Tests for SSVNetwork Clusters
@@ -75,6 +77,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
       const contractBalanceBefore = await connection.ethers.provider.getBalance(await network.getAddress());
       const depositorBalanceBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
+      const blockBefore = await connection.ethers.provider.getBlockNumber();
 
       const tx = await network.connect(clusterOwner).deposit(
         clusterOwner.address,
@@ -84,18 +87,24 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       );
       const receipt = await tx.wait();
       const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      const blockAfter = receipt!.blockNumber;
 
       const clusterAfter = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       const balanceAfter = await views.getBalance(clusterOwner.address, operatorIds, clusterAfter);
       const contractBalanceAfter = await connection.ethers.provider.getBalance(await network.getAddress());
       const depositorBalanceAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
 
-      // Cluster balance increased by deposit amount (minus any burn during the tx)
-      expect(balanceAfter).to.be.greaterThan(balanceBefore);
-      
+      // Calculate exact expected balance using SPEC.md formula
+      const blocksDelta = BigInt(blockAfter - blockBefore);
+      const burnRatePerBlock = (MINIMAL_OPERATOR_ETH_FEE * 4n) + NETWORK_FEE;
+      const expectedBurn = blocksDelta * burnRatePerBlock;
+      const expectedBalance = balanceBefore + depositAmount - expectedBurn;
+
+      expect(balanceAfter).to.equal(expectedBalance);
+
       // Contract received exactly the deposit amount
       expect(contractBalanceAfter - contractBalanceBefore).to.equal(depositAmount);
-      
+
       // Depositor paid deposit + gas
       expect(depositorBalanceBefore - depositorBalanceAfter).to.equal(depositAmount + gasUsed);
     });
@@ -103,7 +112,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
     it("withdraw: verifies exact ETH transfer from contract to owner", async function() {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      const { cluster, operatorIds } = await registerDefaultCluster(
+      const { cluster, operatorIds, receiptRegister } = await registerDefaultCluster(
         connection, network, views, operatorOwner, clusterOwner
       );
 
@@ -112,10 +121,12 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       const contractBalanceBefore = await connection.ethers.provider.getBalance(await network.getAddress());
       const ownerBalanceBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
+      const blockRegister = receiptRegister.blockNumber;
 
       const tx = await network.connect(clusterOwner).withdraw(operatorIds, withdrawAmount, cluster);
       const receipt = await tx.wait();
       const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      const blockWithdraw = receipt!.blockNumber;
 
       const clusterAfter = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       const balanceAfter = await views.getBalance(clusterOwner.address, operatorIds, clusterAfter);
@@ -124,39 +135,55 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       // Contract sent exactly the withdraw amount
       expect(contractBalanceBefore - contractBalanceAfter).to.equal(withdrawAmount);
-      
+
       // Owner received withdraw amount minus gas
       expect(ownerBalanceAfter + gasUsed - ownerBalanceBefore).to.equal(withdrawAmount);
 
-      // Cluster balance decreased by at least withdraw amount (plus any burn)
-      expect(balanceBefore - balanceAfter).to.be.greaterThanOrEqual(withdrawAmount);
+      // Calculate exact cluster balance decrease using SPEC.md formula
+      const blocksDelta = BigInt(blockWithdraw - blockRegister);
+      const burnRatePerBlock = (MINIMAL_OPERATOR_ETH_FEE * 4n) + NETWORK_FEE;
+      const expectedBurn = blocksDelta * burnRatePerBlock;
+      const expectedBalanceDecrease = withdrawAmount + expectedBurn;
+
+      expect(balanceBefore - balanceAfter).to.equal(expectedBalanceDecrease);
     });
 
     it("liquidate: liquidator receives remaining cluster balance", async function() {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
+      // Use high network fee for faster liquidation
+      const highNetworkFee = NETWORK_FEE * 100n;
+      await network.updateNetworkFee(highNetworkFee);
+
       const validatorKey = makePublicKey(1);
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
-      await network.connect(clusterOwner).registerValidator(
+      const txRegister = await network.connect(clusterOwner).registerValidator(
         validatorKey,
         operatorIds,
         DEFAULT_SHARES,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
+      const receiptRegister = await txRegister.wait();
+      const blockRegister = receiptRegister!.blockNumber;
 
-      const currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-
-      await network.updateMinimumLiquidationCollateral(DEFAULT_ETH_REGISTER_VALUE * 2n);
-
-      const isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster);
+      // Mine until liquidatable
+      let currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      let isLiquidatable = false;
+      let attempts = 0;
+      while (!isLiquidatable && attempts < 20) {
+        await connection.networkHelpers.mine(100000);
+        isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster);
+        attempts++;
+      }
       expect(isLiquidatable).to.be.true;
 
-      const networkAddress = await network.getAddress();
+      // Capture balances before liquidation
       const liquidatorBalanceBefore = await connection.ethers.provider.getBalance(liquidator.address);
-      const contractBalanceBefore = await connection.ethers.provider.getBalance(networkAddress);
+      const contractBalanceBefore = await connection.ethers.provider.getBalance(await network.getAddress());
+      const clusterBalanceBefore = await views.getBalance(clusterOwner.address, operatorIds, currentCluster);
 
       const tx = await network.connect(liquidator).liquidate(
         clusterOwner.address,
@@ -164,18 +191,27 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
         currentCluster
       );
       const receipt = await tx.wait();
-      const gasUsed = receipt!.gasUsed * (receipt!.effectiveGasPrice ?? receipt!.gasPrice);
+      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      const blockLiquidate = receipt!.blockNumber;
 
       const liquidatorBalanceAfter = await connection.ethers.provider.getBalance(liquidator.address);
-      const contractBalanceAfter = await connection.ethers.provider.getBalance(networkAddress);
+      const contractBalanceAfter = await connection.ethers.provider.getBalance(await network.getAddress());
 
-      const payout = contractBalanceBefore - contractBalanceAfter;
+      // Calculate exact fees accrued from register to liquidate
+      const blocksDelta = BigInt(blockLiquidate - blockRegister);
+      const burnRatePerBlock = (MINIMAL_OPERATOR_ETH_FEE * 4n) + highNetworkFee;
+      const totalFees = blocksDelta * burnRatePerBlock;
+      const expectedRemainingBalance = DEFAULT_ETH_REGISTER_VALUE - totalFees;
+
+      // Liquidator receives remaining balance (capped at 0)
+      const actualLiquidatorReward = expectedRemainingBalance > 0n ? expectedRemainingBalance : 0n;
       const liquidatorGain = liquidatorBalanceAfter + gasUsed - liquidatorBalanceBefore;
+      expect(liquidatorGain).to.equal(actualLiquidatorReward);
 
-      expect(payout).to.be.greaterThan(0n);
+      // Contract balance decreased by exact liquidator reward
+      expect(contractBalanceBefore - contractBalanceAfter).to.equal(actualLiquidatorReward);
 
-      expect(liquidatorGain).to.equal(payout);
-
+      // Cluster is now liquidated
       const clusterAfter = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       expect(clusterAfter.active).to.equal(false);
       expect(await views.isLiquidated(clusterOwner.address, operatorIds, clusterAfter)).to.equal(true);
@@ -353,62 +389,69 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const networkEarningsAfter = await views.getNetworkEarnings();
       const networkEarningsDelta = networkEarningsAfter - networkEarningsBefore;
 
-      // INVARIANT: deposited = cluster + operators + network
+      // INVARIANT: deposited = cluster + operators + network (exact equality)
       const totalAccounted = clusterBalance + totalOperatorEarnings + networkEarningsDelta;
-      
-      // Allow small tolerance for rounding
-      const diff = depositAmount > totalAccounted 
-        ? depositAmount - totalAccounted 
-        : totalAccounted - depositAmount;
-      
-      expect(diff).to.be.lessThanOrEqual(100n, "Balance invariant violated");
+      expect(totalAccounted).to.equal(depositAmount, "Balance invariant violated: total accounted must equal deposited");
     });
 
     it("Invariant: Withdrawal reduces cluster balance exactly", async function() {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      const { cluster, operatorIds } = await registerDefaultCluster(
+      const { cluster, operatorIds, receiptRegister } = await registerDefaultCluster(
         connection, network, views, operatorOwner, clusterOwner
       );
 
       const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
       const withdrawAmount = connection.ethers.parseEther("1");
+      const blockRegister = receiptRegister.blockNumber;
 
-      await network.connect(clusterOwner).withdraw(operatorIds, withdrawAmount, cluster);
+      const tx = await network.connect(clusterOwner).withdraw(operatorIds, withdrawAmount, cluster);
+      const receipt = await tx.wait();
+      const blockWithdraw = receipt!.blockNumber;
 
       const clusterAfter = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       const balanceAfter = await views.getBalance(clusterOwner.address, operatorIds, clusterAfter);
 
-      // Balance decreased by at least withdrawAmount (could be more due to burn during tx)
-      expect(balanceBefore - balanceAfter).to.be.greaterThanOrEqual(withdrawAmount);
-      expect(balanceBefore - balanceAfter).to.be.lessThan(withdrawAmount + NETWORK_FEE * 10n);
+      // Calculate exact balance decrease: withdrawAmount + fees accrued
+      const blocksDelta = BigInt(blockWithdraw - blockRegister);
+      const burnRatePerBlock = (MINIMAL_OPERATOR_ETH_FEE * 4n) + NETWORK_FEE;
+      const expectedBurn = blocksDelta * burnRatePerBlock;
+      const expectedBalanceDecrease = withdrawAmount + expectedBurn;
+
+      expect(balanceBefore - balanceAfter).to.equal(expectedBalanceDecrease);
     });
 
     it("Invariant: Deposit increases cluster balance exactly", async function() {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      const { cluster, operatorIds } = await registerDefaultCluster(
+      const { cluster, operatorIds, receiptRegister } = await registerDefaultCluster(
         connection, network, views, operatorOwner, clusterOwner
       );
 
       await connection.ethers.provider.send("hardhat_setBalance", [clusterOwner.address, "0x3635c9adc5dea00000"]);
       const balanceBefore = await views.getBalance(clusterOwner.address, operatorIds, cluster);
       const depositAmount = connection.ethers.parseEther("5");
+      const blockRegister = receiptRegister.blockNumber;
 
-      await network.connect(clusterOwner).deposit(
+      const tx = await network.connect(clusterOwner).deposit(
         clusterOwner.address,
         operatorIds,
         cluster,
         { value: depositAmount }
       );
+      const receipt = await tx.wait();
+      const blockDeposit = receipt!.blockNumber;
 
       const clusterAfter = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       const balanceAfter = await views.getBalance(clusterOwner.address, operatorIds, clusterAfter);
 
-      // Balance increased by depositAmount minus any burn during tx
-      const expectedBurnPerBlock = (MINIMAL_OPERATOR_ETH_FEE * 4n) + NETWORK_FEE;
-      expect(balanceAfter - balanceBefore).to.be.greaterThan(depositAmount - expectedBurnPerBlock * 2n);
-      expect(balanceAfter - balanceBefore).to.be.lessThanOrEqual(depositAmount);
+      // Calculate exact balance increase: depositAmount - fees accrued
+      const blocksDelta = BigInt(blockDeposit - blockRegister);
+      const burnRatePerBlock = (MINIMAL_OPERATOR_ETH_FEE * 4n) + NETWORK_FEE;
+      const expectedBurn = blocksDelta * burnRatePerBlock;
+      const expectedBalanceIncrease = depositAmount - expectedBurn;
+
+      expect(balanceAfter - balanceBefore).to.equal(expectedBalanceIncrease);
     });
   });
 
@@ -550,6 +593,8 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
   describe("Combined Scenarios - Full Lifecycle Economics", async function() {
 
     it("Full lifecycle: register → operate → withdraw → deposit → liquidate → reactivate", async function() {
+      // NOTE: This test uses directional assertions (lessThan/greaterThan) for simplicity
+      // in multi-step flows. Individual operations are tested with exact formulas in other tests.
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       // Use high network fee for faster liquidation
@@ -749,6 +794,72 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       await expect(
         network.connect(clusterOwner).withdraw(operatorIds, 1000n, EMPTY_CLUSTER)
       ).to.be.revertedWithCustomError(network, Errors.CLUSTER_DOES_NOT_EXIST);
+    });
+
+    it("updateClusterBalance succeeds on a liquidated cluster, emits ClusterBalanceUpdated with cluster still inactive", async function() {
+      const { network, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const getClusterId = (ownerAddress: string, opIds: bigint[]) =>
+        ethers.keccak256(ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, opIds]));
+
+      const getEBRoot = (clusterId: string, effectiveBalance: number) => {
+        const coder = ethers.AbiCoder.defaultAbiCoder();
+        const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
+        return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
+      };
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const activeCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(activeCluster.active).to.equal(true);
+
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, activeCluster);
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+
+      await network.setQuorumBps(1000);
+      await network.replaceOracle(1, operatorOwner.address);
+
+      const stakeAmount = ethers.parseEther("10");
+      await ssvToken.mint(clusterOwner.address, stakeAmount);
+      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), stakeAmount);
+      await network.connect(clusterOwner).stake(stakeAmount);
+
+      const clusterId = getClusterId(clusterOwner.address, operatorIds);
+      const effectiveBalance = 33;
+      const ebRoot = getEBRoot(clusterId, effectiveBalance);
+
+      const blockNum = await connection.ethers.provider.getBlockNumber();
+
+      await network.connect(operatorOwner).commitRoot(ebRoot, blockNum);
+
+      const tx = await network.updateClusterBalance(
+        blockNum, clusterOwner.address, operatorIds, liquidatedCluster, effectiveBalance, []
+      );
+      const receipt = await tx.wait();
+      await expect(tx).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
+
+      const clusterAfterUpdate = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds)
+      expect(clusterAfterUpdate).to.not.be.null;
+      expect(clusterAfterUpdate!.active).to.equal(false);
+      expect(clusterAfterUpdate!.balance).to.equal(0n);
+
+      const effectiveBalance2 = 64;
+      const ebRoot2 = getEBRoot(clusterId, effectiveBalance2);
+
+      const blockNum2 = await connection.ethers.provider.getBlockNumber();
+      await network.connect(operatorOwner).commitRoot(ebRoot2, blockNum2);
+      const tx2 = await network.updateClusterBalance(
+        blockNum2, clusterOwner.address, operatorIds, liquidatedCluster, effectiveBalance2, []
+      );
+      await expect(tx2).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
+
+      const finalCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(finalCluster.active).to.equal(false);
     });
 
     it("Liquidated cluster cannot be withdrawn from", async function() {

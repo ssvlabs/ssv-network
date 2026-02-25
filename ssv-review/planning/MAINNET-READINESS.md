@@ -45,8 +45,8 @@
 | SEC-19 | `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled | Security Hardening | P1 | S |
 | TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
-| TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #445) |
-| TEST-4 | `updateClusterBalance` on liquidated clusters | Unit Test Completeness | P0 | S |
+| TEST-3 | ~~Balance delta assertions ers | Unit Test Completeness | P0 | S |
+| TEST-4 | ~~`updateClusterBalance` on liquidated clusters~~ | Unit Test Completeness | P0 | ✅ Closed (PR #447 + enhanced with 3 edge cases) |
 | TEST-5 | Oracle quorum edge cases | Unit Test Completeness | P0 | M |
 | TEST-6 | EB decrease scenarios | Unit Test Completeness | P0 | M |
 | TEST-7 | Reentrancy in staking functions | Unit Test Completeness | P0 | S |
@@ -1314,13 +1314,13 @@ A liquidation could emit the correct event but transfer the wrong amount (or not
 
 ---
 
-### [TEST-4] `updateClusterBalance` on liquidated clusters
+### [TEST-4] ~~`updateClusterBalance` on liquidated clusters~~
 - **Type:** Unit Test Completeness
 - **Priority:** P0
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Status:** ✅ **CLOSED**
+- **Owner:** PR #447 + enhancements
+- **Timeline:** Completed 2026-02-25
+- **Github Link:** [test/unit/SSVClusters/updateClusterBalance.test.ts](../test/unit/SSVClusters/updateClusterBalance.test.ts) (lines 293-653), [test/integration/SSVNetwork/clusters.test.ts](../test/integration/SSVNetwork/clusters.test.ts) (lines 753-817)
 
 **Requirement:**
 Add tests for calling `updateClusterBalance` (EB oracle update) on an already-liquidated cluster.
@@ -1329,20 +1329,34 @@ Add tests for calling `updateClusterBalance` (EB oracle update) on an already-li
 No test exists for this path. If the contract doesn't handle it, oracle updates on liquidated clusters could corrupt accounting or revert unexpectedly.
 
 **Acceptance Criteria:**
-- [ ] Test: Call `updateClusterBalance` with valid proof on a liquidated cluster → verify defined behavior (revert or update EB without settling fees)
-- [ ] Test: EB update that makes a liquidated cluster even more insolvent → verify no state corruption
+- [x] Test: Call `updateClusterBalance` with valid proof on a liquidated cluster → verify defined behavior (revert or update EB without settling fees)
+- [x] Test: EB update that makes a liquidated cluster even more insolvent → verify no state corruption
+- [x] **BONUS**: Multi-validator liquidated cluster EB update
+- [x] **BONUS**: EB decrease on liquidated cluster (penalty scenario)
+- [x] **BONUS**: Liquidated cluster with implicit EB → first EB update transitions to explicit tracking
 
-**Agent Instructions:**
-1. Read `test/unit/SSVClusters/updateClusterBalance.test.ts` for existing patterns.
-2. Create a cluster, liquidate it, then call `updateClusterBalance` with a valid Merkle proof.
-3. Verify behavior: does it revert? Does it update EB? Does it try to settle fees?
-4. Read `contracts/modules/SSVClusters.sol` to trace the `updateClusterBalance` code path for liquidated clusters.
-5. Add assertions based on actual contract behavior.
-6. Run `npm run test:unit`.
+**Implementation Summary:**
+1. **Unit tests** ([updateClusterBalance.test.ts](../test/unit/SSVClusters/updateClusterBalance.test.ts)):
+   - Line 293-337: Basic liquidated cluster EB update — verifies EB snapshot updated, cluster stays inactive, no fee settlement
+   - Line 339-416: EB increase on insolvent liquidated cluster — verifies no operator/DAO vUnit corruption
+   - Line 463-527: **NEW** Multi-validator liquidated cluster EB update
+   - Line 529-602: **NEW** EB decrease on liquidated cluster (penalty scenario)
+   - Line 604-653: **NEW** Implicit→explicit EB transition on liquidated cluster
+
+2. **Integration test** ([clusters.test.ts](../test/integration/SSVNetwork/clusters.test.ts)):
+   - Line 753-817: E2E flow with oracle quorum setup and multiple EB updates on liquidated cluster
+
+3. **Additional improvements**:
+   - Fixed loose comparators in integration tests — now uses exact formula-based assertions per SSV standards
+   - Added block number tracking for precise fee calculations
+   - All tests passing with 100% exact `.to.equal()` assertions
 
 #### Sub-items:
-- [ ] Sub-task 1: `updateClusterBalance` on liquidated cluster — basic behavior
-- [ ] Sub-task 2: EB increase on already-insolvent liquidated cluster
+- [x] Sub-task 1: `updateClusterBalance` on liquidated cluster — basic behavior
+- [x] Sub-task 2: EB increase on already-insolvent liquidated cluster
+- [x] Sub-task 3: Multi-validator liquidated cluster EB update
+- [x] Sub-task 4: EB decrease on liquidated cluster
+- [x] Sub-task 5: Implicit→explicit EB transition
 
 ---
 
