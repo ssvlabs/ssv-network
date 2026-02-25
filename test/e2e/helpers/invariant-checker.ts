@@ -1,25 +1,5 @@
-/**
- * Global invariant validators for e2e tests.
- * Each function asserts an invariant and throws on failure.
- *
- * Tests pass in the entities they created — these functions
- * do NOT attempt to enumerate from events.
- */
-
 import { expect } from "chai";
 
-/**
- * INV-1: ETH Conservation.
- * contract.ETH >= sum(active ETH cluster balances) + sum(operator ETH earnings) + stakingPool + daoETHEarnings
- *
- * @param contractAddress - SSVNetwork proxy address
- * @param provider - ethers provider
- * @param views - SSVNetworkViews contract
- * @param clusterBalances - array of known active ETH cluster balances (wei)
- * @param operatorEarnings - array of known operator ETH earnings (wei)
- * @param stakingPool - staking pool balance (wei)
- * @param daoETHEarnings - DAO ETH earnings (wei)
- */
 export async function checkETHConservation(
   contractAddress: string,
   provider: any,
