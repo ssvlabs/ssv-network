@@ -59,11 +59,12 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     function mockCurrentNetworkFeeIndex(uint64 index) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethNetworkFeeIndex = index;
+        sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
     }
 
     function getCurrentNetworkFeeIndex() external view returns (uint64) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        return sp.ethNetworkFeeIndex;
+        return sp.ethNetworkFeeIndex + uint64(block.number - sp.ethNetworkFeeIndexBlockNumber) * PackedETH.unwrap(sp.ethNetworkFee);
     }
 
     function getOperatorEthFee(uint64 operatorId) external view returns (uint64) {

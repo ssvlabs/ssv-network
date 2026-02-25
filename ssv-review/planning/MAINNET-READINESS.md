@@ -52,7 +52,7 @@
 | TEST-8 | Forbid creating clusters with removed operators | Unit Test Completeness | P0 | S |
 | TEST-9 | Migration balance accounting verification | Unit Test Completeness | P1 | M |
 | TEST-10 | Operator fee change + EB burn rate interaction | Unit Test Completeness | P1 | M |
-| TEST-11 | Network fee update impact on active clusters | Unit Test Completeness | P1 | S |
+| TEST-11 | ~~Network fee update impact on active clusters~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-12 | Multi-staker reward fairness | Unit Test Completeness | P1 | M |
 | TEST-13 | Liquidation + reactivation multi-cycle accounting | Unit Test Completeness | P1 | M |
 | TEST-14 | Reactivation with EB deviation solvency check | Unit Test Completeness | P1 | S |
@@ -1548,7 +1548,7 @@ No tests combine operator fee changes with EB-weighted clusters. The burn rate d
 ### [TEST-11] Network fee update impact on active clusters
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1560,9 +1560,9 @@ Add tests verifying that `updateNetworkFee` changes the actual burn rate for exi
 DAO parameter tests verify storage changes but not enforcement on active clusters.
 
 **Acceptance Criteria:**
-- [ ] Test: Increase ETH network fee with active ETH cluster → verify cluster burns faster
-- [ ] Test: Decrease ETH network fee → verify cluster burn rate decreases
-- [ ] Test: Update network fee with EB-weighted cluster → verify vUnit scaling applied
+- [x] Test: Increase ETH network fee with active ETH cluster → verify cluster burns faster
+- [x] Test: Decrease ETH network fee → verify cluster burn rate decreases
+- [x] Test: Update network fee with EB-weighted cluster → verify vUnit scaling applied
 
 **Agent Instructions:**
 1. Read `test/unit/SSVDAO/updateNetworkFee.test.ts`.
@@ -1571,9 +1571,9 @@ DAO parameter tests verify storage changes but not enforcement on active cluster
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Network fee increase enforcement
-- [ ] Sub-task 2: Network fee decrease enforcement
-- [ ] Sub-task 3: Network fee with EB scaling
+- [x] Sub-task 1: Network fee increase enforcement
+- [x] Sub-task 2: Network fee decrease enforcement
+- [x] Sub-task 3: Network fee with EB scaling
 
 ---
 
