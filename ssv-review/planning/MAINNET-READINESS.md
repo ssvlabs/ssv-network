@@ -47,8 +47,7 @@
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
 | TEST-3 | ~~Balance delta assertions ers | Unit Test Completeness | P0 | S |
 | TEST-4 | ~~`updateClusterBalance` on liquidated clusters~~ | Unit Test Completeness | P0 | ✅ Closed (PR #447 + enhanced with 3 edge cases) |
-| TEST-5 | Oracle quorum edge cases | Unit Test Completeness | P0 | M |
-| TEST-6 | EB decrease scenarios | Unit Test Completeness | P0 | M |
+| TEST-5 | ~~Oracle quorum edge cases~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #449) || TEST-6 | EB decrease scenarios | Unit Test Completeness | P0 | M |
 | TEST-7 | Reentrancy in staking functions | Unit Test Completeness | P0 | S |
 | TEST-8 | Forbid creating clusters with removed operators | Unit Test Completeness | P0 | S |
 | TEST-9 | Migration balance accounting verification | Unit Test Completeness | P1 | M |
@@ -90,6 +89,7 @@
 | QUALITY-2 | Redundant `SSVStorage.load()` calls in view function loops | Code Quality | P2 | 🧹 Cleanup PR candidate |
 | QUALITY-3 | `withdraw` in SSVClusters duplicates operator loop inline | Code Quality | P2 | S |
 | QUALITY-4 | ~~`_resetOperatorState` returns unused `Operator memory`~~ | Code Quality | P3 | ✅ Closed (cosmetic) |
+| QUALITY-5 | Remove duplicate `MaxValueExceeded` error declaration | Code Quality | P3 | 🧹 Cleanup PR candidate |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
@@ -2996,6 +2996,39 @@ In `SSVOperators.sol:324`, `_resetOperatorState` returns `Operator memory` but t
 - [ ] Sub-task 1: Remove return value from `_resetOperatorState`
 - [ ] Sub-task 2: Update caller
 - [ ] Sub-task 3: Run full test suite
+
+---
+
+### [QUALITY-5] Remove duplicate `MaxValueExceeded` error declaration
+- **Type:** Code Quality
+- **Priority:** P3
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Remove the duplicate `MaxValueExceeded` error declaration that appears in both `ISSVNetworkCore.sol` and `SSVPackedLib.sol`, causing duplication in the generated ABI.
+
+**Context:**
+The `MaxValueExceeded` error is declared in two places:
+1. `ISSVNetworkCore.sol:205` - `error MaxValueExceeded(); // 0x91aa3017`
+2. `SSVPackedLib.sol:10` - `error MaxValueExceeded();`
+
+This duplication results in the same error appearing twice in the generated ABI (`SSVNetwork.json:229-238`), which can cause confusion for tooling and integrations that expect unique error signatures.
+
+**Acceptance Criteria:**
+- [ ] Remove duplicate `MaxValueExceeded` declaration from one of the two files
+- [ ] Keep the declaration in the more appropriate location (likely `SSVPackedLib.sol` since it's a packed value validation error)
+- [ ] Verify the generated ABI no longer has duplicate entries
+- [ ] Ensure all existing tests still pass
+- [ ] Confirm no contracts rely on the specific error signature from the removed location
+
+#### Sub-items:
+- [ ] Sub-task 1: Determine which file should keep the `MaxValueExceeded` declaration
+- [ ] Sub-task 2: Remove the duplicate declaration
+- [ ] Sub-task 3: Regenerate ABI and verify no duplicates
+- [ ] Sub-task 4: Run full test suite to ensure no regressions
 
 ---
 
