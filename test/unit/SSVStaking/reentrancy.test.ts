@@ -36,4 +36,15 @@ describe("SSVStaking reentrancy guard", async () => {
 
     await expect(malicious.attack()).to.be.revertedWithCustomError(staking, Errors.ETH_TRANSFER_FAILED);
   });
+
+  // NOTE: withdrawUnlocked reentrancy test is not included because:
+  // - SSVToken is a standard ERC20 with no callbacks (no receive() or hooks)
+  // - ERC20.transfer() does not call back to the recipient
+  // - Therefore, reentrancy during withdrawUnlocked is not possible in production
+  // - The nonReentrant modifier on withdrawUnlocked is defensive but protects against no real attack
+  //
+  // The same applies to stake() and requestUnstake() - they only interact with standard
+  // ERC20 tokens (SSV and cSSV) which have no callback mechanisms.
+  //
+  // claimEthRewards() is different because it sends ETH, which triggers the receive() hook.
 });
