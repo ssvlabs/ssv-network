@@ -400,6 +400,44 @@ describe("SSVDAO function `commitRoot()`", async () => {
     expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
   });
 
+  it("Raising quorumBps between votes requires additional votes to reach new threshold", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    await cssv.mint(owner.address, totalSupply);
+
+    // Start with 50% quorum
+    await dao.mockSetQuorumBps(5000);
+
+    const root = ethers.keccak256(ethers.toUtf8Bytes("mid-quorum-raise"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+
+    const weight = totalSupply / numberOfOracles;
+    const initialThreshold = (totalSupply * 5000n) / 10000n;
+
+    // First vote with quorum = 50%
+    const tx1 = await dao.connect(oracle1).commitRoot(root, blockNum);
+    await expect(tx1).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight, initialThreshold, 1, oracle1.address);
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+
+    // Raise quorum to 75%
+    await dao.mockSetQuorumBps(7500);
+
+    const newThreshold = (totalSupply * 7500n) / 10000n;
+
+    // Second vote -> still not enough (only 50% accumulated)
+    const tx2 = await dao.connect(oracle2).commitRoot(root, blockNum);
+    await expect(tx2).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 2n, newThreshold, 2, oracle2.address);
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+
+    // Third vote -> now commit (75% reached)
+    const tx3 = await dao.connect(oracle3).commitRoot(root, blockNum);
+    await expect(tx3).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(root);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+  });
+
   it("Conflicting roots for same block: first root to reach quorum is committed, further votes on the losing root revert", async function () {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
     await cssv.mint(owner.address, totalSupply);
