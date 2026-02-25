@@ -48,7 +48,7 @@
 | TEST-4 | `updateClusterBalance` on liquidated clusters | Unit Test Completeness | P0 | S |
 | TEST-5 | Oracle quorum edge cases | Unit Test Completeness | P0 | M |
 | TEST-6 | EB decrease scenarios | Unit Test Completeness | P0 | M |
-| TEST-7 | Reentrancy in staking functions | Unit Test Completeness | P0 | S |
+| TEST-7 | ~~Reentrancy in staking functions~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #452) |
 | TEST-8 | Forbid creating clusters with removed operators | Unit Test Completeness | P0 | S |
 | TEST-9 | Migration balance accounting verification | Unit Test Completeness | P1 | M |
 | TEST-10 | Operator fee change + EB burn rate interaction | Unit Test Completeness | P1 | M |
