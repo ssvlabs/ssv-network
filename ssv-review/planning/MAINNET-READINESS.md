@@ -47,7 +47,8 @@
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
 | TEST-3 | ~~Balance delta assertions ers | Unit Test Completeness | P0 | S |
 | TEST-4 | ~~`updateClusterBalance` on liquidated clusters~~ | Unit Test Completeness | P0 | ✅ Closed (PR #447 + enhanced with 3 edge cases) |
-| TEST-5 | ~~Oracle quorum edge cases~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #449) || TEST-6 | EB decrease scenarios | Unit Test Completeness | P0 | M |
+| TEST-5 | ~~Oracle quorum edge cases~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #449) |
+| TEST-6 | ~~EB decrease scenarios~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #451) |
 | TEST-7 | Reentrancy in staking functions | Unit Test Completeness | P0 | S |
 | TEST-8 | Forbid creating clusters with removed operators | Unit Test Completeness | P0 | S |
 | TEST-9 | Migration balance accounting verification | Unit Test Completeness | P1 | M |
