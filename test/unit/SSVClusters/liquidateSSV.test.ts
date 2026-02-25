@@ -140,6 +140,49 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     expect(harnessBalanceBefore - harnessBalanceAfter).to.equal(clusterBalance);
   });
 
+  it("Transfers no SSV when cluster remaining balance is zero after fee accrual", async function () {
+    const { clusters, operatorIds, mockToken } =
+      await networkHelpers.loadFixture(deploySSVClustersFixture);
+
+    const publicKey = makePublicKey(1);
+    const clusterBalance = 1_000_000_000n;
+    const cluster = createSSVClusterWithTokenBalance(clusterBalance);
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockCurrentNetworkFeeIndex(100n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(clusterBalance);
+
+    const liquidatorTokenBefore = await mockToken.balanceOf(clusterOwner.address);
+
+    await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
+
+    const liquidatorTokenAfter = await mockToken.balanceOf(clusterOwner.address);
+
+    expect(liquidatorTokenAfter).to.equal(liquidatorTokenBefore);
+  });
+
+  it("SSV self-liquidation returns remaining SSV balance to the cluster owner", async function () {
+    const { clusters, operatorIds, mockToken } =
+      await networkHelpers.loadFixture(deploySSVClustersFixture);
+
+    const publicKey = makePublicKey(1);
+    const clusterBalance = connection.ethers.parseEther("1");
+    const currentSSVFeeIndex = 2000n;
+    const cluster = createSSVClusterWithTokenBalance(clusterBalance, { networkFeeIndex: currentSSVFeeIndex });
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockCurrentNetworkFeeIndex(100n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(currentSSVFeeIndex);
+
+    const ownerTokenBefore = await mockToken.balanceOf(clusterOwner.address);
+
+    await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
+
+    const ownerTokenAfter = await mockToken.balanceOf(clusterOwner.address);
+
+    expect(ownerTokenAfter - ownerTokenBefore).to.equal(clusterBalance);
+  });
+
   it("Does not change operatorEthVUnits or stored cluster EB snapshot when liquidating an SSV cluster", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersFixture);

@@ -258,15 +258,13 @@ emit ClusterDeposited(owner, operatorIds, msg.value, cluster);
 - If cluster is active and has validators: cluster must not become liquidatable after withdrawal
 
 > **Note — withdrawal allowed on liquidated clusters:** `withdraw` does not require the cluster to be active. A liquidated cluster may have received deposits (via `deposit`) in preparation for reactivation. If the owner decides not to reactivate, they can recover those funds via `withdraw`.
->
-> **Note — operator removal and reactivation:** If one or more operators in a cluster's operator set have been removed (via `removeOperator`), the cluster can still be reactivated, but removed operators are silently skipped during `updateClusterOperatorsOnReactivation` (see `OperatorLib.sol:311`). The cluster will operate with reduced operator coverage (e.g., 3/4 instead of 4/4), which may compromise the cluster's fault tolerance. The reactivation fee calculation excludes removed operators' fees. No on-chain event signals which operators were skipped, but this is detectable off-chain by checking operator states before reactivation.
+
 
 #### State Mutations
-1. If cluster is active: update operator snapshots and settle cluster fees
-2. `cluster.balance -= amount`
-3. If cluster is active and has validators: liquidation check
-4. Update stored cluster hash
-5. Transfer `amount` ETH to caller
+1. `cluster.balance -= amount`
+2. If cluster is active and has validators: liquidation check
+3. Update stored cluster hash
+4. Transfer `amount` ETH to caller
 
 #### Events
 ```solidity
@@ -334,6 +332,8 @@ Same flow as 1.9 but for SSV clusters. Uses `s.clusters` instead of `s.ethCluste
 
 
 > **Note — Stale EB risk:** The solvency check uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed during liquidation. Ref: SPEC §2 "Stale EB Risk on Reactivation" for full analysis and mitigation options.
+>
+> **Note — operator removal and reactivation:** If one or more operators in a cluster's operator set have been removed (via `removeOperator`), the cluster can still be reactivated, but removed operators are silently skipped during `updateClusterOperatorsOnReactivation` (see `OperatorLib.sol:311`). The cluster will operate with reduced operator coverage (e.g., 3/4 instead of 4/4), which may compromise the cluster's fault tolerance. The reactivation fee calculation excludes removed operators' fees. No on-chain event signals which operators were skipped, but this is detectable off-chain by checking operator states before reactivation.
 
 #### State Mutations
 1. Update operator ETH snapshots
