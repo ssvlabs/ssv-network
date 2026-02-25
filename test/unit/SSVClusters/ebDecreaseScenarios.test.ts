@@ -61,6 +61,7 @@ describe("EB decrease scenarios", async () => {
 
     const ebTx1 = await clusters.updateClusterBalance(1, clusterOwner.address, operatorIds, clusterAfterReg, 64, []);
     const ebReceipt1 = await ebTx1.wait();
+    const blockEB64 = ebReceipt1!.blockNumber;
     const clusterAfterEB64 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
 
     const expectedVUnits64 = ((64n * VUNITS_PRECISION) + 31n) / 32n; // ceil(64 * 10000 / 32) = 20000
@@ -81,6 +82,7 @@ describe("EB decrease scenarios", async () => {
 
     const ebTx2 = await clusters.updateClusterBalance(2, clusterOwner.address, operatorIds, clusterAfterEB64, 32, []);
     const ebReceipt2 = await ebTx2.wait();
+    const blockEB32 = ebReceipt2!.blockNumber;
     const clusterAfterEB32 = parseClusterFromEvent(clusters, ebReceipt2, Events.CLUSTER_BALANCE_UPDATED);
 
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
@@ -90,13 +92,18 @@ describe("EB decrease scenarios", async () => {
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION);
     }
 
-    const feesDeducted = balanceAfterEB64 - clusterAfterEB32.balance;
-    expect(feesDeducted).to.be.gt(0n);
-
+    // Calculate exact expected fees using SPEC.md formula:
+    // fees = (blocksDelta * sum(packedOperatorFees) * vUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS
+    // During the 64 ETH period, fees are charged at 64 ETH rate (20,000 vUnits)
+    const blocksDelta = BigInt(blockEB32 - blockEB64);
+    const vUnits64 = 20000n;
     const ETH_DEDUCTED_DIGITS = 100_000n;
-    const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS; // 1e5
-    const feePerBlockBaseline = 4n * packedOpFee * ETH_DEDUCTED_DIGITS; // 4e10 wei/block at baseline
-    expect(feesDeducted).to.be.gt(feePerBlockBaseline * 100n);
+    const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS; // 100_000
+    const totalPackedFeeRate = 4n * packedOpFee; // 4 operators
+    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+
+    const feesDeducted = balanceAfterEB64 - clusterAfterEB32.balance;
+    expect(feesDeducted).to.equal(expectedFees);
 
     expect(clusterAfterEB32.active).to.equal(true);
   });

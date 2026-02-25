@@ -18,6 +18,8 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE,
   STAKE_AMOUNT,
+  VUNITS_PRECISION,
+  ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
@@ -156,11 +158,15 @@ describe("TEST-6 Integration: EB decrease via oracle commitRoot pipeline", () =>
       block1, clusterOwner.address, operatorIds, clusterAfterReg, 64, [],
     );
     const update1Receipt = await update1Tx.wait();
+    const blockUpdate1 = update1Receipt!.blockNumber;
 
     const clusterAt64 = parseClusterFromEvent(network, update1Receipt, Events.CLUSTER_BALANCE_UPDATED);
 
     expect(clusterAt64.active).to.equal(true);
     expect(clusterAt64.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - 16n * FEE_PER_BLOCK_BASELINE);
+
+    // vUnits implicitly verified through fee calculation: 64 ETH = 20,000 vUnits
+    const vUnits64 = 20_000n;
 
     await networkHelpers.mine(10); // +10 blocks
 
@@ -174,13 +180,21 @@ describe("TEST-6 Integration: EB decrease via oracle commitRoot pipeline", () =>
       block2, clusterOwner.address, operatorIds, clusterAt64, 32, [],
     );
     const update2Receipt = await update2Tx.wait();
+    const blockUpdate2 = update2Receipt!.blockNumber;
     const clusterAt32 = parseClusterFromEvent(network, update2Receipt, Events.CLUSTER_BALANCE_UPDATED);
 
     expect(clusterAt32.active).to.equal(true);
     expect(clusterAt32.validatorCount).to.equal(1n);
 
-    // 14 blocks × FEE_PER_BLOCK_64ETH (= 2× baseline) charged during the 64 ETH window
-    const expectedFees64ETH = 14n * FEE_PER_BLOCK_64ETH;
-    expect(clusterAt32.balance).to.equal(clusterAt64.balance - expectedFees64ETH);
+    // Calculate exact expected fees using SPEC.md formula:
+    // fees = ((blocksDelta * (sum(packedOperatorFees) + packedNetworkFee) * vUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS
+    // During the 64 ETH period, fees are charged at 20,000 vUnits
+    const blocksDelta = BigInt(blockUpdate2 - blockUpdate1);
+    const packedOpFee = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+    const packedNetworkFee = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
+    const totalPackedFeeRate = (4n * packedOpFee + packedNetworkFee);
+    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+
+    expect(clusterAt32.balance).to.equal(clusterAt64.balance - expectedFees);
   });
 });
