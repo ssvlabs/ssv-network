@@ -963,6 +963,7 @@ userIndex[user] = accEthPerShare
 | Parameter | Initial Value | Update Function |
 |---|---|---|
 | `quorumBps` | 7,500 (75%) | `setQuorumBps(uint16)` |
+| `minBlocksBetweenUpdates` | 7,200 blocks (~1 day) | `setMinBlocksBetweenUpdates(uint32)` |
 | Oracle set | 4 oracles | `replaceOracle(uint32, address)` |
 
 ### Operator Fee Parameters

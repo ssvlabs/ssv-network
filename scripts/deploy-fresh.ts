@@ -14,6 +14,7 @@ type LocalConfig = {
   ssvToken?: string;
   protocolParams?: {
     liquidationThresholdPeriod?: string | number;
+    minBlocksBetweenUpdates?: string | number;
     minimumLiquidationCollateralEth?: string | number;
     validatorsPerOperatorLimit?: string | number;
     declareOperatorFeePeriod?: string | number;
@@ -116,11 +117,15 @@ async function main() {
   // ── 5. Run staking upgrade (reinitializer) ──
   console.log("[5/7] Running SSVStaking upgrade (upgradeToAndCall)...");
   const { address: stakingUpgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
+  const minBlocksBetweenUpdates = parseUint(pp.minBlocksBetweenUpdates, "minBlocksBetweenUpdates");
+  if (minBlocksBetweenUpdates === undefined) {
+    throw new Error("protocolParams.minBlocksBetweenUpdates is required for initializeSSVStaking");
+  }
 
   const stakingUpgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
   const stakingInitData = stakingUpgradeFactory.interface.encodeFunctionData(
-    "initializeSSVStaking(uint64,uint32[4],uint16)",
-    [cooldown, defaultOracleIds, quorumBps]
+    "initializeSSVStaking(uint64,uint32[4],uint16,uint32)",
+    [cooldown, defaultOracleIds, quorumBps, minBlocksBetweenUpdates]
   );
 
   const networkWithSigner = await ethers.getContractAt("SSVNetwork", networkProxyAddr, deployer);

@@ -38,6 +38,7 @@ export const Events = {
   ROOT_COMMITTED: "RootCommitted",
   WEIGHTED_ROOT_PROPOSED: "WeightedRootProposed",
   COOLDOWN_DURATION_UPDATED: "CooldownDurationUpdated",
+  MIN_BLOCKS_BETWEEN_UPDATES_UPDATED: "MinBlocksBetweenUpdatesUpdated",
   ORACLE_REPLACED: "OracleReplaced",
   QUORUM_UPDATED: "QuorumUpdated",
   FEES_SYNCED: "FeesSynced",
