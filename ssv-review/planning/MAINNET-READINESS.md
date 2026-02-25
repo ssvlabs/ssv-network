@@ -1231,10 +1231,10 @@ This is the #1 systemic test gap. The fee settlement mechanism (`updateClusterOp
 
 ---
 
-### [TEST-2] EB-weighted operator earnings accumulation
+### [TEST-2] ~~EB-weighted operator earnings accumulation~~
 - **Type:** Unit Test Completeness
 - **Priority:** P0
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
