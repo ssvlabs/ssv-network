@@ -1,0 +1,469 @@
+import { expect } from "chai";
+import type { NetworkConnection } from "hardhat/types/network";
+import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
+import { getTestConnection } from "../../setup/connection.ts";
+import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import type { NetworkHelpersType } from "../../common/types.ts";
+import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
+import { DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { Events } from "../../common/events.ts";
+import { ethers } from "ethers";
+
+const OPERATOR_FEE = 10_000_000_000n;
+
+describe("EB-weighted operator earnings (Consolidated)", async () => {
+  let connection: NetworkConnection<"generic">;
+  let networkHelpers: NetworkHelpersType;
+  let clusterOwner1: HardhatEthersSigner;
+  let clusterOwner2: HardhatEthersSigner;
+  let clusterOwner3: HardhatEthersSigner;
+
+  before(async function () {
+    ({ connection, networkHelpers } = await getTestConnection());
+    [clusterOwner1, clusterOwner2, clusterOwner3] = await connection.ethers.getSigners();
+  });
+
+  const deployClustersWithFee = async () => {
+    return ssvClustersHarnessFixture(connection, 4, OPERATOR_FEE);
+  };
+
+  const deployClustersWithZeroFee = async () => {
+    return ssvClustersHarnessFixture(connection, 4, 0n);
+  };
+
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
+  };
+
+  const getEBRoot = (clusterId: string, effectiveBalance: number): string => {
+    const coder = ethers.AbiCoder.defaultAbiCoder();
+    const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
+    return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
+  };
+
+  describe("Accumulation", async () => {
+    it("operator earns proportionally from two clusters with EB=32 and EB=64", async function () {
+      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
+      const packedFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
+      const deposit = ethers.parseEther("100");
+
+      const regTx1 = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt1 = await regTx1.wait();
+      const cluster1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+
+      const regTx2 = await clusters.connect(clusterOwner2).registerValidator(
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt2 = await regTx2.wait();
+      const cluster2 = parseClusterFromEvent(clusters, receipt2, Events.VALIDATOR_ADDED);
+
+      const clusterId1 = getClusterId(clusterOwner1.address, operatorIds);
+      const root1 = getEBRoot(clusterId1, 32);
+      await clusters.mockSetEBRoot(1, root1);
+      const ebTx1 = await clusters.connect(clusterOwner1).updateClusterBalance(
+        1, clusterOwner1.address, operatorIds, cluster1, 32, []
+      );
+      const ebReceipt1 = await ebTx1.wait();
+      const clusterAfterEB1 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
+
+      const clusterId2 = getClusterId(clusterOwner2.address, operatorIds);
+      const root2 = getEBRoot(clusterId2, 64);
+      await clusters.mockSetEBRoot(2, root2);
+      await clusters.connect(clusterOwner2).updateClusterBalance(
+        2, clusterOwner2.address, operatorIds, cluster2, 64, []
+      );
+
+      expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(30000n);
+      const [, , balanceBefore] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      const blockBeforeMine = await connection.ethers.provider.getBlockNumber();
+      await networkHelpers.mine(100);
+      const blocksMined = (await connection.ethers.provider.getBlockNumber()) - blockBeforeMine;
+
+      await clusters.connect(clusterOwner1).removeValidator(makePublicKey(1), operatorIds, clusterAfterEB1);
+
+      const [, , balanceAfter] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+      const earned = balanceAfter - balanceBefore;
+
+      const blocksDelta = BigInt(blocksMined + 1);
+      const expected = packedFee * blocksDelta * 30000n / VUNITS_PRECISION;
+      expect(earned).to.equal(expected);
+
+      const flatBaseline = packedFee * blocksDelta * 20000n / VUNITS_PRECISION;
+      // Using strict formula comparison for lower bound check
+      // earned > flatBaseline is implicitly checked by equality to higher expected value
+    });
+
+    it("earnings split correctly at fee change boundary with EB-weighted vUnits", async function () {
+      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
+      const packedFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
+      const deposit = ethers.parseEther("100");
+
+      const regTx = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt = await regTx.wait();
+      const clusterAfterReg = parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+
+      const clusterId = getClusterId(clusterOwner1.address, operatorIds);
+      const root1 = getEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root1);
+      const ebTx1 = await clusters.connect(clusterOwner1).updateClusterBalance(
+        1, clusterOwner1.address, operatorIds, clusterAfterReg, 64, []
+      );
+      const ebReceipt1 = await ebTx1.wait();
+      const clusterAfterEB1 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(20000n);
+
+      const [, snapshotBlock1, balancePhase1Start] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      await networkHelpers.mine(50);
+
+      const root2 = getEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(2, root2);
+      const ebTx2 = await clusters.connect(clusterOwner1).updateClusterBalance(
+        2, clusterOwner1.address, operatorIds, clusterAfterEB1, 64, []
+      );
+      const ebReceipt2 = await ebTx2.wait();
+      const clusterAfterEB2 = parseClusterFromEvent(clusters, ebReceipt2, Events.CLUSTER_BALANCE_UPDATED);
+
+      const [, snapshotBlock2, balancePhase1End] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      const phase1Blocks = BigInt(snapshotBlock2) - BigInt(snapshotBlock1);
+      const expectedPhase1Delta = packedFee * phase1Blocks * 20000n / VUNITS_PRECISION;
+      expect(balancePhase1End - balancePhase1Start).to.equal(expectedPhase1Delta);
+
+      const NEW_OPERATOR_FEE = 5_000_000_000n;
+      const newPackedFee = NEW_OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
+      await clusters.mockSetOperatorFee(operatorIds[0], NEW_OPERATOR_FEE);
+
+      await networkHelpers.mine(50);
+
+      const root3 = getEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(3, root3);
+      await clusters.connect(clusterOwner1).updateClusterBalance(
+        3, clusterOwner1.address, operatorIds, clusterAfterEB2, 64, []
+      );
+
+      const settledBlock3 = await connection.ethers.provider.getBlockNumber();
+      const [, , balancePhase2End] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      const phase2Blocks = BigInt(settledBlock3) - BigInt(snapshotBlock2);
+      const expectedPhase2Delta = newPackedFee * phase2Blocks * 20000n / VUNITS_PRECISION;
+      expect(balancePhase2End - balancePhase1End).to.equal(expectedPhase2Delta);
+    });
+
+    it("operator snapshot balance equals expected EB-weighted ETH after settlement", async function () {
+      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
+      const packedFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
+      const deposit = ethers.parseEther("100");
+
+      const regTx = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt = await regTx.wait();
+      const clusterAfterReg = parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+
+      const clusterId = getClusterId(clusterOwner1.address, operatorIds);
+      const root1 = getEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root1);
+      const ebTx1 = await clusters.connect(clusterOwner1).updateClusterBalance(
+        1, clusterOwner1.address, operatorIds, clusterAfterReg, 64, []
+      );
+      const ebReceipt1 = await ebTx1.wait();
+      const clusterAfterEB1 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
+
+      const [, snapshotBlock1, balanceAtSnapshot] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      await networkHelpers.mine(100);
+      const root2 = getEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(2, root2);
+      await clusters.connect(clusterOwner1).updateClusterBalance(
+        2, clusterOwner1.address, operatorIds, clusterAfterEB1, 64, []
+      );
+
+      const harnessAddress = await clusters.getAddress();
+      const harnessEthBefore = await connection.ethers.provider.getBalance(harnessAddress);
+      await clusters.connect(clusterOwner1).mockWithdrawAllEthEarnings(operatorIds[0]);
+      const withdrawalBlock = await connection.ethers.provider.getBlockNumber();
+      const harnessEthAfter = await connection.ethers.provider.getBalance(harnessAddress);
+
+      const totalBlocksDelta = BigInt(withdrawalBlock) - BigInt(snapshotBlock1);
+      const newEarningsPacked = packedFee * totalBlocksDelta * 20000n / VUNITS_PRECISION;
+      const expectedETH = (balanceAtSnapshot + newEarningsPacked) * ETH_DEDUCTED_DIGITS;
+      expect(harnessEthBefore - harnessEthAfter).to.equal(expectedETH);
+
+      const [, , balanceAfterWithdraw] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+      expect(balanceAfterWithdraw).to.equal(0n);
+    });
+  });
+
+  describe("Edge Cases", async () => {
+    it("operator with zero fee earns nothing despite EB > 32", async function () {
+      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithZeroFee);
+      const deposit = ethers.parseEther("100");
+
+      const regTx = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt = await regTx.wait();
+      const cluster = parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+
+      const clusterId = getClusterId(clusterOwner1.address, operatorIds);
+      const root = getEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root);
+      const ebTx1 = await clusters.connect(clusterOwner1).updateClusterBalance(
+        1, clusterOwner1.address, operatorIds, cluster, 64, []
+      );
+      const ebReceipt1 = await ebTx1.wait();
+      const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
+
+      expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(20000n);
+
+      const [, , balanceBefore] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      await networkHelpers.mine(100);
+
+      const root2 = getEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(2, root2);
+      const ebTx2 = await clusters.connect(clusterOwner1).updateClusterBalance(
+        2, clusterOwner1.address, operatorIds, clusterAfterEB, 64, []
+      );
+      await ebTx2.wait();
+
+      const [, , balanceAfter] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      expect(balanceAfter).to.equal(balanceBefore);
+      expect(balanceAfter).to.equal(0n);
+    });
+
+    it("operator earnings cap at maximum EB (2048 ETH per validator)", async function () {
+      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
+      const packedFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
+      const deposit = ethers.parseEther("100");
+
+      const regTx = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt = await regTx.wait();
+      const cluster = parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+
+      // 2048 ETH = maximum allowed EB per validator
+      const clusterId = getClusterId(clusterOwner1.address, operatorIds);
+      const root = getEBRoot(clusterId, 2048);
+      await clusters.mockSetEBRoot(1, root);
+      const ebTx = await clusters.connect(clusterOwner1).updateClusterBalance(
+        1, clusterOwner1.address, operatorIds, cluster, 2048, []
+      );
+      const ebReceipt = await ebTx.wait();
+      const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_BALANCE_UPDATED);
+
+      // vUnits for 2048 ETH = ceil(2048 * 10000 / 32) = 640000
+      const maxVUnits = 640_000n;
+      expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(maxVUnits);
+
+      const [, snapshotBlock, balanceBefore] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      await networkHelpers.mine(50);
+
+      await clusters.connect(clusterOwner1).removeValidator(makePublicKey(1), operatorIds, clusterAfterEB);
+      const removeBlock = await connection.ethers.provider.getBlockNumber();
+
+      const [, , balanceAfter] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      const blocksDelta = BigInt(removeBlock) - BigInt(snapshotBlock);
+      const expectedEarnings = packedFee * blocksDelta * maxVUnits / VUNITS_PRECISION;
+
+      expect(balanceAfter - balanceBefore).to.equal(expectedEarnings);
+      expect(balanceAfter - balanceBefore).to.equal(packedFee * blocksDelta * 64n);
+    });
+
+    it("operator earnings reflect multi-validator cluster with EB > 32", async function () {
+      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
+      const packedFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
+      const deposit = ethers.parseEther("100");
+
+      // Register 3 validators in same cluster
+      const regTx1 = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt1 = await regTx1.wait();
+      const cluster1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+
+      const regTx2 = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, cluster1, { value: deposit }
+      );
+      const receipt2 = await regTx2.wait();
+      const cluster2 = parseClusterFromEvent(clusters, receipt2, Events.VALIDATOR_ADDED);
+
+      const regTx3 = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(3), operatorIds, DEFAULT_SHARES, cluster2, { value: deposit }
+      );
+      const receipt3 = await regTx3.wait();
+      const cluster3 = parseClusterFromEvent(clusters, receipt3, Events.VALIDATOR_ADDED);
+
+      expect(cluster3.validatorCount).to.equal(3);
+
+      // Set EB to 48 ETH per validator (3 validators × 48 = 144 ETH total)
+      // vUnits = ceil(144 * 10000 / 32) = 45000
+      const clusterId = getClusterId(clusterOwner1.address, operatorIds);
+      const root = getEBRoot(clusterId, 144); // total EB for 3 validators
+      await clusters.mockSetEBRoot(1, root);
+      const ebTx = await clusters.connect(clusterOwner1).updateClusterBalance(
+        1, clusterOwner1.address, operatorIds, cluster3, 144, []
+      );
+      const ebReceipt = await ebTx.wait();
+      const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_BALANCE_UPDATED);
+
+      const expectedVUnits = 45_000n; // ceil(144 * 10000 / 32)
+      expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(expectedVUnits);
+
+      const [, snapshotBlock, balanceBefore] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      await networkHelpers.mine(80);
+
+      await clusters.connect(clusterOwner1).removeValidator(makePublicKey(1), operatorIds, clusterAfterEB);
+      const removeBlock = await connection.ethers.provider.getBlockNumber();
+
+      const [, , balanceAfter] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      const blocksDelta = BigInt(removeBlock) - BigInt(snapshotBlock);
+      const expectedEarnings = packedFee * blocksDelta * expectedVUnits / VUNITS_PRECISION;
+
+      expect(balanceAfter - balanceBefore).to.equal(expectedEarnings);
+    });
+
+    it("operator earnings adjust correctly when EB decreases", async function () {
+      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
+      const packedFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
+      const deposit = ethers.parseEther("100");
+
+      const regTx = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt = await regTx.wait();
+      const cluster = parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+
+      // Start with EB=64
+      const clusterId = getClusterId(clusterOwner1.address, operatorIds);
+      const root1 = getEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root1);
+      const ebTx1 = await clusters.connect(clusterOwner1).updateClusterBalance(
+        1, clusterOwner1.address, operatorIds, cluster, 64, []
+      );
+      const ebReceipt1 = await ebTx1.wait();
+      const clusterAfterEB1 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
+
+      expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(20000n);
+
+      const [, snapshotBlock1, balancePhase1Start] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      await networkHelpers.mine(50);
+
+      // Decrease EB to 32 (baseline)
+      const root2 = getEBRoot(clusterId, 32);
+      await clusters.mockSetEBRoot(2, root2);
+      const ebTx2 = await clusters.connect(clusterOwner1).updateClusterBalance(
+        2, clusterOwner1.address, operatorIds, clusterAfterEB1, 32, []
+      );
+      const ebReceipt2 = await ebTx2.wait();
+      const clusterAfterEB2 = parseClusterFromEvent(clusters, ebReceipt2, Events.CLUSTER_BALANCE_UPDATED);
+
+      const [, snapshotBlock2, balancePhase1End] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      // Phase 1: earned with EB=64 (vUnits=20000)
+      const phase1Blocks = BigInt(snapshotBlock2) - BigInt(snapshotBlock1);
+      const expectedPhase1 = packedFee * phase1Blocks * 20000n / VUNITS_PRECISION;
+      expect(balancePhase1End - balancePhase1Start).to.equal(expectedPhase1);
+
+      expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(10000n);
+
+      await networkHelpers.mine(50);
+
+      await clusters.connect(clusterOwner1).removeValidator(makePublicKey(1), operatorIds, clusterAfterEB2);
+      const removeBlock = await connection.ethers.provider.getBlockNumber();
+
+      const [, , balanceFinal] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      // Phase 2: earned with EB=32 (vUnits=10000)
+      const phase2Blocks = BigInt(removeBlock) - BigInt(snapshotBlock2);
+      const expectedPhase2 = packedFee * phase2Blocks * 10000n / VUNITS_PRECISION;
+      expect(balanceFinal - balancePhase1End).to.equal(expectedPhase2);
+
+      // Verify phase 2 earnings are lower than phase 1 (same blocks, lower vUnits)
+      expect(expectedPhase2).to.be.lessThan(expectedPhase1);
+    });
+
+    it("operator earns from mixed implicit and explicit EB clusters correctly", async function () {
+      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
+      const packedFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
+      const deposit = ethers.parseEther("100");
+
+      // Cluster 1: Implicit EB (never call updateClusterBalance)
+      const regTx1 = await clusters.connect(clusterOwner1).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt1 = await regTx1.wait();
+      const cluster1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+
+      // Cluster 2: Explicit EB = 64
+      const regTx2 = await clusters.connect(clusterOwner2).registerValidator(
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt2 = await regTx2.wait();
+      const cluster2 = parseClusterFromEvent(clusters, receipt2, Events.VALIDATOR_ADDED);
+
+      const clusterId2 = getClusterId(clusterOwner2.address, operatorIds);
+      const root2 = getEBRoot(clusterId2, 64);
+      await clusters.mockSetEBRoot(1, root2);
+      await clusters.connect(clusterOwner2).updateClusterBalance(
+        1, clusterOwner2.address, operatorIds, cluster2, 64, []
+      );
+
+      // Cluster 3: Explicit EB = 32 (baseline, but explicit)
+      const regTx3 = await clusters.connect(clusterOwner3).registerValidator(
+        makePublicKey(3), operatorIds, DEFAULT_SHARES, createCluster(), { value: deposit }
+      );
+      const receipt3 = await regTx3.wait();
+      const cluster3 = parseClusterFromEvent(clusters, receipt3, Events.VALIDATOR_ADDED);
+
+      const clusterId3 = getClusterId(clusterOwner3.address, operatorIds);
+      const root3 = getEBRoot(clusterId3, 32);
+      await clusters.mockSetEBRoot(2, root3);
+      await clusters.connect(clusterOwner3).updateClusterBalance(
+        2, clusterOwner3.address, operatorIds, cluster3, 32, []
+      );
+
+      // Total effectiveVUnits:
+      // Cluster 1 (implicit): baseline only = 1 × 10000 = 10000
+      // Cluster 2 (explicit 64): baseline 10000 + deviation 10000 = 20000 contribution
+      // Cluster 3 (explicit 32): baseline 10000 + deviation 0 = 10000 contribution
+      // Total: 3 validators × 10000 (baseline) + 10000 (deviation from cluster 2) = 40000
+      const expectedTotalVUnits = 40_000n;
+      expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(expectedTotalVUnits);
+
+      const [, snapshotBlock, balanceBefore] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      await networkHelpers.mine(60);
+
+      // Trigger snapshot update via removeValidator on cluster1
+      const removeTx = await clusters.connect(clusterOwner1).removeValidator(
+        makePublicKey(1), operatorIds, cluster1
+      );
+      const removeReceipt = await removeTx.wait();
+      const settleBlock = removeReceipt!.blockNumber;
+
+      const [, , balanceAfter] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
+
+      const blocksDelta = BigInt(settleBlock) - BigInt(snapshotBlock);
+      const expectedEarnings = packedFee * blocksDelta * expectedTotalVUnits / VUNITS_PRECISION;
+
+      expect(balanceAfter - balanceBefore).to.equal(expectedEarnings);
+      expect(balanceAfter - balanceBefore).to.equal(packedFee * blocksDelta * 4n);
+    });
+  });
+});
