@@ -69,7 +69,7 @@
 | TEST-25 | Upgrade path (reinitializer) tests | Unit Test Completeness | P2 | S |
 | TEST-26 | Zero-validator cluster operations | Unit Test Completeness | P2 | S |
 | TEST-27 | Operator at max validator limit | Unit Test Completeness | P2 | S |
-| TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
+| TEST-28 | ~~Uncomment SSV reentrancy test assertions~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #454) |
 | TEST-29 | Add contract ETH balance delta assertions to deposit tests | Unit Test Completeness | P1 | S |
 | TEST-30 | Resolve TODO comments with deferred assertions | Unit Test Completeness | P1 | M |
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
