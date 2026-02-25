@@ -44,7 +44,7 @@
 | SEC-19 | `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled | Security Hardening | P1 | S |
 | TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
 | TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
-| TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |
+| TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #445) |
 | TEST-4 | `updateClusterBalance` on liquidated clusters | Unit Test Completeness | P0 | S |
 | TEST-5 | Oracle quorum edge cases | Unit Test Completeness | P0 | M |
 | TEST-6 | EB decrease scenarios | Unit Test Completeness | P0 | M |
