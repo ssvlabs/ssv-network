@@ -80,7 +80,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     expect(daoBalanceBefore - daoBalanceAfter).to.equal(expectedPayoutShrunk);
   });
 
-  it("Keeps remainder in accrued balance after claiming (precision handling)", async function () {
+  it("Keeps remainder in accrued when user still holds cSSV (precision handling)", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeAndAccrueRewards);
 
     // Use an amount with a remainder when divided by DEDUCTED_DIGITS (1e7)
@@ -95,6 +95,55 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     );
 
     const expectedRemainder = accruedAmount % ETH_DEDUCTED_DIGITS; 
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(expectedRemainder);
+  });
+
+  it("Zeros dust in accrued when user holds 0 cSSV after full transfer (SEC-16b)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const [, receiver] = await connection.ethers.getSigners();
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    await cssvToken.transfer(receiver.address, STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(0n);
+
+    const accruedWithDust = 1_234_599_999n; // payout = 1_234_500_000, dust = 99_999
+    const packedPayout = accruedWithDust / ETH_DEDUCTED_DIGITS; // 12345
+    await staking.mockSetUserAccrued(staker.address, accruedWithDust);
+    await staking.mockSetStakingEthPoolBalance(packedPayout + 1_000_000n);
+    await staking.mockSetEthDaoBalance(packedPayout + 1_000_000n);
+
+    const stakingAddress = await staking.getAddress();
+    await staker.sendTransaction({ to: stakingAddress, value: connection.ethers.parseEther("1") });
+
+    await staking.claimEthRewards();
+
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(0n);
+  });
+
+  it("Keeps remainder when user still holds cSSV despite dust (SEC-16b no false positive)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(STAKE_AMOUNT);
+
+    const accruedWithDust = 1_234_599_999n;
+    const packedPayout = accruedWithDust / ETH_DEDUCTED_DIGITS;
+    await staking.mockSetUserAccrued(staker.address, accruedWithDust);
+    await staking.mockSetStakingEthPoolBalance(packedPayout + 1_000_000n);
+    await staking.mockSetEthDaoBalance(packedPayout + 1_000_000n);
+
+    const stakingAddress = await staking.getAddress();
+    await staker.sendTransaction({ to: stakingAddress, value: connection.ethers.parseEther("1") });
+
+    await staking.claimEthRewards();
+
+    const expectedRemainder = accruedWithDust % ETH_DEDUCTED_DIGITS;
     const accruedAfter = await staking.getUserAccrued(staker.address);
     expect(accruedAfter).to.equal(expectedRemainder);
   });

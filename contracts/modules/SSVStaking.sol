@@ -136,7 +136,8 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
             revert InsufficientBalance();
         }
 
-        s.accrued[msg.sender] = claimable - payout;
+        uint256 remainder = claimable - payout;
+        s.accrued[msg.sender] = (remainder != 0 && ICSSVToken(CSSV_ADDRESS).balanceOf(msg.sender) == 0) ? 0 : remainder;
         s.stakingEthPoolBalance = s.stakingEthPoolBalance.sub(packedPayout);
         sp.ethDaoBalance = sp.ethDaoBalance.sub(packedPayout);
 
