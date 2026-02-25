@@ -20,8 +20,9 @@
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
 | BUG-8 | ~~ Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug, added NatSpec) |
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
-| BUG-10 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
-| BUG-11 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
+| BUG-10 | Stale Merkle root vulnerability in `updateClusterBalance` | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
+| BUG-11 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
+| BUG-12 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -2984,7 +2985,47 @@ In `SSVOperators.sol:324`, `_resetOperatorState` returns `Operator memory` but t
 
 ---
 
-### [BUG-10] Remove liquidation check in `withdraw` function
+### [BUG-10] Stale Merkle root vulnerability in `updateClusterBalance`
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Fix the vulnerability where `updateClusterBalance` can accept stale Merkle roots when `minBlocksBetweenUpdates != 0`, allowing malicious actors to delay effective balance updates.
+
+**Context:**
+In `SSVClusters.sol:353-371`, the `updateClusterBalance` function validates Merkle proofs against the current oracle root. However, if a cluster's effective balance hasn't changed for a long time, there's no incentive to call `updateClusterBalance` for that cluster. A malicious actor could intentionally use an old Merkle root to delay updating to the most recent effective balance when `minBlocksBetweenUpdates != 0`.
+
+**Vulnerability Details:**
+1. The function validates the Merkle proof against the current oracle root
+2. If `minBlocksBetweenUpdates > 0`, updates are rate-limited
+3. For clusters with unchanged effective balances, no one calls `updateClusterBalance`
+4. An attacker can submit stale proofs using old roots to prevent EB updates
+5. This allows manipulation of when effective balance changes take effect
+
+**Current Mitigation:**
+The issue is currently mitigated because `minBlocksBetweenUpdates` is always set to 0, meaning there's no rate limiting on updates. However, if the protocol intends to enable rate limiting in the future, this vulnerability becomes active.
+
+**Acceptance Criteria:**
+- [ ] Product team confirms whether `minBlocksBetweenUpdates` will be enabled in future
+- [ ] If yes: Implement validation to prevent stale Merkle root usage
+- [ ] Consider adding a timestamp/block number check to ensure proofs use recent roots
+- [ ] Add test coverage for this scenario
+- [ ] Document the expected behavior when `minBlocksBetweenUpdates > 0`
+
+#### Sub-items:
+- [ ] Sub-task 1: Confirm product requirements for `minBlocksBetweenUpdates`
+- [ ] Sub-task 2: Design solution to prevent stale Merkle root usage
+- [ ] Sub-task 3: Implement the fix
+- [ ] Sub-task 4: Add comprehensive test coverage
+- [ ] Sub-task 5: Update documentation
+
+---
+
+### [BUG-11] Remove liquidation check in `withdraw` function
 - **Type:** Code Quality
 - **Priority:** P2
 - **Status:** Open
@@ -3019,7 +3060,7 @@ In `SSVClusters.sol:215`, the `withdraw` function prevents withdrawals from liqu
 
 ---
 
-### [BUG-11] `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters
+### [BUG-12] `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters
 - **Type:** Critical Bug Fix
 - **Priority:** P1
 - **Status:** Open
