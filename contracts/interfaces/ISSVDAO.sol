@@ -94,7 +94,7 @@ interface ISSVDAO is ISSVNetworkCore {
 
     /**
      * @dev Emitted when the unstake cooldown duration is updated
-     * @param newCooldownDuration The new duration
+     * @param newCooldownDuration The new duration in seconds
      */
     event CooldownDurationUpdated(uint64 newCooldownDuration);
 
@@ -204,7 +204,7 @@ interface ISSVDAO is ISSVNetworkCore {
 
     /**
      * @notice Sets the unstake cooldown duration
-     * @param duration The new duration
+     * @param duration The new duration in seconds
      */
     function setUnstakeCooldownDuration(uint64 duration) external;
 

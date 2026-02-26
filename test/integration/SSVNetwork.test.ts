@@ -2468,13 +2468,21 @@ describe("SSVNetwork full integration tests", () => {
 
       const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
+      const networkAddress = await network.getAddress();
       const callerBalanceBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
+      const contractBalanceBefore = await connection.ethers.provider.getBalance(networkAddress);
 
-      await expect(network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster))
-        .to.emit(network, Events.CLUSTER_LIQUIDATED);
+      const tx = await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster);
+      await expect(tx).to.emit(network, Events.CLUSTER_LIQUIDATED);
+      const receipt = await tx.wait();
+      const gasCost = receipt!.gasUsed * (receipt!.effectiveGasPrice ?? receipt!.gasPrice);
 
       const callerBalanceAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
-      expect(callerBalanceAfter).to.be.greaterThan(callerBalanceBefore);
+      const contractBalanceAfter = await connection.ethers.provider.getBalance(networkAddress);
+
+      const payout = contractBalanceBefore - contractBalanceAfter;
+      expect(payout).to.be.greaterThan(0n);
+      expect(callerBalanceAfter - callerBalanceBefore + gasCost).to.equal(payout);
 
       const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       expect(await views.isLiquidated(clusterOwner.address, operatorIds, newClusterState)).to.be.equal(true);
@@ -2498,13 +2506,21 @@ describe("SSVNetwork full integration tests", () => {
       const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       await network.updateLiquidationThresholdPeriod(1000000000);
 
+      const networkAddress = await network.getAddress();
       const callerBalanceBefore = await connection.ethers.provider.getBalance(randomUser.address);
+      const contractBalanceBefore = await connection.ethers.provider.getBalance(networkAddress);
 
-      await expect(network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, cluster))
-        .to.emit(network, Events.CLUSTER_LIQUIDATED);
+      const tx = await network.connect(randomUser).liquidate(clusterOwner.address, operatorIds, cluster);
+      await expect(tx).to.emit(network, Events.CLUSTER_LIQUIDATED);
+      const receipt = await tx.wait();
+      const gasCost = receipt!.gasUsed * (receipt!.effectiveGasPrice ?? receipt!.gasPrice);
 
       const callerBalanceAfter = await connection.ethers.provider.getBalance(randomUser.address);
-      expect(callerBalanceAfter).to.be.greaterThan(callerBalanceBefore);
+      const contractBalanceAfter = await connection.ethers.provider.getBalance(networkAddress);
+
+      const payout = contractBalanceBefore - contractBalanceAfter;
+      expect(payout).to.be.greaterThan(0n);
+      expect(callerBalanceAfter - callerBalanceBefore + gasCost).to.equal(payout);
 
       const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       expect(await views.isLiquidated(clusterOwner.address, operatorIds, newClusterState)).to.be.equal(true);
@@ -3395,5 +3411,41 @@ describe("SSVNetwork full integration tests", () => {
       await malicious.setParams(expectedId, MINIMAL_OPERATOR_ETH_FEE);
       await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
     });
+
+    it("Prevents reentrancy in 'claimEthRewards()'", async function () {
+      const { network, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const malicious = await connection.ethers.deployContract(
+        "MaliciousClaimEthRewards",
+        [await network.getAddress()]
+      );
+      await malicious.waitForDeployment();
+
+      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await ssvToken.connect(randomUser).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
+      await cssvToken.connect(randomUser).transfer(await malicious.getAddress(), STAKE_AMOUNT);
+
+      const oracles = (await connection.ethers.getSigners()).slice(10, 14);
+      await network.replaceOracle(1, oracles[0].address);
+      await network.replaceOracle(2, oracles[1].address);
+      await network.replaceOracle(3, oracles[2].address);
+      await network.replaceOracle(4, oracles[3].address);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      const clusters = await registerDefaultClusters(connection, network, operatorIds, operatorOwner, 8);
+      const merkleData = buildEBMerkleForDefaultClusters(connection, clusters, 33);
+
+      const block = await connection.ethers.provider.getBlock("latest");
+      const blockNum = block!.number;
+
+      for (let i = 0; i < 3; i++) {
+        await network.connect(oracles[i]).commitRoot(merkleData.root, blockNum);
+      }
+      await updateClusterBalancesForDefaultClusters(network, clusters, merkleData, blockNum, 33);
+
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+    });
+
   });
 });

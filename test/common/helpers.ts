@@ -168,7 +168,8 @@ export async function registerDefaultCluster(
 ): Promise<{
   cluster: Cluster,
   validatorKey: string,
-  operatorIds: number[]
+  operatorIds: number[],
+  receiptRegister: any
 }> {
   const validatorKey = makePublicKey(1);
   const operatorIds = await registerOperators(network, operatorOwner, 4);
@@ -179,13 +180,14 @@ export async function registerDefaultCluster(
     "0x" + (DEFAULT_ETH_REGISTER_VALUE + 10n ** 18n).toString(16),
   ]);
 
-  await network.connect(clusterOwner).registerValidator(
+  const tx = await network.connect(clusterOwner).registerValidator(
     validatorKey,
     operatorIds,
     DEFAULT_SHARES,
     EMPTY_CLUSTER,
     { value: DEFAULT_ETH_REGISTER_VALUE }
   );
+  const receiptRegister = await tx.wait();
 
   const cluster = await getCurrentClusterState(
     connection,
@@ -195,7 +197,7 @@ export async function registerDefaultCluster(
   );
 
   return {
-    cluster, validatorKey, operatorIds
+    cluster, validatorKey, operatorIds, receiptRegister
   }
 }
 
