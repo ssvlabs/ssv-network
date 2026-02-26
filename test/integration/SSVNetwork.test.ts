@@ -2252,6 +2252,62 @@ describe("SSVNetwork full integration tests", () => {
       ))
         .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
     });
+
+    it("Is reverted with 'OperatorDoesNotExist' if one of operators is removed", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+
+      await expect(network.connect(clusterOwner).bulkRegisterValidator(
+        keys,
+        operatorIds,
+        shares,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
+    });
+
+    it("Is reverted with 'OperatorDoesNotExist' if one of operators is removed for an existing cluster", async function () {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const existingCluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds
+      );
+
+      await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+
+      const {keys, shares} = makeArrayOfKeysAndShares(2, 10);
+
+      await expect(network.connect(clusterOwner).bulkRegisterValidator(
+        keys,
+        operatorIds,
+        shares,
+        existingCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      ))
+        .to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
+    });
   });
 
   it("Is reverted with 'EmptyPublicKeysList' if the array of public keys is empty", async function() {
@@ -2730,7 +2786,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
     });
 
-    it("Is reverted with 'ClusterIsLiquidated' if the cluster is liquidated", async function() {
+    it("Is reverted with 'InsufficientBalance' when withdrawing from a liquidated cluster with zero balance", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2739,8 +2795,9 @@ describe("SSVNetwork full integration tests", () => {
       await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster);
       const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
+      // Liquidated cluster has zero balance, so withdrawal fails with InsufficientBalance
       await expect(network.connect(clusterOwner).withdraw(operatorIds, SMALL_ETH_REGISTER_VALUE, newClusterState))
-        .to.be.revertedWithCustomError(network, Errors.CLUSTER_IS_LIQUIDATED);
+        .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
     });
 
     it("Is reverted with 'InsufficientBalance' if the amount is bigger than cluster balance", async function() {
@@ -3410,5 +3467,41 @@ describe("SSVNetwork full integration tests", () => {
       await malicious.setParams(expectedId, MINIMAL_OPERATOR_ETH_FEE);
       await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
     });
+
+    it("Prevents reentrancy in 'claimEthRewards()'", async function () {
+      const { network, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const malicious = await connection.ethers.deployContract(
+        "MaliciousClaimEthRewards",
+        [await network.getAddress()]
+      );
+      await malicious.waitForDeployment();
+
+      await ssvToken.mint(randomUser.address, STAKE_AMOUNT);
+      await ssvToken.connect(randomUser).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(randomUser).stake(STAKE_AMOUNT);
+      await cssvToken.connect(randomUser).transfer(await malicious.getAddress(), STAKE_AMOUNT);
+
+      const oracles = (await connection.ethers.getSigners()).slice(10, 14);
+      await network.replaceOracle(1, oracles[0].address);
+      await network.replaceOracle(2, oracles[1].address);
+      await network.replaceOracle(3, oracles[2].address);
+      await network.replaceOracle(4, oracles[3].address);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      const clusters = await registerDefaultClusters(connection, network, operatorIds, operatorOwner, 8);
+      const merkleData = buildEBMerkleForDefaultClusters(connection, clusters, 33);
+
+      const block = await connection.ethers.provider.getBlock("latest");
+      const blockNum = block!.number;
+
+      for (let i = 0; i < 3; i++) {
+        await network.connect(oracles[i]).commitRoot(merkleData.root, blockNum);
+      }
+      await updateClusterBalancesForDefaultClusters(network, clusters, merkleData, blockNum, 33);
+
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+    });
+
   });
 });
