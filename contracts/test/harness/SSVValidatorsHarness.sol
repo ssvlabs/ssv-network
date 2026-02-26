@@ -223,4 +223,18 @@ contract SSVValidatorsHarness is SSVValidators {
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
     }
+
+    function mockRemoveOperator(uint64 operatorId) external {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.snapshot.block = 0;
+        operator.snapshot.balance = PACKED_SSV_ZERO;
+        operator.fee = PACKED_SSV_ZERO;
+        operator.ethValidatorCount = 0;
+        operator.validatorCount = 0;
+    }
 }
