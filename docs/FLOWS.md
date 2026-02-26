@@ -256,9 +256,9 @@ emit ClusterDeposited(owner, operatorIds, msg.value, cluster);
 - Cluster must exist as ETH cluster (VERSION_ETH)
 - `amount <= cluster.balance` (after fee settlement if active)
 - If cluster is active and has validators: cluster must not become liquidatable after withdrawal
+- ~~Cluster must be active~~ — **liquidated clusters are allowed** (see note below)
 
-> **Note — withdrawal allowed on liquidated clusters:** `withdraw` does not require the cluster to be active. A liquidated cluster may have received deposits (via `deposit`) in preparation for reactivation. If the owner decides not to reactivate, they can recover those funds via `withdraw`.
-
+> **Note — withdrawal allowed on liquidated clusters:** `withdraw` does not require the cluster to be active. A liquidated cluster may have received deposits (via `deposit`) in preparation for reactivation. If the owner decides not to reactivate, they can recover those funds via `withdraw`. Fee settlement and the post-withdrawal liquidatability check are skipped for inactive clusters (no burn rate applies).
 
 #### State Mutations
 1. `cluster.balance -= amount`

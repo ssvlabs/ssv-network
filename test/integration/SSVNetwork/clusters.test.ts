@@ -4,7 +4,6 @@ import { getTestConnection } from '../../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import {
-  makeOperatorKey,
   registerOperators,
   whitelistAddresses,
   makePublicKey,
@@ -17,14 +16,10 @@ import {
   DEFAULT_ETH_REGISTER_VALUE,
   MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE,
-  MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
-  MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
-  VUNITS_PRECISION,
 } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.js';
-import { trackGasFromReceipt, GasGroup } from '../../helpers/gas-usage.ts';
 import { ethers } from 'ethers';
 
 /**
@@ -183,7 +178,6 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       // Capture balances before liquidation
       const liquidatorBalanceBefore = await connection.ethers.provider.getBalance(liquidator.address);
       const contractBalanceBefore = await connection.ethers.provider.getBalance(await network.getAddress());
-      const clusterBalanceBefore = await views.getBalance(clusterOwner.address, operatorIds, currentCluster);
 
       const tx = await network.connect(liquidator).liquidate(
         clusterOwner.address,
@@ -862,7 +856,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       expect(finalCluster.active).to.equal(false);
     });
 
-    it("Liquidated cluster cannot be withdrawn from", async function() {
+    it("Is reverted with 'InsufficientBalance' when withdrawing from a liquidated cluster with zero balance", async function() {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       // Use high network fee for faster liquidation
@@ -893,7 +887,451 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       await expect(
         network.connect(clusterOwner).withdraw(operatorIds, 1n, liquidatedCluster)
-      ).to.be.revertedWithCustomError(network, Errors.CLUSTER_IS_LIQUIDATED);
+      ).to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
+    });
+
+    it("Allows deposit to liquidated cluster and subsequent withdrawal without reactivation", async function() {
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      // Use high network fee for faster liquidation
+      await network.updateNetworkFee(NETWORK_FEE * 100n);
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      // Step 1: Register validator with active cluster
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const activeCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(activeCluster.active).to.equal(true);
+      expect(activeCluster.validatorCount).to.equal(1n);
+
+      // Step 2: Mine blocks until cluster becomes liquidatable
+      let currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      let attempts = 0;
+      while (!(await views.isLiquidatable(clusterOwner.address, operatorIds, currentCluster)) && attempts < 20) {
+        await connection.networkHelpers.mine(100000);
+        attempts++;
+      }
+      expect(attempts).to.be.lessThan(20, "Cluster should have become liquidatable");
+
+      // Step 3: Liquidate the cluster
+      const networkBalanceBefore = await connection.ethers.provider.getBalance(await network.getAddress());
+
+      await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, currentCluster);
+
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+      expect(liquidatedCluster.balance).to.equal(0n);
+      // Note: validator count is NOT reset to 0 during liquidation
+      expect(liquidatedCluster.validatorCount).to.equal(1n);
+
+      // Step 4: Deposit to the liquidated cluster (preparing for potential reactivation)
+      const depositAmount = connection.ethers.parseEther("5");
+      const ownerBalanceBeforeDeposit = await connection.ethers.provider.getBalance(clusterOwner.address);
+
+      const depositTx = await network.connect(clusterOwner).deposit(
+        clusterOwner.address,
+        operatorIds,
+        liquidatedCluster,
+        { value: depositAmount }
+      );
+      const depositReceipt = await depositTx.wait();
+      const depositGasCost = depositReceipt!.gasUsed * depositReceipt!.gasPrice;
+
+      const clusterAfterDeposit = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(clusterAfterDeposit.active).to.equal(false); // Still liquidated
+      expect(clusterAfterDeposit.balance).to.equal(depositAmount);
+      expect(clusterAfterDeposit.validatorCount).to.equal(1n); // Still has validator count from before liquidation
+
+      // Verify ETH was transferred to contract
+      const networkBalanceAfterDeposit = await connection.ethers.provider.getBalance(await network.getAddress());
+      expect(networkBalanceAfterDeposit - networkBalanceBefore).to.equal(depositAmount);
+
+      // Verify owner's balance decreased by deposit + gas
+      const ownerBalanceAfterDeposit = await connection.ethers.provider.getBalance(clusterOwner.address);
+      expect(ownerBalanceBeforeDeposit - ownerBalanceAfterDeposit).to.equal(depositAmount + depositGasCost);
+
+      // Step 5: Owner changes their mind - withdraw without reactivating
+      const ownerBalanceBeforeWithdraw = await connection.ethers.provider.getBalance(clusterOwner.address);
+      const networkBalanceBeforeWithdraw = await connection.ethers.provider.getBalance(await network.getAddress());
+
+      const withdrawAmount = depositAmount; // Withdraw full amount
+      const withdrawTx = await network.connect(clusterOwner).withdraw(
+        operatorIds,
+        withdrawAmount,
+        clusterAfterDeposit
+      );
+      const withdrawReceipt = await withdrawTx.wait();
+      const withdrawGasCost = withdrawReceipt!.gasUsed * withdrawReceipt!.gasPrice;
+
+      await expect(withdrawTx)
+        .to.emit(network, Events.CLUSTER_WITHDRAWN)
+        .withArgs(
+          clusterOwner.address,
+          operatorIds,
+          withdrawAmount,
+          [1n, 0n, 0n, false, 0n] // Final cluster state: validatorCount still 1, rest zeros, inactive
+        );
+
+      // Step 6: Verify final state
+      const clusterAfterWithdraw = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(clusterAfterWithdraw.active).to.equal(false);
+      expect(clusterAfterWithdraw.balance).to.equal(0n);
+      expect(clusterAfterWithdraw.validatorCount).to.equal(1n); // Validator count persists through liquidation/deposit/withdraw
+
+      // Verify ETH was transferred back to owner
+      const ownerBalanceAfterWithdraw = await connection.ethers.provider.getBalance(clusterOwner.address);
+      const ownerBalanceDelta = ownerBalanceAfterWithdraw - ownerBalanceBeforeWithdraw;
+      expect(ownerBalanceDelta).to.equal(withdrawAmount - withdrawGasCost);
+
+      // Verify contract balance decreased
+      const networkBalanceAfterWithdraw = await connection.ethers.provider.getBalance(await network.getAddress());
+      expect(networkBalanceBeforeWithdraw - networkBalanceAfterWithdraw).to.equal(withdrawAmount);
+
+      // Verify balance invariant: owner got back what they deposited (minus gas)
+      const ownerBalanceFinal = await connection.ethers.provider.getBalance(clusterOwner.address);
+      const totalGasSpent = depositGasCost + withdrawGasCost;
+      expect(ownerBalanceFinal).to.equal(ownerBalanceBeforeDeposit - totalGasSpent);
+    });
+
+    it("Reverts withdraw from liquidated cluster when using stale pre-deposit cluster state", async function() {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const activeCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, activeCluster);
+
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+      expect(liquidatedCluster.balance).to.equal(0n);
+
+      const depositAmount = connection.ethers.parseEther("1");
+      await network.connect(clusterOwner).deposit(
+        clusterOwner.address,
+        operatorIds,
+        liquidatedCluster,
+        { value: depositAmount }
+      );
+
+      await expect(
+        network.connect(clusterOwner).withdraw(operatorIds, depositAmount, liquidatedCluster)
+      ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
+    });
+
+    it("Does not change operator or DAO earnings when withdrawing from a liquidated cluster with pre-existing earnings", async function() {
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const sumOperatorEarnings = async (operatorIds: number[]) => {
+        let total = 0n;
+        for (const opId of operatorIds) {
+          total += await views.getOperatorEarnings(opId);
+        }
+        return total;
+      };
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const activeCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      await connection.networkHelpers.mine(100);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, activeCluster);
+
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+
+      const operatorEarningsBefore = await sumOperatorEarnings(operatorIds);
+      const daoEarningsBefore = await views.getNetworkEarnings();
+
+      const depositAmount = connection.ethers.parseEther("2");
+      await network.connect(clusterOwner).deposit(
+        clusterOwner.address,
+        operatorIds,
+        liquidatedCluster,
+        { value: depositAmount }
+      );
+
+      const clusterAfterDeposit = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).withdraw(operatorIds, depositAmount, clusterAfterDeposit);
+
+      const operatorEarningsAfter = await sumOperatorEarnings(operatorIds);
+      const daoEarningsAfter = await views.getNetworkEarnings();
+
+      expect(operatorEarningsAfter).to.equal(operatorEarningsBefore);
+      expect(daoEarningsAfter).to.equal(daoEarningsBefore);
+    });
+
+    it("Maintains global ETH accounting invariant after liquidated cluster withdrawal", async function() {
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      // Helper to calculate global accounting invariant
+      const calculateInvariant = async () => {
+        const contractBalance = await connection.ethers.provider.getBalance(await network.getAddress());
+
+        // Sum all cluster balances (we only have one cluster in this test)
+        const clusterBalance = BigInt((await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds)).balance);
+
+        // Sum operator ETH earnings
+        let totalOperatorEarnings = 0n;
+        for (let i = 0; i < operatorIds.length; i++) {
+          const earnings = await views.getOperatorEarnings(operatorIds[i]);
+          totalOperatorEarnings += earnings;
+        }
+
+        // Get DAO balance (network earnings)
+        const daoBalance = await views.getNetworkEarnings();
+
+        // Get staking pool balance (if any)
+        const stakingBalance = await views.stakingEthPoolBalance();
+
+        const expectedBalance = clusterBalance + totalOperatorEarnings + daoBalance + stakingBalance;
+
+        return { contractBalance, expectedBalance, clusterBalance, totalOperatorEarnings, daoBalance, stakingBalance };
+      };
+
+      // Use high network fee for faster liquidation
+      await network.updateNetworkFee(NETWORK_FEE * 100n);
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      // Step 1: Register validator
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      // Verify invariant after registration
+      let invariant = await calculateInvariant();
+      expect(invariant.contractBalance).to.equal(invariant.expectedBalance);
+
+      // Step 2: Self-liquidate (owner can always liquidate their own cluster)
+      const clusterBeforeLiquidation = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, clusterBeforeLiquidation);
+
+      // Verify invariant after liquidation
+      invariant = await calculateInvariant();
+      expect(invariant.contractBalance).to.equal(invariant.expectedBalance);
+
+      // Step 3: Deposit to liquidated cluster
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      const depositAmount = connection.ethers.parseEther("5");
+
+      await network.connect(clusterOwner).deposit(
+        clusterOwner.address,
+        operatorIds,
+        liquidatedCluster,
+        { value: depositAmount }
+      );
+
+      // Verify invariant after deposit
+      invariant = await calculateInvariant();
+      expect(invariant.contractBalance).to.equal(invariant.expectedBalance);
+
+      // Step 4: Partial withdrawal (3 ETH)
+      const clusterAfterDeposit = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      const partialWithdraw = connection.ethers.parseEther("3");
+
+      await network.connect(clusterOwner).withdraw(operatorIds, partialWithdraw, clusterAfterDeposit);
+
+      // Verify invariant after partial withdrawal
+      invariant = await calculateInvariant();
+      expect(invariant.contractBalance).to.equal(invariant.expectedBalance);
+
+      // Step 5: Withdraw remaining balance (2 ETH)
+      const clusterAfterPartialWithdraw = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      const remainingWithdraw = connection.ethers.parseEther("2");
+
+      await network.connect(clusterOwner).withdraw(operatorIds, remainingWithdraw, clusterAfterPartialWithdraw);
+
+      // Verify invariant after full withdrawal
+      invariant = await calculateInvariant();
+      expect(invariant.contractBalance).to.equal(invariant.expectedBalance);
+
+      // Final verification: cluster balance should be 0
+      const finalCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(finalCluster.balance).to.equal(0n);
+    });
+
+    it("Allows withdrawal from liquidated cluster even if one operator was removed", async function() {
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      // Use high network fee for faster liquidation
+      await network.updateNetworkFee(NETWORK_FEE * 100n);
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      // Step 1: Register validator with 4 operators
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const activeCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(activeCluster.active).to.equal(true);
+      expect(activeCluster.validatorCount).to.equal(1n);
+
+      // Step 2: Remove one operator (operator[0])
+      await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+
+      // Verify operator is removed
+      const removedOperatorDetails = await views.getOperatorById(operatorIds[0]);
+      expect(removedOperatorDetails[0]).to.not.equal(connection.ethers.ZeroAddress); // Owner preserved after removal
+
+      // Step 3: Self-liquidate (owner can always liquidate their own cluster)
+      const currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, currentCluster);
+
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+
+      // Step 4: Deposit to liquidated cluster (despite removed operator)
+      const depositAmount = connection.ethers.parseEther("4");
+
+      const depositTx = await network.connect(clusterOwner).deposit(
+        clusterOwner.address,
+        operatorIds,
+        liquidatedCluster,
+        { value: depositAmount }
+      );
+      await depositTx.wait();
+
+      const clusterAfterDeposit = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(clusterAfterDeposit.balance).to.equal(depositAmount);
+
+      // Step 5: Withdraw from liquidated cluster (should succeed despite removed operator)
+      const ownerBalanceBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
+
+      const withdrawTx = await network.connect(clusterOwner).withdraw(
+        operatorIds,
+        depositAmount,
+        clusterAfterDeposit
+      );
+      const withdrawReceipt = await withdrawTx.wait();
+      const withdrawGasCost = withdrawReceipt!.gasUsed * withdrawReceipt!.gasPrice;
+
+      // Verify withdrawal succeeded
+      const clusterAfterWithdraw = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(clusterAfterWithdraw.balance).to.equal(0n);
+      expect(clusterAfterWithdraw.active).to.equal(false);
+
+      // Verify ETH was transferred to owner
+      const ownerBalanceAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
+      expect(ownerBalanceAfter - ownerBalanceBefore).to.equal(depositAmount - withdrawGasCost);
+    });
+
+    it("Allows reactivation after partial withdrawal from liquidated cluster", async function() {
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      // Use high network fee for faster liquidation
+      await network.updateNetworkFee(NETWORK_FEE * 100n);
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      // Step 1: Register validator
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      // Step 2: Self-liquidate (owner can always liquidate their own cluster)
+      const currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, currentCluster);
+
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+
+      // Step 3: Deposit substantial amount to liquidated cluster
+      const depositAmount = connection.ethers.parseEther("10");
+
+      await network.connect(clusterOwner).deposit(
+        clusterOwner.address,
+        operatorIds,
+        liquidatedCluster,
+        { value: depositAmount }
+      );
+
+      const clusterAfterDeposit = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(clusterAfterDeposit.balance).to.equal(depositAmount);
+
+      // Step 4: Partial withdrawal (3 ETH, leaving 7 ETH)
+      const partialWithdrawAmount = connection.ethers.parseEther("3");
+
+      await network.connect(clusterOwner).withdraw(
+        operatorIds,
+        partialWithdrawAmount,
+        clusterAfterDeposit
+      );
+
+      const clusterAfterPartialWithdraw = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(clusterAfterPartialWithdraw.balance).to.equal(depositAmount - partialWithdrawAmount);
+      expect(clusterAfterPartialWithdraw.active).to.equal(false); // Still liquidated
+
+      // Step 5: Reactivate with remaining balance (7 ETH should be sufficient)
+      const reactivationDeposit = connection.ethers.parseEther("3"); // Additional deposit for reactivation
+
+      const reactivateTx = await network.connect(clusterOwner).reactivate(
+        operatorIds,
+        clusterAfterPartialWithdraw,
+        { value: reactivationDeposit }
+      );
+
+      await expect(reactivateTx)
+        .to.emit(network, Events.CLUSTER_REACTIVATED);
+
+      // Step 6: Verify cluster is now active
+      const reactivatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(reactivatedCluster.active).to.equal(true);
+      expect(reactivatedCluster.validatorCount).to.equal(1n);
+      expect(reactivatedCluster.balance).to.equal(
+        depositAmount - partialWithdrawAmount + reactivationDeposit
+      ); // 7 ETH from deposit + 3 ETH from reactivation = 10 ETH
+
+      // Step 7: Verify cluster is not liquidatable after reactivation
+      const isLiquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, reactivatedCluster);
+      expect(isLiquidatable).to.equal(false);
     });
   });
 });
