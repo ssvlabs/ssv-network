@@ -6,7 +6,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 
-describe("SSVDAO function `setMinBlocksBetweenUpdates()`", async () => {
+describe("SSVDAO function `updatesMinBlocksBetweenUpdates()`", async () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
 
@@ -21,7 +21,7 @@ describe("SSVDAO function `setMinBlocksBetweenUpdates()`", async () => {
 
     const newMinBlocks = 7200n;
 
-    const tx = await dao.setMinBlocksBetweenUpdates(newMinBlocks);
+    const tx = await dao.updatesMinBlocksBetweenUpdates(newMinBlocks);
 
     await expect(tx)
       .to.emit(dao, Events.MIN_BLOCKS_BETWEEN_UPDATES_UPDATED)
@@ -33,15 +33,15 @@ describe("SSVDAO function `setMinBlocksBetweenUpdates()`", async () => {
   it("Is reverted when setting EB update cooldown blocks to zero", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    await expect(dao.setMinBlocksBetweenUpdates(0n))
+    await expect(dao.updatesMinBlocksBetweenUpdates(0n))
       .to.be.revertedWithCustomError(dao, Errors.ZERO_AMOUNT);
   });
 
   it("Can update EB update cooldown blocks from one non-zero value to another", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    await dao.setMinBlocksBetweenUpdates(7200n);
-    const tx = await dao.setMinBlocksBetweenUpdates(3600n);
+    await dao.updatesMinBlocksBetweenUpdates(7200n);
+    const tx = await dao.updatesMinBlocksBetweenUpdates(3600n);
 
     await expect(tx)
       .to.emit(dao, Events.MIN_BLOCKS_BETWEEN_UPDATES_UPDATED)

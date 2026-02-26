@@ -117,15 +117,11 @@ async function main() {
   // ── 5. Run staking upgrade (reinitializer) ──
   console.log("[5/7] Running SSVStaking upgrade (upgradeToAndCall)...");
   const { address: stakingUpgradeImplAddr } = await deployContract(ethers, "SSVNetworkSSVStakingUpgrade");
-  const minBlocksBetweenUpdates = parseUint(pp.minBlocksBetweenUpdates, "minBlocksBetweenUpdates");
-  if (minBlocksBetweenUpdates === undefined) {
-    throw new Error("protocolParams.minBlocksBetweenUpdates is required for initializeSSVStaking");
-  }
 
   const stakingUpgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
   const stakingInitData = stakingUpgradeFactory.interface.encodeFunctionData(
-    "initializeSSVStaking(uint64,uint32[4],uint16,uint32)",
-    [cooldown, defaultOracleIds, quorumBps, minBlocksBetweenUpdates]
+    "initializeSSVStaking(uint64,uint32[4],uint16)",
+    [cooldown, defaultOracleIds, quorumBps]
   );
 
   const networkWithSigner = await ethers.getContractAt("SSVNetwork", networkProxyAddr, deployer);
@@ -155,6 +151,11 @@ async function main() {
   for (const mod of MODULE_ORDER) {
     const moduleId = SSVModules[mod];
     await (await networkWithSigner.updateModule(moduleId, modules[mod])).wait();
+  }
+
+  const minBlocksBetweenUpdates = parseUint(pp.minBlocksBetweenUpdates, "minBlocksBetweenUpdates");
+  if (minBlocksBetweenUpdates !== undefined) {
+    await (await networkWithSigner.updatesMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
   }
 
   const blockNumber = await ethers.provider.getBlockNumber();

@@ -250,7 +250,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     /**
      * @inheritdoc ISSVDAO
      */
-    function setMinBlocksBetweenUpdates(uint32 blocks) external override {
+    function updatesMinBlocksBetweenUpdates(uint32 blocks) external override {
         if (blocks == 0) revert ZeroAmount();
 
         SSVStorageEB.load().minBlocksBetweenUpdates = blocks;

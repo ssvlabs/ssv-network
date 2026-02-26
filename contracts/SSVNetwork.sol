@@ -389,7 +389,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function setMinBlocksBetweenUpdates(uint32 blocks) external override onlyOwner {
+    function updatesMinBlocksBetweenUpdates(uint32 blocks) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 

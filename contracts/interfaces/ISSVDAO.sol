@@ -218,7 +218,7 @@ interface ISSVDAO is ISSVNetworkCore {
      * @notice Sets the minimum block interval between EB updates for the same cluster
      * @param blocks The new minimum interval in blocks (must be non-zero)
      */
-    function setMinBlocksBetweenUpdates(uint32 blocks) external;
+    function updatesMinBlocksBetweenUpdates(uint32 blocks) external;
 
     /**
      * @notice Replace oracle address at a stable oracle ID

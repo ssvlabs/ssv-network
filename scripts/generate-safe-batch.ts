@@ -99,7 +99,7 @@ async function main() {
     "function updateNetworkFee(uint256 fee)",
     "function updateNetworkFeeSSV(uint256 fee)",
     "function updateLiquidationThresholdPeriod(uint64 blocks)",
-    "function setMinBlocksBetweenUpdates(uint32 blocks)",
+    "function updatesMinBlocksBetweenUpdates(uint32 blocks)",
     "function updateMinimumLiquidationCollateral(uint256 amount)",
     "function updateMinimumLiquidationCollateralSSV(uint256 amount)",
     "function updateDeclareOperatorFeePeriod(uint64 blocks)",
@@ -123,17 +123,13 @@ async function main() {
       data: ssvNetworkIface.encodeFunctionData("upgradeTo", [stakingUpgradeImpl]),
     });
   } else {
-    if (params.minBlocksBetweenUpdates === undefined) {
-      throw new Error("protocolParams.minBlocksBetweenUpdates is required for initializeSSVStaking");
-    }
     const stakingUpgradeIface = new Interface([
-      "function initializeSSVStaking(uint64 cooldownDuration, uint32[4] defaultOracleIds, uint16 quorumBps, uint32 minBlocksBetweenUpdates)",
+      "function initializeSSVStaking(uint64 cooldownDuration, uint32[4] defaultOracleIds, uint16 quorumBps)",
     ]);
     const initData = stakingUpgradeIface.encodeFunctionData("initializeSSVStaking", [
       cooldownDuration,
       defaultOracleIds,
       quorumBps,
-      params.minBlocksBetweenUpdates,
     ]);
     transactions.push({
       to: ssvNetworkProxy,
@@ -185,11 +181,11 @@ async function main() {
       data: ssvNetworkIface.encodeFunctionData("updateLiquidationThresholdPeriod", [params.liquidationThresholdPeriod]),
     });
   }
-  if (config.skipInitializer && params.minBlocksBetweenUpdates !== undefined) {
+  if (params.minBlocksBetweenUpdates !== undefined) {
     transactions.push({
       to: ssvNetworkProxy,
       value: "0",
-      data: ssvNetworkIface.encodeFunctionData("setMinBlocksBetweenUpdates", [params.minBlocksBetweenUpdates]),
+      data: ssvNetworkIface.encodeFunctionData("updatesMinBlocksBetweenUpdates", [params.minBlocksBetweenUpdates]),
     });
   }
   if (params.minimumLiquidationCollateralEth !== undefined) {

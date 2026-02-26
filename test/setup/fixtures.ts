@@ -295,7 +295,6 @@ export async function ssvNetworkFullFixture(
   const { address: upgradeImplAddr } = await deployContract(connection.ethers, "SSVNetworkSSVStakingUpgrade");
 
   const cooldown = DEFAULT_UNSTAKE_COOLDOWN;
-  const minBlocksBetweenUpdates = 7_200n;
 
   await upgradeProxy(
     connection.ethers,
@@ -303,12 +302,11 @@ export async function ssvNetworkFullFixture(
     networkProxyAddr,
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
-    "initializeSSVStaking(uint64,uint32[4],uint16,uint32)",
+    "initializeSSVStaking(uint64,uint32[4],uint16)",
     [
       cooldown,
       DEFAULT_ORACLE_IDS,
       QUORUM_BPS,
-      minBlocksBetweenUpdates,
     ]
   );
 
@@ -382,11 +380,10 @@ export async function ssvNetworkFullForkedFixture(
     const daoNetwork = network.connect(daoSigner);
 
     const cooldown = DEFAULT_UNSTAKE_COOLDOWN;
-    const minBlocksBetweenUpdates = 7_200n;
     const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
     const initData = upgradeFactory.interface.encodeFunctionData(
-      "initializeSSVStaking(uint64,uint32[4],uint16,uint32)",
-      [cooldown, DEFAULT_ORACLE_IDS, QUORUM_BPS, minBlocksBetweenUpdates]
+      "initializeSSVStaking(uint64,uint32[4],uint16)",
+      [cooldown, DEFAULT_ORACLE_IDS, QUORUM_BPS]
     );
 
     try {

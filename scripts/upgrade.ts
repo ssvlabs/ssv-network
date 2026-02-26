@@ -270,13 +270,10 @@ async function main() {
     console.log("  skipInitializer=true: using upgradeTo (no initializer call)");
     await (await networkOwner.upgradeTo(stakingUpgradeImplAddr)).wait();
   } else {
-    if (minBlocksBetweenUpdates === undefined) {
-      throw new Error("protocolParams.minBlocksBetweenUpdates is required for initializeSSVStaking");
-    }
     const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
     const initData = upgradeFactory.interface.encodeFunctionData(
-      "initializeSSVStaking(uint64,uint32[4],uint16,uint32)",
-      [cooldownDuration, defaultOracleIds, quorumBps, minBlocksBetweenUpdates]
+      "initializeSSVStaking(uint64,uint32[4],uint16)",
+      [cooldownDuration, defaultOracleIds, quorumBps]
     );
     await (await networkOwner.upgradeToAndCall(stakingUpgradeImplAddr, initData)).wait();
   }
@@ -301,8 +298,8 @@ async function main() {
   if (params.liquidationThresholdPeriod !== undefined) {
     await (await networkOwner.updateLiquidationThresholdPeriod(params.liquidationThresholdPeriod)).wait();
   }
-  if (config.skipInitializer && minBlocksBetweenUpdates !== undefined) {
-    await (await networkOwner.setMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
+  if (minBlocksBetweenUpdates !== undefined) {
+    await (await networkOwner.updatesMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
   }
   if (params.minimumLiquidationCollateralEth !== undefined) {
     await (await networkOwner.updateMinimumLiquidationCollateral(params.minimumLiquidationCollateralEth)).wait();
