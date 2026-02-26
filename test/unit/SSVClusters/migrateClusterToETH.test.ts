@@ -270,14 +270,30 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
 
     // Set SSV network fee for accrual calculations
-    const ssvNetworkFee = 1000000n; // 1 SSV fee per block per validator (packed value)
+    const ssvNetworkFee = 5n; // packed SSV fee per block per validator
     await clusters.mockSSVNetworkFee(ssvNetworkFee);
     await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+
+    // Set SSV operator fees so accrual is non-trivial
+    const operatorSSVFee = DEDUCTED_DIGITS * 3n;
+    for (const opId of operatorIds) {
+      await clusters.mockOperatorSSVFee(opId, operatorSSVFee);
+    }
 
     // Set ETH network fee for ETH cluster after migration
     const ethNetworkFee = 1770n; // ETH fee (packed value)
     await clusters.mockEthNetworkFee(ethNetworkFee);
     await clusters.mockCurrentNetworkFeeIndex(0n);
+
+    // Capture operator snapshots and block reference before mining
+    const operatorSnapshots = [];
+    for (const opId of operatorIds) {
+      const snap = await clusters.getOperatorSnapshot(opId);
+      const fee = await clusters.getOperatorSSVFee(opId);
+      operatorSnapshots.push({ block: BigInt(snap.blockNumber), index: snap.index, fee });
+    }
+    const networkFeeIndexBefore = await clusters.getCurrentNetworkFeeIndexSSV();
+    const readBlock = BigInt(await connection.ethers.provider.getBlockNumber());
 
     // Mine blocks to accrue fees
     const blocksToMine = 100;
@@ -294,32 +310,34 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
     const receipt = await migrateTx.wait();
+    const migrationBlock = BigInt(receipt!.blockNumber);
     const eventArgs = getMigratedToETHEventArgs(clusters, receipt);
 
     // Assert event emission
     await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
-    
-    // Assert event arguments are reasonable
+
     expect(eventArgs.ethDeposited).to.equal(DEFAULT_ETH_REGISTER_VALUE);
-    expect(eventArgs.ssvRefunded).to.be.greaterThanOrEqual(0n);
-    expect(eventArgs.ssvRefunded).to.be.lessThanOrEqual(ssvBalance);
-    
+
+    // Calculate expected SSV refund independently
+    const blocksElapsed = migrationBlock - readBlock;
+    let expectedCumulativeIndex = 0n;
+    for (const snap of operatorSnapshots) {
+      const blockDiff = migrationBlock - snap.block;
+      expectedCumulativeIndex += snap.index + blockDiff * snap.fee;
+    }
+    const expectedNetworkFeeIndex = networkFeeIndexBefore + blocksElapsed * ssvNetworkFee;
+    const operatorUsagePacked = (expectedCumulativeIndex - ssvCluster.index) * validatorCount;
+    const networkUsagePacked = (expectedNetworkFeeIndex - ssvCluster.networkFeeIndex) * validatorCount;
+    const totalUnpackedUsage = (operatorUsagePacked + networkUsagePacked) * DEDUCTED_DIGITS;
+    const expectedRefund = ssvBalance > totalUnpackedUsage ? ssvBalance - totalUnpackedUsage : 0n;
+
+    expect(eventArgs.ssvRefunded).to.equal(expectedRefund);
+
     // Assert SSV token transfer actually happened and matches event
     const ownerSSVAfter = await mockToken.balanceOf(clusterOwner.address);
     const harnessSSVAfter = await mockToken.balanceOf(harnessAddress);
-    
-    expect(ownerSSVAfter - ownerSSVBefore).to.equal(eventArgs.ssvRefunded);
-    expect(harnessSSVBefore - harnessSSVAfter).to.equal(eventArgs.ssvRefunded);
-    
-    // Validate accounting: The refund should equal initial balance minus fees charged
-    // The fees charged should be reasonable based on network fee and time passed
-    const feesCharged = ssvBalance - eventArgs.ssvRefunded;
-    
-    // Key accounting validations:
-    expect(feesCharged).to.be.greaterThan(0n); // Some fees should have been charged
-    expect(feesCharged).to.be.lessThan(ssvBalance); // Can't charge more than balance
-    expect(eventArgs.ssvRefunded).to.be.lessThan(ssvBalance); // Refund less than initial balance
-    expect(eventArgs.ssvRefunded).to.be.greaterThanOrEqual(0n); // Refund non-negative
+    expect(ownerSSVAfter - ownerSSVBefore).to.equal(expectedRefund);
+    expect(harnessSSVBefore - harnessSSVAfter).to.equal(expectedRefund);
 
     // Parse the new ETH cluster from event
     const ethCluster = parseClusterFromEvent(clusters, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
@@ -328,10 +346,6 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     expect(ethCluster.active).to.equal(true);
     expect(ethCluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
     expect(ethCluster.validatorCount).to.equal(validatorCount);
-    // The network fee index should be updated during migration
-    expect(ethCluster.networkFeeIndex).to.be.greaterThanOrEqual(0n);
-    // The index should be non-negative (may be 0 if no ETH fees accrued yet)
-    expect(ethCluster.index).to.be.greaterThanOrEqual(0n);
 
     // Assert cluster hash is stored correctly
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
@@ -341,8 +355,6 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthValidatorCount(operatorId)).to.equal(validatorCount);
     }
-
-    // Test completed successfully - accounting validated
   });
 
   it("Correctly updates SSV snapshot and settles fees for already-ETH operators during migration", async function () {
@@ -387,6 +399,16 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     const ssvPublicKey = makePublicKey(1000);
     await clusters.mockRegisterSSVValidator(ssvPublicKey, operatorIds, clusterOwner.address, ssvCluster);
 
+    // Capture operator snapshots and network fee index before mining (pre-mine state)
+    const opSnapshotsBefore = [];
+    for (const opId of operatorIds) {
+      const snap = await clusters.getOperatorSnapshot(opId);
+      const fee = await clusters.getOperatorSSVFee(opId);
+      opSnapshotsBefore.push({ block: BigInt(snap.blockNumber), index: snap.index, fee });
+    }
+    const networkFeeIndexSSVBefore = await clusters.getCurrentNetworkFeeIndexSSV();
+    const readBlock = BigInt(await connection.ethers.provider.getBlockNumber());
+
     const blocksToMine = 750;
     await networkHelpers.mine(blocksToMine);
 
@@ -398,15 +420,29 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
     const receipt = await migrateTx.wait();
+    const migrationBlock = BigInt(receipt!.blockNumber);
     const eventArgs = getMigratedToETHEventArgs(clusters, receipt);
 
     await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
     expect(eventArgs.ethDeposited).to.equal(DEFAULT_ETH_REGISTER_VALUE);
-    expect(eventArgs.ssvRefunded).to.be.greaterThan(0n);
-    expect(eventArgs.ssvRefunded).to.be.lessThan(ssvBalance);
+
+    // Calculate expected SSV refund independently per SPEC.md §10
+    let expectedCumulativeIndex = 0n;
+    for (const snap of opSnapshotsBefore) {
+      const blockDiff = migrationBlock - snap.block;
+      expectedCumulativeIndex += snap.index + blockDiff * snap.fee;
+    }
+    const blocksElapsed = migrationBlock - readBlock;
+    const expectedNetworkFeeIndex = networkFeeIndexSSVBefore + blocksElapsed * ssvNetworkFee;
+    const opUsagePacked = (expectedCumulativeIndex - BigInt(ssvCluster.index)) * validatorCount;
+    const netUsagePacked = (expectedNetworkFeeIndex - BigInt(ssvCluster.networkFeeIndex)) * validatorCount;
+    const totalUnpackedUsage = (opUsagePacked + netUsagePacked) * DEDUCTED_DIGITS;
+    const expectedRefund = ssvBalance > totalUnpackedUsage ? ssvBalance - totalUnpackedUsage : 0n;
+
+    expect(eventArgs.ssvRefunded).to.equal(expectedRefund);
 
     const ownerSSVAfter = await mockToken.balanceOf(clusterOwner.address);
-    expect(ownerSSVAfter - ownerSSVBefore).to.equal(eventArgs.ssvRefunded);
+    expect(ownerSSVAfter - ownerSSVBefore).to.equal(expectedRefund);
   });
 
   describe("updateClusterOperatorsMigration specific tests", async function () {
@@ -763,8 +799,9 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       expect(ownerTokenAfter - ownerTokenBefore).to.equal(expectedRefund);
       expect(harnessTokenBefore - harnessTokenAfter).to.equal(expectedRefund);
 
-      expect(expectedRefund).to.be.greaterThan(0n);
-      expect(expectedRefund).to.be.lessThan(initialBalance);
+      // Verify refund is exactly as calculated (not zero, not full balance)
+      const feesCharged = initialBalance - expectedRefund;
+      expect(feesCharged).to.equal(totalUnpackedUsage);
     });
 
     it("Migration with partial SSV balance remaining — exact token transfer", async function () {
@@ -850,9 +887,9 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       expect(ownerTokenAfter - ownerTokenBefore).to.equal(expectedRefund);
       expect(harnessTokenBefore - harnessTokenAfter).to.equal(expectedRefund);
 
-      expect(initialBalance - expectedRefund).to.be.greaterThan(0n);
-      expect(expectedRefund).to.be.greaterThan(0n);
-      expect(expectedRefund).to.be.lessThan(initialBalance);
+      // Verify exact fee deduction matches formula
+      const feesCharged = initialBalance - expectedRefund;
+      expect(feesCharged).to.equal(totalUnpackedUsage);
     });
 
     it("Migration with dual SSV/ETH fees — ETH side correctly initialized", async function () {
@@ -966,6 +1003,333 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       for (const operatorId of operatorIds) {
         expect(await clusters.getOperatorValidatorCount(operatorId)).to.equal(0);
       }
+    });
+
+    it("Zero SSV balance migration — exact refund calculation", async function () {
+      const { clusters, operatorIds } =
+        await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+      // Set non-zero fees so formula can be tested
+      const operatorSSVFee = DEDUCTED_DIGITS * 2n;
+      for (const opId of operatorIds) {
+        await clusters.mockOperatorSSVFee(opId, operatorSSVFee);
+      }
+
+      const ssvNetworkFeeRaw = 1n;
+      await clusters.mockSSVNetworkFee(ssvNetworkFeeRaw);
+      await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+
+      const mockToken = await connection.ethers.deployContract("MockToken", []);
+      await mockToken.waitForDeployment();
+      const tokenAddress = await mockToken.getAddress();
+      const harnessAddress = await clusters.getAddress();
+      await clusters.mockSetToken(tokenAddress);
+
+      // Zero balance SSV cluster - all fees will result in 0 refund
+      const validatorCount = 2n;
+      const initialBalance = 0n;
+
+      const ssvCluster = {
+        validatorCount: validatorCount,
+        networkFeeIndex: 0n,
+        index: 0n,
+        balance: initialBalance,
+        active: true,
+      };
+
+      const publicKey = makePublicKey(1);
+      await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+      const ownerTokenBefore = await mockToken.balanceOf(clusterOwner.address);
+      const harnessTokenBefore = await mockToken.balanceOf(harnessAddress);
+
+      const migrateTx = await clusters.migrateClusterToETH(
+        operatorIds,
+        ssvCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await migrateTx.wait();
+      const eventArgs = getMigratedToETHEventArgs(clusters, receipt);
+
+      // Per SPEC.md §10: usage = (operatorIndexDelta + networkIndexDelta) * validatorCount
+      // balance = max(0, balance - unpack(usage))
+      // With balance = 0, refund should be exactly 0
+      const expectedRefund = 0n;
+
+      expect(eventArgs.ssvRefunded).to.equal(expectedRefund);
+
+      const ownerTokenAfter = await mockToken.balanceOf(clusterOwner.address);
+      const harnessTokenAfter = await mockToken.balanceOf(harnessAddress);
+      expect(ownerTokenAfter - ownerTokenBefore).to.equal(expectedRefund);
+      expect(harnessTokenBefore - harnessTokenAfter).to.equal(expectedRefund);
+
+      // Verify ETH cluster was created successfully despite zero refund
+      const ethCluster = parseClusterFromEvent(clusters, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      expect(ethCluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+      expect(ethCluster.active).to.equal(true);
+      expect(ethCluster.validatorCount).to.equal(validatorCount);
+    });
+
+    it("Liquidated cluster migration — exact zero refund verification", async function () {
+      const { clusters, operatorIds } =
+        await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+      const operatorSSVFee = DEDUCTED_DIGITS * 10n;
+      for (const opId of operatorIds) {
+        await clusters.mockOperatorSSVFee(opId, operatorSSVFee);
+      }
+
+      const ssvNetworkFeeRaw = 5n;
+      await clusters.mockSSVNetworkFee(ssvNetworkFeeRaw);
+      await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+
+      const mockToken = await connection.ethers.deployContract("MockToken", []);
+      await mockToken.waitForDeployment();
+      const tokenAddress = await mockToken.getAddress();
+      const harnessAddress = await clusters.getAddress();
+      await clusters.mockSetToken(tokenAddress);
+
+      const validatorCount = 3n;
+      const initialBalance = connection.ethers.parseEther("1");
+      await mockToken.mint(harnessAddress, initialBalance);
+
+      const ssvCluster = {
+        validatorCount: validatorCount,
+        networkFeeIndex: 0n,
+        index: 0n,
+        balance: initialBalance,
+        active: true,
+      };
+
+      const publicKey = makePublicKey(1);
+      await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+      // Liquidate the cluster first
+      const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, ssvCluster);
+      const liquidateReceipt = await liquidateTx.wait();
+      const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
+
+      // Verify cluster is liquidated (balance should be 0 after liquidation)
+      expect(liquidatedCluster.active).to.be.false;
+      expect(liquidatedCluster.balance).to.equal(0n);
+
+      const ownerTokenBefore = await mockToken.balanceOf(clusterOwner.address);
+      const harnessTokenBefore = await mockToken.balanceOf(harnessAddress);
+
+      // Migrate liquidated cluster
+      const migrateTx = await clusters.migrateClusterToETH(
+        operatorIds,
+        liquidatedCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await migrateTx.wait();
+      const eventArgs = getMigratedToETHEventArgs(clusters, receipt);
+
+      // Per SPEC.md §10 and FLOWS.md §2.1:
+      // Liquidated clusters have balance = 0, so refund = 0
+      const expectedRefund = 0n;
+
+      expect(eventArgs.ssvRefunded).to.equal(expectedRefund);
+
+      const ownerTokenAfter = await mockToken.balanceOf(clusterOwner.address);
+      const harnessTokenAfter = await mockToken.balanceOf(harnessAddress);
+      expect(ownerTokenAfter - ownerTokenBefore).to.equal(expectedRefund);
+      expect(harnessTokenBefore - harnessTokenAfter).to.equal(expectedRefund);
+
+      // Verify ETH cluster was created and reactivated
+      const ethCluster = parseClusterFromEvent(clusters, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      expect(ethCluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+      expect(ethCluster.active).to.equal(true);
+      expect(ethCluster.validatorCount).to.equal(validatorCount);
+    });
+
+    it("Maximum precision SSV balance — exact refund with non-round values", async function () {
+      const { clusters, operatorIds } =
+        await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+      // Use fees that don't divide evenly
+      const operatorSSVFee = DEDUCTED_DIGITS * 7n + 123n; // Non-round packed fee
+      for (const opId of operatorIds) {
+        await clusters.mockOperatorSSVFee(opId, operatorSSVFee);
+      }
+
+      const ssvNetworkFeeRaw = 11n; // Prime number for non-round calculation
+      await clusters.mockSSVNetworkFee(ssvNetworkFeeRaw);
+      await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+
+      const mockToken = await connection.ethers.deployContract("MockToken", []);
+      await mockToken.waitForDeployment();
+      const tokenAddress = await mockToken.getAddress();
+      const harnessAddress = await clusters.getAddress();
+      await clusters.mockSetToken(tokenAddress);
+
+      const validatorCount = 7n; // Prime number of validators
+      // Use balance with maximum precision (18 decimals)
+      const initialBalance = 123_456_789_123_456_789n; // Not divisible by DEDUCTED_DIGITS
+
+      await mockToken.mint(harnessAddress, initialBalance);
+
+      const ssvCluster = {
+        validatorCount: validatorCount,
+        networkFeeIndex: 0n,
+        index: 0n,
+        balance: initialBalance,
+        active: true,
+      };
+
+      const publicKey = makePublicKey(1);
+      await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+      const operatorSnapshots = [];
+      for (const opId of operatorIds) {
+        const snap = await clusters.getOperatorSnapshot(opId);
+        const fee = await clusters.getOperatorSSVFee(opId);
+        operatorSnapshots.push({ block: BigInt(snap.blockNumber), index: snap.index, fee });
+      }
+      const networkFeeIndexBefore = await clusters.getCurrentNetworkFeeIndexSSV();
+      const readBlock = BigInt(await connection.ethers.provider.getBlockNumber());
+
+      await networkHelpers.mine(317); // Prime number of blocks
+
+      const ownerTokenBefore = await mockToken.balanceOf(clusterOwner.address);
+      const harnessTokenBefore = await mockToken.balanceOf(harnessAddress);
+
+      const migrateTx = await clusters.migrateClusterToETH(
+        operatorIds,
+        ssvCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await migrateTx.wait();
+      const migrationBlock = BigInt(receipt!.blockNumber);
+      const eventArgs = getMigratedToETHEventArgs(clusters, receipt);
+
+      const blocksElapsed = migrationBlock - readBlock;
+
+      // Calculate expected refund using SPEC.md §10 formula
+      let expectedCumulativeIndex = 0n;
+      for (const snap of operatorSnapshots) {
+        const blockDiff = migrationBlock - snap.block;
+        expectedCumulativeIndex += snap.index + blockDiff * snap.fee;
+      }
+
+      const expectedNetworkFeeIndex = networkFeeIndexBefore + blocksElapsed * ssvNetworkFeeRaw;
+
+      const operatorUsagePacked = (expectedCumulativeIndex - ssvCluster.index) * validatorCount;
+      const networkUsagePacked = (expectedNetworkFeeIndex - ssvCluster.networkFeeIndex) * validatorCount;
+      const totalPackedUsage = operatorUsagePacked + networkUsagePacked;
+      const totalUnpackedUsage = totalPackedUsage * DEDUCTED_DIGITS;
+
+      const expectedRefund = initialBalance > totalUnpackedUsage
+        ? initialBalance - totalUnpackedUsage
+        : 0n;
+
+      expect(eventArgs.ssvRefunded).to.equal(expectedRefund);
+
+      const ownerTokenAfter = await mockToken.balanceOf(clusterOwner.address);
+      const harnessTokenAfter = await mockToken.balanceOf(harnessAddress);
+      expect(ownerTokenAfter - ownerTokenBefore).to.equal(expectedRefund);
+      expect(harnessTokenBefore - harnessTokenAfter).to.equal(expectedRefund);
+
+      // Verify precision handling - fees charged should match formula exactly
+      const feesCharged = initialBalance - expectedRefund;
+      expect(feesCharged).to.equal(totalUnpackedUsage);
+    });
+
+    it("Rounding truncation — fee remainder below DEDUCTED_DIGITS is not charged", async function () {
+      const { clusters, operatorIds } =
+        await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+      // Use a minimal packed fee (1n) to exercise truncation behavior.
+      // operatorSSVFee is already a packed value; the unpacked fee = fee * DEDUCTED_DIGITS.
+      // We choose fee = 1n so each operator contributes 1 packed unit/block.
+      const operatorSSVFee = 1n;
+      for (const opId of operatorIds) {
+        await clusters.mockOperatorSSVFee(opId, operatorSSVFee);
+      }
+
+      const ssvNetworkFeeRaw = 0n; // no network fee, isolate operator fee
+      await clusters.mockSSVNetworkFee(ssvNetworkFeeRaw);
+      await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+
+      const mockToken = await connection.ethers.deployContract("MockToken", []);
+      await mockToken.waitForDeployment();
+      const tokenAddress = await mockToken.getAddress();
+      const harnessAddress = await clusters.getAddress();
+      await clusters.mockSetToken(tokenAddress);
+
+      const validatorCount = 3n;
+      // Choose initialBalance so (initialBalance % DEDUCTED_DIGITS) != 0 AND
+      // there is a non-zero remainder when totalPackedUsage * DEDUCTED_DIGITS is
+      // subtracted — i.e. the "sub-precision" tail of initialBalance is preserved.
+      const tail = DEDUCTED_DIGITS - 1n; // maximum sub-precision remainder
+      const initialBalance = connection.ethers.parseEther("10") + tail;
+      await mockToken.mint(harnessAddress, initialBalance);
+
+      const ssvCluster = {
+        validatorCount: validatorCount,
+        networkFeeIndex: 0n,
+        index: 0n,
+        balance: initialBalance,
+        active: true,
+      };
+
+      const publicKey = makePublicKey(1);
+      await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+      const operatorSnapshots = [];
+      for (const opId of operatorIds) {
+        const snap = await clusters.getOperatorSnapshot(opId);
+        const fee = await clusters.getOperatorSSVFee(opId);
+        operatorSnapshots.push({ block: BigInt(snap.blockNumber), index: snap.index, fee });
+      }
+      const networkFeeIndexBefore = await clusters.getCurrentNetworkFeeIndexSSV();
+      const readBlock = BigInt(await connection.ethers.provider.getBlockNumber());
+
+      await networkHelpers.mine(50);
+
+      const ownerTokenBefore = await mockToken.balanceOf(clusterOwner.address);
+      const harnessTokenBefore = await mockToken.balanceOf(harnessAddress);
+
+      const migrateTx = await clusters.migrateClusterToETH(
+        operatorIds,
+        ssvCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const receipt = await migrateTx.wait();
+      const migrationBlock = BigInt(receipt!.blockNumber);
+      const eventArgs = getMigratedToETHEventArgs(clusters, receipt);
+
+      const blocksElapsed = migrationBlock - readBlock;
+
+      let expectedCumulativeIndex = 0n;
+      for (const snap of operatorSnapshots) {
+        const blockDiff = migrationBlock - snap.block;
+        expectedCumulativeIndex += snap.index + blockDiff * snap.fee;
+      }
+
+      const expectedNetworkFeeIndex = networkFeeIndexBefore + blocksElapsed * ssvNetworkFeeRaw;
+      const operatorUsagePacked = (expectedCumulativeIndex - ssvCluster.index) * validatorCount;
+      const networkUsagePacked = (expectedNetworkFeeIndex - ssvCluster.networkFeeIndex) * validatorCount;
+      const totalPackedUsage = operatorUsagePacked + networkUsagePacked;
+      const totalUnpackedUsage = totalPackedUsage * DEDUCTED_DIGITS;
+
+      const expectedRefund = initialBalance > totalUnpackedUsage
+        ? initialBalance - totalUnpackedUsage
+        : 0n;
+
+      // Exact refund must match formula (integer truncation, never rounds up)
+      expect(eventArgs.ssvRefunded).to.equal(expectedRefund);
+
+      const ownerTokenAfter = await mockToken.balanceOf(clusterOwner.address);
+      const harnessTokenAfter = await mockToken.balanceOf(harnessAddress);
+      expect(ownerTokenAfter - ownerTokenBefore).to.equal(expectedRefund);
+      expect(harnessTokenBefore - harnessTokenAfter).to.equal(expectedRefund);
+
+      // The sub-precision tail of the balance must appear in the refund unchanged
+      // (the contract does NOT charge fractions of DEDUCTED_DIGITS)
+      const feesCharged = initialBalance - expectedRefund;
+      expect(feesCharged % DEDUCTED_DIGITS).to.equal(0n); // fees are always whole packed units
+      expect(expectedRefund % DEDUCTED_DIGITS).to.equal(tail); // tail preserved in refund
     });
   });
 
