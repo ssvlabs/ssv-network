@@ -98,7 +98,8 @@ contract SSVStakingEchidna is SSVStaking {
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint256 private constant MAX_STAKE = 1_000_000 ether;
-    uint256 private constant MAX_PENDING_REQUESTS = 10;
+    // Mirror SSVStaking.MAX_PENDING_REQUESTS to avoid harness-only false negatives.
+    uint256 private constant MAX_PENDING_REQUESTS = 2000;
 
     MockToken private token;
     CSSVTokenMock private cssv;
@@ -285,6 +286,10 @@ contract SSVStakingEchidna is SSVStaking {
             cssv.balanceOf(address(user3)) +
             cssv.balanceOf(address(user4));
         return supply == sumBalances;
+    }
+
+    function echidna_cssv_supply_lte_ssv_backing() external view returns (bool) {
+        return cssv.totalSupply() <= token.balanceOf(address(this));
     }
 
     function echidna_ssv_balance_matches_staked_plus_pending() external view returns (bool) {
