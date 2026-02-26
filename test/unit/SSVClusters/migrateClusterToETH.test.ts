@@ -1147,13 +1147,15 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       const { clusters, operatorIds } =
         await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-      // Use fees that don't divide evenly
-      const operatorSSVFee = DEDUCTED_DIGITS * 7n + 123n; // Non-round packed fee
+      // Fees must be DEDUCTED_DIGITS-aligned (PackedSSVLib.pack enforces this).
+      // Non-round arithmetic comes from: fee * blocks * validatorCount * numOperators
+      // where blocks=317 (prime), validatorCount=7 (prime), numOperators=4.
+      const operatorSSVFee = DEDUCTED_DIGITS * 7n; // 7 packed units per block
       for (const opId of operatorIds) {
         await clusters.mockOperatorSSVFee(opId, operatorSSVFee);
       }
 
-      const ssvNetworkFeeRaw = 11n; // Prime number for non-round calculation
+      const ssvNetworkFeeRaw = 11n; // raw packed value, no precision constraint on network fee
       await clusters.mockSSVNetworkFee(ssvNetworkFeeRaw);
       await clusters.mockCurrentNetworkFeeIndexSSV(0n);
 
@@ -1164,8 +1166,11 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       await clusters.mockSetToken(tokenAddress);
 
       const validatorCount = 7n; // Prime number of validators
-      // Use balance with maximum precision (18 decimals)
-      const initialBalance = 123_456_789_123_456_789n; // Not divisible by DEDUCTED_DIGITS
+      // Balance must be DEDUCTED_DIGITS-aligned (contract enforces precision on deposit).
+      // Non-round arithmetic: 4 operators × 7 packed fee × 317 blocks × 7 validators
+      //                     + 11 network fee × 317 blocks × 7 validators
+      // = product of primes — unique, non-trivial total.
+      const initialBalance = 123_456_780_000_000_000n; // DEDUCTED_DIGITS-aligned
 
       await mockToken.mint(harnessAddress, initialBalance);
 
@@ -1235,19 +1240,18 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       expect(feesCharged).to.equal(totalUnpackedUsage);
     });
 
-    it("Rounding truncation — fee remainder below DEDUCTED_DIGITS is not charged", async function () {
+    it("Fee integer truncation — totalUnpackedUsage is always a multiple of DEDUCTED_DIGITS", async function () {
       const { clusters, operatorIds } =
         await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-      // Use a minimal packed fee (1n) to exercise truncation behavior.
-      // operatorSSVFee is already a packed value; the unpacked fee = fee * DEDUCTED_DIGITS.
-      // We choose fee = 1n so each operator contributes 1 packed unit/block.
-      const operatorSSVFee = 1n;
+      // Fees must be DEDUCTED_DIGITS-aligned (PackedSSVLib.pack enforces this).
+      // Use prime multipliers so totalPackedUsage is non-trivial: 3 * fee * 97 blocks * 5 validators
+      const operatorSSVFee = DEDUCTED_DIGITS * 3n;
       for (const opId of operatorIds) {
         await clusters.mockOperatorSSVFee(opId, operatorSSVFee);
       }
 
-      const ssvNetworkFeeRaw = 0n; // no network fee, isolate operator fee
+      const ssvNetworkFeeRaw = 13n; // raw packed value, prime
       await clusters.mockSSVNetworkFee(ssvNetworkFeeRaw);
       await clusters.mockCurrentNetworkFeeIndexSSV(0n);
 
@@ -1257,12 +1261,9 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       const harnessAddress = await clusters.getAddress();
       await clusters.mockSetToken(tokenAddress);
 
-      const validatorCount = 3n;
-      // Choose initialBalance so (initialBalance % DEDUCTED_DIGITS) != 0 AND
-      // there is a non-zero remainder when totalPackedUsage * DEDUCTED_DIGITS is
-      // subtracted — i.e. the "sub-precision" tail of initialBalance is preserved.
-      const tail = DEDUCTED_DIGITS - 1n; // maximum sub-precision remainder
-      const initialBalance = connection.ethers.parseEther("10") + tail;
+      const validatorCount = 5n; // prime
+      // Balance must be DEDUCTED_DIGITS-aligned (contract invariant)
+      const initialBalance = connection.ethers.parseEther("50");
       await mockToken.mint(harnessAddress, initialBalance);
 
       const ssvCluster = {
@@ -1285,7 +1286,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       const networkFeeIndexBefore = await clusters.getCurrentNetworkFeeIndexSSV();
       const readBlock = BigInt(await connection.ethers.provider.getBlockNumber());
 
-      await networkHelpers.mine(50);
+      await networkHelpers.mine(97); // prime number of blocks
 
       const ownerTokenBefore = await mockToken.balanceOf(clusterOwner.address);
       const harnessTokenBefore = await mockToken.balanceOf(harnessAddress);
@@ -1317,7 +1318,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
         ? initialBalance - totalUnpackedUsage
         : 0n;
 
-      // Exact refund must match formula (integer truncation, never rounds up)
+      // Exact refund matches formula
       expect(eventArgs.ssvRefunded).to.equal(expectedRefund);
 
       const ownerTokenAfter = await mockToken.balanceOf(clusterOwner.address);
@@ -1325,11 +1326,11 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       expect(ownerTokenAfter - ownerTokenBefore).to.equal(expectedRefund);
       expect(harnessTokenBefore - harnessTokenAfter).to.equal(expectedRefund);
 
-      // The sub-precision tail of the balance must appear in the refund unchanged
-      // (the contract does NOT charge fractions of DEDUCTED_DIGITS)
+      // The fees charged are always an exact multiple of DEDUCTED_DIGITS —
+      // the contract multiplies packed units back out, never divides the balance
       const feesCharged = initialBalance - expectedRefund;
-      expect(feesCharged % DEDUCTED_DIGITS).to.equal(0n); // fees are always whole packed units
-      expect(expectedRefund % DEDUCTED_DIGITS).to.equal(tail); // tail preserved in refund
+      expect(feesCharged % DEDUCTED_DIGITS).to.equal(0n);
+      expect(totalPackedUsage % DEDUCTED_DIGITS).to.not.equal(0n); // non-round packed usage
     });
   });
 
@@ -1358,10 +1359,6 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       // This mimics the state of a removed operator
       await clusters.mockRemoveOperator(operatorToRemove);
 
-      // Verify operator is in removed state (both snapshots should be 0)
-      const ssvSnapshot = await clusters.getOperatorSnapshot(operatorToRemove);
-      const ethSnapshot = await clusters.getOperatorEthSnapshot(operatorToRemove);
-      
       // Note: In a real scenario, removed operators would have both snapshots at 0
       // For testing, we'll verify the migration handles this correctly
 
