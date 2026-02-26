@@ -74,7 +74,7 @@
 | TEST-29 | Add contract ETH balance delta assertions to deposit tests | Unit Test Completeness | P1 | S |
 | TEST-30 | Resolve TODO comments with deferred assertions | Unit Test Completeness | P1 | M |
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
-| TEST-32 | Add access control tests for DAO governance functions | Unit Test Completeness | P1 | S |
+| TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
 | TEST-34 | Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract | Unit Test Completeness | P1 | S |
 | ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
@@ -2228,9 +2228,9 @@ In `test/unit/SSVStaking/onCSSVTransfer.test.ts`, only 2 tests exist. Missing sc
 ### [TEST-32] Add access control tests for DAO governance functions
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Complete
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-02-26
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2240,9 +2240,20 @@ Add non-owner revert tests for all DAO governance functions. Currently all SSVDA
 All 11+ governance functions (`updateNetworkFee`, `updateLiquidationThresholdPeriod`, `replaceOracle`, `setQuorumBps`, `setUnstakeCooldownDuration`, `updateMaximumOperatorFee`, `updateMinimumOperatorEthFee`, etc.) are tested only from the owner account. No test verifies that non-owner calls are rejected.
 
 **Acceptance Criteria:**
-- [ ] Each governance function has a test calling from non-owner that expects revert
-- [ ] Revert reason matches expected access control error (e.g., `OwnableUnauthorizedAccount`)
-- [ ] All 11+ functions covered
+- [x] Each governance function has a test calling from non-owner that expects revert
+- [x] Revert reason matches expected access control error (legacy branch behavior: `Ownable: caller is not the owner`)
+- [x] All 11+ functions covered
+
+**Resolution:**
+- Added `/Users/venimir/Desktop/ssv/contracts-latest/ssv-network/test/unit/SSVDAO/accessControl.test.ts` with non-owner access-control tests for 15 owner-only DAO governance wrappers on `SSVNetwork`:
+  - `updateNetworkFee`, `updateNetworkFeeSSV`, `withdrawNetworkSSVEarnings`
+  - `updateOperatorFeeIncreaseLimit`, `updateDeclareOperatorFeePeriod`, `updateExecuteOperatorFeePeriod`
+  - `updateLiquidationThresholdPeriod`, `updateLiquidationThresholdPeriodSSV`
+  - `updateMinimumLiquidationCollateral`, `updateMinimumLiquidationCollateralSSV`
+  - `updateMaximumOperatorFee`, `updateMinimumOperatorEthFee`
+  - `setUnstakeCooldownDuration`, `replaceOracle`, `setQuorumBps`
+- Verified non-owner calls revert with the legacy Ownable string on this branch (`Ownable: caller is not the owner`), rather than OZ's newer `OwnableUnauthorizedAccount` custom error.
+- Verified with `npx hardhat test test/unit/SSVDAO/accessControl.test.ts` and `npm run test:unit` (`428 passing`).
 
 **Agent Instructions:**
 1. Read `test/unit/SSVDAO/` directory for all existing DAO test files.
@@ -2251,9 +2262,9 @@ All 11+ governance functions (`updateNetworkFee`, `updateLiquidationThresholdPer
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Identify all governance functions requiring access control tests
-- [ ] Sub-task 2: Add non-owner revert test for each function
-- [ ] Sub-task 3: Run full test suite
+- [x] Sub-task 1: Identify all governance functions requiring access control tests
+- [x] Sub-task 2: Add non-owner revert test for each function
+- [x] Sub-task 3: Run full test suite
 
 ---
 
