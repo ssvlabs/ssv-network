@@ -32,7 +32,7 @@ const MIN_BLOCKS_BEFORE_LIQ = 100n;
 const MIN_LIQ_COLLATERAL_RAW = 100_000n;
 const NUM_OPERATORS = 4n;
 
-describe.only("ETH Cluster Lifecycle", () => {
+describe("ETH Cluster Lifecycle", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
   let clusterOwner: HardhatEthersSigner;

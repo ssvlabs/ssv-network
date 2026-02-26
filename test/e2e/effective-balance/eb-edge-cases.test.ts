@@ -1,11 +1,3 @@
-/**
- * ES-12 to ES-14: EB edge case scenario tests.
- *
- * Covers: EB limits enforcement (min/max boundaries),
- * Merkle proof verification (valid/invalid/wrong cluster/wrong EB),
- * and update frequency/staleness constraints.
- */
-
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
@@ -33,15 +25,12 @@ import {
 } from "../helpers/index.ts";
 import { ethers as ethersLib } from "ethers";
 
-/**
- * Parse updated cluster from ClusterBalanceUpdated event.
- */
 async function getClusterFromEBUpdateTx(network: any, tx: any): Promise<Cluster> {
   const receipt = await tx.wait();
   for (const log of receipt.logs ?? []) {
     let parsed;
     try { parsed = network.interface.parseLog(log); } catch { continue; }
-    if (parsed?.name === "ClusterBalanceUpdated" || parsed?.name === "ClusterLiquidated") {
+    if (parsed?.name === Events.CLUSTER_BALANCE_UPDATED || parsed?.name === Events.CLUSTER_LIQUIDATED) {
       const ct = parsed.args[parsed.args.length - 1];
       return {
         validatorCount: ct[0].toString(), networkFeeIndex: ct[1].toString(),
@@ -52,13 +41,6 @@ async function getClusterFromEBUpdateTx(network: any, tx: any): Promise<Cluster>
   throw new Error("ClusterBalanceUpdated event not found");
 }
 
-/**
- * Set minBlocksBetweenUpdates in SSVStorageEB via direct storage manipulation.
- *
- * SSVStorageEB slot = keccak256("ssv.network.storage.eb") - 1
- * Struct layout: 3 mappings (slots 0-2), then slot 3 packs:
- *   latestCommittedBlock (uint64, bits 0-63) | minBlocksBetweenUpdates (uint32, bits 64-95)
- */
 async function setMinBlocksBetweenUpdates(
   provider: any,
   networkAddress: string,
@@ -68,7 +50,6 @@ async function setMinBlocksBetweenUpdates(
   const targetSlot = baseSlot + 3n;
   const slotHex = "0x" + targetSlot.toString(16).padStart(64, "0");
 
-  // ethers v6 uses getStorage() instead of getStorageAt()
   const currentValue = await provider.getStorage(networkAddress, slotHex);
   const currentBigInt = BigInt(currentValue);
 
@@ -99,11 +80,6 @@ async function setupCluster(connection: NetworkConnection<"generic">) {
 
   const operatorIds = await registerOperators(network, owner, 4);
   await whitelistAddresses(network, owner, operatorIds, [clusterOwner.address]);
-
-  await provider.send("hardhat_setBalance", [
-    clusterOwner.address,
-    "0x" + (DEFAULT_ETH_REGISTER_VALUE * 3n).toString(16),
-  ]);
 
   await network.connect(clusterOwner).registerValidator(
     makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER,
@@ -158,18 +134,15 @@ async function performEBUpdate(
   return { cluster: updatedCluster, rootBlockNum };
 }
 
-describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
+describe("EB Edge Cases", () => {
   let connection: NetworkConnection<"generic">;
 
   before(async function () {
     ({ connection } = await getTestConnection());
   });
 
-  // ----------------------------------------------------------------
-  // ES-12: EB Limits Enforcement
-  // ----------------------------------------------------------------
-  describe("ES-12: EB Limits Enforcement", () => {
-    it("ES-12a: reverts when effectiveBalance is below minimum (< validatorCount * 32)", async function () {
+  describe("EB Limits Enforcement", () => {
+    it("Reverts when effectiveBalance is below minimum (< validatorCount * 32)", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -187,7 +160,7 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.be.revertedWithCustomError(network, Errors.EB_BELOW_MINIMUM);
     });
 
-    it("ES-12b: succeeds when effectiveBalance is exactly at minimum (validatorCount * 32)", async function () {
+    it("Succeeds when effectiveBalance is exactly at minimum (validatorCount * 32)", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -205,7 +178,7 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
     });
 
-    it("ES-12c: reverts when effectiveBalance exceeds maximum (> validatorCount * 2048)", async function () {
+    it("Reverts when effectiveBalance exceeds maximum (> validatorCount * 2048)", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -223,7 +196,7 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.be.revertedWithCustomError(network, Errors.EB_EXCEEDS_MAXIMUM);
     });
 
-    it("ES-12d: succeeds when effectiveBalance is exactly at maximum (validatorCount * 2048)", async function () {
+    it("Succeeds when effectiveBalance is exactly at maximum (validatorCount * 2048)", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -242,11 +215,8 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
     });
   });
 
-  // ----------------------------------------------------------------
-  // ES-13: Merkle Proof Verification
-  // ----------------------------------------------------------------
-  describe("ES-13: Merkle Proof Verification", () => {
-    it("ES-13a: accepts a valid merkle proof", async function () {
+  describe("Merkle Proof Verification", () => {
+    it("Accepts a valid merkle proof", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -264,7 +234,7 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
     });
 
-    it("ES-13b: reverts with invalid proof path", async function () {
+    it("Reverts with invalid proof path", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -283,7 +253,7 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.be.revertedWithCustomError(network, Errors.INVALID_PROOF);
     });
 
-    it("ES-13c: reverts when proof is for a different cluster", async function () {
+    it("Reverts when proof is for a different cluster", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -302,7 +272,7 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.be.revertedWithCustomError(network, Errors.INVALID_PROOF);
     });
 
-    it("ES-13d: reverts when EB value doesn't match the proof", async function () {
+    it("Reverts when EB value doesn't match the proof", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -313,7 +283,6 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       const rootBlockNum = await getBlockNumber(provider);
       await commitRootWithQuorum(network, oracles, root, rootBlockNum);
 
-      // Submit with EB=96 but proof was for EB=64
       await expect(
         network.updateClusterBalance(
           rootBlockNum, clusterOwner.address, operatorIds, cluster, 96, proofs[clusterId],
@@ -322,27 +291,20 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
     });
   });
 
-  // ----------------------------------------------------------------
-  // ES-14: Update Frequency and Staleness
-  // ----------------------------------------------------------------
-  describe("ES-14: Update Frequency and Staleness", () => {
-    it("ES-14a: reverts when update is too frequent (minBlocksBetweenUpdates)", async function () {
+  describe("Update Frequency and Staleness", () => {
+    it("Reverts when update is too frequent (minBlocksBetweenUpdates)", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
-      // Set minBlocksBetweenUpdates to 100
       await setMinBlocksBetweenUpdates(provider, await network.getAddress(), 100);
 
-      // First update
       const { cluster: clusterAfterFirst } = await performEBUpdate(
         connection, network, oracles, provider, clusterOwner, operatorIds,
         cluster, clusterId, 64,
       );
 
-      // Mine only 50 blocks (less than 100)
       await mineBlocks(provider, 50);
 
-      // Second update — should revert
       const { root, proofs } = generateMerkleForClusterEB(connection, [
         { clusterId, effectiveBalance: 96 },
       ]);
@@ -354,10 +316,10 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
         network.updateClusterBalance(
           rootBlockNum, clusterOwner.address, operatorIds, clusterAfterFirst, 96, proofs[clusterId],
         ),
-      ).to.be.revertedWithCustomError(network, "UpdateTooFrequent");
+      ).to.be.revertedWithCustomError(network, Errors.UPDATE_TOO_FREQUENT);
     });
 
-    it("ES-14a: succeeds when enough blocks have passed", async function () {
+    it("Succeeds when enough blocks have passed", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -368,10 +330,8 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
         cluster, clusterId, 64,
       );
 
-      // Mine 100 blocks (sufficient)
       await mineBlocks(provider, 100);
 
-      // Second update should succeed
       const { root, proofs } = generateMerkleForClusterEB(connection, [
         { clusterId, effectiveBalance: 96 },
       ]);
@@ -386,13 +346,12 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
     });
 
-    it("ES-14b: first update always passes frequency check (lastUpdateBlock == 0)", async function () {
+    it("First update always passes frequency check (lastUpdateBlock == 0)", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
       await setMinBlocksBetweenUpdates(provider, await network.getAddress(), 1000);
 
-      // First update passes even though we haven't waited 1000 blocks
       const { root, proofs } = generateMerkleForClusterEB(connection, [
         { clusterId, effectiveBalance: 64 },
       ]);
@@ -407,17 +366,15 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
     });
 
-    it("ES-14c: reverts when using a root block <= lastRootBlockNum (StaleUpdate)", async function () {
+    it("Reverts when using a root block <= lastRootBlockNum (StaleUpdate)", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
-      // First update
       const { cluster: clusterAfterFirst, rootBlockNum: rootBlockNum1 } = await performEBUpdate(
         connection, network, oracles, provider, clusterOwner, operatorIds,
         cluster, clusterId, 64,
       );
 
-      // Commit a new root at a higher block (so latestCommittedBlock advances)
       await mineBlocks(provider, 5);
       {
         const { root } = generateMerkleForClusterEB(connection, [
@@ -427,8 +384,6 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
         await commitRootWithQuorum(network, oracles, root, rootBlockNumNew);
       }
 
-      // Try to use rootBlockNum1 (stale: <= lastRootBlockNum)
-      // The root at rootBlockNum1 still exists in ebRoots, but cluster's lastRootBlockNum = rootBlockNum1
       const { root: oldRoot, proofs: oldProofs } = generateMerkleForClusterEB(connection, [
         { clusterId, effectiveBalance: 64 },
       ]);
@@ -439,7 +394,7 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.be.revertedWithCustomError(network, Errors.STALE_UPDATE);
     });
 
-    it("ES-14d: first update always passes staleness check (lastRootBlockNum == 0)", async function () {
+    it("First update always passes staleness check (lastRootBlockNum == 0)", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -457,25 +412,22 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
       ).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
     });
 
-    it("ES-14c: reverts when rootBlockNum < lastRootBlockNum after two updates", async function () {
+    it("Reverts when rootBlockNum < lastRootBlockNum after two updates", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
-      // First update
       await mineBlocks(provider, 5);
       const { cluster: clusterAfterFirst, rootBlockNum: rootBlockNum1 } = await performEBUpdate(
         connection, network, oracles, provider, clusterOwner, operatorIds,
         cluster, clusterId, 64,
       );
 
-      // Second update at a higher block
       await mineBlocks(provider, 5);
       const { cluster: clusterAfterSecond, rootBlockNum: rootBlockNum2 } = await performEBUpdate(
         connection, network, oracles, provider, clusterOwner, operatorIds,
         clusterAfterFirst, clusterId, 96,
       );
 
-      // Try rootBlockNum1 (< rootBlockNum2) — should revert
       const { root, proofs } = generateMerkleForClusterEB(connection, [
         { clusterId, effectiveBalance: 64 },
       ]);
@@ -488,7 +440,7 @@ describe("E2E: EB Edge Cases (ES-12 to ES-14)", () => {
 
     it("RootNotFound: reverts when no root committed for blockNum", async function () {
       const ctx = await setupCluster(connection);
-      const { network, provider, clusterOwner, operatorIds, cluster, clusterId } = ctx;
+      const { network, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
       const { proofs } = generateMerkleForClusterEB(connection, [
         { clusterId, effectiveBalance: 64 },

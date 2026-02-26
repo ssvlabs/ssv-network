@@ -1,11 +1,3 @@
-/**
- * OV-1 to OV-3, OV-11 to OV-14: Operator Lifecycle Tests
- *
- * Covers: operator registration (public/private, zero/non-zero fee),
- * ensureETHDefaults, fee declaration/execution, fee reduction,
- * earnings withdrawal, and operator removal.
- */
-
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
@@ -15,9 +7,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import {
   makeOperatorKey,
   makePublicKey,
-  registerOperators,
   whitelistAddresses,
-  parseClusterFromEvent,
   getCurrentClusterState,
 } from "../../common/helpers.ts";
 import {
@@ -25,32 +15,28 @@ import {
   EMPTY_CLUSTER,
   MINIMAL_OPERATOR_ETH_FEE,
   ETH_DEDUCTED_DIGITS,
-  NETWORK_FEE_ETH,
-  VUNITS_PRECISION,
   DECLARE_OPERATOR_FEE_PERIOD,
-  EXECUTE_OPERATOR_FEE_PERIOD,
-  OPERATOR_MAX_FEE_INCREASE,
-} from "../../common/constants.ts";
+  EXECUTE_OPERATOR_FEE_PERIOD, DEFAULT_ETH_REGISTER_VALUE,
+} from '../../common/constants.ts';
 import {
   mineBlocks,
   getBlockNumber,
   getTxBlock,
   calcOperatorFeeAccrual,
-  calcClusterBurn,
   defaultVUnits,
 } from "../helpers/index.ts";
-import { ethers } from "ethers";
+import { Events } from "../../common/events.ts";
+import { Errors } from "../../common/errors.ts";
 
-describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
+describe("Operator Lifecycle", function () {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
   let operatorOwner: HardhatEthersSigner;
   let clusterOwner: HardhatEthersSigner;
-  let otherAccount: HardhatEthersSigner;
 
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner, otherAccount] =
+    [operatorOwner, clusterOwner] =
       await connection.ethers.getSigners();
   });
 
@@ -58,47 +44,39 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
     return ssvNetworkFullFixture(connection);
   };
 
-  // =========================================================================
-  // OV-1: Register Operator (Public, Non-Zero Fee) — Initial State Verification
-  // =========================================================================
-  describe("OV-1: Register Operator (Public, Non-Zero Fee)", () => {
-    it("OV-1: registers public operator with non-zero fee and verifies initial state", async () => {
+  describe("Register Operator (Public, Non-Zero Fee)", () => {
+    it("Registers public operator with non-zero fee and verifies initial state", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
       const pubkey = makeOperatorKey(1);
       const fee = 1_770_000_000n; // DEFAULT_OPERATOR_ETH_FEE
-      const packedFee = fee / ETH_DEDUCTED_DIGITS; // 17_700
 
       const tx = await network
         .connect(operatorOwner)
         .registerOperator(pubkey, fee, false);
       const receipt = await tx.wait();
-      const regBlock = BigInt(receipt.blockNumber);
+      const regBlock = BigInt(receipt!.blockNumber);
 
-      // Verify operator state via views
       const opData = await views.getOperatorById(1n);
       expect(opData.owner).to.equal(operatorOwner.address);
-      expect(opData.fee).to.equal(fee); // views.getOperatorById returns unpacked fee
+      expect(opData.fee).to.equal(fee);
       expect(opData.validatorCount).to.equal(0n);
       expect(opData.isPrivate).to.equal(false);
       expect(opData.isActive).to.equal(true);
 
-      // Verify operator earnings start at 0
       const earnings = await views.getOperatorEarnings(1n);
       expect(earnings).to.equal(0n);
 
-      // Verify events
       await expect(tx)
-        .to.emit(network, "OperatorAdded")
+        .to.emit(network, Events.OPERATOR_ADDED)
         .withArgs(1n, operatorOwner.address, pubkey, fee);
-      // TODO(DISC-OV-1): registerOperator always emits OperatorPrivacyStatusUpdated even for public operators — FLOWS.md does not document this event
       await expect(tx)
-        .to.emit(network, "OperatorPrivacyStatusUpdated")
+        .to.emit(network, Events.OPERATOR_PRIVACY_STATUS_UPDATED)
         .withArgs([1n], false);
     });
 
-    it("OV-1 edge: register with fee=0 succeeds, operator is free forever", async () => {
+    it("Register with fee=0 succeeds, operator is free forever", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
@@ -112,16 +90,14 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       expect(opData.fee).to.equal(0n); // zero fee
       expect(opData.isPrivate).to.equal(false);
 
-      // Verify operator cannot increase fee from 0 (FeeIncreaseNotAllowed)
-      // Must use a fee above minimumOperatorEthFee to avoid FeeTooLow check first
       await expect(
         network
           .connect(operatorOwner)
           .declareOperatorFee(1n, MINIMAL_OPERATOR_ETH_FEE),
-      ).to.be.revertedWithCustomError(network, "FeeIncreaseNotAllowed");
+      ).to.be.revertedWithCustomError(network, Errors.FEE_INCREASE_NOT_ALLOWED);
     });
 
-    it("OV-1 edge: register with setPrivate=true sets whitelisted flag", async () => {
+    it("Register with setPrivate=true sets whitelisted flag", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
@@ -135,11 +111,11 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       expect(opData.isPrivate).to.equal(true);
 
       await expect(tx)
-        .to.emit(network, "OperatorPrivacyStatusUpdated")
+        .to.emit(network, Events.OPERATOR_PRIVACY_STATUS_UPDATED)
         .withArgs([1n], true);
     });
 
-    it("OV-1 edge: register with same pubkey again reverts OperatorAlreadyExists", async () => {
+    it("Register with same pubkey again reverts OperatorAlreadyExists", async () => {
       const { network } = await networkHelpers.loadFixture(deployFixture);
 
       const pubkey = makeOperatorKey(1);
@@ -151,35 +127,30 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         network
           .connect(operatorOwner)
           .registerOperator(pubkey, MINIMAL_OPERATOR_ETH_FEE, false),
-      ).to.be.revertedWithCustomError(network, "OperatorAlreadyExists");
+      ).to.be.revertedWithCustomError(network, Errors.OPERATOR_ALREADY_EXISTS);
     });
 
-    it("OV-1 edge: register with fee not divisible by ETH_DEDUCTED_DIGITS reverts MaxPrecisionExceeded", async () => {
+    it("Register with fee not divisible by ETH_DEDUCTED_DIGITS reverts MaxPrecisionExceeded", async () => {
       const { network } = await networkHelpers.loadFixture(deployFixture);
 
       const pubkey = makeOperatorKey(1);
-      // Fee not divisible by 100_000
       const badFee = MINIMAL_OPERATOR_ETH_FEE + 1n;
 
       await expect(
         network
           .connect(operatorOwner)
           .registerOperator(pubkey, badFee, false),
-      ).to.be.revertedWithCustomError(network, "MaxPrecisionExceeded");
+      ).to.be.revertedWithCustomError(network, Errors.MAX_PRECISION_EXCEEDED);
     });
   });
 
-  // =========================================================================
-  // OV-2: Register Operator (Private, Zero Fee) — Free Operator Constraints
-  // =========================================================================
-  describe("OV-2: Register Operator (Private, Zero Fee)", () => {
-    it("OV-2: registers private zero-fee operator and verifies fee immutability", async () => {
+  describe("Register Operator (Private, Zero Fee)", () => {
+    it("Registers private zero-fee operator and verifies fee immutability", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
       const pubkey = makeOperatorKey(1);
 
-      // Step 1: Register private zero-fee operator
       await network
         .connect(operatorOwner)
         .registerOperator(pubkey, 0n, true);
@@ -188,26 +159,16 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       expect(opData.fee).to.equal(0n);
       expect(opData.isPrivate).to.equal(true);
 
-      // Step 2: Attempt to declare fee increase — should revert FeeIncreaseNotAllowed
-      // Use a fee above minimumOperatorEthFee to avoid FeeTooLow check
       await expect(
         network
           .connect(operatorOwner)
           .declareOperatorFee(1n, MINIMAL_OPERATOR_ETH_FEE),
-      ).to.be.revertedWithCustomError(network, "FeeIncreaseNotAllowed");
+      ).to.be.revertedWithCustomError(network, Errors.FEE_INCREASE_NOT_ALLOWED);
     });
   });
 
-  // =========================================================================
-  // OV-3: ensureETHDefaults — Critical Default Fee Assignment
-  // =========================================================================
-  describe("OV-3: ensureETHDefaults — Default Fee Assignment", () => {
-    // NOTE: In the full deployment fixture, operators are registered with
-    // registerOperator which already initializes ethSnapshot.block.
-    // ensureETHDefaults is only for legacy (pre-v2) operators.
-    // We test the behavior by registering operators normally (which sets ethFee)
-    // and verify that the fee matches the declared fee.
-    it("OV-3: operator registered with non-zero fee gets correct ethFee", async () => {
+  describe("ensureETHDefaults — Default Fee Assignment", () => {
+    it("Operator registered with non-zero fee gets correct ethFee", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
@@ -221,51 +182,40 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       expect(opData.isActive).to.equal(true);
     });
 
-    it("OV-3 edge: operator registered with fee=0 and SSV fee=0 stays free", async () => {
+    it("Operator registered with fee=0 and SSV fee=0 stays free", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
-      // Register with fee=0 (no SSV legacy fee since this is a fresh operator)
       await network
         .connect(operatorOwner)
         .registerOperator(makeOperatorKey(1), 0n, false);
 
       const opData = await views.getOperatorById(1n);
-      // Fee should be 0 (free operator)
       expect(opData.fee).to.equal(0n);
     });
   });
 
-  // =========================================================================
-  // OV-11: Operator Fee Declaration -> Wait -> Execution
-  // =========================================================================
-  describe("OV-11: Operator Fee Declaration -> Wait -> Execution", () => {
-    it("OV-11: declares fee, waits, and executes within approval window", async () => {
+  describe("Operator Fee Declaration -> Wait -> Execution", () => {
+    it("Declares fee, waits, and executes within approval window", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      // Register operator with initial fee
       const initialFee = MINIMAL_OPERATOR_ETH_FEE; // 1_770_000_000
       await network
         .connect(operatorOwner)
         .registerOperator(makeOperatorKey(1), initialFee, false);
 
-      // Register 4 operators total and a validator so operator has validatorCount > 0
       for (let i = 2; i <= 4; i++) {
         await network
           .connect(operatorOwner)
           .registerOperator(makeOperatorKey(i), initialFee, false);
       }
 
-      // Whitelist and register a validator
       await whitelistAddresses(network, operatorOwner, [1, 2, 3, 4], [
         clusterOwner.address,
       ]);
-      await provider.send("hardhat_setBalance", [
-        clusterOwner.address,
-        "0x" + (10n ** 20n).toString(16),
-      ]);
+
       await network
         .connect(clusterOwner)
         .registerValidator(
@@ -273,10 +223,9 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
           [1, 2, 3, 4],
           DEFAULT_SHARES,
           EMPTY_CLUSTER,
-          { value: ethers.parseEther("10") },
+          { value: DEFAULT_ETH_REGISTER_VALUE},
         );
 
-      // Get a valid fee increase (within limit)
       const currentFee = await views.getOperatorFee(1n);
       const currentPacked = currentFee / ETH_DEDUCTED_DIGITS;
       const maxIncreaseBps = await views.getOperatorFeeIncreaseLimit();
@@ -284,23 +233,20 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         (currentPacked * (10_000n + maxIncreaseBps) + 9_999n) / 10_000n;
       const newFee = maxAllowedPacked * ETH_DEDUCTED_DIGITS;
 
-      // Step 1: Declare
       const declareTx = await network
         .connect(operatorOwner)
         .declareOperatorFee(1n, newFee);
       await declareTx.wait();
 
-      await expect(declareTx).to.emit(network, "OperatorFeeDeclared");
+      await expect(declareTx).to.emit(network, Events.OPERATOR_FEE_DECLARED);
 
-      // Step 2: Attempt execute too early — should revert
       await expect(
         network.connect(operatorOwner).executeOperatorFee(1n),
       ).to.be.revertedWithCustomError(
         network,
-        "ApprovalNotWithinTimeframe",
+        Errors.APPROVAL_NOT_WITHIN_TIMEFRAME,
       );
 
-      // Step 3: Advance time to approval window and execute
       const declareFeePeriod = Number(DECLARE_OPERATOR_FEE_PERIOD);
       await provider.send("evm_increaseTime", [declareFeePeriod + 1]);
       await provider.send("evm_mine", []);
@@ -310,14 +256,13 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .executeOperatorFee(1n);
       await executeTx.wait();
 
-      await expect(executeTx).to.emit(network, "OperatorFeeExecuted");
+      await expect(executeTx).to.emit(network, Events.OPERATOR_FEE_EXECUTED);
 
-      // Verify new fee is applied
       const updatedFee = await views.getOperatorFee(1n);
       expect(updatedFee).to.equal(newFee);
     });
 
-    it("OV-11 edge: execute after approval window expires reverts", async () => {
+    it("Execute after approval window expires reverts", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -326,7 +271,6 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .connect(operatorOwner)
         .registerOperator(makeOperatorKey(1), MINIMAL_OPERATOR_ETH_FEE, false);
 
-      // Get valid fee increase
       const currentFee = await views.getOperatorFee(1n);
       const currentPacked = currentFee / ETH_DEDUCTED_DIGITS;
       const maxIncreaseBps = await views.getOperatorFeeIncreaseLimit();
@@ -338,7 +282,6 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .connect(operatorOwner)
         .declareOperatorFee(1n, newFee);
 
-      // Advance past both declare and execute periods
       const totalPeriod =
         Number(DECLARE_OPERATOR_FEE_PERIOD) +
         Number(EXECUTE_OPERATOR_FEE_PERIOD) +
@@ -350,11 +293,11 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         network.connect(operatorOwner).executeOperatorFee(1n),
       ).to.be.revertedWithCustomError(
         network,
-        "ApprovalNotWithinTimeframe",
+        Errors.APPROVAL_NOT_WITHIN_TIMEFRAME,
       );
     });
 
-    it("OV-11 edge: cancel declared fee clears the request", async () => {
+    it("Edge: cancel declared fee clears the request", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
@@ -378,16 +321,15 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .cancelDeclaredOperatorFee(1n);
       await expect(cancelTx).to.emit(
         network,
-        "OperatorFeeDeclarationCancelled",
+        Events.OPERATOR_FEE_DECLARATION_CANCELLED,
       );
 
-      // Executing after cancel should fail
       await expect(
         network.connect(operatorOwner).executeOperatorFee(1n),
-      ).to.be.revertedWithCustomError(network, "NoFeeDeclared");
+      ).to.be.revertedWithCustomError(network, Errors.NO_FEE_DECLARED);
     });
 
-    it("OV-11 edge: fee increase exceeding limit reverts FeeExceedsIncreaseLimit", async () => {
+    it("Fee increase exceeding limit reverts FeeExceedsIncreaseLimit", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
@@ -400,11 +342,9 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       const maxIncreaseBps = await views.getOperatorFeeIncreaseLimit();
       const maxAllowedPacked =
         (currentPacked * (10_000n + maxIncreaseBps) + 9_999n) / 10_000n;
-      // Exceed the limit
       const excessiveFee = (maxAllowedPacked + 1n) * ETH_DEDUCTED_DIGITS;
 
       const maxOperatorFee = await views.getMaximumOperatorFee();
-      // Only test if excessiveFee doesn't exceed maxOperatorFee (otherwise FeeTooHigh fires first)
       if (excessiveFee <= maxOperatorFee) {
         await expect(
           network
@@ -412,17 +352,14 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
             .declareOperatorFee(1n, excessiveFee),
         ).to.be.revertedWithCustomError(
           network,
-          "FeeExceedsIncreaseLimit",
+          Errors.FEE_EXCEEDS_INCREASE_LIMIT,
         );
       }
     });
   });
 
-  // =========================================================================
-  // OV-12: Operator Fee Reduction (Immediate, No Timelock)
-  // =========================================================================
-  describe("OV-12: Operator Fee Reduction (Immediate, No Timelock)", () => {
-    it("OV-12: reduces fee immediately, preserving earnings at old fee", async () => {
+  describe("Operator Fee Reduction (Immediate, No Timelock)", () => {
+    it("Reduces fee immediately, preserving earnings at old fee", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -430,7 +367,6 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       const initialFee = 2_000_000_000n; // 2 gwei
       const packedInitialFee = initialFee / ETH_DEDUCTED_DIGITS; // 20_000
 
-      // Register 4 operators and a validator
       await network
         .connect(operatorOwner)
         .registerOperator(makeOperatorKey(1), initialFee, false);
@@ -442,10 +378,7 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       await whitelistAddresses(network, operatorOwner, [1, 2, 3, 4], [
         clusterOwner.address,
       ]);
-      await provider.send("hardhat_setBalance", [
-        clusterOwner.address,
-        "0x" + (10n ** 20n).toString(16),
-      ]);
+
       await network
         .connect(clusterOwner)
         .registerValidator(
@@ -453,28 +386,24 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
           [1, 2, 3, 4],
           DEFAULT_SHARES,
           EMPTY_CLUSTER,
-          { value: ethers.parseEther("10") },
+          { value: DEFAULT_ETH_REGISTER_VALUE },
         );
 
       const regBlock = BigInt(await getBlockNumber(provider));
 
-      // Advance 100 blocks to accrue fees
       await mineBlocks(provider, 100);
 
-      // Reduce fee to MINIMAL_OPERATOR_ETH_FEE (must stay above minimum)
       const reducedFee = MINIMAL_OPERATOR_ETH_FEE; // 1_770_000_000
       const reduceTx = await network
         .connect(operatorOwner)
         .reduceOperatorFee(1n, reducedFee);
       const reduceBlock = BigInt(await getTxBlock(reduceTx));
 
-      await expect(reduceTx).to.emit(network, "OperatorFeeExecuted");
+      await expect(reduceTx).to.emit(network, Events.OPERATOR_FEE_EXECUTED);
 
-      // Verify new fee applied immediately
       const newFee = await views.getOperatorFee(1n);
       expect(newFee).to.equal(reducedFee);
 
-      // Verify earnings were preserved (accrued at old fee before reduction)
       const blockDiff = reduceBlock - regBlock;
       const vUnits = defaultVUnits(1n);
       const expectedEarnings = calcOperatorFeeAccrual(blockDiff, packedInitialFee, vUnits) * ETH_DEDUCTED_DIGITS;
@@ -482,7 +411,7 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       expect(earnings).to.equal(expectedEarnings);
     });
 
-    it("OV-12 edge: reduce to exactly current fee reverts FeeIncreaseNotAllowed", async () => {
+    it("Reduce to exactly current fee reverts FeeIncreaseNotAllowed", async () => {
       const { network } = await networkHelpers.loadFixture(deployFixture);
 
       await network
@@ -493,10 +422,10 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         network
           .connect(operatorOwner)
           .reduceOperatorFee(1n, MINIMAL_OPERATOR_ETH_FEE),
-      ).to.be.revertedWithCustomError(network, "FeeIncreaseNotAllowed");
+      ).to.be.revertedWithCustomError(network, Errors.FEE_INCREASE_NOT_ALLOWED);
     });
 
-    it("OV-12 edge: reduce to higher fee reverts FeeIncreaseNotAllowed", async () => {
+    it("Reduce to higher fee reverts FeeIncreaseNotAllowed", async () => {
       const { network } = await networkHelpers.loadFixture(deployFixture);
 
       await network
@@ -508,10 +437,10 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         network
           .connect(operatorOwner)
           .reduceOperatorFee(1n, higherFee),
-      ).to.be.revertedWithCustomError(network, "FeeIncreaseNotAllowed");
+      ).to.be.revertedWithCustomError(network, Errors.FEE_INCREASE_NOT_ALLOWED);
     });
 
-    it("OV-12 edge: reducing fee clears pending fee change request", async () => {
+    it("Reducing fee clears pending fee change request", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
@@ -519,7 +448,6 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .connect(operatorOwner)
         .registerOperator(makeOperatorKey(1), MINIMAL_OPERATOR_ETH_FEE, false);
 
-      // Declare a fee increase
       const currentFee = await views.getOperatorFee(1n);
       const currentPacked = currentFee / ETH_DEDUCTED_DIGITS;
       const maxIncreaseBps = await views.getOperatorFeeIncreaseLimit();
@@ -531,7 +459,6 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .connect(operatorOwner)
         .declareOperatorFee(1n, newFee);
 
-      // Execute the fee increase first (so the current fee is higher than minimum)
       const declareFeePeriod = Number(DECLARE_OPERATOR_FEE_PERIOD);
       await connection.ethers.provider.send("evm_increaseTime", [declareFeePeriod + 1]);
       await connection.ethers.provider.send("evm_mine", []);
@@ -539,7 +466,6 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .connect(operatorOwner)
         .executeOperatorFee(1n);
 
-      // Now declare another fee increase
       const updatedFee = await views.getOperatorFee(1n);
       const updatedPacked = updatedFee / ETH_DEDUCTED_DIGITS;
       const maxIncreaseBps2 = await views.getOperatorFeeIncreaseLimit();
@@ -550,23 +476,18 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .connect(operatorOwner)
         .declareOperatorFee(1n, newFee2);
 
-      // Reduce fee back to MINIMAL (should also clear pending request)
       await network
         .connect(operatorOwner)
         .reduceOperatorFee(1n, MINIMAL_OPERATOR_ETH_FEE);
 
-      // Trying to execute the old declaration should fail (it was cleared)
       await expect(
         network.connect(operatorOwner).executeOperatorFee(1n),
-      ).to.be.revertedWithCustomError(network, "NoFeeDeclared");
+      ).to.be.revertedWithCustomError(network, Errors.NO_FEE_DECLARED);
     });
   });
 
-  // =========================================================================
-  // OV-13: Operator Earnings Accumulation and Withdrawal
-  // =========================================================================
-  describe("OV-13: Operator Earnings Accumulation and Withdrawal", () => {
-    it("OV-13: accumulates earnings and supports partial + full withdrawal", async () => {
+  describe("Operator Earnings Accumulation and Withdrawal", () => {
+    it("Accumulates earnings and supports partial + full withdrawal", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -581,14 +502,10 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
           .registerOperator(makeOperatorKey(i), fee, false);
       }
 
-      // Whitelist and register validator
       await whitelistAddresses(network, operatorOwner, [1, 2, 3, 4], [
         clusterOwner.address,
       ]);
-      await provider.send("hardhat_setBalance", [
-        clusterOwner.address,
-        "0x" + (10n ** 20n).toString(16),
-      ]);
+
       const regTx = await network
         .connect(clusterOwner)
         .registerValidator(
@@ -596,23 +513,19 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
           [1, 2, 3, 4],
           DEFAULT_SHARES,
           EMPTY_CLUSTER,
-          { value: ethers.parseEther("10") },
+          { value: DEFAULT_ETH_REGISTER_VALUE },
         );
       const regBlock = BigInt(await getTxBlock(regTx));
       const vUnits = defaultVUnits(1n);
 
-      // Advance 100 blocks
       await mineBlocks(provider, 100);
 
-      // Check earnings accumulated
       const earningsBlock = BigInt(await getBlockNumber(provider));
       const expectedEarningsBefore = calcOperatorFeeAccrual(earningsBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const earningsBefore = await views.getOperatorEarnings(1n);
       expect(earningsBefore).to.equal(expectedEarningsBefore);
 
-      // Partial withdrawal
       const partialAmount = earningsBefore / 2n;
-      // Ensure amount is divisible by ETH_DEDUCTED_DIGITS for packing
       const alignedPartial =
         (partialAmount / ETH_DEDUCTED_DIGITS) * ETH_DEDUCTED_DIGITS;
 
@@ -625,9 +538,9 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .withdrawOperatorEarnings(1n, alignedPartial);
       const partialReceipt = await partialTx.wait();
       const partialGas =
-        partialReceipt.gasUsed * partialReceipt.gasPrice;
+        partialReceipt!.gasUsed * partialReceipt!.gasPrice;
 
-      await expect(partialTx).to.emit(network, "OperatorWithdrawn");
+      await expect(partialTx).to.emit(network, Events.OPERATOR_WITHDRAWN);
 
       const ownerBalAfter = await provider.getBalance(
         operatorOwner.address,
@@ -636,11 +549,8 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         alignedPartial,
       );
 
-      // Advance 100 more blocks
-      const partialBlock = BigInt(await getTxBlock(partialTx));
       await mineBlocks(provider, 100);
 
-      // Full withdrawal
       const fullViewBlock = BigInt(await getBlockNumber(provider));
       const expectedEarningsBeforeFull =
         calcOperatorFeeAccrual(fullViewBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS - alignedPartial;
@@ -654,14 +564,13 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .connect(operatorOwner)
         .withdrawAllOperatorEarnings(1n);
       const fullReceipt = await fullTx.wait();
-      const fullGas = fullReceipt.gasUsed * fullReceipt.gasPrice;
+      const fullGas = fullReceipt!.gasUsed * fullReceipt!.gasPrice;
       const fullBlock = BigInt(await getTxBlock(fullTx));
 
       const ownerBalAfter2 = await provider.getBalance(
         operatorOwner.address,
       );
 
-      // The full withdrawal settles 1 more block of earnings beyond the view
       const expectedFullTransfer =
         calcOperatorFeeAccrual(fullBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS - alignedPartial;
       expect(ownerBalAfter2 - ownerBalBefore2 + fullGas).to.equal(
@@ -670,37 +579,28 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
     });
   });
 
-  // =========================================================================
-  // OV-14: Remove Operator — Full Cleanup and Final Withdrawal
-  // =========================================================================
-  describe("OV-14: Remove Operator — Full Cleanup and Final Withdrawal", () => {
-    it("OV-14: removes operator with earnings, transfers funds, and cleans up state", async () => {
+  describe("Remove Operator — Full Cleanup and Final Withdrawal", () => {
+    it("Removes operator with earnings, transfers funds, and cleans up state", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
       const fee = MINIMAL_OPERATOR_ETH_FEE;
 
-      // Register 4 operators
       for (let i = 1; i <= 4; i++) {
         await network
           .connect(operatorOwner)
           .registerOperator(makeOperatorKey(i), fee, false);
       }
 
-      // Set operator 1 as private (to verify whitelist cleanup)
       await network
         .connect(operatorOwner)
         .setOperatorsPrivateUnchecked([1n]);
 
-      // Register validator to generate earnings
       await whitelistAddresses(network, operatorOwner, [1, 2, 3, 4], [
         clusterOwner.address,
       ]);
-      await provider.send("hardhat_setBalance", [
-        clusterOwner.address,
-        "0x" + (10n ** 20n).toString(16),
-      ]);
+
       const valRegTx = await network
         .connect(clusterOwner)
         .registerValidator(
@@ -708,16 +608,14 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
           [1, 2, 3, 4],
           DEFAULT_SHARES,
           EMPTY_CLUSTER,
-          { value: ethers.parseEther("10") },
+          { value: DEFAULT_ETH_REGISTER_VALUE },
         );
       const regBlock = BigInt(await getTxBlock(valRegTx));
       const packedFee = fee / ETH_DEDUCTED_DIGITS;
       const vUnits = defaultVUnits(1n);
 
-      // Advance 50 blocks
       await mineBlocks(provider, 50);
 
-      // Remove the validator first (operator must have 0 validators for clean removal)
       const cluster = await getCurrentClusterState(
         connection,
         network,
@@ -729,13 +627,10 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .removeValidator(makePublicKey(1), [1, 2, 3, 4], cluster);
       const removeValBlock = BigInt(await getTxBlock(removeValTx));
 
-      // Check earnings accumulated before removal
-      // Earnings accrued from regBlock to removeValBlock (0 validators after, no more accrual)
       const expectedEarnings = calcOperatorFeeAccrual(removeValBlock - regBlock, packedFee, vUnits) * ETH_DEDUCTED_DIGITS;
       const earningsBefore = await views.getOperatorEarnings(1n);
       expect(earningsBefore).to.equal(expectedEarnings);
 
-      // Remove operator
       const ownerBalBefore = await provider.getBalance(
         operatorOwner.address,
       );
@@ -744,13 +639,11 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .removeOperator(1n);
       const removeReceipt = await removeTx.wait();
       const removeGas =
-        removeReceipt.gasUsed * removeReceipt.gasPrice;
+        removeReceipt!.gasUsed * removeReceipt!.gasPrice;
 
-      // Verify events
-      await expect(removeTx).to.emit(network, "OperatorRemoved").withArgs(1n);
-      await expect(removeTx).to.emit(network, "OperatorWithdrawn");
+      await expect(removeTx).to.emit(network, Events.OPERATOR_REMOVED).withArgs(1n);
+      await expect(removeTx).to.emit(network, Events.OPERATOR_WITHDRAWN);
 
-      // Verify ETH transferred to owner (same as earningsBefore since 0 validators = 0 more accrual)
       const ownerBalAfter = await provider.getBalance(
         operatorOwner.address,
       );
@@ -758,19 +651,16 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         expectedEarnings,
       );
 
-      // Verify operator is now inactive
       const opData = await views.getOperatorById(1n);
       expect(opData.isActive).to.equal(false);
 
-      // Verify operator owner is preserved (not zeroed)
       expect(opData.owner).to.equal(operatorOwner.address);
     });
 
-    it("OV-14 edge: remove operator with 0 earnings in both versions", async () => {
+    it("Remove operator with 0 earnings in both versions", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
-      // Register operator but never use it (no validators)
       await network
         .connect(operatorOwner)
         .registerOperator(makeOperatorKey(1), MINIMAL_OPERATOR_ETH_FEE, false);
@@ -778,53 +668,43 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
       const earningsBefore = await views.getOperatorEarnings(1n);
       expect(earningsBefore).to.equal(0n);
 
-      // Remove — should succeed even with 0 earnings
       const removeTx = await network
         .connect(operatorOwner)
         .removeOperator(1n);
-      await expect(removeTx).to.emit(network, "OperatorRemoved").withArgs(1n);
+      await expect(removeTx).to.emit(network, Events.OPERATOR_REMOVED).withArgs(1n);
     });
 
-    it("OV-14 edge: after removal, registering validator with removed operator reverts", async () => {
-      const { network, views } =
+    it("After removal, registering validator with removed operator reverts", async () => {
+      const { network } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      // Register all 4 operators first
       for (let i = 1; i <= 4; i++) {
         await network
           .connect(operatorOwner)
           .registerOperator(makeOperatorKey(i), MINIMAL_OPERATOR_ETH_FEE, false);
       }
 
-      // Whitelist clusterOwner for all 4 before removing operator 1
       await whitelistAddresses(network, operatorOwner, [1, 2, 3, 4], [
         clusterOwner.address,
       ]);
 
-      // Remove operator 1
       await network
         .connect(operatorOwner)
         .removeOperator(1n);
 
-      await provider.send("hardhat_setBalance", [
-        clusterOwner.address,
-        "0x" + (10n ** 20n).toString(16),
-      ]);
-
-      // Try to register validator using removed operator — should revert
       await expect(
         network.connect(clusterOwner).registerValidator(
           makePublicKey(1),
           [1, 2, 3, 4],
           DEFAULT_SHARES,
           EMPTY_CLUSTER,
-          { value: ethers.parseEther("10") },
+          { value: DEFAULT_ETH_REGISTER_VALUE },
         ),
-      ).to.be.revertedWithCustomError(network, "OperatorDoesNotExist");
+      ).to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
     });
 
-    it("OV-14 edge: double removal reverts OperatorDoesNotExist", async () => {
+    it("Double removal reverts OperatorDoesNotExist", async () => {
       const { network } = await networkHelpers.loadFixture(deployFixture);
 
       await network
@@ -832,10 +712,9 @@ describe("Operator Lifecycle (OV-1 to OV-3, OV-11 to OV-14)", function () {
         .registerOperator(makeOperatorKey(1), MINIMAL_OPERATOR_ETH_FEE, false);
       await network.connect(operatorOwner).removeOperator(1n);
 
-      // Second removal should fail (ethSnapshot.block == 0 && snapshot.block == 0)
       await expect(
         network.connect(operatorOwner).removeOperator(1n),
-      ).to.be.revertedWithCustomError(network, "OperatorDoesNotExist");
+      ).to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
     });
   });
 });

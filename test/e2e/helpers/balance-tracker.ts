@@ -1,7 +1,3 @@
-/**
- * Lightweight snapshot-and-diff utility for ETH and SSV balances.
- */
-
 import { expect } from "chai";
 
 export interface BalanceSnapshot {
@@ -10,7 +6,6 @@ export interface BalanceSnapshot {
   blockNumber: number;
 }
 
-/** Take a snapshot of an address's ETH and SSV balances. */
 export async function snapshotBalance(
   provider: any,
   ssvToken: any,
@@ -29,15 +24,6 @@ export async function snapshotBalance(
   };
 }
 
-/**
- * Assert the delta between two snapshots matches expected values.
- *
- * @param before - snapshot before the operation
- * @param after - snapshot after the operation
- * @param expectedEthDelta - expected ETH change (positive = increase, negative = decrease)
- * @param expectedSsvDelta - expected SSV change
- * @param tolerance - default 0n for exact match, or small value for gas cost tolerance
- */
 export function assertBalanceDelta(
   before: BalanceSnapshot,
   after: BalanceSnapshot,
@@ -49,14 +35,8 @@ export function assertBalanceDelta(
   const ssvDelta = after.ssv - before.ssv;
 
   if (tolerance === 0n) {
-    expect(ethDelta).to.equal(
-      expectedEthDelta,
-      `ETH delta mismatch: got ${ethDelta}, expected ${expectedEthDelta}`,
-    );
-    expect(ssvDelta).to.equal(
-      expectedSsvDelta,
-      `SSV delta mismatch: got ${ssvDelta}, expected ${expectedSsvDelta}`,
-    );
+    expect(ethDelta).to.equal(expectedEthDelta);
+    expect(ssvDelta).to.equal(expectedSsvDelta);
   } else {
     const ethDiff = ethDelta - expectedEthDelta;
     expect(ethDiff >= -tolerance && ethDiff <= tolerance).to.be.true;
@@ -66,7 +46,6 @@ export function assertBalanceDelta(
   }
 }
 
-/** Snapshot the contract's ETH balance. */
 export async function snapshotContractBalance(
   provider: any,
   contractAddress: string,
