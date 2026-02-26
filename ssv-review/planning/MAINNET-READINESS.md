@@ -51,7 +51,7 @@
 | TEST-6 | ~~EB decrease scenarios~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #451) |
 | TEST-7 | ~~Reentrancy in staking functions~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #452) |
 | TEST-8 | ~~Forbid creating clusters with removed operators~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #453) |
-| TEST-9 | Migration balance accounting verification | Unit Test Completeness | P1 | M |
+| TEST-9 | ~~Migration balance accounting verification~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-10 | Operator fee change + EB burn rate interaction | Unit Test Completeness | P1 | M |
 | TEST-11 | Network fee update impact on active clusters | Unit Test Completeness | P1 | S |
 | TEST-12 | Multi-staker reward fairness | Unit Test Completeness | P1 | M |
@@ -1508,10 +1508,10 @@ PR #410 added a fix but no explicit test exists for this scenario. Creating clus
 
 ---
 
-### [TEST-9] Migration balance accounting verification
+### [TEST-9] ~~Migration balance accounting verification~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1523,9 +1523,9 @@ Add tests that verify exact SSV refund amounts and ETH deposit amounts during mi
 Migration tests verify events and state but don't verify exact token transfer amounts against independently calculated values.
 
 **Acceptance Criteria:**
-- [ ] Test: Migrate after 1000 blocks → verify SSV refund = `initial_deposit - (blocks * sum(ssv_fees) * validatorCount) * DEDUCTED_DIGITS`
-- [ ] Test: Migrate with partial SSV balance remaining → verify exact token transfer amount
-- [ ] Test: Migrate cluster where operators have both SSV and ETH fees set → verify ETH side correctly initialized
+- [x] Test: Migrate after 1000 blocks → verify SSV refund = `initial_deposit - (blocks * sum(ssv_fees) * validatorCount) * DEDUCTED_DIGITS`
+- [x] Test: Migrate with partial SSV balance remaining → verify exact token transfer amount
+- [x] Test: Migrate cluster where operators have both SSV and ETH fees set → verify ETH side correctly initialized
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/migrateClusterToETH.test.ts` for existing patterns.
@@ -1534,9 +1534,9 @@ Migration tests verify events and state but don't verify exact token transfer am
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Exact SSV refund after N blocks
-- [ ] Sub-task 2: Migration with partial balance
-- [ ] Sub-task 3: Migration with dual SSV/ETH fees
+- [x] Sub-task 1: Exact SSV refund after N blocks
+- [x] Sub-task 2: Migration with partial balance
+- [x] Sub-task 3: Migration with dual SSV/ETH fees
 
 ---
 
