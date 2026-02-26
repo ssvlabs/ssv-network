@@ -1002,6 +1002,93 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       expect(ownerBalanceFinal).to.equal(ownerBalanceBeforeDeposit - totalGasSpent);
     });
 
+    it("Reverts withdraw from liquidated cluster when using stale pre-deposit cluster state", async function() {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const activeCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, activeCluster);
+
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+      expect(liquidatedCluster.balance).to.equal(0n);
+
+      const depositAmount = connection.ethers.parseEther("1");
+      await network.connect(clusterOwner).deposit(
+        clusterOwner.address,
+        operatorIds,
+        liquidatedCluster,
+        { value: depositAmount }
+      );
+
+      await expect(
+        network.connect(clusterOwner).withdraw(operatorIds, depositAmount, liquidatedCluster)
+      ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
+    });
+
+    it("Does not change operator or DAO earnings when withdrawing from a liquidated cluster with pre-existing earnings", async function() {
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const sumOperatorEarnings = async (operatorIds: number[]) => {
+        let total = 0n;
+        for (const opId of operatorIds) {
+          total += await views.getOperatorEarnings(opId);
+        }
+        return total;
+      };
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const activeCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
+      await connection.networkHelpers.mine(100);
+      await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, activeCluster);
+
+      const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      expect(liquidatedCluster.active).to.equal(false);
+
+      const operatorEarningsBefore = await sumOperatorEarnings(operatorIds);
+      const daoEarningsBefore = await views.getNetworkEarnings();
+
+      const depositAmount = connection.ethers.parseEther("2");
+      await network.connect(clusterOwner).deposit(
+        clusterOwner.address,
+        operatorIds,
+        liquidatedCluster,
+        { value: depositAmount }
+      );
+
+      const clusterAfterDeposit = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).withdraw(operatorIds, depositAmount, clusterAfterDeposit);
+
+      const operatorEarningsAfter = await sumOperatorEarnings(operatorIds);
+      const daoEarningsAfter = await views.getNetworkEarnings();
+
+      expect(operatorEarningsAfter).to.equal(operatorEarningsBefore);
+      expect(daoEarningsAfter).to.equal(daoEarningsBefore);
+    });
+
     it("Maintains global ETH accounting invariant after liquidated cluster withdrawal", async function() {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
