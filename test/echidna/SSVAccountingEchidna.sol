@@ -149,6 +149,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     uint256 private unallocatedSsv;
 
     bytes32[] private migratedClusterIds;
+    mapping(bytes32 => bool) private migratedSet;
     bool private ssvAccrualCorrupted;
 
     constructor() SSVDAO(address(new CSSVTokenMock(address(this)))) {
@@ -229,7 +230,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         uint64[] memory operatorIdsLocal = _operatorIdsForKey(operatorsKey);
         bytes32 clusterId = keccak256(abi.encodePacked(owner, operatorIdsLocal));
 
-        if (ssvClusters[clusterId].exists) return;
+        if (ssvClusters[clusterId].exists || migratedSet[clusterId]) return;
 
         uint32 validatorCount = uint32((seed >> 16) % 6) + 1;
 
@@ -572,8 +573,8 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
         try clusterOwner.migrate{value: amount}(operatorIdsLocal, cluster) {
             migratedClusterIds.push(clusterId);
-            record.cluster.active = false;
-            record.cluster.balance = 0;
+            migratedSet[clusterId] = true;
+            record.exists = false;
             unallocatedEth -= amount;
         } catch {}
     }
@@ -669,6 +670,18 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
                 vUnits = uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
             }
 
+            expected += vUnits;
+        }
+
+        // Migrated clusters are no longer in ethClusterIds but their validators
+        // are counted in daoTotalEthVUnits after migrateClusterToETH calls updateDAO.
+        uint256 migratedCount = migratedClusterIds.length;
+        for (uint256 i; i < migratedCount; ++i) {
+            bytes32 cId = migratedClusterIds[i];
+            uint64 vUnits = seb.clusterEB[cId].vUnits;
+            if (vUnits == 0) {
+                vUnits = uint64(ssvClusters[cId].cluster.validatorCount) * VUNITS_PRECISION;
+            }
             expected += vUnits;
         }
 
