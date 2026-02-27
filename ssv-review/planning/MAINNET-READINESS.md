@@ -56,7 +56,7 @@
 | TEST-11 | Network fee update impact on active clusters | Unit Test Completeness | P1 | S |
 | TEST-12 | Multi-staker reward fairness | Unit Test Completeness | P1 | M |
 | TEST-13 | Liquidation + reactivation multi-cycle accounting | Unit Test Completeness | P1 | M |
-| TEST-14 | Reactivation with EB deviation solvency check | Unit Test Completeness | P1 | S |
+| TEST-14 | ~~Reactivation with EB deviation solvency check~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-15 | SSV cluster operations completeness | Unit Test Completeness | P1 | M |
 | TEST-16 | View function coverage (SSVViews) | Unit Test Completeness | P1 | M |
 | TEST-17 | Staking rewards from EB-weighted cluster fees | Unit Test Completeness | P1 | S |
@@ -1672,7 +1672,7 @@ Only single liquidation/reactivation cycles are tested. Over multiple cycles, ro
 ### [TEST-14] Reactivation with EB deviation solvency check
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1684,8 +1684,8 @@ Test that reactivation solvency checks account for EB-weighted burn rate.
 Reactivate tests don't verify that the minimum deposit scales with vUnits. A cluster with EB=2048 has 64x the burn rate and should require a proportionally higher deposit.
 
 **Acceptance Criteria:**
-- [ ] Test: Reactivate cluster with EB=64 → verify minimum deposit requirement scales with 2x vUnits
-- [ ] Test: Reactivate with EB=2048 → verify high deposit requirement enforced
+- [x] Test: Reactivate cluster with EB=64 → verify minimum deposit requirement scales with 2x vUnits
+- [x] Test: Reactivate with EB=2048 → verify high deposit requirement enforced
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/reactivate.test.ts`.
@@ -1694,8 +1694,8 @@ Reactivate tests don't verify that the minimum deposit scales with vUnits. A clu
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Reactivation solvency with EB=64
-- [ ] Sub-task 2: Reactivation solvency with EB=2048
+- [x] Sub-task 1: Reactivation solvency with EB=64
+- [x] Sub-task 2: Reactivation solvency with EB=2048
 
 ---
 
