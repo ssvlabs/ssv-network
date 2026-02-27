@@ -12,6 +12,7 @@ import "../../contracts/libraries/ProtocolLib.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETHLib, PackedSSVLib} from "../../contracts/libraries/SSVPackedLib.sol";
 
 
 contract ClusterUser {
@@ -75,6 +76,8 @@ contract SSVEdgeCasesEchidna is SSVClusters {
     bool private validatorSpamFailed;
     bool private feeIndexOverflowMissed;
     bool private feeIndexOverflowSSVMissed;
+    bool private packOverflowSucceeded;
+    bool private ethAccrualCorrupted;
 
     constructor() {
         ISSVClusters self = ISSVClusters(address(this));
@@ -344,6 +347,49 @@ contract SSVEdgeCasesEchidna is SSVClusters {
         sp.networkFeeIndexBlockNumber = oldBlock;
     }
 
+    function action_probe_max_eth_accrual(uint256 seed) external {
+        StorageData storage s = SSVStorage.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        ISSVNetworkCore.Operator storage operator = s.operators[opSpam];
+        if (operator.ethSnapshot.block == 0) return;
+
+        uint64 testFee = PackedETH.unwrap(sp.operatorMaxFee);
+        uint32 testValidators = sp.validatorsPerOperatorLimit;
+
+        operator.ethFee = PackedETH.wrap(testFee);
+        operator.ethValidatorCount = testValidators;
+        seb.operatorEthVUnits[opSpam] = uint64(testValidators) * (640_000 - VUNITS_PRECISION);
+
+        PackedETH balanceBefore = operator.ethSnapshot.balance;
+        uint32 blocks = uint32(seed % MAX_ADVANCE_BLOCKS) + 1;
+
+        _fastForwardOperator(opSpam, blocks);
+
+        if (operator.ethSnapshot.balance.lt(balanceBefore)) {
+            ethAccrualCorrupted = true;
+        }
+    }
+
+    function action_pack_overflow_check() external {
+        try this.probe_pack_eth_overflow() {
+            packOverflowSucceeded = true;
+        } catch {}
+
+        try this.probe_pack_ssv_overflow() {
+            packOverflowSucceeded = true;
+        } catch {}
+    }
+
+    function probe_pack_eth_overflow() external pure {
+        PackedETHLib.pack(type(uint256).max);
+    }
+
+    function probe_pack_ssv_overflow() external pure {
+        PackedSSVLib.pack(type(uint256).max);
+    }
+
     function echidna_yoyo_liquidation_reactivates() external view returns (bool) {
         return !yoyoLiquidationFailed;
     }
@@ -358,6 +404,23 @@ contract SSVEdgeCasesEchidna is SSVClusters {
 
     function echidna_fee_index_overflow_protected() external view returns (bool) {
         return !feeIndexOverflowMissed && !feeIndexOverflowSSVMissed;
+    }
+
+    function echidna_eth_accrual_no_overflow() external view returns (bool) {
+        return !ethAccrualCorrupted;
+    }
+
+    function echidna_intermediate_mul_no_overflow() external view returns (bool) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint256 maxFee = uint256(PackedETH.unwrap(sp.operatorMaxFee));
+        uint256 maxValidators = uint256(sp.validatorsPerOperatorLimit);
+        uint256 maxEffectiveVUnits = maxValidators * 640_000;
+        uint256 product = maxFee * maxEffectiveVUnits;
+        return product <= type(uint128).max;
+    }
+
+    function echidna_pack_reverts_on_overflow() external view returns (bool) {
+        return !packOverflowSucceeded;
     }
 
     function _initProtocolDefaults() internal {

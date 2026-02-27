@@ -60,6 +60,13 @@ contract ClusterUser {
     ) external payable {
         clusters.reactivate{value: msg.value}(operatorIds, cluster);
     }
+
+    function migrate(
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external payable {
+        clusters.migrateClusterToETH{value: msg.value}(operatorIds, cluster);
+    }
 }
 
 contract OperatorUser {
@@ -140,6 +147,9 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     uint256 private totalSsvOut;
     uint256 private unallocatedEth;
     uint256 private unallocatedSsv;
+
+    bytes32[] private migratedClusterIds;
+    bool private ssvAccrualCorrupted;
 
     constructor() SSVDAO(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
@@ -542,6 +552,105 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
     function echidna_ssv_solvency() external view returns (bool) {
         return token.balanceOf(address(this)) <= totalSsvIn;
+    }
+
+    function action_migrate_ssv_cluster(uint256 seed) external {
+        _settleTime();
+        bytes32 clusterId = _pickSsvClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = ssvClusters[clusterId];
+        if (!record.exists || !record.cluster.active) return;
+        if (unallocatedEth == 0) return;
+
+        uint256 amount = _boundAmount(seed >> 8, unallocatedEth);
+        if (amount == 0) return;
+
+        uint64[] memory operatorIdsLocal = _operatorIdsForKey(record.operatorsKey);
+        ClusterUser clusterOwner = _clusterOwnerUser(record.owner);
+        ISSVNetworkCore.Cluster memory cluster = record.cluster;
+
+        try clusterOwner.migrate{value: amount}(operatorIdsLocal, cluster) {
+            migratedClusterIds.push(clusterId);
+            record.cluster.active = false;
+            record.cluster.balance = 0;
+            unallocatedEth -= amount;
+        } catch {}
+    }
+
+    function action_probe_max_ssv_accrual(uint256 seed) external {
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        ISSVNetworkCore.Operator storage operator = s.operators[op1];
+        if (operator.snapshot.block == 0) return;
+
+        uint64 testFee = uint64(sp.operatorMaxFeeSSV);
+        uint32 testValidators = sp.validatorsPerOperatorLimit;
+
+        operator.fee = PackedSSV.wrap(testFee);
+        operator.validatorCount = testValidators;
+
+        PackedSSV balanceBefore = operator.snapshot.balance;
+        uint32 blocks = uint32(seed % 8) + 1;
+        uint32 currentBlock = uint32(block.number);
+
+        uint64 blockDiffFee = uint64(blocks) * testFee;
+        operator.snapshot.index += blockDiffFee;
+        operator.snapshot.balance = operator.snapshot.balance.add(PackedSSV.wrap(blockDiffFee * uint64(testValidators)));
+        operator.snapshot.block = currentBlock;
+
+        if (operator.snapshot.balance.lt(balanceBefore)) {
+            ssvAccrualCorrupted = true;
+        }
+    }
+
+    function echidna_operator_vunits_matches_clusters() external view returns (bool) {
+        StorageEB storage seb = SSVStorageEB.load();
+
+        for (uint256 i; i < operatorIds.length; ++i) {
+            uint64 opId = operatorIds[i];
+            uint64 opDeviation = seb.operatorEthVUnits[opId];
+
+            uint64 expectedDeviation;
+            for (uint256 j; j < ethClusterIds.length; ++j) {
+                bytes32 cId = ethClusterIds[j];
+                ClusterRecord storage record = ethClusters[cId];
+                if (!record.exists || !record.cluster.active) continue;
+
+                uint64[] memory ops = _operatorIdsForKey(record.operatorsKey);
+                bool hasOp = false;
+                for (uint256 k; k < ops.length; ++k) {
+                    if (ops[k] == opId) { hasOp = true; break; }
+                }
+                if (!hasOp) continue;
+
+                uint64 clusterVUnits = seb.clusterEB[cId].vUnits;
+                if (clusterVUnits > 0) {
+                    uint64 baseline = uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
+                    if (clusterVUnits > baseline) {
+                        expectedDeviation += clusterVUnits - baseline;
+                    }
+                }
+            }
+
+            if (opDeviation != expectedDeviation) return false;
+        }
+        return true;
+    }
+
+    function echidna_migration_one_way() external view returns (bool) {
+        StorageData storage s = SSVStorage.load();
+        for (uint256 i; i < migratedClusterIds.length; ++i) {
+            bytes32 cId = migratedClusterIds[i];
+            if (s.clusters[cId] != 0) return false;
+            if (s.ethClusters[cId] == 0) return false;
+        }
+        return true;
+    }
+
+    function echidna_ssv_accrual_no_overflow() external view returns (bool) {
+        return !ssvAccrualCorrupted;
     }
 
     function echidna_vunits_deviation_consistent() external view returns (bool) {
