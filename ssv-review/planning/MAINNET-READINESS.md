@@ -54,7 +54,7 @@
 | TEST-9 | ~~Migration balance accounting verification~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-10 | Operator fee change + EB burn rate interaction | Unit Test Completeness | P1 | M |
 | TEST-11 | Network fee update impact on active clusters | Unit Test Completeness | P1 | S |
-| TEST-12 | Multi-staker reward fairness | Unit Test Completeness | P1 | M |
+| TEST-12 | ~~Multi-staker reward fairness~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-13 | Liquidation + reactivation multi-cycle accounting | Unit Test Completeness | P1 | M |
 | TEST-14 | Reactivation with EB deviation solvency check | Unit Test Completeness | P1 | S |
 | TEST-15 | SSV cluster operations completeness | Unit Test Completeness | P1 | M |
@@ -1607,7 +1607,7 @@ DAO parameter tests verify storage changes but not enforcement on active cluster
 ### [TEST-12] Multi-staker reward fairness
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1619,10 +1619,10 @@ Add comprehensive multi-staker scenarios testing proportional reward distributio
 `onCSSVTransfer` has only 2 tests. Staking integration tests have basic proportional distribution but don't test complex scenarios with multiple stakers entering/exiting at different times or transferring cSSV.
 
 **Acceptance Criteria:**
-- [ ] Test: 3 stakers with different amounts → each receives exactly proportional rewards
-- [ ] Test: Staker A stakes, rewards accrue, staker B stakes → A gets both periods, B gets only second
-- [ ] Test: cSSV transfer from A to B → verify reward settlement for both, B earns at higher rate
-- [ ] Test: Sequential cSSV transfers A→B→C → verify accumulated rewards at each step
+- [x] Test: 3 stakers with different amounts → each receives exactly proportional rewards
+- [x] Test: Staker A stakes, rewards accrue, staker B stakes → A gets both periods, B gets only second
+- [x] Test: cSSV transfer from A to B → verify reward settlement for both, B earns at higher rate
+- [x] Test: Sequential cSSV transfers A→B→C → verify accumulated rewards at each step
 
 **Agent Instructions:**
 1. Read `test/unit/SSVStaking/claimEthRewards.test.ts` and `test/unit/SSVStaking/onCSSVTransfer.test.ts`.
@@ -1632,10 +1632,10 @@ Add comprehensive multi-staker scenarios testing proportional reward distributio
 5. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Three-staker proportional distribution
-- [ ] Sub-task 2: Time-weighted staking (A early, B late)
-- [ ] Sub-task 3: cSSV transfer settlement
-- [ ] Sub-task 4: Sequential cSSV transfer chain
+- [x] Sub-task 1: Three-staker proportional distribution
+- [x] Sub-task 2: Time-weighted staking (A early, B late)
+- [x] Sub-task 3: cSSV transfer settlement
+- [x] Sub-task 4: Sequential cSSV transfer chain
 
 ---
 
