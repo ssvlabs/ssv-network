@@ -65,7 +65,7 @@
 | TEST-20 | Cooldown duration changes affecting pending requests | Unit Test Completeness | P1 | S |
 | TEST-21 | EB boundary values (min/max per validator) | Unit Test Completeness | P2 | S |
 | TEST-22 | Dust/precision edge cases | Unit Test Completeness | P2 | S |
-| TEST-23 | Max operator count (13) with EB | Unit Test Completeness | P2 | S |
+| TEST-23 | ~~Max operator count (13) with EB~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-24 | Idempotency and double-operation checks | Unit Test Completeness | P2 | S |
 | TEST-25 | Upgrade path (reinitializer) tests | Unit Test Completeness | P2 | S |
 | TEST-26 | Zero-validator cluster operations | Unit Test Completeness | P2 | S |
@@ -1956,7 +1956,7 @@ Add precision edge case tests for packed type boundaries and tiny values.
 ### [TEST-23] Max operator count (13) with EB
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1965,8 +1965,8 @@ Add precision edge case tests for packed type boundaries and tiny values.
 Add tests for 13-operator clusters with high EB values to verify no overflow.
 
 **Acceptance Criteria:**
-- [ ] Test: 13 operators with EB=2048 — verify no overflow, correct accounting
-- [ ] Test: Liquidation with 13 operators and high EB — verify threshold calculation
+- [x] Test: 13 operators with EB=2048 — verify no overflow, correct accounting
+- [x] Test: Liquidation with 13 operators and high EB — verify threshold calculation
 
 **Agent Instructions:**
 1. Read existing gas tests for 13 operators in `test/unit/SSVValidator/`.
@@ -1974,8 +1974,13 @@ Add tests for 13-operator clusters with high EB values to verify no overflow.
 3. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: 13 operators + EB=2048 accounting
-- [ ] Sub-task 2: 13 operators + high EB liquidation
+- [x] Sub-task 1: 13 operators + EB=2048 accounting
+- [x] Sub-task 2: 13 operators + high EB liquidation
+
+**Resolution:**
+Two tests added to `test/unit/SSVClusters/updateClusterBalance.test.ts`:
+1. **"Updates vUnit accounting correctly for 13 operators at maximum EB (2048 ETH per validator)"** — registers a cluster with 13 operators, updates EB to 2048, verifies: clusterVUnits = 640,000; daoTotalEthVUnits = 640,000; each operator deviation = 630,000; each operator effective vUnits = 640,000. No overflow.
+2. **"Auto-liquidates cluster with 13 operators when EB increase to maximum makes it insolvent"** — verifies that the liquidation threshold calculation with 13 operators at EB=2048 (vUnits=640,000) correctly triggers auto-liquidation inside `updateClusterBalance`. Deposit is solvent at EB=32 (threshold ≈ 0.000014 ETH) but insolvent at EB=2048 (threshold ≈ 0.000896 ETH). After auto-liquidation, all 13 operator vUnit deviations are cleaned up to 0.
 
 ---
 
