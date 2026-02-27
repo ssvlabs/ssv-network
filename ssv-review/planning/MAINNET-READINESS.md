@@ -91,6 +91,10 @@
 | QUALITY-3 | `withdraw` in SSVClusters duplicates operator loop inline | Code Quality | P2 | S |
 | QUALITY-4 | ~~`_resetOperatorState` returns unused `Operator memory`~~ | Code Quality | P3 | ✅ Closed (cosmetic) |
 | QUALITY-5 | Remove duplicate `MaxValueExceeded` error declaration | Code Quality | P3 | 🧹 Cleanup PR candidate |
+| QUALITY-6 | Multiple fixture patterns across tests (E2E/unit/integration) | Code Quality | P1 | ⚠️ High Priority — standardize after PR #435 |
+| QUALITY-7 | Harness contracts vs. real contracts in tests | Code Quality | P2 | ⚠️ Medium Priority — migrate E2E to real contracts (PR #435) |
+| QUALITY-8 | Helper function duplication across test types | Code Quality | P3 | ℹ️ Low Priority — merge helpers after PR #435 |
+| QUALITY-9 | `removeOperator` should clear fee change requests | Code Quality | P2 | S |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
@@ -3252,3 +3256,108 @@ The fix requires branching `_bulkRemoveValidator` on `version`: for `VERSION_SSV
 | QUALITY-2 | Redundant `SSVStorage.load()` calls in view function loops | Code Quality | P2 |
 | QUALITY-3 | `withdraw` in SSVClusters duplicates operator loop inline | Code Quality | P2 |
 | QUALITY-4 | `_resetOperatorState` returns unused `Operator memory` | Code Quality | P3 |
+
+---
+
+## Code Quality — New Tasks
+
+### [QUALITY-6] Multiple Fixture Patterns Across Tests
+- **Type:** Code Quality
+- **Priority:** P1 (High)
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** After PR #435
+- **Github Link:** (empty)
+
+**Issue:**
+Tests use different fixture approaches:
+1. E2E tests: `ssvNetworkFullFixture(connection)` from `test/e2e/setup/fixtures.ts`
+2. Unit tests: `ssvNetwork()` from `test/helpers/contract-helpers.ts`
+3. Integration tests: mixed usage
+
+**Impact:**
+- Harder to maintain
+- Potential inconsistencies in setup state
+- Confusing for new contributors
+
+**Recommendation:**
+After PR #435 merges, standardize on a single fixture pattern.
+
+**Acceptance Criteria:**
+- [ ] One fixture entrypoint used across E2E/unit/integration tests
+- [ ] Old fixture helpers removed or thinly re-export the canonical fixture
+- [ ] Documentation in `test/` updated to point to the single fixture
+
+---
+
+### [QUALITY-7] Harness Contracts vs. Real Contracts in Tests
+- **Type:** Code Quality
+- **Priority:** P2 (Medium)
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** After PR #435
+- **Github Link:** (empty)
+
+**Issue:**
+Some tests use harness contracts (mocks for SSV clusters), while others use real deployments.
+
+**Impact:**
+- Harness contracts may not catch production bugs
+- Tests with real contracts are more trustworthy
+
+**Recommendation:**
+Migrate all E2E tests to use real contracts (per PR #435).
+
+**Acceptance Criteria:**
+- [ ] E2E tests run exclusively against real contract deployments
+- [ ] Harness usage limited to unit tests where mocking is intentional and documented
+- [ ] Any remaining harness usage in E2E is justified in test docs
+
+---
+
+### [QUALITY-8] Helper Function Duplication Across Test Types
+- **Type:** Code Quality
+- **Priority:** P3 (Low)
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** After PR #435
+- **Github Link:** (empty)
+
+**Issue:**
+`test/e2e/helpers/` and `test/helpers/contract-helpers.ts` overlap in functionality.
+
+**Impact:**
+- Minor maintenance burden
+- Low risk of divergence
+
+**Recommendation:**
+Merge helper utilities after PR #435.
+
+**Acceptance Criteria:**
+- [ ] Single helper module owns shared test utilities
+- [ ] Duplicates removed or consolidated
+- [ ] Imports updated across test suites
+
+---
+
+### [QUALITY-9] Clear Operator Fee Change Requests on Removal
+- **Type:** Code Quality
+- **Priority:** P2 (Medium)
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (tbd)
+- **Github Link:** (empty)
+
+**Issue:**
+`SSVOperators.removeOperator` does not clear `operatorFeeChangeRequests[operatorId]`.
+
+**Impact:**
+- Stale data persists in storage
+- Slightly increases state size and can confuse off-chain tooling
+
+**Recommendation:**
+When removing an operator, delete any pending fee change request.
+
+**Acceptance Criteria:**
+- [ ] `removeOperator` clears `operatorFeeChangeRequests[operatorId]`
+- [ ] Unit test covers removal with an active fee change request
