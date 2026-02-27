@@ -35,7 +35,7 @@
 | SEC-10 | ~~cSSV token lacks governance/voting extensions (ERC20Votes)~~ | Security Hardening | P2 | ✅ Closed (Snapshot-based governance, same as SSV) |
 | SEC-11 | ~~`hasDeviation` reactivation optimization uses global counter for per-operator decision~~ | Security Hardening | ~~P1~~ P3 | ✅ Closed (BUG-4 fix resolves root cause) |
 | SEC-12 | ~~`deposit()` accepts deposits to liquidated ETH clusters without fee settlement~~ | Security Hardening | P2 | ✅ Closed (by design — document in FLOWS.md) |
-| SEC-13 | `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals | Security Hardening | P2 | Keep `OperatorWithdrawn` for ETH; add `OperatorWithdrawnSSV` for SSV |
+| SEC-13 | ~~`OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals~~ | Security Hardening | P2 | ✅ Fixed — `OperatorWithdrawnSSV` added to `ISSVOperators.sol`; SSV path emits it, ETH path unchanged |
 | SEC-14 | ~~`commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot~~ | Security Hardening | P2 | ✅ Closed (coordinated oracles) |
 | SEC-15 | ~~Min/max operator fee can be set to contradictory values~~ | Security Hardening | P2 | ✅ Closed (owner-only setters) |
 | SEC-16 | ~~Missing zero-value/zero-address guards on deposit and withdraw~~ | Security Hardening | P2 | ✅ Closed |
@@ -845,12 +845,12 @@ In `SSVClusters.sol:190-205`, `deposit()` has no `validateClusterIsNotLiquidated
 
 ---
 
-### [SEC-13] `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals
+### [SEC-13] ~~`OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals~~
 - **Type:** Security Hardening
 - **Priority:** P2
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -863,26 +863,21 @@ In `SSVOperators.sol:337-344`, both `_transferOperatorBalanceUnsafe` (ETH) and `
 - `OperatorWithdrawn(operatorId, owner, value)` — **kept as-is**, emitted only by `_transferOperatorBalanceUnsafe` (ETH withdrawals)
 - `OperatorWithdrawnSSV(operatorId, owner, value)` — **new event**, emitted only by `_transferOperatorTokenBalanceUnsafe` (SSV withdrawals)
 
+**Resolution:**
+`OperatorWithdrawnSSV` event added to `contracts/interfaces/ISSVOperators.sol` with identical signature to `OperatorWithdrawn`. `_transferOperatorTokenBalanceUnsafe` now emits `OperatorWithdrawnSSV`; `_transferOperatorBalanceUnsafe` (ETH) is unchanged. Tests in `withdrawOperatorEarningsSSV.test.ts` updated to assert `OperatorWithdrawnSSV`. `OPERATOR_WITHDRAWN_SSV` constant added to `test/common/events.ts`. All 413 unit tests passing.
+
 **Acceptance Criteria:**
-- [ ] `OperatorWithdrawnSSV` event defined in `contracts/interfaces/ISSVOperators.sol`
-- [ ] `_transferOperatorBalanceUnsafe` emits `OperatorWithdrawn` (ETH) — no change
-- [ ] `_transferOperatorTokenBalanceUnsafe` emits `OperatorWithdrawnSSV` instead of `OperatorWithdrawn`
+- [x] `OperatorWithdrawnSSV` event defined in `contracts/interfaces/ISSVOperators.sol`
+- [x] `_transferOperatorBalanceUnsafe` emits `OperatorWithdrawn` (ETH) — no change
+- [x] `_transferOperatorTokenBalanceUnsafe` emits `OperatorWithdrawnSSV` instead of `OperatorWithdrawn`
 - [ ] Off-chain indexers and SDK updated to listen to `OperatorWithdrawnSSV` for SSV earnings
 - [ ] ABI change impact documented for oracle and SDK clients
 
-**Agent Instructions:**
-1. Read `contracts/modules/SSVOperators.sol`, focus on `_transferOperatorBalanceUnsafe` and `_transferOperatorTokenBalanceUnsafe` (lines 337-344).
-2. Add `event OperatorWithdrawnSSV(uint64 indexed operatorId, address indexed owner, uint256 value);` to `contracts/interfaces/ISSVOperators.sol`.
-3. In `_transferOperatorTokenBalanceUnsafe`, replace `emit OperatorWithdrawn(...)` with `emit OperatorWithdrawnSSV(...)`.
-4. Leave `_transferOperatorBalanceUnsafe` unchanged.
-5. Update any tests that assert `OperatorWithdrawn` was emitted for SSV withdrawals to expect `OperatorWithdrawnSSV` instead.
-6. Run `npm run test:unit`.
-
 #### Sub-items:
-- [ ] Sub-task 1: Define `OperatorWithdrawnSSV` event in `ISSVOperators.sol`
-- [ ] Sub-task 2: Update `_transferOperatorTokenBalanceUnsafe` to emit `OperatorWithdrawnSSV`
-- [ ] Sub-task 3: Update tests for new event signature
-- [ ] Sub-task 4: Run full test suite
+- [x] Sub-task 1: Define `OperatorWithdrawnSSV` event in `ISSVOperators.sol`
+- [x] Sub-task 2: Update `_transferOperatorTokenBalanceUnsafe` to emit `OperatorWithdrawnSSV`
+- [x] Sub-task 3: Update tests for new event signature
+- [x] Sub-task 4: Run full test suite
 
 ---
 
