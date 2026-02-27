@@ -407,4 +407,33 @@ describe("SSVClusters function `withdraw()`", async () => {
     expect(clusterAfterWithdraw.validatorCount).to.equal(clusterAfterEB.validatorCount);
     expect(clusterAfterWithdraw.balance).to.equal(0n);
   });
+
+  it("Zero-validator cluster allows full balance withdrawal without fee deduction", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersWithLowFeesFixture);
+
+    await clusters.mockEthNetworkFee(100_000n);
+
+    const publicKey = makePublicKey(1);
+    const registerTx = await clusters.registerValidator(
+      publicKey, operatorIds, DEFAULT_SHARES, createCluster(), { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const removeTx = await clusters.removeValidator(publicKey, operatorIds, clusterAfterRegister);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+
+    await networkHelpers.mine(100);
+
+    const fullBalance = clusterAfterRemove.balance;
+    const withdrawTx = await clusters.withdraw(operatorIds, fullBalance, clusterAfterRemove);
+    const withdrawReceipt = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+    expect(clusterAfterWithdraw.active).to.equal(true);
+  });
 });
