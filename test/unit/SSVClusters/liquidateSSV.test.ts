@@ -5,7 +5,13 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from "../../common/constants.ts";
+import {
+  DEFAULT_ETH_REGISTER_VALUE,
+  DEFAULT_SHARES,
+  DEDUCTED_DIGITS,
+  EMPTY_CLUSTER,
+  VUNITS_PRECISION,
+} from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -181,6 +187,175 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     const ownerTokenAfter = await mockToken.balanceOf(clusterOwner.address);
 
     expect(ownerTokenAfter - ownerTokenBefore).to.equal(clusterBalance);
+  });
+
+  it("Deducts operator SSV fees after registration and clears validator counts on liquidation", async function () {
+    const { clusters, operatorIds, mockToken } =
+      await networkHelpers.loadFixture(deploySSVClustersFixture);
+
+    const publicKey = makePublicKey(1);
+    const validatorCount = 2n;
+    const initialBalance = connection.ethers.parseEther("20");
+    const cluster = createSSVClusterWithTokenBalance(initialBalance, {
+      validatorCount,
+      index: 0n,
+      networkFeeIndex: 0n,
+    });
+
+    const operatorSSVFee = DEDUCTED_DIGITS * 3n;
+    for (const operatorId of operatorIds) {
+      await clusters.mockOperatorSSVFee(operatorId, operatorSSVFee);
+    }
+    await clusters.mockSSVNetworkFee(0n);
+    await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+
+    const operatorSnapshots = [];
+    for (const operatorId of operatorIds) {
+      const snap = await clusters.getOperatorSnapshot(operatorId);
+      const fee = await clusters.getOperatorSSVFee(operatorId);
+      operatorSnapshots.push({ block: BigInt(snap.blockNumber), index: snap.index, fee });
+    }
+    const readBlock = BigInt(await connection.ethers.provider.getBlockNumber());
+
+    await networkHelpers.mine(40);
+
+    const ownerTokenBefore = await mockToken.balanceOf(clusterOwner.address);
+
+    const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
+    const receipt = await liquidateTx.wait();
+    const liquidationBlock = BigInt(receipt!.blockNumber);
+
+    let expectedCumulativeIndex = 0n;
+    for (const snap of operatorSnapshots) {
+      const blockDiff = liquidationBlock - snap.block;
+      expectedCumulativeIndex += snap.index + blockDiff * snap.fee;
+    }
+
+    const operatorUsagePacked = (expectedCumulativeIndex - cluster.index) * validatorCount;
+    const expectedOperatorDeduction = operatorUsagePacked * DEDUCTED_DIGITS;
+    const expectedRefund = initialBalance > expectedOperatorDeduction
+      ? initialBalance - expectedOperatorDeduction
+      : 0n;
+
+    const ownerTokenAfter = await mockToken.balanceOf(clusterOwner.address);
+    expect(ownerTokenAfter - ownerTokenBefore).to.equal(expectedRefund);
+    expect(initialBalance - expectedRefund).to.equal(expectedOperatorDeduction);
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorValidatorCount(operatorId)).to.equal(0n);
+    }
+
+    expect(liquidationBlock).to.be.greaterThan(readBlock);
+  });
+
+  it("Deducts non-zero SSV network fee from remaining liquidation transfer", async function () {
+    const { clusters, operatorIds, mockToken } =
+      await networkHelpers.loadFixture(deploySSVClustersFixture);
+
+    const publicKey = makePublicKey(1);
+    const validatorCount = 3n;
+    const initialBalance = connection.ethers.parseEther("15");
+    const cluster = createSSVClusterWithTokenBalance(initialBalance, {
+      validatorCount,
+      index: 0n,
+      networkFeeIndex: 0n,
+    });
+
+    const networkFeeRaw = 7n;
+    await clusters.mockSSVNetworkFee(networkFeeRaw);
+    await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+    await clusters.mockMinimumLiquidationCollateralSSV(initialBalance / DEDUCTED_DIGITS + 1n);
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+
+    const networkFeeIndexBefore = await clusters.getCurrentNetworkFeeIndexSSV();
+    const readBlock = BigInt(await connection.ethers.provider.getBlockNumber());
+
+    await networkHelpers.mine(55);
+
+    const liquidatorTokenBefore = await mockToken.balanceOf(otherAccount.address);
+
+    const liquidateTx = await clusters.connect(otherAccount).liquidateSSV(clusterOwner.address, operatorIds, cluster);
+    const receipt = await liquidateTx.wait();
+    const liquidationBlock = BigInt(receipt!.blockNumber);
+
+    const blocksElapsed = liquidationBlock - readBlock;
+    const expectedNetworkFeeIndex = networkFeeIndexBefore + blocksElapsed * networkFeeRaw;
+    const networkUsagePacked = (expectedNetworkFeeIndex - cluster.networkFeeIndex) * validatorCount;
+    const expectedNetworkDeduction = networkUsagePacked * DEDUCTED_DIGITS;
+    const expectedTransfer = initialBalance > expectedNetworkDeduction
+      ? initialBalance - expectedNetworkDeduction
+      : 0n;
+
+    const liquidatorTokenAfter = await mockToken.balanceOf(otherAccount.address);
+    expect(liquidatorTokenAfter - liquidatorTokenBefore).to.equal(expectedTransfer);
+    expect(initialBalance - expectedTransfer).to.equal(expectedNetworkDeduction);
+  });
+
+  it("Transfers post-fee SSV balance to liquidator when both operator and network fees accrue", async function () {
+    const { clusters, operatorIds, mockToken } =
+      await networkHelpers.loadFixture(deploySSVClustersFixture);
+
+    const publicKey = makePublicKey(1);
+    const validatorCount = 2n;
+    const initialBalance = connection.ethers.parseEther("25");
+    const cluster = createSSVClusterWithTokenBalance(initialBalance, {
+      validatorCount,
+      index: 0n,
+      networkFeeIndex: 0n,
+    });
+
+    const operatorSSVFee = DEDUCTED_DIGITS * 4n;
+    for (const operatorId of operatorIds) {
+      await clusters.mockOperatorSSVFee(operatorId, operatorSSVFee);
+    }
+
+    const networkFeeRaw = 9n;
+    await clusters.mockSSVNetworkFee(networkFeeRaw);
+    await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, cluster);
+
+    const operatorSnapshots = [];
+    for (const operatorId of operatorIds) {
+      const snap = await clusters.getOperatorSnapshot(operatorId);
+      const fee = await clusters.getOperatorSSVFee(operatorId);
+      operatorSnapshots.push({ block: BigInt(snap.blockNumber), index: snap.index, fee });
+    }
+    const networkFeeIndexBefore = await clusters.getCurrentNetworkFeeIndexSSV();
+    const readBlock = BigInt(await connection.ethers.provider.getBlockNumber());
+
+    await networkHelpers.mine(33);
+
+    const ownerTokenBefore = await mockToken.balanceOf(clusterOwner.address);
+    const harnessTokenBefore = await mockToken.balanceOf(await clusters.getAddress());
+
+    const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
+    const receipt = await liquidateTx.wait();
+    const liquidationBlock = BigInt(receipt!.blockNumber);
+
+    const blocksElapsed = liquidationBlock - readBlock;
+    let expectedCumulativeIndex = 0n;
+    for (const snap of operatorSnapshots) {
+      const blockDiff = liquidationBlock - snap.block;
+      expectedCumulativeIndex += snap.index + blockDiff * snap.fee;
+    }
+    const expectedNetworkFeeIndex = networkFeeIndexBefore + blocksElapsed * networkFeeRaw;
+    const operatorUsagePacked = (expectedCumulativeIndex - cluster.index) * validatorCount;
+    const networkUsagePacked = (expectedNetworkFeeIndex - cluster.networkFeeIndex) * validatorCount;
+    const totalExpectedUsage = (operatorUsagePacked + networkUsagePacked) * DEDUCTED_DIGITS;
+    const expectedTransfer = initialBalance > totalExpectedUsage
+      ? initialBalance - totalExpectedUsage
+      : 0n;
+
+    const ownerTokenAfter = await mockToken.balanceOf(clusterOwner.address);
+    const harnessTokenAfter = await mockToken.balanceOf(await clusters.getAddress());
+
+    expect(ownerTokenAfter - ownerTokenBefore).to.equal(expectedTransfer);
+    expect(harnessTokenBefore - harnessTokenAfter).to.equal(expectedTransfer);
+    expect(initialBalance - expectedTransfer).to.equal(totalExpectedUsage);
   });
 
   it("Does not change operatorEthVUnits or stored cluster EB snapshot when liquidating an SSV cluster", async function () {

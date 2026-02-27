@@ -57,7 +57,7 @@
 | TEST-12 | Multi-staker reward fairness | Unit Test Completeness | P1 | M |
 | TEST-13 | Liquidation + reactivation multi-cycle accounting | Unit Test Completeness | P1 | M |
 | TEST-14 | Reactivation with EB deviation solvency check | Unit Test Completeness | P1 | S |
-| TEST-15 | SSV cluster operations completeness | Unit Test Completeness | P1 | M |
+| TEST-15 | ~~SSV cluster operations completeness~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-16 | View function coverage (SSVViews) | Unit Test Completeness | P1 | M |
 | TEST-17 | Staking rewards from EB-weighted cluster fees | Unit Test Completeness | P1 | S |
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
@@ -1706,7 +1706,7 @@ Reactivate tests don't verify that the minimum deposit scales with vUnits. A clu
 ### [TEST-15] SSV cluster operations completeness
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1718,9 +1718,9 @@ Add comprehensive tests for SSV-denominated cluster operations. Most tests focus
 The dual cluster system maintains parallel SSV and ETH records. SSV cluster operations should still work correctly during the transition period.
 
 **Acceptance Criteria:**
-- [ ] Test: Register/remove validators in SSV cluster with non-zero SSV fees → verify fee deductions
-- [ ] Test: SSV cluster with non-zero network fee → verify fee deductions
-- [ ] Test: Withdraw from SSV cluster → verify balance and token transfer
+- [x] Test: Register/remove validators in SSV cluster with non-zero SSV fees → verify fee deductions
+- [x] Test: SSV cluster with non-zero network fee → verify fee deductions
+- [x] Test: Withdraw from SSV cluster → verify balance and token transfer
 
 **Agent Instructions:**
 1. Read existing SSV-related tests: `test/unit/SSVClusters/liquidateSSV.test.ts`, `test/integration/SSVNetwork/legacy-ssv.test.ts`.
@@ -1730,9 +1730,9 @@ The dual cluster system maintains parallel SSV and ETH records. SSV cluster oper
 5. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: SSV validator registration with fees
-- [ ] Sub-task 2: SSV cluster network fee deductions
-- [ ] Sub-task 3: SSV cluster withdrawal
+- [x] Sub-task 1: SSV validator registration with fees
+- [x] Sub-task 2: SSV cluster network fee deductions
+- [x] Sub-task 3: SSV cluster withdrawal
 
 ---
 
