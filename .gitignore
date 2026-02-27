@@ -30,7 +30,7 @@ crytic-export/combined_solc.json
 
 # ssv-review — keep only mainnet-readiness docs and DIP-X on remote
 ssv-review/*
-!ssv-review/Internal - [DIP-X] SSV Staking.txt
+!ssv-review/Internal-[DIP-X]-SSV-Staking.md
 !ssv-review/planning
 ssv-review/planning/*
 !ssv-review/planning/MAINNET-READINESS.md

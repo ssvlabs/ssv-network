@@ -89,8 +89,8 @@ describe("SSVStaking function `requestUnstake()`", async () => {
   it("Is reverted with 'MaxRequestsAmountReached' when pending requests limit is reached", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeFirst);
 
-    const unstakeAmount = STAKE_AMOUNT / 20n;
-    for (let i = 0; i < 10; i += 1) {
+    const unstakeAmount = STAKE_AMOUNT / 20000n;
+    for (let i = 0; i < 2000; i += 1) {
       await (await staking.requestUnstake(unstakeAmount)).wait();
     }
 
@@ -185,6 +185,27 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     // Verify cSSV balance reduced by both amounts
     const cssvBalance = await cssvToken.balanceOf(staker.address);
     expect(cssvBalance).to.equal(STAKE_AMOUNT - firstAmount - secondAmount);
+  });
+
+  it("Uses block.timestamp (seconds) for unlockTime, not block.number", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeFirst);
+
+    const unstakeAmount = STAKE_AMOUNT / 2n;
+    const receipt = await trackGas(
+      staking.requestUnstake(unstakeAmount),
+      [GasGroup.REQUEST_UNSTAKE]
+    );
+
+    const block = await connection.ethers.provider.getBlock(receipt.blockNumber);
+    const [, unlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
+
+    // unlockTime must equal block.timestamp + cooldown (seconds-based)
+    const expectedFromTimestamp = BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+    expect(unlockTime).to.equal(expectedFromTimestamp);
+
+    // unlockTime must NOT equal block.number + cooldown (blocks-based)
+    const incorrectFromBlockNumber = BigInt(block!.number) + DEFAULT_UNSTAKE_COOLDOWN;
+    expect(unlockTime).to.not.equal(incorrectFromBlockNumber);
   });
 
   it("Settles pending rewards before unstaking when fees have accrued", async function () {

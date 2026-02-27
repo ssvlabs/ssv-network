@@ -212,7 +212,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         ClusterLib.validateClusterVersion(version, VERSION_ETH);
-        cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 

@@ -13,6 +13,7 @@ struct UnstakeRequest {
 }
 
 struct StorageStaking {
+    /// @notice Unstake cooldown duration in seconds
     uint64 cooldownDuration;
     /// @notice Total ETH-denominated rewards (shrunk) allocated to the staking pool
     PackedETH stakingEthPoolBalance;

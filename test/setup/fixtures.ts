@@ -302,10 +302,11 @@ export async function ssvNetworkFullFixture(
     networkProxyAddr,
     upgradeImplAddr,
     "SSVNetworkSSVStakingUpgrade",
-    "initializeSSVStaking(uint64,uint32[4])",
+    "initializeSSVStaking(uint64,uint32[4],uint16)",
     [
       cooldown,
-      DEFAULT_ORACLE_IDS
+      DEFAULT_ORACLE_IDS,
+      QUORUM_BPS
     ]
   );
 
@@ -381,8 +382,8 @@ export async function ssvNetworkFullForkedFixture(
     const cooldown = DEFAULT_UNSTAKE_COOLDOWN;
     const upgradeFactory = await ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
     const initData = upgradeFactory.interface.encodeFunctionData(
-      "initializeSSVStaking(uint64,uint32[4])",
-      [cooldown, DEFAULT_ORACLE_IDS]
+      "initializeSSVStaking(uint64,uint32[4],uint16)",
+      [cooldown, DEFAULT_ORACLE_IDS, QUORUM_BPS]
     );
 
     try {
