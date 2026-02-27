@@ -55,7 +55,7 @@
 | TEST-10 | Operator fee change + EB burn rate interaction | Unit Test Completeness | P1 | M |
 | TEST-11 | Network fee update impact on active clusters | Unit Test Completeness | P1 | S |
 | TEST-12 | Multi-staker reward fairness | Unit Test Completeness | P1 | M |
-| TEST-13 | Liquidation + reactivation multi-cycle accounting | Unit Test Completeness | P1 | M |
+| TEST-13 | ~~Liquidation + reactivation multi-cycle accounting~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-14 | Reactivation with EB deviation solvency check | Unit Test Completeness | P1 | S |
 | TEST-15 | SSV cluster operations completeness | Unit Test Completeness | P1 | M |
 | TEST-16 | View function coverage (SSVViews) | Unit Test Completeness | P1 | M |
@@ -1642,7 +1642,7 @@ Add comprehensive multi-staker scenarios testing proportional reward distributio
 ### [TEST-13] Liquidation + reactivation multi-cycle accounting
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1654,8 +1654,8 @@ Add tests for multiple liquidation/reactivation cycles to verify no accounting d
 Only single liquidation/reactivation cycles are tested. Over multiple cycles, rounding errors or state leakage could accumulate.
 
 **Acceptance Criteria:**
-- [ ] Test: Liquidate → reactivate → operate → liquidate → reactivate → verify cumulative balances, no drift
-- [ ] Test: Operator earnings across multiple liquidation cycles → verify no double-counting
+- [x] Test: Liquidate → reactivate → operate → liquidate → reactivate → verify cumulative balances, no drift
+- [x] Test: Operator earnings across multiple liquidation cycles → verify no double-counting
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/liquidate.test.ts` and `test/unit/SSVClusters/reactivate.test.ts`.
@@ -1664,8 +1664,8 @@ Only single liquidation/reactivation cycles are tested. Over multiple cycles, ro
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Multi-cycle liquidation/reactivation accounting
-- [ ] Sub-task 2: Operator earnings across cycles
+- [x] Sub-task 1: Multi-cycle liquidation/reactivation accounting
+- [x] Sub-task 2: Operator earnings across cycles
 
 ---
 
