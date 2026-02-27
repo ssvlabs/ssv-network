@@ -98,6 +98,26 @@ describe("SSVClusters function `exitValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(missingPk);
   });
 
+  it("Calling exitValidator twice on the same validator succeeds both times without reverting", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+
+    await validators.registerValidator(
+      publicKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+
+    await validators.exitValidator(publicKey, operatorIds);
+
+    const tx = await validators.exitValidator(publicKey, operatorIds);
+    await expect(tx).to.emit(validators, Events.VALIDATOR_EXITED).withArgs(clusterOwner.address, operatorIds, publicKey);
+  });
+
   it("Is reverted with 'IncorrectValidatorStateWithData' when operator ids do not match the validator", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);

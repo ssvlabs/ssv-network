@@ -306,4 +306,29 @@ describe("SSVStaking function `syncFees()`", async () => {
     const accAfter = await staking.getAccEthPerShare();
     expect(accAfter).to.be.greaterThan(accBefore);
   });
+
+  it("Calling syncFees twice does not double-count fees — second call is a no-op", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
+
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(1_000_000_000n);
+
+    await trackGas(staking.syncFees(), [GasGroup.SYNC_FEES]);
+
+    const accAfterFirst = await staking.getAccEthPerShare();
+
+    const tx = await trackGas(staking.syncFees(), [GasGroup.SYNC_FEES]);
+
+    await expect(tx).to.not.emit(staking, Events.FEES_SYNCED);
+
+    const accAfterSecond = await staking.getAccEthPerShare();
+    expect(accAfterSecond).to.equal(accAfterFirst);
+  });
 });
