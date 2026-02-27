@@ -20,7 +20,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint64 private constant PRECISION = 1e18;
-    uint256 private constant MAX_PENDING_REQUESTS = 10;
+    uint256 private constant MAX_PENDING_REQUESTS = 2000;
 
     address public immutable CSSV_ADDRESS;
 

@@ -17,12 +17,12 @@ This release introduces three tightly coupled upgrades:
 
 ```bash
 npm install                    # Install dependencies
-npx hardhat compile            # Compile contracts
-npm run test                   # Run all tests
-npm run test:unit              # Run unit tests only
-npm run test:integration       # Run integration tests only
-npm run test-forked            # Run fork tests (requires fork config)
-npx hardhat coverage           # Generate coverage report
+just build                     # Compile contracts (force recompile)
+just test                      # Run all tests
+just test-unit                 # Run unit tests only (test/unit/)
+just test-integration          # Run integration tests only (test/integration/)
+just test-forked               # Run fork tests (requires MAINNET_ETH_NODE_URL in .env)
+just coverage                  # Generate coverage report + HTML output
 ```
 
 **Foundry (for Echidna fuzzing):**
@@ -120,11 +120,11 @@ Rewards settle on: stake, requestUnstake, claimEthRewards, cSSV transfer (via on
 
 | Parameter | Value | Update Function |
 |---|---|---|
-| ethNetworkFee | 0.000000003550929823 ETH/block (~0.00928 ETH/year) | `updateNetworkFee(uint256)` |
+| ethNetworkFee | 0.000000003550900000 ETH/block (~0.00928 ETH/year) | `updateNetworkFee(uint256)` |
 | minimumLiquidationCollateral | 0.00094 ETH | `updateMinimumLiquidationCollateral(uint256)` |
 | minimumBlocksBeforeLiquidation | 50190 (~7 days) | `updateLiquidationThresholdPeriod(uint64)` |
-| defaultOperatorETHFee | 0.000000001775464912 ETH/block (~0.00464 ETH/year) | Hardcoded in contract |
-| cooldownDuration | 50120 blocks (~7 days) | `setUnstakeCooldownDuration(uint64)` |
+| defaultOperatorETHFee | 0.000000001775400000 ETH/block (~0.00464 ETH/year) | Hardcoded in contract |
+| cooldownDuration | 604,800 seconds (7 days) | `setUnstakeCooldownDuration(uint64)` |
 | quorumBps | 7500 (75%) | `setQuorumBps(uint16)` |
 | Oracle set | 4 oracles, 3-of-4 threshold | `replaceOracle(uint32, address)` |
 
@@ -220,7 +220,7 @@ test/
 ├── integration/                      # Full integration tests
 ├── sanity/                           # Sanity/regression tests
 ├── echidna/                          # Foundry-based fuzzing
-├── test-forked/                      # Fork tests against v2.0.0
+├── test-forked/                      # Fork tests against v1.2.0
 ├── helpers/                          # Test utilities
 ├── common/                           # Constants, errors, events, types
 └── setup/                            # Deploy, fixtures, fork setup
@@ -236,7 +236,7 @@ ETH_DEDUCTED_DIGITS = 100_000
 DEDUCTED_DIGITS = 10_000_000
 DEFAULT_OPERATOR_ETH_FEE = 1_770_000_000 wei (1.77 gwei/vUnit/block)
 MINIMAL_LIQUIDATION_THRESHOLD = 21_480 blocks
-MAX_PENDING_REQUESTS = 10
+MAX_PENDING_REQUESTS = 2000
 MINIMAL_STAKING_AMOUNT = 1_000_000_000
 MAX_DELEGATION_SLOTS = 4
 VERSION_SSV = 0

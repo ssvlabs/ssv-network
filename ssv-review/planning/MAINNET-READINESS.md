@@ -18,10 +18,13 @@
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
-| BUG-8 | ~~Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug) |
+| BUG-8 | ~~ Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug, added NatSpec) |
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
+| BUG-10 | ~~Remove liquidation check in `withdraw` function~~ | Critical Bug Fix | P2 | ✅ Fixed |
+| BUG-11 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
+| BUG-12 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
-| SEC-2 | `quorumBps` not initialized during upgrade — zero by default | Security Hardening | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
+| SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
 | SEC-4 | ~~`setUnstakeCooldownDuration` allows zero cooldown~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only, no accounting risk) |
 | SEC-5 | ~~`totalStaked` changes between oracle votes (front-running)~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (impractical) |
@@ -32,20 +35,23 @@
 | SEC-10 | ~~cSSV token lacks governance/voting extensions (ERC20Votes)~~ | Security Hardening | P2 | ✅ Closed (Snapshot-based governance, same as SSV) |
 | SEC-11 | ~~`hasDeviation` reactivation optimization uses global counter for per-operator decision~~ | Security Hardening | ~~P1~~ P3 | ✅ Closed (BUG-4 fix resolves root cause) |
 | SEC-12 | ~~`deposit()` accepts deposits to liquidated ETH clusters without fee settlement~~ | Security Hardening | P2 | ✅ Closed (by design — document in FLOWS.md) |
-| SEC-13 | `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals | Security Hardening | P2 | ⏳ Awaiting product decision |
+| SEC-13 | `OperatorWithdrawn` event doesn't distinguish ETH vs SSV withdrawals | Security Hardening | P2 | Keep `OperatorWithdrawn` for ETH; add `OperatorWithdrawnSSV` for SSV |
 | SEC-14 | ~~`commitRoot` accepts `bytes32(0)` as merkleRoot — permanently wastes block slot~~ | Security Hardening | P2 | ✅ Closed (coordinated oracles) |
 | SEC-15 | ~~Min/max operator fee can be set to contradictory values~~ | Security Hardening | P2 | ✅ Closed (owner-only setters) |
 | SEC-16 | ~~Missing zero-value/zero-address guards on deposit and withdraw~~ | Security Hardening | P2 | ✅ Closed |
+| SEC-16b | Dust ETH stranded in `accrued` after full cSSV transfer + claim | Security Hardening | P1 | S |
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
-| TEST-1 | Validator register/remove with non-zero operator fees | Unit Test Completeness | P0 | M |
-| TEST-2 | EB-weighted operator earnings accumulation | Unit Test Completeness | P0 | M |
-| TEST-3 | Balance delta assertions in liquidation paths | Unit Test Completeness | P0 | M |
-| TEST-4 | `updateClusterBalance` on liquidated clusters | Unit Test Completeness | P0 | S |
-| TEST-5 | Oracle quorum edge cases | Unit Test Completeness | P0 | M |
-| TEST-6 | EB decrease scenarios | Unit Test Completeness | P0 | M |
-| TEST-7 | Reentrancy in staking functions | Unit Test Completeness | P0 | S |
-| TEST-8 | Forbid creating clusters with removed operators | Unit Test Completeness | P0 | S |
-| TEST-9 | Migration balance accounting verification | Unit Test Completeness | P1 | M |
+| SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
+| SEC-19 | `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled | Security Hardening | P1 | S |
+| TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
+| TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
+| TEST-3 | ~~Balance delta assertions ers | Unit Test Completeness | P0 | S |
+| TEST-4 | ~~`updateClusterBalance` on liquidated clusters~~ | Unit Test Completeness | P0 | ✅ Closed (PR #447 + enhanced with 3 edge cases) |
+| TEST-5 | ~~Oracle quorum edge cases~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #449) |
+| TEST-6 | ~~EB decrease scenarios~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #451) |
+| TEST-7 | ~~Reentrancy in staking functions~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #452) |
+| TEST-8 | ~~Forbid creating clusters with removed operators~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #453) |
+| TEST-9 | ~~Migration balance accounting verification~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-10 | Operator fee change + EB burn rate interaction | Unit Test Completeness | P1 | M |
 | TEST-11 | Network fee update impact on active clusters | Unit Test Completeness | P1 | S |
 | TEST-12 | Multi-staker reward fairness | Unit Test Completeness | P1 | M |
@@ -70,19 +76,21 @@
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
 | TEST-32 | Add access control tests for DAO governance functions | Unit Test Completeness | P1 | S |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
+| TEST-34 | Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract | Unit Test Completeness | P1 | S |
 | ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
-| DEPLOY-1 | Fix `deploy-all.ts` broken signature and constructor args | Deployment & Scripts | P0 | [PR #431](https://github.com/ssvlabs/ssv-network/pull/431) |
+| DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
 | DEPLOY-2 | Verify `liquidationThresholdPeriod` config vs spec mismatch | Deployment & Scripts | P1 | S |
 | DEPLOY-3 | ~~Verify `ethNetworkFee` rounding in config~~ | Deployment & Scripts | P2 | ✅ Closed (negligible) |
 | DEPLOY-4 | Remove unused error declarations in `ISSVNetworkCore.sol` | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate |
 | DEPLOY-5 | Document `operatorMinFee` governance parameter in DIP-X | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate (spec doc) |
 | DEPLOY-6 | DIP-X unstaking description doesn't match implementation | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate (spec doc) |
-| DEPLOY-7 | Deploy scripts import from test files | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate |
+| DEPLOY-7 | ~~Deploy scripts import from test files~~ | Deployment & Scripts | P2 | ✅ Fixed — `upgrade.ts` and `deploy-fresh.ts` import from `scripts/common/config.ts`, no test file imports |
 | QUALITY-1 | ~~`operatorFeeChangeRequests` not cleared on operator removal~~ | Code Quality | P2 | ✅ Closed (dead storage, off-chain sees OperatorRemoved) |
 | QUALITY-2 | Redundant `SSVStorage.load()` calls in view function loops | Code Quality | P2 | 🧹 Cleanup PR candidate |
 | QUALITY-3 | `withdraw` in SSVClusters duplicates operator loop inline | Code Quality | P2 | S |
 | QUALITY-4 | ~~`_resetOperatorState` returns unused `Operator memory`~~ | Code Quality | P3 | ✅ Closed (cosmetic) |
+| QUALITY-5 | Remove duplicate `MaxValueExceeded` error declaration | Code Quality | P3 | 🧹 Cleanup PR candidate |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
@@ -90,6 +98,7 @@
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
 | FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
+| FUZZ-5 | ETH contract balance accounting invariant: `address(this).balance == Σ cluster.balance + Σ operator.ethEarnings + ethDaoBalance + stakingEthPoolBalance` | Echidna Invariant Suite | P1 | M |
 
 ---
 
@@ -227,8 +236,8 @@ In `SSVValidators.sol:164-247`, when a cluster is liquidated (`!cluster.active`)
 7. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Add `cluster.active` guard around deviation cleanup in `_bulkRemoveValidator`
-- [ ] Sub-task 2: Write test for validator removal from liquidated cluster with explicit EB
+- [x] Sub-task 1: Add `cluster.active` guard around deviation cleanup in `_bulkRemoveValidator`
+- [x] Sub-task 2: Write test for validator removal from liquidated cluster with explicit EB (`test/unit/SSVValidator/bug4-double-deviation-liquidated.test.ts`)
 - [ ] Sub-task 3: Run full test suite
 
 ---
@@ -352,7 +361,7 @@ The `DEFAULT_OPERATOR_ETH_FEE` constant is set to `1,770,000,000` wei (1.77 gwei
 - **Github Link:** N/A
 - **DIP-X Review Source:** SSV Staking review finding DIP-8
 
-**Resolution:** Implementation correctly uses `block.timestamp` (seconds). The deployment config (`hoodi-upgrade.config.json`) already has `cooldownDuration: 604800` (7 days in seconds). The DIP spec wording saying "blocks" was imprecise — team confirmed (Yurii) it's seconds. The spreadsheet value `50120` was a blocks-equivalent reference, not the actual config value.
+**Resolution:** Implementation correctly uses `block.timestamp` (seconds). The deployment config (`deployments/hoodi-prod/config.json`) already has `cooldownDuration: 604800` (7 days in seconds). The DIP spec wording saying "blocks" was imprecise — team confirmed (Yurii) it's seconds. The spreadsheet value `50120` was a blocks-equivalent reference, not the actual config value.
 
 **Requirement:**
 The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" with initial value "50120 (7 days)" and setter `setUnstakeCooldownDuration(uint64 blocks)`. However, the implementation uses `block.timestamp` (seconds-based), not `block.number`. This creates a critical configuration risk: if `cooldownDuration` is initialized to 50120 thinking it's blocks, the actual cooldown would be ~13.9 hours instead of 7 days.
@@ -375,7 +384,7 @@ The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" w
    a. Update the DIP-X governance table to say "in seconds" instead of "in blocks"
    b. Ensure the upgrade initializer sets `cooldownDuration = 604800` (7 days in seconds)
    c. Update `setUnstakeCooldownDuration` parameter name from `blocks` to `duration` in the interface
-5. Check deployment configs (`hoodi-fork.config.json`) for the cooldown value and verify it matches the chosen unit.
+5. Check deployment configs (`deployments/hoodi-prod/config.json`, `deployments/hoodi-stage/config.json`) for the cooldown value and verify it matches the chosen unit.
 6. Run `npm run test:unit`.
 
 #### Sub-items:
@@ -459,36 +468,39 @@ Add a minimum quorum validation to `setQuorumBps`. A quorum of 0 allows a single
 
 ---
 
-### [SEC-2] `quorumBps` not initialized during upgrade — zero by default
+### [SEC-2] ~~`quorumBps` not initialized during upgrade — zero by default~~
 - **Type:** Security Hardening
 - **Priority:** P0
-- **Status:** In Review
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** [PR #431](https://github.com/ssvlabs/ssv-network/pull/431)
 
 **Requirement:**
 Set `quorumBps` during the upgrade initializer (`reinitializer(3)`) to prevent a window where any oracle can unilaterally commit roots.
 
 **Context:**
-`SSVNetworkSSVStakingUpgrade.sol` (line 8) initializes `cooldownDuration` and `defaultOracleIds` but NOT `quorumBps`. After upgrade, `quorumBps` is 0 in storage until the DAO manually calls `setQuorumBps()`. During this window, combined with SEC-1, a single oracle can commit arbitrary Merkle roots. `staking-upgrade.ts` also does not set quorum (only `upgrade-fork.ts` does, via config).
+`SSVNetworkSSVStakingUpgrade.sol` (line 8) initialized `cooldownDuration` and `defaultOracleIds` but NOT `quorumBps`. After upgrade, `quorumBps` was 0 in storage until the DAO manually called `setQuorumBps()`. During this window, combined with SEC-1, a single oracle could commit arbitrary Merkle roots. Now fixed — see Resolution below.
+
+**Resolution:**
+`initializeSSVStaking` now accepts `quorumBps` as a third parameter (`uint16`) and validates `if (quorumBps == 0 || quorumBps > 10_000) revert InvalidQuorum()` before writing to storage. Both `upgrade.ts` and `generate-safe-batch.ts` pass `quorumBps` from the deployment config. This closes the initialization window entirely.
 
 **Acceptance Criteria:**
-- [ ] `quorumBps` is set during the upgrade initializer to a safe default (7500 = 75% per DIP-X spec)
-- [ ] OR: the mainnet deployment runbook explicitly documents that `setQuorumBps()` MUST be called in the same transaction batch as the upgrade
-- [ ] Post-upgrade verification confirms `quorumBps != 0`
+- [x] `quorumBps` is set during the upgrade initializer to a safe default (7500 = 75% per DIP-X spec)
+- [x] Initializer validates `quorumBps != 0` (rejects zero with `InvalidQuorum`)
+- [x] Post-upgrade verification confirms `quorumBps != 0`
 
 **Agent Instructions:**
 1. Read `contracts/upgrades/stage/hoodi/SSVNetworkSSVStakingUpgrade.sol` (line 8).
-2. Option A (preferred): Add `SSVStorageStaking.load().quorumBps = 7500;` to the `initializeSSVStaking` function. Also add `quorumBps` as a parameter: `initializeSSVStaking(uint64 cooldownDuration, uint32[4] memory defaultOracleIds, uint16 quorumBps)`. Update the function signature in `scripts/staking-upgrade.ts` and `scripts/upgrade-fork.ts` accordingly.
+2. Option A (preferred): Add `SSVStorageStaking.load().quorumBps = 7500;` to the `initializeSSVStaking` function. Also add `quorumBps` as a parameter: `initializeSSVStaking(uint64 cooldownDuration, uint32[4] memory defaultOracleIds, uint16 quorumBps)`. Update the function signature in `scripts/upgrade.ts` and `scripts/generate-safe-batch.ts` accordingly.
 3. Option B (simpler): Add a hardcoded `SSVStorageStaking.load().quorumBps = 7500;` directly in the initializer without adding a parameter.
 4. Emit `QuorumUpdated(7500)` event after setting.
 5. Update the initializer ABI references in deploy scripts.
 6. Run `npm run test:unit` and `npm run test:integration`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Add `quorumBps` initialization to upgrade initializer
-- [ ] Sub-task 2: Update deploy scripts to match new signature (if adding parameter)
+- [x] Sub-task 1: Add `quorumBps` initialization to upgrade initializer
+- [x] Sub-task 2: Update deploy scripts to match new signature
 - [ ] Sub-task 3: Add test verifying `quorumBps` is set after upgrade
 - [ ] Sub-task 4: Run full test suite
 
@@ -842,28 +854,34 @@ In `SSVClusters.sol:190-205`, `deposit()` has no `validateClusterIsNotLiquidated
 - **Github Link:** (empty)
 
 **Requirement:**
-Add distinguishable events for ETH vs SSV operator withdrawals, or add a `version` parameter to the existing `OperatorWithdrawn` event.
+Keep `OperatorWithdrawn` for ETH withdrawals and introduce a new `OperatorWithdrawnSSV` event for SSV withdrawal earnings. This ensures 3rd-party SDKs and off-chain indexers can correctly track operator earnings by denomination without breaking existing integrations that already listen to `OperatorWithdrawn`.
 
 **Context:**
-In `SSVOperators.sol:337-344`, both `_transferOperatorBalanceUnsafe` (ETH) and `_transferOperatorTokenBalanceUnsafe` (SSV) emit the same `OperatorWithdrawn` event. Off-chain indexers (oracle, dashboard) cannot distinguish between ETH and SSV withdrawal events, making it impossible to correctly track operator earnings by denomination.
+In `SSVOperators.sol:337-344`, both `_transferOperatorBalanceUnsafe` (ETH) and `_transferOperatorTokenBalanceUnsafe` (SSV) emit the same `OperatorWithdrawn` event. Off-chain indexers (SDK, oracle, dashboard) cannot distinguish between ETH and SSV withdrawal events, making it impossible to correctly calculate total accumulated operator earnings per denomination.
+
+**Decision:**
+- `OperatorWithdrawn(operatorId, owner, value)` — **kept as-is**, emitted only by `_transferOperatorBalanceUnsafe` (ETH withdrawals)
+- `OperatorWithdrawnSSV(operatorId, owner, value)` — **new event**, emitted only by `_transferOperatorTokenBalanceUnsafe` (SSV withdrawals)
 
 **Acceptance Criteria:**
-- [ ] Either: separate `OperatorETHWithdrawn` and `OperatorSSVWithdrawn` events
-- [ ] Or: existing event gains a `version` parameter (0 = SSV, 1 = ETH)
-- [ ] Off-chain indexers can distinguish ETH vs SSV withdrawals
-- [ ] Backward compatibility impact documented (oracle ABI change)
+- [ ] `OperatorWithdrawnSSV` event defined in `contracts/interfaces/ISSVOperators.sol`
+- [ ] `_transferOperatorBalanceUnsafe` emits `OperatorWithdrawn` (ETH) — no change
+- [ ] `_transferOperatorTokenBalanceUnsafe` emits `OperatorWithdrawnSSV` instead of `OperatorWithdrawn`
+- [ ] Off-chain indexers and SDK updated to listen to `OperatorWithdrawnSSV` for SSV earnings
+- [ ] ABI change impact documented for oracle and SDK clients
 
 **Agent Instructions:**
 1. Read `contracts/modules/SSVOperators.sol`, focus on `_transferOperatorBalanceUnsafe` and `_transferOperatorTokenBalanceUnsafe` (lines 337-344).
-2. Define separate events in `contracts/interfaces/ISSVOperators.sol`.
-3. Update both functions to emit the correct event.
-4. Document the ABI change impact on oracle and indexer clients.
-5. Run `npm run test:unit`.
+2. Add `event OperatorWithdrawnSSV(uint64 indexed operatorId, address indexed owner, uint256 value);` to `contracts/interfaces/ISSVOperators.sol`.
+3. In `_transferOperatorTokenBalanceUnsafe`, replace `emit OperatorWithdrawn(...)` with `emit OperatorWithdrawnSSV(...)`.
+4. Leave `_transferOperatorBalanceUnsafe` unchanged.
+5. Update any tests that assert `OperatorWithdrawn` was emitted for SSV withdrawals to expect `OperatorWithdrawnSSV` instead.
+6. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Define separate events or add version parameter
-- [ ] Sub-task 2: Update withdrawal functions to emit correct events
-- [ ] Sub-task 3: Update tests for new event signatures
+- [ ] Sub-task 1: Define `OperatorWithdrawnSSV` event in `ISSVOperators.sol`
+- [ ] Sub-task 2: Update `_transferOperatorTokenBalanceUnsafe` to emit `OperatorWithdrawnSSV`
+- [ ] Sub-task 3: Update tests for new event signature
 - [ ] Sub-task 4: Run full test suite
 
 ---
@@ -971,6 +989,49 @@ These allow gas-wasting no-op transactions that emit misleading events with zero
 
 ---
 
+### [SEC-16b] Dust ETH stranded in `accrued` after full cSSV transfer + claim
+- **Type:** Security Hardening
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+When a user transfers all their cSSV tokens and then calls `claimEthRewards`, a sub-`ETH_DEDUCTED_DIGITS` dust remainder is left in `s.accrued[msg.sender]`. Because the user holds no cSSV, `_settle` will never add to it again, so the dust is permanently unclaimable (any future `claimEthRewards` call hits the `payout == 0` revert). From the user's perspective the UI shows a non-zero claimable balance that can never be withdrawn.
+
+**Context:**
+- `SSVStaking.sol:123`: `payout = claimable - (claimable % ETH_DEDUCTED_DIGITS)` — the remainder stays in `accrued`.
+- `SSVStaking.sol:139` (original): `s.accrued[msg.sender] = claimable - payout` — remainder is preserved even when the user holds 0 cSSV.
+- Reproduction: stake → transfer all cSSV to another address → call `claimEthRewards` → `accrued` contains dust that can never be claimed or grown.
+
+**Proposed Fix on claimEthRewards (pending product approval):**
+```solidity
+uint256 bal = ICSSVToken(CSSV_ADDRESS).balanceOf(msg.sender);
+s.accrued[msg.sender] = (bal == 0) ? 0 : claimable - payout;
+```
+When `bal == 0` the dust is zeroed rather than preserved. The zeroed wei remains in `stakingEthPoolBalance` and `ethDaoBalance` — it is never deducted from the pool — so it is effectively redistributed to remaining stakers via future `accEthPerShare` increments in `_syncFees`.
+
+**⚠️ Product approval required:** Confirm that silently absorbing dust into the shared pool (rather than returning it to the user or burning it) is acceptable behaviour before merging the fix.
+
+**Acceptance Criteria:**
+- [ ] Product sign-off on dust-absorption behaviour
+- [ ] `claimEthRewards` zeros `accrued` when caller holds 0 cSSV
+- [ ] After a full transfer + claim, `accrued[user] == 0`
+- [ ] Test: stake → transfer all cSSV → claim → assert `accrued == 0` and no further `NothingToClaim` revert on a second claim attempt
+
+**Agent Instructions:**
+1. Fix already applied at `SSVStaking.sol:139-140` — review and confirm correctness.
+2. Add a regression test covering the reproduction flow above.
+3. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Product approval on dust-absorption behaviour
+- [ ] Sub-task 2: Add regression test
+- [ ] Sub-task 3: Run full test suite
+
+---
+
 ### [SEC-17] DAO governance functions lack input guardrails (min/max/non-zero)
 - **Type:** Security Hardening
 - **Priority:** P1
@@ -1042,6 +1103,89 @@ All other setters accept any value, including 0 and extreme values that could br
 
 ---
 
+### [SEC-18] ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas)
+- **Type:** Security Hardening
+- **Priority:** P3
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add an early-exit guard in `withdrawOperatorEarningsSSV` (or its underlying helper) that reverts when called by the owner of an ETH-only operator, preventing a pointless transaction that wastes gas.
+
+**Context:**
+Operators registered after the v2.0.0 migration may be ETH-only (`snapshot.block == 0`, `ethSnapshot.block != 0`). New validator registrations for these operators use the ETH payment path exclusively, so they can never accumulate SSV earnings. Despite this, nothing prevents their owner from calling `withdrawOperatorEarningsSSV`. The call will succeed (the SSV balance is 0, so no tokens move), but the user pays gas for a no-op. Echidna invariants already confirm that the accounting system cannot credit SSV earnings to ETH-only operators, so there is no risk of fund loss — this is purely a UX/gas waste issue.
+
+**Acceptance Criteria:**
+- [ ] `withdrawOperatorEarningsSSV` reverts with a descriptive error (e.g., `NoSSVEarnings()`) when the operator has `snapshot.block == 0` (ETH-only)
+- [ ] ETH-capable operators (both `snapshot.block != 0` and `ethSnapshot.block != 0`) are unaffected
+- [ ] Confirm via Echidna that SSV balance of ETH-only operators cannot be artificially inflated
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVOperators.sol`, focus on `withdrawOperatorEarningsSSV` and its internal helper.
+2. After the `checkOwner` call, add: `if (operator.snapshot.block == 0) revert NoSSVEarnings();`
+3. Define `NoSSVEarnings` error in `contracts/interfaces/ISSVNetworkCore.sol` if not already present.
+4. Add a unit test: register an ETH-only operator → call `withdrawOperatorEarningsSSV` → expect revert with `NoSSVEarnings`.
+5. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Add ETH-only operator guard to `withdrawOperatorEarningsSSV`
+- [ ] Sub-task 2: Define `NoSSVEarnings` custom error
+- [ ] Sub-task 3: Add unit test for ETH-only operator calling SSV withdrawal
+- [ ] Sub-task 4: Run full test suite
+
+---
+
+### [SEC-19] `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled
+- **Type:** Security Hardening
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Initialize `minBlocksBetweenUpdates` to a non-zero value during the upgrade, and add a governance setter so it can be adjusted post-deployment.
+
+**Context:**
+`StorageEB.minBlocksBetweenUpdates` is a `uint32` in diamond storage. It is read by `_verifyEBUpdateFrequency` to rate-limit how often a cluster's EB can be updated:
+
+```solidity
+if (ebSnapshot.lastUpdateBlock != 0 && block.number < ebSnapshot.lastUpdateBlock + seb.minBlocksBetweenUpdates) {
+    revert UpdateTooFrequent();
+}
+```
+
+Because the field is never set — neither in the upgrade initializer nor via any governance function — it defaults to `0`. The condition `block.number < lastUpdateBlock + 0` is always `false`, so the rate limit is **completely inoperative**. Any caller can submit a valid `updateClusterBalance` proof every block for every cluster.
+
+The threat model (`docs/audit/07-trust-boundaries-integrations.md`) explicitly lists this rate limit as a mitigation against forced EB update spam and auto-liquidation attacks. With it disabled, an attacker holding a valid oracle proof of a cluster's reduced EB can trigger auto-liquidation in the same block as a root commitment, with no cooldown.
+
+**Acceptance Criteria:**
+- [ ] `minBlocksBetweenUpdates` initialized to a non-zero value in the upgrade reinitializer (suggested: `7200` blocks ≈ 1 day, matching oracle sweep frequency)
+- [ ] Governance setter added (e.g. `setMinBlocksBetweenUpdates(uint32)`, owner-only)
+- [ ] Setter emits an event (e.g. `MinBlocksBetweenUpdatesUpdated(uint32)`)
+- [ ] Unit test: second `updateClusterBalance` within the cooldown window reverts with `UpdateTooFrequent`
+- [ ] Unit test: `updateClusterBalance` succeeds after cooldown window passes
+- [ ] Governance parameter documented in SPEC.md §11 and FLOWS.md
+
+**Agent Instructions:**
+1. In the upgrade reinitializer, add: `SSVStorageEB.load().minBlocksBetweenUpdates = 7200;`
+2. Add a governance setter in `SSVDAO.sol` (or equivalent): `function setMinBlocksBetweenUpdates(uint32 blocks) external onlyOwner`.
+3. Emit `MinBlocksBetweenUpdatesUpdated(blocks)` from the setter.
+4. Add the event to `ISSVNetworkCore.sol` or the DAO interface.
+5. Add unit tests covering both the cooldown revert and the post-cooldown success path.
+6. Update SPEC.md §11 governance parameters table and FLOWS.md §3.3 preconditions.
+7. Run `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Initialize `minBlocksBetweenUpdates` in upgrade reinitializer
+- [ ] Sub-task 2: Add governance setter and event
+- [ ] Sub-task 3: Unit tests for rate-limit enforcement
+- [ ] Sub-task 4: Update SPEC.md and FLOWS.md
+
+---
+
 ## Unit Test Completeness
 
 ### [TEST-1] Validator register/remove with non-zero operator fees
@@ -1089,10 +1233,10 @@ This is the #1 systemic test gap. The fee settlement mechanism (`updateClusterOp
 
 ---
 
-### [TEST-2] EB-weighted operator earnings accumulation
+### [TEST-2] ~~EB-weighted operator earnings accumulation~~
 - **Type:** Unit Test Completeness
 - **Priority:** P0
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1171,13 +1315,13 @@ A liquidation could emit the correct event but transfer the wrong amount (or not
 
 ---
 
-### [TEST-4] `updateClusterBalance` on liquidated clusters
+### [TEST-4] ~~`updateClusterBalance` on liquidated clusters~~
 - **Type:** Unit Test Completeness
 - **Priority:** P0
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Status:** ✅ **CLOSED**
+- **Owner:** PR #447 + enhancements
+- **Timeline:** Completed 2026-02-25
+- **Github Link:** [test/unit/SSVClusters/updateClusterBalance.test.ts](../test/unit/SSVClusters/updateClusterBalance.test.ts) (lines 293-653), [test/integration/SSVNetwork/clusters.test.ts](../test/integration/SSVNetwork/clusters.test.ts) (lines 753-817)
 
 **Requirement:**
 Add tests for calling `updateClusterBalance` (EB oracle update) on an already-liquidated cluster.
@@ -1186,20 +1330,34 @@ Add tests for calling `updateClusterBalance` (EB oracle update) on an already-li
 No test exists for this path. If the contract doesn't handle it, oracle updates on liquidated clusters could corrupt accounting or revert unexpectedly.
 
 **Acceptance Criteria:**
-- [ ] Test: Call `updateClusterBalance` with valid proof on a liquidated cluster → verify defined behavior (revert or update EB without settling fees)
-- [ ] Test: EB update that makes a liquidated cluster even more insolvent → verify no state corruption
+- [x] Test: Call `updateClusterBalance` with valid proof on a liquidated cluster → verify defined behavior (revert or update EB without settling fees)
+- [x] Test: EB update that makes a liquidated cluster even more insolvent → verify no state corruption
+- [x] **BONUS**: Multi-validator liquidated cluster EB update
+- [x] **BONUS**: EB decrease on liquidated cluster (penalty scenario)
+- [x] **BONUS**: Liquidated cluster with implicit EB → first EB update transitions to explicit tracking
 
-**Agent Instructions:**
-1. Read `test/unit/SSVClusters/updateClusterBalance.test.ts` for existing patterns.
-2. Create a cluster, liquidate it, then call `updateClusterBalance` with a valid Merkle proof.
-3. Verify behavior: does it revert? Does it update EB? Does it try to settle fees?
-4. Read `contracts/modules/SSVClusters.sol` to trace the `updateClusterBalance` code path for liquidated clusters.
-5. Add assertions based on actual contract behavior.
-6. Run `npm run test:unit`.
+**Implementation Summary:**
+1. **Unit tests** ([updateClusterBalance.test.ts](../test/unit/SSVClusters/updateClusterBalance.test.ts)):
+   - Line 293-337: Basic liquidated cluster EB update — verifies EB snapshot updated, cluster stays inactive, no fee settlement
+   - Line 339-416: EB increase on insolvent liquidated cluster — verifies no operator/DAO vUnit corruption
+   - Line 463-527: **NEW** Multi-validator liquidated cluster EB update
+   - Line 529-602: **NEW** EB decrease on liquidated cluster (penalty scenario)
+   - Line 604-653: **NEW** Implicit→explicit EB transition on liquidated cluster
+
+2. **Integration test** ([clusters.test.ts](../test/integration/SSVNetwork/clusters.test.ts)):
+   - Line 753-817: E2E flow with oracle quorum setup and multiple EB updates on liquidated cluster
+
+3. **Additional improvements**:
+   - Fixed loose comparators in integration tests — now uses exact formula-based assertions per SSV standards
+   - Added block number tracking for precise fee calculations
+   - All tests passing with 100% exact `.to.equal()` assertions
 
 #### Sub-items:
-- [ ] Sub-task 1: `updateClusterBalance` on liquidated cluster — basic behavior
-- [ ] Sub-task 2: EB increase on already-insolvent liquidated cluster
+- [x] Sub-task 1: `updateClusterBalance` on liquidated cluster — basic behavior
+- [x] Sub-task 2: EB increase on already-insolvent liquidated cluster
+- [x] Sub-task 3: Multi-validator liquidated cluster EB update
+- [x] Sub-task 4: EB decrease on liquidated cluster
+- [x] Sub-task 5: Implicit→explicit EB transition
 
 ---
 
@@ -1279,10 +1437,10 @@ If EB decreases aren't handled correctly, vUnits could be wrong, operators could
 ### [TEST-7] Reentrancy in staking functions
 - **Type:** Unit Test Completeness
 - **Priority:** P0
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Status:** ✅ Complete
+- **Owner:** Claude
+- **Timeline:** 2026-02-26
+- **Github Link:** PR #452
 
 **Requirement:**
 Add reentrancy tests for SSVStaking functions that transfer ETH or tokens. These functions are marked `nonReentrant` but no test verifies the protection works.
@@ -1291,20 +1449,31 @@ Add reentrancy tests for SSVStaking functions that transfer ETH or tokens. These
 `claimEthRewards`, `withdrawUnlocked`, `stake`, `requestUnstake` all handle ETH or SSV token transfers. Reentrancy via a `receive()` hook could theoretically drain rewards. The `nonReentrant` modifier should prevent this, but it's untested. The existing SSVOperators reentrancy test (`test/unit/SSVOperators/reentrancy.test.ts`) can serve as a pattern.
 
 **Acceptance Criteria:**
-- [ ] Test: Attacker contract with `receive()` hook calls `claimEthRewards` reentrantly → verify reverts
-- [ ] Test: Attacker calls `withdrawUnlocked` reentrantly during SSV token transfer → verify reverts
-- [ ] All reentrancy tests use a custom attacker contract deployed in the test
+- [x] Test: Attacker contract with `receive()` hook calls `claimEthRewards` reentrantly → verify reverts
+- [x] ~~Test: Attacker calls `withdrawUnlocked` reentrantly during SSV token transfer~~ → **NOT NEEDED** (see resolution)
+- [x] All reentrancy tests use a custom attacker contract deployed in the test
 
-**Agent Instructions:**
-1. Read `test/unit/SSVOperators/reentrancy.test.ts` for the existing reentrancy test pattern.
-2. Read the attacker contract used (look for a reentrant test helper contract in `contracts/` or `test/`).
-3. Create similar reentrancy tests for `claimEthRewards` and `withdrawUnlocked`.
-4. Deploy a contract that: receives ETH → calls back into `claimEthRewards` → expect revert with reentrancy error.
-5. Run `npm run test:unit`.
+**Resolution:**
+✅ **`claimEthRewards` reentrancy test implemented:**
+- Unit test: `test/unit/SSVStaking/reentrancy.test.ts`
+- Integration test: `test/integration/SSVNetwork.test.ts` (line 3414-3447)
+- Attacker contract: `contracts/test/mocks/MaliciousClaimEthRewards.sol`
+- **This is a valid attack vector** because `claimEthRewards()` sends ETH which triggers `receive()` hooks
+
+❌ **`withdrawUnlocked`, `stake`, `requestUnstake` reentrancy tests NOT needed:**
+- **Reason:** SSVToken (`contracts/token/SSVToken.sol`) is a standard ERC20 with **no callbacks**
+- Standard ERC20 `transfer()` and `transferFrom()` do **not** call back to the recipient
+- **No `receive()` hook is triggered** during token transfers
+- **Reentrancy is impossible** during these operations in production
+- The `nonReentrant` modifiers on these functions are **defensive programming** but protect against **no real attack vector**
+- A reentrancy test would require a malicious token contract, which doesn't match the production SSVToken implementation
+
+**Conclusion:**
+Only `claimEthRewards()` has a real reentrancy attack surface (ETH transfers trigger `receive()` hooks). The function is properly protected and tested. Other staking functions interact only with standard ERC20 tokens (SSV, cSSV) which have no callback mechanisms.
 
 #### Sub-items:
-- [ ] Sub-task 1: `claimEthRewards` reentrancy test
-- [ ] Sub-task 2: `withdrawUnlocked` reentrancy test
+- [x] Sub-task 1: `claimEthRewards` reentrancy test ✅
+- [x] Sub-task 2: `withdrawUnlocked` reentrancy test → **Not needed** (no attack vector)
 
 ---
 
@@ -1339,10 +1508,10 @@ PR #410 added a fix but no explicit test exists for this scenario. Creating clus
 
 ---
 
-### [TEST-9] Migration balance accounting verification
+### [TEST-9] ~~Migration balance accounting verification~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1354,9 +1523,9 @@ Add tests that verify exact SSV refund amounts and ETH deposit amounts during mi
 Migration tests verify events and state but don't verify exact token transfer amounts against independently calculated values.
 
 **Acceptance Criteria:**
-- [ ] Test: Migrate after 1000 blocks → verify SSV refund = `initial_deposit - (blocks * sum(ssv_fees) * validatorCount) * DEDUCTED_DIGITS`
-- [ ] Test: Migrate with partial SSV balance remaining → verify exact token transfer amount
-- [ ] Test: Migrate cluster where operators have both SSV and ETH fees set → verify ETH side correctly initialized
+- [x] Test: Migrate after 1000 blocks → verify SSV refund = `initial_deposit - (blocks * sum(ssv_fees) * validatorCount) * DEDUCTED_DIGITS`
+- [x] Test: Migrate with partial SSV balance remaining → verify exact token transfer amount
+- [x] Test: Migrate cluster where operators have both SSV and ETH fees set → verify ETH side correctly initialized
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/migrateClusterToETH.test.ts` for existing patterns.
@@ -1365,9 +1534,9 @@ Migration tests verify events and state but don't verify exact token transfer am
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Exact SSV refund after N blocks
-- [ ] Sub-task 2: Migration with partial balance
-- [ ] Sub-task 3: Migration with dual SSV/ETH fees
+- [x] Sub-task 1: Exact SSV refund after N blocks
+- [x] Sub-task 2: Migration with partial balance
+- [x] Sub-task 3: Migration with dual SSV/ETH fees
 
 ---
 
@@ -1882,16 +2051,19 @@ Add tests for clusters with 0 validators.
 - [ ] Test: Deposit into cluster with 0 validators → verify no fees accrue
 - [ ] Test: Withdraw from cluster with 0 validators → verify full balance withdrawable
 - [ ] Test: EB update on cluster with 0 validators → verify no vUnits change
+- [ ] Test: Oracle EB report (`effectiveBalance = 0`) on active cluster with `validatorCount == 0` (all validators removed, cluster not deleted) → verify: (a) `_verifyEBLimits` passes (`0 >= 0 * 32`), (b) `ebToVUnits(0)` returns `0`, (c) `clusterEB.vUnits` written as `0` (resets any prior explicit EB back to implicit-EB sentinel), (d) no `operatorEthVUnits` or `daoTotalEthVUnits` changes, (e) no auto-liquidation triggered, (f) `ClusterBalanceUpdated` emitted with `effectiveBalance = 0`
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/deposit.test.ts` and `test/unit/SSVClusters/withdraw.test.ts`.
 2. Create a cluster, remove all validators, then perform operations.
-3. Run `npm run test:unit`.
+3. For sub-task 4: register a cluster with explicit EB (run one `updateClusterBalance` with non-zero EB first), then remove all validators, then submit a valid oracle proof with `effectiveBalance = 0`. Assert all storage fields and events per acceptance criteria above.
+4. Run `npm run test:unit`.
 
 #### Sub-items:
 - [ ] Sub-task 1: Deposit with 0 validators
 - [ ] Sub-task 2: Withdrawal with 0 validators
-- [ ] Sub-task 3: EB update with 0 validators
+- [ ] Sub-task 3: EB update with 0 validators (generic)
+- [ ] Sub-task 4: Oracle EB report with `effectiveBalance = 0` on active zero-validator cluster — full state assertion (see DISC.md §2.2)
 
 ---
 
@@ -2144,6 +2316,46 @@ Add a dedicated test suite that uses the exact mainnet governance parameters and
 
 ---
 
+### [TEST-34] Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract
+- **Type:** Unit Test Completeness
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add invariant coverage for staking solvency: `cSSV.totalSupply() <= SSV.balanceOf(SSVStaking)` at all times.
+
+**Product concern:**
+Product asked for explicit safety validation to ensure cSSV issuance cannot exceed backing SSV even if future changes introduce bugs. Current implementation is by-construction (SSV transfer happens before cSSV mint), but the invariant should be continuously enforced by tests.
+
+**Context:**
+`SSVStaking.stake()` transfers SSV to staking contract before minting cSSV, and `requestUnstake()` burns cSSV before eventual SSV withdrawal. This implies the solvency relationship should always hold, but there is no explicit invariant test guarding against regressions.
+
+**Invariant to test:**
+`cSSV.totalSupply() <= SSV.balanceOf(address(SSVStaking))`
+
+**Acceptance Criteria:**
+- [ ] Add an Echidna invariant test that continuously asserts `cSSV.totalSupply() <= SSV.balanceOf(address(staking))` across stake/unstake/transfer/withdraw flows
+- [ ] Add at least one deterministic unit regression test for the invariant around `stake` and `requestUnstake` ordering
+- [ ] Include edge scenarios: multiple users, partial unstake requests, full unstake + withdraw cycle
+- [ ] No invariant violations in fuzz runs
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVStaking.sol` and `contracts/token/CSSVToken.sol` for mint/burn ordering.
+2. Extend the Echidna suite under `test/echidna/` with a dedicated solvency invariant check.
+3. Add a deterministic unit test in `test/unit/SSVStaking/` asserting the invariant before/after `stake`, `requestUnstake`, and `withdrawUnlocked`.
+4. Run the relevant unit tests and Echidna target.
+
+#### Sub-items:
+- [ ] Sub-task 1: Add Echidna solvency invariant
+- [ ] Sub-task 2: Add deterministic unit regression tests
+- [ ] Sub-task 3: Cover multi-user + partial/full unstake scenarios
+- [ ] Sub-task 4: Run unit + Echidna checks
+
+---
+
 ## Integration / E2E Tests
 
 ### [ITEST-1] `commitRoot` → `updateClusterBalance` E2E flow
@@ -2210,36 +2422,31 @@ Migration with EB snapshot is tested but edge cases with multiple prior EB updat
 
 ## Deployment & Scripts
 
-### [DEPLOY-1] Fix `deploy-all.ts` broken signature and constructor args
+### [DEPLOY-1] ~~Fix `deploy-all.ts` broken signature and constructor args~~
 - **Type:** Deployment & Scripts
 - **Priority:** P0
-- **Status:** In Review
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** [PR #431](https://github.com/ssvlabs/ssv-network/pull/431)
 
 **Requirement:**
-Fix `scripts/deploy-all.ts` so that fresh deployments work. Currently has wrong `initializeSSVStaking` signature and missing constructor args for 3 modules.
+Fix deployment scripts so that fresh deployments work. `deploy-all.ts` had wrong `initializeSSVStaking` signature and missing constructor args for 3 modules.
 
 **Context:**
-`scripts/deploy-all.ts:102-110`: Uses `"initializeSSVStaking(address,uint64)"` with `[cssvTokenAddr, cooldown]`. Actual contract signature is `initializeSSVStaking(uint64,uint32[4])` with params `(cooldownDuration, defaultOracleIds)`. Also, lines 49-53: `SSVDAO`, `SSVViews`, `SSVStaking` all require `_cssv` address as constructor arg but are deployed without args.
+`scripts/deploy-all.ts` (now deleted) used `"initializeSSVStaking(address,uint64)"` with `[cssvTokenAddr, cooldown]`. Actual contract signature is `initializeSSVStaking(uint64,uint32[4],uint16)`. Also, `SSVDAO`, `SSVViews`, `SSVStaking` all require `_cssv` address as constructor arg but were deployed without args.
+
+**Resolution:**
+`deploy-all.ts` replaced by `deploy-fresh.ts` (fresh deployments) and `upgrade.ts` (upgrades). Both use the correct `initializeSSVStaking(uint64,uint32[4],uint16)` three-parameter signature and pass `quorumBps` from config. `CSSVToken` deployed before modules and its address passed as constructor arg. `generate-safe-batch.ts` handles Safe multisig batch encoding.
 
 **Acceptance Criteria:**
-- [ ] `initializeSSVStaking` signature changed to `"initializeSSVStaking(uint64,uint32[4])"`
-- [ ] Params changed to `[cooldown, defaultOracleIds]` where `defaultOracleIds = [1,2,3,4]`
-- [ ] `CSSVToken` deployed before modules that need its address
-- [ ] `SSVDAO`, `SSVViews`, `SSVStaking` deployed with `cssvTokenAddr` as constructor arg
-- [ ] Script can run successfully against a local Hardhat node
+- [x] `initializeSSVStaking` signature is `"initializeSSVStaking(uint64,uint32[4],uint16)"`
+- [x] `quorumBps` passed as third argument from deployment config
+- [x] `CSSVToken` deployed before modules that need its address
+- [x] `SSVDAO`, `SSVViews`, `SSVStaking` deployed with `cssvTokenAddr` as constructor arg
 
 **Agent Instructions:**
-1. Read `scripts/deploy-all.ts` fully.
-2. Read `scripts/upgrade-fork.ts` (lines 412-435) as the reference for correct deployment — it already has the right signature and constructor args.
-3. Fix the three issues:
-   a. Change the `initializeSSVStaking` call signature and parameters
-   b. Deploy `CSSVToken` early enough to get its address
-   c. Pass `cssvTokenAddr` as constructor arg to `SSVDAO`, `SSVViews`, `SSVStaking`
-4. Match the pattern in `upgrade-fork.ts` but adapted for fresh deployment.
-5. Test by running `npx hardhat run scripts/deploy-all.ts --network hardhat`.
+~~Obsolete — resolved by replacing `deploy-all.ts` with `deploy-fresh.ts` and `upgrade.ts`. See Resolution above.~~
 
 #### Sub-items:
 - [ ] Sub-task 1: Fix `initializeSSVStaking` call signature and params
@@ -2258,10 +2465,10 @@ Fix `scripts/deploy-all.ts` so that fresh deployments work. Currently has wrong 
 - **Github Link:** (empty)
 
 **Requirement:**
-Resolve the mismatch between `liquidationThresholdPeriod` in `hoodi-fork.config.json` (35,800) and the DIP-X spec (50,190 blocks).
+Resolve the mismatch between `liquidationThresholdPeriod` in `deployments/hoodi-stage/config.json` (35,800) and the DIP-X spec (50,190 blocks).
 
 **Context:**
-`deployments/hoodi-fork.config.json` sets `liquidationThresholdPeriod: 35800` but the DIP-X spec proposes 50,190 blocks (~7 days). This is a significant difference — 35,800 blocks is ~5 days. If this is intentional for the testnet, it should be documented. The mainnet config must use the correct value.
+`deployments/hoodi-stage/config.json` sets `liquidationThresholdPeriod: 35800` but the DIP-X spec proposes 50,190 blocks (~7 days). This is a significant difference — 35,800 blocks is ~5 days. If this is intentional for the testnet, it should be documented. The mainnet config (`deployments/mainnet/config.json`) must use the correct value.
 
 **Acceptance Criteria:**
 - [ ] Decision documented: is 35,800 intentional for Hoodi testnet?
@@ -2269,7 +2476,7 @@ Resolve the mismatch between `liquidationThresholdPeriod` in `hoodi-fork.config.
 - [ ] Comment added to config explaining the discrepancy if intentional
 
 **Agent Instructions:**
-1. Read `deployments/hoodi-fork.config.json`.
+1. Read `deployments/hoodi-stage/config.json` and `deployments/mainnet/config.json`.
 2. Read `docs/SPEC.md` section 11 for the governance parameters.
 3. If this is a testnet-specific value, add a comment. If it's a bug, update to 50,190.
 4. This is primarily a decision item — flag it for team review if uncertain.
@@ -2361,11 +2568,11 @@ The DIP-X governance table leaves the `operatorMinFee` update function and initi
 
 **Acceptance Criteria:**
 - [ ] DIP-X governance table updated with: update function = `updateMinimumOperatorEthFee(uint256 minFee)`, initial value = (team to specify)
-- [ ] Deployment config (`hoodi-fork.config.json`) verified to include a reasonable initial value
+- [ ] Deployment config (`deployments/hoodi-prod/config.json`) verified to include a reasonable initial value
 
 **Agent Instructions:**
 1. Read `contracts/modules/SSVDAO.sol`, focus on `updateMinimumOperatorEthFee` (line 147).
-2. Read `deployments/hoodi-fork.config.json` for current config value.
+2. Read `deployments/hoodi-prod/config.json` for current config value.
 3. Update the DIP-X governance table to document the update function and initial value.
 4. This is a documentation task — no code change needed.
 
@@ -2409,32 +2616,30 @@ The DIP-X describes unstaking as "lock cSSV → wait → burn cSSV + return SSV"
 
 ---
 
-### [DEPLOY-7] Deploy scripts import from test files
+### [DEPLOY-7] ~~Deploy scripts import from test files~~
 - **Type:** Deployment & Scripts
 - **Priority:** P2
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
 Move shared constants out of test files so deploy scripts don't import from test directories.
 
 **Context:**
-`scripts/deploy-all.ts:4`, `scripts/staking-upgrade.ts:4`, and `scripts/upgrade-fork.ts:6` all import `DEFAULT_UNSTAKE_COOLDOWN` from `"../test/common/constants.ts"`. Deploy scripts should not depend on test files — this creates a fragile dependency where test refactors can break deployment.
+`scripts/deploy-all.ts`, `scripts/staking-upgrade.ts`, and `scripts/upgrade-fork.ts` (all now deleted/replaced) imported `DEFAULT_UNSTAKE_COOLDOWN` from `"../test/common/constants.ts"`. Deploy scripts should not depend on test files — this creates a fragile dependency where test refactors can break deployment.
+
+**Resolution:**
+`upgrade.ts` and `deploy-fresh.ts` import all shared config from `scripts/common/config.ts` (new in this merge). No deploy script imports from `test/common/` any longer. The only remaining reference is `scripts/common/fork-test.ts` which uses a local env-var constant — not a cross-boundary import.
 
 **Acceptance Criteria:**
-- [ ] Shared constants moved to a non-test location (e.g., `scripts/constants.ts` or `contracts/libraries/`)
-- [ ] Deploy scripts import from the new location
-- [ ] Test files import from the new location (or keep their own copy)
-- [ ] All scripts compile and run correctly
+- [x] Shared constants in `scripts/common/config.ts`
+- [x] Deploy scripts import from the new location
+- [x] No deploy script imports from `test/common/`
 
 **Agent Instructions:**
-1. Read `scripts/deploy-all.ts`, `scripts/staking-upgrade.ts`, `scripts/upgrade-fork.ts` to identify all test imports.
-2. Create `scripts/constants.ts` with the shared constants.
-3. Update import paths in deploy scripts.
-4. Optionally update test files to also import from the shared location.
-5. Run `npx hardhat compile` and verify scripts.
+~~Obsolete — resolved. `upgrade.ts` and `deploy-fresh.ts` import from `scripts/common/config.ts`. See Resolution above.~~
 
 #### Sub-items:
 - [ ] Sub-task 1: Create shared constants file
@@ -2461,14 +2666,14 @@ No mainnet deployment checklist exists. The upgrade involves UUPS proxy upgrades
 
 **Acceptance Criteria:**
 - [ ] Document includes pre-flight checks (contract sizes, gas estimates, parameter verification)
-- [ ] Step-by-step deployment sequence matching `upgrade-fork.ts` flow
+- [ ] Step-by-step deployment sequence matching `upgrade.ts` / `generate-safe-batch.ts` flow
 - [ ] Post-deployment verification checklist (all parameters set, quorumBps != 0, oracle addresses correct)
 - [ ] Rollback triggers and procedure for each step
 - [ ] Links to relevant scripts for each step
 
 **Agent Instructions:**
-1. Read `scripts/upgrade-fork.ts` (lines 400-600) for the deployment flow reference — this is the most complete script.
-2. Read `scripts/staking-upgrade.ts` for the simpler upgrade flow.
+1. Read `scripts/upgrade.ts` for the upgrade flow reference.
+2. Read `scripts/generate-safe-batch.ts` for the mainnet Safe batch encoding flow.
 3. Read `scripts/deployment.md` for existing documentation patterns.
 4. Create `docs/MAINNET-UPGRADE-RUNBOOK.md` with:
    - Pre-flight checklist
@@ -2508,7 +2713,7 @@ The UUPS proxy pattern allows module replacement. If a bug is found in a deploye
 
 **Agent Instructions:**
 1. Read `contracts/SSVNetwork.sol` to understand `updateModule` function.
-2. Read `scripts/update-module.ts` for the module replacement script.
+2. Read `scripts/upgrade.ts` for the module replacement / `updateModule` call pattern.
 3. Document the rollback procedure for each module type.
 4. Identify what state changes are irreversible (e.g., token transfers, oracle commits).
 
@@ -2541,7 +2746,7 @@ Update `.env.example` with v2.0.0 parameter names and values.
 
 **Agent Instructions:**
 1. Read `.env.example`.
-2. Read `deployments/hoodi-fork.config.json` for reference values.
+2. Read `deployments/hoodi-prod/config.json` for reference values.
 3. Update the file with v2.0.0 parameters and inline comments.
 
 #### Sub-items:
@@ -2663,6 +2868,43 @@ Add 6 lower-priority invariants requiring significant harness work. Full list in
 
 ---
 
+### [FUZZ-5] ETH contract balance accounting invariant
+- **Type:** Echidna Invariant Suite
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Add an Echidna invariant that continuously asserts the ETH accounting identity:
+
+```
+address(this).balance == Σ(cluster.balance) + Σ(operator.ethEarnings) + ethDaoBalance + stakingEthPoolBalance
+```
+
+**Context:**
+Product raised the question of whether `withdraw` needs an explicit `amount <= address(this).balance` guard. The answer is: not as a runtime check — if accounting is correct, `cluster.balance` is always ≤ `address(this).balance` by construction. However, this invariant should be continuously enforced by fuzzing to catch any accounting divergence (rounding errors, missed fee settlement paths, ETH drain via another function). A violation means a protocol bug, not a user error. See FLOWS.md §1.8 for the full rationale.
+
+**Acceptance Criteria:**
+- [ ] Echidna invariant `echidna_eth_balance_accounting` implemented in the staking/cluster harness
+- [ ] Invariant asserts `address(this).balance >= sum_of_all_cluster_balances + sum_of_operator_eth_earnings + ethDaoBalance + stakingEthPoolBalance` after every operation
+- [ ] Harness tracks all cluster balances and operator earnings across stake/unstake/deposit/withdraw/liquidate/reactivate flows
+- [ ] No invariant violations in fuzz runs
+
+**Agent Instructions:**
+1. Read `test/echidna/` for existing harness patterns and how cluster/operator state is tracked.
+2. Add a new invariant function that sums all tracked cluster balances and operator ETH earnings and compares to `address(this).balance`.
+3. Ensure the harness exercises all ETH-moving operations: `deposit`, `withdraw`, `liquidate`, `reactivate`, `claimEthRewards`, `withdrawNetworkETHEarnings`, `withdrawOperatorEarnings`.
+4. Run Echidna and confirm no violations.
+
+#### Sub-items:
+- [ ] Sub-task 1: Implement `echidna_eth_balance_accounting` invariant
+- [ ] Sub-task 2: Extend harness to track all ETH-moving operations
+- [ ] Sub-task 3: Run Echidna and confirm no violations
+
+---
+
 ## Code Quality
 
 ### [QUALITY-1] `operatorFeeChangeRequests` not cleared on operator removal
@@ -2766,6 +3008,159 @@ In `SSVOperators.sol:324`, `_resetOperatorState` returns `Operator memory` but t
 - [ ] Sub-task 1: Remove return value from `_resetOperatorState`
 - [ ] Sub-task 2: Update caller
 - [ ] Sub-task 3: Run full test suite
+
+---
+
+### [QUALITY-5] Remove duplicate `MaxValueExceeded` error declaration
+- **Type:** Code Quality
+- **Priority:** P3
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Remove the duplicate `MaxValueExceeded` error declaration that appears in both `ISSVNetworkCore.sol` and `SSVPackedLib.sol`, causing duplication in the generated ABI.
+
+**Context:**
+The `MaxValueExceeded` error is declared in two places:
+1. `ISSVNetworkCore.sol:205` - `error MaxValueExceeded(); // 0x91aa3017`
+2. `SSVPackedLib.sol:10` - `error MaxValueExceeded();`
+
+This duplication results in the same error appearing twice in the generated ABI (`SSVNetwork.json:229-238`), which can cause confusion for tooling and integrations that expect unique error signatures.
+
+**Acceptance Criteria:**
+- [ ] Remove duplicate `MaxValueExceeded` declaration from one of the two files
+- [ ] Keep the declaration in the more appropriate location (likely `SSVPackedLib.sol` since it's a packed value validation error)
+- [ ] Verify the generated ABI no longer has duplicate entries
+- [ ] Ensure all existing tests still pass
+- [ ] Confirm no contracts rely on the specific error signature from the removed location
+
+#### Sub-items:
+- [ ] Sub-task 1: Determine which file should keep the `MaxValueExceeded` declaration
+- [ ] Sub-task 2: Remove the duplicate declaration
+- [ ] Sub-task 3: Regenerate ABI and verify no duplicates
+- [ ] Sub-task 4: Run full test suite to ensure no regressions
+
+---
+
+### [BUG-10] Stale Merkle root vulnerability in `updateClusterBalance`
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Fix the vulnerability where `updateClusterBalance` can accept stale Merkle roots when `minBlocksBetweenUpdates != 0`, allowing malicious actors to delay effective balance updates.
+
+**Context:**
+In `SSVClusters.sol:353-371`, the `updateClusterBalance` function validates Merkle proofs against the current oracle root. However, if a cluster's effective balance hasn't changed for a long time, there's no incentive to call `updateClusterBalance` for that cluster. A malicious actor could intentionally use an old Merkle root to delay updating to the most recent effective balance when `minBlocksBetweenUpdates != 0`.
+
+**Vulnerability Details:**
+1. The function validates the Merkle proof against the current oracle root
+2. If `minBlocksBetweenUpdates > 0`, updates are rate-limited
+3. For clusters with unchanged effective balances, no one calls `updateClusterBalance`
+4. An attacker can submit stale proofs using old roots to prevent EB updates
+5. This allows manipulation of when effective balance changes take effect
+
+**Current Mitigation:**
+The issue is currently mitigated because `minBlocksBetweenUpdates` is always set to 0, meaning there's no rate limiting on updates. However, if the protocol intends to enable rate limiting in the future, this vulnerability becomes active.
+
+**Acceptance Criteria:**
+- [ ] Product team confirms whether `minBlocksBetweenUpdates` will be enabled in future
+- [ ] If yes: Implement validation to prevent stale Merkle root usage
+- [ ] Consider adding a timestamp/block number check to ensure proofs use recent roots
+- [ ] Add test coverage for this scenario
+- [ ] Document the expected behavior when `minBlocksBetweenUpdates > 0`
+
+#### Sub-items:
+- [ ] Sub-task 1: Confirm product requirements for `minBlocksBetweenUpdates`
+- [ ] Sub-task 2: Design solution to prevent stale Merkle root usage
+- [ ] Sub-task 3: Implement the fix
+- [ ] Sub-task 4: Add comprehensive test coverage
+- [ ] Sub-task 5: Update documentation
+
+---
+
+### [BUG-11] Remove liquidation check in `withdraw` function
+- **Type:** Code Quality
+- **Priority:** P2
+- **Status:** ✅ Fixed
+- **Owner:** (unassigned)
+- **Timeline:** (complete)
+- **Github Link:** (empty)
+
+**Requirement:**
+Remove the `cluster.validateClusterIsNotLiquidated()` check from the `withdraw` function in `SSVClusters.sol`.
+
+**Context:**
+In `SSVClusters.sol:215`, the `withdraw` function prevents withdrawals from liquidated clusters. This restriction is unnecessarily restrictive: users may deposit funds to prepare a liquidated cluster for reactivation but later decide not to reactivate. In this scenario, they should be able to withdraw their deposited funds without being forced to complete the reactivation. The liquidation check should be removed to allow this flexibility.
+
+**Rationale:**
+- Users can deposit to liquidated clusters (allowed by design, see SEC-12)
+- If users change their mind about reactivation, they should be able to retrieve their deposits
+- The balance accounting is correct whether the cluster is liquidated or not
+- **IMPORTANT:** Double-check this change with Product team before implementation to ensure it aligns with intended UX
+
+**Acceptance Criteria:**
+- [x] Product team approval obtained for this change
+- [x] Remove `cluster.validateClusterIsNotLiquidated()` from `withdraw` function (line 215)
+- [x] Add test: deposit to liquidated cluster, then withdraw without reactivating
+- [x] Verify existing withdrawal tests still pass
+- [x] Update FLOWS.md to document that withdrawals are allowed on liquidated clusters
+
+#### Sub-items:
+- [x] Sub-task 1: Get Product team approval
+- [x] Sub-task 2: Remove `cluster.validateClusterIsNotLiquidated()` from `SSVClusters.sol:withdraw` (was line 215)
+- [x] Sub-task 3: Added tests: `withdraw.test.ts` — "Withdraws deposited funds from a liquidated cluster without reactivating" and "Withdraws full balance from a liquidated cluster that received multiple deposits"
+- [x] Sub-task 4: Updated `docs/FLOWS.md` §1.8 preconditions to explicitly allow liquidated clusters
+
+---
+
+### [BUG-12] `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+Allow `removeValidator` and `bulkRemoveValidator` to operate on legacy SSV clusters, not just ETH clusters.
+
+**Context:**
+`_bulkRemoveValidator` in `SSVValidators.sol:177` calls `ClusterLib.validateClusterVersion(version, VERSION_ETH)`, which reverts with `IncorrectClusterVersion` for any SSV cluster. This means owners of legacy SSV clusters cannot remove individual validators — they can only exit (signal off-chain) or migrate the entire cluster to ETH. This is a UX regression from v1.x where `removeValidator` worked on all clusters.
+
+The SSV cluster removal path is distinct from the ETH path in two ways:
+1. It uses `s.clusters` (SSV storage) instead of `s.ethClusters`
+2. It does not involve ETH snapshot updates or EB deviation cleanup
+
+The fix requires branching `_bulkRemoveValidator` on `version`: for `VERSION_SSV`, use the legacy SSV cluster removal path (update SSV operator snapshots, decrement `operator.validatorCount`, update SSV cluster hash in `s.clusters`); for `VERSION_ETH`, keep the existing ETH path.
+
+**Rationale:**
+- SSV cluster owners may want to remove specific validators without migrating the entire cluster
+- Without this, the only way to reduce validator count in a legacy cluster is full migration
+- The FLOWS.md and SPEC.md already document SSV cluster operations as including `removeValidator` (see FLOWS §1.10, SPEC §1 "Existing Clusters")
+- **IMPORTANT:** Confirm with Product team whether this is intentionally blocked or an oversight
+
+**Acceptance Criteria:**
+- [ ] Product team approval obtained
+- [ ] `_bulkRemoveValidator` branches on `version`: `VERSION_SSV` uses SSV cluster path, `VERSION_ETH` uses ETH cluster path
+- [ ] SSV path: updates SSV operator snapshots (`operator.snapshot`), decrements `operator.validatorCount`, updates `s.clusters[hashedCluster]`
+- [ ] SSV path: does NOT touch ETH snapshots, `ethValidatorCount`, `ethClusters`, or EB storage
+- [ ] Add test: remove validator from active SSV cluster, verify SSV cluster hash updated and operator count decremented
+- [ ] Add test: remove validator from liquidated SSV cluster (should be allowed — no active-cluster check in current code)
+- [ ] Existing ETH removal tests still pass
+- [ ] Update FLOWS §1.3 and §1.4 to document SSV cluster support
+
+#### Sub-items:
+- [ ] Sub-task 1: Get Product team approval
+- [ ] Sub-task 2: Branch `_bulkRemoveValidator` on cluster version
+- [ ] Sub-task 3: Implement SSV cluster removal path
+- [ ] Sub-task 4: Add unit tests
+- [ ] Sub-task 5: Update FLOWS.md §1.3 and §1.4
 
 ---
 
