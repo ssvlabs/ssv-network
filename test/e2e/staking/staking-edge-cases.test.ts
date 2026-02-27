@@ -31,7 +31,7 @@ import {
 const PRECISION = 10n ** 18n;
 const PACKED_NETWORK_FEE = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
 const MINIMAL_STAKING_AMOUNT = 1_000_000_000n;
-const MAX_PENDING_REQUESTS = 10;
+const MAX_PENDING_REQUESTS = 2000;
 
 describe("E2E Staking Edge Cases", () => {
   let connection: NetworkConnection<"generic">;
@@ -218,8 +218,8 @@ describe("E2E Staking Edge Cases", () => {
     });
   });
 
-  describe("MAX_PENDING_REQUESTS (10)", () => {
-    it("Should allow exactly 10 pending requests and revert on 11th", async function () {
+  describe("MAX_PENDING_REQUESTS (2000)", () => {
+    it("Should allow exactly 2000 pending requests and revert on 2001", async function () {
       const { network, ssvToken } =
         await networkHelpers.loadFixture(deployFixture);
 
@@ -236,7 +236,13 @@ describe("E2E Staking Edge Cases", () => {
         { value: DEFAULT_ETH_REGISTER_VALUE },
       );
 
-      const stakeAmount = 100n * PRECISION;
+      const stakeAmount = 2200n * PRECISION;
+      const deployerBal = await ssvToken.balanceOf(deployer.address);
+      if (deployerBal < stakeAmount) {
+        await ssvToken
+          .connect(deployer)
+          .mint(deployer.address, stakeAmount - deployerBal);
+      }
       await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
       await ssvToken
         .connect(stakerA)
@@ -270,7 +276,13 @@ describe("E2E Staking Edge Cases", () => {
         { value: DEFAULT_ETH_REGISTER_VALUE },
       );
 
-      const stakeAmount = 100n * PRECISION;
+      const stakeAmount = 2200n * PRECISION;
+      const deployerBal = await ssvToken.balanceOf(deployer.address);
+      if (deployerBal < stakeAmount) {
+        await ssvToken
+          .connect(deployer)
+          .mint(deployer.address, stakeAmount - deployerBal);
+      }
       await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
       await ssvToken
         .connect(stakerA)
