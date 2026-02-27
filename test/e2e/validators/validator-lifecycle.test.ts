@@ -129,7 +129,6 @@ describe("Validator Lifecycle", function () {
         operatorIds,
         cluster,
       );
-      expect(clusterBalance).to.be.lessThan(DEFAULT_ETH_REGISTER_VALUE);
       expect(clusterBalance).to.equal(expectedClusterBalance);
     });
 

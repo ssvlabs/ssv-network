@@ -65,7 +65,7 @@ describe("Cross-Cutting: Economics", () => {
       let contractETH = await snapshotContractBalance(connection.ethers.provider, networkAddress);
       expect(contractETH).to.equal(deposit1);
       expect(cluster.balance).to.equal(deposit1);
-      await checkETHConservation(networkAddress, connection.ethers.provider, [cluster.balance], [0n, 0n, 0n, 0n], 0n, 0n);
+      await checkETHConservation(networkAddress, connection.ethers.provider, [cluster.balance], [0n, 0n, 0n, 0n], 0n);
 
       const deposit2 = ethers.parseEther("5");
       const tx2 = await network.connect(clusterOwner).registerValidator(
@@ -80,14 +80,14 @@ describe("Cross-Cutting: Economics", () => {
 
       await checkETHConservation(
         networkAddress, connection.ethers.provider,
-        [cluster.balance], [0n, 0n, 0n, 0n], 0n, 0n,
+        [cluster.balance], [0n, 0n, 0n, 0n], 0n,
       );
 
       await mineBlocks(connection.ethers.provider, 100);
 
       await checkETHConservation(
         networkAddress, connection.ethers.provider,
-        [cluster.balance], [0n, 0n, 0n, 0n], 0n, 0n,
+        [cluster.balance], [0n, 0n, 0n, 0n], 0n,
       );
 
       const withdrawAmount = ethers.parseEther("1");
@@ -102,7 +102,7 @@ describe("Cross-Cutting: Economics", () => {
 
       await checkETHConservation(
         networkAddress, connection.ethers.provider,
-        [cluster.balance], [0n, 0n, 0n, 0n], 0n, 0n,
+        [cluster.balance], [0n, 0n, 0n, 0n], 0n,
       );
 
       const tx5 = await network.connect(operatorOwner).withdrawAllOperatorEarnings(operatorIds[0]);
@@ -126,7 +126,7 @@ describe("Cross-Cutting: Economics", () => {
 
       await checkETHConservation(
         networkAddress, connection.ethers.provider,
-        [cluster.balance], opEarnings, 0n, daoEarnings,
+        [cluster.balance], opEarnings, daoEarnings,
       );
 
       const totalAccounted = cluster.balance + opEarnings.reduce((a, b) => a + b, 0n) + daoEarnings;

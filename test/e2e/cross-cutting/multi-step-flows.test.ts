@@ -93,7 +93,7 @@ describe("Cross-Cutting: Multi-Step Flows", () => {
 
       await checkETHConservation(
         networkAddress, provider,
-        [cluster.balance], [0n, 0n, 0n, 0n], 0n, 0n,
+        [cluster.balance], [0n, 0n, 0n, 0n], 0n,
       );
 
       await mineBlocks(provider, 50);
@@ -306,7 +306,7 @@ describe("Cross-Cutting: Multi-Step Flows", () => {
       await checkETHConservation(
         networkAddress, provider,
         [clusterABalance, clusterBBalance],
-        opEarnings, 0n, daoEarnings,
+        opEarnings, daoEarnings,
       );
 
       const daoValCount = BigInt(await views.getNetworkValidatorsCount());

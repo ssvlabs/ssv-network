@@ -20,8 +20,6 @@ import {
   mineBlocks,
   snapshotContractBalance,
   checkETHConservation,
-  calcClusterBurn,
-  defaultVUnits,
 } from "../helpers/index.ts";
 import { ethers } from "ethers";
 
@@ -126,7 +124,6 @@ describe("Conservation Law — Multi-Cluster ETH Balance Tracking", () => {
       provider,
       [clusterABalance, clusterBBalance, clusterCBalance],
       [], // no operator earnings yet
-      0n, // no staking pool
       0n, // no DAO ETH earnings
     );
 
@@ -194,7 +191,6 @@ describe("Conservation Law — Multi-Cluster ETH Balance Tracking", () => {
       provider,
       finalClusterBalances,
       operatorEarnings,
-      0n,
       BigInt(daoEarnings),
     );
 

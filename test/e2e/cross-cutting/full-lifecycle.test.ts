@@ -92,7 +92,7 @@ describe("Cross-Cutting: Full System Lifecycle", () => {
 
     await checkETHConservation(
       networkAddress, connection.ethers.provider,
-      [cluster.balance], [0n, 0n, 0n, 0n], 0n, 0n,
+      [cluster.balance], [0n, 0n, 0n, 0n], 0n,
     );
 
     await mineBlocks(connection.ethers.provider, 100);
@@ -245,7 +245,7 @@ describe("Cross-Cutting: Full System Lifecycle", () => {
 
     await checkETHConservation(
       networkAddress, connection.ethers.provider,
-      [clusterBalance], opEarnings, 0n, daoEarnings,
+      [clusterBalance], opEarnings, daoEarnings,
     );
 
     const finalDaoValCount = BigInt(await views.getNetworkValidatorsCount());
