@@ -63,7 +63,7 @@
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
 | TEST-19 | Operator removal impact on active ETH clusters | Unit Test Completeness | P1 | S |
 | TEST-20 | Cooldown duration changes affecting pending requests | Unit Test Completeness | P1 | S |
-| TEST-21 | EB boundary values (min/max per validator) | Unit Test Completeness | P2 | S |
+| TEST-21 | ~~EB boundary values (min/max per validator)~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-22 | Dust/precision edge cases | Unit Test Completeness | P2 | S |
 | TEST-23 | Max operator count (13) with EB | Unit Test Completeness | P2 | S |
 | TEST-24 | Idempotency and double-operation checks | Unit Test Completeness | P2 | S |
@@ -1891,12 +1891,12 @@ Test how changes to `cooldownDuration` affect pending unstake withdrawal request
 
 ---
 
-### [TEST-21] EB boundary values (min/max per validator)
+### [TEST-21] ~~EB boundary values (min/max per validator)~~
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Closed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -1905,21 +1905,23 @@ Add boundary tests for EB values at minimum (32 ETH) and maximum (2048 ETH) per 
 **Context:**
 Limited boundary testing exists. The sanity tests cover conversions but not the full cluster accounting at boundaries.
 
-**Acceptance Criteria:**
-- [ ] Test: EB exactly 32 ETH per validator (10000 vUnits) — baseline behavior
-- [ ] Test: EB exactly 2048 ETH per validator (640000 vUnits) — max behavior
-- [ ] Test: EB at 2049 per validator — verify revert
+**Resolution:**
+All three boundary cases are covered in `test/unit/SSVClusters/updateClusterBalance.test.ts`:
+- EB=32 baseline (10000 vUnits): pre-existing test "Updates cluster balance when proof is valid"
+- EB=2049 revert: pre-existing test "Is reverted with 'EBExceedsMaximum' when effective balance exceeds 2048 ETH per validator"
+- EB=2048 max (640000 vUnits): new test with full vUnit/deviation/DAO accounting assertions
+- EB=4096 max for 2-validator cluster (1,280,000 vUnits): new test with per-operator deviation assertions
+- EB=4097 revert for 2-validator cluster: new multi-validator max-exceeded test
 
-**Agent Instructions:**
-1. Read `test/sanity/effective-balance.ts`.
-2. Read `test/unit/SSVClusters/updateClusterBalance.test.ts`.
-3. Add boundary-value tests using `updateClusterBalance` with Merkle proofs at exact boundaries.
-4. Run `npm run test:unit`.
+**Acceptance Criteria:**
+- [x] Test: EB exactly 32 ETH per validator (10000 vUnits) — baseline behavior
+- [x] Test: EB exactly 2048 ETH per validator (640000 vUnits) — max behavior
+- [x] Test: EB at 2049 per validator — verify revert
 
 #### Sub-items:
-- [ ] Sub-task 1: EB=32 baseline test
-- [ ] Sub-task 2: EB=2048 maximum test
-- [ ] Sub-task 3: EB>2048 revert test
+- [x] Sub-task 1: EB=32 baseline test
+- [x] Sub-task 2: EB=2048 maximum test
+- [x] Sub-task 3: EB>2048 revert test
 
 ---
 
