@@ -97,12 +97,12 @@
 | QUALITY-9 | `removeOperator` should clear fee change requests | Code Quality | P2 | S |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
-| OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
+| OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |I branched 
 | FUZZ-1 | Strengthen 5 partially-covered echidna invariants | Echidna Invariant Suite | P1 | M |
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
-| FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
+| FUZZ-3 | ~~Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV)~~ | Echidna Invariant Suite | P2 | ✅ Done |
 | FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
-| FUZZ-5 | ETH contract balance accounting invariant: `address(this).balance == Σ cluster.balance + Σ operator.ethEarnings + ethDaoBalance + stakingEthPoolBalance` | Echidna Invariant Suite | P1 | M |
+| FUZZ-5 | ETH contract balance accounting invariant: `address(this).balance == Σ cluster.balance + Σ operator.ethEarn<br/>ings + ethDaoBalance + stakingEthPoolBalance` | Echidna Invariant Suite | P1 | M |
 
 ---
 
@@ -2823,7 +2823,7 @@ Add 16 new invariants covering critical gaps. Full list with descriptions in `te
 ### [FUZZ-3] Add 8 medium-priority echidna invariants
 - **Type:** Echidna Invariant Suite
 - **Priority:** P2
-- **Status:** Open
+- **Status:** Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -2840,9 +2840,9 @@ Add 8 medium-priority invariants requiring more harness setup. Full list in `tes
 **DAO Formula (1):** DAO earnings matches formula exactly (C4)
 
 **Acceptance Criteria:**
-- [ ] All 8 invariants implemented and passing
-- [ ] Merkle tree builder added to harness for valid proof happy paths
-- [ ] Each invariant documented in `test/echidna/README.md`
+- [x] All 8 invariants implemented and passing
+- [x] Merkle tree builder added to harness for valid proof happy paths
+- [x] Each invariant documented in `test/echidna/README.md`
 
 ---
 

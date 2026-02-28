@@ -12,6 +12,8 @@ import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
 import {PackedETH, PackedSSV} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {ProtocolLib} from "../../contracts/libraries/ProtocolLib.sol";
+import {VUNITS_PRECISION} from "../../contracts/libraries/storage/SSVStorageEB.sol";
 
 contract DAOUser {
     ISSVDAO public dao;
@@ -168,6 +170,10 @@ contract SSVDAOEchidna is SSVDAO {
         uint32 oracleId = uint32(oracleIdSeed % 3) + 1;
         address newOracle = _oracleAddressBySeed(newOracleSeed);
         try this.replaceOracle(oracleId, newOracle) {} catch {}
+    }
+
+    function action_set_eth_vunits(uint64 vUnitsSeed) external {
+        SSVStorageProtocol.load().daoTotalEthVUnits = vUnitsSeed % 100_001;
     }
 
     function action_add_earnings(uint256 seed) external {
@@ -332,6 +338,27 @@ contract SSVDAOEchidna is SSVDAO {
         if (addr2 != address(0) && addr2 == addr3) return false;
 
         return true;
+    }
+
+    function echidna_dao_earnings_matches_formula() external view returns (bool) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (sp.ethDaoIndexBlockNumber > block.number) return false;
+
+        uint128 blockDelta = uint64(block.number) - sp.ethDaoIndexBlockNumber;
+        uint128 rawFee = PackedETH.unwrap(sp.ethNetworkFee);
+        uint128 vUnits = sp.daoTotalEthVUnits;
+        uint128 rawBalance = PackedETH.unwrap(sp.ethDaoBalance);
+
+        uint128 earningsUnits = (blockDelta * rawFee * vUnits) / VUNITS_PRECISION;
+
+        if (earningsUnits > type(uint64).max) return true;
+        if (rawBalance + earningsUnits > type(uint64).max) return true;
+
+        uint64 expectedRaw = uint64(rawBalance + earningsUnits);
+        PackedETH libResult = ProtocolLib.networkTotalEarnings(sp);
+
+        return PackedETH.unwrap(libResult) == expectedRaw;
     }
 
     function _attemptCommit(OracleUser oracle, bytes32 root, uint64 blockNum) internal {

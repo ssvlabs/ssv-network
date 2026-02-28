@@ -113,6 +113,7 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
     bool private ethWithdrawTouchedSSV;
     bool private ssvWithdrawTouchedEth;
     bool private operatorRegisteredBelowMinFee;
+    bool private declareFromZeroSucceeded;
 
     constructor() {
         token = new MockToken();
@@ -209,6 +210,26 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             if (afterFee.neq(beforeFee)) {
                 declareChangedFee = true;
             }
+        } catch {}
+    }
+
+    function action_declare_from_zero(uint256 idSeed, uint256 feeSeed) external {
+        uint64 operatorId = _pickOperatorId(idSeed);
+        if (operatorId == 0) return;
+        address ownerAddr = operatorOwner[operatorId];
+        if (ownerAddr == address(0)) return;
+
+        ISSVNetworkCore.Operator memory op = getOperator(operatorId);
+        if (!_operatorExists(op)) return;
+
+        if (op.ethFee.raw() != 0 || op.fee.raw() != 0) return;
+
+        uint256 fee = _boundFee(feeSeed);
+        if (fee == 0) return;
+
+        OperatorUser owner = OperatorUser(payable(ownerAddr));
+        try owner.declareFee(operatorId, fee) {
+            declareFromZeroSucceeded = true;
         } catch {}
     }
 
@@ -674,6 +695,10 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
     // when the DAO increases the minimum fee, so we track violation at registration.
     function echidna_eth_fee_minimum() external view returns (bool) {
         return !operatorRegisteredBelowMinFee;
+    }
+
+    function echidna_declare_fee_from_zero_reverts() external view returns (bool) {
+        return !declareFromZeroSucceeded;
     }
 
     function echidna_declare_does_not_change_fee() external view returns (bool) {
