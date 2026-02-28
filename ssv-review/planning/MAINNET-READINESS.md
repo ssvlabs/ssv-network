@@ -82,7 +82,7 @@
 | DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
 | DEPLOY-2 | Verify `liquidationThresholdPeriod` config vs spec mismatch | Deployment & Scripts | P1 | S |
 | DEPLOY-3 | ~~Verify `ethNetworkFee` rounding in config~~ | Deployment & Scripts | P2 | ✅ Closed (negligible) |
-| DEPLOY-4 | Remove unused error declarations in `ISSVNetworkCore.sol` | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate |
+| DEPLOY-4 | ~~Remove unused error declarations in `ISSVNetworkCore.sol`~~ | Deployment & Scripts | P2 | ✅ Fixed |
 | DEPLOY-5 | Document `operatorMinFee` governance parameter in DIP-X | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate (spec doc) |
 | DEPLOY-6 | DIP-X unstaking description doesn't match implementation | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate (spec doc) |
 | DEPLOY-7 | ~~Deploy scripts import from test files~~ | Deployment & Scripts | P2 | ✅ Fixed — `upgrade.ts` and `deploy-fresh.ts` import from `scripts/common/config.ts`, no test file imports |
@@ -2524,34 +2524,26 @@ The config rounds to 3,550,900,000 while the spec says 3,550,929,823. The differ
 
 ---
 
-### [DEPLOY-4] Remove unused error declarations
+### [DEPLOY-4] ~~Remove unused error declarations~~
 - **Type:** Deployment & Scripts
 - **Priority:** P2
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
-**Requirement:**
-Remove unused error declarations `NotAuthorized()` and `InvalidContractAddress()` from `ISSVNetworkCore.sol`.
-
-**Context:**
-`contracts/interfaces/ISSVNetworkCore.sol`: `NotAuthorized()` (line 185) and `InvalidContractAddress()` (line 235) are declared but never used (never reverted with). Dead code.
+**Resolution:**
+Removed `NotAuthorized()` and `InvalidContractAddress()` from `contracts/interfaces/ISSVNetworkCore.sol`. Both were declared but never referenced anywhere in the codebase. Compilation verified clean.
 
 **Acceptance Criteria:**
-- [ ] Both unused errors removed from `ISSVNetworkCore.sol`
-- [ ] No references to these errors exist in any contract
-- [ ] Compilation succeeds
-
-**Agent Instructions:**
-1. Grep for `NotAuthorized` and `InvalidContractAddress` across all `.sol` files to confirm they're unused.
-2. Remove the declarations from `contracts/interfaces/ISSVNetworkCore.sol`.
-3. Run `npx hardhat compile`.
+- [x] Both unused errors removed from `ISSVNetworkCore.sol`
+- [x] No references to these errors exist in any contract
+- [x] Compilation succeeds
 
 #### Sub-items:
-- [ ] Sub-task 1: Verify errors are unused
-- [ ] Sub-task 2: Remove declarations
-- [ ] Sub-task 3: Verify compilation
+- [x] Sub-task 1: Verify errors are unused
+- [x] Sub-task 2: Remove declarations
+- [x] Sub-task 3: Verify compilation
 
 ---
 
