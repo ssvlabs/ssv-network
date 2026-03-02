@@ -2786,7 +2786,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
     });
 
-    it("Is reverted with 'ClusterIsLiquidated' if the cluster is liquidated", async function() {
+    it("Is reverted with 'InsufficientBalance' when withdrawing from a liquidated cluster with zero balance", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2795,8 +2795,9 @@ describe("SSVNetwork full integration tests", () => {
       await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster);
       const newClusterState = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
+      // Liquidated cluster has zero balance, so withdrawal fails with InsufficientBalance
       await expect(network.connect(clusterOwner).withdraw(operatorIds, SMALL_ETH_REGISTER_VALUE, newClusterState))
-        .to.be.revertedWithCustomError(network, Errors.CLUSTER_IS_LIQUIDATED);
+        .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
     });
 
     it("Is reverted with 'InsufficientBalance' if the amount is bigger than cluster balance", async function() {
