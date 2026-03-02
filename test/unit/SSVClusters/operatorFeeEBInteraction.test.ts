@@ -455,4 +455,150 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const expectedSettleDelta = ((settleBlock - snapAfterFc.snapshotBlock) * packedDoubled * maxVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
     expect(snapAfterSettle.earningsWei - snapAfterFc.earningsWei).to.equal(expectedSettleDelta);
   });
+
+  it("Operator fee change with network fee accounting → both fees correctly deducted", async function () {
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
+
+    const regTx = await clusters.registerValidator(
+      makePublicKey(10), operatorIds, DEFAULT_SHARES, createCluster(), { value: ethers.parseEther("100") },
+    );
+    const regReceipt = await regTx.wait();
+    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+
+    const { cluster: clusterAfterEB, block: ebBlock } = await setEB(clusters, operatorIds, clusterAfterReg, 64);
+    const vUnits = 20_000n;
+
+    await networkHelpers.mine(100);
+
+    const fcTx = await clusters.mockExecuteAllOperatorFees(operatorIds, DOUBLED_FEE);
+    const fcReceipt = await fcTx.wait();
+    const fcBlock = BigInt(fcReceipt!.blockNumber);
+
+    const oldNetworkFeeIndex = clusterAfterEB.networkFeeIndex;
+
+    await networkHelpers.mine(100);
+
+    const wTx = await clusters.withdraw(operatorIds, 0n, clusterAfterEB);
+    const wReceipt = await wTx.wait();
+    const wBlock = BigInt(wReceipt!.blockNumber);
+    const clusterAfterW = parseClusterFromEvent(clusters, wReceipt, Events.CLUSTER_WITHDRAWN);
+
+    const numOps = BigInt(operatorIds.length);
+    const packedInitialOp = INITIAL_FEE / ETH_DEDUCTED_DIGITS;
+    const packedDoubledOp = DOUBLED_FEE / ETH_DEDUCTED_DIGITS;
+
+    const p1Blocks = fcBlock - ebBlock;
+    const p2Blocks = wBlock - fcBlock;
+    const idxOp = numOps * (p1Blocks * packedInitialOp + p2Blocks * packedDoubledOp);
+    const operatorFeeUnits = (idxOp * vUnits) / VUNITS_PRECISION;
+
+    const currentNetworkFeeIndex = clusterAfterW.networkFeeIndex;
+    const idxNet = currentNetworkFeeIndex - oldNetworkFeeIndex;
+    const networkFeeUnits = (idxNet * vUnits) / VUNITS_PRECISION;
+
+    const expectedBurn = (operatorFeeUnits + networkFeeUnits) * ETH_DEDUCTED_DIGITS;
+    const actualBurn = clusterAfterEB.balance - clusterAfterW.balance;
+
+    expect(actualBurn).to.equal(expectedBurn);
+    expect(operatorFeeUnits).to.be.greaterThan(0n);
+  });
+
+  it("EB update between fee change execution updates vUnits for earnings calculation", async function () {
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
+
+    const regTx = await clusters.registerValidator(
+      makePublicKey(11), operatorIds, DEFAULT_SHARES, createCluster(), { value: ethers.parseEther("100") },
+    );
+    const regReceipt = await regTx.wait();
+    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+
+    await networkHelpers.mine(50);
+
+    await setEB(clusters, operatorIds, clusterAfterReg, 96);
+    const vUnitsAfterEB = 30_000n;
+
+    await networkHelpers.mine(50);
+
+    const snap2 = await getOperatorSnapshotWei(clusters, operatorIds[0]);
+    const fcTx = await clusters.mockExecuteAllOperatorFees(operatorIds, DOUBLED_FEE);
+    const fcReceipt = await fcTx.wait();
+    const fcBlock = BigInt(fcReceipt!.blockNumber);
+    const snap3 = await getOperatorSnapshotWei(clusters, operatorIds[0]);
+
+    const packedInitial = INITIAL_FEE / ETH_DEDUCTED_DIGITS;
+    const blocksDelta = fcBlock - snap2.snapshotBlock;
+    const expectedDelta = (blocksDelta * packedInitial * vUnitsAfterEB / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+
+    expect(snap3.earningsWei - snap2.earningsWei).to.equal(expectedDelta);
+
+    await networkHelpers.mine(50);
+
+    const settleTx = await clusters.mockExecuteAllOperatorFees([operatorIds[0]], DOUBLED_FEE);
+    const settleReceipt = await settleTx.wait();
+    const settleBlock = BigInt(settleReceipt!.blockNumber);
+    const snap4 = await getOperatorSnapshotWei(clusters, operatorIds[0]);
+
+    const packedDoubled = DOUBLED_FEE / ETH_DEDUCTED_DIGITS;
+    const blocksDelta2 = settleBlock - snap3.snapshotBlock;
+    const expectedDelta2 = (blocksDelta2 * packedDoubled * vUnitsAfterEB / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+
+    expect(snap4.earningsWei - snap3.earningsWei).to.equal(expectedDelta2);
+  });
+
+  it("Fee change on 4-validator cluster with EB=128 (avg 32 ETH/validator)", async function () {
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
+
+    const depositValue = ethers.parseEther("50");
+    const reg1Tx = await clusters.registerValidator(
+      makePublicKey(20), operatorIds, DEFAULT_SHARES, createCluster(), { value: depositValue },
+    );
+    const reg1Receipt = await reg1Tx.wait();
+    let cluster = parseClusterFromEvent(clusters, reg1Receipt, Events.VALIDATOR_ADDED);
+
+    for (let i = 1; i < 4; i++) {
+      const regTx = await clusters.registerValidator(
+        makePublicKey(20 + i), operatorIds, DEFAULT_SHARES, cluster, { value: depositValue },
+      );
+      const regReceipt = await regTx.wait();
+      cluster = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    }
+
+    expect(cluster.validatorCount).to.equal(4);
+
+    const { cluster: clusterAfterEB, block: ebBlock } = await setEB(clusters, operatorIds, cluster, 128);
+    const expectedVUnits = (128n * VUNITS_PRECISION + 31n) / 32n;
+    expect(expectedVUnits).to.equal(40_000n);
+
+    await networkHelpers.mine(100);
+
+    const fcTx = await clusters.mockExecuteAllOperatorFees(operatorIds, TRIPLED_FEE);
+    const fcReceipt = await fcTx.wait();
+    const fcBlock = BigInt(fcReceipt!.blockNumber);
+
+    await networkHelpers.mine(100);
+
+    const wTx = await clusters.withdraw(operatorIds, 0n, clusterAfterEB);
+    const wReceipt = await wTx.wait();
+    const wBlock = BigInt(wReceipt!.blockNumber);
+    const clusterAfterW = parseClusterFromEvent(clusters, wReceipt, Events.CLUSTER_WITHDRAWN);
+
+    const numOps = BigInt(operatorIds.length);
+    const packedInitial = INITIAL_FEE / ETH_DEDUCTED_DIGITS;
+    const packedTripled = TRIPLED_FEE / ETH_DEDUCTED_DIGITS;
+
+    const p1Blocks = fcBlock - ebBlock;
+    const p2Blocks = wBlock - fcBlock;
+    const idxOp = numOps * (p1Blocks * packedInitial + p2Blocks * packedTripled);
+    const expectedBurnOp = (idxOp * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+
+    const idxNet = clusterAfterW.networkFeeIndex - clusterAfterEB.networkFeeIndex;
+    const expectedBurnNet = (idxNet * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+
+    const expectedTotalBurn = expectedBurnOp + expectedBurnNet;
+    const actualBurn = clusterAfterEB.balance - clusterAfterW.balance;
+
+    expect(actualBurn).to.equal(expectedTotalBurn);
+    expect(cluster.validatorCount).to.equal(4);
+    expect(clusterAfterW.validatorCount).to.equal(4);
+  });
 });
