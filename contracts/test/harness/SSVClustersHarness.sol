@@ -19,6 +19,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract SSVClustersHarness is SSVClusters, SSVValidators {
     using Counters for Counters.Counter;
     using ClusterLib for Cluster;
+    
+    event OperatorFeeExecuted(address indexed owner, uint64 indexed operatorId, uint256 blockNumber, uint256 fee);
 
     function mockOperator(
         bytes calldata publicKey,
@@ -165,6 +167,20 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
 
     function mockSetOperatorFee(uint64 operatorId, uint256 fee) external {
         SSVStorage.load().operators[operatorId].ethFee = PackedETHLib.pack(fee);
+    }
+
+    function mockExecuteAllOperatorFees(uint64[] calldata operatorIds, uint256 fee) external {
+        StorageData storage s = SSVStorage.load();
+        for (uint256 i = 0; i < operatorIds.length; i++) {
+            uint64 operatorId = operatorIds[i];
+            ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+            if (operator.ethSnapshot.block == 0) {
+                continue;
+            }
+            OperatorLib.updateSnapshotSt(operator, operatorId);
+            operator.ethFee = PackedETHLib.pack(fee);
+            emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
+        }
     }
     
     function mockEthNetworkFee(uint64 fee) external {
