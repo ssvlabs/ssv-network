@@ -72,7 +72,7 @@
 | TEST-26 | Zero-validator cluster operations | Unit Test Completeness | P2 | S |
 | TEST-27 | Operator at max validator limit | Unit Test Completeness | P2 | S |
 | TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
-| TEST-29 | Add contract ETH balance delta assertions to deposit tests | Unit Test Completeness | P1 | S |
+| TEST-29 | ~~Add contract ETH balance delta assertions to deposit tests~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-30 | Resolve TODO comments with deferred assertions | Unit Test Completeness | P1 | M |
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
 | TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
@@ -2198,12 +2198,12 @@ In `test/unit/SSVOperators/reentrancy.test.ts:101-107`, three assertions are com
 
 ---
 
-### [TEST-29] Add contract ETH balance delta assertions to deposit tests
+### [TEST-29] ~~Add contract ETH balance delta assertions to deposit tests~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-02-26
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2214,10 +2214,13 @@ In `test/unit/SSVClusters/deposit.test.ts`, tests verify cluster balance in even
 
 **Concrete test:** Register with 10 ETH, deposit 5 ETH, assert `contractBalance_after - contractBalance_before == 5 ETH`.
 
+**Resolution:**
+Added explicit `address(clusters).balance` delta assertions in `test/unit/SSVClusters/deposit.test.ts` for a single deposit and for a multi-deposit ("bulk" sequential deposits) scenario. The multi-deposit test asserts per-deposit deltas and cumulative ETH balance growth across two deposits (owner + third-party depositor). Validation run: `npx hardhat test test/unit/SSVClusters/deposit.test.ts` (6 passing) and `npm run test:unit` (414 passing).
+
 **Acceptance Criteria:**
-- [ ] At least one deposit test captures contract ETH balance before and after
-- [ ] Asserts `balanceAfter - balanceBefore == msg.value`
-- [ ] Both single and bulk deposit scenarios covered
+- [x] At least one deposit test captures contract ETH balance before and after
+- [x] Asserts `balanceAfter - balanceBefore == msg.value`
+- [x] Both single and bulk deposit scenarios covered
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/deposit.test.ts` for existing patterns.
@@ -2227,8 +2230,8 @@ In `test/unit/SSVClusters/deposit.test.ts`, tests verify cluster balance in even
 5. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Add ETH balance delta assertion to deposit test
-- [ ] Sub-task 2: Run full test suite
+- [x] Sub-task 1: Add ETH balance delta assertion to deposit test
+- [x] Sub-task 2: Run full test suite
 
 ---
 
