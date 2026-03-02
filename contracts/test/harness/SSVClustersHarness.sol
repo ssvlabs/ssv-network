@@ -89,6 +89,14 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         return SSVStorage.load().ethClusters[hashedCluster];
     }
 
+    function getSSVClusterHash(bytes32 hashedCluster) external view returns (bytes32) {
+        return SSVStorage.load().clusters[hashedCluster];
+    }
+
+    function getDaoValidatorCount() external view returns (uint32) {
+        return SSVStorageProtocol.load().daoValidatorCount;
+    }
+
     function getOperatorEthValidatorCount(uint64 operatorId) external view returns (uint32) {
         return SSVStorage.load().operators[operatorId].ethValidatorCount;
     }

@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture, ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, DEDUCTED_DIGITS, EMPTY_CLUSTER, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -43,6 +43,14 @@ describe("SSVClusters function `removeValidator()`", async () => {
       ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
     );
   };
+
+  const createLegacySSVCluster = (overrides: Partial<typeof EMPTY_CLUSTER> = {}) => ({
+    ...EMPTY_CLUSTER,
+    validatorCount: 1n,
+    active: true,
+    balance: 10_000_000_000_000_000_000n,
+    ...overrides,
+  });
 
   const setValidSingleLeafRoot = async (
     clusters: any,
@@ -261,6 +269,123 @@ describe("SSVClusters function `removeValidator()`", async () => {
       operatorIds,
       clusterAfterRemove
     )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE);
+  });
+
+  it("Removes validator from active legacy SSV cluster and verifies operator counts and cluster hash", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+    const ssvCluster = createLegacySSVCluster();
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+    for (const opId of operatorIds) {
+      expect(await clusters.getOperatorValidatorCount(opId)).to.equal(1n);
+    }
+    expect(await clusters.getDaoValidatorCount()).to.equal(1n);
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+
+    const removeTx = await clusters.connect(clusterOwner).removeValidator(publicKey, operatorIds, ssvCluster);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    expect(clusterAfterRemove.active).to.equal(true);
+
+    for (const opId of operatorIds) {
+      expect(await clusters.getOperatorValidatorCount(opId)).to.equal(0n);
+    }
+
+    const storedHash = await clusters.getSSVClusterHash(clusterId);
+    expect(storedHash).to.not.equal(ethers.ZeroHash);
+
+    const expectedHash = ethers.keccak256(
+      ethers.solidityPacked(
+        ["uint32", "uint64", "uint64", "uint256", "bool"],
+        [
+          clusterAfterRemove.validatorCount,
+          clusterAfterRemove.networkFeeIndex,
+          clusterAfterRemove.index,
+          clusterAfterRemove.balance,
+          clusterAfterRemove.active,
+        ]
+      )
+    );
+    expect(storedHash).to.equal(expectedHash);
+  });
+
+  it("Removes validator from liquidated legacy SSV cluster and verifies operator counts", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+    const ssvCluster = createLegacySSVCluster({ balance: 0n });
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+    const liquidateTx = await clusters.connect(clusterOwner).liquidateSSV(clusterOwner.address, operatorIds, ssvCluster);
+    const liquidateReceipt = await liquidateTx.wait();
+    const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
+
+    const removeTx = await clusters.connect(clusterOwner).removeValidator(publicKey, operatorIds, liquidatedCluster);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    expect(clusterAfterRemove.active).to.equal(false);
+
+    for (const opId of operatorIds) {
+      expect(await clusters.getOperatorValidatorCount(opId)).to.equal(0n);
+    }
+  });
+
+  it("Removes validator from SSV cluster with non-zero fees and verifies balance deduction", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const opFeeUnpacked = 10_000_000_000n;
+    const networkFeeRaw = 500n;
+    for (const opId of operatorIds) {
+      await clusters.mockOperatorSSVFee(opId, opFeeUnpacked);
+    }
+    await clusters.mockSSVNetworkFee(networkFeeRaw);
+    await clusters.mockCurrentNetworkFeeIndexSSV(0n);
+
+    const snapshots: { index: bigint; block: bigint }[] = [];
+    for (const opId of operatorIds) {
+      const [index, blockNumber] = await clusters.getOperatorSnapshot(opId);
+      snapshots.push({ index: BigInt(index), block: BigInt(blockNumber) });
+    }
+    const nfiAtRegister = await clusters.getCurrentNetworkFeeIndexSSV();
+
+    const initialBalance = 100_000_000_000_000_000_000n;
+    const publicKey = makePublicKey(1);
+    const ssvCluster = createLegacySSVCluster({
+      balance: initialBalance,
+      index: snapshots.reduce((acc, s) => acc + s.index, 0n),
+      networkFeeIndex: nfiAtRegister,
+    });
+
+    await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+
+    const removeTx = await clusters.connect(clusterOwner).removeValidator(publicKey, operatorIds, ssvCluster);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+
+    expect(clusterAfterRemove.balance).to.be.lt(initialBalance);
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    expect(clusterAfterRemove.active).to.equal(true);
+
+    const newIndex = clusterAfterRemove.index;
+    const newNFI = clusterAfterRemove.networkFeeIndex;
+    const indexDelta = newIndex - ssvCluster.index;
+    const nfiDelta = newNFI - ssvCluster.networkFeeIndex;
+    const totalUsagePacked = (indexDelta + nfiDelta) * 1n;
+    const totalUsage = totalUsagePacked * DEDUCTED_DIGITS;
+    const expectedBalance = initialBalance - totalUsage;
+
+    expect(clusterAfterRemove.balance).to.equal(expectedBalance);
   });
 
   it("Keeps explicit EB snapshot consistent across updateClusterBalance and remove", async function () {
