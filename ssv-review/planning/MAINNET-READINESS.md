@@ -87,7 +87,7 @@
 | DEPLOY-6 | DIP-X unstaking description doesn't match implementation | Deployment & Scripts | P2 | 🧹 Cleanup PR candidate (spec doc) |
 | DEPLOY-7 | ~~Deploy scripts import from test files~~ | Deployment & Scripts | P2 | ✅ Fixed — `upgrade.ts` and `deploy-fresh.ts` import from `scripts/common/config.ts`, no test file imports |
 | QUALITY-1 | ~~`operatorFeeChangeRequests` not cleared on operator removal~~ | Code Quality | P2 | ✅ Closed (dead storage, off-chain sees OperatorRemoved) |
-| QUALITY-2 | Redundant `SSVStorage.load()` calls in view function loops | Code Quality | P2 | 🧹 Cleanup PR candidate |
+| QUALITY-2 | ~~Redundant `SSVStorage.load()` calls in view function loops~~ | Code Quality | P2 | ✅ Fixed |
 | QUALITY-3 | `withdraw` in SSVClusters duplicates operator loop inline | Code Quality | P2 | S |
 | QUALITY-4 | ~~`_resetOperatorState` returns unused `Operator memory`~~ | Code Quality | P3 | ✅ Closed (cosmetic) |
 | QUALITY-5 | Remove duplicate `MaxValueExceeded` error declaration | Code Quality | P3 | 🧹 Cleanup PR candidate |
@@ -2929,29 +2929,26 @@ In `SSVOperators.sol:324-335`, `_resetOperatorState` doesn't delete stale fee ch
 
 ---
 
-### [QUALITY-2] Redundant `SSVStorage.load()` calls in view function loops
+### [QUALITY-2] ~~Redundant `SSVStorage.load()` calls in view function loops~~
 - **Type:** Code Quality
 - **Priority:** P2
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
-**Requirement:**
-Hoist `SSVStorage.load()` out of loops in `SSVViews.sol` to avoid redundant storage slot computation.
-
-**Context:**
-In `SSVViews.sol` at 6 locations, `SSVStorage.load()` is called every loop iteration instead of once before the loop. Each call computes `keccak256` of the storage slot string, costing ~1200 gas per call. With 13 operators (maximum), this wastes ~15,600 gas per view call. While view functions are typically free (off-chain calls), they cost real gas when called from other contracts.
+**Resolution:**
+Hoisted `SSVStorage.load()` to a single pre-loop `StorageData storage s` in all affected functions in `SSVViews.sol`: `isLiquidatable`, `isLiquidatableSSV`, `getBurnRate`, `getBurnRateSSV`, `getBalance`, `getBalanceSSV` (redundant in-loop calls), and `getOperatorById`, `getOperatorByIdSSV` (redundant double-load for whitelist access). Also fixed `getOperatorFeePeriods` which called `SSVStorageProtocol.load()` twice. All 516 unit tests pass.
 
 **Acceptance Criteria:**
-- [ ] `SSVStorage.load()` called once before each loop, stored in a local variable
-- [ ] Same pattern applied to `SSVStorageProtocol.load()` and `SSVStorageEB.load()` if they have the same issue
-- [ ] Existing view tests pass with identical return values
+- [x] `SSVStorage.load()` called once before each loop, stored in a local variable
+- [x] Same pattern applied to `SSVStorageProtocol.load()` where it had the same issue
+- [x] Existing view tests pass with identical return values
 
 #### Sub-items:
-- [ ] Sub-task 1: Identify all redundant `load()` calls in loops
-- [ ] Sub-task 2: Hoist to pre-loop variables
-- [ ] Sub-task 3: Run full test suite
+- [x] Sub-task 1: Identify all redundant `load()` calls in loops
+- [x] Sub-task 2: Hoist to pre-loop variables
+- [x] Sub-task 3: Run full test suite
 
 ---
 
