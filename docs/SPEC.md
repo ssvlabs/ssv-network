@@ -1038,8 +1038,8 @@ SSV validator count + ETH validator count equals total across both cluster types
 | `ethNetworkFee` | 0.000000003550929823 ETH/block (~0.00928 ETH/year) | `updateNetworkFee(uint256)` |
 | `minimumLiquidationCollateral` | 0.00094 ETH | `updateMinimumLiquidationCollateral(uint256)` |
 | `minimumBlocksBeforeLiquidation` | 50,190 blocks (~7 days) | `updateLiquidationThresholdPeriod(uint64)` |
-| `operatorMaxFee` | TBD | `updateMaximumOperatorFee(uint256)` |
-| `minimumOperatorEthFee` | TBD | `updateMinimumOperatorEthFee(uint256)` |
+| `operatorMaxFee` | 0.000000005326300000 ETH/block (~0.0140 ETH/year) | `updateMaximumOperatorFee(uint256)` |
+| `minimumOperatorEthFee` | 0.000000001065200000 ETH/block (~0.0028 ETH/year) | `updateMinimumOperatorEthFee(uint256)` |
 
 ### SSV Cluster Parameters (Legacy)
 
