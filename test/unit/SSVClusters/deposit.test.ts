@@ -116,6 +116,8 @@ describe("SSVClusters function `deposit()`", async () => {
     const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
 
     const depositAmount = 2n;
+    const contractBalanceBeforeDeposit = await getContractEthBalance(clusters);
+
     const depositReceipt = await trackGas(
       clusters.connect(otherAccount).deposit(
         clusterOwner.address,
@@ -126,9 +128,11 @@ describe("SSVClusters function `deposit()`", async () => {
       [GasGroup.DEPOSIT]
     );
     const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+    const contractBalanceAfterDeposit = await getContractEthBalance(clusters);
 
     expect(depositReceipt.eventsByName[Events.CLUSTER_DEPOSITED]).to.have.lengthOf(1);
     expect(clusterAfterDeposit.balance).to.equal(clusterBeforeDeposit.balance + depositAmount);
+    expect(contractBalanceAfterDeposit - contractBalanceBeforeDeposit).to.equal(depositAmount);
   });
 
   it("Accumulates contract ETH balance by the sum of multiple deposits", async function () {
@@ -205,5 +209,25 @@ describe("SSVClusters function `deposit()`", async () => {
       createCluster(),
       { value: 1n }
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
+  });
+
+  it("Does not change contract balance when deposit reverts", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
+
+    const mismatchedCluster = {
+      ...clusterBeforeDeposit,
+      balance: clusterBeforeDeposit.balance + 1n,
+    };
+    const contractBalanceBefore = await getContractEthBalance(clusters);
+
+    await expect(
+      clusters.deposit(clusterOwner.address, operatorIds, mismatchedCluster, { value: 1n })
+    ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_STATE);
+
+    const contractBalanceAfter = await getContractEthBalance(clusters);
+    expect(contractBalanceAfter).to.equal(contractBalanceBefore);
   });
 });
