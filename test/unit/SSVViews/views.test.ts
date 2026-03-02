@@ -9,6 +9,8 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { Errors } from "../../common/errors.ts";
 import {
   CLUSTER_VERSION_ETH,
+  CLUSTER_VERSION_SSV,
+  DEDUCTED_DIGITS,
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   ETH_DEDUCTED_DIGITS,
@@ -63,6 +65,16 @@ describe("SSVViews dedicated coverage", () => {
     await network.replaceOracle(4, oracles[3].address);
 
     return oracles;
+  };
+
+  const deployViewsHarnessFixture = async () => {
+    const mockCSSV = await connection.ethers.deployContract("MockCSSV");
+    await mockCSSV.waitForDeployment();
+
+    const viewsHarness = await connection.ethers.deployContract("SSVViewsHarness", [await mockCSSV.getAddress()]);
+    await viewsHarness.waitForDeployment();
+
+    return { viewsHarness };
   };
 
   it("getBalance and getEffectiveBalance return expected values for active ETH cluster", async function () {
@@ -167,5 +179,51 @@ describe("SSVViews dedicated coverage", () => {
 
     expect(await views.getBalanceSSV(clusterOwner.address, operatorIds, cluster)).to.equal(0n);
     expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, cluster)).to.equal(0n);
+  });
+
+  it("getOperatorEarnings returns both ETH and SSV earnings when both snapshots are funded", async function () {
+    const { viewsHarness } = await networkHelpers.loadFixture(deployViewsHarnessFixture);
+
+    const operatorId = 1n;
+    const ethEarnings = 73n * ETH_DEDUCTED_DIGITS;
+    const ssvEarnings = 19n * DEDUCTED_DIGITS;
+
+    await viewsHarness.mockSetOperator(operatorId, operatorOwner.address, 0n, 0n, 1, 1);
+    await viewsHarness.mockSetOperatorEarnings(operatorId, ethEarnings, ssvEarnings);
+
+    expect(await viewsHarness.getOperatorEarnings(operatorId)).to.equal(ethEarnings);
+    expect(await viewsHarness.getOperatorEarningsSSV(operatorId)).to.equal(ssvEarnings);
+  });
+
+  it("SSV-only clusters return positive SSV balance/burn rate while ETH getters return zero", async function () {
+    const { viewsHarness } = await networkHelpers.loadFixture(deployViewsHarnessFixture);
+
+    const operatorIds = [1n, 2n, 3n, 4n];
+    const ssvFeePerOperator = DEDUCTED_DIGITS;
+    const ssvNetworkFee = DEDUCTED_DIGITS;
+    const ssvCluster = {
+      validatorCount: 1n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      active: true,
+      balance: 100n * DEDUCTED_DIGITS,
+    };
+
+    for (const operatorId of operatorIds) {
+      await viewsHarness.mockSetOperator(operatorId, operatorOwner.address, 0n, ssvFeePerOperator, 0, 1);
+    }
+    await viewsHarness.mockSetNetworkFeeSSV(ssvNetworkFee);
+    await viewsHarness.mockRegisterSSVCluster(clusterOwner.address, operatorIds, ssvCluster);
+
+    expect(await viewsHarness.getClusterAssetType(clusterOwner.address, operatorIds)).to.equal(CLUSTER_VERSION_SSV);
+    const ssvBalance = await viewsHarness.getBalanceSSV(clusterOwner.address, operatorIds, ssvCluster);
+    expect(ssvBalance).to.be.greaterThan(0n);
+    expect(ssvBalance).to.be.lessThan(ssvCluster.balance);
+    expect(await viewsHarness.getBurnRateSSV(clusterOwner.address, operatorIds, ssvCluster)).to.equal(
+      5n * DEDUCTED_DIGITS
+    );
+
+    expect(await viewsHarness.getBalance(clusterOwner.address, operatorIds, ssvCluster)).to.equal(0n);
+    expect(await viewsHarness.getBurnRate(clusterOwner.address, operatorIds, ssvCluster)).to.equal(0n);
   });
 });
