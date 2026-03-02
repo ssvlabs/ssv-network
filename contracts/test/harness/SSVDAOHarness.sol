@@ -208,4 +208,8 @@ contract SSVDAOHarness is SSVDAO {
     function hasOracleVoted(bytes32 commitmentKey, uint32 oracleId) external view returns (bool) {
         return SSVStorageEB.load().hasVoted[commitmentKey][oracleId];
     }
+
+    function getRoundFrozenSupply(bytes32 commitmentKey) external view returns (uint256) {
+        return SSVStorageEB.load().roundFrozenSupply[commitmentKey];
+    }
 }
