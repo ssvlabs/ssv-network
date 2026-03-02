@@ -61,7 +61,8 @@
 | TEST-16 | View function coverage (SSVViews) | Unit Test Completeness | P1 | M |
 | TEST-17 | Staking rewards from EB-weighted cluster fees | Unit Test Completeness | P1 | S |
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
-| TEST-19 | Operator removal impact on active ETH clusters | Unit Test Completeness | P1 | S |
+| TEST-19 | ~~Operator removal impact on active ETH clusters~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
+| TEST-19a | Operator removal impact on active ETH clusters (edge cases) | Unit Test Completeness | P1 | S |
 | TEST-20 | Cooldown duration changes affecting pending requests | Unit Test Completeness | P1 | S |
 | TEST-21 | EB boundary values (min/max per validator) | Unit Test Completeness | P2 | S |
 | TEST-22 | Dust/precision edge cases | Unit Test Completeness | P2 | S |
@@ -1837,9 +1838,9 @@ There is no test for `withdrawNetworkETHEarnings`. The function should exist for
 ### [TEST-19] Operator removal impact on active ETH clusters
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Complete
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-02-26
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -1849,8 +1850,15 @@ Test the impact of operator removal on active ETH clusters' fee calculations.
 `removeOperator` tests don't test the downstream effect on active ETH clusters' fee calculations.
 
 **Acceptance Criteria:**
-- [ ] Test: Remove operator from set of 4 while cluster has active validators → verify fee calculation excludes removed operator
-- [ ] Test: Verify removed operator stops earning from both ETH and SSV clusters
+- [x] Test: Remove operator from set of 4 while cluster has active validators → verify fee calculation excludes removed operator
+- [x] Test: Verify removed operator stops earning from both ETH and SSV clusters
+
+**Resolution:**
+- Added `/Users/venimir/Desktop/ssv/contracts-latest/ssv-network/test/unit/SSVClusters/removedOperatorImpact.test.ts` with coverage for:
+  - ETH cluster settlement after removed-operator simulation (fee deduction excludes removed operator; removed operator ETH earnings frozen)
+  - SSV cluster settlement via `liquidateSSV` (removed operator SSV earnings frozen while active operators continue earning)
+- Aligned `/Users/venimir/Desktop/ssv/contracts-latest/ssv-network/contracts/test/harness/SSVClustersHarness.sol` `mockRemoveOperator()` with real `removeOperator` reset semantics (preserve snapshot indices, clear blocks/balances/fees/counts) so downstream accounting tests model production behavior.
+- Verified with `npx hardhat test test/unit/SSVClusters/removedOperatorImpact.test.ts` and `npm run test:unit` (`405 passing`).
 
 **Agent Instructions:**
 1. Read `test/unit/SSVOperators/removeOperator.test.ts`.
@@ -1860,10 +1868,72 @@ Test the impact of operator removal on active ETH clusters' fee calculations.
 5. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Fee calculation after operator removal
-- [ ] Sub-task 2: Removed operator earnings freeze
+- [x] Sub-task 1: Fee calculation after operator removal
+- [x] Sub-task 2: Removed operator earnings freeze
 
 ---
+
+### [TEST-19a] Operator removal impact on active ETH clusters
+1. Multiple Removed Operators
+// Missing test:
+it("handles multiple removed operators (2 of 4) correctly", async () => {
+  // Remove operators[1] and operators[3]
+  // Verify only operators[0] and operators[2] accrue earnings
+  // Verify cluster balance reflects 2 operators only
+});
+2. EB-Weighted Cluster with Removed Operator
+// Missing test:
+it("excludes removed operator vUnits from EB-weighted fee calculation", async () => {
+  // Set cluster EB to 64 ETH (2x vUnits)
+  // Remove one operator
+  // Verify active operators earn fees scaled by 2x vUnits
+  // Verify removed operator's vUnits are excluded
+});
+3. Reactivation with Removed Operator
+// Missing test:
+it("reactivation excludes removed operator from fee calculation", async () => {
+  // Create cluster with 4 operators
+  // Remove operator[2]
+  // Liquidate cluster
+  // Reactivate cluster (FLOWS.md notes this skips removed operators)
+  // Verify reactivation fee calculation uses 3 operators only
+});
+4. Operator Removal During Validator Lifecycle
+// Missing test:
+it("handles operator removal between register and remove validator", async () => {
+  // Register 2 validators with 4 operators
+  // Advance 100 blocks
+  // Remove operator[1]
+  // Advance 100 blocks
+  // Remove 1 validator
+  // Verify fees split correctly across 2 periods
+});
+5. All Operators Removed
+// Missing test:
+it("handles cluster with all operators removed", async () => {
+  // Remove all 4 operators one by one
+  // Attempt cluster operations
+  // Verify correct reverts or handling
+});
+6. Network Fee Impact
+// Missing test:
+it("network fees continue accruing after operator removal", async () => {
+  // Don't zero network fee
+  // Remove operator
+  // Verify cluster balance includes network fees + (3 operator fees)
+  // Verify DAO balance increases correctly
+});
+7. Removed Operator Fee Withdrawal
+// Missing test:
+it("removed operator can withdraw frozen earnings", async () => {
+  // Accrue earnings for operator
+  // Remove operator
+  // Verify operator can still withdraw frozen balance
+  // Verify no new earnings after withdrawal
+});
+
+---
+
 
 ### [TEST-20] Cooldown duration changes affecting pending requests
 - **Type:** Unit Test Completeness
