@@ -325,12 +325,11 @@ contract SSVStakingEchidna is SSVStaking {
     }
 
     function echidna_accrued_within_pool() external view returns (bool) {
-        if (sawDecrease) return true;
         StorageStaking storage s = SSVStorageStaking.load();
-        uint256 accrued = s.accrued[address(user1)] +
-            s.accrued[address(user2)] +
-            s.accrued[address(user3)] +
-            s.accrued[address(user4)];
+        uint256 accrued = _roundedDownToPayoutPrecision(s.accrued[address(user1)]) +
+            _roundedDownToPayoutPrecision(s.accrued[address(user2)]) +
+            _roundedDownToPayoutPrecision(s.accrued[address(user3)]) +
+            _roundedDownToPayoutPrecision(s.accrued[address(user4)]);
         uint256 poolWei = uint256(PackedETH.unwrap(SSVStorageProtocol.load().ethDaoBalance)) * ETH_DEDUCTED_DIGITS;
         return accrued <= poolWei;
     }
@@ -393,6 +392,7 @@ contract SSVStakingEchidna is SSVStaking {
 
     // Override to add access control check (simulating SSVNetwork.sol behavior)
     function onCSSVTransfer(address from, address to, uint256 amount) external override {
+        if (msg.sender != CSSV_ADDRESS) revert NotCSSV();
         StorageStaking storage s = SSVStorageStaking.load();
 
         _syncFees(s);
@@ -404,5 +404,9 @@ contract SSVStakingEchidna is SSVStaking {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethDaoBalance = PackedETH.wrap(balance);
         sp.ethDaoIndexBlockNumber = uint32(block.number);
+    }
+
+    function _roundedDownToPayoutPrecision(uint256 amount) internal pure returns (uint256) {
+        return amount - (amount % ETH_DEDUCTED_DIGITS);
     }
 }
