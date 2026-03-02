@@ -96,6 +96,14 @@ describe("SSVDAO governance access control (via SSVNetwork)", async () => {
       fnName: "setQuorumBps",
       invoke: (network, nonOwner) => network.connect(nonOwner).setQuorumBps(0),
     },
+    {
+      fnName: "updateModule",
+      invoke: (network, nonOwner) => network.connect(nonOwner).updateModule(0, nonOwner.address),
+    },
+    {
+      fnName: "rescueERC20",
+      invoke: (network, nonOwner) => network.connect(nonOwner).rescueERC20(nonOwner.address, nonOwner.address, 0n),
+    },
   ];
 
   for (const testCase of governanceCalls) {
