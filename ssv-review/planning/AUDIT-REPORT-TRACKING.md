@@ -26,10 +26,10 @@ This document tracks issues from the audit report source in a management-friendl
 | SSV-11 | Legacy fee requests may execute after upgrade with incompatible fee scale | Audit Finding | P3 | ✅ Fixed (uses UPGRADE_TIMESTAMP) |
 | SSV-12 | Liquidation fallback adds operatorEthVUnits in sub-baseline case | Audit Finding | P3 | ✅ Acknowledged (unreachable under current invariants) |
 | SSV-13 | Operator registration can be DoSed | Audit Finding | P3 | ✅ Acknowledged |
-| SSV-14 | Phantom operators can extract fees and degrade fault tolerance | Audit Finding | P3 | TBD |
+| SSV-14 | Phantom operators can extract fees and degrade fault tolerance | Audit Finding | P3 | ✅ Acknowledged (no bonding by design) |
 | SSV-15 | Deferred reward accounting exposes stakers to ETH price volatility | Audit Finding | P3 | ❌ Invalid (execution order misunderstood) |
-| SSV-16 | Non-standard ERC20 tokens trapped in SSVStaking | Audit Finding | P3 | TBD |
-| SSV-17 | Stale cluster effective balance updates | Audit Finding | P3 | TBD |
+| SSV-16 | Non-standard ERC20 tokens trapped in SSVStaking | Audit Finding | P3 | L |
+| SSV-17 | Stale cluster effective balance updates | Audit Finding | P3 | M |
 | SSV-18 | Direct liquidations do not consider effective balance updates | Audit Finding | P3 | TBD |
 | SSV-19 | replaceOracle allows out-of-set oracle IDs to vote | Audit Finding | P3 | TBD |
 | SSV-20 | Duplicate BLS key registration across owners risks slashing | Audit Finding | P3 | TBD |
@@ -905,6 +905,11 @@ if (vUnitsCluster > baselineVUnits) {
 
 ---
 
+### [SSV-14] Existing Registration Setup Enables Phantom Operators to Extract Fees and Degrade Cluster Fault Tolerance
+No bonding by design.
+
+---
+
 ### [SSV-15] Deferred Reward Accounting Exposes Stakers to ETH Price Volatility
 - **Type:** Invalid / Execution Order Misunderstanding
 - **Severity:** N/A (issue does not exist)
@@ -1064,5 +1069,474 @@ In these cases, the watermark-lowering at line 188 is actually **defensive progr
 - [ProtocolLib.sol:85-91](../../contracts/libraries/ProtocolLib.sol#L85-L91) - `networkTotalEarnings()` calculation
 
 **Status: INVALID - The audit finding is based on incorrect execution order analysis. `_syncFees()` is called before balance decrements in `claimEthRewards()`, so no fees are deferred or lost. No code changes needed.**
+
+---
+
+### [SSV-16] Non-Standard ERC20 Tokens Trapped in SSVStaking Contract
+Use `SafeERC20` as recommended.
+
+---
+
+### [SSV-17] Stale Cluster Effective Balance Updates
+- **Type:** Security / Griefing Attack Vector
+- **Severity:** Medium
+- **Priority:** P3
+- **Status:** ⚠️ Open - Mitigation Required Before Mainnet
+- **Effort:** M (Medium)
+- **Owner:** (unassigned)
+- **Timeline:** Must be resolved before mainnet v2.0.0 deployment
+- **Github Link:** (empty)
+- **Files Affected:** [contracts/modules/SSVClusters.sol](contracts/modules/SSVClusters.sol#L430-L437), [deployments/params-candidate.json](deployments/params-candidate.json#L10)
+
+**Requirement:**
+Prevent attackers from exploiting stale Merkle roots to delay effective balance (EB) updates when `minBlocksBetweenUpdates > 0`, enabling sustained fee underpayment or liquidation griefing.
+
+**Audit Finding Summary:**
+
+The protocol's `updateClusterBalance` function allows anyone to update a cluster's effective balance using **any committed Merkle root**, as long as it's newer than the cluster's last update (`lastRootBlockNum`). When combined with `minBlocksBetweenUpdates > 0`, this creates a griefing attack:
+
+1. Attacker monitors oracle commits and identifies clusters with increasing EB
+2. When EB increases (e.g., 120 ETH → 200 ETH at block 1,223,200), attacker uses an **old but valid root** (e.g., from 30 days ago showing 120 ETH)
+3. This triggers the cooldown period, blocking honest updates for `minBlocksBetweenUpdates` blocks
+4. Attacker repeats with the next stale root once cooldown expires
+5. Cluster pays lower fees than owed, potentially avoiding liquidation
+
+**Attack Scenario (from audit report):**
+
+```
+Block 1,000,000: Cluster created with EB = 120 ETH
+Block 1,007,200: Oracle commits root R1 (EB = 120 ETH) ✅ valid
+Block 1,014,400: Oracle commits root R2 (EB = 120 ETH) ✅ valid
+...
+Block 1,223,200: EB increases to 200 ETH, oracle commits root R50 (EB = 200 ETH) ✅ valid
+
+Block 1,223,205: Attacker calls updateClusterBalance with R1 (30 days old, EB = 120 ETH)
+  → ebSnapshot.lastRootBlockNum = 1,007,200
+  → ebSnapshot.lastUpdateBlock = 1,223,205
+  → Cluster locked to stale EB for next 7,200 blocks (~1 day)
+
+Block 1,230,406: Cooldown expires, attacker uses R2 (EB = 120 ETH)
+  → Cluster still at stale EB, locked for another 7,200 blocks
+
+Result: Cluster underpays fees on 200 ETH for ~30 days
+```
+
+**Current Mitigation Status:**
+
+The protocol has **two defense layers** against this attack:
+
+1. **`_verifyEBStaleness()` ([SSVClusters.sol:439-444](contracts/modules/SSVClusters.sol#L439-L444)):**
+   - Enforces monotonic progression: `proof.blockNumber > cluster.lastRootBlockNum`
+   - Prevents using the **same** stale root twice
+   - ✅ **Prevents regression** to older roots than already used
+   - ❌ **Does NOT prevent** using any old root that's newer than the last update
+
+2. **`_verifyEBUpdateFrequency()` ([SSVClusters.sol:430-437](contracts/modules/SSVClusters.sol#L430-L437)):**
+   - Rate limits updates: `block.number >= lastUpdateBlock + minBlocksBetweenUpdates`
+   - ⚠️ **Creates the vulnerability** when set > 0 (locks out honest corrections)
+   - ✅ **Eliminates the vulnerability** when set to 0 (allows immediate correction)
+
+**Current Deployment Parameters:**
+
+From [deployments/params-candidate.json](deployments/params-candidate.json):
+```json
+{
+  "minBlocksBetweenUpdates": 7200
+}
+```
+
+⚠️ **This value makes the attack viable** — 7,200 blocks ≈ 24 hours delay between updates.
+
+**Why Setting `minBlocksBetweenUpdates = 0` Solves the Issue:**
+
+When `minBlocksBetweenUpdates = 0`, the attack becomes **economically irrational**:
+
+```
+Block 1,223,205: Attacker updates with stale root R1 (EB = 120 ETH)
+  → Pays gas (~150k gas ≈ $5+ at typical prices)
+  → ebSnapshot.lastRootBlockNum = 1,007,200
+
+Block 1,223,206: Honest user immediately corrects with latest root R50 (EB = 200 ETH)
+  → Check: 1,223,200 > 1,007,200 ✅ Passes (_verifyEBStaleness)
+  → Check: block.number >= 1,223,205 + 0 ✅ Passes (_verifyEBUpdateFrequency)
+  → Cluster corrected
+
+Result: Attacker loses gas, gains ~0 ETH (1 block of fee underpayment ≈ negligible)
+```
+
+**Duration of underpayment: 1 block (~12 seconds)**
+
+**Residual Risk: The "First Update" Race**
+
+Even with `minBlocksBetweenUpdates = 0`, a **narrow edge case** remains:
+
+**Scenario: Cluster Never Updated Before**
+
+```
+Block 1,000,000-1,223,199: Cluster exists with implicit EB (32 ETH baseline)
+  → ebSnapshot.lastRootBlockNum = 0 (never explicitly updated)
+  → No incentive to call updateClusterBalance (EB hasn't changed)
+
+Block 1,223,200: Oracle commits root showing EB = 200 ETH (validator recovered from slashing)
+
+Block 1,223,205: Race between two transactions:
+  TX1 (Attacker): updateClusterBalance(clusterId, 1,007,200, old_proof_120_ETH)
+  TX2 (Honest):   updateClusterBalance(clusterId, 1,223,200, new_proof_200_ETH)
+
+If TX1 executes first:
+  → ebSnapshot.lastRootBlockNum = 1,007,200
+  → ebSnapshot.vUnits = 37,500 (120 ETH)
+
+Then TX2 executes immediately after:
+  → Check: 1,223,200 > 1,007,200 ✅ Passes
+  → Check: block.number >= lastUpdateBlock + 0 ✅ Passes
+  → Cluster corrected to 200 ETH
+
+Impact: 1 block of underpayment (~12 seconds)
+```
+
+**This residual risk is negligible because:**
+- Duration: Maximum 1 block (12 seconds)
+- Economic impact: `(80 ETH delta) * operator_fee * 1 block ≈ 0.0000002 ETH`
+- Attack cost: ~150k gas (~$5+ at typical gas prices)
+- **Not economically rational** — attacker loses money
+
+**Recommended Solutions:**
+
+**Option 1: Require Latest Root Only ✅**
+
+**Status: CHOSEN - Required for Mainnet v2.0.0**
+
+**Implementation:** Enforce that all `updateClusterBalance` calls must use the latest committed root (`seb.latestCommittedBlock`).
+
+```solidity
+function _verifyEBStaleness(UpdateCtx memory ctx, bytes32 clusterId, StorageEB storage seb) internal view {
+    // NEW: Must use the latest committed root
+    if (ctx.blockNum != seb.latestCommittedBlock) {
+        revert MustUseLatestRoot();
+    }
+
+    // Existing monotonic check (now redundant but kept for defense-in-depth)
+    ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
+    if (ebSnapshot.lastRootBlockNum != 0 && ctx.blockNum <= ebSnapshot.lastRootBlockNum) {
+        revert StaleUpdate();
+    }
+}
+```
+
+**Pros:**
+- ✅ **Completely eliminates SSV-17** (no stale roots possible)
+- ✅ Eliminates first-update race entirely
+- ✅ Simple conceptual model - only one valid root at any time
+- ✅ Clear security boundary - no ambiguity about which root is valid
+
+**Cons:**
+- ⚠️ **Transaction may revert if new root is committed during pending tx** — if a new root is committed while user's transaction is in the mempool, the transaction will revert
+- ⚠️ Users must re-fetch proofs after oracle commits (every ~3-4 hours with 3x/day oracle frequency)
+- ⚠️ Front-end must handle reverts gracefully and retry with latest root
+
+**Mitigation for UX Friction:**
+1. **Oracle API provides `latestCommittedBlock`** - users can verify proof freshness before submitting
+2. **Front-end retry logic** - if tx reverts with `MustUseLatestRoot()`, automatically re-fetch proof and retry
+3. **Grace period of ~3-4 hours** - oracles commit 3x/day, giving users predictable update windows
+4. **Monitoring alerts** - off-chain services can proactively update clusters before users notice
+
+**Verdict:** ✅ **Chosen for mainnet v2.0.0** — Security priority over convenience. The UX friction is acceptable given:
+- Oracles commit only 3x/day (~8 hour intervals)
+- Most clusters won't need frequent EB updates (EB changes slowly on beacon chain)
+- Automated systems (liquidators, monitoring bots) can handle retry logic
+- Front-end can implement seamless retry flow
+
+---
+
+**Alternative Options Considered (Not Chosen):**
+
+**Option 2: Set `minBlocksBetweenUpdates = 0` Only**
+
+```json
+// deployments/params-candidate.json
+{
+  "minBlocksBetweenUpdates": 0
+}
+```
+
+**Pros:**
+- ✅ Eliminates sustained exploitation (allows immediate correction)
+- ✅ No code changes needed
+- ✅ Self-correcting within 1 block
+
+**Cons:**
+- ❌ **Does NOT eliminate the attack** — only limits duration to 1 block
+- ❌ First-update race still possible (attacker can use 30-day-old root)
+- ❌ Relies on honest actors to correct stale updates
+- ❌ Allows event spam (cluster owners can call every block)
+
+**Why Not Chosen:** Does not fully eliminate the vulnerability, only reduces impact. Option 1 provides complete protection.
+
+---
+
+**Option 3: Freshness Window for First Update Only**
+
+```solidity
+function _verifyEBStaleness(UpdateCtx memory ctx, bytes32 clusterId, StorageEB storage seb) internal view {
+    ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
+
+    // Existing monotonic check
+    if (ebSnapshot.lastRootBlockNum != 0 && ctx.blockNum <= ebSnapshot.lastRootBlockNum) {
+        revert StaleUpdate();
+    }
+
+    // NEW: First update must use recent root (within 1 day)
+    if (ebSnapshot.lastRootBlockNum == 0) {
+        uint64 freshnessWindow = 7200; // ~1 day at 12s/block
+        if (seb.latestCommittedBlock > ctx.blockNum + freshnessWindow) {
+            revert FirstUpdateMustBeFresh();
+        }
+    }
+}
+```
+
+**Pros:**
+- ✅ Prevents first-update race with very stale roots (>1 day old)
+- ✅ Only affects first update (no ongoing UX impact)
+
+**Cons:**
+- ❌ **Does NOT prevent recent stale roots** — attacker can still use 23-hour-old root
+- ❌ Adds complexity
+- ❌ Requires arbitrary tuning of `freshnessWindow`
+
+**Why Not Chosen:** Incomplete protection (recent stale roots still work). Option 1 provides stronger guarantees.
+
+---
+
+**Option 4: Root Expiration (7 Days)**
+
+```solidity
+struct RootMetadata {
+    bytes32 root;
+    uint64 commitTimestamp; // block.number when committed
+}
+
+mapping(uint64 => RootMetadata) ebRootData;
+uint64 constant ROOT_EXPIRATION_BLOCKS = 50400; // ~7 days
+
+function _verifyEBRoots(UpdateCtx memory ctx, StorageEB storage seb) internal view {
+    RootMetadata storage rootData = seb.ebRootData[ctx.blockNum];
+    if (rootData.root == bytes32(0)) {
+        revert RootNotFound();
+    }
+
+    // Root must have been committed within last 7 days
+    if (block.number > rootData.commitTimestamp + ROOT_EXPIRATION_BLOCKS) {
+        revert RootExpired();
+    }
+}
+```
+
+**Pros:**
+- ✅ Prevents ancient stale roots (>7 days old)
+- ✅ Allows flexibility for users (any root within 7 days)
+
+**Cons:**
+- ❌ **Does NOT prevent recent stale roots** — 6-day-old root still valid
+- ❌ Requires storage upgrade (add `RootMetadata` struct)
+- ❌ Extra storage write on every `commitRoot`
+
+**Why Not Chosen:** Incomplete protection (recent stale roots still work). Option 1 provides stronger guarantees with simpler implementation.
+
+---
+
+**Monitoring & Off-Chain Mitigation:**
+
+With Option 1 (require latest root only), add off-chain monitoring for:
+
+```python
+# Alert if Oracle API serves stale proofs
+oracle_latest_block = oracle_api.get_latest_committed_block()
+proof = oracle_api.get_proof(cluster_id)
+
+if proof.blockNumber != oracle_latest_block:
+    alert("Oracle API serving stale proof", cluster_id, proof.blockNumber, oracle_latest_block)
+```
+
+This helps detect:
+- Oracle API caching issues
+- Stale proof serving bugs
+- Potential Oracle infrastructure problems
+
+---
+
+**Acceptance Criteria:**
+
+- [x] **Decision made:** Option 1 (Require Latest Root Only) chosen
+- [ ] Implement latest root enforcement in `_verifyEBStaleness()` function
+- [ ] Add `MustUseLatestRoot()` error to interfaces
+- [ ] Update `params-candidate.json` to `"minBlocksBetweenUpdates": 0` (defense-in-depth)
+- [ ] Document decision rationale in SPEC.md §4 "Effective Balance Oracle"
+- [ ] Update front-end to check `latestCommittedBlock` before submitting transactions
+- [ ] Implement front-end retry logic for `MustUseLatestRoot()` reverts
+- [ ] Update Oracle API documentation to emphasize importance of serving latest proofs
+- [ ] Test: Verify stale root reverts with `MustUseLatestRoot()`
+- [ ] Test: Verify only latest root is accepted
+- [ ] Test: Verify first-update race is prevented
+- [ ] Deploy before mainnet v2.0.0
+
+---
+
+**Agent Instructions (Implementing Option 1 - CHOSEN):**
+
+**Task 1: Update Contract Code**
+
+1. Edit [contracts/modules/SSVClusters.sol](contracts/modules/SSVClusters.sol):
+
+   a. Update `_verifyEBStaleness()` function (line 439-444):
+   ```solidity
+   function _verifyEBStaleness(UpdateCtx memory ctx, bytes32 clusterId, StorageEB storage seb) internal view {
+       // NEW: Must use the latest committed root
+       if (ctx.blockNum != seb.latestCommittedBlock) {
+           revert MustUseLatestRoot();
+       }
+
+       // Existing monotonic check (defense-in-depth)
+       ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
+       if (ebSnapshot.lastRootBlockNum != 0 && ctx.blockNum <= ebSnapshot.lastRootBlockNum) {
+           revert StaleUpdate();
+       }
+   }
+   ```
+
+2. Add `MustUseLatestRoot()` error to [contracts/interfaces/ISSVClusters.sol](contracts/interfaces/ISSVClusters.sol):
+   ```solidity
+   /// @notice Thrown when attempting to update cluster EB with a non-latest root
+   error MustUseLatestRoot();
+   ```
+
+**Task 2: Update Deployment Parameters (Defense-in-Depth)**
+
+3. Edit [deployments/params-candidate.json](deployments/params-candidate.json):
+   ```json
+   {
+     "minBlocksBetweenUpdates": 0
+   }
+   ```
+
+   *(This provides additional protection in case the latest-root check is bypassed)*
+
+**Task 3: Update Documentation**
+
+4. Update [docs/SPEC.md](docs/SPEC.md) in §4 "Effective Balance Oracle" → "updateClusterBalance":
+
+   Add new subsection:
+
+   > **Stale Root Prevention (SSV-17 Mitigation)**
+   >
+   > To prevent attackers from using old Merkle roots to delay effective balance updates and underpay fees, `updateClusterBalance` enforces that only the **latest committed root** (`latestCommittedBlock`) can be used.
+   >
+   > **Check:** `_verifyEBStaleness()` verifies `proof.blockNumber == latestCommittedBlock`
+   >
+   > **Consequence:** If a new root is committed while a user's transaction is pending, the transaction will revert with `MustUseLatestRoot()`. Users must re-fetch the proof and resubmit.
+   >
+   > **UX Impact:** Oracles commit roots 3x/day (~8 hour intervals). Proofs remain valid for this window. Front-ends should implement retry logic.
+   >
+   > **Rationale:** Complete elimination of SSV-17 vulnerability (stale root exploitation) takes priority over occasional transaction reverts. The monotonic check (`lastRootBlockNum` progression) provides defense-in-depth but does not prevent using old roots newer than the last update.
+
+**Task 4: Add Tests**
+
+5. Add test in [test/integration/SSVNetwork/clusters.test.ts](test/integration/SSVNetwork/clusters.test.ts):
+
+   ```typescript
+   describe("SSV-17 Mitigation: Latest Root Only", () => {
+     it("reverts when using stale root (not latest)", async () => {
+       // Setup: Create cluster, commit two roots
+       await commitRoot(blockNum1, merkleRoot1); // First root
+       await commitRoot(blockNum2, merkleRoot2); // Second root (now latest)
+
+       // Try to update with first root (stale)
+       await expect(
+         ssvNetwork.updateClusterBalance(
+           clusterId,
+           blockNum1, // Stale root
+           merkleProof1,
+           effectiveBalance,
+           operatorIds,
+           cluster
+         )
+       ).to.be.revertedWithCustomError(ssvNetwork, "MustUseLatestRoot");
+     });
+
+     it("accepts only the latest committed root", async () => {
+       // Setup: Commit roots at blocks 1000, 2000, 3000
+       await commitRoot(1000, root1);
+       await commitRoot(2000, root2);
+       await commitRoot(3000, root3); // Latest
+
+       // Only latest root (3000) should work
+       await expect(
+         ssvNetwork.updateClusterBalance(clusterId, 1000, proof1, ...)
+       ).to.be.revertedWithCustomError(ssvNetwork, "MustUseLatestRoot");
+
+       await expect(
+         ssvNetwork.updateClusterBalance(clusterId, 2000, proof2, ...)
+       ).to.be.revertedWithCustomError(ssvNetwork, "MustUseLatestRoot");
+
+       // Latest root succeeds
+       await ssvNetwork.updateClusterBalance(clusterId, 3000, proof3, ...);
+
+       // Verify EB updated correctly
+       const snapshot = await ssvViews.getClusterEBSnapshot(clusterId);
+       expect(snapshot.lastRootBlockNum).to.equal(3000);
+     });
+
+     it("prevents first-update race with stale roots", async () => {
+       // Setup: Cluster never updated, EB was 120 ETH for 30 days
+       // Oracle committed roots at 1000, 2000, ..., 30000
+       // Latest root (30000) shows EB = 200 ETH (recovered from slashing)
+
+       await commitRoot(30000, rootLatest);
+
+       // Attacker tries to use 30-day-old root (1000) showing EB = 120 ETH
+       await expect(
+         ssvNetwork.updateClusterBalance(clusterId, 1000, proofOld, 120_ETH, ...)
+       ).to.be.revertedWithCustomError(ssvNetwork, "MustUseLatestRoot");
+
+       // Only latest root works
+       await ssvNetwork.updateClusterBalance(clusterId, 30000, proofLatest, 200_ETH, ...);
+
+       // Verify cluster at correct EB
+       const snapshot = await ssvViews.getClusterEBSnapshot(clusterId);
+       expect(snapshot.vUnits).to.equal(62_500); // 200 ETH
+     });
+   });
+   ```
+
+6. Run tests:
+   ```bash
+   npx hardhat test test/integration/SSVNetwork/clusters.test.ts --grep "SSV-17"
+   ```
+
+**Task 5: Update Oracle Documentation**
+
+7. If Oracle API documentation exists, add note:
+
+   > **Critical:** The `getProof(clusterId)` endpoint MUST always return proofs from the latest committed root (`latestCommittedBlock`). Serving stale cached proofs will cause all `updateClusterBalance` transactions to revert with `MustUseLatestRoot()`.
+
+---
+
+**Status Summary:**
+
+- ⚠️ **OPEN - Code Changes Required** — Current implementation allows stale root exploitation
+- 🎯 **Solution Chosen:** Enforce latest root only (`ctx.blockNum == seb.latestCommittedBlock`)
+- ✅ **Defense-in-Depth:** Also set `minBlocksBetweenUpdates = 0` in deployment params
+- 📋 **Next Steps:** Implement code changes per Agent Instructions above
+- ⏰ **Timeline:** Must be deployed before mainnet v2.0.0
+
+**Key Changes Required:**
+1. Add latest root check to `_verifyEBStaleness()` in SSVClusters.sol
+2. Add `MustUseLatestRoot()` error to ISSVClusters.sol
+3. Set `minBlocksBetweenUpdates = 0` in params-candidate.json
+4. Add comprehensive tests for stale root rejection
+5. Update SPEC.md documentation
+
+**Impact:** Complete elimination of SSV-17 vulnerability with acceptable UX trade-off (transaction reverts during oracle commits handled by retry logic).
 
 ---
