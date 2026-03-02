@@ -11,6 +11,7 @@ import {PackedETHLib, PackedSSVLib} from "../../libraries/SSVPackedLib.sol";
 import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../libraries/SSVCoreTypes.sol";
 import "../../libraries/ClusterLib.sol";
 import {OperatorLib} from "../../libraries/OperatorLib.sol";
+import {CoreLib} from "../../libraries/CoreLib.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -60,11 +61,12 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     function mockCurrentNetworkFeeIndex(uint64 index) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethNetworkFeeIndex = index;
+        sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
     }
 
     function getCurrentNetworkFeeIndex() external view returns (uint64) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        return sp.ethNetworkFeeIndex;
+        return sp.ethNetworkFeeIndex + uint64(block.number - sp.ethNetworkFeeIndexBlockNumber) * PackedETH.unwrap(sp.ethNetworkFee);
     }
 
     function getOperatorEthFee(uint64 operatorId) external view returns (uint64) {
@@ -259,12 +261,13 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         SSVStorage.load().token = IERC20(token);
     }
 
-    function mockExecuteAllOperatorFees(uint64[] calldata operatorIds, uint256 newFee) external {
+    function mockWithdrawAllEthEarnings(uint64 operatorId) external {
         StorageData storage s = SSVStorage.load();
-        for (uint256 i; i < operatorIds.length; ++i) {
-            Operator storage operator = s.operators[operatorIds[i]];
-            OperatorLib.updateSnapshotSt(operator, operatorIds[i]);
-            operator.ethFee = PackedETHLib.pack(newFee);
-        }
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        OperatorLib.updateSnapshotSt(operator, operatorId);
+        PackedETH balance = operator.ethSnapshot.balance;
+        if (PackedETHLib.raw(balance) == 0) return;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        CoreLib.transferBalance(msg.sender, PackedETHLib.unpack(balance));
     }
 }
