@@ -21,13 +21,13 @@ This document tracks issues from the audit report source in a management-friendl
 | SSV-6 | ETH rewards accrued during zero cSSV supply become unclaimable | Audit Finding | P1 | ✅ Mitigated |
 | SSV-7 | EB auto-liquidation can leave ethValidatorCount inflated | Audit Finding | P2 | ✅ Fixed |
 | SSV-8 | Double-accounting EB deviation blocks validator removal from liquidated clusters | Audit Finding | P2 | ✅ Fixed |
-| SSV-9 | Incorrect oracle weight may reach premature quorum | Audit Finding | P2 | TBD |
+| SSV-9 | Incorrect oracle weight may reach premature quorum | Audit Finding | P2 | M |
 | SSV-10 | Cluster owners can avoid liquidation by removing all validators before withdrawal | Audit Finding | P3 | ⚠️ Pending — choose mitigation option |
 | SSV-11 | Legacy fee requests may execute after upgrade with incompatible fee scale | Audit Finding | P3 | ✅ Fixed (uses UPGRADE_TIMESTAMP) |
 | SSV-12 | Liquidation fallback adds operatorEthVUnits in sub-baseline case | Audit Finding | P3 | ✅ Acknowledged (unreachable under current invariants) |
 | SSV-13 | Operator registration can be DoSed | Audit Finding | P3 | ✅ Acknowledged |
 | SSV-14 | Phantom operators can extract fees and degrade fault tolerance | Audit Finding | P3 | TBD |
-| SSV-15 | Deferred reward accounting exposes stakers to ETH price volatility | Audit Finding | P3 | TBD |
+| SSV-15 | Deferred reward accounting exposes stakers to ETH price volatility | Audit Finding | P3 | ❌ Invalid (execution order misunderstood) |
 | SSV-16 | Non-standard ERC20 tokens trapped in SSVStaking | Audit Finding | P3 | TBD |
 | SSV-17 | Stale cluster effective balance updates | Audit Finding | P3 | TBD |
 | SSV-18 | Direct liquidations do not consider effective balance updates | Audit Finding | P3 | TBD |
@@ -755,7 +755,12 @@ Result: No underflow, no double-accounting ✅
 
 ---
 
-**SSV-10 pending resolution options:**
+### [SSV-9] Liquidation Fallback Branch Incorrectly Adds operatorEthVUnits in Sub-Baseline Case
+- Don't allow to register more than 4 oracles using `replaceOracle`
+
+---
+
+### [SSV-10] Cluster Owners Can Avoid Liquidation By Removing All Validators Before Withdrawal
 1. Disallow validator removal while liquidatable.
 2. Document as accepted behavior.
 
@@ -897,5 +902,167 @@ if (vUnitsCluster > baselineVUnits) {
 - [SSVClusters.sol:312-330](../../contracts/modules/SSVClusters.sol#L312-L330) - Migration code showing deviation-only accounting pattern
 
 **Status: ACKNOWLEDGED - The audit finding is technically valid (the else branch violates accounting rules), but the code path is mathematically unreachable under current protocol invariants. No code changes planned unless EB constraints change in future beacon chain upgrades.**
+
+---
+
+### [SSV-15] Deferred Reward Accounting Exposes Stakers to ETH Price Volatility
+- **Type:** Invalid / Execution Order Misunderstanding
+- **Severity:** N/A (issue does not exist)
+- **Priority:** P3
+- **Status:** ❌ Invalid - Based on incorrect execution order analysis
+- **Owner:** N/A
+- **Timeline:** N/A
+- **Github Link:** N/A
+- **Files Affected:** [contracts/modules/SSVStaking.sol](contracts/modules/SSVStaking.sol#L114-L145)
+
+**Requirement:**
+None - the audit finding is based on a misunderstanding of when `_syncFees()` is called relative to balance changes in `claimEthRewards()`.
+
+**Audit Finding (from external audit report):**
+The audit claimed that when `current <= previous` in the `_syncFees` function (line 187), the code lowers the `stakingEthPoolBalance` watermark to `current` without updating `accEthPerShare`. This allegedly defers reward distribution until the pool balance recovers past the previous watermark, exposing stakers to ETH price volatility and permanently losing fees accrued during the recovery period.
+
+The auditor's claimed scenario:
+```
+1. stakingEthPoolBalance = 100 ETH (watermark)
+2. User claims 10 ETH → ethDaoBalance decreases to 90 ETH
+3. Next _syncFees() call:
+   - current = 90 + 3 (new fees) = 93 ETH
+   - previous = 100 ETH
+   - current < previous → enters if branch at line 187
+   - stakingEthPoolBalance lowered to 93 ETH ← watermark down
+   - accEthPerShare NOT updated ← fees lost
+4. Later when fees recover:
+   - current = 105 ETH, previous = 93 ETH
+   - Only 12 ETH distributed, but 15 ETH actually accrued (3 ETH lost)
+```
+
+**Why This Issue Does NOT Exist:**
+
+The audit finding misunderstands the **execution order** in `claimEthRewards()`. Looking at [SSVStaking.sol:114-145](contracts/modules/SSVStaking.sol#L114-L145):
+
+```solidity
+function claimEthRewards() external nonReentrant {
+    StorageStaking storage s = SSVStorageStaking.load();
+
+    _syncFees(s);                    // ← Line 117: _syncFees() called FIRST
+    _settle(msg.sender, s);          // ← Line 118: settle user rewards
+
+    uint256 claimable = s.accrued[msg.sender];
+    if (claimable == 0) revert NothingToClaim();
+
+    uint256 payout = claimable - (claimable % ETH_DEDUCTED_DIGITS);
+    if (payout == 0) {
+        revert NothingToClaim();
+    }
+
+    PackedETH packedPayout = PackedETHLib.pack(payout);
+
+    StorageProtocol storage sp = SSVStorageProtocol.load();
+
+    if (packedPayout.gt(s.stakingEthPoolBalance)) {
+        revert InsufficientBalance();
+    }
+    if (packedPayout.gt(sp.ethDaoBalance))   {
+        revert InsufficientBalance();
+    }
+
+    s.accrued[msg.sender] = claimable - payout;
+    s.stakingEthPoolBalance = s.stakingEthPoolBalance.sub(packedPayout);  // ← Line 140: decrements AFTER sync
+    sp.ethDaoBalance = sp.ethDaoBalance.sub(packedPayout);                 // ← Line 141: decrements AFTER sync
+
+    CoreLib.transferBalance(msg.sender, payout);
+    emit RewardsClaimed(msg.sender, payout);
+}
+```
+
+**Critical Execution Order:**
+1. **Line 117:** `_syncFees(s)` runs **BEFORE** any balance changes
+   - At this point, `sp.ethDaoBalance` still includes all pending fees
+   - `current = networkTotalEarnings()` includes the full balance (before claim payout)
+   - If `current > previous`: all pending fees are distributed to `accEthPerShare`
+   - `stakingEthPoolBalance` is updated to `current` (raised, not lowered)
+
+2. **Lines 140-141:** Balance decrements happen **AFTER** `_syncFees()` completes
+   - `stakingEthPoolBalance` and `ethDaoBalance` are reduced by the payout amount
+   - These decrements don't affect the next `_syncFees()` calculation because they establish the new baseline
+
+3. **Next `_syncFees()` call** (from any staking operation):
+   - `current = networkTotalEarnings() = (reducedBase) + (newFeesSinceLastSync)`
+   - `previous = reducedBase` (the watermark after the claim)
+   - `current >= previous` (because fees are monotonically increasing from the new baseline)
+   - All new fees since the claim are distributed normally
+
+**Correct Flow Example:**
+
+**Setup:**
+- `ethDaoBalance = 100 ETH` (stored)
+- `stakingEthPoolBalance = 95 ETH` (watermark from last sync)
+- 5 ETH of fees accrued since last sync
+
+**User calls `claimEthRewards()` to claim 10 ETH:**
+
+1. **`_syncFees()` executes (line 117):**
+   - `current = networkTotalEarnings() = 100 + 5 = 105 ETH`
+   - `previous = 95 ETH`
+   - `current (105) > previous (95)` → normal path
+   - `accEthPerShare += (10 ETH * 1e18) / totalSupply` ← **all fees distributed**
+   - `stakingEthPoolBalance = 105 ETH` ← watermark raised
+   - `ethDaoBalance = 105 ETH` ← settled
+
+2. **Balance decrements (lines 140-141):**
+   - `stakingEthPoolBalance = 105 - 10 = 95 ETH`
+   - `ethDaoBalance = 105 - 10 = 95 ETH`
+
+3. **Next `_syncFees()` call** (from another user's `stake()` or `claimEthRewards()`):
+   - `current = networkTotalEarnings() = 95 + 2 (new fees) = 97 ETH`
+   - `previous = 95 ETH` (watermark after User A's claim)
+   - `current (97) > previous (95)` → normal path
+   - `accEthPerShare += (2 ETH * 1e18) / totalSupply` ← **new fees distributed**
+   - No fees lost!
+
+**When Does `current <= previous` Actually Occur?**
+
+The `current <= previous` branch at line 187-189 is effectively **unreachable in normal operation** because:
+
+1. **`ethDaoBalance` can only decrease via `claimEthRewards()`** - Verified by grep: no other function decrements `ethDaoBalance`
+2. **`claimEthRewards()` always calls `_syncFees()` first** - So all pending fees are distributed before the decrement
+3. **`networkTotalEarnings()` adds pending fees to the current `ethDaoBalance`** - Making it monotonically increasing between syncs
+
+The only theoretical way `current < previous` could occur:
+- Storage inconsistency or corruption
+- Future code changes that decrement `ethDaoBalance` outside `claimEthRewards()`
+- Rounding errors (extremely unlikely with packed ETH precision)
+
+In these cases, the watermark-lowering at line 188 is actually **defensive programming** to prevent underflow and ensure `stakingEthPoolBalance <= actual available ETH`.
+
+**Protocol Team Response:**
+
+❌ **INVALID - No code changes required.** The audit finding is based on incorrect analysis of execution order:
+
+1. **Fees are synced before claims** - `_syncFees()` at line 117 precedes balance decrements at lines 140-141
+2. **No fees are lost** - All pending fees are distributed to `accEthPerShare` before `ethDaoBalance` is reduced
+3. **Watermark tracking is correct** - The next sync uses the post-claim baseline, and all new fees from that baseline are distributed
+4. **`current <= previous` is unreachable** - In normal operation, this branch cannot execute because `_syncFees()` is called before any decrement
+
+**Verification:**
+- [x] `claimEthRewards()` calls `_syncFees()` at line 117 before any balance changes
+- [x] Balance decrements happen at lines 140-141, **after** sync completes
+- [x] `ethDaoBalance` can only decrease via `claimEthRewards()` (verified by codebase grep)
+- [x] `networkTotalEarnings()` is monotonically increasing between syncs
+- [x] No fees are lost in normal claim → sync → claim cycles
+
+**Acceptance Criteria:**
+- [x] Verified execution order in `claimEthRewards()`: sync precedes balance changes
+- [x] Confirmed `ethDaoBalance` decrements only occur in `claimEthRewards()` after sync
+- [x] Traced `networkTotalEarnings()` calculation - adds pending fees to current balance
+- [x] Confirmed `current <= previous` branch is unreachable in normal operation
+- [ ] (Optional) Add integration test demonstrating no fee loss across multiple claim cycles with varying amounts
+
+**Related Code References:**
+- [SSVStaking.sol:114-145](../../contracts/modules/SSVStaking.sol#L114-L145) - `claimEthRewards()` execution order
+- [SSVStaking.sol:179-203](../../contracts/modules/SSVStaking.sol#L179-L203) - `_syncFees()` implementation
+- [ProtocolLib.sol:85-91](../../contracts/libraries/ProtocolLib.sol#L85-L91) - `networkTotalEarnings()` calculation
+
+**Status: INVALID - The audit finding is based on incorrect execution order analysis. `_syncFees()` is called before balance decrements in `claimEthRewards()`, so no fees are deferred or lost. No code changes needed.**
 
 ---
