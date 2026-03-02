@@ -8,6 +8,7 @@ import {
   whitelistAddresses,
   makePublicKey,
   getCurrentClusterState,
+  generateMerkleForClusterEB,
 } from '../../common/helpers.ts';
 import {
   DEFAULT_SHARES,
@@ -55,6 +56,26 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
   const deployFullSSVNetworkFixture = async () => {
     return ssvNetworkFullFixture(connection);
   };
+
+  function computeClusterId(owner: string, operatorIds: number[]): string {
+    return connection.ethers.keccak256(
+      connection.ethers.solidityPacked(
+        ['address', 'uint64[]'],
+        [owner, operatorIds],
+      ),
+    );
+  }
+
+  async function commitEBRoot(
+    network: any,
+    oracles: HardhatEthersSigner[],
+    root: string,
+    blockNum: number,
+  ) {
+    for (let i = 0; i < 3; i++) {
+      await network.connect(oracles[i]).commitRoot(root, blockNum);
+    }
+  }
 
   // ============================================================================
   // SECTION 1: Balance Delta Assertions for Token Movements
@@ -245,6 +266,210 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
 
       // Earnings should double with 2 validators
       expect(earningsFrom2Validators).to.equal(earningsFrom1Validator * 2n);
+    });
+
+    it('EB=64 cluster contributes exactly 2x network-fee rewards vs EB=32', async function () {
+      const { network, views, ssvToken } = await networkHelpers.loadFixture(
+        deployFullSSVNetworkFixture,
+      );
+
+      await ssvToken.mint(staker.address, STAKE_AMOUNT);
+      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(staker).stake(STAKE_AMOUNT);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(11),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const blocksPerPhase = 100n;
+      const before32 = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(blocksPerPhase);
+      const after32 = await views.getNetworkEarnings();
+      const eb32Delta = after32 - before32;
+
+      const allSigners = await connection.ethers.getSigners();
+      const oracles = allSigners.slice(10, 14);
+      for (let i = 0; i < 4; i++) {
+        await network.replaceOracle(i + 1, oracles[i].address);
+      }
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+      const eb64 = 64;
+      const ebBlock = Number(await connection.ethers.provider.getBlockNumber());
+      const { root, proofs } = generateMerkleForClusterEB(connection, [
+        { clusterId, effectiveBalance: eb64 },
+      ]);
+
+      await commitEBRoot(network, oracles, root, ebBlock);
+
+      const cluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds,
+      );
+
+      await network.updateClusterBalance(
+        ebBlock,
+        clusterOwner.address,
+        operatorIds.map((id) => BigInt(id)),
+        {
+          validatorCount: Number(cluster.validatorCount),
+          networkFeeIndex: BigInt(cluster.networkFeeIndex),
+          index: BigInt(cluster.index),
+          active: cluster.active,
+          balance: BigInt(cluster.balance),
+        },
+        eb64,
+        proofs[clusterId],
+      );
+
+      const before64 = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(blocksPerPhase);
+      const after64 = await views.getNetworkEarnings();
+      const eb64Delta = after64 - before64;
+
+      expect(eb64Delta).to.equal(eb32Delta * 2n);
+    });
+
+    it('Multiple clusters with different EBs accrue cumulative EB-weighted staking fees', async function () {
+      const { network, views, ssvToken } = await networkHelpers.loadFixture(
+        deployFullSSVNetworkFixture,
+      );
+
+      await ssvToken.mint(staker.address, STAKE_AMOUNT);
+      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(staker).stake(STAKE_AMOUNT);
+
+      const clusterOwner2 = staker2;
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+        clusterOwner2.address,
+      ]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(21),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+      await network.connect(clusterOwner2).registerValidator(
+        makePublicKey(22),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const blocks = 120n;
+      await network.connect(staker).syncFees();
+      const phaseAStart = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(blocks);
+      const phaseAEnd = await views.getNetworkEarnings();
+      const phaseASyncTx = await network.connect(staker).syncFees();
+      const phaseAReceipt = await phaseASyncTx.wait();
+      const phaseAViewDelta = phaseAEnd - phaseAStart;
+      const phaseAFeesLog = phaseAReceipt!.logs.find((log: any) => {
+        try {
+          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
+        } catch {
+          return false;
+        }
+      });
+      const phaseAFees = phaseAFeesLog
+        ? BigInt(network.interface.parseLog(phaseAFeesLog)!.args[0])
+        : 0n;
+
+      const allSigners = await connection.ethers.getSigners();
+      const oracles = allSigners.slice(10, 14);
+      for (let i = 0; i < 4; i++) {
+        await network.replaceOracle(i + 1, oracles[i].address);
+      }
+
+      const clusterId1 = computeClusterId(clusterOwner.address, operatorIds);
+      const clusterId2 = computeClusterId(clusterOwner2.address, operatorIds);
+      const eb32 = 32;
+      const eb64 = 64;
+      const ebBlock = Number(await connection.ethers.provider.getBlockNumber());
+      const { root, proofs } = generateMerkleForClusterEB(connection, [
+        { clusterId: clusterId1, effectiveBalance: eb32 },
+        { clusterId: clusterId2, effectiveBalance: eb64 },
+      ]);
+
+      await commitEBRoot(network, oracles, root, ebBlock);
+
+      const cluster1 = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds,
+      );
+      await network.updateClusterBalance(
+        ebBlock,
+        clusterOwner.address,
+        operatorIds.map((id) => BigInt(id)),
+        {
+          validatorCount: Number(cluster1.validatorCount),
+          networkFeeIndex: BigInt(cluster1.networkFeeIndex),
+          index: BigInt(cluster1.index),
+          active: cluster1.active,
+          balance: BigInt(cluster1.balance),
+        },
+        eb32,
+        proofs[clusterId1],
+      );
+
+      const cluster2 = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner2.address,
+        operatorIds,
+      );
+      await network.connect(clusterOwner2).updateClusterBalance(
+        ebBlock,
+        clusterOwner2.address,
+        operatorIds.map((id) => BigInt(id)),
+        {
+          validatorCount: Number(cluster2.validatorCount),
+          networkFeeIndex: BigInt(cluster2.networkFeeIndex),
+          index: BigInt(cluster2.index),
+          active: cluster2.active,
+          balance: BigInt(cluster2.balance),
+        },
+        eb64,
+        proofs[clusterId2],
+      );
+
+      const phaseBStart = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(blocks);
+      const phaseBEnd = await views.getNetworkEarnings();
+      const phaseBSyncTx = await network.connect(staker).syncFees();
+      const phaseBReceipt = await phaseBSyncTx.wait();
+      const phaseBViewDelta = phaseBEnd - phaseBStart;
+      const phaseBFeesLog = phaseBReceipt!.logs.find((log: any) => {
+        try {
+          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
+        } catch {
+          return false;
+        }
+      });
+      const phaseBFees = phaseBFeesLog
+        ? BigInt(network.interface.parseLog(phaseBFeesLog)!.args[0])
+        : 0n;
+
+      // Two implicit 32-EB clusters (20k vUnits total) should become 32+64 EB (30k vUnits):
+      // fee rate scales from 2x to 3x, so over equal blocks the fee deltas scale 3:2.
+      expect(phaseBViewDelta * 2n).to.equal(phaseAViewDelta * 3n);
+      expect(phaseBFees).to.be.greaterThan(phaseAFees);
     });
   });
 
