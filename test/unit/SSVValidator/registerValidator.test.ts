@@ -4,7 +4,7 @@ import { getTestConnection } from '../../setup/connection.ts';
 import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import { makePublicKey, makePublicKeys, createCluster, parseClusterFromEvent } from '../../common/helpers.ts';
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from '../../common/constants.ts';
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_OPERATOR_ETH_FEE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.ts';
@@ -65,16 +65,19 @@ describe("SSVClusters function `registerValidator()`", async () => {
       await validators.mockSetOperatorLegacySSV(operatorId, 1);
     }
 
-    await validators.registerValidator(
+    const tx = await validators.registerValidator(
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
+    const receipt = await tx.wait();
+    const expectedBlock = BigInt(receipt!.blockNumber);
 
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthFee(operatorId)).to.be.greaterThan(0n);
+      await expect(tx).to.emit(validators, Events.OPERATOR_FEE_EXECUTED)
+        .withArgs(clusterOwner.address, operatorId, expectedBlock, DEFAULT_OPERATOR_ETH_FEE);
     }
   });
 

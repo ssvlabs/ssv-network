@@ -274,6 +274,18 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         s.ethClusters[hashedCluster] = keccak256(abi.encodePacked(uint32(0), uint64(0), uint64(0), uint256(0), false));
     }
 
+    function mockSetOperatorLegacySSV(uint64 operatorId, uint64 ssvFee) external {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+        operator.fee = PackedSSV.wrap(ssvFee);
+        operator.snapshot.block = uint32(block.number);
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.index = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+    }
+
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
     }
