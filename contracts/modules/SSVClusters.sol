@@ -221,7 +221,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             {
                 uint256 operatorsLength = operatorIds.length;
                 for (uint256 i; i < operatorsLength; ++i) {
-                    Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
+                    Operator storage operator = s.operators[operatorIds[i]];
                     clusterIndex +=
                         operator.ethSnapshot.index +
                         (uint64(block.number) - operator.ethSnapshot.block) *
