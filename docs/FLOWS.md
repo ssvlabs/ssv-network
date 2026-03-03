@@ -132,7 +132,7 @@ Same as 1.1 but for multiple validators in one transaction. Each validator emits
 
 #### Preconditions
 - Validator must exist and be owned by caller
-- Cluster must exist as ETH cluster (VERSION_ETH)
+- Cluster must exist as ETH cluster (VERSION_ETH) or legacy SSV cluster (VERSION_SSV)
 - Operator IDs must match the registered operator set
 
 #### State Mutations (ETH cluster)
@@ -146,6 +146,17 @@ Same as 1.1 but for multiple validators in one transaction. Each validator emits
 5. Update DAO: `ethDaoValidatorCount--`, reduce vUnits
 6. If last validator removed: cluster balance remains (can withdraw later)
 
+#### State Mutations (legacy SSV cluster)
+1. Delete validator record
+2. If cluster is active:
+   - Update operator SSV snapshots and counts via `updateClusterOperatorsSSV(..., validatorsRemoved=1, ...)`
+   - Settle cluster balance and indices with SSV fee index (`currentNetworkFeeIndexSSV`)
+   - Decrement DAO SSV validator count via `updateDAOSSV(false, 1)`
+3. If cluster is liquidated:
+   - Skip SSV operator/DAO settlement in remove path (counts were already updated at liquidation time)
+4. Decrement `cluster.validatorCount`
+5. Persist updated legacy cluster in `s.clusters[hashedCluster]`
+
 #### Events
 ```solidity
 emit ValidatorRemoved(owner, operatorIds, publicKey, cluster);
@@ -156,6 +167,13 @@ emit ValidatorRemoved(owner, operatorIds, publicKey, cluster);
 - `ethDaoValidatorCount == previous - 1`
 - Validator no longer retrievable
 - Cluster balance reflects settled fees
+
+#### Postcondition Invariants (legacy SSV cluster)
+- If cluster was active: operator/DAO SSV counts decrease by 1
+- If cluster was liquidated: remove does not decrement counts again
+- `cluster.validatorCount == previous - 1`
+- Validator no longer retrievable
+- No EB (`clusterEB` / `operatorEthVUnits`) cleanup is performed in SSV branch
 
 ---
 
@@ -171,6 +189,12 @@ Same as 1.3 but removes multiple validators in one transaction. All validators m
 - `cluster.validatorCount == previous - N`
 - If cluster had explicit EB tracking (`ebSnapshot.vUnits > 0`): `ebSnapshot.vUnits -= N * VUNITS_PRECISION`
 - If `cluster.validatorCount` reaches 0 and cluster is active: any remaining deviation vUnits are cleaned from `operatorEthVUnits` and DAO
+
+#### Additional Invariants vs 1.3 (legacy SSV cluster)
+- If cluster was active: `operator.validatorCount == previous - N` and `daoValidatorCount == previous - N`
+- If cluster was liquidated: remove does not decrement SSV operator/DAO counts again
+- `cluster.validatorCount == previous - N` in all cases
+- Operation is atomic: if any validator in the batch is invalid, no validator is removed
 
 ---
 
