@@ -67,7 +67,7 @@
 | TEST-21 | ~~EB boundary values (min/max per validator)~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-22 | ~~Dust/precision edge cases~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-23 | ~~Max operator count (13) with EB~~ | Unit Test Completeness | P2 | ✅ Closed |
-| TEST-24 | Idempotency and double-operation checks | Unit Test Completeness | P2 | S |
+| TEST-24 | ~~Idempotency and double-operation checks~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-25 | Upgrade path (reinitializer) tests | Unit Test Completeness | P2 | S |
 | TEST-26 | Zero-validator cluster operations | Unit Test Completeness | P2 | S |
 | TEST-27 | Operator at max validator limit | Unit Test Completeness | P2 | S |
@@ -2069,7 +2069,7 @@ Two tests added to `test/unit/SSVClusters/updateClusterBalance.test.ts`:
 ### [TEST-24] Idempotency and double-operation checks
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -2078,9 +2078,9 @@ Two tests added to `test/unit/SSVClusters/updateClusterBalance.test.ts`:
 Add tests verifying that double-calling operations either reverts or is safely idempotent.
 
 **Acceptance Criteria:**
-- [ ] Test: `exitValidator` twice on same validator → verify second reverts
-- [ ] Test: `syncFees` twice in same block → verify no double-counting
-- [ ] Test: `updateClusterBalance` with same proof twice → verify stale block revert
+- [x] Test: `exitValidator` twice on same validator → verify second succeeds
+- [x] Test: `syncFees` twice in same block → verify no double-counting
+- [x] Test: `updateClusterBalance` with same proof twice → verify stale block revert
 
 **Agent Instructions:**
 1. Read relevant test files for each operation.
@@ -2088,9 +2088,14 @@ Add tests verifying that double-calling operations either reverts or is safely i
 3. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Double `exitValidator`
-- [ ] Sub-task 2: Double `syncFees` in same block
-- [ ] Sub-task 3: Double `updateClusterBalance` with same proof
+- [x] Sub-task 1: Double `exitValidator`
+- [x] Sub-task 2: Double `syncFees` in same block
+- [x] Sub-task 3: Double `updateClusterBalance` with same proof
+
+**Resolution:**
+- **`exitValidator` twice** (`test/unit/SSVValidator/exitValidator.test.ts`): `exitValidator` does not mutate validator state (only emits an event after validating the stored operator hash), so calling it twice is safely idempotent — both calls succeed and emit `ValidatorExited`. Test added: "Calling exitValidator twice on the same validator succeeds both times without reverting".
+- **`syncFees` twice** (`test/unit/SSVStaking/syncFees.test.ts`): After the first call, the staking pool balance is updated to match the DAO balance. The second call sees no delta (current == previous), emits no `FeesSynced` event, and leaves `accEthPerShare` unchanged. Test added: "Calling syncFees twice does not double-count fees — second call is a no-op".
+- **`updateClusterBalance` same proof** (`test/unit/SSVClusters/updateClusterBalance.test.ts`): Already covered by the existing test "Is reverted with 'StaleUpdate' when blockNum is not increasing" — calling with the same (or lower) `blockNum` reverts with `StaleUpdate`. No new test needed.
 
 ---
 
