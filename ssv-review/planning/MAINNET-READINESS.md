@@ -77,7 +77,7 @@
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
 | TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
-| TEST-34 | Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract | Unit Test Completeness | P1 | S |
+| TEST-34 | ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~ | Unit Test Completeness | P1 | ✅ Done |
 | ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
 | DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
@@ -2406,12 +2406,12 @@ Add a dedicated test suite that uses the exact mainnet governance parameters and
 
 ---
 
-### [TEST-34] Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract
+### [TEST-34] ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-02-26
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2426,11 +2426,14 @@ Product asked for explicit safety validation to ensure cSSV issuance cannot exce
 **Invariant to test:**
 `cSSV.totalSupply() <= SSV.balanceOf(address(SSVStaking))`
 
+**Resolution:**
+Added explicit Echidna invariant `echidna_cssv_supply_lte_ssv_backing()` in `test/echidna/SSVStakingEchidna.sol` and deterministic regression coverage in `test/unit/SSVStaking/solvencyInvariant.test.ts` for single-user ordering, multi-user partial unstake requests, and full unstake/withdraw flows. Also aligned the Echidna harness `MAX_PENDING_REQUESTS` constant with `SSVStaking` (`2000`) to avoid a harness-only false failure in `echidna_pending_requests_bounded`. Validation run: `npx hardhat test test/unit/SSVStaking/solvencyInvariant.test.ts` (3 passing) and `echidna ... SSVStakingEchidna ...` (12/12 invariants passing, including solvency invariant).
+
 **Acceptance Criteria:**
-- [ ] Add an Echidna invariant test that continuously asserts `cSSV.totalSupply() <= SSV.balanceOf(address(staking))` across stake/unstake/transfer/withdraw flows
-- [ ] Add at least one deterministic unit regression test for the invariant around `stake` and `requestUnstake` ordering
-- [ ] Include edge scenarios: multiple users, partial unstake requests, full unstake + withdraw cycle
-- [ ] No invariant violations in fuzz runs
+- [x] Add an Echidna invariant test that continuously asserts `cSSV.totalSupply() <= SSV.balanceOf(address(staking))` across stake/unstake/transfer/withdraw flows
+- [x] Add at least one deterministic unit regression test for the invariant around `stake` and `requestUnstake` ordering
+- [x] Include edge scenarios: multiple users, partial unstake requests, full unstake + withdraw cycle
+- [x] No invariant violations in fuzz runs
 
 **Agent Instructions:**
 1. Read `contracts/modules/SSVStaking.sol` and `contracts/token/CSSVToken.sol` for mint/burn ordering.
@@ -2439,10 +2442,10 @@ Product asked for explicit safety validation to ensure cSSV issuance cannot exce
 4. Run the relevant unit tests and Echidna target.
 
 #### Sub-items:
-- [ ] Sub-task 1: Add Echidna solvency invariant
-- [ ] Sub-task 2: Add deterministic unit regression tests
-- [ ] Sub-task 3: Cover multi-user + partial/full unstake scenarios
-- [ ] Sub-task 4: Run unit + Echidna checks
+- [x] Sub-task 1: Add Echidna solvency invariant
+- [x] Sub-task 2: Add deterministic unit regression tests
+- [x] Sub-task 3: Cover multi-user + partial/full unstake scenarios
+- [x] Sub-task 4: Run unit + Echidna checks
 
 ---
 
