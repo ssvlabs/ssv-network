@@ -70,7 +70,7 @@
 | TEST-24 | ~~Idempotency and double-operation checks~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-25 | ~~Upgrade path (reinitializer) tests~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-26 | ~~Zero-validator cluster operations~~ | Unit Test Completeness | P2 | ✅ Closed |
-| TEST-27 | Operator at max validator limit | Unit Test Completeness | P2 | S |
+| TEST-27 | ~~Operator at max validator limit~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
 | TEST-29 | ~~Add contract ETH balance delta assertions to deposit tests~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-30 | Resolve TODO comments with deferred assertions | Unit Test Completeness | P1 | M |
@@ -2173,7 +2173,7 @@ Add tests for clusters with 0 validators.
 ### [TEST-27] Operator at max validator limit
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -2182,17 +2182,19 @@ Add tests for clusters with 0 validators.
 Test `VALIDATORS_PER_OPERATOR_LIMIT` (3000) boundary.
 
 **Acceptance Criteria:**
-- [ ] Test: Register validator pushing operator to limit+1 → verify revert
-- [ ] Test: Remove validator then re-register at limit → verify succeeds
+- [x] Test: Register validator pushing operator to limit+1 → verify revert
+- [x] Test: Remove validator then re-register at limit → verify succeeds
 
-**Agent Instructions:**
-1. Read `contracts/libraries/OperatorLib.sol` for the limit check.
-2. This requires registering many validators. May need to use bulk registration.
-3. Run `npm run test:unit`.
+**Resolution:**
+Added two tests to `test/unit/SSVValidator/registerValidator.test.ts`:
+- Used `mockValidatorsPerOperatorLimit(5)` to avoid bulk-registering 3000 validators
+- Used `bulkRegisterValidator` to fill all operators to the limit (5 validators)
+- Sub-task 1: 6th `registerValidator` call reverts with `ExceedValidatorLimitWithData(operatorIds[0])`
+- Sub-task 2: After removing one validator (back to 4), re-register succeeds and emits `ValidatorAdded`
 
 #### Sub-items:
-- [ ] Sub-task 1: Exceed operator validator limit — revert
-- [ ] Sub-task 2: Re-register at limit after removal
+- [x] Sub-task 1: Exceed operator validator limit — revert
+- [x] Sub-task 2: Re-register at limit after removal
 
 ---
 
