@@ -2,7 +2,7 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { getTestConnection } from "../../setup/connection.ts";
-import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { ssvClustersHarnessFixture, getClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
@@ -11,6 +11,8 @@ import { Errors } from "../../common/errors.ts";
 import { ethers } from "ethers";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
+const OPERATOR_FEE = 10_000_000_000n;
+
 type ClusterType = ReturnType<typeof createCluster>;
 
 describe("SSVClusters function `updateClusterBalance()`", async () => {
@@ -18,11 +20,16 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
   let networkHelpers: NetworkHelpersType;
 
   let clusterOwner: HardhatEthersSigner;
+  let otherAccount: HardhatEthersSigner;
+  let deployClustersWith13Operators!: ReturnType<typeof getClustersHarnessFixture>;
+  let deployClustersWith13OperatorsAutoLiq!: () => Promise<{ clusters: any; operatorIds: bigint[] }>;
 
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
 
-    [clusterOwner] = await connection.ethers.getSigners();
+    [clusterOwner, otherAccount] = await connection.ethers.getSigners();
+    deployClustersWith13Operators = getClustersHarnessFixture(connection, 13);
+    deployClustersWith13OperatorsAutoLiq = () => ssvClustersHarnessFixture(connection, 13, OPERATOR_FEE);
   });
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
@@ -783,5 +790,78 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
     }
+  });
+
+  it("Updates vUnit accounting correctly for 13 operators at maximum EB (2048 ETH per validator)", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith13Operators);
+
+    const cluster = await registerCluster(clusters, operatorIds);
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+
+    const effectiveBalance = 2048;
+    const blockNum = 1;
+    const root = getEBRoot(clusterId, effectiveBalance);
+    await clusters.mockSetEBRoot(blockNum, root);
+
+    await clusters.updateClusterBalance(blockNum, clusterOwner.address, operatorIds, cluster, effectiveBalance, []);
+
+    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n; // 640,000
+    const expectedDeviation = expectedVUnits - VUNITS_PRECISION; // 630,000
+
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(expectedVUnits);
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(expectedVUnits);
+    }
+  });
+
+  it("Auto-liquidates cluster with 13 operators when EB increase to maximum makes it insolvent", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deployClustersWith13OperatorsAutoLiq);
+
+    await clusters.mockEthNetworkFee(100_000n);
+    await clusters.mockMinimumBlocksBeforeLiquidation(100n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+
+    const depositValue = ethers.parseEther("0.0001");
+    const regTx = await clusters.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: depositValue }
+    );
+    const regReceipt = await regTx.wait();
+    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+
+    const root1 = getEBRoot(clusterId, 32);
+    await clusters.mockSetEBRoot(1, root1);
+    const ebTx1 = await clusters.updateClusterBalance(1, clusterOwner.address, operatorIds, clusterAfterReg, 32, []);
+    const ebReceipt1 = await ebTx1.wait();
+    const clusterAfterEB32 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
+
+    expect(clusterAfterEB32.active).to.equal(true);
+    await expect(
+      clusters.connect(otherAccount).liquidate(clusterOwner.address, operatorIds, clusterAfterEB32)
+    ).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_NOT_LIQUIDATABLE);
+
+    const root2 = getEBRoot(clusterId, 2048);
+    await clusters.mockSetEBRoot(2, root2);
+    const ebTx2 = await clusters.updateClusterBalance(2, clusterOwner.address, operatorIds, clusterAfterEB32, 2048, []);
+    const ebReceipt2 = await ebTx2.wait();
+    const clusterAfterEB2048 = parseClusterFromEvent(clusters, ebReceipt2, Events.CLUSTER_LIQUIDATED);
+
+    expect(clusterAfterEB2048.active).to.equal(false);
+    expect(clusterAfterEB2048.balance).to.equal(0n);
+
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+    }
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
   });
 });
