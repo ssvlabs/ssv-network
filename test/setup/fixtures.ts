@@ -426,6 +426,8 @@ export async function ssvNetworkFullForkedFixture(
     await (await daoNetwork.updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE)).wait();
     await (await daoNetwork.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE)).wait();
     await (await daoNetwork.updateMinimumOperatorEthFee(MINIMAL_OPERATOR_ETH_FEE)).wait();
+    await (await daoNetwork.updateDeclareOperatorFeePeriod(DECLARE_OPERATOR_FEE_PERIOD)).wait();
+    await (await daoNetwork.updateExecuteOperatorFeePeriod(EXECUTE_OPERATOR_FEE_PERIOD)).wait();
 
     return { network, views, cssvToken, ssvToken, modules, daoSigner };
   };

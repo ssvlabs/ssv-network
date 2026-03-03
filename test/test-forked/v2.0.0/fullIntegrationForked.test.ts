@@ -2466,7 +2466,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(requests[1].unlockTime).to.be.equal(BigInt(secondBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN);
     });
 
-    it("Is reverted with 'MaxRequestsAmountReached' if more than 10 pending requests", async function() {
+    it("Is reverted with 'MaxRequestsAmountReached' if more than 2000 pending requests", async function() {
       const { network, ssvToken, daoSigner } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
@@ -2474,9 +2474,9 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await ssvToken.connect(daoSigner).mint(randomUser.address, STAKE_AMOUNT);
       await network.connect(randomUser).stake(STAKE_AMOUNT);
 
-      const smallAmount = STAKE_AMOUNT / 11n;
+      const smallAmount = STAKE_AMOUNT / 2001n;
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 2000; i++) {
         await network.connect(randomUser).requestUnstake(smallAmount);
       }
 
