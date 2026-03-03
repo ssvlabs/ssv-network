@@ -38,7 +38,7 @@ contract OracleUser {
 }
 
 contract SSVDAOEchidna is SSVDAO {
-    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 100_800;
+    uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 21_480;
     uint64 private constant MAX_FEE_UNITS = 1_000_000;
     uint64 private constant MAX_PERIOD = 1_000_000;
     uint16 private constant MAX_QUORUM_BPS = 10_000;
@@ -69,6 +69,17 @@ contract SSVDAOEchidna is SSVDAO {
     bool private futureCommitSucceeded;
     bool private overWithdrawSucceeded;
     bool private withdrawMismatch;
+    bool private feeIndexDecreased;
+
+    uint256 private prevEthFeeCurrentIndex;
+    uint256 private prevSsvFeeCurrentIndex;
+    bool private feeIndexTrackingInitialized;
+
+    modifier trackFeeIndexMonotonicity() {
+        _checkpointNetworkFeeIndices();
+        _;
+        _checkpointNetworkFeeIndices();
+    }
 
     constructor() SSVDAO(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
@@ -93,84 +104,85 @@ contract SSVDAOEchidna is SSVDAO {
         _mockSetOracle(3, address(oracle3));
 
         _mockSetQuorumBps(7500);
+        _checkpointNetworkFeeIndices();
     }
 
-    function action_update_network_fee(uint256 seed) external {
+    function action_update_network_fee(uint256 seed) external trackFeeIndexMonotonicity {
         uint64 feeUnits = _boundShrunk(seed, MAX_FEE_UNITS);
         uint256 fee = uint256(feeUnits) * ETH_DEDUCTED_DIGITS;
         try this.updateNetworkFee(fee) {} catch {}
     }
 
-    function action_update_network_fee_ssv(uint256 seed) external {
+    function action_update_network_fee_ssv(uint256 seed) external trackFeeIndexMonotonicity {
         uint64 feeUnits = _boundShrunk(seed, MAX_FEE_UNITS);
         uint256 fee = uint256(feeUnits) * DEDUCTED_DIGITS;
         try this.updateNetworkFeeSSV(fee) {} catch {}
     }
 
-    function action_update_operator_fee_increase(uint64 percentage) external {
+    function action_update_operator_fee_increase(uint64 percentage) external trackFeeIndexMonotonicity {
         uint64 value = percentage % (MAX_FEE_UNITS + 1);
         try this.updateOperatorFeeIncreaseLimit(value) {} catch {}
     }
 
-    function action_update_declare_period(uint64 secondsPeriod) external {
+    function action_update_declare_period(uint64 secondsPeriod) external trackFeeIndexMonotonicity {
         uint64 value = secondsPeriod % (MAX_PERIOD + 1);
         try this.updateDeclareOperatorFeePeriod(value) {} catch {}
     }
 
-    function action_update_execute_period(uint64 secondsPeriod) external {
+    function action_update_execute_period(uint64 secondsPeriod) external trackFeeIndexMonotonicity {
         uint64 value = secondsPeriod % (MAX_PERIOD + 1);
         try this.updateExecuteOperatorFeePeriod(value) {} catch {}
     }
 
-    function action_update_liquidation_threshold(uint64 blocksPeriod) external {
+    function action_update_liquidation_threshold(uint64 blocksPeriod) external trackFeeIndexMonotonicity {
         uint64 value = MINIMAL_LIQUIDATION_THRESHOLD + (blocksPeriod % 10_000);
         try this.updateLiquidationThresholdPeriod(value) {} catch {}
     }
 
-    function action_update_liquidation_threshold_ssv(uint64 blocksPeriod) external {
+    function action_update_liquidation_threshold_ssv(uint64 blocksPeriod) external trackFeeIndexMonotonicity {
         uint64 value = MINIMAL_LIQUIDATION_THRESHOLD + (blocksPeriod % 10_000);
         try this.updateLiquidationThresholdPeriodSSV(value) {} catch {}
     }
 
-    function action_update_min_liquidation_collateral(uint256 seed) external {
+    function action_update_min_liquidation_collateral(uint256 seed) external trackFeeIndexMonotonicity {
         uint64 value = _boundShrunk(seed, MAX_FEE_UNITS);
         uint256 amount = uint256(value) * ETH_DEDUCTED_DIGITS;
         try this.updateMinimumLiquidationCollateral(amount) {} catch {}
     }
 
-    function action_update_min_liquidation_collateral_ssv(uint256 seed) external {
+    function action_update_min_liquidation_collateral_ssv(uint256 seed) external trackFeeIndexMonotonicity {
         uint64 value = _boundShrunk(seed, MAX_FEE_UNITS);
         uint256 amount = uint256(value) * DEDUCTED_DIGITS;
         try this.updateMinimumLiquidationCollateralSSV(amount) {} catch {}
     }
 
-    function action_update_max_operator_fee(uint64 maxFee) external {
+    function action_update_max_operator_fee(uint64 maxFee) external trackFeeIndexMonotonicity {
         uint64 value = maxFee;
         try this.updateMaximumOperatorFee(value) {} catch {}
     }
 
-    function action_update_min_operator_eth_fee(uint64 minFee) external {
+    function action_update_min_operator_eth_fee(uint64 minFee) external trackFeeIndexMonotonicity {
         uint64 value = minFee;
         try this.updateMinimumOperatorEthFee(value) {} catch {}
     }
 
-    function action_set_quorum(uint16 quorum) external {
+    function action_set_quorum(uint16 quorum) external trackFeeIndexMonotonicity {
         uint16 value = uint16(uint256(quorum) % (MAX_QUORUM_BPS + 1));
         try this.setQuorumBps(value) {} catch {}
     }
 
-    function action_set_cooldown(uint64 duration) external {
+    function action_set_cooldown(uint64 duration) external trackFeeIndexMonotonicity {
         uint64 value = duration;
         try this.setUnstakeCooldownDuration(value) {} catch {}
     }
 
-    function action_replace_oracle(uint8 oracleIdSeed, uint8 newOracleSeed) external {
+    function action_replace_oracle(uint8 oracleIdSeed, uint8 newOracleSeed) external trackFeeIndexMonotonicity {
         uint32 oracleId = uint32(oracleIdSeed % 3) + 1;
         address newOracle = _oracleAddressBySeed(newOracleSeed);
         try this.replaceOracle(oracleId, newOracle) {} catch {}
     }
 
-    function action_add_earnings(uint256 seed) external {
+    function action_add_earnings(uint256 seed) external trackFeeIndexMonotonicity {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64 currentBalance = PackedSSV.unwrap(sp.daoBalance);
         uint64 maxAdd = type(uint64).max - currentBalance;
@@ -184,7 +196,7 @@ contract SSVDAOEchidna is SSVDAO {
         sp.daoIndexBlockNumber = uint32(block.number);
     }
 
-    function action_withdraw(uint256 seed, uint8 userSeed) external {
+    function action_withdraw(uint256 seed, uint8 userSeed) external trackFeeIndexMonotonicity {
         uint64 available = PackedSSV.unwrap(SSVStorageProtocol.load().daoBalance);
         uint64 amountUnits;
 
@@ -216,34 +228,34 @@ contract SSVDAOEchidna is SSVDAO {
         } catch {}
     }
 
-    function action_commit_root(uint256 seed, uint8 oracleSeed) external {
+    function action_commit_root(uint256 seed, uint8 oracleSeed) external trackFeeIndexMonotonicity {
         OracleUser oracle = _oracleUser(oracleSeed);
         uint64 blockNum = _validBlock(seed);
         bytes32 root = _makeRoot(seed, oracleSeed);
         _attemptCommit(oracle, root, blockNum);
     }
 
-    function action_commit_root_stale(uint8 oracleSeed) external {
+    function action_commit_root_stale(uint8 oracleSeed) external trackFeeIndexMonotonicity {
         OracleUser oracle = _oracleUser(oracleSeed);
         uint64 blockNum = SSVStorageEB.load().latestCommittedBlock;
         bytes32 root = _makeRoot(uint256(blockNum), oracleSeed);
         _attemptCommit(oracle, root, blockNum);
     }
 
-    function action_commit_root_future(uint256 seed, uint8 oracleSeed) external {
+    function action_commit_root_future(uint256 seed, uint8 oracleSeed) external trackFeeIndexMonotonicity {
         OracleUser oracle = _oracleUser(oracleSeed);
         uint64 blockNum = uint64(block.number) + 1 + uint64(seed % 10);
         bytes32 root = _makeRoot(seed, oracleSeed);
         _attemptCommit(oracle, root, blockNum);
     }
 
-    function action_commit_root_non_oracle(uint256 seed) external {
+    function action_commit_root_non_oracle(uint256 seed) external trackFeeIndexMonotonicity {
         uint64 blockNum = _validBlock(seed);
         bytes32 root = _makeRoot(seed, 99);
         _attemptCommit(attacker, root, blockNum);
     }
 
-    function action_commit_root_duplicate(uint8 oracleSeed) external {
+    function action_commit_root_duplicate(uint8) external trackFeeIndexMonotonicity {
         if (lastCommitBlock == 0) return;
         if (address(lastCommitOracle) == address(0)) return;
         _attemptCommit(lastCommitOracle, lastCommitRoot, lastCommitBlock);
@@ -251,18 +263,22 @@ contract SSVDAOEchidna is SSVDAO {
 
     function echidna_network_fee_matches_expected() external view returns (bool) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (feeIndexDecreased) return false;
         if (sp.ethNetworkFeeIndexBlockNumber > block.number) return false;
         uint256 diff = block.number - sp.ethNetworkFeeIndexBlockNumber;
         uint256 currentIndex = uint256(sp.ethNetworkFeeIndex) + diff * uint256(PackedETH.unwrap(sp.ethNetworkFee));
-        return currentIndex >= sp.ethNetworkFeeIndex;
+        if (currentIndex < sp.ethNetworkFeeIndex) return false;
+        return currentIndex >= prevEthFeeCurrentIndex;
     }
 
     function echidna_network_fee_ssv_matches_expected() external view returns (bool) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (feeIndexDecreased) return false;
         if (sp.networkFeeIndexBlockNumber > block.number) return false;
         uint256 diff = block.number - sp.networkFeeIndexBlockNumber;
         uint256 currentIndex = uint256(sp.networkFeeIndex) + diff * uint256(PackedSSV.unwrap(sp.networkFee));
-        return currentIndex >= sp.networkFeeIndex;
+        if (currentIndex < sp.networkFeeIndex) return false;
+        return currentIndex >= prevSsvFeeCurrentIndex;
     }
 
     function echidna_liquidation_thresholds_valid() external view returns (bool) {
@@ -401,6 +417,35 @@ contract SSVDAOEchidna is SSVDAO {
     function _boundShrunk(uint256 seed, uint64 maxValue) internal pure returns (uint64) {
         if (maxValue == 0) return 0;
         return uint64(seed % (uint256(maxValue) + 1));
+    }
+
+    function _checkpointNetworkFeeIndices() internal {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (sp.ethNetworkFeeIndexBlockNumber > block.number || sp.networkFeeIndexBlockNumber > block.number) {
+            feeIndexDecreased = true;
+            return;
+        }
+
+        uint256 ethDiff = block.number - sp.ethNetworkFeeIndexBlockNumber;
+        uint256 ethCurrent = uint256(sp.ethNetworkFeeIndex) + ethDiff * uint256(PackedETH.unwrap(sp.ethNetworkFee));
+
+        uint256 ssvDiff = block.number - sp.networkFeeIndexBlockNumber;
+        uint256 ssvCurrent = uint256(sp.networkFeeIndex) + ssvDiff * uint256(PackedSSV.unwrap(sp.networkFee));
+
+        if (!feeIndexTrackingInitialized) {
+            prevEthFeeCurrentIndex = ethCurrent;
+            prevSsvFeeCurrentIndex = ssvCurrent;
+            feeIndexTrackingInitialized = true;
+            return;
+        }
+
+        if (ethCurrent < prevEthFeeCurrentIndex || ssvCurrent < prevSsvFeeCurrentIndex) {
+            feeIndexDecreased = true;
+        }
+
+        prevEthFeeCurrentIndex = ethCurrent;
+        prevSsvFeeCurrentIndex = ssvCurrent;
     }
 
     function _mockSetToken(address tokenAddress) internal {
