@@ -212,7 +212,7 @@ export async function addValidatorsToCluster(
 ): Promise<Cluster> {
   await connection.ethers.provider.send("hardhat_setBalance", [
     clusterOwner.address,
-    "0x" + (DEFAULT_ETH_REGISTER_VALUE + 10n ** 18n).toString(16),
+    "0x" + (1000n * 10n ** 18n).toString(16),
   ]);
 
   await network.connect(clusterOwner).bulkRegisterValidator(
