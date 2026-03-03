@@ -180,11 +180,6 @@ interface ISSVNetworkCore {
     error FeeIncreaseNotAllowed(); // 0x410a2b6c
 
     /**
-     * @dev Thrown when caller is not authorized to perform the action
-     */
-    error NotAuthorized(); // 0xea8e4eb5
-
-    /**
      * @dev Thrown when operators list is not unique and has duplicates
      */
     error OperatorsListNotUnique(); // 0xa5a1ff5d
@@ -228,11 +223,6 @@ interface ISSVNetworkCore {
      * @dev Thrown when public keys list is empty
      */
     error EmptyPublicKeysList(); // 0xdf83e679
-
-    /**
-     * @dev Thrown when contract address is invalid
-     */
-    error InvalidContractAddress(); // 0xa710429d
 
     /**
      * @dev Thrown when address is a whitelisting contract
