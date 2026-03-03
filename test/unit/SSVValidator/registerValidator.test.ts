@@ -53,8 +53,23 @@ describe("SSVClusters function `registerValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    // todo check args with pre-calculated cluster
-    await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
+    const expectedCluster = [
+      1n,
+      0n,
+      0n,
+      true,
+      DEFAULT_ETH_REGISTER_VALUE,
+    ];
+
+    await expect(tx)
+      .to.emit(validators, Events.VALIDATOR_ADDED)
+      .withArgs(
+        clusterOwner.address,
+        operatorIds,
+        publicKey,
+        DEFAULT_SHARES,
+        expectedCluster
+      );
   });
 
   it("Initializes ETH defaults for legacy SSV operators and keeps them after registration", async function () {
