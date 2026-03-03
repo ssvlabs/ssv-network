@@ -14,7 +14,7 @@ import {
   DEFAULT_SHARES,
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
-import { calcLiquidationThreshold, defaultVUnits } from "../../helpers/fee.ts";
+import { calcLiquidationThreshold, defaultVUnits } from "../../e2e/helpers/fee-calculator.ts";
 import type { SimulationState, ActionResult, ClusterRecord } from "../types.ts";
 import { VERSION_ETH } from "../types.ts";
 import {
