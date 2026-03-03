@@ -65,6 +65,11 @@ describe("SSVClusters function `reactivate()`", async () => {
     return parseClusterFromEvent(clusters, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
   };
 
+  const getOperatorEthEarnings = async (clusters: any, operatorId: bigint): Promise<bigint> => {
+    const [, , balance] = await clusters.getOperatorEthSnapshot(operatorId);
+    return balance;
+  };
+
   const liquidationThresholdForVUnits = (
     vUnits: bigint,
     operatorFeePacked: bigint,
@@ -482,10 +487,11 @@ describe("SSVClusters function `reactivate()`", async () => {
     // Additional EB preservation checks:
     // 1. Verify the EB snapshot still exists after reactivation
     const ebSnapshotAfterReactivation = await clusters.getClusterVUnits(clusterId);
-    expect(ebSnapshotAfterReactivation).to.be.greaterThan(0, "EB snapshot should still exist after reactivation");
+    let expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
+    expect(ebSnapshotAfterReactivation).to.equal(expectedVUnits);
     
     // 2. Verify the EB value matches the original effective balance
-    const expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
+    expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
     expect(finalClusterVUnits).to.equal(expectedVUnits, "EB vUnits should match original effective balance calculation");
     
     // 3. Verify the deviation is still correctly calculated
@@ -498,5 +504,134 @@ describe("SSVClusters function `reactivate()`", async () => {
       const operatorEthVUnits = await clusters.getOperatorEthVUnits(operatorId);
       expect(operatorEthVUnits).to.equal(finalDeviation, "Each operator should have the deviation vUnits preserved");
     }
+  });
+
+  it("Maintains accounting consistency across multiple liquidation/reactivation cycles", async function () {
+    const operatorFee = 5_000_000_000n;
+    const deployFixture = async () => ssvClustersHarnessFixture(connection, 4, operatorFee);
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
+
+    const clusterAfterRegister = await createAndFundCluster(clusters, operatorIds, ethers.parseEther("10"));
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterAfterEB = await setEB(clusters, clusterId, 96, clusterAfterRegister, operatorIds);
+
+    const clusterVUnits = await clusters.getClusterVUnits(clusterId);
+    const baselineVUnits = clusterAfterEB.validatorCount * VUNITS_PRECISION;
+    const expectedDeviation = clusterVUnits - baselineVUnits;
+    const initialDaoVUnits = await clusters.getDaoTotalEthVUnits();
+
+    expect(clusterVUnits).to.equal(3n * VUNITS_PRECISION);
+    expect(expectedDeviation).to.equal(2n * VUNITS_PRECISION);
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation);
+    }
+
+    await networkHelpers.mine(200);
+    const liquidateTx1 = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB);
+    const liquidateReceipt1 = await liquidateTx1.wait();
+    const clusterAfterLiquidation1 = parseClusterFromEvent(clusters, liquidateReceipt1, Events.CLUSTER_LIQUIDATED);
+
+    expect(clusterAfterLiquidation1.active).to.equal(false);
+    expect(clusterAfterLiquidation1.balance).to.equal(0n);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+    }
+
+    const cycle1Deposit = ethers.parseEther("3");
+    const reactivateTx1 = await clusters.reactivate(
+      operatorIds,
+      clusterAfterLiquidation1,
+      { value: cycle1Deposit }
+    );
+    const reactivateReceipt1 = await reactivateTx1.wait();
+    const clusterAfterReactivation1 = parseClusterFromEvent(clusters, reactivateReceipt1, Events.CLUSTER_REACTIVATED);
+
+    expect(clusterAfterReactivation1.active).to.equal(true);
+    expect(clusterAfterReactivation1.balance).to.equal(cycle1Deposit);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(initialDaoVUnits);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(clusterVUnits);
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation);
+    }
+
+    await networkHelpers.mine(200);
+    const liquidateTx2 = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterReactivation1);
+    const liquidateReceipt2 = await liquidateTx2.wait();
+    const clusterAfterLiquidation2 = parseClusterFromEvent(clusters, liquidateReceipt2, Events.CLUSTER_LIQUIDATED);
+
+    expect(clusterAfterLiquidation2.active).to.equal(false);
+    expect(clusterAfterLiquidation2.balance).to.equal(0n);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+    }
+
+    const cycle2Deposit = ethers.parseEther("7");
+    const reactivateTx2 = await clusters.reactivate(
+      operatorIds,
+      clusterAfterLiquidation2,
+      { value: cycle2Deposit }
+    );
+    const reactivateReceipt2 = await reactivateTx2.wait();
+    const clusterAfterReactivation2 = parseClusterFromEvent(clusters, reactivateReceipt2, Events.CLUSTER_REACTIVATED);
+
+    expect(clusterAfterReactivation2.active).to.equal(true);
+    expect(clusterAfterReactivation2.balance).to.equal(cycle2Deposit);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(initialDaoVUnits);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(clusterVUnits);
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation);
+    }
+  });
+
+  it("Accrues operator earnings across cycles without double-counting", async function () {
+    const operatorFee = 10_000_000_000n;
+    const activeBlocksPerCycle = 120;
+    const deployFixture = async () => ssvClustersHarnessFixture(connection, 4, operatorFee);
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
+
+    const clusterAfterRegister = await createAndFundCluster(clusters, operatorIds, ethers.parseEther("10"));
+    const trackedOperator = operatorIds[0];
+    const initialEarnings = await getOperatorEthEarnings(clusters, trackedOperator);
+
+    await networkHelpers.mine(activeBlocksPerCycle);
+    const liquidateTx1 = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister);
+    const liquidateReceipt1 = await liquidateTx1.wait();
+    const clusterAfterLiquidation1 = parseClusterFromEvent(clusters, liquidateReceipt1, Events.CLUSTER_LIQUIDATED);
+    const earningsAfterLiquidation1 = await getOperatorEthEarnings(clusters, trackedOperator);
+    const cycle1Increment = earningsAfterLiquidation1 - initialEarnings;
+    expect(cycle1Increment).to.be.gt(0n);
+
+    await networkHelpers.mine(300);
+    const reactivateTx1 = await clusters.reactivate(
+      operatorIds,
+      clusterAfterLiquidation1,
+      { value: ethers.parseEther("4") }
+    );
+    const reactivateReceipt1 = await reactivateTx1.wait();
+    const clusterAfterReactivation1 = parseClusterFromEvent(clusters, reactivateReceipt1, Events.CLUSTER_REACTIVATED);
+    const earningsAfterReactivation1 = await getOperatorEthEarnings(clusters, trackedOperator);
+    expect(earningsAfterReactivation1).to.equal(earningsAfterLiquidation1);
+
+    await networkHelpers.mine(activeBlocksPerCycle);
+    const liquidateTx2 = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterReactivation1);
+    const liquidateReceipt2 = await liquidateTx2.wait();
+    const clusterAfterLiquidation2 = parseClusterFromEvent(clusters, liquidateReceipt2, Events.CLUSTER_LIQUIDATED);
+    const earningsAfterLiquidation2 = await getOperatorEthEarnings(clusters, trackedOperator);
+    const cycle2Increment = earningsAfterLiquidation2 - earningsAfterReactivation1;
+
+    expect(cycle2Increment).to.equal(cycle1Increment);
+    expect(earningsAfterLiquidation2 - initialEarnings).to.equal(cycle1Increment + cycle2Increment);
+
+    await networkHelpers.mine(200);
+    const reactivateTx2 = await clusters.reactivate(
+      operatorIds,
+      clusterAfterLiquidation2,
+      { value: ethers.parseEther("5") }
+    );
+    await reactivateTx2.wait();
+    const earningsAfterReactivation2 = await getOperatorEthEarnings(clusters, trackedOperator);
+    expect(earningsAfterReactivation2).to.equal(earningsAfterLiquidation2);
   });
 });
