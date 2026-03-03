@@ -15,7 +15,7 @@ const OPERATOR_FEE = 10_000_000_000n;
 
 type ClusterType = ReturnType<typeof createCluster>;
 
-describe.only("SSVClusters function `updateClusterBalance()`", async () => {
+describe("SSVClusters function `updateClusterBalance()`", async () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
 

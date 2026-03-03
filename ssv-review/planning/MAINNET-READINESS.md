@@ -68,7 +68,7 @@
 | TEST-22 | ~~Dust/precision edge cases~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-23 | ~~Max operator count (13) with EB~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-24 | ~~Idempotency and double-operation checks~~ | Unit Test Completeness | P2 | ✅ Closed |
-| TEST-25 | Upgrade path (reinitializer) tests | Unit Test Completeness | P2 | S |
+| TEST-25 | ~~Upgrade path (reinitializer) tests~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-26 | ~~Zero-validator cluster operations~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-27 | Operator at max validator limit | Unit Test Completeness | P2 | S |
 | TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
@@ -2102,7 +2102,7 @@ Add tests verifying that double-calling operations either reverts or is safely i
 ### [TEST-25] Upgrade path (reinitializer) tests
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -2111,9 +2111,9 @@ Add tests verifying that double-calling operations either reverts or is safely i
 Add tests for the upgrade initializer (`reinitializer(3)`) behavior.
 
 **Acceptance Criteria:**
-- [ ] Test: Call initializer with `reinitializer(3)` → verify new state set correctly
-- [ ] Test: Call initializer again → verify reverts (already initialized)
-- [ ] Test: Verify `UPGRADE_TIMESTAMP` immutable prevents pre-migration fee declarations
+- [x] Test: Call initializer with `reinitializer(3)` → verify new state set correctly
+- [x] Test: Call initializer again → verify reverts (already initialized)
+- [x] Test: Verify `UPGRADE_TIMESTAMP` immutable prevents pre-migration fee declarations
 
 **Agent Instructions:**
 1. Read `contracts/upgrades/stage/hoodi/SSVNetworkSSVStakingUpgrade.sol`.
@@ -2122,9 +2122,14 @@ Add tests for the upgrade initializer (`reinitializer(3)`) behavior.
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Successful reinitializer(3) execution
-- [ ] Sub-task 2: Re-initialization revert
-- [ ] Sub-task 3: UPGRADE_TIMESTAMP fee declaration guard
+- [x] Sub-task 1: Successful reinitializer(3) execution
+- [x] Sub-task 2: Re-initialization revert
+- [x] Sub-task 3: UPGRADE_TIMESTAMP fee declaration guard
+
+**Resolution:**
+- **Sub-task 1 (state set correctly):** Already covered by `test/integration/SSVNetwork.test.ts` — "Configures SSVNetwork correctly" verifies `cooldownDuration`, `defaultOracleIds`, `quorumBps`, and all governance params post-upgrade.
+- **Sub-task 2 (re-initialization revert):** Added to `test/integration/SSVNetwork.test.ts` under "Constructor, initializer and upgrades": "Calling initializeSSVStaking again reverts with already-initialized error". Attaches `SSVNetworkSSVStakingUpgrade` factory to the already-upgraded proxy and calls `initializeSSVStaking` again — reverts with OZ v4 string error `"Initializable: contract is already initialized"`.
+- **Sub-task 3 (UPGRADE_TIMESTAMP guard):** Already covered by `test/unit/SSVOperators/executeOperatorFee.test.ts` — "Is reverted with 'LegacyOperatorFeeDeclarationInvalid' when executing a pre-upgrade fee declaration". Deploys SSVOperators with a future `upgradeTimestamp`, mocks a fee declaration with `approvalBeginTime <= upgradeTimestamp`, verifies `executeOperatorFee` reverts.
 
 ---
 

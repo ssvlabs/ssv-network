@@ -85,6 +85,17 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getNetworkValidatorsCount()).to.equal(0);
       expect(await views.totalStaked()).to.equal(0n);
     });
+
+    it("Calling initializeSSVStaking again reverts with already-initialized error", async function () {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const upgradeFactory = await connection.ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
+      const upgradeNetwork = upgradeFactory.attach(await network.getAddress());
+
+      await expect(
+        upgradeNetwork.initializeSSVStaking(DEFAULT_UNSTAKE_COOLDOWN, [1, 2, 3, 4], 7500)
+      ).to.be.revertedWith("Initializable: contract is already initialized");
+    });
   });
 
   describe("Function 'registerOperator()'", async function () {
