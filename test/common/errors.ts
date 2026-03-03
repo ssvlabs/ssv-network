@@ -61,5 +61,6 @@ export const Errors = {
   LEGACY_OPERATOR_FEE_DECLARATION_INVALID: "LegacyOperatorFeeDeclarationInvalid",
   ORACLE_HAS_ZERO_WEIGHT: "OracleHasZeroWeight",
   MAX_VALUE_EXCEEDED: "MaxValueExceeded",
-  MAX_PRECISION_EXCEEDED: "MaxPrecisionExceeded"
+  MAX_PRECISION_EXCEEDED: "MaxPrecisionExceeded",
+  UPDATE_TOO_FREQUENT: "UpdateTooFrequent",
 } as const;

@@ -257,7 +257,9 @@ describe("SSVStaking function `syncFees()`", async () => {
     );
 
     const accAfterSecond = await staking.getAccEthPerShare();
-    expect(accAfterSecond).to.be.greaterThan(accAfterFirst);
+    const secondSyncNewFees = 1_000_000_000n;
+    const expectedSecondDelta = (secondSyncNewFees * ETH_DEDUCTED_DIGITS * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
+    expect(accAfterSecond - accAfterFirst).to.equal(expectedSecondDelta);
   });
 
   it("Stores updated pool balance in storage", async function () {
@@ -304,6 +306,34 @@ describe("SSVStaking function `syncFees()`", async () => {
     );
 
     const accAfter = await staking.getAccEthPerShare();
-    expect(accAfter).to.be.greaterThan(accBefore);
+    const expectedDelta = (newFees * ETH_DEDUCTED_DIGITS * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
+    expect(accAfter - accBefore).to.equal(expectedDelta);
+  });
+
+  it("Produces non-zero accEthPerShare update with minimum possible fee (1 packed unit) and standard stake", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await trackGas(
+      staking.stake(STAKE_AMOUNT),
+      [GasGroup.STAKE_SSV]
+    );
+
+    const accBefore = await staking.getAccEthPerShare();
+
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(1n);
+
+    await trackGas(
+      staking.syncFees(),
+      [GasGroup.SYNC_FEES]
+    );
+
+    const accAfter = await staking.getAccEthPerShare();
+
+    const PRECISION = 1_000_000_000_000_000_000n;
+    const expectedDelta = (1n * ETH_DEDUCTED_DIGITS * PRECISION) / STAKE_AMOUNT;
+    expect(accAfter - accBefore).to.equal(expectedDelta);
   });
 });
