@@ -69,7 +69,7 @@
 | TEST-23 | ~~Max operator count (13) with EB~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-24 | ~~Idempotency and double-operation checks~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-25 | Upgrade path (reinitializer) tests | Unit Test Completeness | P2 | S |
-| TEST-26 | Zero-validator cluster operations | Unit Test Completeness | P2 | S |
+| TEST-26 | ~~Zero-validator cluster operations~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-27 | Operator at max validator limit | Unit Test Completeness | P2 | S |
 | TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
 | TEST-29 | ~~Add contract ETH balance delta assertions to deposit tests~~ | Unit Test Completeness | P1 | ✅ Done |
@@ -2131,7 +2131,7 @@ Add tests for the upgrade initializer (`reinitializer(3)`) behavior.
 ### [TEST-26] Zero-validator cluster operations
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -2140,10 +2140,10 @@ Add tests for the upgrade initializer (`reinitializer(3)`) behavior.
 Add tests for clusters with 0 validators.
 
 **Acceptance Criteria:**
-- [ ] Test: Deposit into cluster with 0 validators → verify no fees accrue
-- [ ] Test: Withdraw from cluster with 0 validators → verify full balance withdrawable
-- [ ] Test: EB update on cluster with 0 validators → verify no vUnits change
-- [ ] Test: Oracle EB report (`effectiveBalance = 0`) on active cluster with `validatorCount == 0` (all validators removed, cluster not deleted) → verify: (a) `_verifyEBLimits` passes (`0 >= 0 * 32`), (b) `ebToVUnits(0)` returns `0`, (c) `clusterEB.vUnits` written as `0` (resets any prior explicit EB back to implicit-EB sentinel), (d) no `operatorEthVUnits` or `daoTotalEthVUnits` changes, (e) no auto-liquidation triggered, (f) `ClusterBalanceUpdated` emitted with `effectiveBalance = 0`
+- [x] Test: Deposit into cluster with 0 validators → verify no fees accrue
+- [x] Test: Withdraw from cluster with 0 validators → verify full balance withdrawable
+- [x] Test: EB update on cluster with 0 validators → verify no vUnits change
+- [x] Test: Oracle EB report (`effectiveBalance = 0`) on active cluster with `validatorCount == 0` (all validators removed, cluster not deleted) → verify: (a) `_verifyEBLimits` passes (`0 >= 0 * 32`), (b) `ebToVUnits(0)` returns `0`, (c) `clusterEB.vUnits` written as `0` (resets any prior explicit EB back to implicit-EB sentinel), (d) no `operatorEthVUnits` or `daoTotalEthVUnits` changes, (e) no auto-liquidation triggered, (f) `ClusterBalanceUpdated` emitted with `effectiveBalance = 0`
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/deposit.test.ts` and `test/unit/SSVClusters/withdraw.test.ts`.
@@ -2152,10 +2152,16 @@ Add tests for clusters with 0 validators.
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Deposit with 0 validators
-- [ ] Sub-task 2: Withdrawal with 0 validators
-- [ ] Sub-task 3: EB update with 0 validators (generic)
-- [ ] Sub-task 4: Oracle EB report with `effectiveBalance = 0` on active zero-validator cluster — full state assertion (see DISC.md §2.2)
+- [x] Sub-task 1: Deposit with 0 validators
+- [x] Sub-task 2: Withdrawal with 0 validators
+- [x] Sub-task 3: EB update with 0 validators (generic)
+- [x] Sub-task 4: Oracle EB report with `effectiveBalance = 0` on active zero-validator cluster — full state assertion (see DISC.md §2.2)
+
+**Resolution:**
+- **Sub-task 1** (`test/unit/SSVClusters/deposit.test.ts`): "Deposit into zero-validator cluster accrues no fees over elapsed blocks" — uses non-zero operator fee fixture, registers then removes the only validator, mines 100 blocks, deposits, verifies balance = removal_balance + deposit_amount exactly (no fee deduction since vUnits = 0).
+- **Sub-task 2** (`test/unit/SSVClusters/withdraw.test.ts`): "Zero-validator cluster allows full balance withdrawal without fee deduction" — non-zero fee + network fee, removes last validator, mines 100 blocks, withdraws full balance, verifies cluster balance = 0 and cluster still active.
+- **Sub-task 3** (`test/unit/SSVClusters/updateClusterBalance.test.ts`): "EB update with effectiveBalance = 0 on zero-validator cluster succeeds without modifying vUnit state" — basic case (no prior explicit EB), verifies ClusterBalanceUpdated emitted with effectiveBalance = 0, clusterVUnits = 0, no vUnit changes.
+- **Sub-task 4** (`test/unit/SSVClusters/updateClusterBalance.test.ts`): "Oracle EB report effectiveBalance = 0 on active zero-validator cluster resets explicit EB to implicit-EB sentinel" — full state assertion: first sets EB = 64 ETH (explicit vUnits = 20000), removes last validator (vUnits cleared to 0), then submits effectiveBalance = 0 via updateClusterBalance; verifies all (a)-(f): limits pass, vUnits = 0, operatorEthVUnits = 0, daoTotalEthVUnits unchanged, no auto-liquidation, ClusterBalanceUpdated emitted with effectiveBalance = 0, cluster still active.
 
 ---
 
