@@ -100,7 +100,7 @@
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
 | FUZZ-1 | ~~Strengthen 5 partially-covered echidna invariants~~ | Echidna Invariant Suite | P1 | ✅ Done |
-| FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
+| FUZZ-2 | ~~Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking)~~ | Echidna Invariant Suite | P1 | ✅ Done |
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
 | FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
 | FUZZ-5 | ETH contract balance accounting invariant: `address(this).balance == Σ cluster.balance + Σ operator.ethEarnings + ethDaoBalance + stakingEthPoolBalance` | Echidna Invariant Suite | P1 | M |
@@ -2888,12 +2888,12 @@ Validation run:
 
 ---
 
-### [FUZZ-2] Add 16 high-priority new echidna invariants
+### [FUZZ-2] ~~Add 16 high-priority new echidna invariants~~
 - **Type:** Echidna Invariant Suite
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-03-03
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2913,10 +2913,22 @@ Add 16 new invariants covering critical gaps. Full list with descriptions in `te
 
 **Liquidation Completeness (2):** Liquidation clears EB snapshot (B13), liquidation pays exact balance (B14)
 
+**Resolution:**
+Implemented high-priority coverage in the existing harnesses:
+- `test/echidna/SSVDAOEchidna.sol`: added oracle/EB governance invariants (`echidna_finalized_weight_cleared`, `echidna_commitment_weight_lte_supply`, `echidna_finalization_implies_quorum`) and DAO accounting invariants (`echidna_dao_earnings_monotonic`, `echidna_dao_index_block_lte_current`) with touched-key and monotonic earnings/index bookkeeping.
+- `test/echidna/SSVStakingEchidna.sol`: added staking precision invariants (`echidna_cssv_transfer_settles_both`, `echidna_claim_payout_precision`, `echidna_no_free_rewards_on_transfer`) with transfer-level settlement/accrual checks.
+- `test/echidna/SSVClustersEchidna.sol`: added EB snapshot/update/fee/liquidation invariants (`echidna_eb_snapshot_block_lte_current`, `echidna_eb_snapshot_root_monotonic`, `echidna_eb_update_requires_root`, `echidna_eb_update_frequency`, `echidna_eb_update_staleness`, `echidna_fee_index_current_after_settle`, `echidna_fee_uses_old_vunits_on_eb_change`, `echidna_liquidation_clears_eb_snapshot`) and update actions with valid/invalid proof-root scenarios.
+- `B14` ("liquidation pays exact balance") remains covered by the pre-existing `echidna_liquidation_cleans_state` payout checks.
+
+Validation run:
+- `echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml` (15/15 passing)
+- `echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml` (18/18 passing)
+- `echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --config test/echidna/echidna.yaml` (17/17 passing)
+
 **Acceptance Criteria:**
-- [ ] All 16 invariants implemented and passing
-- [ ] Harness features added: prev-value tracking, touched-key arrays, 2-actor reward tracking
-- [ ] Each invariant documented in `test/echidna/README.md`
+- [x] All 16 invariants implemented and passing
+- [x] Harness features added: prev-value tracking, touched-key arrays, 2-actor reward tracking
+- [x] Each invariant documented in `test/echidna/README.md`
 
 ---
 

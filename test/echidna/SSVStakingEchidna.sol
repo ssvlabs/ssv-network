@@ -98,6 +98,7 @@ contract SSVStakingEchidna is SSVStaking {
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint256 private constant MAX_STAKE = 1_000_000 ether;
+    uint256 private constant PRECISION = 1e18;
     // Mirror SSVStaking.MAX_PENDING_REQUESTS to avoid harness-only false negatives.
     uint256 private constant MAX_PENDING_REQUESTS = 2000;
 
@@ -117,7 +118,10 @@ contract SSVStakingEchidna is SSVStaking {
     bool private invalidWithdrawSucceeded;
     bool private cssvSupplyDeltaMismatch;
     bool private userIndexSettleMismatch;
+    bool private transferSettleMismatch;
     bool private claimDeltaMismatch;
+    bool private claimPayoutPrecisionMismatch;
+    bool private freeRewardsOnTransferDetected;
     bool private payoutAccountingOverflow;
 
     uint256 private expectedCssvSupply;
@@ -237,6 +241,9 @@ contract SSVStakingEchidna is SSVStaking {
             uint64 afterDao = PackedETH.unwrap(sp.ethDaoBalance);
             uint256 afterUserBalance = address(user).balance;
             uint256 payout = afterUserBalance - beforeUserBalance;
+            if (payout % ETH_DEDUCTED_DIGITS != 0) {
+                claimPayoutPrecisionMismatch = true;
+            }
 
             if (afterPool > beforePool || afterDao > beforeDao) {
                 claimDeltaMismatch = true;
@@ -254,16 +261,48 @@ contract SSVStakingEchidna is SSVStaking {
     }
 
     function action_transfer_cssv(uint256 seed, uint8 fromSeed, uint8 toSeed) external {
+        StorageStaking storage s = SSVStorageStaking.load();
         StakingUser fromUser = _user(fromSeed);
         StakingUser toUser = _user(toSeed);
         if (address(fromUser) == address(toUser)) return;
-        uint64 beforePool = PackedETH.unwrap(SSVStorageStaking.load().stakingEthPoolBalance);
+        uint64 beforePool = PackedETH.unwrap(s.stakingEthPoolBalance);
+        address from = address(fromUser);
+        address to = address(toUser);
+        uint256 fromBalanceBefore = cssv.balanceOf(from);
+        uint256 toBalanceBefore = cssv.balanceOf(to);
+        uint256 fromIdxBefore = s.userIndex[from];
+        uint256 toIdxBefore = s.userIndex[to];
+        uint256 fromAccruedBefore = s.accrued[from];
+        uint256 toAccruedBefore = s.accrued[to];
 
-        uint256 balance = cssv.balanceOf(address(fromUser));
+        uint256 balance = fromBalanceBefore;
         if (balance == 0) return;
 
         uint256 amount = (seed % balance) + 1;
-        try fromUser.transferCSSV(address(toUser), amount) {} catch {}
+        try fromUser.transferCSSV(address(toUser), amount) {
+            uint256 accAfter = s.accEthPerShare;
+
+            if (s.userIndex[from] != accAfter || s.userIndex[to] != accAfter) {
+                transferSettleMismatch = true;
+            }
+
+            uint256 fromPending;
+            if (fromBalanceBefore != 0 && accAfter > fromIdxBefore) {
+                fromPending = (fromBalanceBefore * (accAfter - fromIdxBefore)) / PRECISION;
+            }
+
+            uint256 toPending;
+            if (toBalanceBefore != 0 && accAfter > toIdxBefore) {
+                toPending = (toBalanceBefore * (accAfter - toIdxBefore)) / PRECISION;
+            }
+
+            uint256 expectedFromAccrued = fromAccruedBefore + fromPending;
+            uint256 expectedToAccrued = toAccruedBefore + toPending;
+
+            if (s.accrued[from] != expectedFromAccrued || s.accrued[to] != expectedToAccrued) {
+                freeRewardsOnTransferDetected = true;
+            }
+        } catch {}
         _trackPoolCredit(beforePool, PackedETH.unwrap(SSVStorageStaking.load().stakingEthPoolBalance));
     }
 
@@ -405,6 +444,18 @@ contract SSVStakingEchidna is SSVStaking {
         if (accrued <= poolWei) return true;
         if (accrued > type(uint256).max - totalEthPaidOutWei) return false;
         return accrued + totalEthPaidOutWei <= totalEthCreditedWei;
+    }
+
+    function echidna_cssv_transfer_settles_both() external view returns (bool) {
+        return !transferSettleMismatch;
+    }
+
+    function echidna_claim_payout_precision() external view returns (bool) {
+        return !claimPayoutPrecisionMismatch;
+    }
+
+    function echidna_no_free_rewards_on_transfer() external view returns (bool) {
+        return !freeRewardsOnTransferDetected;
     }
 
     function _boundShrunk(uint256 seed, uint64 maxValue) internal pure returns (uint64) {

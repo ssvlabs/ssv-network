@@ -6,6 +6,7 @@ import "../../contracts/libraries/storage/SSVStorage.sol";
 import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/storage/SSVStorageStaking.sol";
+import "../../contracts/libraries/ProtocolLib.sol";
 import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "./SSVStakingEchidna.sol";
@@ -38,10 +39,13 @@ contract OracleUser {
 }
 
 contract SSVDAOEchidna is SSVDAO {
+    using ProtocolLib for StorageProtocol;
+
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 21_480;
     uint64 private constant MAX_FEE_UNITS = 1_000_000;
     uint64 private constant MAX_PERIOD = 1_000_000;
     uint16 private constant MAX_QUORUM_BPS = 10_000;
+    uint16 private constant BPS_DENOMINATOR = 10_000;
 
     MockToken private token;
 
@@ -75,10 +79,28 @@ contract SSVDAOEchidna is SSVDAO {
     uint256 private prevSsvFeeCurrentIndex;
     bool private feeIndexTrackingInitialized;
 
+    bytes32[] private touchedCommitmentKeys;
+    mapping(bytes32 => bool) private touchedCommitmentKeyExists;
+    mapping(bytes32 => uint64) private commitmentBlockByKey;
+    mapping(bytes32 => bytes32) private commitmentRootByKey;
+
+    bool private finalizedWeightNotCleared;
+    bool private commitmentWeightOverSupply;
+    bool private finalizationWithoutQuorum;
+
+    uint256 private prevEthDaoEarningsUnits;
+    uint256 private prevSsvDaoEarningsUnits;
+    uint256 private totalDaoSsvMintedUnits;
+    bool private daoEarningsTrackingInitialized;
+    bool private daoEarningsDecreased;
+    bool private daoIndexBlockInFuture;
+
     modifier trackFeeIndexMonotonicity() {
         _checkpointNetworkFeeIndices();
+        _checkpointDaoEarningsAndIndices();
         _;
         _checkpointNetworkFeeIndices();
+        _checkpointDaoEarningsAndIndices();
     }
 
     constructor() SSVDAO(address(new CSSVTokenMock(address(this)))) {
@@ -105,6 +127,7 @@ contract SSVDAOEchidna is SSVDAO {
 
         _mockSetQuorumBps(7500);
         _checkpointNetworkFeeIndices();
+        _checkpointDaoEarningsAndIndices();
     }
 
     function action_update_network_fee(uint256 seed) external trackFeeIndexMonotonicity {
@@ -194,6 +217,13 @@ contract SSVDAOEchidna is SSVDAO {
 
         sp.daoBalance = PackedSSV.wrap(currentBalance + addUnits);
         sp.daoIndexBlockNumber = uint32(block.number);
+        totalDaoSsvMintedUnits += addUnits;
+    }
+
+    function action_mint_cssv_supply(uint256 seed, uint8 userSeed) external trackFeeIndexMonotonicity {
+        uint256 units = (seed % 1_000_000) + 1;
+        uint256 amount = units * 1 ether;
+        CSSVTokenMock(CSSV_ADDRESS).mint(_cssvRecipient(userSeed), amount);
     }
 
     function action_withdraw(uint256 seed, uint8 userSeed) external trackFeeIndexMonotonicity {
@@ -350,13 +380,67 @@ contract SSVDAOEchidna is SSVDAO {
         return true;
     }
 
+    function echidna_finalized_weight_cleared() external view returns (bool) {
+        if (finalizedWeightNotCleared) return false;
+
+        StorageEB storage seb = SSVStorageEB.load();
+        uint256 count = touchedCommitmentKeys.length;
+        for (uint256 i; i < count; ++i) {
+            bytes32 key = touchedCommitmentKeys[i];
+            uint64 blockNum = commitmentBlockByKey[key];
+            bytes32 root = commitmentRootByKey[key];
+            if (root == bytes32(0)) continue;
+            if (seb.ebRoots[blockNum] == root && seb.rootCommitments[key] != 0) return false;
+        }
+        return true;
+    }
+
+    function echidna_commitment_weight_lte_supply() external view returns (bool) {
+        if (commitmentWeightOverSupply) return false;
+
+        StorageEB storage seb = SSVStorageEB.load();
+        uint256 totalSupply = IERC20(CSSV_ADDRESS).totalSupply();
+        uint256 count = touchedCommitmentKeys.length;
+        for (uint256 i; i < count; ++i) {
+            if (seb.rootCommitments[touchedCommitmentKeys[i]] > totalSupply) return false;
+        }
+        return true;
+    }
+
+    function echidna_finalization_implies_quorum() external view returns (bool) {
+        return !finalizationWithoutQuorum;
+    }
+
+    function echidna_dao_earnings_monotonic() external view returns (bool) {
+        return !daoEarningsDecreased;
+    }
+
+    function echidna_dao_index_block_lte_current() external view returns (bool) {
+        if (daoIndexBlockInFuture) return false;
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        return sp.ethDaoIndexBlockNumber <= block.number && sp.daoIndexBlockNumber <= block.number;
+    }
+
     function _attemptCommit(OracleUser oracle, bytes32 root, uint64 blockNum) internal {
         StorageStaking storage s = SSVStorageStaking.load();
+        StorageEB storage seb = SSVStorageEB.load();
         uint32 oracleId = s.oracleIdOf[address(oracle)];
         bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, root));
         bool alreadyVoted = localVotes[commitmentKey][oracleId];
 
-        uint64 latestBefore = SSVStorageEB.load().latestCommittedBlock;
+        uint64 latestBefore = seb.latestCommittedBlock;
+        uint256 totalSupply = IERC20(CSSV_ADDRESS).totalSupply();
+        uint256 threshold = (totalSupply * s.quorumBps) / BPS_DENOMINATOR;
+        uint256 weight = totalSupply / s.defaultOracleIds.length;
+        uint256 beforeWeight = seb.rootCommitments[commitmentKey];
+
+        if (!touchedCommitmentKeyExists[commitmentKey]) {
+            touchedCommitmentKeyExists[commitmentKey] = true;
+            touchedCommitmentKeys.push(commitmentKey);
+        }
+        commitmentBlockByKey[commitmentKey] = blockNum;
+        commitmentRootByKey[commitmentKey] = root;
 
         try oracle.commitRoot(root, blockNum) {
             if (oracleId == 0) nonOracleCommitSucceeded = true;
@@ -365,6 +449,19 @@ contract SSVDAOEchidna is SSVDAO {
             if (alreadyVoted) duplicateVoteSucceeded = true;
 
             localVotes[commitmentKey][oracleId] = true;
+
+            if (seb.rootCommitments[commitmentKey] > IERC20(CSSV_ADDRESS).totalSupply()) {
+                commitmentWeightOverSupply = true;
+            }
+
+            if (seb.ebRoots[blockNum] == root && root != bytes32(0)) {
+                if (seb.rootCommitments[commitmentKey] != 0) {
+                    finalizedWeightNotCleared = true;
+                }
+                if (beforeWeight + weight < threshold) {
+                    finalizationWithoutQuorum = true;
+                }
+            }
 
             _syncLatestCommittedBlock();
             lastCommitRoot = root;
@@ -419,6 +516,14 @@ contract SSVDAOEchidna is SSVDAO {
         return uint64(seed % (uint256(maxValue) + 1));
     }
 
+    function _cssvRecipient(uint8 seed) internal view returns (address) {
+        uint8 idx = seed % 4;
+        if (idx == 0) return address(user1);
+        if (idx == 1) return address(user2);
+        if (idx == 2) return address(oracle1);
+        return address(oracle2);
+    }
+
     function _checkpointNetworkFeeIndices() internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
@@ -446,6 +551,34 @@ contract SSVDAOEchidna is SSVDAO {
 
         prevEthFeeCurrentIndex = ethCurrent;
         prevSsvFeeCurrentIndex = ssvCurrent;
+    }
+
+    function _checkpointDaoEarningsAndIndices() internal {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (sp.ethDaoIndexBlockNumber > block.number || sp.daoIndexBlockNumber > block.number) {
+            daoIndexBlockInFuture = true;
+            return;
+        }
+
+        uint256 ethEarningsUnits = PackedETH.unwrap(sp.networkTotalEarnings());
+        uint256 daoBalanceUnits = PackedSSV.unwrap(sp.daoBalance);
+        uint256 withdrawnUnits = totalDaoSsvMintedUnits >= daoBalanceUnits ? totalDaoSsvMintedUnits - daoBalanceUnits : 0;
+        uint256 ssvEarningsUnits = PackedSSV.unwrap(sp.networkTotalEarningsSSV()) + withdrawnUnits;
+
+        if (!daoEarningsTrackingInitialized) {
+            prevEthDaoEarningsUnits = ethEarningsUnits;
+            prevSsvDaoEarningsUnits = ssvEarningsUnits;
+            daoEarningsTrackingInitialized = true;
+            return;
+        }
+
+        if (ethEarningsUnits < prevEthDaoEarningsUnits || ssvEarningsUnits < prevSsvDaoEarningsUnits) {
+            daoEarningsDecreased = true;
+        }
+
+        prevEthDaoEarningsUnits = ethEarningsUnits;
+        prevSsvDaoEarningsUnits = ssvEarningsUnits;
     }
 
     function _mockSetToken(address tokenAddress) internal {

@@ -36,12 +36,12 @@ test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
 ├── SSVOperatorsEchidna.sol           # Operators invariants (19 tests)
-├── SSVClustersEchidna.sol            # Clusters invariants (9 tests)
+├── SSVClustersEchidna.sol            # Clusters invariants (17 tests)
 ├── SSVAccountingEchidna.sol          # System accounting invariants (4 tests)
 ├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (4 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
-├── SSVStakingEchidna.sol             # Staking invariants (12 tests)
-├── SSVDAOEchidna.sol                 # DAO invariants (13 tests)
+├── SSVStakingEchidna.sol             # Staking invariants (15 tests)
+├── SSVDAOEchidna.sol                 # DAO invariants (18 tests)
 ├── echidna.yaml
 ├── run-echidna.sh
 └── README.md
@@ -93,7 +93,7 @@ test/echidna/
 | `echidna_remove_cleans_state` | Removal zeroes operator state |
 | `echidna_remove_pays_out` | Removal pays out and reduces holdings |
 
-## SSVClustersEchidna (9 Invariants)
+## SSVClustersEchidna (17 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -106,6 +106,14 @@ test/echidna/
 | `echidna_liquidation_cleans_state` | Liquidation zeroes cluster and pays out |
 | `echidna_reactivate_requires_inactive` | Reactivation only from inactive |
 | `echidna_dust_liquidation_reachable` | Dust balances become liquidatable after burn |
+| `echidna_eb_snapshot_block_lte_current` | EB snapshot update block never exceeds current block |
+| `echidna_eb_snapshot_root_monotonic` | Cluster EB root block number never decreases |
+| `echidna_eb_update_requires_root` | EB update cannot succeed without a committed root |
+| `echidna_eb_update_frequency` | EB update frequency limit is enforced |
+| `echidna_eb_update_staleness` | EB updates reject stale root block numbers |
+| `echidna_fee_index_current_after_settle` | Cluster fee indices settle to current protocol indices |
+| `echidna_fee_uses_old_vunits_on_eb_change` | Fee settlement on EB change uses pre-update vUnits |
+| `echidna_liquidation_clears_eb_snapshot` | Liquidation clears EB snapshot vUnits |
 
 ## SSVAccountingEchidna (4 Invariants)
 
@@ -138,7 +146,7 @@ test/echidna/
 | `echidna_owner_only_remove` | Only owner can remove validators |
 | `echidna_owner_only_exit` | Only owner can exit validators |
 
-## SSVStakingEchidna (12 Invariants)
+## SSVStakingEchidna (15 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -153,9 +161,11 @@ test/echidna/
 | `echidna_pending_requests_bounded` | Withdrawal request count stays within bounds |
 | `echidna_user_index_leq_acc` | User index never exceeds global accumulator |
 | `echidna_accrued_within_pool` | Accrued rewards stay within pool balance |
-| `echidna_oracle_weights_match_supply` | Oracle weights sum equals cSSV supply |
+| `echidna_cssv_transfer_settles_both` | cSSV transfer settles sender and receiver reward indices |
+| `echidna_claim_payout_precision` | Claimed ETH payout always respects packing precision |
+| `echidna_no_free_rewards_on_transfer` | Transfers cannot move already-accrued rewards between users |
 
-## SSVDAOEchidna (13 Invariants)
+## SSVDAOEchidna (18 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -172,80 +182,17 @@ test/echidna/
 | `echidna_commit_root_not_stale` | Commit block is newer than last committed |
 | `echidna_committed_block_monotonic` | Latest committed block is monotonic |
 | `echidna_oracle_mapping_consistent` | Oracle ID mappings remain consistent |
+| `echidna_finalized_weight_cleared` | Finalized commitment keys clear accumulated weight |
+| `echidna_commitment_weight_lte_supply` | Commitment weight never exceeds cSSV total supply |
+| `echidna_finalization_implies_quorum` | Root finalization only happens at/above quorum threshold |
+| `echidna_dao_earnings_monotonic` | Gross DAO earnings do not decrease over time |
+| `echidna_dao_index_block_lte_current` | DAO index block numbers never exceed current block |
 
 ---
 
-## Planned Invariants (Not Yet Implemented)
+## Planned Invariants (Remaining)
 
-Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the 73 existing invariants above. Only invariants that are **not already covered** are listed below. Grouped by priority.
-
-### Strengthen Existing (partial coverage → full)
-
-These existing invariants should be upgraded to catch more subtle bugs:
-
-| Existing Property | Upgrade | Ref |
-|---|---|---|
-| `echidna_network_fee_matches_expected` | Add explicit monotonicity: track `prevEthIndex` / `prevSsvIndex` in harness, assert never decreases | A8 |
-| `echidna_cssv_supply_matches_users` | Add per-operation delta: on stake `amount`, assert cSSV supply increased by exactly `amount` | A11 |
-| `echidna_user_index_leq_acc` | Strengthen to exact equality: after `_settle(user)`, assert `userIndex[user] == accEthPerShare` | A14 |
-| `echidna_pool_matches_dao_balance` | Add per-claim delta: on successful claim of `payout`, assert both `stakingEthPoolBalance` and `ethDaoBalance` decreased by exactly `payout` | A16 |
-| `echidna_accrued_within_pool` | Add cumulative tracking: wrap `claimEthRewards` to track `totalEthPaidOut`, assert `totalEthPaidOut <= totalEthCredited` | C2 |
-
-### High Priority — New Invariants
-
-Directly testable with current harness patterns. High bug-catching value.
-
-#### Oracle / EB Governance
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_finalized_weight_cleared` | Always | If `ebRoots[blockNum] == root != 0`, then `rootCommitments[key] == 0` — prevents re-finalization | A4 |
-| `echidna_commitment_weight_lte_supply` | Always | For each tracked `commitmentKey`, `rootCommitments[key] <= cSSV.totalSupply()` — catches quorum overflow | A5 |
-| `echidna_finalization_implies_quorum` | Conditional | At finalization time, accumulated weight >= `threshold(totalSupply, quorumBps)` — catches quorum bypass | B1 |
-
-#### DAO Accounting
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_dao_earnings_monotonic` | Always | `networkTotalEarnings()` (ETH) and `networkTotalEarningsSSV()` never decrease as `block.number` advances — catches settlement regression | A9 |
-| `echidna_dao_index_block_lte_current` | Always | `ethDaoIndexBlockNumber <= block.number` and `daoIndexBlockNumber <= block.number` — catches "time-travel" indices | A10 |
-
-#### Staking Rewards Precision
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_cssv_transfer_settles_both` | Always | After `onCSSVTransfer(from, to, amount)`, both `userIndex[from]` and `userIndex[to]` equal `accEthPerShare` — catches reward smuggling via transfer | A15 |
-| `echidna_claim_payout_precision` | Always | Any successful claim `payout` satisfies `payout % ETH_DEDUCTED_DIGITS == 0` — catches precision bypass | A17 |
-| `echidna_no_free_rewards_on_transfer` | Candidate | cSSV transfer does not move already-accrued rewards from sender to receiver — catches reward smuggling (needs 2-actor before/after tracking) | C3 |
-
-#### EB Snapshot Safety
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_eb_snapshot_block_lte_current` | Always | `clusterEB[id].lastUpdateBlock <= block.number` — catches future-dated EB snapshots | A18 |
-| `echidna_eb_snapshot_root_monotonic` | Always | `clusterEB[id].lastRootBlockNum` never decreases per cluster — catches stale proof replay | A19 |
-
-#### EB Update Correctness
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_eb_update_requires_root` | Conditional | `updateClusterBalance(blockNum, ...)` succeeds only if `ebRoots[blockNum] != 0` | B3 |
-| `echidna_eb_update_frequency` | Conditional | Same cluster cannot update twice within `minBlocksBetweenUpdates` — second update reverts | B4 |
-| `echidna_eb_update_staleness` | Conditional | Successful update requires `blockNum > lastRootBlockNum` for that cluster | B5 |
-
-#### Fee Settlement Correctness
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_fee_index_current_after_settle` | Conditional | After ETH cluster fee settlement, stored fee indices equal protocol "current" indices | B9 |
-| `echidna_fee_uses_old_vunits_on_eb_change` | Conditional | When EB update changes vUnits, fees for elapsed period use old vUnits, not new | B11 |
-
-#### Liquidation Completeness
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_liquidation_clears_eb_snapshot` | Conditional | After liquidation, `clusterEB[clusterId].vUnits == 0` — catches stale EB after liquidation | B13 |
-| `echidna_liquidation_pays_exact_balance` | Conditional | ETH paid to liquidator equals cluster balance at liquidation time — catches over/underpayment | B14 |
+Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the current implemented suite (FUZZ-1 and FUZZ-2 complete). Only invariants that are **still not covered** are listed below.
 
 ### Medium Priority — New Invariants
 
