@@ -36,7 +36,7 @@ test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
 ├── SSVOperatorsEchidna.sol           # Operators invariants (19 tests)
-├── SSVClustersEchidna.sol            # Clusters invariants (17 tests)
+├── SSVClustersEchidna.sol            # Clusters invariants (18 tests)
 ├── SSVAccountingEchidna.sol          # System accounting invariants (4 tests)
 ├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (4 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
@@ -93,7 +93,7 @@ test/echidna/
 | `echidna_remove_cleans_state` | Removal zeroes operator state |
 | `echidna_remove_pays_out` | Removal pays out and reduces holdings |
 
-## SSVClustersEchidna (17 Invariants)
+## SSVClustersEchidna (18 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -114,6 +114,7 @@ test/echidna/
 | `echidna_fee_index_current_after_settle` | Cluster fee indices settle to current protocol indices |
 | `echidna_fee_uses_old_vunits_on_eb_change` | Fee settlement on EB change uses pre-update vUnits |
 | `echidna_liquidation_clears_eb_snapshot` | Liquidation clears EB snapshot vUnits |
+| `echidna_eth_balance_accounting` | ETH balance covers cluster, operator, DAO, and staking liabilities |
 
 ## SSVAccountingEchidna (4 Invariants)
 

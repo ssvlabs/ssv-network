@@ -7,12 +7,13 @@ import "../../contracts/interfaces/ISSVNetworkCore.sol";
 import "../../contracts/libraries/storage/SSVStorage.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/storage/SSVStorageEB.sol";
+import "../../contracts/libraries/storage/SSVStorageStaking.sol";
 import "../../contracts/libraries/ClusterLib.sol";
 import "../../contracts/libraries/OperatorLib.sol";
 import "../../contracts/libraries/ProtocolLib.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-import {PackedETHLib, PackedSSVLib} from "../../contracts/libraries/SSVPackedLib.sol";
+import {PackedETHLib, PackedSSVLib, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
 import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract ClusterUser {
@@ -70,6 +71,7 @@ contract SSVClustersEchidna is SSVClusters {
     uint64 private constant MIN_BLOCKS_BEFORE_LIQUIDATION = 2;
     uint32 private constant MAX_ADVANCE_BLOCKS = 8;
     uint32 private constant MIN_BLOCKS_BETWEEN_UPDATES = 2;
+    uint32 private constant SOLVENCY_BLOCK_WINDOW = 1_000_000;
 
     ClusterUser private owner1;
     ClusterUser private owner2;
@@ -383,6 +385,25 @@ contract SSVClustersEchidna is SSVClusters {
 
         uint256 available = _availableBalance();
         uint256 amount = _boundAmount(seed >> 8, available);
+        if (amount == 0) return;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        uint256 burnRate = 0;
+        for (uint256 i; i < operatorIds.length; ++i) {
+            burnRate += PackedETH.unwrap(s.operators[operatorIds[i]].ethFee);
+        }
+
+        uint256 minPerBlock = (burnRate + PackedETH.unwrap(sp.ethNetworkFee)) * uint256(record.cluster.validatorCount) * ETH_DEDUCTED_DIGITS;
+        uint256 minRequired = minPerBlock * SOLVENCY_BLOCK_WINDOW;
+        if (minRequired == 0) {
+            minRequired = ETH_DEDUCTED_DIGITS;
+        }
+        if (amount < minRequired) {
+            amount = minRequired;
+        }
+        if (amount > available) return;
 
         try owner.reactivate{value: amount}(operatorIds, cluster) {
             record.cluster.active = true;
@@ -624,6 +645,19 @@ contract SSVClustersEchidna is SSVClusters {
         return sum == totalExpectedBalance;
     }
 
+    function echidna_eth_balance_accounting() external view returns (bool) {
+        (uint256 liabilities, bool ok) = _addNoOverflow(totalExpectedBalance, _sumTrackedOperatorEthEarnings());
+        if (!ok) return false;
+
+        (liabilities, ok) = _addNoOverflow(liabilities, _daoEthBalance());
+        if (!ok) return false;
+
+        (liabilities, ok) = _addNoOverflow(liabilities, _stakingEthPoolBalance());
+        if (!ok) return false;
+
+        return address(this).balance >= liabilities;
+    }
+
     function echidna_withdraw_limit_enforced() external view returns (bool) {
         return !overWithdrawSucceeded;
     }
@@ -774,6 +808,33 @@ contract SSVClustersEchidna is SSVClusters {
     function _availableBalance() internal view returns (uint256) {
         if (address(this).balance <= totalExpectedBalance) return 0;
         return address(this).balance - totalExpectedBalance;
+    }
+
+    function _sumTrackedOperatorEthEarnings() internal view returns (uint256) {
+        StorageData storage s = SSVStorage.load();
+        uint256 sum = 0;
+
+        uint64[3] memory ids = [op1, op2, op3];
+        for (uint256 i; i < ids.length; ++i) {
+            sum += PackedETHLib.unpack(s.operators[ids[i]].ethSnapshot.balance);
+        }
+
+        return sum;
+    }
+
+    function _daoEthBalance() internal view returns (uint256) {
+        return PackedETHLib.unpack(SSVStorageProtocol.load().ethDaoBalance);
+    }
+
+    function _stakingEthPoolBalance() internal view returns (uint256) {
+        return PackedETHLib.unpack(SSVStorageStaking.load().stakingEthPoolBalance);
+    }
+
+    function _addNoOverflow(uint256 a, uint256 b) internal pure returns (uint256 sum, bool ok) {
+        unchecked {
+            sum = a + b;
+        }
+        ok = sum >= a;
     }
 
     function _boundAmount(uint256 seed, uint256 maxValue) internal pure returns (uint256) {
