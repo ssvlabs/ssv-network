@@ -151,9 +151,13 @@ describe("SSVClusters function `withdraw()`", async () => {
     const idxNet = maxUint64 - clusterBeforeWithdraw.networkFeeIndex;
     const usageUnits = (idxOp * units) / VUNITS_PRECISION + (idxNet * units) / VUNITS_PRECISION;
     const wrappedUsageUnits = usageUnits & maxUint64;
+    const overflowUnits = usageUnits >> 64n;
+    const expectedUsageFromWrapped = wrappedUsageUnits + (overflowUnits << 64n);
+    const expectedBalanceIfUint64Truncated = clusterBeforeWithdraw.balance - wrappedUsageUnits * 100_000n;
 
-    expect(usageUnits).to.be.greaterThan(maxUint64);
-    expect(wrappedUsageUnits * 100_000n).to.be.lessThan(clusterBeforeWithdraw.balance);
+    expect(overflowUnits).to.equal(1n);
+    expect(usageUnits).to.equal(expectedUsageFromWrapped);
+    expect(expectedBalanceIfUint64Truncated).to.not.equal(clusterAfterWithdraw.balance);
     expect(clusterAfterWithdraw.balance).to.equal(0n);
   });
 
