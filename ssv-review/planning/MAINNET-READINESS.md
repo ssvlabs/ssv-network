@@ -1,7 +1,7 @@
 # SSV Network v2.0.0 — Mainnet Readiness Checklist
 
 **Generated:** 2026-02-17
-**Updated:** 2026-02-17 (new audit findings folded in)
+**Updated:** 2026-03-03 (closed TEST-20 with staking cooldown-change coverage)
 **Sources:** Verified bug report, verified test coverage gap analysis, verified scripts & ops audit, DIP-X vs implementation review reports (ETH Payments, Effective Balance, SSV Staking)
 **Branch:** `ssv-staking` (base for all feature branches)
 
@@ -63,7 +63,7 @@
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
 | TEST-19 | ~~Operator removal impact on active ETH clusters~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-19a | Operator removal impact on active ETH clusters (edge cases) | Unit Test Completeness | P1 | S |
-| TEST-20 | Cooldown duration changes affecting pending requests | Unit Test Completeness | P1 | S |
+| TEST-20 | ~~Cooldown duration changes affecting pending requests~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-21 | ~~EB boundary values (min/max per validator)~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-22 | ~~Dust/precision edge cases~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-23 | ~~Max operator count (13) with EB~~ | Unit Test Completeness | P2 | ✅ Closed |
@@ -1935,12 +1935,12 @@ it("removed operator can withdraw frozen earnings", async () => {
 ---
 
 
-### [TEST-20] Cooldown duration changes affecting pending requests
+### [TEST-20] ~~Cooldown duration changes affecting pending requests~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Closed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-03
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -1949,9 +1949,16 @@ Test how changes to `cooldownDuration` affect pending unstake withdrawal request
 **Context:**
 `setUnstakeCooldownDuration` is tested for storage but not for impact on existing pending requests.
 
+**Resolution:**
+Added direct coverage for cooldown-change behavior on existing pending unstake requests in staking unit tests:
+- cooldown reduction after request creation does not unlock existing request early
+- cooldown increase after request creation preserves original unlock time
+
+This matches the `test(staking): cover cooldown updates on pending unstake requests` change and validates that `unlockTime` is fixed at request creation.
+
 **Acceptance Criteria:**
-- [ ] Test: User requests unstake, DAO reduces cooldown → can user withdraw earlier?
-- [ ] Test: User requests unstake, DAO increases cooldown → does user's original unlock time hold?
+- [x] Test: User requests unstake, DAO reduces cooldown → can user withdraw earlier?
+- [x] Test: User requests unstake, DAO increases cooldown → does user's original unlock time hold?
 
 **Agent Instructions:**
 1. Read `test/unit/SSVStaking/requestUnstake.test.ts` and `test/unit/SSVStaking/withdrawUnlocked.test.ts`.
@@ -1960,8 +1967,8 @@ Test how changes to `cooldownDuration` affect pending unstake withdrawal request
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Cooldown reduction — earlier withdrawal test
-- [ ] Sub-task 2: Cooldown increase — original unlock time test
+- [x] Sub-task 1: Cooldown reduction — earlier withdrawal test
+- [x] Sub-task 2: Cooldown increase — original unlock time test
 
 ---
 
