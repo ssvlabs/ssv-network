@@ -23,6 +23,7 @@
 | BUG-10 | ~~Remove liquidation check in `withdraw` function~~ | Critical Bug Fix | P2 | ✅ Fixed |
 | BUG-11 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
 | BUG-12 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
+| BUG-13 | Silent default ETH fee assignment for legacy operators during migration | Observability Fix | P2 | ✅ Fixed (PR #502) |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -3249,6 +3250,77 @@ The fix requires branching `_bulkRemoveValidator` on `version`: for `VERSION_SSV
 - [ ] Sub-task 3: Implement SSV cluster removal path
 - [ ] Sub-task 4: Add unit tests
 - [ ] Sub-task 5: Update FLOWS.md §1.3 and §1.4
+
+---
+
+### [BUG-13] Silent default ETH fee assignment for legacy operators during migration
+- **Type:** Observability Fix
+- **Priority:** P2
+- **Status:** ✅ Fixed
+- **Owner:** Claude Code
+- **Timeline:** 2026-03-04
+- **Github Link:** [PR #502](https://github.com/ssvlabs/ssv-network/pull/502)
+
+**Requirement:**
+Emit `OperatorFeeExecuted` event when legacy SSV operators receive the default ETH fee (1_770_000_000 wei/vUnit/block) during migration to ETH operations.
+
+**Context:**
+When legacy SSV operators (operators with `operator.ethSnapshot.block == 0` and `operator.fee != 0`) first interact with ETH clusters (via `registerValidator`, `migrateClusterToETH`, or `declareOperatorFee`), the `ensureETHDefaults` function in `OperatorLib.sol` automatically assigns `DEFAULT_OPERATOR_ETH_FEE` to `operator.ethFee`. Previously, this assignment was silent — no event was emitted.
+
+This created an observability gap for indexers and offchain services:
+- No way to track when operators receive default ETH fees
+- Difficult to distinguish between default fee assignment and explicit fee declarations
+- Indexers had to infer fee values from storage rather than events
+
+**Solution (PR #502):**
+Modified `ensureETHDefaults` to:
+1. Accept `operatorId` as a parameter (previously had no params)
+2. Emit `OperatorFeeExecuted(operator.owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE)` when assigning default fee
+3. Updated all callsites to pass `operatorId`:
+   - `OperatorLib.updateClusterOperatorsOnRegistration` (line 201)
+   - `OperatorLib.updateClusterOperatorsMigration` (line 396)
+   - `SSVOperators.declareOperatorFee` (line 107)
+
+**Code Changes:**
+- `contracts/libraries/OperatorLib.sol:143`: Modified function signature and added event emission
+- `contracts/libraries/OperatorLib.sol:201,396`: Updated callsites
+- `contracts/modules/SSVOperators.sol:107`: Updated callsite
+
+**Benefits:**
+- ✅ Indexers can track all operator fee changes via events (consistent observability)
+- ✅ Backward compatible (reuses existing `OperatorFeeExecuted` event signature)
+- ✅ Idempotent (event emitted only once per operator due to `ethSnapshot.block` guard)
+- ✅ Bug fix bonus: Removed duplicate `if (operator.ethSnapshot.block == 0)` check
+
+**Security Analysis:**
+- ✅ No vulnerabilities (LOW risk)
+- ✅ Idempotency guaranteed (guard prevents re-execution)
+- ✅ State consistency (event emitted after state changes)
+- ✅ No reentrancy risk (internal function, no external calls)
+- ✅ Event parameters trustworthy (`operator.owner`, `operatorId`, `block.number`, constant)
+
+**Test Coverage:**
+- ✅ Migration path: [migrateClusterToETH.test.ts:101-132](test/unit/SSVClusters/migrateClusterToETH.test.ts#L101-L132)
+- ✅ Register validator path: [registerValidator.test.ts:65-81](test/unit/SSVValidator/registerValidator.test.ts#L65-L81)
+- ✅ Declare fee path: [declareOperatorFee.test.ts:140-158](test/unit/SSVOperators/declareOperatorFee.test.ts#L140-L158)
+- ✅ Idempotency: [migrateClusterToETH.test.ts:134-197](test/unit/SSVClusters/migrateClusterToETH.test.ts#L134-L197) — NEW TEST
+
+**Acceptance Criteria:**
+- [x] `ensureETHDefaults` emits `OperatorFeeExecuted` when assigning default ETH fee to legacy operators
+- [x] Event parameters correct: `(operator.owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE)`
+- [x] Event emitted only once per operator (idempotent)
+- [x] All three call paths tested (migration, register, declare)
+- [x] Idempotency test added
+- [x] Security analysis confirms LOW risk
+- [x] Backward compatible (no event signature changes)
+- [x] Gas impact acceptable (~1500 gas per operator, one-time)
+
+#### Sub-items:
+- [x] Modify `ensureETHDefaults` to accept `operatorId` and emit event
+- [x] Update all callsites (3 locations)
+- [x] Add idempotency test
+- [x] Security review (ssv-bug-fixer)
+- [x] Test coverage review (ssv-test-writer)
 
 ---
 

@@ -104,7 +104,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         if (fee != 0 && fee < PackedETHLib.unpack(sp.minimumOperatorEthFee)) revert FeeTooLow();
         if (fee > PackedETHLib.unpack(sp.operatorMaxFee)) revert FeeTooHigh();
         if (s.operators[operatorId].ethSnapshot.block == 0) {
-            s.operators[operatorId].ensureETHDefaults();
+            s.operators[operatorId].ensureETHDefaults(operatorId);
         }
         PackedSSV operatorSSVFee = s.operators[operatorId].fee;
         PackedETH operatorFee = s.operators[operatorId].ethFee;
