@@ -52,31 +52,32 @@
 | TEST-7 | ~~Reentrancy in staking functions~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #452) |
 | TEST-8 | ~~Forbid creating clusters with removed operators~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #453) |
 | TEST-9 | ~~Migration balance accounting verification~~ | Unit Test Completeness | P1 | ✅ Done |
-| TEST-10 | Operator fee change + EB burn rate interaction | Unit Test Completeness | P1 | M |
+| TEST-10 | ~~Operator fee change + EB burn rate interaction~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-11 | ~~Network fee update impact on active clusters~~ | Unit Test Completeness | P1 | ✅ Done |
-| TEST-12 | Multi-staker reward fairness | Unit Test Completeness | P1 | M |
-| TEST-13 | Liquidation + reactivation multi-cycle accounting | Unit Test Completeness | P1 | M |
-| TEST-14 | Reactivation with EB deviation solvency check | Unit Test Completeness | P1 | S |
+| TEST-12 | ~~Multi-staker reward fairness~~ | Unit Test Completeness | P1 | ✅ Done |
+| TEST-13 | ~~Liquidation + reactivation multi-cycle accounting~~ | Unit Test Completeness | P1 | ✅ Done |
+| TEST-14 | ~~Reactivation with EB deviation solvency check~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-15 | SSV cluster operations completeness | Unit Test Completeness | P1 | M |
 | TEST-16 | View function coverage (SSVViews) | Unit Test Completeness | P1 | ✅ Fixed |
 | TEST-17 | Staking rewards from EB-weighted cluster fees | Unit Test Completeness | P1 | S |
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
-| TEST-19 | Operator removal impact on active ETH clusters | Unit Test Completeness | P1 | S |
+| TEST-19 | ~~Operator removal impact on active ETH clusters~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
+| TEST-19a | Operator removal impact on active ETH clusters (edge cases) | Unit Test Completeness | P1 | S |
 | TEST-20 | Cooldown duration changes affecting pending requests | Unit Test Completeness | P1 | S |
-| TEST-21 | EB boundary values (min/max per validator) | Unit Test Completeness | P2 | S |
-| TEST-22 | Dust/precision edge cases | Unit Test Completeness | P2 | S |
-| TEST-23 | Max operator count (13) with EB | Unit Test Completeness | P2 | S |
-| TEST-24 | Idempotency and double-operation checks | Unit Test Completeness | P2 | S |
-| TEST-25 | Upgrade path (reinitializer) tests | Unit Test Completeness | P2 | S |
-| TEST-26 | Zero-validator cluster operations | Unit Test Completeness | P2 | S |
-| TEST-27 | Operator at max validator limit | Unit Test Completeness | P2 | S |
+| TEST-21 | ~~EB boundary values (min/max per validator)~~ | Unit Test Completeness | P2 | ✅ Closed |
+| TEST-22 | ~~Dust/precision edge cases~~ | Unit Test Completeness | P2 | ✅ Closed |
+| TEST-23 | ~~Max operator count (13) with EB~~ | Unit Test Completeness | P2 | ✅ Closed |
+| TEST-24 | ~~Idempotency and double-operation checks~~ | Unit Test Completeness | P2 | ✅ Closed |
+| TEST-25 | ~~Upgrade path (reinitializer) tests~~ | Unit Test Completeness | P2 | ✅ Closed |
+| TEST-26 | ~~Zero-validator cluster operations~~ | Unit Test Completeness | P2 | ✅ Closed |
+| TEST-27 | ~~Operator at max validator limit~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
-| TEST-29 | Add contract ETH balance delta assertions to deposit tests | Unit Test Completeness | P1 | S |
+| TEST-29 | ~~Add contract ETH balance delta assertions to deposit tests~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-30 | Resolve TODO comments with deferred assertions | Unit Test Completeness | P1 | M |
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
-| TEST-32 | Add access control tests for DAO governance functions | Unit Test Completeness | P1 | S |
+| TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
-| TEST-34 | Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract | Unit Test Completeness | P1 | S |
+| TEST-34 | ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~ | Unit Test Completeness | P1 | ✅ Done |
 | ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
 | DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
@@ -1544,10 +1545,10 @@ Migration tests verify events and state but don't verify exact token transfer am
 
 ---
 
-### [TEST-10] Operator fee change + EB burn rate interaction
+### [TEST-10] ~~Operator fee change + EB burn rate interaction~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1559,9 +1560,9 @@ Add tests combining operator fee changes (declare/execute/reduce) with EB-weight
 No tests combine operator fee changes with EB-weighted clusters. The burn rate depends on both operator fee and vUnits, and fee changes must properly settle the old rate before applying the new one.
 
 **Acceptance Criteria:**
-- [ ] Test: Operator increases fee while serving EB=64 cluster → verify burn rate doubles
-- [ ] Test: Operator reduces fee with EB-weighted cluster → verify savings reflected
-- [ ] Test: Fee execution changes mid-block for EB-weighted cluster → verify boundary accounting
+- [x] Test: Operator increases fee while serving EB=64 cluster → verify burn rate doubles
+- [x] Test: Operator reduces fee with EB-weighted cluster → verify savings reflected
+- [x] Test: Fee execution changes mid-block for EB-weighted cluster → verify boundary accounting
 
 **Agent Instructions:**
 1. Read `test/unit/SSVOperators/declareOperatorFee.test.ts` and `test/unit/SSVOperators/executeOperatorFee.test.ts`.
@@ -1570,9 +1571,9 @@ No tests combine operator fee changes with EB-weighted clusters. The burn rate d
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Fee increase with EB-weighted cluster
-- [ ] Sub-task 2: Fee reduction with EB-weighted cluster
-- [ ] Sub-task 3: Fee change boundary accounting
+- [x] Sub-task 1: Fee increase with EB-weighted cluster
+- [x] Sub-task 2: Fee reduction with EB-weighted cluster
+- [x] Sub-task 3: Fee change boundary accounting
 
 ---
 
@@ -1611,7 +1612,7 @@ DAO parameter tests verify storage changes but not enforcement on active cluster
 ### [TEST-12] Multi-staker reward fairness
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1623,10 +1624,10 @@ Add comprehensive multi-staker scenarios testing proportional reward distributio
 `onCSSVTransfer` has only 2 tests. Staking integration tests have basic proportional distribution but don't test complex scenarios with multiple stakers entering/exiting at different times or transferring cSSV.
 
 **Acceptance Criteria:**
-- [ ] Test: 3 stakers with different amounts → each receives exactly proportional rewards
-- [ ] Test: Staker A stakes, rewards accrue, staker B stakes → A gets both periods, B gets only second
-- [ ] Test: cSSV transfer from A to B → verify reward settlement for both, B earns at higher rate
-- [ ] Test: Sequential cSSV transfers A→B→C → verify accumulated rewards at each step
+- [x] Test: 3 stakers with different amounts → each receives exactly proportional rewards
+- [x] Test: Staker A stakes, rewards accrue, staker B stakes → A gets both periods, B gets only second
+- [x] Test: cSSV transfer from A to B → verify reward settlement for both, B earns at higher rate
+- [x] Test: Sequential cSSV transfers A→B→C → verify accumulated rewards at each step
 
 **Agent Instructions:**
 1. Read `test/unit/SSVStaking/claimEthRewards.test.ts` and `test/unit/SSVStaking/onCSSVTransfer.test.ts`.
@@ -1636,17 +1637,17 @@ Add comprehensive multi-staker scenarios testing proportional reward distributio
 5. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Three-staker proportional distribution
-- [ ] Sub-task 2: Time-weighted staking (A early, B late)
-- [ ] Sub-task 3: cSSV transfer settlement
-- [ ] Sub-task 4: Sequential cSSV transfer chain
+- [x] Sub-task 1: Three-staker proportional distribution
+- [x] Sub-task 2: Time-weighted staking (A early, B late)
+- [x] Sub-task 3: cSSV transfer settlement
+- [x] Sub-task 4: Sequential cSSV transfer chain
 
 ---
 
 ### [TEST-13] Liquidation + reactivation multi-cycle accounting
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1658,8 +1659,8 @@ Add tests for multiple liquidation/reactivation cycles to verify no accounting d
 Only single liquidation/reactivation cycles are tested. Over multiple cycles, rounding errors or state leakage could accumulate.
 
 **Acceptance Criteria:**
-- [ ] Test: Liquidate → reactivate → operate → liquidate → reactivate → verify cumulative balances, no drift
-- [ ] Test: Operator earnings across multiple liquidation cycles → verify no double-counting
+- [x] Test: Liquidate → reactivate → operate → liquidate → reactivate → verify cumulative balances, no drift
+- [x] Test: Operator earnings across multiple liquidation cycles → verify no double-counting
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/liquidate.test.ts` and `test/unit/SSVClusters/reactivate.test.ts`.
@@ -1668,15 +1669,15 @@ Only single liquidation/reactivation cycles are tested. Over multiple cycles, ro
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Multi-cycle liquidation/reactivation accounting
-- [ ] Sub-task 2: Operator earnings across cycles
+- [x] Sub-task 1: Multi-cycle liquidation/reactivation accounting
+- [x] Sub-task 2: Operator earnings across cycles
 
 ---
 
 ### [TEST-14] Reactivation with EB deviation solvency check
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1688,8 +1689,8 @@ Test that reactivation solvency checks account for EB-weighted burn rate.
 Reactivate tests don't verify that the minimum deposit scales with vUnits. A cluster with EB=2048 has 64x the burn rate and should require a proportionally higher deposit.
 
 **Acceptance Criteria:**
-- [ ] Test: Reactivate cluster with EB=64 → verify minimum deposit requirement scales with 2x vUnits
-- [ ] Test: Reactivate with EB=2048 → verify high deposit requirement enforced
+- [x] Test: Reactivate cluster with EB=64 → verify minimum deposit requirement scales with 2x vUnits
+- [x] Test: Reactivate with EB=2048 → verify high deposit requirement enforced
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/reactivate.test.ts`.
@@ -1698,8 +1699,8 @@ Reactivate tests don't verify that the minimum deposit scales with vUnits. A clu
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Reactivation solvency with EB=64
-- [ ] Sub-task 2: Reactivation solvency with EB=2048
+- [x] Sub-task 1: Reactivation solvency with EB=64
+- [x] Sub-task 2: Reactivation solvency with EB=2048
 
 ---
 
@@ -1837,9 +1838,9 @@ There is no test for `withdrawNetworkETHEarnings`. The function should exist for
 ### [TEST-19] Operator removal impact on active ETH clusters
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Complete
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-02-26
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -1849,8 +1850,15 @@ Test the impact of operator removal on active ETH clusters' fee calculations.
 `removeOperator` tests don't test the downstream effect on active ETH clusters' fee calculations.
 
 **Acceptance Criteria:**
-- [ ] Test: Remove operator from set of 4 while cluster has active validators → verify fee calculation excludes removed operator
-- [ ] Test: Verify removed operator stops earning from both ETH and SSV clusters
+- [x] Test: Remove operator from set of 4 while cluster has active validators → verify fee calculation excludes removed operator
+- [x] Test: Verify removed operator stops earning from both ETH and SSV clusters
+
+**Resolution:**
+- Added `/Users/venimir/Desktop/ssv/contracts-latest/ssv-network/test/unit/SSVClusters/removedOperatorImpact.test.ts` with coverage for:
+  - ETH cluster settlement after removed-operator simulation (fee deduction excludes removed operator; removed operator ETH earnings frozen)
+  - SSV cluster settlement via `liquidateSSV` (removed operator SSV earnings frozen while active operators continue earning)
+- Aligned `/Users/venimir/Desktop/ssv/contracts-latest/ssv-network/contracts/test/harness/SSVClustersHarness.sol` `mockRemoveOperator()` with real `removeOperator` reset semantics (preserve snapshot indices, clear blocks/balances/fees/counts) so downstream accounting tests model production behavior.
+- Verified with `npx hardhat test test/unit/SSVClusters/removedOperatorImpact.test.ts` and `npm run test:unit` (`405 passing`).
 
 **Agent Instructions:**
 1. Read `test/unit/SSVOperators/removeOperator.test.ts`.
@@ -1860,10 +1868,72 @@ Test the impact of operator removal on active ETH clusters' fee calculations.
 5. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Fee calculation after operator removal
-- [ ] Sub-task 2: Removed operator earnings freeze
+- [x] Sub-task 1: Fee calculation after operator removal
+- [x] Sub-task 2: Removed operator earnings freeze
 
 ---
+
+### [TEST-19a] Operator removal impact on active ETH clusters
+1. Multiple Removed Operators
+// Missing test:
+it("handles multiple removed operators (2 of 4) correctly", async () => {
+  // Remove operators[1] and operators[3]
+  // Verify only operators[0] and operators[2] accrue earnings
+  // Verify cluster balance reflects 2 operators only
+});
+2. EB-Weighted Cluster with Removed Operator
+// Missing test:
+it("excludes removed operator vUnits from EB-weighted fee calculation", async () => {
+  // Set cluster EB to 64 ETH (2x vUnits)
+  // Remove one operator
+  // Verify active operators earn fees scaled by 2x vUnits
+  // Verify removed operator's vUnits are excluded
+});
+3. Reactivation with Removed Operator
+// Missing test:
+it("reactivation excludes removed operator from fee calculation", async () => {
+  // Create cluster with 4 operators
+  // Remove operator[2]
+  // Liquidate cluster
+  // Reactivate cluster (FLOWS.md notes this skips removed operators)
+  // Verify reactivation fee calculation uses 3 operators only
+});
+4. Operator Removal During Validator Lifecycle
+// Missing test:
+it("handles operator removal between register and remove validator", async () => {
+  // Register 2 validators with 4 operators
+  // Advance 100 blocks
+  // Remove operator[1]
+  // Advance 100 blocks
+  // Remove 1 validator
+  // Verify fees split correctly across 2 periods
+});
+5. All Operators Removed
+// Missing test:
+it("handles cluster with all operators removed", async () => {
+  // Remove all 4 operators one by one
+  // Attempt cluster operations
+  // Verify correct reverts or handling
+});
+6. Network Fee Impact
+// Missing test:
+it("network fees continue accruing after operator removal", async () => {
+  // Don't zero network fee
+  // Remove operator
+  // Verify cluster balance includes network fees + (3 operator fees)
+  // Verify DAO balance increases correctly
+});
+7. Removed Operator Fee Withdrawal
+// Missing test:
+it("removed operator can withdraw frozen earnings", async () => {
+  // Accrue earnings for operator
+  // Remove operator
+  // Verify operator can still withdraw frozen balance
+  // Verify no new earnings after withdrawal
+});
+
+---
+
 
 ### [TEST-20] Cooldown duration changes affecting pending requests
 - **Type:** Unit Test Completeness
@@ -1895,12 +1965,12 @@ Test how changes to `cooldownDuration` affect pending unstake withdrawal request
 
 ---
 
-### [TEST-21] EB boundary values (min/max per validator)
+### [TEST-21] ~~EB boundary values (min/max per validator)~~
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Closed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -1909,28 +1979,30 @@ Add boundary tests for EB values at minimum (32 ETH) and maximum (2048 ETH) per 
 **Context:**
 Limited boundary testing exists. The sanity tests cover conversions but not the full cluster accounting at boundaries.
 
-**Acceptance Criteria:**
-- [ ] Test: EB exactly 32 ETH per validator (10000 vUnits) — baseline behavior
-- [ ] Test: EB exactly 2048 ETH per validator (640000 vUnits) — max behavior
-- [ ] Test: EB at 2049 per validator — verify revert
+**Resolution:**
+All three boundary cases are covered in `test/unit/SSVClusters/updateClusterBalance.test.ts`:
+- EB=32 baseline (10000 vUnits): pre-existing test "Updates cluster balance when proof is valid"
+- EB=2049 revert: pre-existing test "Is reverted with 'EBExceedsMaximum' when effective balance exceeds 2048 ETH per validator"
+- EB=2048 max (640000 vUnits): new test with full vUnit/deviation/DAO accounting assertions
+- EB=4096 max for 2-validator cluster (1,280,000 vUnits): new test with per-operator deviation assertions
+- EB=4097 revert for 2-validator cluster: new multi-validator max-exceeded test
 
-**Agent Instructions:**
-1. Read `test/sanity/effective-balance.ts`.
-2. Read `test/unit/SSVClusters/updateClusterBalance.test.ts`.
-3. Add boundary-value tests using `updateClusterBalance` with Merkle proofs at exact boundaries.
-4. Run `npm run test:unit`.
+**Acceptance Criteria:**
+- [x] Test: EB exactly 32 ETH per validator (10000 vUnits) — baseline behavior
+- [x] Test: EB exactly 2048 ETH per validator (640000 vUnits) — max behavior
+- [x] Test: EB at 2049 per validator — verify revert
 
 #### Sub-items:
-- [ ] Sub-task 1: EB=32 baseline test
-- [ ] Sub-task 2: EB=2048 maximum test
-- [ ] Sub-task 3: EB>2048 revert test
+- [x] Sub-task 1: EB=32 baseline test
+- [x] Sub-task 2: EB=2048 maximum test
+- [x] Sub-task 3: EB>2048 revert test
 
 ---
 
-### [TEST-22] Dust/precision edge cases
+### [TEST-22] ~~Dust/precision edge cases~~
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1939,10 +2011,16 @@ Limited boundary testing exists. The sanity tests cover conversions but not the 
 Add precision edge case tests for packed type boundaries and tiny values.
 
 **Acceptance Criteria:**
-- [ ] Test: Withdraw amount of exactly 1 * ETH_DEDUCTED_DIGITS (minimum non-zero)
-- [ ] Test: Cluster balance that rounds to 0 after fee deduction
-- [ ] Test: Operator earnings of exactly 1 packed unit — verify withdrawable
-- [ ] Test: accEthPerShare with tiny fee and large totalStaked — verify no rounding to zero
+- [x] Test: Withdraw amount of exactly 1 * ETH_DEDUCTED_DIGITS (minimum non-zero)
+- [x] Test: Cluster balance that rounds to 0 after fee deduction
+- [x] Test: Operator earnings of exactly 1 packed unit — verify withdrawable
+- [x] Test: accEthPerShare with tiny fee and large totalStaked — verify no rounding to zero
+
+**Resolution:**
+4 tests added across 3 files (416 total, all passing):
+- `test/unit/SSVOperators/withdrawOperatorEarnings.test.ts` — "Withdraws exactly 1 * ETH_DEDUCTED_DIGITS (minimum non-zero precision unit) and zeroes balance" (covers criteria 1 & 3)
+- `test/unit/SSVClusters/withdraw.test.ts` — "Cluster balance becomes 0 when accumulated fees exceed the remaining balance (no underflow)" (criteria 2)
+- `test/unit/SSVStaking/syncFees.test.ts` — "Produces non-zero accEthPerShare update with minimum possible fee (1 packed unit) and standard stake" (criteria 4; verifies `accDelta = 10_000 > 0` for `newFees = 1` packed unit with `STAKE_AMOUNT = 10 ETH`)
 
 **Agent Instructions:**
 1. Read `test/unit/packedLib.test.ts` for packed type patterns.
@@ -1950,17 +2028,17 @@ Add precision edge case tests for packed type boundaries and tiny values.
 3. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Minimum withdrawal amount
-- [ ] Sub-task 2: Zero-rounding cluster balance
-- [ ] Sub-task 3: Minimum operator earnings
-- [ ] Sub-task 4: Precision in accEthPerShare
+- [x] Sub-task 1: Minimum withdrawal amount
+- [x] Sub-task 2: Zero-rounding cluster balance
+- [x] Sub-task 3: Minimum operator earnings
+- [x] Sub-task 4: Precision in accEthPerShare
 
 ---
 
 ### [TEST-23] Max operator count (13) with EB
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1969,8 +2047,8 @@ Add precision edge case tests for packed type boundaries and tiny values.
 Add tests for 13-operator clusters with high EB values to verify no overflow.
 
 **Acceptance Criteria:**
-- [ ] Test: 13 operators with EB=2048 — verify no overflow, correct accounting
-- [ ] Test: Liquidation with 13 operators and high EB — verify threshold calculation
+- [x] Test: 13 operators with EB=2048 — verify no overflow, correct accounting
+- [x] Test: Liquidation with 13 operators and high EB — verify threshold calculation
 
 **Agent Instructions:**
 1. Read existing gas tests for 13 operators in `test/unit/SSVValidator/`.
@@ -1978,15 +2056,20 @@ Add tests for 13-operator clusters with high EB values to verify no overflow.
 3. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: 13 operators + EB=2048 accounting
-- [ ] Sub-task 2: 13 operators + high EB liquidation
+- [x] Sub-task 1: 13 operators + EB=2048 accounting
+- [x] Sub-task 2: 13 operators + high EB liquidation
+
+**Resolution:**
+Two tests added to `test/unit/SSVClusters/updateClusterBalance.test.ts`:
+1. **"Updates vUnit accounting correctly for 13 operators at maximum EB (2048 ETH per validator)"** — registers a cluster with 13 operators, updates EB to 2048, verifies: clusterVUnits = 640,000; daoTotalEthVUnits = 640,000; each operator deviation = 630,000; each operator effective vUnits = 640,000. No overflow.
+2. **"Auto-liquidates cluster with 13 operators when EB increase to maximum makes it insolvent"** — verifies that the liquidation threshold calculation with 13 operators at EB=2048 (vUnits=640,000) correctly triggers auto-liquidation inside `updateClusterBalance`. Deposit is solvent at EB=32 (threshold ≈ 0.000014 ETH) but insolvent at EB=2048 (threshold ≈ 0.000896 ETH). After auto-liquidation, all 13 operator vUnit deviations are cleaned up to 0.
 
 ---
 
 ### [TEST-24] Idempotency and double-operation checks
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1995,9 +2078,9 @@ Add tests for 13-operator clusters with high EB values to verify no overflow.
 Add tests verifying that double-calling operations either reverts or is safely idempotent.
 
 **Acceptance Criteria:**
-- [ ] Test: `exitValidator` twice on same validator → verify second reverts
-- [ ] Test: `syncFees` twice in same block → verify no double-counting
-- [ ] Test: `updateClusterBalance` with same proof twice → verify stale block revert
+- [x] Test: `exitValidator` twice on same validator → verify second succeeds
+- [x] Test: `syncFees` twice in same block → verify no double-counting
+- [x] Test: `updateClusterBalance` with same proof twice → verify stale block revert
 
 **Agent Instructions:**
 1. Read relevant test files for each operation.
@@ -2005,16 +2088,21 @@ Add tests verifying that double-calling operations either reverts or is safely i
 3. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Double `exitValidator`
-- [ ] Sub-task 2: Double `syncFees` in same block
-- [ ] Sub-task 3: Double `updateClusterBalance` with same proof
+- [x] Sub-task 1: Double `exitValidator`
+- [x] Sub-task 2: Double `syncFees` in same block
+- [x] Sub-task 3: Double `updateClusterBalance` with same proof
+
+**Resolution:**
+- **`exitValidator` twice** (`test/unit/SSVValidator/exitValidator.test.ts`): `exitValidator` does not mutate validator state (only emits an event after validating the stored operator hash), so calling it twice is safely idempotent — both calls succeed and emit `ValidatorExited`. Test added: "Calling exitValidator twice on the same validator succeeds both times without reverting".
+- **`syncFees` twice** (`test/unit/SSVStaking/syncFees.test.ts`): After the first call, the staking pool balance is updated to match the DAO balance. The second call sees no delta (current == previous), emits no `FeesSynced` event, and leaves `accEthPerShare` unchanged. Test added: "Calling syncFees twice does not double-count fees — second call is a no-op".
+- **`updateClusterBalance` same proof** (`test/unit/SSVClusters/updateClusterBalance.test.ts`): Already covered by the existing test "Is reverted with 'StaleUpdate' when blockNum is not increasing" — calling with the same (or lower) `blockNum` reverts with `StaleUpdate`. No new test needed.
 
 ---
 
 ### [TEST-25] Upgrade path (reinitializer) tests
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -2023,9 +2111,9 @@ Add tests verifying that double-calling operations either reverts or is safely i
 Add tests for the upgrade initializer (`reinitializer(3)`) behavior.
 
 **Acceptance Criteria:**
-- [ ] Test: Call initializer with `reinitializer(3)` → verify new state set correctly
-- [ ] Test: Call initializer again → verify reverts (already initialized)
-- [ ] Test: Verify `UPGRADE_TIMESTAMP` immutable prevents pre-migration fee declarations
+- [x] Test: Call initializer with `reinitializer(3)` → verify new state set correctly
+- [x] Test: Call initializer again → verify reverts (already initialized)
+- [x] Test: Verify `UPGRADE_TIMESTAMP` immutable prevents pre-migration fee declarations
 
 **Agent Instructions:**
 1. Read `contracts/upgrades/stage/hoodi/SSVNetworkSSVStakingUpgrade.sol`.
@@ -2034,16 +2122,21 @@ Add tests for the upgrade initializer (`reinitializer(3)`) behavior.
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Successful reinitializer(3) execution
-- [ ] Sub-task 2: Re-initialization revert
-- [ ] Sub-task 3: UPGRADE_TIMESTAMP fee declaration guard
+- [x] Sub-task 1: Successful reinitializer(3) execution
+- [x] Sub-task 2: Re-initialization revert
+- [x] Sub-task 3: UPGRADE_TIMESTAMP fee declaration guard
+
+**Resolution:**
+- **Sub-task 1 (state set correctly):** Already covered by `test/integration/SSVNetwork.test.ts` — "Configures SSVNetwork correctly" verifies `cooldownDuration`, `defaultOracleIds`, `quorumBps`, and all governance params post-upgrade.
+- **Sub-task 2 (re-initialization revert):** Added to `test/integration/SSVNetwork.test.ts` under "Constructor, initializer and upgrades": "Calling initializeSSVStaking again reverts with already-initialized error". Attaches `SSVNetworkSSVStakingUpgrade` factory to the already-upgraded proxy and calls `initializeSSVStaking` again — reverts with OZ v4 string error `"Initializable: contract is already initialized"`.
+- **Sub-task 3 (UPGRADE_TIMESTAMP guard):** Already covered by `test/unit/SSVOperators/executeOperatorFee.test.ts` — "Is reverted with 'LegacyOperatorFeeDeclarationInvalid' when executing a pre-upgrade fee declaration". Deploys SSVOperators with a future `upgradeTimestamp`, mocks a fee declaration with `approvalBeginTime <= upgradeTimestamp`, verifies `executeOperatorFee` reverts.
 
 ---
 
 ### [TEST-26] Zero-validator cluster operations
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -2052,10 +2145,10 @@ Add tests for the upgrade initializer (`reinitializer(3)`) behavior.
 Add tests for clusters with 0 validators.
 
 **Acceptance Criteria:**
-- [ ] Test: Deposit into cluster with 0 validators → verify no fees accrue
-- [ ] Test: Withdraw from cluster with 0 validators → verify full balance withdrawable
-- [ ] Test: EB update on cluster with 0 validators → verify no vUnits change
-- [ ] Test: Oracle EB report (`effectiveBalance = 0`) on active cluster with `validatorCount == 0` (all validators removed, cluster not deleted) → verify: (a) `_verifyEBLimits` passes (`0 >= 0 * 32`), (b) `ebToVUnits(0)` returns `0`, (c) `clusterEB.vUnits` written as `0` (resets any prior explicit EB back to implicit-EB sentinel), (d) no `operatorEthVUnits` or `daoTotalEthVUnits` changes, (e) no auto-liquidation triggered, (f) `ClusterBalanceUpdated` emitted with `effectiveBalance = 0`
+- [x] Test: Deposit into cluster with 0 validators → verify no fees accrue
+- [x] Test: Withdraw from cluster with 0 validators → verify full balance withdrawable
+- [x] Test: EB update on cluster with 0 validators → verify no vUnits change
+- [x] Test: Oracle EB report (`effectiveBalance = 0`) on active cluster with `validatorCount == 0` (all validators removed, cluster not deleted) → verify: (a) `_verifyEBLimits` passes (`0 >= 0 * 32`), (b) `ebToVUnits(0)` returns `0`, (c) `clusterEB.vUnits` written as `0` (resets any prior explicit EB back to implicit-EB sentinel), (d) no `operatorEthVUnits` or `daoTotalEthVUnits` changes, (e) no auto-liquidation triggered, (f) `ClusterBalanceUpdated` emitted with `effectiveBalance = 0`
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/deposit.test.ts` and `test/unit/SSVClusters/withdraw.test.ts`.
@@ -2064,17 +2157,23 @@ Add tests for clusters with 0 validators.
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Deposit with 0 validators
-- [ ] Sub-task 2: Withdrawal with 0 validators
-- [ ] Sub-task 3: EB update with 0 validators (generic)
-- [ ] Sub-task 4: Oracle EB report with `effectiveBalance = 0` on active zero-validator cluster — full state assertion (see DISC.md §2.2)
+- [x] Sub-task 1: Deposit with 0 validators
+- [x] Sub-task 2: Withdrawal with 0 validators
+- [x] Sub-task 3: EB update with 0 validators (generic)
+- [x] Sub-task 4: Oracle EB report with `effectiveBalance = 0` on active zero-validator cluster — full state assertion (see DISC.md §2.2)
+
+**Resolution:**
+- **Sub-task 1** (`test/unit/SSVClusters/deposit.test.ts`): "Deposit into zero-validator cluster accrues no fees over elapsed blocks" — uses non-zero operator fee fixture, registers then removes the only validator, mines 100 blocks, deposits, verifies balance = removal_balance + deposit_amount exactly (no fee deduction since vUnits = 0).
+- **Sub-task 2** (`test/unit/SSVClusters/withdraw.test.ts`): "Zero-validator cluster allows full balance withdrawal without fee deduction" — non-zero fee + network fee, removes last validator, mines 100 blocks, withdraws full balance, verifies cluster balance = 0 and cluster still active.
+- **Sub-task 3** (`test/unit/SSVClusters/updateClusterBalance.test.ts`): "EB update with effectiveBalance = 0 on zero-validator cluster succeeds without modifying vUnit state" — basic case (no prior explicit EB), verifies ClusterBalanceUpdated emitted with effectiveBalance = 0, clusterVUnits = 0, no vUnit changes.
+- **Sub-task 4** (`test/unit/SSVClusters/updateClusterBalance.test.ts`): "Oracle EB report effectiveBalance = 0 on active zero-validator cluster resets explicit EB to implicit-EB sentinel" — full state assertion: first sets EB = 64 ETH (explicit vUnits = 20000), removes last validator (vUnits cleared to 0), then submits effectiveBalance = 0 via updateClusterBalance; verifies all (a)-(f): limits pass, vUnits = 0, operatorEthVUnits = 0, daoTotalEthVUnits unchanged, no auto-liquidation, ClusterBalanceUpdated emitted with effectiveBalance = 0, cluster still active.
 
 ---
 
 ### [TEST-27] Operator at max validator limit
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -2083,17 +2182,19 @@ Add tests for clusters with 0 validators.
 Test `VALIDATORS_PER_OPERATOR_LIMIT` (3000) boundary.
 
 **Acceptance Criteria:**
-- [ ] Test: Register validator pushing operator to limit+1 → verify revert
-- [ ] Test: Remove validator then re-register at limit → verify succeeds
+- [x] Test: Register validator pushing operator to limit+1 → verify revert
+- [x] Test: Remove validator then re-register at limit → verify succeeds
 
-**Agent Instructions:**
-1. Read `contracts/libraries/OperatorLib.sol` for the limit check.
-2. This requires registering many validators. May need to use bulk registration.
-3. Run `npm run test:unit`.
+**Resolution:**
+Added two tests to `test/unit/SSVValidator/registerValidator.test.ts`:
+- Used `mockValidatorsPerOperatorLimit(5)` to avoid bulk-registering 3000 validators
+- Used `bulkRegisterValidator` to fill all operators to the limit (5 validators)
+- Sub-task 1: 6th `registerValidator` call reverts with `ExceedValidatorLimitWithData(operatorIds[0])`
+- Sub-task 2: After removing one validator (back to 4), re-register succeeds and emits `ValidatorAdded`
 
 #### Sub-items:
-- [ ] Sub-task 1: Exceed operator validator limit — revert
-- [ ] Sub-task 2: Re-register at limit after removal
+- [x] Sub-task 1: Exceed operator validator limit — revert
+- [x] Sub-task 2: Re-register at limit after removal
 
 ---
 
@@ -2128,12 +2229,12 @@ In `test/unit/SSVOperators/reentrancy.test.ts:101-107`, three assertions are com
 
 ---
 
-### [TEST-29] Add contract ETH balance delta assertions to deposit tests
+### [TEST-29] ~~Add contract ETH balance delta assertions to deposit tests~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-02-26
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2144,10 +2245,13 @@ In `test/unit/SSVClusters/deposit.test.ts`, tests verify cluster balance in even
 
 **Concrete test:** Register with 10 ETH, deposit 5 ETH, assert `contractBalance_after - contractBalance_before == 5 ETH`.
 
+**Resolution:**
+Added explicit `address(clusters).balance` delta assertions in `test/unit/SSVClusters/deposit.test.ts` for a single deposit and for a multi-deposit ("bulk" sequential deposits) scenario. The multi-deposit test asserts per-deposit deltas and cumulative ETH balance growth across two deposits (owner + third-party depositor). Validation run: `npx hardhat test test/unit/SSVClusters/deposit.test.ts` (6 passing) and `npm run test:unit` (414 passing).
+
 **Acceptance Criteria:**
-- [ ] At least one deposit test captures contract ETH balance before and after
-- [ ] Asserts `balanceAfter - balanceBefore == msg.value`
-- [ ] Both single and bulk deposit scenarios covered
+- [x] At least one deposit test captures contract ETH balance before and after
+- [x] Asserts `balanceAfter - balanceBefore == msg.value`
+- [x] Both single and bulk deposit scenarios covered
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/deposit.test.ts` for existing patterns.
@@ -2157,8 +2261,8 @@ In `test/unit/SSVClusters/deposit.test.ts`, tests verify cluster balance in even
 5. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Add ETH balance delta assertion to deposit test
-- [ ] Sub-task 2: Run full test suite
+- [x] Sub-task 1: Add ETH balance delta assertion to deposit test
+- [x] Sub-task 2: Run full test suite
 
 ---
 
@@ -2232,9 +2336,9 @@ In `test/unit/SSVStaking/onCSSVTransfer.test.ts`, only 2 tests exist. Missing sc
 ### [TEST-32] Add access control tests for DAO governance functions
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Complete
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-02-26
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2244,9 +2348,20 @@ Add non-owner revert tests for all DAO governance functions. Currently all SSVDA
 All 11+ governance functions (`updateNetworkFee`, `updateLiquidationThresholdPeriod`, `replaceOracle`, `setQuorumBps`, `setUnstakeCooldownDuration`, `updateMaximumOperatorFee`, `updateMinimumOperatorEthFee`, etc.) are tested only from the owner account. No test verifies that non-owner calls are rejected.
 
 **Acceptance Criteria:**
-- [ ] Each governance function has a test calling from non-owner that expects revert
-- [ ] Revert reason matches expected access control error (e.g., `OwnableUnauthorizedAccount`)
-- [ ] All 11+ functions covered
+- [x] Each governance function has a test calling from non-owner that expects revert
+- [x] Revert reason matches expected access control error (legacy branch behavior: `Ownable: caller is not the owner`)
+- [x] All 11+ functions covered
+
+**Resolution:**
+- Added `/Users/venimir/Desktop/ssv/contracts-latest/ssv-network/test/unit/SSVDAO/accessControl.test.ts` with non-owner access-control tests for 15 owner-only DAO governance wrappers on `SSVNetwork`:
+  - `updateNetworkFee`, `updateNetworkFeeSSV`, `withdrawNetworkSSVEarnings`
+  - `updateOperatorFeeIncreaseLimit`, `updateDeclareOperatorFeePeriod`, `updateExecuteOperatorFeePeriod`
+  - `updateLiquidationThresholdPeriod`, `updateLiquidationThresholdPeriodSSV`
+  - `updateMinimumLiquidationCollateral`, `updateMinimumLiquidationCollateralSSV`
+  - `updateMaximumOperatorFee`, `updateMinimumOperatorEthFee`
+  - `setUnstakeCooldownDuration`, `replaceOracle`, `setQuorumBps`
+- Verified non-owner calls revert with the legacy Ownable string on this branch (`Ownable: caller is not the owner`), rather than OZ's newer `OwnableUnauthorizedAccount` custom error.
+- Verified with `npx hardhat test test/unit/SSVDAO/accessControl.test.ts` and `npm run test:unit` (`428 passing`).
 
 **Agent Instructions:**
 1. Read `test/unit/SSVDAO/` directory for all existing DAO test files.
@@ -2255,9 +2370,9 @@ All 11+ governance functions (`updateNetworkFee`, `updateLiquidationThresholdPer
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Identify all governance functions requiring access control tests
-- [ ] Sub-task 2: Add non-owner revert test for each function
-- [ ] Sub-task 3: Run full test suite
+- [x] Sub-task 1: Identify all governance functions requiring access control tests
+- [x] Sub-task 2: Add non-owner revert test for each function
+- [x] Sub-task 3: Run full test suite
 
 ---
 
@@ -2320,12 +2435,12 @@ Add a dedicated test suite that uses the exact mainnet governance parameters and
 
 ---
 
-### [TEST-34] Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract
+### [TEST-34] ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-02-26
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2340,11 +2455,14 @@ Product asked for explicit safety validation to ensure cSSV issuance cannot exce
 **Invariant to test:**
 `cSSV.totalSupply() <= SSV.balanceOf(address(SSVStaking))`
 
+**Resolution:**
+Added explicit Echidna invariant `echidna_cssv_supply_lte_ssv_backing()` in `test/echidna/SSVStakingEchidna.sol` and deterministic regression coverage in `test/unit/SSVStaking/solvencyInvariant.test.ts` for single-user ordering, multi-user partial unstake requests, and full unstake/withdraw flows. Also aligned the Echidna harness `MAX_PENDING_REQUESTS` constant with `SSVStaking` (`2000`) to avoid a harness-only false failure in `echidna_pending_requests_bounded`. Validation run: `npx hardhat test test/unit/SSVStaking/solvencyInvariant.test.ts` (3 passing) and `echidna ... SSVStakingEchidna ...` (12/12 invariants passing, including solvency invariant).
+
 **Acceptance Criteria:**
-- [ ] Add an Echidna invariant test that continuously asserts `cSSV.totalSupply() <= SSV.balanceOf(address(staking))` across stake/unstake/transfer/withdraw flows
-- [ ] Add at least one deterministic unit regression test for the invariant around `stake` and `requestUnstake` ordering
-- [ ] Include edge scenarios: multiple users, partial unstake requests, full unstake + withdraw cycle
-- [ ] No invariant violations in fuzz runs
+- [x] Add an Echidna invariant test that continuously asserts `cSSV.totalSupply() <= SSV.balanceOf(address(staking))` across stake/unstake/transfer/withdraw flows
+- [x] Add at least one deterministic unit regression test for the invariant around `stake` and `requestUnstake` ordering
+- [x] Include edge scenarios: multiple users, partial unstake requests, full unstake + withdraw cycle
+- [x] No invariant violations in fuzz runs
 
 **Agent Instructions:**
 1. Read `contracts/modules/SSVStaking.sol` and `contracts/token/CSSVToken.sol` for mint/burn ordering.
@@ -2353,10 +2471,10 @@ Product asked for explicit safety validation to ensure cSSV issuance cannot exce
 4. Run the relevant unit tests and Echidna target.
 
 #### Sub-items:
-- [ ] Sub-task 1: Add Echidna solvency invariant
-- [ ] Sub-task 2: Add deterministic unit regression tests
-- [ ] Sub-task 3: Cover multi-user + partial/full unstake scenarios
-- [ ] Sub-task 4: Run unit + Echidna checks
+- [x] Sub-task 1: Add Echidna solvency invariant
+- [x] Sub-task 2: Add deterministic unit regression tests
+- [x] Sub-task 3: Cover multi-user + partial/full unstake scenarios
+- [x] Sub-task 4: Run unit + Echidna checks
 
 ---
 
