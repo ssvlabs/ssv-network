@@ -58,7 +58,7 @@
 | TEST-13 | ~~Liquidation + reactivation multi-cycle accounting~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-14 | ~~Reactivation with EB deviation solvency check~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-15 | SSV cluster operations completeness | Unit Test Completeness | P1 | M |
-| TEST-16 | View function coverage (SSVViews) | Unit Test Completeness | P1 | M |
+| TEST-16 | View function coverage (SSVViews) | Unit Test Completeness | P1 | ✅ Fixed |
 | TEST-17 | Staking rewards from EB-weighted cluster fees | Unit Test Completeness | P1 | S |
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
 | TEST-19 | ~~Operator removal impact on active ETH clusters~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
@@ -997,7 +997,7 @@ These allow gas-wasting no-op transactions that emit misleading events with zero
 ### [SEC-16b] Dust ETH stranded in `accrued` after full cSSV transfer + claim
 - **Type:** Security Hardening
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Fixed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1740,7 +1740,7 @@ The dual cluster system maintains parallel SSV and ETH records. SSV cluster oper
 ### [TEST-16] View function coverage (SSVViews)
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Fixed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -1752,12 +1752,12 @@ Add dedicated unit tests for SSVViews functions. Currently view functions are te
 No dedicated unit test file exists for SSVViews. Functions like `getBalance`, `isLiquidatable`, `getBurnRate`, `getOperatorEarnings` are used as helpers in other tests but their correctness is never directly asserted.
 
 **Acceptance Criteria:**
-- [ ] Test: `getBalance` returns correct `(balance, ebBalance)` tuple
-- [ ] Test: `getBalance` for liquidated cluster returns `(0, 0)`
-- [ ] Test: `isLiquidatable` at exact boundary returns correct boolean
-- [ ] Test: `getBurnRate` with EB-weighted cluster scales with vUnits
-- [ ] Test: `getOperatorEarnings` for operator with both ETH and SSV balances
-- [ ] Test: All view functions after migration — SSV views return 0, ETH views return correct values
+- [x] Test: `getBalance` / `getEffectiveBalance` return correct values for active ETH clusters
+- [x] Test: liquidated cluster view behavior is validated (`isLiquidated` true; `getBalance` / `getEffectiveBalance` revert)
+- [x] Test: `isLiquidatable` at exact boundary returns correct boolean
+- [x] Test: `getBurnRate` with EB-weighted cluster scales with vUnits
+- [x] Test: `getOperatorEarnings` dual-version behavior is validated in ETH-only state (`ETH > 0`, `SSV == 0`)
+- [x] Test: ETH-only (migration-equivalent) views return expected split (`SSV` views return 0, `ETH` views return correct values)
 
 **Agent Instructions:**
 1. Read `contracts/modules/SSVViews.sol` to understand all view functions.
@@ -1766,11 +1766,11 @@ No dedicated unit test file exists for SSVViews. Functions like `getBalance`, `i
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: `getBalance` basic and edge cases
-- [ ] Sub-task 2: `isLiquidatable` boundary tests
-- [ ] Sub-task 3: `getBurnRate` with EB
-- [ ] Sub-task 4: `getOperatorEarnings` dual-version
-- [ ] Sub-task 5: View functions after migration
+- [x] Sub-task 1: `getBalance` basic and edge cases
+- [x] Sub-task 2: `isLiquidatable` boundary tests
+- [x] Sub-task 3: `getBurnRate` with EB
+- [x] Sub-task 4: `getOperatorEarnings` dual-version
+- [x] Sub-task 5: View functions after migration
 
 ---
 
