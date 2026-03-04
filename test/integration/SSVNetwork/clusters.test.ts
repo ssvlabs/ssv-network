@@ -817,7 +817,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
 
       await network.setQuorumBps(1000);
       await network.replaceOracle(1, operatorOwner.address);
-      await network.updatesMinBlocksBetweenUpdates(1);
+      await network.updateMinBlocksBetweenUpdates(1);
 
       const stakeAmount = ethers.parseEther("10");
       await ssvToken.mint(clusterOwner.address, stakeAmount);

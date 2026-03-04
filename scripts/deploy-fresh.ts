@@ -155,7 +155,7 @@ async function main() {
 
   const minBlocksBetweenUpdates = parseUint(pp.minBlocksBetweenUpdates, "minBlocksBetweenUpdates");
   if (minBlocksBetweenUpdates !== undefined) {
-    await (await networkWithSigner.updatesMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
+    await (await networkWithSigner.updateMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
   }
 
   const blockNumber = await ethers.provider.getBlockNumber();

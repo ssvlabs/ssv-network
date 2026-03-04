@@ -985,6 +985,27 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
+  describe("Function 'updateMinBlocksBetweenUpdates()'", async function() {
+    it("Updates the EB update cooldown blocks and emits correct event", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const newMinBlocks = 7200n;
+
+      await expect(network.updateMinBlocksBetweenUpdates(newMinBlocks))
+        .to.emit(network, Events.MIN_BLOCKS_BETWEEN_UPDATES_UPDATED)
+        .withArgs(newMinBlocks);
+    });
+
+    it("Is reverted if the caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).updateMinBlocksBetweenUpdates(7200n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
   describe("Function 'setQuorumBps()'", async function() {
     it("Changes quorum and emits correct event", async function() {
       const { network, views } =

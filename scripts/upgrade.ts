@@ -299,7 +299,7 @@ async function main() {
     await (await networkOwner.updateLiquidationThresholdPeriod(params.liquidationThresholdPeriod)).wait();
   }
   if (minBlocksBetweenUpdates !== undefined) {
-    await (await networkOwner.updatesMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
+    await (await networkOwner.updateMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
   }
   if (params.minimumLiquidationCollateralEth !== undefined) {
     await (await networkOwner.updateMinimumLiquidationCollateral(params.minimumLiquidationCollateralEth)).wait();

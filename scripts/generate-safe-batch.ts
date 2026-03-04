@@ -99,7 +99,7 @@ async function main() {
     "function updateNetworkFee(uint256 fee)",
     "function updateNetworkFeeSSV(uint256 fee)",
     "function updateLiquidationThresholdPeriod(uint64 blocks)",
-    "function updatesMinBlocksBetweenUpdates(uint32 blocks)",
+    "function updateMinBlocksBetweenUpdates(uint32 blocks)",
     "function updateMinimumLiquidationCollateral(uint256 amount)",
     "function updateMinimumLiquidationCollateralSSV(uint256 amount)",
     "function updateDeclareOperatorFeePeriod(uint64 blocks)",
@@ -185,7 +185,7 @@ async function main() {
     transactions.push({
       to: ssvNetworkProxy,
       value: "0",
-      data: ssvNetworkIface.encodeFunctionData("updatesMinBlocksBetweenUpdates", [params.minBlocksBetweenUpdates]),
+      data: ssvNetworkIface.encodeFunctionData("updateMinBlocksBetweenUpdates", [params.minBlocksBetweenUpdates]),
     });
   }
   if (params.minimumLiquidationCollateralEth !== undefined) {
