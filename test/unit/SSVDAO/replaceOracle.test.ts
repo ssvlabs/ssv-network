@@ -65,11 +65,11 @@ describe("SSVDAO function `replaceOracle()`", async () => {
     expect(newOracleId).to.equal(1);
   });
 
-  it("Is reverted with 'ZeroAmount' when oracle ID is zero", async function () {
+  it("Is reverted with 'InvalidOracleId' when oracle ID is zero", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
     await expect(dao.replaceOracle(0, newOracle.address))
-      .to.be.revertedWithCustomError(dao, Errors.ZERO_AMOUNT);
+      .to.be.revertedWithCustomError(dao, Errors.INVALID_ORACLE_ID);
   });
 
   it("Is reverted with 'ZeroAddress' when new oracle address is zero", async function () {
