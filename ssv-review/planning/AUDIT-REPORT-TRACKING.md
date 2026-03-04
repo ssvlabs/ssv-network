@@ -1,7 +1,7 @@
 # SSV Network v2.0.0 — Audit Issues Tracking
 
 **Generated:** 2026-02-27
-**Updated:** 2026-03-02
+**Updated:** 2026-03-04
 **Source:** `ssv-review/audit-report-source.md`
 **Branch:** `ssv-staking`
 
@@ -14,16 +14,16 @@ This document tracks issues from the audit report source in a management-friendl
 | ID | Task | Type | Priority | Effort |
 |----|------|------|----------|--------|
 | SSV-1 | ~~Stale memory write-back locks operators at zero ETH fee & reactivates removed operators~~ | Audit Finding | P0 | ✅ Fixed |
-| SSV-2 | Live cSSV supply used per vote allows quorum manipulation | Audit Finding | P0 | M |
-| SSV-3 | Validator registration can leave cluster immediately liquidatable | Audit Finding | P0 | M |
+| SSV-2 | ~~Live cSSV supply used per vote allows quorum manipulation~~ | Audit Finding | P0 | ✅ Fixed (PR #492) |
+| SSV-3 | ~~Validator registration can leave cluster immediately liquidatable~~ | Audit Finding | P0 | ✅ Fixed (PR #491) |
 | SSV-4 | Remove-and-reregister resets explicit EB to baseline, creating fee undercharge window | Audit Finding | P2 | TBD |
 | SSV-5 | Operator removal can compromise clusters' fault tolerance | Audit Finding | P2 | ✅ By Design |
 | SSV-6 | ETH rewards accrued during zero cSSV supply become unclaimable | Audit Finding | P1 | ✅ Mitigated |
-| SSV-7 | EB auto-liquidation can leave ethValidatorCount inflated | Audit Finding | P2 | ✅ Fixed |
-| SSV-8 | Double-accounting EB deviation blocks validator removal from liquidated clusters | Audit Finding | P2 | ✅ Fixed |
+| SSV-7 | ~~EB auto-liquidation can leave ethValidatorCount inflated~~ | Audit Finding | P2 | ✅ Fixed |
+| SSV-8 | ~~Double-accounting EB deviation blocks validator removal from liquidated clusters~~ | Audit Finding | P2 | ✅ Fixed |
 | SSV-9 | Incorrect oracle weight may reach premature quorum | Audit Finding | P2 | M |
 | SSV-10 | Cluster owners can avoid liquidation by removing all validators before withdrawal | Audit Finding | P3 | ⚠️ Pending — choose mitigation option |
-| SSV-11 | Legacy fee requests may execute after upgrade with incompatible fee scale | Audit Finding | P3 | ✅ Fixed (uses UPGRADE_TIMESTAMP) |
+| SSV-11 | ~~Legacy fee requests may execute after upgrade with incompatible fee scale~~ | Audit Finding | P3 | ✅ Fixed (uses UPGRADE_TIMESTAMP) |
 | SSV-12 | Liquidation fallback adds operatorEthVUnits in sub-baseline case | Audit Finding | P3 | ✅ Acknowledged (unreachable under current invariants) |
 | SSV-13 | Operator registration can be DoSed | Audit Finding | P3 | ✅ Acknowledged |
 | SSV-14 | Phantom operators can extract fees and degrade fault tolerance | Audit Finding | P3 | ✅ Acknowledged (no bonding by design) |
@@ -31,7 +31,7 @@ This document tracks issues from the audit report source in a management-friendl
 | SSV-16 | Non-standard ERC20 tokens trapped in SSVStaking | Audit Finding | P3 | L |
 | SSV-17 | Stale cluster effective balance updates | Audit Finding | P3 | M |
 | SSV-18 | Direct liquidations do not consider effective balance updates | Audit Finding | P3 | TBD |
-| SSV-19 | replaceOracle allows out-of-set oracle IDs to vote | Audit Finding | P3 | TBD |
+| SSV-19 | ~~replaceOracle allows out-of-set oracle IDs to vote~~ | Audit Finding | P3 | ✅ Fixed (PR #504) |
 | SSV-20 | Duplicate BLS key registration across owners risks slashing | Audit Finding | P3 | TBD |
 | SSV-21 | Operator onboarding may lead to increasing centralization | Audit Finding | P3 | TBD |
 | S-1 | Improve error handling | Auditor Suggestion | P3 | TBD |
@@ -134,10 +134,10 @@ Code refactored in commit `bd973d4` (Feb 15, 2026):
 ### [SSV-2] Live cSSV Supply Used Per Vote in commitRoot Allows Supply Manipulation to Block or Bypass Oracle Quorum
 - **Type:** Security Hardening / Audit Finding (High Severity)
 - **Priority:** P0
-- **Status:** Open - Acknowledged, Fix Required
-- **Owner:** (unassigned)
-- **Timeline:** Must be fixed before mainnet v2.0.0 deployment
-- **Github Link:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** N/A
+- **Timeline:** Fixed via PR #492
+- **Github Link:** [PR #492](https://github.com/ssvlabs/ssv-network/pull/492)
 - **Related:** Supersedes [SEC-5] with concrete exploit scenarios from audit
 
 **Requirement:**
@@ -256,10 +256,10 @@ When oracles become permissionless with delegated stake-based weights, the freez
 ### [SSV-3] Validator Registration Can Leave Cluster Immediately Liquidatable Due to Stale vUnits in Liquidation Check
 - **Type:** Security Bug / Audit Finding (High Severity)
 - **Priority:** P0
-- **Status:** Open - Acknowledged, Fix Required
-- **Owner:** (unassigned)
-- **Timeline:** Must be fixed before mainnet v2.0.0 deployment
-- **Github Link:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** N/A
+- **Timeline:** Fixed via PR #491
+- **Github Link:** [PR #491](https://github.com/ssvlabs/ssv-network/pull/491)
 - **Files Affected:** [contracts/modules/SSVValidators.sol](contracts/modules/SSVValidators.sol), [contracts/libraries/ClusterLib.sol](contracts/libraries/ClusterLib.sol)
 
 **Requirement:**
