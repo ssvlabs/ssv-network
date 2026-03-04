@@ -9,7 +9,7 @@ import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../libraries/storage/SSVStorageEB.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
-import {SSVStorageStaking, StorageStaking} from "../libraries/storage/SSVStorageStaking.sol";
+import {SSVStorageStaking, StorageStaking, MAX_DELEGATION_SLOTS} from "../libraries/storage/SSVStorageStaking.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
 contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
@@ -205,6 +205,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     function replaceOracle(uint32 oracleId, address newOracle) external override {
         StorageStaking storage s = SSVStorageStaking.load();
         if (oracleId == 0) revert ZeroAmount(); // reuse error for invalid id
+        if (oracleId > MAX_DELEGATION_SLOTS) revert InvalidOracleId();
         if (newOracle == address(0)) revert ZeroAddress();
 
         address oldOracle = s.oracles[oracleId];

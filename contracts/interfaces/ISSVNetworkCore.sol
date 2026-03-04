@@ -370,6 +370,11 @@ interface ISSVNetworkCore {
     error OracleAlreadyAssigned(); // 0xa97938cb
 
     /**
+     * @dev Thrown when oracleId exceeds the maximum allowed oracle slots
+     */
+    error InvalidOracleId();
+
+    /**
      * @dev Thrown when the maximum unstake requests amount reached
      */
     error MaxRequestsAmountReached(); // 0xee0e82ff
