@@ -216,9 +216,32 @@ describe("SSVViews dedicated coverage", () => {
     await viewsHarness.mockRegisterSSVCluster(clusterOwner.address, operatorIds, ssvCluster);
 
     expect(await viewsHarness.getClusterAssetType(clusterOwner.address, operatorIds)).to.equal(CLUSTER_VERSION_SSV);
+    const currentBlock = BigInt(await connection.ethers.provider.getBlockNumber());
+
+    // SPEC/FLOWS formula mirrored from SSVViews.getBalanceSSV + ClusterLib.updateBalanceSSV:
+    // clusterIndexRaw = sum_i(operator.snapshot.index + (block - operator.snapshot.block) * operator.feeRaw)
+    // currentNetworkFeeIndexRaw = protocol.networkFeeIndex + (block - protocol.networkFeeIndexBlockNumber) * protocol.networkFeeRaw
+    // usageRaw = (clusterIndexRaw - cluster.index) * validatorCount + (currentNetworkFeeIndexRaw - cluster.networkFeeIndex) * validatorCount
+    // balance = max(0, cluster.balance - usageRaw * DEDUCTED_DIGITS)
+    let clusterIndexRaw = 0n;
+    for (const operatorId of operatorIds) {
+      const [feeRaw, indexRaw, blockNumber] = await viewsHarness.getOperatorSSVSnapshot(operatorId);
+      clusterIndexRaw += BigInt(indexRaw) + (currentBlock - BigInt(blockNumber)) * BigInt(feeRaw);
+    }
+
+    const [networkFeeRaw, networkFeeIndexRaw, networkFeeIndexBlock] = await viewsHarness.getNetworkFeeStateSSV();
+    const currentNetworkFeeIndexRaw =
+      BigInt(networkFeeIndexRaw) + (currentBlock - BigInt(networkFeeIndexBlock)) * BigInt(networkFeeRaw);
+
+    const totalUsageRaw =
+      (clusterIndexRaw - ssvCluster.index) * ssvCluster.validatorCount +
+      (currentNetworkFeeIndexRaw - ssvCluster.networkFeeIndex) * ssvCluster.validatorCount;
+    const expectedBalance = totalUsageRaw * DEDUCTED_DIGITS > ssvCluster.balance
+      ? 0n
+      : ssvCluster.balance - totalUsageRaw * DEDUCTED_DIGITS;
+
     const ssvBalance = await viewsHarness.getBalanceSSV(clusterOwner.address, operatorIds, ssvCluster);
-    expect(ssvBalance).to.be.greaterThan(0n);
-    expect(ssvBalance).to.be.lessThan(ssvCluster.balance);
+    expect(ssvBalance).to.equal(expectedBalance);
     expect(await viewsHarness.getBurnRateSSV(clusterOwner.address, operatorIds, ssvCluster)).to.equal(
       5n * DEDUCTED_DIGITS
     );

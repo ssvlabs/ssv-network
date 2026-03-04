@@ -71,6 +71,36 @@ contract SSVViewsHarness is SSVViews {
         SSVStorageProtocol.load().networkFee = PackedSSVLib.pack(fee);
     }
 
+    /// @notice Returns SSV snapshot and fee raw values for an operator.
+    /// @param operatorId Operator id to query.
+    /// @return feeRaw Packed SSV fee raw value.
+    /// @return index SSV snapshot index raw value.
+    /// @return blockNumber SSV snapshot block number.
+    /// @return balanceRaw Packed SSV snapshot balance raw value.
+    function getOperatorSSVSnapshot(
+        uint64 operatorId
+    ) external view returns (uint64 feeRaw, uint64 index, uint32 blockNumber, uint64 balanceRaw) {
+        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
+        return (
+            PackedSSV.unwrap(operator.fee),
+            operator.snapshot.index,
+            operator.snapshot.block,
+            PackedSSV.unwrap(operator.snapshot.balance)
+        );
+    }
+
+    /// @notice Returns SSV network fee and fee-index state.
+    /// @return feeRaw Packed SSV network fee raw value.
+    /// @return index SSV network fee index raw value.
+    /// @return indexBlockNumber SSV network fee index block number.
+    function getNetworkFeeStateSSV() external view returns (uint64 feeRaw, uint64 index, uint32 indexBlockNumber) {
+        return (
+            PackedSSV.unwrap(SSVStorageProtocol.load().networkFee),
+            SSVStorageProtocol.load().networkFeeIndex,
+            SSVStorageProtocol.load().networkFeeIndexBlockNumber
+        );
+    }
+
     /// @notice Inserts an ETH cluster record into storage.
     /// @param clusterOwner Cluster owner address.
     /// @param operatorIds Operator ids composing the cluster.
