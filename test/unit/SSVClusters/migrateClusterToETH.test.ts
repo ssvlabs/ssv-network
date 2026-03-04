@@ -131,6 +131,72 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     }
   });
 
+  it("Does not emit duplicate OperatorFeeExecuted when operator already initialized with ETH defaults", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    // Set operators as legacy SSV operators (will receive default ETH fee on first ETH operation)
+    for (const operatorId of operatorIds) {
+      await clusters.mockSetOperatorLegacySSV(operatorId, 1);
+    }
+
+    // First ETH operation: registerValidator triggers ensureETHDefaults, emits OperatorFeeExecuted
+    const firstTx = await clusters.registerValidator(
+      makePublicKey(100),
+      operatorIds,
+      DEFAULT_SHARES,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const firstReceipt = await firstTx.wait();
+
+    // Verify OperatorFeeExecuted IS emitted on first ETH operation
+    for (const operatorId of operatorIds) {
+      await expect(firstTx).to.emit(clusters, Events.OPERATOR_FEE_EXECUTED)
+        .withArgs(clusterOwner.address, operatorId, BigInt(firstReceipt!.blockNumber), DEFAULT_OPERATOR_ETH_FEE);
+    }
+
+    // Verify operators are now ETH-initialized
+    for (const operatorId of operatorIds) {
+      const ethSnapshot = await clusters.getOperatorEthSnapshot(operatorId);
+      expect(ethSnapshot.blockNumber).to.be.greaterThan(0);
+      // getOperatorEthFee returns packed value, so we expect DEFAULT_OPERATOR_ETH_FEE / 100_000
+      const ethFee = await clusters.getOperatorEthFee(operatorId);
+      expect(ethFee).to.equal(DEFAULT_OPERATOR_ETH_FEE / 100_000n);
+    }
+
+    // Second ETH operation: registerValidator again, ensureETHDefaults should NOT emit event
+    const cluster1 = parseClusterFromEvent(clusters, firstReceipt, Events.VALIDATOR_ADDED);
+
+    const secondTx = await clusters.registerValidator(
+      makePublicKey(200),
+      operatorIds,
+      DEFAULT_SHARES,
+      cluster1,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const secondReceipt = await secondTx.wait();
+
+    // Verify OperatorFeeExecuted is NOT emitted on second ETH operation (idempotency)
+    const feeExecutedEvents = secondReceipt?.logs
+      .map(log => {
+        try {
+          return clusters.interface.parseLog(log);
+        } catch {
+          return null;
+        }
+      })
+      .filter(parsed => parsed?.name === Events.OPERATOR_FEE_EXECUTED);
+
+    expect(feeExecutedEvents).to.have.length(0);
+
+    // Verify second registration still succeeded
+    await expect(secondTx).to.emit(clusters, Events.VALIDATOR_ADDED);
+    const clusterAfter = parseClusterFromEvent(clusters, secondReceipt, Events.VALIDATOR_ADDED);
+    expect(clusterAfter.active).to.equal(true);
+    expect(clusterAfter.validatorCount).to.equal(2n);
+  });
+
   it("Refunds SSV token balance to the owner when migrating an active SSV cluster", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
