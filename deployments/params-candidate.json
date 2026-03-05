@@ -7,5 +7,6 @@
   "defaultOperatorEthFee": "1770000000",
   "quorumBps": 7500,
   "cooldownDuration": 604800,
+  "minBlocksBetweenUpdates": 0,
   "defaultOracleIds": [1, 2, 3, 4]
 }
