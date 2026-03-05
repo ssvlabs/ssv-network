@@ -121,7 +121,15 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         if (claimable == 0) revert NothingToClaim();
 
         uint256 payout = claimable - (claimable % ETH_DEDUCTED_DIGITS);
+        uint256 userBalance = ICSSVToken(CSSV_ADDRESS).balanceOf(msg.sender);
         if (payout == 0) {
+            if (userBalance == 0) {
+                // Zero dust and exit successfully (no revert)
+                s.accrued[msg.sender] = 0;
+                emit RewardsClaimed(msg.sender, 0);
+                return;
+            }
+            // User still has cSSV, preserve remainder
             revert NothingToClaim();
         }
 
@@ -137,7 +145,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         }
 
         uint256 remainder = claimable - payout;
-        s.accrued[msg.sender] = (remainder != 0 && ICSSVToken(CSSV_ADDRESS).balanceOf(msg.sender) == 0) ? 0 : remainder;
+        s.accrued[msg.sender] = (remainder != 0 && userBalance == 0) ? 0 : remainder;
         s.stakingEthPoolBalance = s.stakingEthPoolBalance.sub(packedPayout);
         sp.ethDaoBalance = sp.ethDaoBalance.sub(packedPayout);
 

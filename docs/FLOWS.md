@@ -845,6 +845,16 @@ emit UnstakeRequested(user, amount, unlockTime);
 - Previously accrued rewards remain claimable
 - SSV tokens are NOT yet returned (locked until cooldown)
 
+#### Request Unstake -> Claim Rewards Interaction
+
+When user calls `requestUnstake(amount)`:
+1. Settlement happens BEFORE cSSV burn -> pending rewards added to s.accrued
+2. cSSV is burned -> balanceOf decreases
+
+If user then calls `claimEthRewards`:
+- If they unstaked ALL cSSV: balanceOf == 0 -> dust forfeited
+- If they unstaked PARTIAL cSSV: balanceOf > 0 -> remainder preserved
+
 ---
 
 ### 5.3 Withdraw Unlocked
@@ -883,16 +893,24 @@ emit UnstakedWithdrawn(user, totalAmount);
 **nonReentrant:** Yes
 
 #### Preconditions
-- User has accrued rewards > 0 (after truncation to ETH_DEDUCTED_DIGITS)
+- User has s.accrued[user] > 0 OR pending rewards from s.accEthPerShare growth
 
 #### State Mutations
 1. `_syncFees()`: Update `accEthPerShare`
 2. `_settle(user)`: Settle latest rewards
-3. Compute payout: `payout = accrued - (accrued % 100_000)` (precision truncation)
-4. Deduct from `accrued[user]`
-5. Deduct from `stakingEthPoolBalance` (packed)
-6. Deduct from `sp.ethDaoBalance` (packed)
-7. Transfer `payout` ETH to user
+3. Read `claimable = accrued[user]`; if `claimable == 0` revert `NothingToClaim`
+4. Compute payout: `payout = claimable - (claimable % 100_000)` (precision truncation)
+5. Read `userBalance = cSSV.balanceOf(user)`
+6. If `payout == 0`:
+   - If `userBalance == 0`: set `accrued[user] = 0`, emit `RewardsClaimed(user, 0)`, return
+   - If `userBalance > 0`: revert `NothingToClaim` (state unchanged due revert)
+7. If `payout > 0`: set `remainder = claimable - payout`
+8. Set `accrued[user]`:
+   - If `remainder > 0 && userBalance == 0`: zero remainder (forfeit dust)
+   - Else: store `remainder`
+9. Deduct `packed(payout)` from `stakingEthPoolBalance`
+10. Deduct `packed(payout)` from `sp.ethDaoBalance`
+11. Transfer `payout` ETH to user
 
 #### Events
 ```solidity
@@ -902,11 +920,14 @@ emit RewardsClaimed(user, payout);
 ```
 
 #### Postcondition Invariants
-- `user.balance == previous + payout`
-- `contract.balance == previous - payout`
-- `accrued[user] == previous_accrued - payout` (may have dust remainder < 100,000)
-- `stakingEthPoolBalance` decreased by packed(payout)
-- `ethDaoBalance` decreased by packed(payout)
+- If `payout > 0`: `user.balance == previous + payout`
+- If `payout > 0`: `contract.balance == previous - payout`
+- If `payout > 0`: `stakingEthPoolBalance` decreased by packed(payout)
+- If `payout > 0`: `ethDaoBalance` decreased by packed(payout)
+- If `payout > 0` and `cSSV.balanceOf(user) > 0`: `accrued[user] == remainder`
+- If `payout > 0` and `cSSV.balanceOf(user) == 0`: `accrued[user] == 0` (dust forfeited)
+- If `payout == 0` and `cSSV.balanceOf(user) == 0`: `accrued[user] == 0`, `RewardsClaimed(user, 0)` emitted, no pool/DAO deductions
+- If `payout == 0` and `cSSV.balanceOf(user) > 0`: call reverts with `NothingToClaim` (no state changes)
 
 ---
 
