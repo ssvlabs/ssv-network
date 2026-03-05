@@ -24,6 +24,7 @@
 | BUG-11 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
 | BUG-12 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
 | BUG-13 | Silent default ETH fee assignment for legacy operators during migration | Observability Fix | P2 | ✅ Fixed (PR #502) |
+| BUG-14 | Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment) | Critical Bug Fix | P1 | ⚠️ Open |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -3321,6 +3322,57 @@ Modified `ensureETHDefaults` to:
 - [x] Add idempotency test
 - [x] Security review (ssv-bug-fixer)
 - [x] Test coverage review (ssv-test-writer)
+
+---
+
+### [BUG-14] Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment)
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** ⚠️ Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+When migrating an SSV cluster to ETH, SSV fee settlement must include fee debt already accrued by operators that were removed before migration.
+
+**Context:**
+`migrateClusterToETH` settles SSV balance using `cluster.updateBalanceSSV(clusterIndexSSV, sp.currentNetworkFeeIndexSSV())`, where `clusterIndexSSV` is returned by `OperatorLib.updateClusterOperatorsMigration`.
+
+In `updateClusterOperatorsMigration`, removed operators are skipped entirely:
+- `if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) continue;`
+
+If operator A is removed after accruing SSV fees:
+1. `removeOperator` settles and pays A's SSV snapshot to A's owner.
+2. Migration later skips A, so A's accrued index contribution is not included in `clusterIndexSSV`.
+3. Cluster SSV usage is under-counted during migration.
+4. Cluster owner receives inflated SSV refund.
+
+This creates an economic double-payment pattern: once to the removed operator owner, and again via inflated migration refund.
+
+**Reproduction (implemented):**
+- `test/e2e/migration/migration-double-payment.test.ts`
+  - Test: `"Demonstrates double-payment with exact accounting: remove payout + inflated migration refund"`
+  - Uses exact formula assertions for expected correct refund vs actual buggy refund.
+
+**Acceptance Criteria:**
+- [ ] Migration SSV settlement includes fee debt from removed operators that were part of the SSV cluster history
+- [ ] Cluster owner migration refund equals exact expected amount from SPEC/FLOWS formulas (no under-deduction)
+- [ ] No operator can be paid twice for the same SSV fee accrual window (direct earnings + inflated cluster refund)
+- [ ] Regression test remains green and fails on old behavior:
+  - `test/e2e/migration/migration-double-payment.test.ts`
+
+**Agent Instructions:**
+1. Read `contracts/libraries/OperatorLib.sol:updateClusterOperatorsMigration`.
+2. Read `contracts/modules/SSVClusters.sol:migrateClusterToETH` SSV settlement path.
+3. Ensure migration SSV settlement accounts for removed-operator historical debt correctly.
+4. Keep existing valid behavior where removed operators do not receive new post-removal accrual.
+5. Run targeted tests and `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Fix migration SSV fee-settlement accounting for removed operators
+- [ ] Sub-task 2: Keep/extend exact-formula reproduction test
+- [ ] Sub-task 3: Run unit + e2e migration suites
 
 ---
 
