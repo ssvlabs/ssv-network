@@ -81,6 +81,47 @@ describe("SSVClusters function `registerValidator()`", async () => {
     }
   });
 
+  it("Legacy SSV operators with zero SSV fee initialize ETH snapshot but keep ethFee=0 on registration", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    for (const operatorId of operatorIds) {
+      await validators.mockSetOperatorLegacySSV(operatorId, 0);
+      const beforeSnapshot = await validators.getOperatorEthSnapshot(operatorId);
+      const beforeFee = await validators.getOperatorEthFee(operatorId);
+      expect(beforeSnapshot.blockNumber).to.equal(0n);
+      expect(beforeFee).to.equal(0n);
+    }
+
+    const tx = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await tx.wait();
+
+    const feeExecutedEvents = receipt?.logs
+      .map((log: any) => {
+        try {
+          return validators.interface.parseLog(log);
+        } catch {
+          return null;
+        }
+      })
+      .filter((parsed: any) => parsed?.name === Events.OPERATOR_FEE_EXECUTED);
+
+    expect(feeExecutedEvents).to.have.length(0);
+
+    for (const operatorId of operatorIds) {
+      const afterSnapshot = await validators.getOperatorEthSnapshot(operatorId);
+      const afterFee = await validators.getOperatorEthFee(operatorId);
+      expect(afterSnapshot.blockNumber).to.equal(BigInt(receipt!.blockNumber));
+      expect(afterFee).to.equal(0n);
+    }
+  });
+
   it("Updates operatorEthVUnits even when cluster EB snapshot is not set", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
