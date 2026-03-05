@@ -91,6 +91,31 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     )).to.be.revertedWithCustomError(clusters, Errors.ROOT_NOT_FOUND);
   });
 
+  it("Is reverted with 'MustUseLatestRoot' when provided root is not the latest committed root", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const cluster = await registerCluster(clusters, operatorIds);
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+
+    const staleBlockNum = 1;
+    const latestBlockNum = 2;
+    const staleEffectiveBalance = 32;
+    const latestEffectiveBalance = 33;
+
+    await clusters.mockSetEBRoot(staleBlockNum, getEBRoot(clusterId, staleEffectiveBalance));
+    await clusters.mockSetEBRoot(latestBlockNum, getEBRoot(clusterId, latestEffectiveBalance));
+
+    await expect(clusters.updateClusterBalance(
+      staleBlockNum,
+      clusterOwner.address,
+      operatorIds,
+      cluster,
+      staleEffectiveBalance,
+      []
+    )).to.be.revertedWithCustomError(clusters, Errors.MUST_USE_LATEST_ROOT);
+  });
+
   it("Updates cluster balance when proof is valid", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);

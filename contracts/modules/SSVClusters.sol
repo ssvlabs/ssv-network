@@ -437,6 +437,10 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     }
 
     function _verifyEBStaleness(UpdateCtx memory ctx, bytes32 clusterId, StorageEB storage seb) internal view {
+        if (ctx.blockNum != seb.latestCommittedBlock) {
+            revert MustUseLatestRoot();
+        }
+
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
         if (ebSnapshot.lastRootBlockNum != 0 && ctx.blockNum <= ebSnapshot.lastRootBlockNum) {
             revert StaleUpdate();
