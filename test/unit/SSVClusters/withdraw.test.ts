@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, ETH_DEDUCTED_DIGITS, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -42,6 +42,18 @@ describe("SSVClusters function `withdraw()`", async () => {
     );
     const receipt = await registerTx.wait();
     return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+  };
+
+  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
+    return ethers.keccak256(
+      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
+    );
+  };
+
+  const getEBRoot = (clusterId: string, effectiveBalance: number): string => {
+    const coder = ethers.AbiCoder.defaultAbiCoder();
+    const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
+    return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
   };
 
   const getClusterWithdrawnEventArgs = (clusters: any, receipt: any) => {
@@ -139,9 +151,13 @@ describe("SSVClusters function `withdraw()`", async () => {
     const idxNet = maxUint64 - clusterBeforeWithdraw.networkFeeIndex;
     const usageUnits = (idxOp * units) / VUNITS_PRECISION + (idxNet * units) / VUNITS_PRECISION;
     const wrappedUsageUnits = usageUnits & maxUint64;
+    const overflowUnits = usageUnits >> 64n;
+    const expectedUsageFromWrapped = wrappedUsageUnits + (overflowUnits << 64n);
+    const expectedBalanceIfUint64Truncated = clusterBeforeWithdraw.balance - wrappedUsageUnits * 100_000n;
 
-    expect(usageUnits).to.be.greaterThan(maxUint64);
-    expect(wrappedUsageUnits * 100_000n).to.be.lessThan(clusterBeforeWithdraw.balance);
+    expect(overflowUnits).to.equal(1n);
+    expect(usageUnits).to.equal(expectedUsageFromWrapped);
+    expect(expectedBalanceIfUint64Truncated).to.not.equal(clusterAfterWithdraw.balance);
     expect(clusterAfterWithdraw.balance).to.equal(0n);
   });
 
@@ -210,11 +226,15 @@ describe("SSVClusters function `withdraw()`", async () => {
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 
-  it("Is reverted with 'ClusterIsLiquidated' when attempting to withdraw from a liquidated cluster", async function () {
+  it("Withdraws deposited funds from a liquidated cluster without reactivating", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+    await clusters.mockEthNetworkFee(0);
+    await clusters.mockCurrentNetworkFeeIndex(0);
+
+    // Register then liquidate the cluster
+    await registerCluster(clusters, operatorIds);
     await clusters.mockSetClusterLiquidated(clusterOwner.address, operatorIds);
 
     const liquidatedCluster = {
@@ -225,10 +245,219 @@ describe("SSVClusters function `withdraw()`", async () => {
       active: false,
     };
 
-    await expect(clusters.withdraw(
+    // Deposit to the liquidated cluster in preparation for reactivation
+    const depositAmount = ethers.parseEther("0.1");
+    const depositTx = await clusters.deposit(
+      clusterOwner.address,
       operatorIds,
-      1n,
-      liquidatedCluster
-    )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_IS_LIQUIDATED);
+      liquidatedCluster,
+      { value: depositAmount }
+    );
+    const depositReceipt = await depositTx.wait();
+    const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+
+    // Owner changes mind — withdraw the deposit without reactivating
+    const provider = connection.ethers.provider;
+    const ownerBalanceBefore = await provider.getBalance(clusterOwner.address);
+    const harnessAddress = await clusters.getAddress();
+    const harnessBalanceBefore = await provider.getBalance(harnessAddress);
+
+    const withdrawTx = await clusters.withdraw(operatorIds, depositAmount, clusterAfterDeposit);
+    const withdrawReceipt: any = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    const ownerBalanceAfter = await provider.getBalance(clusterOwner.address);
+    const harnessBalanceAfter = await provider.getBalance(harnessAddress);
+    const gasCost = withdrawReceipt.gasUsed * (withdrawReceipt.effectiveGasPrice ?? withdrawReceipt.gasPrice);
+
+    await expect(withdrawTx).to.emit(clusters, Events.CLUSTER_WITHDRAWN);
+
+    // Cluster balance returned to zero, ETH transferred back to owner
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+    expect(clusterAfterWithdraw.active).to.equal(false);
+    expect(harnessBalanceBefore - harnessBalanceAfter).to.equal(depositAmount);
+    expect(ownerBalanceAfter - ownerBalanceBefore + BigInt(gasCost)).to.equal(depositAmount);
+  });
+
+  it("Withdraws full balance from a liquidated cluster that received multiple deposits", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(0);
+    await clusters.mockCurrentNetworkFeeIndex(0);
+
+    // Register then liquidate
+    await registerCluster(clusters, operatorIds);
+    await clusters.mockSetClusterLiquidated(clusterOwner.address, operatorIds);
+
+    const liquidatedCluster = {
+      validatorCount: 0n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      balance: 0n,
+      active: false,
+    };
+
+    // Two separate deposits
+    const deposit1 = ethers.parseEther("0.05");
+    const deposit2 = ethers.parseEther("0.03");
+
+    const depositTx1 = await clusters.deposit(clusterOwner.address, operatorIds, liquidatedCluster, { value: deposit1 });
+    const receipt1 = await depositTx1.wait();
+    const clusterAfterDeposit1 = parseClusterFromEvent(clusters, receipt1, Events.CLUSTER_DEPOSITED);
+
+    const depositTx2 = await clusters.deposit(clusterOwner.address, operatorIds, clusterAfterDeposit1, { value: deposit2 });
+    const receipt2 = await depositTx2.wait();
+    const clusterAfterDeposit2 = parseClusterFromEvent(clusters, receipt2, Events.CLUSTER_DEPOSITED);
+
+    expect(clusterAfterDeposit2.balance).to.equal(deposit1 + deposit2);
+
+    // Withdraw the full accumulated balance
+    const withdrawTx = await clusters.withdraw(operatorIds, deposit1 + deposit2, clusterAfterDeposit2);
+    const withdrawReceipt: any = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+    expect(clusterAfterWithdraw.active).to.equal(false);
+
+    // Partial withdrawal should also succeed — confirm InsufficientBalance on over-withdrawal
+    await expect(
+      clusters.withdraw(operatorIds, 1n, clusterAfterWithdraw)
+    ).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
+  });
+
+  it("Withdraws from a liquidated zero-validator cluster even with non-zero liquidation settings", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(123_000n);
+    await clusters.mockMinimumBlocksBeforeLiquidation(50_190n);
+    await clusters.mockMinimumLiquidationCollateral(94_000n);
+    await clusters.mockCurrentNetworkFeeIndex(777n);
+
+    await registerCluster(clusters, operatorIds);
+    await clusters.mockSetClusterLiquidated(clusterOwner.address, operatorIds);
+
+    const liquidatedCluster = {
+      validatorCount: 0n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      balance: 0n,
+      active: false,
+    };
+
+    const depositAmount = ethers.parseEther("0.02");
+    const depositTx = await clusters.deposit(
+      clusterOwner.address,
+      operatorIds,
+      liquidatedCluster,
+      { value: depositAmount }
+    );
+    const depositReceipt = await depositTx.wait();
+    const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+
+    const withdrawTx = await clusters.withdraw(operatorIds, depositAmount, clusterAfterDeposit);
+    const withdrawReceipt = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    expect(clusterAfterWithdraw.active).to.equal(false);
+    expect(clusterAfterWithdraw.validatorCount).to.equal(0n);
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+  });
+
+  it("Cluster balance becomes 0 when accumulated fees exceed the remaining balance (no underflow)", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockMinimumBlocksBeforeLiquidation(0n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+    await clusters.mockEthNetworkFee(0n);
+
+    const cluster = await registerCluster(clusters, operatorIds);
+
+    const indexToDrainBalance = DEFAULT_ETH_REGISTER_VALUE / ETH_DEDUCTED_DIGITS + 1n;
+    await clusters.mockCurrentNetworkFeeIndex(indexToDrainBalance);
+
+    const withdrawTx = await clusters.withdraw(operatorIds, 0n, cluster);
+    const withdrawReceipt: any = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+  });
+
+  it("Withdraws from a liquidated cluster after explicit EB update", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const cluster = await registerCluster(clusters, operatorIds);
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const effectiveBalance = 160;
+    const ebBlockNum = 1;
+
+    await clusters.mockSetEBRoot(ebBlockNum, getEBRoot(clusterId, effectiveBalance));
+    const ebTx = await clusters.updateClusterBalance(
+      ebBlockNum,
+      clusterOwner.address,
+      operatorIds,
+      cluster,
+      effectiveBalance,
+      []
+    );
+    const ebReceipt = await ebTx.wait();
+    const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_BALANCE_UPDATED);
+
+    const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB);
+    const liquidateReceipt = await liquidateTx.wait();
+    const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
+
+    expect(liquidatedCluster.active).to.equal(false);
+    expect(liquidatedCluster.validatorCount).to.equal(clusterAfterEB.validatorCount);
+
+    const depositAmount = ethers.parseEther("0.03");
+    const depositTx = await clusters.deposit(
+      clusterOwner.address,
+      operatorIds,
+      liquidatedCluster,
+      { value: depositAmount }
+    );
+    const depositReceipt = await depositTx.wait();
+    const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+
+    const withdrawTx = await clusters.withdraw(operatorIds, depositAmount, clusterAfterDeposit);
+    const withdrawReceipt = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    expect(clusterAfterWithdraw.active).to.equal(false);
+    expect(clusterAfterWithdraw.validatorCount).to.equal(clusterAfterEB.validatorCount);
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+  });
+
+  it("Zero-validator cluster allows full balance withdrawal without fee deduction", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersWithLowFeesFixture);
+
+    await clusters.mockEthNetworkFee(100_000n);
+
+    const publicKey = makePublicKey(1);
+    const registerTx = await clusters.registerValidator(
+      publicKey, operatorIds, DEFAULT_SHARES, createCluster(), { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const removeTx = await clusters.removeValidator(publicKey, operatorIds, clusterAfterRegister);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+
+    await networkHelpers.mine(100);
+
+    const fullBalance = clusterAfterRemove.balance;
+    const withdrawTx = await clusters.withdraw(operatorIds, fullBalance, clusterAfterRemove);
+    const withdrawReceipt = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+    expect(clusterAfterWithdraw.active).to.equal(true);
   });
 });

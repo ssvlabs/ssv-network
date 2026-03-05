@@ -53,8 +53,16 @@ This document is the **implementation verification checklist** for the SSV Staki
 ### ETH Contract Balance Accounting Invariant
 
 ```
-address(this).balance == Σ(cluster.balance) + Σ(operator.ethEarnings) + ethDaoBalance + stakingEthPoolBalance
+contract.ETH_balance ≈ Σ(current ETH cluster balances) + Σ(current operator ETH earnings) + ProtocolLib.networkTotalEarnings()
 ```
+
+Where “current” means:
+  - Cluster balances computed like `SSVViews.getBalance` (it applies pending fees before returning).
+    File: `contracts/modules/SSVViews.sol`
+  - Operator earnings computed like `SSVViews.getOperatorEarnings` (it updates snapshots before returning).
+    File: `contracts/modules/SSVViews.sol`
+  - DAO/staking pool uses `ProtocolLib.networkTotalEarnings()`.
+    File: `contracts/libraries/ProtocolLib.sol`
 
 This invariant holds by construction across all ETH flows. If accounting is correct, every `cluster.balance` is always ≤ `address(this).balance` — no explicit contract-balance guard is needed in `withdraw`. A violation indicates a protocol bug, not a user error.
 
@@ -256,17 +264,15 @@ emit ClusterDeposited(owner, operatorIds, msg.value, cluster);
 - Cluster must exist as ETH cluster (VERSION_ETH)
 - `amount <= cluster.balance` (after fee settlement if active)
 - If cluster is active and has validators: cluster must not become liquidatable after withdrawal
+- ~~Cluster must be active~~ — **liquidated clusters are allowed** (see note below)
 
-> **Note — withdrawal allowed on liquidated clusters:** `withdraw` does not require the cluster to be active. A liquidated cluster may have received deposits (via `deposit`) in preparation for reactivation. If the owner decides not to reactivate, they can recover those funds via `withdraw`.
->
-> **Note — operator removal and reactivation:** If one or more operators in a cluster's operator set have been removed (via `removeOperator`), the cluster can still be reactivated, but removed operators are silently skipped during `updateClusterOperatorsOnReactivation` (see `OperatorLib.sol:311`). The cluster will operate with reduced operator coverage (e.g., 3/4 instead of 4/4), which may compromise the cluster's fault tolerance. The reactivation fee calculation excludes removed operators' fees. No on-chain event signals which operators were skipped, but this is detectable off-chain by checking operator states before reactivation.
+> **Note — withdrawal allowed on liquidated clusters:** `withdraw` does not require the cluster to be active. A liquidated cluster may have received deposits (via `deposit`) in preparation for reactivation. If the owner decides not to reactivate, they can recover those funds via `withdraw`. Fee settlement and the post-withdrawal liquidatability check are skipped for inactive clusters (no burn rate applies).
 
 #### State Mutations
-1. If cluster is active: update operator snapshots and settle cluster fees
-2. `cluster.balance -= amount`
-3. If cluster is active and has validators: liquidation check
-4. Update stored cluster hash
-5. Transfer `amount` ETH to caller
+1. `cluster.balance -= amount`
+2. If cluster is active and has validators: liquidation check
+3. Update stored cluster hash
+4. Transfer `amount` ETH to caller
 
 #### Events
 ```solidity
@@ -334,12 +340,14 @@ Same flow as 1.9 but for SSV clusters. Uses `s.clusters` instead of `s.ethCluste
 
 
 > **Note — Stale EB risk:** The solvency check uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed during liquidation. Ref: SPEC §2 "Stale EB Risk on Reactivation" for full analysis and mitigation options.
+>
+> **Note — operator removal and reactivation:** If one or more operators in a cluster's operator set have been removed (via `removeOperator`), the cluster can still be reactivated, but removed operators are silently skipped during `updateClusterOperatorsOnReactivation` (see `OperatorLib.sol:311`). The cluster will operate with reduced operator coverage (e.g., 3/4 instead of 4/4), which may compromise the cluster's fault tolerance. The reactivation fee calculation excludes removed operators' fees. No on-chain event signals which operators were skipped, but this is detectable off-chain by checking operator states before reactivation.
 
 #### State Mutations
 1. Update operator ETH snapshots
 2. Increment `operator.ethValidatorCount` for each operator
 3. Increase operators' effective balance (EB) tracking: increment `operator.vUnits` by cluster's vUnits
-4. Set cluster: `active = true, balance = msg.value, index = current, networkFeeIndex = current`
+4. Set cluster: `active = true, balance += msg.value, index = current, networkFeeIndex = current`
 5. Update DAO: `ethDaoValidatorCount += cluster.validatorCount`, add DAO vUnits and increase EB tracking
 6. Liquidation check: must not be immediately liquidatable (uses stored `clusterEB.vUnits`)
 7. Update stored cluster hash
@@ -478,7 +486,7 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 
 #### Preconditions
 - Committed root exists for `blockNum`: `ebRoots[blockNum] != bytes32(0)`
-- Update frequency check: `block.number >= lastUpdateBlock + minBlocksBetweenUpdates`
+- Update frequency check: `block.number >= lastUpdateBlock + minBlocksBetweenUpdates` (configured via `updateMinBlocksBetweenUpdates(uint32)`)
 - Staleness check: `blockNum > lastRootBlockNum` (strictly increasing)
 - Merkle proof valid: `verify(proof, ebRoots[blockNum], doubleHash(clusterId, effectiveBalance))`
 - EB limits: `32 * validatorCount <= effectiveBalance <= 2048 * validatorCount`
@@ -536,7 +544,7 @@ emit ClusterLiquidated(owner, operatorIds, cluster);
 #### Preconditions
 - Public key must not already be registered
 - Fee must be divisible by ETH_DEDUCTED_DIGITS (100,000)
-- Fee must be within `[minimumOperatorEthFee, operatorMaxFee]`
+- Fee must be `0` (public operator) OR within `[minimumOperatorEthFee, operatorMaxFee]`
 
 #### State Mutations
 1. Increment `lastOperatorId`
@@ -547,7 +555,7 @@ emit ClusterLiquidated(owner, operatorIds, cluster);
 #### Events
 ```solidity
 emit OperatorAdded(operatorId, msg.sender, publicKey, fee);
-if (setPrivate) emit OperatorPrivacyStatusUpdated([operatorId], true);
+emit OperatorPrivacyStatusUpdated([operatorId], setPrivate);
 ```
 
 #### Postcondition Invariants
@@ -1004,8 +1012,13 @@ emit OracleReplaced(oracleId, oldOracle, newOracle);
 
 These invariants should be verified across all flows:
 
-1. **ETH conservation**: `contract.ETH_balance >= Σ(all active ETH cluster balances) + Σ(all operator ETH earnings) + staking_pool_balance`
-2. **SSV conservation**: `contract.SSV_balance >= Σ(all active SSV cluster balances) + Σ(all operator SSV earnings) + Σ(staked SSV)`
+1. **ETH conservation**: `contract.ETH_balance ≈ Σ(current ETH cluster balances) + Σ(current operator ETH earnings) + ProtocolLib.networkTotalEarnings()`
+2. **SSV conservation**: `contract.SSV_balance ≈ Σ(current SSV cluster balances) + Σ(current operator SSV earnings) + networkTotalEarningsSSV() + stakingHeldSSV`
+Where:
+   - “current” means the view‑computed balances that apply pending fees (see `contracts/modules/SSVViews.sol`).
+   - `stakingHeldSSV` = total SSV still locked in the `SSVNetwork` contract, including pending unstake requests.
+   - `cSSV.totalSupply()` is only equal to `stakingHeldSSV` when there are no pending unstake requests.
+
 3. **Validator count consistency**: `ethDaoValidatorCount == Σ(cluster.validatorCount)` across all active ETH clusters — note: `Σ(operator.ethValidatorCount)` is NOT equivalent because operators are shared across clusters and would double-count
 4. **vUnit consistency**: `daoTotalEthVUnits == ethDaoValidatorCount * VUNITS_PRECISION + Σ(cluster_deviations)`
 5. **Cluster hash integrity**: Every cluster operation must end with `s.ethClusters[key] = cluster.hashClusterData()` matching the actual cluster state

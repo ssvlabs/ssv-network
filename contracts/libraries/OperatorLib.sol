@@ -10,6 +10,7 @@ import {PackedETHLib, PackedSSVLib} from "../libraries/SSVPackedLib.sol";
 import "./storage/SSVStorageEB.sol";
 
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
+import {ISSVOperators} from "../interfaces/ISSVOperators.sol";
 
 /**
  * @title SSV Operator Library
@@ -139,14 +140,14 @@ library OperatorLib {
      * @notice Ensures ETH defaults for operator
      * @param operator Operator storage reference
      */
-    function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
-        if(operator.ethSnapshot.block == 0){
-            if (operator.ethSnapshot.block == 0) {
-                operator.ethSnapshot.block = uint32(block.number);
-                operator.ethSnapshot.balance = PACKED_ETH_ZERO;
-            }
+    function ensureETHDefaults(ISSVNetworkCore.Operator storage operator, uint64 operatorId) internal {
+        if (operator.ethSnapshot.block == 0) {
+            operator.ethSnapshot.block = uint32(block.number);
+            operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+
             if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
                 operator.ethFee = defaultOperatorEthFee();
+                emit ISSVOperators.OperatorFeeExecuted(operator.owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE);
             }
         }
         // we don't want to revert here because this will block the migration flow
@@ -197,7 +198,7 @@ library OperatorLib {
             ISSVNetworkCore.Operator storage operatorSt = s.operators[operatorId];
             ensureOperatorExist(operatorSt);
 
-            ensureETHDefaults(operatorSt);
+            ensureETHDefaults(operatorSt, operatorId);
             ISSVNetworkCore.Operator memory operator = operatorSt;
             // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
@@ -392,7 +393,7 @@ library OperatorLib {
 
             if (operator.ethSnapshot.block == 0) {
                 // first-time ETH usage or migration
-                ensureETHDefaults(operator);
+                ensureETHDefaults(operator, operatorId);
 
             } else {
                 // already ETH operator

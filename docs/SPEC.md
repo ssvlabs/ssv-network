@@ -188,9 +188,10 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 8. [All External Functions](#8-all-external-functions)
 9. [Access Control Matrix](#9-access-control-matrix)
 10. [Accounting Formulas](#10-accounting-formulas)
-11. [Governance Parameters](#11-governance-parameters)
-12. [Error Codes](#12-error-codes)
-13. [Constants](#13-constants)
+11. [Global Invariants](#11-global-invariants)
+12. [Governance Parameters](#12-governance-parameters)
+13. [Error Codes](#13-error-codes)
+14. [Constants](#14-constants)
 
 ---
 
@@ -929,7 +930,106 @@ userIndex[user] = accEthPerShare
 
 ---
 
-## 11. Governance Parameters
+## 11. Global Invariants
+
+These invariants must hold across all contract states. They are critical for verifying protocol correctness and should be checked in comprehensive test suites.
+
+### 1. ETH Conservation
+
+```
+contract.ETH_balance ≈ Σ(current ETH cluster balances)
+                     + Σ(current operator ETH earnings)
+                     + ProtocolLib.networkTotalEarnings()
+```
+
+**Notes:**
+- "current" means view-computed balances that apply pending fees (see `contracts/modules/SSVViews.sol`)
+- `≈` (approximately equal) accounts for rounding from packing/unpacking operations
+- `ProtocolLib.networkTotalEarnings()` includes both `ethDaoBalance` and pending network fee earnings
+
+### 2. SSV Conservation
+
+```
+contract.SSV_balance ≈ Σ(current SSV cluster balances)
+                     + Σ(current operator SSV earnings)
+                     + networkTotalEarningsSSV()
+                     + stakingHeldSSV
+```
+
+**Notes:**
+- `stakingHeldSSV` = total SSV still locked in the `SSVNetwork` contract, including pending unstake requests
+- `cSSV.totalSupply()` is only equal to `stakingHeldSSV` when there are no pending unstake requests
+
+### 3. Validator Count Consistency
+
+```
+ethDaoValidatorCount == Σ(cluster.validatorCount) across all active ETH clusters
+```
+
+**Note:** `Σ(operator.ethValidatorCount)` is NOT equivalent because operators are shared across clusters and would double-count validators.
+
+### 4. vUnit Consistency
+
+```
+daoTotalEthVUnits == ethDaoValidatorCount * VUNITS_PRECISION + Σ(cluster_deviations)
+```
+
+Where `cluster_deviations = clusterEB.vUnits - validatorCount * VUNITS_PRECISION` for clusters with explicit EB.
+
+### 5. Cluster Hash Integrity
+
+Every cluster operation must end with:
+```
+s.ethClusters[key] = cluster.hashClusterData()
+```
+
+Matching the actual cluster state: `keccak256(abi.encodePacked(validatorCount, networkFeeIndex, index, balance, active))`
+
+### 6. cSSV Supply Accounting
+
+```
+cSSV.totalSupply() == Σ(staked SSV) - Σ(unstake-requested SSV)
+```
+
+- Mint on `stake()`
+- Burn on `requestUnstake()`
+
+### 7. Accumulator Monotonicity
+
+```
+accEthPerShare[t+1] >= accEthPerShare[t]
+```
+
+Staking reward accumulator only increases, never decreases.
+
+### 8. Oracle Monotonicity
+
+```
+latestCommittedBlock[t+1] >= latestCommittedBlock[t]
+```
+
+Committed EB roots are strictly ordered by block number.
+
+### 9. Cluster Version Exclusivity
+
+```
+(s.clusters[key] != 0) XOR (s.ethClusters[key] != 0)
+```
+
+A cluster key exists in EITHER SSV clusters OR ETH clusters, never both.
+
+### 10. Operator Dual Tracking
+
+For each operator:
+```
+operator.validatorCount + operator.ethValidatorCount == total validators using this operator
+```
+
+SSV validator count + ETH validator count equals total across both cluster types.
+
+---
+
+## 12. Governance Parameters
 
 ### ETH Cluster Parameters
 
@@ -938,8 +1038,8 @@ userIndex[user] = accEthPerShare
 | `ethNetworkFee` | 0.000000003550929823 ETH/block (~0.00928 ETH/year) | `updateNetworkFee(uint256)` |
 | `minimumLiquidationCollateral` | 0.00094 ETH | `updateMinimumLiquidationCollateral(uint256)` |
 | `minimumBlocksBeforeLiquidation` | 50,190 blocks (~7 days) | `updateLiquidationThresholdPeriod(uint64)` |
-| `operatorMaxFee` | TBD | `updateMaximumOperatorFee(uint256)` |
-| `minimumOperatorEthFee` | TBD | `updateMinimumOperatorEthFee(uint256)` |
+| `operatorMaxFee` | 0.000000005326300000 ETH/block (~0.0140 ETH/year) | `updateMaximumOperatorFee(uint256)` |
+| `minimumOperatorEthFee` | 0.000000001065200000 ETH/block (~0.0028 ETH/year) | `updateMinimumOperatorEthFee(uint256)` |
 
 ### SSV Cluster Parameters (Legacy)
 
@@ -963,6 +1063,7 @@ userIndex[user] = accEthPerShare
 | Parameter | Initial Value | Update Function |
 |---|---|---|
 | `quorumBps` | 7,500 (75%) | `setQuorumBps(uint16)` |
+| `minBlocksBetweenUpdates` | 0 blocks | `updateMinBlocksBetweenUpdates(uint32)` |
 | Oracle set | 4 oracles | `replaceOracle(uint32, address)` |
 
 ### Operator Fee Parameters
@@ -976,7 +1077,7 @@ userIndex[user] = accEthPerShare
 
 ---
 
-## 12. Error Codes
+## 13. Error Codes
 
 ### Cluster Errors
 - `ClusterAlreadyEnabled` — reactivating an already active cluster
@@ -1060,7 +1161,7 @@ userIndex[user] = accEthPerShare
 
 ---
 
-## 13. Constants
+## 14. Constants
 
 ```solidity
 // Precision
