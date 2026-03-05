@@ -387,6 +387,11 @@ emit ClusterReactivated(owner, operatorIds, cluster);
    - Else: update ETH snapshot
    - Increment `operator.ethValidatorCount`
 
+   **Special handling for removed operators:**
+   - Removed operators (`snapshot.block == 0 && ethSnapshot.block == 0`) contribute their **frozen `snapshot.index`** to SSV cumulative index (used for fee settlement).
+   - They are **skipped** for ETH-side updates: no `ensureETHDefaults`, no `operator.ethValidatorCount` increment, no `cumulativeFeeETH` contribution.
+   - This ensures the cluster pays SSV fees accrued by the removed operator before removal, while not setting up ETH accounting for an inactive operator.
+
 2. **Settle SSV balance:**
    - Compute remaining SSV balance after fees
    - Store as `ssvClusterBalance` for refund

@@ -251,7 +251,9 @@ Step 4: Take maximum of both thresholds
 **Special Cases:**
 - With zero-fee operators: `operatorFeeSum = 0`, so `totalBurnRate = networkFee` only
 - The absolute floor is always `minimumLiquidationCollateral` (currently 0.00094 ETH)
-- **Removed operators** are skipped during migration (detected by `operator.snapshot.block == 0 && operator.ethSnapshot.block == 0`; their fees do not contribute to `operatorFeeSum`)
+- **Removed operators** are skipped for ETH initialization during migration (`operator.snapshot.block == 0 && operator.ethSnapshot.block == 0`).
+  - Their **frozen SSV `snapshot.index`** is still included in SSV fee settlement to account for fees accrued before removal.
+  - Their ethFee does NOT contribute to `operatorFeeSum` (the ETH burn rate for the migrated cluster).
 - Reactivates a liquidated cluster and emits the `ClusterReactivated` event in addition to `ClusterMigratedToETH`
 
 ### Operator Fee Transition
