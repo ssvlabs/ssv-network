@@ -518,7 +518,7 @@ describe("Migration Regression: removed operator SSV settlement", () => {
     const afterEthSnapshot = await clusters.getOperatorEthSnapshot(targetOperator);
 
     expect(afterEthFeePacked).to.equal(expectedDefaultPacked);
-    expect(BigInt(afterEthSnapshot.blockNumber)).to.be.greaterThan(0n);
+    expect(BigInt(afterEthSnapshot.blockNumber)).to.equal(BigInt(receipt!.blockNumber));
 
     await expect(migrateTx)
       .to.emit(clusters, Events.OPERATOR_FEE_EXECUTED)
