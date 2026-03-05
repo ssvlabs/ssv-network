@@ -124,12 +124,10 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         uint256 userBalance = ICSSVToken(CSSV_ADDRESS).balanceOf(msg.sender);
         if (payout == 0) {
             if (userBalance == 0) {
-                // Zero dust and exit successfully (no revert)
                 s.accrued[msg.sender] = 0;
                 emit RewardsClaimed(msg.sender, 0);
                 return;
             }
-            // User still has cSSV, preserve remainder
             revert NothingToClaim();
         }
 
