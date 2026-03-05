@@ -246,4 +246,12 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         SSVStorageStaking.load().cooldownDuration = duration;
         emit CooldownDurationUpdated(duration);
     }
+
+    /**
+     * @inheritdoc ISSVDAO
+     */
+    function updateMinBlocksBetweenUpdates(uint32 blocks) external override {
+        SSVStorageEB.load().minBlocksBetweenUpdates = blocks;
+        emit MinBlocksBetweenUpdatesUpdated(blocks);
+    }
 }

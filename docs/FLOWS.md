@@ -486,7 +486,7 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 
 #### Preconditions
 - Committed root exists for `blockNum`: `ebRoots[blockNum] != bytes32(0)`
-- Update frequency check: `block.number >= lastUpdateBlock + minBlocksBetweenUpdates`
+- Update frequency check: `block.number >= lastUpdateBlock + minBlocksBetweenUpdates` (configured via `updateMinBlocksBetweenUpdates(uint32)`)
 - Staleness check: `blockNum > lastRootBlockNum` (strictly increasing)
 - Merkle proof valid: `verify(proof, ebRoots[blockNum], doubleHash(clusterId, effectiveBalance))`
 - EB limits: `32 * validatorCount <= effectiveBalance <= 2048 * validatorCount`
