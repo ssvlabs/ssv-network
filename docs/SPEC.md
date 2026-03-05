@@ -374,8 +374,28 @@ userIndex[user] = accEthPerShare
 
 - Call `claimEthRewards()` at any time
 - Payout truncated to ETH_DEDUCTED_DIGITS precision: `payout = accrued - (accrued % 100_000)`
-- Deducted from both `stakingEthPoolBalance` and `sp.ethDaoBalance`
-- ETH transferred to user
+- If `payout > 0`: deduct `packed(payout)` from both `stakingEthPoolBalance` and `sp.ethDaoBalance`, then transfer ETH to user
+- If `payout == 0` and `balanceOf(user) == 0`: zero `accrued[user]`, emit `RewardsClaimed(user, 0)`, and return successfully
+- If `payout == 0` and `balanceOf(user) > 0`: revert `NothingToClaim` (remainder preserved)
+
+#### Dust Handling (ETH_DEDUCTED_DIGITS Rounding)
+
+ETH rewards are packed to PackedETH (uint64) with precision of 100,000 wei (ETH_DEDUCTED_DIGITS).
+When claiming rewards:
+- `payout = floor(accrued / 100_000) * 100_000`
+- `remainder = accrued - payout`
+- If `remainder > 0` AND `balanceOf(user) == 0`: remainder is forfeited (zeroed in s.accrued)
+- If `balanceOf(user) > 0`: remainder is preserved for future claims
+
+**Rationale:** Users with zero cSSV balance cannot accrue future rewards (pending will always be 0).
+Therefore, sub-100K wei dust can never grow to claimable amounts and is safely forfeited.
+Forfeited dust remains in stakingEthPoolBalance, redistributed to remaining stakers.
+
+#### claimEthRewards Edge Cases
+
+- If `accrued == 0`: revert `NothingToClaim`
+- If `accrued > 0` but `accrued < ETH_DEDUCTED_DIGITS` and `balanceOf(user) > 0`: remainder preserved, revert `NothingToClaim` (can claim later when accrued grows)
+- If `accrued > 0` but `accrued < ETH_DEDUCTED_DIGITS` and `balanceOf(user) == 0`: dust zeroed (forfeited), emit `RewardsClaimed(user, 0)`, return success
 
 ### cSSV Token Behavior
 
