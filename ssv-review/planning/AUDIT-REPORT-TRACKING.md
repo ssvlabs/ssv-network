@@ -1,7 +1,7 @@
 # SSV Network v2.0.0 — Audit Issues Tracking
 
 **Generated:** 2026-02-27
-**Updated:** 2026-03-04
+**Updated:** 2026-03-06
 **Source:** `ssv-review/audit-report-source.md`
 **Branch:** `ssv-staking`
 
@@ -11,27 +11,27 @@ This document tracks issues from the audit report source in a management-friendl
 
 ## Priority Summary
 
-| ID | Task | Type | Priority | Effort |
-|----|------|------|----------|--------|
+| ID | Task | Type | Priority | Tracking |
+|----|------|------|----------|----------|
 | SSV-1 | ~~Stale memory write-back locks operators at zero ETH fee & reactivates removed operators~~ | Audit Finding | P0 | ✅ Fixed |
-| SSV-2 | ~~Live cSSV supply used per vote allows quorum manipulation~~ | Audit Finding | P0 | ✅ Fixed (PR #492) |
-| SSV-3 | ~~Validator registration can leave cluster immediately liquidatable~~ | Audit Finding | P0 | ✅ Fixed (PR #491) |
+| SSV-2 | Live cSSV supply used per vote allows quorum manipulation | Audit Finding | P0 | 🟡 In Progress (Open PR #492) |
+| SSV-3 | Validator registration can leave cluster immediately liquidatable | Audit Finding | P0 | 🟡 In Progress (Open PR #491) |
 | SSV-4 | Remove-and-reregister resets explicit EB to baseline, creating fee undercharge window | Audit Finding | P2 | TBD |
 | SSV-5 | Operator removal can compromise clusters' fault tolerance | Audit Finding | P2 | ✅ By Design |
 | SSV-6 | ETH rewards accrued during zero cSSV supply become unclaimable | Audit Finding | P1 | ✅ Mitigated |
 | SSV-7 | ~~EB auto-liquidation can leave ethValidatorCount inflated~~ | Audit Finding | P2 | ✅ Fixed |
 | SSV-8 | ~~Double-accounting EB deviation blocks validator removal from liquidated clusters~~ | Audit Finding | P2 | ✅ Fixed |
 | SSV-9 | Incorrect oracle weight may reach premature quorum | Audit Finding | P2 | M |
-| SSV-10 | Cluster owners can avoid liquidation by removing all validators before withdrawal | Audit Finding | P3 | ⚠️ Pending — choose mitigation option |
+| SSV-10 | Cluster owners can avoid liquidation by removing all validators before withdrawal | Audit Finding | P3 | ✅ Accepted Behavior (PR #455) |
 | SSV-11 | ~~Legacy fee requests may execute after upgrade with incompatible fee scale~~ | Audit Finding | P3 | ✅ Fixed (uses UPGRADE_TIMESTAMP) |
 | SSV-12 | Liquidation fallback adds operatorEthVUnits in sub-baseline case | Audit Finding | P3 | ✅ Acknowledged (unreachable under current invariants) |
 | SSV-13 | Operator registration can be DoSed | Audit Finding | P3 | ✅ Acknowledged |
 | SSV-14 | Phantom operators can extract fees and degrade fault tolerance | Audit Finding | P3 | ✅ Acknowledged (no bonding by design) |
 | SSV-15 | Deferred reward accounting exposes stakers to ETH price volatility | Audit Finding | P3 | ❌ Invalid (execution order misunderstood) |
 | SSV-16 | Non-standard ERC20 tokens trapped in SSVStaking | Audit Finding | P3 | L |
-| SSV-17 | Stale cluster effective balance updates | Audit Finding | P3 | M |
+| SSV-17 | Stale cluster effective balance updates | Audit Finding | P3 | 🟡 In Progress (Open PR #507) |
 | SSV-18 | Direct liquidations do not consider effective balance updates | Audit Finding | P3 | TBD |
-| SSV-19 | ~~replaceOracle allows out-of-set oracle IDs to vote~~ | Audit Finding | P3 | ✅ Fixed (PR #504) |
+| SSV-19 | ~~replaceOracle allows out-of-set oracle IDs to vote~~ | Audit Finding | P3 | ✅ Merged (PR #504) |
 | SSV-20 | Duplicate BLS key registration across owners risks slashing | Audit Finding | P3 | TBD |
 | SSV-21 | Operator onboarding may lead to increasing centralization | Audit Finding | P3 | TBD |
 | S-1 | Improve error handling | Auditor Suggestion | P3 | TBD |
@@ -39,7 +39,7 @@ This document tracks issues from the audit report source in a management-friendl
 | S-3 | Incorrect code comment in reentrancy storage/guard | Auditor Suggestion | P3 | TBD |
 | S-4 | Gas savings opportunities | Auditor Suggestion | P3 | TBD |
 | S-5 | Missing input validation in governance/admin paths | Auditor Suggestion | P3 | TBD |
-| S-6 | Unstake cooldown unit mismatch (docs vs code) | Auditor Suggestion | P3 | TBD |
+| S-6 | Unstake cooldown unit mismatch (docs vs code) | Auditor Suggestion | P3 | ✅ Fixed (PR #433, #432, #486) |
 | S-7 | Code quality improvements (cluster invariants, reentrancy, docs) | Auditor Suggestion | P3 | TBD |
 | S-8 | Remove unchecked arithmetic in loops | Auditor Suggestion | P3 | TBD |
 | S-9 | replaceOracle no-op emits misleading event | Auditor Suggestion | P3 | TBD |
@@ -134,11 +134,13 @@ Code refactored in commit `bd973d4` (Feb 15, 2026):
 ### [SSV-2] Live cSSV Supply Used Per Vote in commitRoot Allows Supply Manipulation to Block or Bypass Oracle Quorum
 - **Type:** Security Hardening / Audit Finding (High Severity)
 - **Priority:** P0
-- **Status:** ✅ Fixed
+- **Status:** 🟡 In Progress - Open PR #492
 - **Owner:** N/A
-- **Timeline:** Fixed via PR #492
+- **Timeline:** Open PR #492 targeting `ssv-staking`
 - **Github Link:** [PR #492](https://github.com/ssvlabs/ssv-network/pull/492)
 - **Related:** Supersedes [SEC-5] with concrete exploit scenarios from audit
+
+**Tracking Note:** The implementation exists in PR #492 but is not yet merged into `ssv-staking` as of 2026-03-06.
 
 **Requirement:**
 Fix `commitRoot` so that cSSV total supply is frozen at the start of each voting round (on the first vote) and used consistently for all subsequent votes in that round, preventing supply manipulation attacks.
@@ -256,11 +258,13 @@ When oracles become permissionless with delegated stake-based weights, the freez
 ### [SSV-3] Validator Registration Can Leave Cluster Immediately Liquidatable Due to Stale vUnits in Liquidation Check
 - **Type:** Security Bug / Audit Finding (High Severity)
 - **Priority:** P0
-- **Status:** ✅ Fixed
+- **Status:** 🟡 In Progress - Open PR #491
 - **Owner:** N/A
-- **Timeline:** Fixed via PR #491
+- **Timeline:** Open PR #491 targeting `ssv-staking`
 - **Github Link:** [PR #491](https://github.com/ssvlabs/ssv-network/pull/491)
 - **Files Affected:** [contracts/modules/SSVValidators.sol](contracts/modules/SSVValidators.sol), [contracts/libraries/ClusterLib.sol](contracts/libraries/ClusterLib.sol)
+
+**Tracking Note:** The implementation exists in PR #491 but is not yet merged into `ssv-staking` as of 2026-03-06.
 
 **Requirement:**
 Fix validator registration flow so that the liquidation check uses the **post-registration vUnits** (including the baseline for newly added validators), not the pre-registration vUnits stored in `ebSnapshot.vUnits`.
@@ -761,8 +765,19 @@ Result: No underflow, no double-accounting ✅
 ---
 
 ### [SSV-10] Cluster Owners Can Avoid Liquidation By Removing All Validators Before Withdrawal
-1. Disallow validator removal while liquidatable.
-2. Document as accepted behavior.
+- **Type:** Audit Finding / Design Decision
+- **Priority:** P3
+- **Status:** ✅ Accepted Behavior
+- **Owner:** N/A
+- **Timeline:** Merged into `ssv-staking` via PR #455 on 2026-02-26
+- **Github Link:** [PR #455](https://github.com/ssvlabs/ssv-network/pull/455)
+
+**Decision:** The team chose the "document as accepted behavior" path rather than forbidding validator removal while a cluster is liquidatable.
+
+**Current Tracking Position:** The merged implementation and tests now align with the accepted behavior:
+- Zero-validator clusters can withdraw without a liquidation check
+- Liquidated clusters can withdraw previously deposited ETH
+- The finding should be tracked as an explicit product/design choice, not as an unresolved code defect
 
 ---
 
@@ -1081,12 +1096,14 @@ Use `SafeERC20` as recommended.
 - **Type:** Security / Griefing Attack Vector
 - **Severity:** Medium
 - **Priority:** P3
-- **Status:** ⚠️ Open - Mitigation Required Before Mainnet
+- **Status:** 🟡 In Progress - Open PR #507
 - **Effort:** M (Medium)
 - **Owner:** (unassigned)
-- **Timeline:** Must be resolved before mainnet v2.0.0 deployment
-- **Github Link:** (empty)
+- **Timeline:** Open PR #507 targets `ssv-staking` before mainnet v2.0.0 deployment
+- **Github Link:** [PR #507](https://github.com/ssvlabs/ssv-network/pull/507)
 - **Files Affected:** [contracts/modules/SSVClusters.sol](contracts/modules/SSVClusters.sol#L430-L437), [deployments/params-candidate.json](deployments/params-candidate.json#L10)
+
+**Tracking Note:** The mitigation is implemented in PR #507 but is not yet merged into `ssv-staking` as of 2026-03-06.
 
 **Requirement:**
 Prevent attackers from exploiting stale Merkle roots to delay effective balance (EB) updates when `minBlocksBetweenUpdates > 0`, enabling sustained fee underpayment or liquidation griefing.
@@ -1524,10 +1541,10 @@ This helps detect:
 
 **Status Summary:**
 
-- ⚠️ **OPEN - Code Changes Required** — Current implementation allows stale root exploitation
+- 🟡 **IN PROGRESS - Open PR #507** — current `ssv-staking` still allows stale root exploitation until the PR is merged
 - 🎯 **Solution Chosen:** Enforce latest root only (`ctx.blockNum == seb.latestCommittedBlock`)
 - ✅ **Defense-in-Depth:** Also set `minBlocksBetweenUpdates = 0` in deployment params
-- 📋 **Next Steps:** Implement code changes per Agent Instructions above
+- 📋 **Next Steps:** Merge PR #507, then update deployment/config and docs before mainnet
 - ⏰ **Timeline:** Must be deployed before mainnet v2.0.0
 
 **Key Changes Required:**
