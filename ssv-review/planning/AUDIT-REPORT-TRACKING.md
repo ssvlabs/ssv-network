@@ -22,7 +22,7 @@ This document tracks issues from the audit report source in a management-friendl
 | SSV-7 | ~~EB auto-liquidation can leave ethValidatorCount inflated~~ | Audit Finding | P2 | ✅ Fixed |
 | SSV-8 | ~~Double-accounting EB deviation blocks validator removal from liquidated clusters~~ | Audit Finding | P2 | ✅ Fixed |
 | SSV-9 | Incorrect oracle weight may reach premature quorum | Audit Finding | P2 | M |
-| SSV-10 | Cluster owners can avoid liquidation by removing all validators before withdrawal | Audit Finding | P3 | ✅ Accepted Behavior (PR #455) |
+| SSV-10 | Cluster owners can avoid liquidation by removing all validators before withdrawal | Audit Finding | P3 | ✅ Resolved (PR #455) |
 | SSV-11 | ~~Legacy fee requests may execute after upgrade with incompatible fee scale~~ | Audit Finding | P3 | ✅ Fixed (uses UPGRADE_TIMESTAMP) |
 | SSV-12 | Liquidation fallback adds operatorEthVUnits in sub-baseline case | Audit Finding | P3 | ✅ Acknowledged (unreachable under current invariants) |
 | SSV-13 | Operator registration can be DoSed | Audit Finding | P3 | ✅ Acknowledged |
@@ -767,17 +767,17 @@ Result: No underflow, no double-accounting ✅
 ### [SSV-10] Cluster Owners Can Avoid Liquidation By Removing All Validators Before Withdrawal
 - **Type:** Audit Finding / Design Decision
 - **Priority:** P3
-- **Status:** ✅ Accepted Behavior
+- **Status:** ✅ Resolved
 - **Owner:** N/A
 - **Timeline:** Merged into `ssv-staking` via PR #455 on 2026-02-26
 - **Github Link:** [PR #455](https://github.com/ssvlabs/ssv-network/pull/455)
 
-**Decision:** The team chose the "document as accepted behavior" path rather than forbidding validator removal while a cluster is liquidatable.
+**Resolution:** The team resolved this finding via the merged mitigation in PR #455. The chosen path was to document and support the zero-validator / liquidated-cluster withdrawal behavior rather than forbid it.
 
-**Current Tracking Position:** The merged implementation and tests now align with the accepted behavior:
+**Current Tracking Position:** The merged implementation and tests now align with the resolved behavior:
 - Zero-validator clusters can withdraw without a liquidation check
 - Liquidated clusters can withdraw previously deposited ETH
-- The finding should be tracked as an explicit product/design choice, not as an unresolved code defect
+- The finding should be tracked as resolved, with the final outcome being an explicit product/design choice rather than an unresolved code defect
 
 ---
 
