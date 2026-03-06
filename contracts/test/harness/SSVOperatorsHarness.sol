@@ -9,6 +9,7 @@ import {ISSVOperators} from "../../interfaces/ISSVOperators.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PackedETH, PackedSSV, PACKED_ETH_ZERO} from "../../libraries/SSVCoreTypes.sol";
 import {PackedETHLib} from "../../libraries/SSVPackedLib.sol";
+import {OperatorLib} from "../../libraries/OperatorLib.sol";
 
 contract SSVOperatorsHarness is SSVOperators {
 
@@ -97,5 +98,32 @@ contract SSVOperatorsHarness is SSVOperators {
 
     function getUpgradeTimestamp() external view returns (uint256) {
         return UPGRADE_TIMESTAMP;
+    }
+
+    /// @notice Mock function to clear ethSnapshot (simulate legacy operator)
+    /// @dev Also ensures snapshot.block > 0 to pass ensureOperatorExist validation
+    function mockClearEthSnapshot(uint64 operatorId) external {
+        StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].ethSnapshot.block = 0;
+        s.operators[operatorId].ethSnapshot.index = 0;
+        s.operators[operatorId].ethSnapshot.balance = PACKED_ETH_ZERO;
+        s.operators[operatorId].ethFee = PACKED_ETH_ZERO;
+
+        // Ensure SSV snapshot is initialized (legacy operator would have this)
+        if (s.operators[operatorId].snapshot.block == 0) {
+            s.operators[operatorId].snapshot.block = uint32(block.number);
+        }
+    }
+
+    /// @notice Mock function to set SSV fee (for legacy operator simulation)
+    function mockSetSSVFee(uint64 operatorId, uint64 ssvFee) external {
+        StorageData storage s = SSVStorage.load();
+        s.operators[operatorId].fee = PackedSSV.wrap(ssvFee);
+    }
+
+    /// @notice Mock function to directly call ensureETHDefaults (for testing)
+    function mockCallEnsureETHDefaults(uint64 operatorId) external {
+        StorageData storage s = SSVStorage.load();
+        OperatorLib.ensureETHDefaults(s.operators[operatorId], operatorId);
     }
 }
