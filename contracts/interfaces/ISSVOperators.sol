@@ -68,12 +68,24 @@ interface ISSVOperators is ISSVNetworkCore {
     );
 
     /**
-     * @dev Emitted when operator earnings are withdrawn
+     * @dev Emitted when operator ETH earnings are withdrawn
      * @param owner The owner of the operator
      * @param operatorId The ID of the operator
      * @param value The amount withdrawn
      */
     event OperatorWithdrawn(
+        address indexed owner,
+        uint64 indexed operatorId,
+        uint256 value
+    );
+
+    /**
+     * @dev Emitted when operator legacy SSV earnings are withdrawn
+     * @param owner The owner of the operator
+     * @param operatorId The ID of the operator
+     * @param value The amount withdrawn
+     */
+    event OperatorWithdrawnSSV(
         address indexed owner,
         uint64 indexed operatorId,
         uint256 value

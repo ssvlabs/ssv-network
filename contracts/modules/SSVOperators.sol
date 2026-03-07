@@ -345,6 +345,6 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
     function _transferOperatorTokenBalanceUnsafe(uint64 operatorId, uint256 amount) private {
         CoreLib.transferTokenBalance(msg.sender, amount);
-        emit OperatorWithdrawn(msg.sender, operatorId, amount);
+        emit OperatorWithdrawnSSV(msg.sender, operatorId, amount);
     }
 }
