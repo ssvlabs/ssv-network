@@ -3452,8 +3452,6 @@ Both states resulted in `ethFee == 0 && ethSnapshot.block == 0`, causing `ensure
 - ✅ SPEC.md §1 "Operator Fee Transition" — Complete `ensureETHDefaults` behavior
 - ✅ FLOWS.md §4.3 "Declare Operator Fee" — State mutations and events
 - ✅ FLOWS.md §4.5 "Reduce Operator Fee" — Special cases and postconditions
-- ✅ TEST-STATUS-BUG-12.md — Test results and findings
-- ✅ DOCUMENTATION-UPDATE-SUMMARY.md — Documentation changes summary
 
 **Related Issues:**
 - BUG-13: Event emission for default fee assignment (PR #502) — Complementary fix
