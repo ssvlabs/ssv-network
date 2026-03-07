@@ -120,6 +120,13 @@ export async function verifyPostUpgradeState(opts: VerifyOptions): Promise<void>
     logObserved("quorumBps", actualQuorumBps);
   }
 
+  if (params.minBlocksBetweenUpdates !== undefined) {
+    console.log(
+      `[VERIFY] minBlocksBetweenUpdates configured=${params.minBlocksBetweenUpdates.toString()} ` +
+      "(not verifiable via SSVViews; no getter exposed)"
+    );
+  }
+
   for (const { label, expected, actual } of checks) {
     if (expected !== undefined) {
       assertEqual(label, expected, actual);

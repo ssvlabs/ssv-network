@@ -121,6 +121,10 @@ contract SSVDAOHarness is SSVDAO {
         seb.ebRoots[blockNum] = root;
     }
 
+    function mockSetMinBlocksBetweenUpdates(uint32 blocks) external {
+        SSVStorageEB.load().minBlocksBetweenUpdates = blocks;
+    }
+
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
     }
@@ -191,6 +195,10 @@ contract SSVDAOHarness is SSVDAO {
 
     function getEBRoot(uint64 blockNum) external view returns (bytes32) {
         return SSVStorageEB.load().ebRoots[blockNum];
+    }
+
+    function getMinBlocksBetweenUpdates() external view returns (uint32) {
+        return SSVStorageEB.load().minBlocksBetweenUpdates;
     }
 
     function getOracleAddress(uint32 oracleId) external view returns (address) {
