@@ -24,6 +24,8 @@
 | BUG-11 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
 | BUG-12 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
 | BUG-13 | Silent default ETH fee assignment for legacy operators during migration | Observability Fix | P2 | ✅ Fixed (PR #502) |
+| BUG-14 | ~~Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment)~~ | Critical Bug Fix | P1 | ⚠️ Open |
+| BUG-14b | ~~`reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators~~ | Critical Bug Fix | P1 | ✅ Fixed (ensureETHDefaults marker pattern) |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -3314,6 +3316,161 @@ Modified `ensureETHDefaults` to:
 - [x] Add idempotency test
 - [x] Security review (ssv-bug-fixer)
 - [x] Test coverage review (ssv-test-writer)
+
+---
+
+### [BUG-14] Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment)
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** ⚠️ Open
+- **Owner:** (unassigned)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Requirement:**
+When migrating an SSV cluster to ETH, SSV fee settlement must include fee debt already accrued by operators that were removed before migration.
+
+**Context:**
+`migrateClusterToETH` settles SSV balance using `cluster.updateBalanceSSV(clusterIndexSSV, sp.currentNetworkFeeIndexSSV())`, where `clusterIndexSSV` is returned by `OperatorLib.updateClusterOperatorsMigration`.
+
+In `updateClusterOperatorsMigration`, removed operators are skipped entirely:
+- `if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) continue;`
+
+If operator A is removed after accruing SSV fees:
+1. `removeOperator` settles and pays A's SSV snapshot to A's owner.
+2. Migration later skips A, so A's accrued index contribution is not included in `clusterIndexSSV`.
+3. Cluster SSV usage is under-counted during migration.
+4. Cluster owner receives inflated SSV refund.
+
+This creates an economic double-payment pattern: once to the removed operator owner, and again via inflated migration refund.
+
+**Reproduction (implemented):**
+- `test/e2e/migration/migration-double-payment.test.ts`
+  - Test: `"Demonstrates double-payment with exact accounting: remove payout + inflated migration refund"`
+  - Uses exact formula assertions for expected correct refund vs actual buggy refund.
+
+**Acceptance Criteria:**
+- [ ] Migration SSV settlement includes fee debt from removed operators that were part of the SSV cluster history
+- [ ] Cluster owner migration refund equals exact expected amount from SPEC/FLOWS formulas (no under-deduction)
+- [ ] No operator can be paid twice for the same SSV fee accrual window (direct earnings + inflated cluster refund)
+- [ ] Regression test remains green and fails on old behavior:
+  - `test/e2e/migration/migration-double-payment.test.ts`
+
+**Agent Instructions:**
+1. Read `contracts/libraries/OperatorLib.sol:updateClusterOperatorsMigration`.
+2. Read `contracts/modules/SSVClusters.sol:migrateClusterToETH` SSV settlement path.
+3. Ensure migration SSV settlement accounts for removed-operator historical debt correctly.
+4. Keep existing valid behavior where removed operators do not receive new post-removal accrual.
+5. Run targeted tests and `npm run test:unit`.
+
+#### Sub-items:
+- [ ] Sub-task 1: Fix migration SSV fee-settlement accounting for removed operators
+- [ ] Sub-task 2: Keep/extend exact-formula reproduction test
+- [ ] Sub-task 3: Run unit + e2e migration suites
+
+---
+
+### [BUG-14b] `reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators
+- **Type:** Critical Bug Fix
+- **Priority:** P1
+- **Status:** ✅ Fixed
+- **Owner:** Claude Code
+- **Timeline:** 2026-03-06
+- **Github Link:** (embedded in `ssv-staking` branch, commit `8185b1c`)
+
+**Requirement:**
+Allow legacy SSV operators (SSV fee > 0) to explicitly set ETH fee = 0 and preserve this choice during cluster migration and fee operations.
+
+**Context:**
+When a legacy SSV operator (registered pre-v2.0.0) with SSV fee > 0 calls `reduceOperatorFee` or `declareOperatorFee` to set `ethFee = 0`, the system should remember this explicit choice. Previously, `ensureETHDefaults` could not distinguish between:
+
+1. **"Never set ETH fee"** (should get `DEFAULT_OPERATOR_ETH_FEE`)
+2. **"Explicitly set ETH fee to zero"** (should keep zero)
+
+Both states resulted in `ethFee == 0 && ethSnapshot.block == 0`, causing `ensureETHDefaults` to overwrite explicit zero fees with `DEFAULT_OPERATOR_ETH_FEE` during subsequent operations (like cluster migration).
+
+**Root Cause:**
+`reduceOperatorFee` and `declareOperatorFee` did not initialize `ethSnapshot.block` before updating fees, leaving the operator in an "uninitialized" state even after explicit fee changes.
+
+**Solution (ethSnapshot.block marker pattern):**
+
+1. **Marker Logic:** Use `ethSnapshot.block > 0` as a marker indicating "operator has explicitly interacted with ETH fee system"
+
+2. **Code Changes:**
+   - `SSVOperators.reduceOperatorFee` (line 187-189): Added `ensureETHDefaults` call if `ethSnapshot.block == 0`
+   - `SSVOperators.declareOperatorFee` (line 106-108): Already had `ensureETHDefaults` call
+   - `OperatorLib.ensureETHDefaults` (line 144-152): Only assigns default if `ethSnapshot.block == 0 && ethFee == 0 && SSV fee > 0`
+
+3. **Flow:**
+   - **First ETH interaction** (ethSnapshot.block == 0):
+     - Call `ensureETHDefaults`
+     - If SSV fee > 0: assigns `ethFee = DEFAULT_OPERATOR_ETH_FEE`
+     - Sets `ethSnapshot.block = block.number` (marker)
+     - Operator can then reduce to any value (including 0)
+
+   - **Subsequent operations** (ethSnapshot.block > 0):
+     - `ensureETHDefaults` sees marker and **skips** (no overwrite)
+     - Explicit zero fees preserved during migration
+
+**Acceptance Criteria:**
+- [x] `reduceOperatorFee` calls `ensureETHDefaults` before updating fee
+- [x] `declareOperatorFee` calls `ensureETHDefaults` before declaring new fee
+- [x] `ethSnapshot.block > 0` prevents `ensureETHDefaults` from overwriting explicit fees
+- [x] Legacy SSV operator can set `ethFee = 0` via `reduceOperatorFee(operatorId, 0)`
+- [x] Migration respects explicit zero fees (no overwrite to default)
+- [x] Comprehensive test suite (15 unit tests + 3 E2E tests)
+- [x] Documentation updated (SPEC.md §1, FLOWS.md §4.3 & §4.5)
+
+**Code Changes:**
+- `contracts/modules/SSVOperators.sol:187-189` — Added `ensureETHDefaults` call in `reduceOperatorFee`
+- `contracts/test/harness/SSVOperatorsHarness.sol:103-123` — Added mock functions for testing
+- `test/unit/SSVOperators/reduceOperatorFee-ethSnapshot-init.test.ts` — **15 comprehensive tests (ALL PASSING)**
+- `test/e2e/operators/operator-lifecycle.test.ts:582-699` — **3 integration tests**
+- `docs/SPEC.md:257-279` — Documented `ensureETHDefaults` behavior
+- `docs/FLOWS.md:631-704` — Updated operator fee flows
+
+**Test Coverage:**
+- ✅ ethSnapshot initialization on first `reduceOperatorFee`
+- ✅ Legacy SSV operator gets default fee before reduction
+- ✅ Legacy SSV operator can reduce to zero (explicit zero fee)
+- ✅ Zero-fee operator (SSV fee = 0) stays at zero
+- ✅ `ethSnapshot.block > 0` prevents overwrite during migration
+- ✅ Fee validation (too low, too high, same value)
+- ✅ Event emission (dual events when default assigned)
+- ✅ E2E: explicit zero fee preserved across operations
+
+**Benefits:**
+- ✅ **Operator autonomy:** Operators can offer free ETH service while maintaining SSV presence
+- ✅ **Predictable fees:** Cluster owners know exact fees during migration
+- ✅ **Backward compatible:** No storage changes, uses existing field as marker
+- ✅ **No gas overhead:** Initialization happens once per operator
+- ✅ **Consistent behavior:** Same pattern across all fee operations
+
+**Security Analysis:**
+- ✅ No vulnerabilities (LOW risk)
+- ✅ Idempotency guaranteed (`ethSnapshot.block` guard)
+- ✅ State consistency (marker set atomically with default assignment)
+- ✅ No reentrancy risk (internal function, state writes before external calls)
+- ✅ Marker cannot be manipulated (contract-controlled)
+
+**Documentation:**
+- ✅ SPEC.md §1 "Operator Fee Transition" — Complete `ensureETHDefaults` behavior
+- ✅ FLOWS.md §4.3 "Declare Operator Fee" — State mutations and events
+- ✅ FLOWS.md §4.5 "Reduce Operator Fee" — Special cases and postconditions
+- ✅ TEST-STATUS-BUG-12.md — Test results and findings
+- ✅ DOCUMENTATION-UPDATE-SUMMARY.md — Documentation changes summary
+
+**Related Issues:**
+- BUG-13: Event emission for default fee assignment (PR #502) — Complementary fix
+- SEC-16b: Similar pattern (using storage field as marker for explicit behavior)
+
+#### Sub-items:
+- [x] Add `ensureETHDefaults` call to `reduceOperatorFee`
+- [x] Create comprehensive test suite (15 unit tests)
+- [x] Add E2E integration tests (3 tests)
+- [x] Update SPEC.md and FLOWS.md documentation
+- [x] Verify all tests passing (18/18 tests ✅)
+- [x] Document marker pattern and behavior
 
 ---
 

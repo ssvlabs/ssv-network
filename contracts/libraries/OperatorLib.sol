@@ -377,20 +377,17 @@ library OperatorLib {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
-            // skip removed operators
+            if (operator.snapshot.block != 0) {
+                updateSnapshotStSSV(operator);
+                if (!isClusterLiquidated) {
+                    operator.validatorCount -= validatorCount;
+                }
+            }
+            cumulativeIndexSSV += operator.snapshot.index;
+
             if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
                 continue;
             }
-
-            // update SSV snapshot before validator count changes
-            updateSnapshotStSSV(operator);
-            cumulativeIndexSSV += operator.snapshot.index;
-
-            // update SSV validator count for both new ETH-initialized and existing ETH-initialized operators
-            if (!isClusterLiquidated) {
-                operator.validatorCount -= validatorCount;
-            }
-
             if (operator.ethSnapshot.block == 0) {
                 // first-time ETH usage or migration
                 ensureETHDefaults(operator, operatorId);
