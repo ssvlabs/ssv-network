@@ -510,7 +510,7 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 
 #### Preconditions
 - Committed root exists for `blockNum`: `ebRoots[blockNum] != bytes32(0)`
-- Update frequency check: `block.number >= lastUpdateBlock + minBlocksBetweenUpdates`
+- Update frequency check: `block.number >= lastUpdateBlock + minBlocksBetweenUpdates` (configured via `updateMinBlocksBetweenUpdates(uint32)`)
 - Staleness check: `blockNum > lastRootBlockNum` (strictly increasing)
 - Merkle proof valid: `verify(proof, ebRoots[blockNum], doubleHash(clusterId, effectiveBalance))`
 - EB limits: `32 * validatorCount <= effectiveBalance <= 2048 * validatorCount`
@@ -653,10 +653,19 @@ After removal, different code paths detect removed operators via different check
 > **Note — Multiple declarations:** Calling `declareOperatorFee` multiple times within the declare period will override any pending fee change request. The most recent declaration replaces the previous one, resetting the approval begin/end times. Only the last declared fee can be executed.
 
 #### State Mutations
-1. Store `OperatorFeeChangeRequest{fee: packed(newFee), approvalBeginTime: now + declarePeriod, approvalEndTime: now + declarePeriod + executePeriod}` (overwrites any existing pending request)
+1. Call `ensureETHDefaults(operatorId)` if `ethSnapshot.block == 0`:
+   - Initializes `ethSnapshot.block = block.number`
+   - Assigns `ethFee = DEFAULT_OPERATOR_ETH_FEE` **only if** `ethFee == 0 && SSV fee > 0`
+   - Emits `OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE)` if default is assigned
+   - See SPEC §1 "Operator Fee Transition" for complete behavior
+2. Store `OperatorFeeChangeRequest{fee: packed(newFee), approvalBeginTime: now + declarePeriod, approvalEndTime: now + declarePeriod + executePeriod}` (overwrites any existing pending request)
 
 #### Events
 ```solidity
+// If ensureETHDefaults assigned default (legacy SSV operator):
+emit OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE);
+
+// Always:
 emit OperatorFeeDeclared(owner, operatorId, block.number, fee);
 ```
 
@@ -694,18 +703,38 @@ emit OperatorFeeExecuted(owner, operatorId, block.number, fee);
 **Caller:** Operator owner (immediate, no timelock)
 
 #### Preconditions
-- New fee within `[minimumOperatorEthFee, currentFee)`
+- New fee within `[minimumOperatorEthFee, currentFee)` (or 0)
 - New fee strictly less than current
+- Fee must be 0 OR >= `minimumOperatorEthFee`
 
 #### State Mutations
-1. Update operator ETH snapshot — ref SPEC §10 "Fee Settlement Rule": settles at old fee up to this block; new fee applies only to future blocks
-2. Set `operator.ethFee = packed(newFee)`
-3. Delete any pending fee change request
+1. Call `ensureETHDefaults(operatorId)` if `ethSnapshot.block == 0`:
+   - Initializes `ethSnapshot.block = block.number`
+   - Assigns `ethFee = DEFAULT_OPERATOR_ETH_FEE` **only if** `ethFee == 0 && SSV fee > 0`
+   - Emits `OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE)` if default is assigned
+   - See SPEC §1 "Operator Fee Transition" for complete behavior
+2. Update operator ETH snapshot — ref SPEC §10 "Fee Settlement Rule": settles at old fee (or default if just assigned) up to this block; new fee applies only to future blocks
+3. Set `operator.ethFee = packed(newFee)`
+4. Delete any pending fee change request
 
 #### Events
 ```solidity
+// If ensureETHDefaults assigned default (legacy SSV operator):
+emit OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE);
+
+// Always:
 emit OperatorFeeExecuted(owner, operatorId, block.number, fee);
 ```
+
+#### Special Cases
+- **Legacy SSV operator** (`ethSnapshot.block == 0`, `SSV fee > 0`): Gets `DEFAULT_OPERATOR_ETH_FEE` assigned, then reduced to `newFee`
+- **Explicit zero fee**: After `ethSnapshot.block > 0`, operator can set `ethFee = 0` via `reduceOperatorFee(operatorId, 0)`. This explicit zero is preserved during cluster migration.
+- **Zero-fee operator** (`SSV fee == 0`): No default assigned, stays at `ethFee = 0`
+
+#### Postcondition Invariants
+- `operator.ethFee < previous ethFee` (strictly less)
+- `ethSnapshot.block > 0` (always initialized after this call)
+- No pending fee change request
 
 ---
 
@@ -869,6 +898,16 @@ emit UnstakeRequested(user, amount, unlockTime);
 - Previously accrued rewards remain claimable
 - SSV tokens are NOT yet returned (locked until cooldown)
 
+#### Request Unstake -> Claim Rewards Interaction
+
+When user calls `requestUnstake(amount)`:
+1. Settlement happens BEFORE cSSV burn -> pending rewards added to s.accrued
+2. cSSV is burned -> balanceOf decreases
+
+If user then calls `claimEthRewards`:
+- If they unstaked ALL cSSV: balanceOf == 0 -> dust forfeited
+- If they unstaked PARTIAL cSSV: balanceOf > 0 -> remainder preserved
+
 ---
 
 ### 5.3 Withdraw Unlocked
@@ -907,16 +946,24 @@ emit UnstakedWithdrawn(user, totalAmount);
 **nonReentrant:** Yes
 
 #### Preconditions
-- User has accrued rewards > 0 (after truncation to ETH_DEDUCTED_DIGITS)
+- User has s.accrued[user] > 0 OR pending rewards from s.accEthPerShare growth
 
 #### State Mutations
 1. `_syncFees()`: Update `accEthPerShare`
 2. `_settle(user)`: Settle latest rewards
-3. Compute payout: `payout = accrued - (accrued % 100_000)` (precision truncation)
-4. Deduct from `accrued[user]`
-5. Deduct from `stakingEthPoolBalance` (packed)
-6. Deduct from `sp.ethDaoBalance` (packed)
-7. Transfer `payout` ETH to user
+3. Read `claimable = accrued[user]`; if `claimable == 0` revert `NothingToClaim`
+4. Compute payout: `payout = claimable - (claimable % 100_000)` (precision truncation)
+5. Read `userBalance = cSSV.balanceOf(user)`
+6. If `payout == 0`:
+   - If `userBalance == 0`: set `accrued[user] = 0`, emit `RewardsClaimed(user, 0)`, return
+   - If `userBalance > 0`: revert `NothingToClaim` (state unchanged due revert)
+7. If `payout > 0`: set `remainder = claimable - payout`
+8. Set `accrued[user]`:
+   - If `remainder > 0 && userBalance == 0`: zero remainder (forfeit dust)
+   - Else: store `remainder`
+9. Deduct `packed(payout)` from `stakingEthPoolBalance`
+10. Deduct `packed(payout)` from `sp.ethDaoBalance`
+11. Transfer `payout` ETH to user
 
 #### Events
 ```solidity
@@ -926,11 +973,14 @@ emit RewardsClaimed(user, payout);
 ```
 
 #### Postcondition Invariants
-- `user.balance == previous + payout`
-- `contract.balance == previous - payout`
-- `accrued[user] == previous_accrued - payout` (may have dust remainder < 100,000)
-- `stakingEthPoolBalance` decreased by packed(payout)
-- `ethDaoBalance` decreased by packed(payout)
+- If `payout > 0`: `user.balance == previous + payout`
+- If `payout > 0`: `contract.balance == previous - payout`
+- If `payout > 0`: `stakingEthPoolBalance` decreased by packed(payout)
+- If `payout > 0`: `ethDaoBalance` decreased by packed(payout)
+- If `payout > 0` and `cSSV.balanceOf(user) > 0`: `accrued[user] == remainder`
+- If `payout > 0` and `cSSV.balanceOf(user) == 0`: `accrued[user] == 0` (dust forfeited)
+- If `payout == 0` and `cSSV.balanceOf(user) == 0`: `accrued[user] == 0`, `RewardsClaimed(user, 0)` emitted, no pool/DAO deductions
+- If `payout == 0` and `cSSV.balanceOf(user) > 0`: call reverts with `NothingToClaim` (no state changes)
 
 ---
 

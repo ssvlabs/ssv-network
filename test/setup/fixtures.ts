@@ -306,7 +306,7 @@ export async function ssvNetworkFullFixture(
     [
       cooldown,
       DEFAULT_ORACLE_IDS,
-      QUORUM_BPS
+      QUORUM_BPS,
     ]
   );
 

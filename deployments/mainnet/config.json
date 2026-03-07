@@ -15,6 +15,7 @@
     "minOperatorEthFee": "1065200000",
     "minimumLiquidationCollateralEth": "940000000000000",
     "liquidationThresholdPeriod": "35800",
+    "minBlocksBetweenUpdates": "7200",
     "operatorFeeIncreaseLimit": "1000",
     "declareOperatorFeePeriod": "604800",
     "executeOperatorFeePeriod": "604800"

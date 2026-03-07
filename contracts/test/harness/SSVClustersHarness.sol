@@ -159,6 +159,10 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         seb.ebRoots[blockNum] = root;
     }
 
+    function mockSetMinBlocksBetweenUpdates(uint32 blocks) external {
+        SSVStorageEB.load().minBlocksBetweenUpdates = blocks;
+    }
+
     function mockRemoveOperator(uint64 operatorId) external {
         StorageData storage s = SSVStorage.load();
         ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
@@ -171,6 +175,36 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         operator.fee = PACKED_SSV_ZERO;
         operator.ethValidatorCount = 0;
         operator.validatorCount = 0;
+    }
+
+    /// @notice Simulates removeOperator() accounting + payout without owner checks.
+    /// @dev Settles snapshots, resets operator state, then transfers settled ETH/SSV balances to recipient.
+    function mockRemoveOperatorAndPayout(uint64 operatorId, address recipient) external returns (uint256 ethPaid, uint256 ssvPaid) {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+        OperatorLib.updateSnapshotsSt(operator, operatorId);
+
+        PackedETH currentBalanceETH = operator.ethSnapshot.balance;
+        PackedSSV currentBalanceSSV = operator.snapshot.balance;
+
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.snapshot.block = 0;
+        operator.snapshot.balance = PACKED_SSV_ZERO;
+        operator.fee = PACKED_SSV_ZERO;
+        operator.ethValidatorCount = 0;
+        operator.validatorCount = 0;
+
+        if (PackedETHLib.raw(currentBalanceETH) > 0) {
+            ethPaid = PackedETHLib.unpack(currentBalanceETH);
+            CoreLib.transferBalance(recipient, ethPaid);
+        }
+        if (PackedSSVLib.raw(currentBalanceSSV) > 0) {
+            ssvPaid = PackedSSVLib.unpack(currentBalanceSSV);
+            CoreLib.transferTokenBalance(recipient, ssvPaid);
+        }
     }
 
     function mockSetOperatorFee(uint64 operatorId, uint256 fee) external {

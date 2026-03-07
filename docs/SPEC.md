@@ -96,7 +96,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Yes (no guard), but it is a no-op — SSV snapshot balance is zero. See SEC-18 → FLOWS §4.8
 
 **Q: What is `DEFAULT_OPERATOR_ETH_FEE` and when is it applied?**
-- 1,770,000,000 wei/block/validator. Applied automatically on first ETH cluster interaction for pre-v2 operators that had SSV fee > 0. Operators with SSV fee = 0 get ETH fee = 0 → SPEC §1 "Operator Fee Transition"
+- 1,770,000,000 wei/block/validator. Applied automatically via `ensureETHDefaults` on first ETH interaction for legacy SSV operators (SSV fee > 0, ethSnapshot.block == 0). Also called by `declareOperatorFee` and `reduceOperatorFee` before fee changes. Operators with SSV fee = 0 get ETH fee = 0. See SPEC §1 "Operator Fee Transition" for complete behavior → SPEC §1 "Operator Fee Transition"
 
 ---
 
@@ -263,12 +263,25 @@ Step 4: Take maximum of both thresholds
 
 **New operators**: Register with ETH fee only (no SSV fee option)
 
-**Existing operators**:
+**Existing operators (Legacy SSV Operators)**:
 - SSV fees frozen (cannot modify)
 - SSV fee accrual continues for non-migrated clusters
-- Default ETH fee assigned automatically on first ETH cluster interaction:
+- Default ETH fee assigned automatically on **first ETH interaction** via `ensureETHDefaults`:
   - If SSV fee = 0 → ETH fee = 0
   - If SSV fee > 0 → ETH fee = `DEFAULT_OPERATOR_ETH_FEE` (1,770,000,000 wei = ~0.00464 ETH/year per 32 ETH validator)
+
+**`ensureETHDefaults` is called in:**
+- `migrateClusterToETH` (for all operators in the cluster)
+- `registerValidator` / `bulkRegisterValidator` (for all operators in the cluster, ETH clusters only)
+- `declareOperatorFee` (before declaring new fee)
+- `reduceOperatorFee` (before reducing fee)
+
+**Behavior:**
+- Initializes `operator.ethSnapshot.block = block.number` (if currently 0)
+- Assigns `operator.ethFee = DEFAULT_OPERATOR_ETH_FEE` **only if** `ethFee == 0 && SSV fee > 0`
+- Emits `OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE)` when default is assigned
+- After initialization (`ethSnapshot.block > 0`), operators can explicitly set `ethFee = 0` via `reduceOperatorFee(operatorId, 0)`
+- Explicit zero fees are preserved during migration (no overwrite to default)
 
 ### Breaking Function Signature Changes
 
@@ -379,8 +392,28 @@ userIndex[user] = accEthPerShare
 
 - Call `claimEthRewards()` at any time
 - Payout truncated to ETH_DEDUCTED_DIGITS precision: `payout = accrued - (accrued % 100_000)`
-- Deducted from both `stakingEthPoolBalance` and `sp.ethDaoBalance`
-- ETH transferred to user
+- If `payout > 0`: deduct `packed(payout)` from both `stakingEthPoolBalance` and `sp.ethDaoBalance`, then transfer ETH to user
+- If `payout == 0` and `balanceOf(user) == 0`: zero `accrued[user]`, emit `RewardsClaimed(user, 0)`, and return successfully
+- If `payout == 0` and `balanceOf(user) > 0`: revert `NothingToClaim` (remainder preserved)
+
+#### Dust Handling (ETH_DEDUCTED_DIGITS Rounding)
+
+ETH rewards are packed to PackedETH (uint64) with precision of 100,000 wei (ETH_DEDUCTED_DIGITS).
+When claiming rewards:
+- `payout = floor(accrued / 100_000) * 100_000`
+- `remainder = accrued - payout`
+- If `remainder > 0` AND `balanceOf(user) == 0`: remainder is forfeited (zeroed in s.accrued)
+- If `balanceOf(user) > 0`: remainder is preserved for future claims
+
+**Rationale:** Users with zero cSSV balance cannot accrue future rewards (pending will always be 0).
+Therefore, sub-100K wei dust can never grow to claimable amounts and is safely forfeited.
+Forfeited dust remains in stakingEthPoolBalance, redistributed to remaining stakers.
+
+#### claimEthRewards Edge Cases
+
+- If `accrued == 0`: revert `NothingToClaim`
+- If `accrued > 0` but `accrued < ETH_DEDUCTED_DIGITS` and `balanceOf(user) > 0`: remainder preserved, revert `NothingToClaim` (can claim later when accrued grows)
+- If `accrued > 0` but `accrued < ETH_DEDUCTED_DIGITS` and `balanceOf(user) == 0`: dust zeroed (forfeited), emit `RewardsClaimed(user, 0)`, return success
 
 ### cSSV Token Behavior
 
@@ -1068,6 +1101,7 @@ SSV validator count + ETH validator count equals total across both cluster types
 | Parameter | Initial Value | Update Function |
 |---|---|---|
 | `quorumBps` | 7,500 (75%) | `setQuorumBps(uint16)` |
+| `minBlocksBetweenUpdates` | 0 blocks | `updateMinBlocksBetweenUpdates(uint32)` |
 | Oracle set | 4 oracles | `replaceOracle(uint32, address)` |
 
 ### Operator Fee Parameters
