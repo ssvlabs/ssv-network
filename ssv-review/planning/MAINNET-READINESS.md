@@ -22,7 +22,7 @@
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
 | BUG-10 | ~~Remove liquidation check in `withdraw` function~~ | Critical Bug Fix | P2 | ✅ Fixed |
 | BUG-11 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
-| BUG-12 | `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters | Critical Bug Fix | P1 | ⚠️ Needs Product approval |
+| BUG-12 | ~~`removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters~~ | Critical Bug Fix | P1 | ✅ Done (Product approved) |
 | BUG-13 | Silent default ETH fee assignment for legacy operators during migration | Observability Fix | P2 | ✅ Fixed (PR #502) |
 | BUG-14 | ~~Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment)~~ | Critical Bug Fix | P1 | ⚠️ Open |
 | BUG-14b | ~~`reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators~~ | Critical Bug Fix | P1 | ✅ Fixed (ensureETHDefaults marker pattern) |
@@ -3201,9 +3201,9 @@ In `SSVClusters.sol:215`, the `withdraw` function prevents withdrawals from liqu
 ### [BUG-12] `removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters
 - **Type:** Critical Bug Fix
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Done (Product approved)
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -3225,21 +3225,21 @@ The fix requires branching `_bulkRemoveValidator` on `version`: for `VERSION_SSV
 - **IMPORTANT:** Confirm with Product team whether this is intentionally blocked or an oversight
 
 **Acceptance Criteria:**
-- [ ] Product team approval obtained
-- [ ] `_bulkRemoveValidator` branches on `version`: `VERSION_SSV` uses SSV cluster path, `VERSION_ETH` uses ETH cluster path
-- [ ] SSV path: updates SSV operator snapshots (`operator.snapshot`), decrements `operator.validatorCount`, updates `s.clusters[hashedCluster]`
-- [ ] SSV path: does NOT touch ETH snapshots, `ethValidatorCount`, `ethClusters`, or EB storage
-- [ ] Add test: remove validator from active SSV cluster, verify SSV cluster hash updated and operator count decremented
-- [ ] Add test: remove validator from liquidated SSV cluster (should be allowed — no active-cluster check in current code)
-- [ ] Existing ETH removal tests still pass
-- [ ] Update FLOWS §1.3 and §1.4 to document SSV cluster support
+- [x] Product team approval obtained
+- [x] `_bulkRemoveValidator` branches on `version`: `VERSION_SSV` uses SSV cluster path, `VERSION_ETH` uses ETH cluster path
+- [x] SSV path: updates SSV operator snapshots (`operator.snapshot`), decrements `operator.validatorCount`, updates `s.clusters[hashedCluster]`
+- [x] SSV path: does NOT touch ETH snapshots, `ethValidatorCount`, `ethClusters`, or EB storage
+- [x] Add test: remove validator from active SSV cluster, verify SSV cluster hash updated and operator count decremented
+- [x] Add test: remove validator from liquidated SSV cluster (should be allowed — no active-cluster check in current code)
+- [x] Existing ETH removal tests still pass
+- [x] Update FLOWS §1.3 and §1.4 to document SSV cluster support
 
 #### Sub-items:
-- [ ] Sub-task 1: Get Product team approval
-- [ ] Sub-task 2: Branch `_bulkRemoveValidator` on cluster version
-- [ ] Sub-task 3: Implement SSV cluster removal path
-- [ ] Sub-task 4: Add unit tests
-- [ ] Sub-task 5: Update FLOWS.md §1.3 and §1.4
+- [x] Sub-task 1: Get Product team approval
+- [x] Sub-task 2: Branch `_bulkRemoveValidator` on cluster version
+- [x] Sub-task 3: Implement SSV cluster removal path
+- [x] Sub-task 4: Add unit tests
+- [x] Sub-task 5: Update FLOWS.md §1.3 and §1.4
 
 ---
 
@@ -3452,8 +3452,6 @@ Both states resulted in `ethFee == 0 && ethSnapshot.block == 0`, causing `ensure
 - ✅ SPEC.md §1 "Operator Fee Transition" — Complete `ensureETHDefaults` behavior
 - ✅ FLOWS.md §4.3 "Declare Operator Fee" — State mutations and events
 - ✅ FLOWS.md §4.5 "Reduce Operator Fee" — Special cases and postconditions
-- ✅ TEST-STATUS-BUG-12.md — Test results and findings
-- ✅ DOCUMENTATION-UPDATE-SUMMARY.md — Documentation changes summary
 
 **Related Issues:**
 - BUG-13: Event emission for default fee assignment (PR #502) — Complementary fix

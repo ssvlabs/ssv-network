@@ -128,11 +128,16 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Check `validateHashedCluster` return value: `version == VERSION_ETH` (2) → ETH cluster in `s.ethClusters`; `version == VERSION_SSV` (1) → SSV cluster in `s.clusters` → SPEC §6 "Type System & Packing"
 
 **Q: What operations are blocked on legacy SSV clusters?**
-- Blocked: `registerValidator`, `bulkRegisterValidator`, `removeValidator` (BUG-11), `bulkRemoveValidator` (BUG-11), `reactivate`, `deposit` (SSV), `withdraw` (SSV)
-- Allowed: `exitValidator`, `bulkExitValidator`, `liquidate`, `liquidateSSV`, `migrateClusterToETH`, `updateClusterBalance` → SPEC §1 "Existing Clusters"
+- Blocked: `registerValidator`, `bulkRegisterValidator`, `reactivate`, `deposit` (SSV), `withdraw` (SSV), `liquidate` (ETH path)
+- Allowed: `removeValidator`, `bulkRemoveValidator`, `exitValidator`, `bulkExitValidator`, `liquidateSSV`, `migrateClusterToETH`, `updateClusterBalance` → SPEC §1 "Existing Clusters"
 
 **Q: What happens to removed operators in a cluster?**
 - Removed operators are skipped during `updateClusterOperatorsOnReactivation` and migration. The cluster operates with reduced operator coverage (e.g., 3/4). No on-chain event signals which operators were skipped — detectable off-chain by checking operator states → FLOWS §1.8 note, SPEC §1 "Minimum ETH Calculation" special cases
+
+**Q: How do `removeValidator` / `bulkRemoveValidator` behave on legacy SSV clusters?**
+- They execute against `s.clusters` (VERSION_SSV), settle SSV accounting with SSV indices when cluster is active, and update SSV operator/DAO validator counters.
+- If an SSV cluster is already liquidated, remove operations still delete validator keys and decrement cluster `validatorCount`, but they do not decrement SSV operator/DAO counts again.
+- Legacy SSV remove paths do not update EB-specific storage (`clusterEB`, `operatorEthVUnits`), which is ETH-branch accounting only.
 
 **Q: Can a cluster be reactivated after migration to ETH?**
 - Migration is one-way and irreversible. A migrated cluster that is later liquidated can be reactivated via `reactivate` (ETH flow) → SPEC §1 "Cluster Migration"
@@ -169,7 +174,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 | Staking | none | SSV → cSSV, earns ETH rewards from network fees |
 | Oracle | none | Merkle-root EB oracle with quorum voting |
 | Liquidation collateral | SSV-denominated | SSV-denominated (legacy SSV clusters) and ETH-denominated, EB-aware |
-| SSV cluster operations | full | blocked (remove, liquidate, and migrate only) |
+| SSV cluster operations | full | partial: remove/bulkRemove/exit/liquidateSSV/migrate/updateClusterBalance allowed; register/deposit/withdraw/reactivate blocked |
 | Withdraw from liquidated | blocked | allowed (ETH clusters) |
 
 ### Related Documents
