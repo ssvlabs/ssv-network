@@ -124,6 +124,12 @@ interface ISSVDAO is ISSVNetworkCore {
     event QuorumUpdated(uint16 newQuorum);
 
     /**
+     * @dev Emitted when the minimum block interval between EB updates is updated
+     * @param newMinBlocksBetweenUpdates The new minimum block interval
+     */
+    event MinBlocksBetweenUpdatesUpdated(uint32 newMinBlocksBetweenUpdates);
+
+    /**
      * @notice Updates the network fee (ETH post-migration)
      * @param fee The new network fee (ETH) to be set
      */
@@ -207,6 +213,12 @@ interface ISSVDAO is ISSVNetworkCore {
      * @param duration The new duration in seconds
      */
     function setUnstakeCooldownDuration(uint64 duration) external;
+
+    /**
+     * @notice Sets the minimum block interval between EB updates for the same cluster
+     * @param blocks The new minimum interval in blocks (must be non-zero)
+     */
+    function updateMinBlocksBetweenUpdates(uint32 blocks) external;
 
     /**
      * @notice Replace oracle address at a stable oracle ID
