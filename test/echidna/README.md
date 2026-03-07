@@ -291,8 +291,11 @@ Significant implementation effort. Requires custom delta-block simulators, per-c
 
 #### Migration
 
-| Planned Property | Type | Description | Ref |
+| Property | Type | Description | Ref |
 |---|---|---|---|
+| `echidna_migration_removed_refund_exact` | Implemented | On successful SSV→ETH migration, refunded SSV must equal settlement computed with full cumulative SSV index (including removed operators' frozen `snapshot.index`) | BUG-14 |
+| `echidna_migration_removed_operator_not_eth_initialized` | Implemented | Operators removed before migration (`snapshot.block == 0 && ethSnapshot.block == 0`) must remain excluded from ETH initialization and ETH validator-count updates | BUG-14 |
+| `echidna_removed_operator_state_and_frozen_index_preserved` | Implemented | Removed operators must keep zeroed snapshot blocks while preserving frozen `snapshot.index` across subsequent actions | BUG-14 |
 | `echidna_migration_one_way` | Candidate | After `migrateClusterToETH`: ETH mode active, SSV balance returned, legacy operations revert — catches partial migration / stuck funds | C7 |
 
 #### Overflow / Extreme Value

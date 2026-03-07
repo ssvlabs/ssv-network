@@ -16,6 +16,7 @@ import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 describe("SSVOperators function `reduceOperatorFee()`", async () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
+  const LEGACY_REDUCED_FEE = 1_000_000_000n;
 
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
@@ -116,5 +117,53 @@ describe("SSVOperators function `reduceOperatorFee()`", async () => {
 
     await expect(operators.connect(other).reduceOperatorFee(1, Number(MINIMAL_OPERATOR_ETH_FEE)))
       .to.be.revertedWithCustomError(operators, Errors.CALLER_NOT_OWNER);
+  });
+
+  it("Initializes legacy ETH snapshot and reduces fee for SSV legacy operator", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await operators.registerOperator(makeOperatorKey(1), MINIMAL_OPERATOR_ETH_FEE * 2n, false);
+    await operators.mockSetOperatorLegacySSV(1, 1);
+
+    const before = await operators.getOperator(1);
+    expect(before.ethSnapshot.block).to.equal(0);
+    expect(before.ethFee).to.equal(0n);
+    expect(before.fee).to.equal(1n);
+
+    const tx = await operators.reduceOperatorFee(1, LEGACY_REDUCED_FEE);
+    const receipt = await tx.wait();
+
+    const after = await operators.getOperator(1);
+    expect(after.ethSnapshot.block).to.be.gt(0);
+    expect(after.ethFee).to.equal(LEGACY_REDUCED_FEE / ETH_DEDUCTED_DIGITS);
+
+    const feeExecutedLogs = receipt?.logs.filter((log: any) => {
+      try {
+        const parsed = operators.interface.parseLog(log);
+        return parsed?.name === Events.OPERATOR_FEE_EXECUTED;
+      } catch {
+        return false;
+      }
+    }) ?? [];
+    expect(feeExecutedLogs.length).to.equal(2);
+  });
+
+  it("Keeps explicit zero fee after legacy initialization marker is set", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await operators.registerOperator(makeOperatorKey(1), MINIMAL_OPERATOR_ETH_FEE * 2n, false);
+    await operators.mockSetOperatorLegacySSV(1, 1);
+
+    await operators.reduceOperatorFee(1, 0n);
+
+    const afterFirstReduce = await operators.getOperator(1);
+    expect(afterFirstReduce.ethSnapshot.block).to.be.gt(0);
+    expect(afterFirstReduce.ethFee).to.equal(0n);
+
+    await expect(operators.reduceOperatorFee(1, 0n))
+      .to.be.revertedWithCustomError(operators, Errors.FEE_INCREASE_NOT_ALLOWED);
+
+    const afterSecondAttempt = await operators.getOperator(1);
+    expect(afterSecondAttempt.ethFee).to.equal(0n);
   });
 });
