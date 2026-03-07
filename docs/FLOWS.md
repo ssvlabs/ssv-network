@@ -100,6 +100,9 @@ This invariant holds by construction across all ETH flows. If accounting is corr
 5. If cluster has explicit EB (oracle has previously submitted an EB update): also update `ebSnapshot.vUnits` to include the new validators' baseline. Operator and DAO deviation vUnits are NOT updated — new validators start at exactly 32 ETH so their deviation is zero
 6. Store cluster hash in `ethClusters`
 7. Liquidation check: cluster must not be liquidatable after registration
+   - Check uses **projected vUnits** (post-registration) not stale storage
+   - Explicit EB: `storedVUnits + validatorCountDelta * VUNITS_PRECISION`
+   - Implicit EB: `cluster.validatorCount * VUNITS_PRECISION`
 
 #### Events
 ```solidity
