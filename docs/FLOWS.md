@@ -77,13 +77,16 @@ This invariant holds by construction across all ETH flows. If accounting is corr
 
 #### Preconditions
 - Public key length must be valid (48 bytes)
-- Validator must not already exist
-- Operator IDs must be sorted ascending, length 4–13
+- Validator must not already be registered by same user
+- Operator IDs must be sorted ascending, length 4,7,10 or 13 operators 
 - All operators must exist and not be removed
+- All operators must have less than or equal to 3000 validators registered to it after registration
 - If operators are private, caller must be whitelisted
 - If cluster doesn't exist, this creates a new ETH cluster
 - If cluster exists, it must be an ETH cluster (VERSION_ETH)
 - Cluster must be active (not liquidated)
+- ETH amount must be enough to cover clusters liquidation threshold and liquidation collateral
+- Cluster data must be valid
 
 #### State Mutations
 1. For each operator:
@@ -137,7 +140,9 @@ Same as 1.1 but for multiple validators in one transaction. Each validator emits
 - Validator must exist and be owned by caller
 - Cluster must exist as ETH cluster (VERSION_ETH) or legacy SSV cluster (VERSION_SSV)
 - Operator IDs must match the registered operator set
+- Cluster data must be valid
 
+** TODO - update like legacy ssv cluster what happens if the cluster is already liquidated  
 #### State Mutations (ETH cluster)
 1. Update operator ETH snapshots
 2. Decrement `operator.ethValidatorCount`
@@ -263,6 +268,7 @@ emit ValidatorExited(owner, operatorIds, publicKeys[i]);
 
 #### Preconditions
 - Cluster must exist as ETH cluster (VERSION_ETH)
+- Cluster data must be valid
 
 > **Note — deposits allowed on liquidated clusters:** `deposit` does not require the cluster to be active. Depositing to a liquidated cluster, and later reactivating it, will accumulate both the deposit and the reactivation amount.
 
@@ -291,6 +297,7 @@ emit ClusterDeposited(owner, operatorIds, msg.value, cluster);
 - Cluster must exist as ETH cluster (VERSION_ETH)
 - `amount <= cluster.balance` (after fee settlement if active)
 - If cluster is active and has validators: cluster must not become liquidatable after withdrawal
+- Cluster data must be valid
 - ~~Cluster must be active~~ — **liquidated clusters are allowed** (see note below)
 
 > **Note — withdrawal allowed on liquidated clusters:** `withdraw` does not require the cluster to be active. A liquidated cluster may have received deposits (via `deposit`) in preparation for reactivation. If the owner decides not to reactivate, they can recover those funds via `withdraw`. Fee settlement and the post-withdrawal liquidatability check are skipped for inactive clusters (no burn rate applies).
@@ -323,7 +330,8 @@ emit ClusterWithdrawn(owner, operatorIds, amount, cluster);
 #### Preconditions
 - Cluster must exist as ETH cluster (VERSION_ETH)
 - Cluster must be active
-- If caller != owner: cluster must be liquidatable (balance below threshold)
+- If caller != owner: cluster must be liquidatable (balance below liquidation threshold or liquidation collateral)
+- Cluster data must be valid
 
 #### State Mutations
 1. Update operator snapshots with fee settlement
@@ -364,6 +372,11 @@ Same flow as 1.9 but for SSV clusters. Uses `s.clusters` instead of `s.ethCluste
 #### Preconditions
 - Cluster must exist as ETH cluster
 - Cluster must be liquidated (`active == false`)
+- All operators must exist and not be removed
+- All operators must have less than or equal to 3000 validators registered to it after reactivation
+- If operators are private, caller must be whitelisted
+- Cluster data must be valid
+- ETH amount must be enough to cover clusters liquidation threshold and liquidation collateral
 
 
 > **Note — Stale EB risk:** The solvency check uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed during liquidation. Ref: SPEC §2 "Stale EB Risk on Reactivation" for full analysis and mitigation options.
@@ -404,6 +417,8 @@ emit ClusterReactivated(owner, operatorIds, cluster);
 - Cluster can be active or liquidated — if liquidated, migration also reactivates it
 - Caller must be cluster owner
 - msg.value must be sufficient to pass ETH liquidation check
+- No validation on if operator exists nor if account is whitelisted by those operators
+- Cluster data must be valid
 
 #### State Mutations
 
@@ -439,7 +454,7 @@ emit ClusterReactivated(owner, operatorIds, cluster);
      - Add deviation to `sp.daoTotalEthVUnits`
      - Add deviation to each `seb.operatorEthVUnits[operatorId]`
 
-8. **Refund SSV:** Transfer remaining SSV balance to owner
+8. **Refund SSV:** Transfer remaining SSV balance to owner (if any remaining)
 
 #### Events
 ```solidity
@@ -519,6 +534,7 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 - Merkle proof valid: `verify(proof, ebRoots[blockNum], doubleHash(clusterId, effectiveBalance))`
 - EB limits: `32 * validatorCount <= effectiveBalance <= 2048 * validatorCount`
 - Cluster must exist (ETH or SSV)
+- Cluster data must be valid
 
 > **Note — Liquidated clusters:** The EB snapshot is **always updated** regardless of cluster state; fee/accounting steps are skipped when `cluster.active == false`. Ref: SPEC §4 "Behavior on liquidated clusters" for full rules and use cases.
 
@@ -651,6 +667,7 @@ After removal, different code paths detect removed operators via different check
 - New fee within `[minimumOperatorEthFee, operatorMaxFee]`
 - Fee increase limited by `operatorMaxFeeIncrease` (percentage)
 - Cannot increase if both SSV fee = 0 AND ETH fee = 0
+** TODO -  this is a bug if true ^^ it is possible to have a ssv fee and an eth fee of 0 in which the increase should still be blocked
 
 > **Note — Existing pre-upgrade declarations:** Previous declarations (before the upgrade timestamp, `UPGRADE_TIMESTAMP` in `SSVOperators`) are rejected when executing the fee update via `executeOperatorFee`. The operator owner can declare a new fee at any time.
 
@@ -668,6 +685,7 @@ After removal, different code paths detect removed operators via different check
 ```solidity
 // If ensureETHDefaults assigned default (legacy SSV operator):
 emit OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE);
+** TODO - ^^ why do you emit this?  For example if a cluster migrates and this causes operator to have default eth fee we dont emit it?
 
 // Always:
 emit OperatorFeeDeclared(owner, operatorId, block.number, fee);
@@ -878,7 +896,7 @@ emit Staked(user, amount);
 
 #### Preconditions
 - `amount > 0`
-- `amount <= cSSV.balanceOf(msg.sender)`
+- `amount <= cSSV.balanceOf(msg.sender) - sum balance of pending unstake requested`
 - Pending unstake requests < MAX_PENDING_REQUESTS (2000)
 
 #### State Mutations
@@ -1046,6 +1064,10 @@ None emitted by the hook itself. The ERC-20 `Transfer` event is emitted by the t
 ### 6.1 Update Network Fee
 
 **Caller:** Owner only
+
+** TODO - is this precondition correct?  If not should we have?
+#### Preconditions
+- amount must be higher / lower than some param??
 
 #### State Mutations
 1. Settle current ETH DAO earnings up to current block
