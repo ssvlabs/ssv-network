@@ -100,6 +100,9 @@ This invariant holds by construction across all ETH flows. If accounting is corr
 5. If cluster has explicit EB (oracle has previously submitted an EB update): also update `ebSnapshot.vUnits` to include the new validators' baseline. Operator and DAO deviation vUnits are NOT updated — new validators start at exactly 32 ETH so their deviation is zero
 6. Store cluster hash in `ethClusters`
 7. Liquidation check: cluster must not be liquidatable after registration
+   - Check uses **projected vUnits** (post-registration) not stale storage
+   - Explicit EB: `storedVUnits + validatorCountDelta * VUNITS_PRECISION`
+   - Implicit EB: `cluster.validatorCount * VUNITS_PRECISION`
 
 #### Events
 ```solidity
@@ -132,7 +135,7 @@ Same as 1.1 but for multiple validators in one transaction. Each validator emits
 
 #### Preconditions
 - Validator must exist and be owned by caller
-- Cluster must exist as ETH cluster (VERSION_ETH)
+- Cluster must exist as ETH cluster (VERSION_ETH) or legacy SSV cluster (VERSION_SSV)
 - Operator IDs must match the registered operator set
 
 #### State Mutations (ETH cluster)
@@ -146,6 +149,17 @@ Same as 1.1 but for multiple validators in one transaction. Each validator emits
 5. Update DAO: `ethDaoValidatorCount--`, reduce vUnits
 6. If last validator removed: cluster balance remains (can withdraw later)
 
+#### State Mutations (legacy SSV cluster)
+1. Delete validator record
+2. If cluster is active:
+   - Update operator SSV snapshots and counts via `updateClusterOperatorsSSV(..., validatorsRemoved=1, ...)`
+   - Settle cluster balance and indices with SSV fee index (`currentNetworkFeeIndexSSV`)
+   - Decrement DAO SSV validator count via `updateDAOSSV(false, 1)`
+3. If cluster is liquidated:
+   - Skip SSV operator/DAO settlement in remove path (counts were already updated at liquidation time)
+4. Decrement `cluster.validatorCount`
+5. Persist updated legacy cluster in `s.clusters[hashedCluster]`
+
 #### Events
 ```solidity
 emit ValidatorRemoved(owner, operatorIds, publicKey, cluster);
@@ -156,6 +170,13 @@ emit ValidatorRemoved(owner, operatorIds, publicKey, cluster);
 - `ethDaoValidatorCount == previous - 1`
 - Validator no longer retrievable
 - Cluster balance reflects settled fees
+
+#### Postcondition Invariants (legacy SSV cluster)
+- If cluster was active: operator/DAO SSV counts decrease by 1
+- If cluster was liquidated: remove does not decrement counts again
+- `cluster.validatorCount == previous - 1`
+- Validator no longer retrievable
+- No EB (`clusterEB` / `operatorEthVUnits`) cleanup is performed in SSV branch
 
 ---
 
@@ -171,6 +192,12 @@ Same as 1.3 but removes multiple validators in one transaction. All validators m
 - `cluster.validatorCount == previous - N`
 - If cluster had explicit EB tracking (`ebSnapshot.vUnits > 0`): `ebSnapshot.vUnits -= N * VUNITS_PRECISION`
 - If `cluster.validatorCount` reaches 0 and cluster is active: any remaining deviation vUnits are cleaned from `operatorEthVUnits` and DAO
+
+#### Additional Invariants vs 1.3 (legacy SSV cluster)
+- If cluster was active: `operator.validatorCount == previous - N` and `daoValidatorCount == previous - N`
+- If cluster was liquidated: remove does not decrement SSV operator/DAO counts again
+- `cluster.validatorCount == previous - N` in all cases
+- Operation is atomic: if any validator in the batch is invalid, no validator is removed
 
 ---
 
@@ -629,10 +656,19 @@ After removal, different code paths detect removed operators via different check
 > **Note — Multiple declarations:** Calling `declareOperatorFee` multiple times within the declare period will override any pending fee change request. The most recent declaration replaces the previous one, resetting the approval begin/end times. Only the last declared fee can be executed.
 
 #### State Mutations
-1. Store `OperatorFeeChangeRequest{fee: packed(newFee), approvalBeginTime: now + declarePeriod, approvalEndTime: now + declarePeriod + executePeriod}` (overwrites any existing pending request)
+1. Call `ensureETHDefaults(operatorId)` if `ethSnapshot.block == 0`:
+   - Initializes `ethSnapshot.block = block.number`
+   - Assigns `ethFee = DEFAULT_OPERATOR_ETH_FEE` **only if** `ethFee == 0 && SSV fee > 0`
+   - Emits `OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE)` if default is assigned
+   - See SPEC §1 "Operator Fee Transition" for complete behavior
+2. Store `OperatorFeeChangeRequest{fee: packed(newFee), approvalBeginTime: now + declarePeriod, approvalEndTime: now + declarePeriod + executePeriod}` (overwrites any existing pending request)
 
 #### Events
 ```solidity
+// If ensureETHDefaults assigned default (legacy SSV operator):
+emit OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE);
+
+// Always:
 emit OperatorFeeDeclared(owner, operatorId, block.number, fee);
 ```
 
@@ -670,18 +706,38 @@ emit OperatorFeeExecuted(owner, operatorId, block.number, fee);
 **Caller:** Operator owner (immediate, no timelock)
 
 #### Preconditions
-- New fee within `[minimumOperatorEthFee, currentFee)`
+- New fee within `[minimumOperatorEthFee, currentFee)` (or 0)
 - New fee strictly less than current
+- Fee must be 0 OR >= `minimumOperatorEthFee`
 
 #### State Mutations
-1. Update operator ETH snapshot — ref SPEC §10 "Fee Settlement Rule": settles at old fee up to this block; new fee applies only to future blocks
-2. Set `operator.ethFee = packed(newFee)`
-3. Delete any pending fee change request
+1. Call `ensureETHDefaults(operatorId)` if `ethSnapshot.block == 0`:
+   - Initializes `ethSnapshot.block = block.number`
+   - Assigns `ethFee = DEFAULT_OPERATOR_ETH_FEE` **only if** `ethFee == 0 && SSV fee > 0`
+   - Emits `OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE)` if default is assigned
+   - See SPEC §1 "Operator Fee Transition" for complete behavior
+2. Update operator ETH snapshot — ref SPEC §10 "Fee Settlement Rule": settles at old fee (or default if just assigned) up to this block; new fee applies only to future blocks
+3. Set `operator.ethFee = packed(newFee)`
+4. Delete any pending fee change request
 
 #### Events
 ```solidity
+// If ensureETHDefaults assigned default (legacy SSV operator):
+emit OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE);
+
+// Always:
 emit OperatorFeeExecuted(owner, operatorId, block.number, fee);
 ```
+
+#### Special Cases
+- **Legacy SSV operator** (`ethSnapshot.block == 0`, `SSV fee > 0`): Gets `DEFAULT_OPERATOR_ETH_FEE` assigned, then reduced to `newFee`
+- **Explicit zero fee**: After `ethSnapshot.block > 0`, operator can set `ethFee = 0` via `reduceOperatorFee(operatorId, 0)`. This explicit zero is preserved during cluster migration.
+- **Zero-fee operator** (`SSV fee == 0`): No default assigned, stays at `ethFee = 0`
+
+#### Postcondition Invariants
+- `operator.ethFee < previous ethFee` (strictly less)
+- `ethSnapshot.block > 0` (always initialized after this call)
+- No pending fee change request
 
 ---
 

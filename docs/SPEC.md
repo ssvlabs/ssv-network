@@ -96,7 +96,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Yes (no guard), but it is a no-op — SSV snapshot balance is zero. See SEC-18 → FLOWS §4.8
 
 **Q: What is `DEFAULT_OPERATOR_ETH_FEE` and when is it applied?**
-- 1,770,000,000 wei/block/validator. Applied automatically on first ETH cluster interaction for pre-v2 operators that had SSV fee > 0. Operators with SSV fee = 0 get ETH fee = 0 → SPEC §1 "Operator Fee Transition"
+- 1,770,000,000 wei/block/validator. Applied automatically via `ensureETHDefaults` on first ETH interaction for legacy SSV operators (SSV fee > 0, ethSnapshot.block == 0). Also called by `declareOperatorFee` and `reduceOperatorFee` before fee changes. Operators with SSV fee = 0 get ETH fee = 0. See SPEC §1 "Operator Fee Transition" for complete behavior → SPEC §1 "Operator Fee Transition"
 
 ---
 
@@ -128,11 +128,16 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Check `validateHashedCluster` return value: `version == VERSION_ETH` (2) → ETH cluster in `s.ethClusters`; `version == VERSION_SSV` (1) → SSV cluster in `s.clusters` → SPEC §6 "Type System & Packing"
 
 **Q: What operations are blocked on legacy SSV clusters?**
-- Blocked: `registerValidator`, `bulkRegisterValidator`, `removeValidator` (BUG-11), `bulkRemoveValidator` (BUG-11), `reactivate`, `deposit` (SSV), `withdraw` (SSV)
-- Allowed: `exitValidator`, `bulkExitValidator`, `liquidate`, `liquidateSSV`, `migrateClusterToETH`, `updateClusterBalance` → SPEC §1 "Existing Clusters"
+- Blocked: `registerValidator`, `bulkRegisterValidator`, `reactivate`, `deposit` (SSV), `withdraw` (SSV), `liquidate` (ETH path)
+- Allowed: `removeValidator`, `bulkRemoveValidator`, `exitValidator`, `bulkExitValidator`, `liquidateSSV`, `migrateClusterToETH`, `updateClusterBalance` → SPEC §1 "Existing Clusters"
 
 **Q: What happens to removed operators in a cluster?**
 - Removed operators are skipped during `updateClusterOperatorsOnReactivation` and migration. The cluster operates with reduced operator coverage (e.g., 3/4). No on-chain event signals which operators were skipped — detectable off-chain by checking operator states → FLOWS §1.8 note, SPEC §1 "Minimum ETH Calculation" special cases
+
+**Q: How do `removeValidator` / `bulkRemoveValidator` behave on legacy SSV clusters?**
+- They execute against `s.clusters` (VERSION_SSV), settle SSV accounting with SSV indices when cluster is active, and update SSV operator/DAO validator counters.
+- If an SSV cluster is already liquidated, remove operations still delete validator keys and decrement cluster `validatorCount`, but they do not decrement SSV operator/DAO counts again.
+- Legacy SSV remove paths do not update EB-specific storage (`clusterEB`, `operatorEthVUnits`), which is ETH-branch accounting only.
 
 **Q: Can a cluster be reactivated after migration to ETH?**
 - Migration is one-way and irreversible. A migrated cluster that is later liquidated can be reactivated via `reactivate` (ETH flow) → SPEC §1 "Cluster Migration"
@@ -169,7 +174,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 | Staking | none | SSV → cSSV, earns ETH rewards from network fees |
 | Oracle | none | Merkle-root EB oracle with quorum voting |
 | Liquidation collateral | SSV-denominated | SSV-denominated (legacy SSV clusters) and ETH-denominated, EB-aware |
-| SSV cluster operations | full | blocked (remove, liquidate, and migrate only) |
+| SSV cluster operations | full | partial: remove/bulkRemove/exit/liquidateSSV/migrate/updateClusterBalance allowed; register/deposit/withdraw/reactivate blocked |
 | Withdraw from liquidated | blocked | allowed (ETH clusters) |
 
 ### Related Documents
@@ -258,12 +263,25 @@ Step 4: Take maximum of both thresholds
 
 **New operators**: Register with ETH fee only (no SSV fee option)
 
-**Existing operators**:
+**Existing operators (Legacy SSV Operators)**:
 - SSV fees frozen (cannot modify)
 - SSV fee accrual continues for non-migrated clusters
-- Default ETH fee assigned automatically on first ETH cluster interaction:
+- Default ETH fee assigned automatically on **first ETH interaction** via `ensureETHDefaults`:
   - If SSV fee = 0 → ETH fee = 0
   - If SSV fee > 0 → ETH fee = `DEFAULT_OPERATOR_ETH_FEE` (1,770,000,000 wei = ~0.00464 ETH/year per 32 ETH validator)
+
+**`ensureETHDefaults` is called in:**
+- `migrateClusterToETH` (for all operators in the cluster)
+- `registerValidator` / `bulkRegisterValidator` (for all operators in the cluster, ETH clusters only)
+- `declareOperatorFee` (before declaring new fee)
+- `reduceOperatorFee` (before reducing fee)
+
+**Behavior:**
+- Initializes `operator.ethSnapshot.block = block.number` (if currently 0)
+- Assigns `operator.ethFee = DEFAULT_OPERATOR_ETH_FEE` **only if** `ethFee == 0 && SSV fee > 0`
+- Emits `OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE)` when default is assigned
+- After initialization (`ethSnapshot.block > 0`), operators can explicitly set `ethFee = 0` via `reduceOperatorFee(operatorId, 0)`
+- Explicit zero fees are preserved during migration (no overwrite to default)
 
 ### Breaking Function Signature Changes
 

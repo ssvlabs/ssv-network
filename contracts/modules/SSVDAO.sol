@@ -169,14 +169,19 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
             revert FutureBlockNumber();
         }
 
-        uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
-        if (totalStaked == 0) revert OracleHasZeroWeight();
-
         // block and root combined to keep block-root proposal tied together
         bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, merkleRoot));
 
         if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
         seb.hasVoted[commitmentKey][oracleId] = true;
+
+        // Freeze supply on the first vote to prevent supply manipulation between votes.
+        uint256 totalStaked = seb.roundFrozenSupply[commitmentKey];
+        if (totalStaked == 0) {
+            totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
+            if (totalStaked == 0) revert OracleHasZeroWeight();
+            seb.roundFrozenSupply[commitmentKey] = totalStaked;
+        }
 
         uint256 weight = totalStaked / s.defaultOracleIds.length;
         seb.rootCommitments[commitmentKey] += weight;
@@ -190,6 +195,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
             seb.latestCommittedBlock = blockNum;
 
             delete seb.rootCommitments[commitmentKey];
+            delete seb.roundFrozenSupply[commitmentKey];
             // Do not delete hasVoted to prevent re-voting if same key is somehow reused
 
             emit RootCommitted(merkleRoot, blockNum);
