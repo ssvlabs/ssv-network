@@ -667,7 +667,7 @@ After removal, different code paths detect removed operators via different check
 - New fee within `[minimumOperatorEthFee, operatorMaxFee]`
 - Fee increase limited by `operatorMaxFeeIncrease` (percentage)
 - Cannot increase if both SSV fee = 0 AND ETH fee = 0
-** TODO -  this is a bug if true ^^ it is possible to have a ssv fee and an eth fee of 0 in which the increase should still be blocked
+** TODO -  this is a bug if true ^^ it is possible to have a ssv fee and an eth fee of 0 in which the increase should still be blocked, i think you meant OR instead of AND in which case this is fine but i need to see the code, i mean obvious answer is just dont even look at ssv fee but im sure they are somehow intertwined in the func
 
 > **Note — Existing pre-upgrade declarations:** Previous declarations (before the upgrade timestamp, `UPGRADE_TIMESTAMP` in `SSVOperators`) are rejected when executing the fee update via `executeOperatorFee`. The operator owner can declare a new fee at any time.
 
