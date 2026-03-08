@@ -43,6 +43,7 @@ export const Errors = {
   INVALID_PROOF: "InvalidProof",
   EB_EXCEEDS_MAXIMUM: "EBExceedsMaximum",
   STALE_UPDATE: "StaleUpdate",
+  MUST_USE_LATEST_ROOT: "MustUseLatestRoot",
   UPDATE_TOO_FREQUENT: "UpdateTooFrequent",
   NOT_ORACLE: "NotOracle",
   STALE_BLOCK_NUMBER: "StaleBlockNumber",

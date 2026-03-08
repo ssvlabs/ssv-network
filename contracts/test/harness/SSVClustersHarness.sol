@@ -157,6 +157,9 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     function mockSetEBRoot(uint64 blockNum, bytes32 root) external {
         StorageEB storage seb = SSVStorageEB.load();
         seb.ebRoots[blockNum] = root;
+        if (blockNum > seb.latestCommittedBlock) {
+            seb.latestCommittedBlock = blockNum;
+        }
     }
 
     function mockSetMinBlocksBetweenUpdates(uint32 blocks) external {

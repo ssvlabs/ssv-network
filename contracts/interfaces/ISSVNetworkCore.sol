@@ -290,6 +290,11 @@ interface ISSVNetworkCore {
     error StaleUpdate(); // 0x666a2814
 
     /**
+     * @dev Thrown when eb update does not use latest committed root block
+     */
+    error MustUseLatestRoot();
+
+    /**
      * @dev Thrown when the merkle proof is invalid
      */
     error InvalidProof(); // 0x09bde339
