@@ -330,6 +330,7 @@ Examples:
 - `effectiveBalance <= validatorCount * 2048` (maximum 2048 ETH per validator)
 - Block numbers must be strictly monotonically increasing
 - Minimum blocks between updates enforced (`minBlocksBetweenUpdates`)
+- **Latest-root-only enforcement**: `blockNum` must equal `latestCommittedBlock` — prevents stale root griefing attacks
 
 ### DAO vUnit Tracking
 
@@ -483,7 +484,9 @@ Permissionless — anyone can submit a valid proof:
 
 1. Verify committed root exists for `blockNum`
 2. Verify update frequency (min blocks between updates)
-3. Verify staleness (blockNum > last root used for this cluster)
+3. Verify staleness:
+   - **Latest-root check**: `blockNum == latestCommittedBlock` (prevents stale root usage)
+   - **Per-cluster monotonicity**: `blockNum > lastRootBlockNum` for this cluster
 4. Verify Merkle proof against committed root
 5. Verify EB limits (32–2048 ETH per validator)
 6. Convert to vUnits, update EB snapshot
