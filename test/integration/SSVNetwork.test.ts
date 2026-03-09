@@ -85,6 +85,17 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getNetworkValidatorsCount()).to.equal(0);
       expect(await views.totalStaked()).to.equal(0n);
     });
+
+    it("Calling initializeSSVStaking again reverts with already-initialized error", async function () {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const upgradeFactory = await connection.ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
+      const upgradeNetwork = upgradeFactory.attach(await network.getAddress());
+
+      await expect(
+        upgradeNetwork.initializeSSVStaking(DEFAULT_UNSTAKE_COOLDOWN, [1, 2, 3, 4], 7500)
+      ).to.be.revertedWith("Initializable: contract is already initialized");
+    });
   });
 
   describe("Function 'registerOperator()'", async function () {
@@ -981,6 +992,27 @@ describe("SSVNetwork full integration tests", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       await expect(network.connect(randomUser).setUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
+  describe("Function 'updateMinBlocksBetweenUpdates()'", async function() {
+    it("Updates the EB update cooldown blocks and emits correct event", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const newMinBlocks = 7200n;
+
+      await expect(network.updateMinBlocksBetweenUpdates(newMinBlocks))
+        .to.emit(network, Events.MIN_BLOCKS_BETWEEN_UPDATES_UPDATED)
+        .withArgs(newMinBlocks);
+    });
+
+    it("Is reverted if the caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).updateMinBlocksBetweenUpdates(7200n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
   });
@@ -3209,6 +3241,23 @@ describe("SSVNetwork full integration tests", () => {
         .withArgs(tokenAddress, randomUser.address, 123);
 
       expect(await randomToken.balanceOf(randomUser.address)).to.be.equal(123);
+    });
+
+    it("Withdraws non-standard ERC20 tokens that do not return a value", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const nonStandardToken = await connection.ethers.deployContract("NonStandardERC20Mock");
+      await nonStandardToken.waitForDeployment();
+      const tokenAddress = await nonStandardToken.getAddress();
+
+      await nonStandardToken.mint(await network.getAddress(), 123);
+
+      await expect(network.rescueERC20(tokenAddress, randomUser.address, 123))
+        .to.emit(network, Events.ERC20_RESCUED)
+        .withArgs(tokenAddress, randomUser.address, 123);
+
+      expect(await nonStandardToken.balanceOf(randomUser.address)).to.be.equal(123);
     });
 
     it("Is reverted with 'Ownable: caller is not the owner' if the caller is not the owner", async function() {
