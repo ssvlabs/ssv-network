@@ -2,7 +2,6 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { ethers } from "ethers";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -10,6 +9,7 @@ import {
   makePublicKey,
   whitelistAddresses,
   parseClusterFromEvent,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
@@ -24,7 +24,7 @@ import {
   calcLiquidationThreshold,
   checkAccumulatorMonotonicity,
   checkCSSVSupplyConsistency,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 describe("Cross-Cutting: Staking Integration", () => {
   let connection: NetworkConnection<"generic">;
@@ -37,8 +37,7 @@ describe("Cross-Cutting: Staking Integration", () => {
   let userB: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner, clusterOwner2, staker, userA, userB] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner, clusterOwner2, staker, userA, userB] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -111,7 +110,7 @@ describe("Cross-Cutting: Staking Integration", () => {
 
       const phase2Blocks = BigInt(claimABlock - stakeBBlock);
       const phase2FeesWei = phase2Blocks * networkFeePacked * ETH_DEDUCTED_DIGITS;
-      const totalSupplyPhase2 = stakeA + stakeB; // 400e18
+      const totalSupplyPhase2 = stakeA + stakeB;
       const delta2 = (phase2FeesWei * PRECISION) / totalSupplyPhase2;
 
       const expectedClaimARaw = (stakeA * (delta1 + delta2)) / PRECISION;

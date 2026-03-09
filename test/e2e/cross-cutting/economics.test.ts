@@ -2,7 +2,6 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { ethers } from "ethers";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType, Cluster } from "../../common/types.ts";
 import {
@@ -11,6 +10,7 @@ import {
   whitelistAddresses,
   parseClusterFromEvent,
   generateMerkleForClusterEB,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
@@ -28,7 +28,7 @@ import {
   defaultVUnits,
   snapshotContractBalance,
   checkETHConservation,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 describe("Cross-Cutting: Economics", () => {
   let connection: NetworkConnection<"generic">;
@@ -37,8 +37,7 @@ describe("Cross-Cutting: Economics", () => {
   let operatorOwner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [clusterOwner, operatorOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, operatorOwner] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -146,8 +145,8 @@ describe("Cross-Cutting: Economics", () => {
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
       const opData = await views.getOperatorById(BigInt(operatorIds[0]));
-      const ethFeeWei = BigInt(opData.fee); // unpacked wei
-      const ethFeePacked = ethFeeWei / ETH_DEDUCTED_DIGITS; // packed raw
+      const ethFeeWei = BigInt(opData.fee);
+      const ethFeePacked = ethFeeWei / ETH_DEDUCTED_DIGITS;
       const networkFeeWei = BigInt(await views.getNetworkFee());
       const networkFeePacked = networkFeeWei / ETH_DEDUCTED_DIGITS;
 
@@ -170,7 +169,7 @@ describe("Cross-Cutting: Economics", () => {
       const settlementBlock = receipt3!.blockNumber;
       const blockDiff = BigInt(settlementBlock - registerBlock);
 
-      const vUnits = defaultVUnits(1n); // 10_000
+      const vUnits = defaultVUnits(1n);
       const numOps = 4n;
 
       const perOpAccrual = calcOperatorFeeAccrual(blockDiff, ethFeePacked, vUnits);
@@ -297,7 +296,7 @@ describe("Cross-Cutting: Economics", () => {
       );
       const receiptEBB = await txEBB.wait();
       clusterB = parseClusterFromEvent(network, receiptEBB, Events.CLUSTER_BALANCE_UPDATED);
-      const vUnitsB = calcVUnits(48n); // 15000
+      const vUnitsB = calcVUnits(48n);
       expect(vUnitsB).to.equal(15000n);
 
       await mineBlocks(provider, 100);
@@ -352,14 +351,14 @@ describe("Cross-Cutting: Economics", () => {
         numOperators: 4n,
         ethFee: ethFeePacked,
         networkFee: networkFeePacked,
-        effectiveVUnits: defaultVUnits(1n), // 10000
+        effectiveVUnits: defaultVUnits(1n),
       });
       const burnPhase2 = calcClusterBurn({
         blockDiff: settleBBlock - ebBBlock,
         numOperators: 4n,
         ethFee: ethFeePacked,
         networkFee: networkFeePacked,
-        effectiveVUnits: vUnitsB, // 15000
+        effectiveVUnits: vUnitsB,
       });
       const expectedClusterBBalance = depositB - burnPhase1 - burnPhase2;
       expect(clusterB.balance).to.equal(expectedClusterBBalance);
