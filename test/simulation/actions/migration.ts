@@ -8,7 +8,7 @@ import { ethers } from "ethers";
 import {
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
-import { calcLiquidationThreshold, defaultVUnits } from "../../e2e/helpers/fee-calculator.ts";
+import { calcLiquidationThreshold, defaultVUnits } from "../../helpers/fee.ts";
 import type { SimulationState, ActionResult, ClusterRecord } from "../types.ts";
 import { VERSION_SSV, VERSION_ETH } from "../types.ts";
 import {
@@ -42,12 +42,8 @@ export async function actionMigrateCluster(state: SimulationState): Promise<Acti
 
   const cr = state.rng.pick(clusters);
   const key = clusterKey(ethers, cr.owner, cr.operatorIds);
-
-  // Compute minimum ETH for migration
   const validatorCount = cr.cluster.validatorCount > 0n ? cr.cluster.validatorCount : 1n;
   const vUnits = defaultVUnits(validatorCount);
-
-  // Average operator fee
   let avgFee = 0n;
   let feeCount = 0n;
   for (const id of cr.operatorIds) {
@@ -67,7 +63,7 @@ export async function actionMigrateCluster(state: SimulationState): Promise<Acti
     effectiveVUnits: vUnits,
   });
 
-  const minCollateral = 1_000_000_000_000_000n; // 0.001 ETH
+  const minCollateral = 1_000_000_000_000_000n;
   const base = threshold > minCollateral ? threshold : minCollateral;
   const ethDeposit = ((base + base / 2n) / ETH_DEDUCTED_DIGITS + 1n) * ETH_DEDUCTED_DIGITS;
 

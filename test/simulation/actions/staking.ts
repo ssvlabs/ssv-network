@@ -14,7 +14,8 @@ import {
   trackRewardsClaimed,
 } from "../bookkeeping.ts";
 
-const MINIMAL_STAKING_AMOUNT = 1_000_000_000n; // 1e9 wei of SSV
+const MINIMAL_STAKING_AMOUNT = 1_000_000_000n;
+
 
 /**
  * Provision SSV tokens to an address via hardhat_setStorageAt.
@@ -51,8 +52,6 @@ export async function actionStakeSSV(state: SimulationState): Promise<ActionResu
 
   const staker = state.rng.pick(state.stakerPool);
   const addr = await staker.signer.getAddress();
-
-  // Random stake: 10-1000 SSV tokens
   const minStake = 10n * 10n ** 18n;
   const maxStake = 1000n * 10n ** 18n;
   const stakeAmount = state.rng.nextInRange(minStake, maxStake);
@@ -97,8 +96,6 @@ export async function actionRequestUnstake(state: SimulationState): Promise<Acti
   }
 
   const staker = state.rng.pick(stakersWithBalance);
-
-  // Unstake 10-50% of cSSV balance
   const pct = state.rng.nextInRange(10n, 50n);
   const unstakeAmount = (staker.cssvBalance * pct) / 100n;
 
@@ -109,8 +106,6 @@ export async function actionRequestUnstake(state: SimulationState): Promise<Acti
   try {
     const tx = await state.network.connect(staker.signer).requestUnstake(unstakeAmount);
     const receipt = await tx.wait();
-
-    // Parse unlockTime from event
     let unlockBlock = BigInt(state.currentBlock + 50120);
     for (const log of receipt?.logs ?? []) {
       try {
