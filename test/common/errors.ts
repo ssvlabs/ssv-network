@@ -51,6 +51,7 @@ export const Errors = {
   ALREADY_VOTED: "AlreadyVoted",
   ZERO_ADDRESS: "ZeroAddress",
   ORACLE_ALREADY_ASSIGNED: "OracleAlreadyAssigned",
+  SAME_ORACLE_NOT_ALLOWED: "SameOracleNotAllowed",
   INVALID_ORACLE_ID: "InvalidOracleId",
   INVALID_QUORUM: "InvalidQuorum",
   MAX_REQUESTS_AMOUNT_REACHED: "MaxRequestsAmountReached",
