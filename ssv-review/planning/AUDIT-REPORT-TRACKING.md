@@ -1,7 +1,7 @@
 # SSV Network v2.0.0 — Audit Issues Tracking
 
 **Generated:** 2026-02-27
-**Updated:** 2026-03-06
+**Updated:** 2026-03-09
 **Source:** `ssv-review/audit-report-source.md`
 **Branch:** `ssv-staking`
 
@@ -14,23 +14,23 @@ This document tracks issues from the audit report source in a management-friendl
 | ID | Task | Type | Priority | Tracking |
 |----|------|------|----------|----------|
 | SSV-1 | ~~Stale memory write-back locks operators at zero ETH fee & reactivates removed operators~~ | Audit Finding | P0 | ✅ Fixed |
-| SSV-2 | Live cSSV supply used per vote allows quorum manipulation | Audit Finding | P0 | 🟡 In Progress (Open PR #492) |
-| SSV-3 | Validator registration can leave cluster immediately liquidatable | Audit Finding | P0 | 🟡 In Progress (Open PR #491) |
-| SSV-4 | Remove-and-reregister resets explicit EB to baseline, creating fee undercharge window | Audit Finding | P2 | TBD |
-| SSV-5 | Operator removal can compromise clusters' fault tolerance | Audit Finding | P2 | ✅ By Design |
-| SSV-6 | ETH rewards accrued during zero cSSV supply become unclaimable | Audit Finding | P1 | ✅ Mitigated |
+| SSV-2 | ~~Live cSSV supply used per vote allows quorum manipulation~~ | Audit Finding | P0 | ✅ Fixed (PR #492) |
+| SSV-3 | ~~Validator registration can leave cluster immediately liquidatable~~ | Audit Finding | P0 | ✅ Fixed ( PR #491) |
+| SSV-4 | ~~Remove-and-reregister resets explicit EB to baseline, creating fee undercharge window~~ | Audit Finding | P2 | ✅ Acknowledged (accepted low-likelihood undercharge window risk) |
+| SSV-5 | ~~Operator removal can compromise clusters' fault tolerance~~ | Audit Finding | P2 | ✅ By Design |
+| SSV-6 | ~~ETH rewards accrued during zero cSSV supply become unclaimable~~ | Audit Finding | P1 | ✅ Mitigated |
 | SSV-7 | ~~EB auto-liquidation can leave ethValidatorCount inflated~~ | Audit Finding | P2 | ✅ Fixed |
 | SSV-8 | ~~Double-accounting EB deviation blocks validator removal from liquidated clusters~~ | Audit Finding | P2 | ✅ Fixed |
-| SSV-9 | Incorrect oracle weight may reach premature quorum | Audit Finding | P2 | M |
+| SSV-9 | ~~Incorrect oracle weight may reach premature quorum~~ | Audit Finding | P2 | ✅ Fixed |
 | SSV-10 | Cluster owners can avoid liquidation by removing all validators before withdrawal | Audit Finding | P3 | TBD |
 | SSV-11 | ~~Legacy fee requests may execute after upgrade with incompatible fee scale~~ | Audit Finding | P3 | ✅ Fixed (uses UPGRADE_TIMESTAMP) |
 | SSV-12 | ~~Liquidation fallback adds operatorEthVUnits in sub-baseline case | Audit Finding~~ | P3 | ✅ Acknowledged (unreachable under current invariants) |
 | SSV-13 | ~~Operator registration can be DoSed~~ | Audit Finding | P3 | ✅ Acknowledged |
 | SSV-14 | ~~Phantom operators can extract fees and degrade fault tolerance~~ | Audit Finding | P3 | ✅ Acknowledged (no bonding by design) |
 | SSV-15 | ~~Deferred reward accounting exposes stakers to ETH price volatility | Audit Finding~~ | P3 | ❌ Invalid (execution order misunderstood) - Confirmed false positive from auditors |
-| SSV-16 | Non-standard ERC20 tokens trapped in SSVStaking | Audit Finding | P3 | L |
+| SSV-16 | ~~Non-standard ERC20 tokens trapped in SSVStaking~~ | Audit Finding | P3 | ✅ Fixed (PR #513) |
 | SSV-17 | ~~Stale cluster effective balance updates~~ | Audit Finding | P3 | ✅ Fixed (PR #507) |
-| SSV-18 | Direct liquidations do not consider effective balance updates | Audit Finding | P3 | TBD |
+| SSV-18 | ~~Direct liquidations do not consider effective balance updates~~ | Audit Finding | P3 | ✅ Acknowledged (accepted residual fee variance risk) |
 | SSV-19 | ~~replaceOracle allows out-of-set oracle IDs to vote~~ | Audit Finding | P3 | ✅ Merged (PR #504) |
 | SSV-20 | Duplicate BLS key registration across owners risks slashing | Audit Finding | P3 | TBD |
 | SSV-21 | Operator onboarding may lead to increasing centralization | Audit Finding | P3 | ✅ Acknowledged (no bonding by design) |
@@ -446,6 +446,39 @@ if (isLiquidatableWithVUnits(
 - [ ] Sub-task 6: Run integration test suite
 - [ ] Sub-task 7: Verify no gas regression
 - [ ] Sub-task 8: Code review and PR submission
+
+---
+
+### [SSV-4] Remove-and-Reregister Resets Explicit EB to Baseline, Creating Fee Undercharge Window
+- **Type:** Audit Finding / Economic Accounting
+- **Priority:** P2
+- **Status:** ✅ Acknowledged - accepted low-likelihood undercharge window risk
+- **Owner:** Product + CTO
+- **Timeline:** Decision confirmed 2026-03-09
+- **Github Link:** N/A
+- **Files Affected:** [contracts/modules/SSVValidators.sol](contracts/modules/SSVValidators.sol), [contracts/libraries/ClusterLib.sol](contracts/libraries/ClusterLib.sol), [contracts/modules/SSVClusters.sol](contracts/modules/SSVClusters.sol)
+
+**Description:**
+A cluster that previously had explicit high effective-balance units can be reset to implicit baseline accounting through a remove-then-re-register sequence:
+1. Remove validators until `cluster.validatorCount == 0`, which sets `clusterEB.vUnits = 0`.
+2. Re-register validators into the same cluster while `clusterEB.vUnits == 0`.
+3. Registration keeps explicit EB at zero (it only increments snapshot `vUnits` when `vUnits > 0`), so fee/liquidation math falls back to `validatorCount * VUNITS_PRECISION` baseline.
+
+This creates a temporary undercharge window (baseline-rate fees instead of true EB-weighted fees) until a later `updateClusterBalance` restores explicit EB units.
+
+**Product/CTO Resolution:**
+- Issue is acknowledged.
+- Residual risk is accepted for v2.0.0 due to low expected likelihood under current operations:
+  - Oracles update roots 3 times per day.
+  - `updateClusterBalance` is permissionless.
+  - A company-run instance updates cluster balances when they change.
+- The remove-then-re-register path also carries material practical disincentives:
+  - Additional gas costs (bulk remove and especially bulk re-register operations).
+  - Operational risk of missed beacon-chain duties while validators are removed from SSV node duties (removal is not validator exit, but SSV nodes stop performing duties during that period).
+- No protocol code change is planned at this time.
+
+**Operational Note:**
+This accepted-risk decision depends on maintaining current oracle cadence and managed updater behavior. Reassess if those assumptions change.
 
 ---
 
@@ -1546,3 +1579,27 @@ This helps detect:
 **Impact:** Complete elimination of SSV-17 vulnerability with acceptable UX trade-off (transaction reverts during oracle commits handled by retry logic).
 
 ---
+
+### [SSV-18] Direct Liquidations Do Not Consider Effective Balance Updates
+- **Type:** Audit Finding / Economic Accounting
+- **Priority:** P3
+- **Status:** ✅ Acknowledged - accepted residual fee variance risk
+- **Owner:** Product + CTO
+- **Timeline:** Decision confirmed 2026-03-09
+- **Github Link:** N/A
+- **Files Affected:** [contracts/modules/SSVClusters.sol](contracts/modules/SSVClusters.sol)
+
+**Description:**
+`SSVClusters.liquidate()` does not force an effective balance update before liquidation. If the stored cluster effective balance is stale and lower than the latest oracle-committed value, fee calculations can under-account operator/protocol fees, and the remaining balance is effectively redirected to the liquidator.
+
+**Product/CTO Resolution:**
+- Issue is acknowledged.
+- The current architecture keeps likelihood low:
+  - Oracles are permissioned.
+  - Root updates are expected 3 times per day.
+  - A company-run instance also updates cluster balances when they change.
+- If this edge case occurs, the potential missed fees are treated as acceptable residual risk for v2.0.0.
+- No protocol code change is planned at this time.
+
+**Operational Note:**
+This decision depends on continued oracle update cadence and the managed updater process. If either assumption changes, this issue should be re-evaluated.
