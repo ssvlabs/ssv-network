@@ -14,7 +14,7 @@ import {
   DEFAULT_SHARES,
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
-import { calcLiquidationThreshold, defaultVUnits } from "../../e2e/helpers/fee-calculator.ts";
+import { calcLiquidationThreshold, defaultVUnits } from "../../helpers/fee.ts";
 import type { SimulationState, ActionResult, ClusterRecord } from "../types.ts";
 import { VERSION_ETH } from "../types.ts";
 import {
@@ -66,9 +66,9 @@ function minDeposit(numOperators: bigint, ethFee: bigint, vUnits: bigint): bigin
     networkFee: 35509n,
     effectiveVUnits: vUnits,
   });
-  const minCollateral = 1_000_000_000_000_000n; // 0.001 ETH
+  const minCollateral = 1_000_000_000_000_000n;
   const base = threshold > minCollateral ? threshold : minCollateral;
-  return base + base / 2n; // 50% buffer
+  return base + base / 2n;
 }
 
 /**
@@ -82,13 +82,9 @@ export async function actionRegisterValidator(state: SimulationState): Promise<A
   if (activeOps.length < 4) {
     return { name: NAME, success: false, revertReason: "SKIP: fewer than 4 active operators" };
   }
-
-  // Pick 4 random operators, sorted by ID
   const shuffled = state.rng.shuffle([...activeOps]);
   const selectedOps = shuffled.slice(0, 4).sort((a, b) => Number(a.id - b.id));
   const operatorIds = selectedOps.map((op) => op.id);
-
-  // Pick a signer
   const signerCandidates = [
     ...state.stakerPool.map((s) => s.signer),
     ...[...state.operatorPool.values()].map((op) => op.ownerSigner),
@@ -102,8 +98,6 @@ export async function actionRegisterValidator(state: SimulationState): Promise<A
   const validatorKey = makeValidatorKey(state.rng);
   const key = clusterKey(ethers, owner, operatorIds);
   const existing = state.clusterBook.get(key);
-
-  // Compute deposit
   const validatorCount = existing ? existing.cluster.validatorCount + 1n : 1n;
   const vUnits = defaultVUnits(validatorCount);
   const avgFee = avgOperatorFee(state, operatorIds);

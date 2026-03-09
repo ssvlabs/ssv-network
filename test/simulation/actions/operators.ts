@@ -15,7 +15,7 @@ import {
 } from "../../common/constants.ts";
 import type { SimulationState, ActionResult } from "../types.ts";
 
-/** Generate a unique operator public key from a bigint seed. */
+
 function makeOperatorKey(seed: bigint): string {
   return `0x${(Number(seed & 0xFFFFFFFFn) + 1000).toString(16).padStart(96, "0")}`;
 }
@@ -25,8 +25,6 @@ function makeOperatorKey(seed: bigint): string {
  */
 export async function actionRegisterOperator(state: SimulationState): Promise<ActionResult> {
   const NAME = "registerOperator";
-
-  // Pick a signer from staker pool or operator pool
   const signerCandidates = [
     ...state.stakerPool.map((s) => s.signer),
     ...[...state.operatorPool.values()].map((op) => op.ownerSigner),
@@ -37,8 +35,6 @@ export async function actionRegisterOperator(state: SimulationState): Promise<Ac
 
   const signer = state.rng.pick(signerCandidates);
   const seed = state.rng.next();
-
-  // Random fee between minimal and 10x minimal (packed-aligned)
   const minFeeRaw = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
   const maxFeeRaw = (MAXIMUM_OPERATORS_FEE / ETH_DEDUCTED_DIGITS) < minFeeRaw * 10n
     ? MAXIMUM_OPERATORS_FEE / ETH_DEDUCTED_DIGITS
@@ -84,8 +80,6 @@ export async function actionRegisterOperator(state: SimulationState): Promise<Ac
  */
 export async function actionRemoveOperator(state: SimulationState): Promise<ActionResult> {
   const NAME = "removeOperator";
-
-  // Collect operator IDs that appear in any cluster with validators
   const opsWithValidators = new Set<bigint>();
   for (const cr of state.clusterBook.values()) {
     if (cr.cluster.validatorCount > 0n) {
@@ -164,8 +158,6 @@ export async function actionExecuteOperatorFee(state: SimulationState): Promise<
   try {
     const tx = await state.network.connect(op.ownerSigner).executeOperatorFee(op.id);
     const receipt = await tx.wait();
-
-    // Refresh fee from views
     const newFee = await state.views.getOperatorFee(op.id);
     op.fee = BigInt(newFee) / ETH_DEDUCTED_DIGITS;
 

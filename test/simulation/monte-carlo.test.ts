@@ -58,18 +58,10 @@ import {
   type InvariantContext,
 } from "./invariants.ts";
 
-// ---------------------------------------------------------------------------
-// Helper: mine blocks
-// ---------------------------------------------------------------------------
-
 async function mineBlocks(provider: any, n: number): Promise<void> {
   if (n <= 0) return;
   await provider.send("hardhat_mine", ["0x" + n.toString(16)]);
 }
-
-// ---------------------------------------------------------------------------
-// Helper: provision stakers with ETH + SSV
-// ---------------------------------------------------------------------------
 
 async function provisionStakers(
   connection: NetworkConnection<"generic">,
@@ -77,7 +69,6 @@ async function provisionStakers(
   count: number,
 ): Promise<StakerRecord[]> {
   const allSigners = await connection.ethers.getSigners();
-  // Reserve signers starting from index 10 to avoid collisions with other roles
   const signers = allSigners.slice(10, 10 + count);
 
   if (signers.length < count) {
@@ -90,13 +81,10 @@ async function provisionStakers(
   const stakerRecords: StakerRecord[] = [];
 
   for (const signer of signers) {
-    // Fund with ETH
     await connection.ethers.provider.send("hardhat_setBalance", [
       signer.address,
       "0x" + (BigInt(100e18)).toString(16),
     ]);
-
-    // Mint SSV tokens via impersonated owner (DAO address)
     const ssvAmount = connection.ethers.parseEther("100000");
     const tokenOwner = await fixture.ssvToken.owner();
     await connection.ethers.provider.send("hardhat_impersonateAccount", [tokenOwner]);
@@ -107,8 +95,6 @@ async function provisionStakers(
     const ownerSigner = await connection.ethers.getSigner(tokenOwner);
     await fixture.ssvToken.connect(ownerSigner).mint(signer.address, ssvAmount);
     await connection.ethers.provider.send("hardhat_stopImpersonatingAccount", [tokenOwner]);
-
-    // Approve SSV tokens for the network contract
     await fixture.ssvToken.connect(signer).approve(networkAddr, ethers.MaxUint256);
 
     stakerRecords.push({
@@ -120,10 +106,6 @@ async function provisionStakers(
 
   return stakerRecords;
 }
-
-// ---------------------------------------------------------------------------
-// Helper: register fresh operators for simulation clusters
-// ---------------------------------------------------------------------------
 
 async function registerSimOperators(
   network: any,
@@ -149,17 +131,11 @@ async function registerSimOperators(
         isActive: true,
       });
     } catch {
-      // Operator key collision or other issue — skip
     }
   }
   return records;
 }
 
-// ---------------------------------------------------------------------------
-// Action Implementations
-// ---------------------------------------------------------------------------
-
-/** Deposit ETH into a random active ETH cluster. */
 async function actionEthDeposit(state: SimulationState): Promise<ActionResult> {
   const ethClusters = [...state.clusterBook.entries()].filter(
     ([, c]) => c.version === VERSION_ETH && c.cluster.active,
@@ -199,7 +175,6 @@ async function actionEthDeposit(state: SimulationState): Promise<ActionResult> {
   }
 }
 
-/** Withdraw from a random active ETH cluster. */
 async function actionEthWithdraw(state: SimulationState): Promise<ActionResult> {
   const ethClusters = [...state.clusterBook.entries()].filter(
     ([, c]) => c.version === VERSION_ETH && c.cluster.active && c.cluster.balance > 0n,
@@ -242,7 +217,6 @@ async function actionEthWithdraw(state: SimulationState): Promise<ActionResult> 
   }
 }
 
-/** Register a validator into a random active ETH cluster. */
 async function actionEthRegisterValidator(state: SimulationState): Promise<ActionResult> {
   const ethClusters = [...state.clusterBook.entries()].filter(
     ([, c]) => c.version === VERSION_ETH && c.cluster.active,
@@ -281,7 +255,6 @@ async function actionEthRegisterValidator(state: SimulationState): Promise<Actio
   }
 }
 
-/** Migrate a random active SSV cluster to ETH. */
 async function actionMigrateClusterToETH(state: SimulationState): Promise<ActionResult> {
   const ssvClusters = [...state.clusterBook.entries()].filter(
     ([, c]) => c.version === VERSION_SSV && c.cluster.active,
@@ -319,7 +292,6 @@ async function actionMigrateClusterToETH(state: SimulationState): Promise<Action
   }
 }
 
-/** Stake SSV tokens from a random staker. */
 async function actionStake(state: SimulationState): Promise<ActionResult> {
   if (state.stakerPool.length === 0) return { name: "stake", success: true };
 
@@ -340,7 +312,6 @@ async function actionStake(state: SimulationState): Promise<ActionResult> {
   }
 }
 
-/** Request unstake from a random staker who has cSSV. */
 async function actionRequestUnstake(state: SimulationState): Promise<ActionResult> {
   if (state.stakerPool.length === 0) return { name: "requestUnstake", success: true };
 
@@ -365,7 +336,6 @@ async function actionRequestUnstake(state: SimulationState): Promise<ActionResul
   }
 }
 
-/** Claim ETH rewards for a random staker. */
 async function actionClaimEthRewards(state: SimulationState): Promise<ActionResult> {
   if (state.stakerPool.length === 0) return { name: "claimEthRewards", success: true };
 
@@ -384,7 +354,6 @@ async function actionClaimEthRewards(state: SimulationState): Promise<ActionResu
   }
 }
 
-/** Try to liquidate a random ETH cluster. */
 async function actionEthLiquidate(state: SimulationState): Promise<ActionResult> {
   const ethClusters = [...state.clusterBook.entries()].filter(
     ([, c]) => c.version === VERSION_ETH && c.cluster.active,
@@ -417,7 +386,6 @@ async function actionEthLiquidate(state: SimulationState): Promise<ActionResult>
   }
 }
 
-/** Call syncFees to update the staking accumulator. */
 async function actionSyncFees(state: SimulationState): Promise<ActionResult> {
   if (state.stakerPool.length === 0) return { name: "syncFees", success: true };
 
@@ -431,31 +399,26 @@ async function actionSyncFees(state: SimulationState): Promise<ActionResult> {
   }
 }
 
-/** No-op: just advance blocks. */
 async function actionMineBlocks(state: SimulationState): Promise<ActionResult> {
   const blocks = Number(state.rng.nextInRange(10n, 100n));
   await mineBlocks(state.provider, blocks);
   return { name: "mineBlocks", success: true };
 }
 
-// ---------------------------------------------------------------------------
-// Action dispatch table — maps weight-schedule names to functions
-// ---------------------------------------------------------------------------
-
 const ACTION_DISPATCH: Record<string, (state: SimulationState) => Promise<ActionResult>> = {
   ethDeposit: actionEthDeposit,
   ethWithdraw: actionEthWithdraw,
   ethRegisterValidator: actionEthRegisterValidator,
-  ethRemoveValidator: async (s) => ({ name: "ethRemoveValidator", success: true }), // stub
+  ethRemoveValidator: async (s) => ({ name: "ethRemoveValidator", success: true }),
   ethLiquidate: actionEthLiquidate,
-  ethReactivate: async (s) => ({ name: "ethReactivate", success: true }), // stub
-  ssvDeposit: async (s) => ({ name: "ssvDeposit", success: true }), // SSV ops — no-op on fork
+  ethReactivate: async (s) => ({ name: "ethReactivate", success: true }),
+  ssvDeposit: async (s) => ({ name: "ssvDeposit", success: true }),
   ssvWithdraw: async (s) => ({ name: "ssvWithdraw", success: true }),
   ssvLiquidate: async (s) => ({ name: "ssvLiquidate", success: true }),
   ssvRegisterValidator: async (s) => ({ name: "ssvRegisterValidator", success: true }),
   migrateClusterToETH: actionMigrateClusterToETH,
-  commitRoot: async (s) => ({ name: "commitRoot", success: true }), // stub — needs oracle setup
-  updateClusterBalance: async (s) => ({ name: "updateClusterBalance", success: true }), // stub
+  commitRoot: async (s) => ({ name: "commitRoot", success: true }),
+  updateClusterBalance: async (s) => ({ name: "updateClusterBalance", success: true }),
   stake: actionStake,
   requestUnstake: actionRequestUnstake,
   claimEthRewards: actionClaimEthRewards,
@@ -463,11 +426,6 @@ const ACTION_DISPATCH: Record<string, (state: SimulationState) => Promise<Action
   mineBlocks: actionMineBlocks,
 };
 
-// ---------------------------------------------------------------------------
-// Post-loop cleanup helpers
-// ---------------------------------------------------------------------------
-
-/** Force-migrate all remaining active SSV clusters. */
 async function forceMigrateRemaining(state: SimulationState): Promise<void> {
   const ssvClusters = [...state.clusterBook.entries()].filter(
     ([, c]) => c.version === VERSION_SSV && c.cluster.active,
@@ -502,13 +460,11 @@ async function forceMigrateRemaining(state: SimulationState): Promise<void> {
   }
 }
 
-/** Advance time past fee declaration periods and execute pending fees. */
 async function exhaustPendingFees(state: SimulationState): Promise<void> {
   const totalPeriod = Number(DECLARE_OPERATOR_FEE_PERIOD + EXECUTE_OPERATOR_FEE_PERIOD);
   await mineBlocks(state.provider, totalPeriod + 100);
 }
 
-/** All stakers claim ETH rewards and withdraw any unlocked SSV. */
 async function claimAllRewards(state: SimulationState): Promise<void> {
   for (const staker of state.stakerPool) {
     try {
@@ -518,7 +474,6 @@ async function claimAllRewards(state: SimulationState): Promise<void> {
         await tx.wait();
       }
     } catch {
-      // Staker may not have staked
     }
 
     try {
@@ -528,57 +483,40 @@ async function claimAllRewards(state: SimulationState): Promise<void> {
         await tx.wait();
       }
     } catch {
-      // No pending unstakes or not yet unlocked
     }
   }
 }
 
-// ---------------------------------------------------------------------------
-// Test Suite
-// ---------------------------------------------------------------------------
-
 const RUN_FORK = process.env.RUN_FORK === "true";
 
 (RUN_FORK ? describe : describe.skip)("Monte Carlo Upgrade Simulation", function () {
-  this.timeout(600_000); // 10 minutes
+  this.timeout(600_000);
 
   let state: SimulationState;
   let invCtx: InvariantContext;
 
   before(async function () {
     console.log("[SIM] Setting up forked environment...");
-
-    // 1. Get forked connection
     const { connection } = await getForkedConnection();
     const provider = connection.ethers.provider;
-
-    // 2. Run upgrade fixture
     console.log("[SIM] Deploying v2.0.0 upgrade...");
     const fixture = await ssvNetworkFullForkedFixture(connection);
     const networkAddress = await fixture.network.getAddress();
-
-    // 3. Initialize RNG and logger
     const rng = new SeededRNG();
     const logger = new SimLogger();
-
-    // 4. Get signers for operator registration
     const [deployer, operatorOwner] = await connection.ethers.getSigners();
     await provider.send("hardhat_setBalance", [
       operatorOwner.address,
       "0x" + BigInt(100e18).toString(16),
     ]);
-
-    // 5. Register fresh operators for simulation clusters
     console.log("[SIM] Registering simulation operators...");
     const simOpRecords = await registerSimOperators(fixture.network, operatorOwner, 8, 9000);
     if (simOpRecords.length < 4) {
       throw new Error(`Failed to register enough operators: got ${simOpRecords.length}`);
     }
-
-    // 6. Discover and sample mainnet operators (best-effort — falls back to synthetic-only)
     console.log("[SIM] Discovering mainnet operators...");
     const currentBlock = await provider.getBlockNumber();
-    const scanFrom = Math.max(0, currentBlock - 50_000); // scan last ~50k blocks (~1 week of mainnet)
+    const scanFrom = Math.max(0, currentBlock - 50_000);
     let sampledOps: Awaited<ReturnType<typeof sampleOperators>> = [];
     try {
       const discovered = await discoverOperators(
@@ -594,14 +532,11 @@ const RUN_FORK = process.env.RUN_FORK === "true";
     } catch (err) {
       console.warn(`[SIM] Operator discovery failed (${String(err).slice(0, 120)}); continuing with synthetic operators only`);
     }
-
-    // Build operator pool
     const operatorPool = new Map<bigint, OperatorRecord>();
     for (const rec of simOpRecords) {
       operatorPool.set(rec.id, rec);
     }
     for (const sampled of sampledOps) {
-      // Impersonate sampled operator owners
       await provider.send("hardhat_impersonateAccount", [sampled.owner]);
       await provider.send("hardhat_setBalance", [
         sampled.owner,
@@ -610,12 +545,8 @@ const RUN_FORK = process.env.RUN_FORK === "true";
       const ownerSigner = await connection.ethers.getSigner(sampled.owner);
       operatorPool.set(sampled.id, { ...sampled, ownerSigner });
     }
-
-    // 7. Provision synthetic stakers
     console.log("[SIM] Provisioning stakers...");
     const stakerPool = await provisionStakers(connection, fixture, 8);
-
-    // 8. Bootstrap cSSV supply
     console.log("[SIM] Bootstrapping cSSV supply...");
     const bootstrapStaker = stakerPool[0];
     await fixture.ssvToken.connect(bootstrapStaker.signer).approve(networkAddress, ethers.MaxUint256);
@@ -625,8 +556,6 @@ const RUN_FORK = process.env.RUN_FORK === "true";
       await fixture.cssvToken.balanceOf(bootstrapStaker.signer.address),
     );
     console.log(`[SIM] Initial cSSV supply: ${await fixture.cssvToken.totalSupply()}`);
-
-    // 9. Create initial synthetic ETH clusters
     console.log("[SIM] Creating synthetic clusters...");
     const clusterBook = new Map<string, ClusterRecord>();
     const simOpIds = simOpRecords.map((r) => r.id);
@@ -670,8 +599,6 @@ const RUN_FORK = process.env.RUN_FORK === "true";
       }
     }
     console.log(`[SIM] Created ${clusterBook.size} synthetic clusters`);
-
-    // 10. Initialize simulation state
     const startBlock = await provider.getBlockNumber();
 
     state = {
@@ -689,10 +616,8 @@ const RUN_FORK = process.env.RUN_FORK === "true";
       networkAddress,
       ssvToken: fixture.ssvToken,
       cssvToken: fixture.cssvToken,
-      oracleSigners: [], // Oracle setup deferred
+      oracleSigners: [],
     };
-
-    // Initialize invariant context
     invCtx = createInvariantContext();
     try {
       invCtx.prevAccEthPerShare = BigInt(await fixture.views.accEthPerShare());
@@ -708,7 +633,7 @@ const RUN_FORK = process.env.RUN_FORK === "true";
     const TARGET_DAYS = 30;
     const TARGET_BLOCKS = TARGET_DAYS * BLOCKS_PER_DAY;
     const ACTIONS_PER_EPOCH = 20;
-    const INVARIANT_CHECK_EVERY = 5; // epochs
+    const INVARIANT_CHECK_EVERY = 5;
     const BLOCKS_PER_EPOCH_MIN = 150;
     const BLOCKS_PER_EPOCH_MAX = 500;
 
@@ -718,26 +643,19 @@ const RUN_FORK = process.env.RUN_FORK === "true";
     console.log(`[SIM] Target: ${TARGET_DAYS} days (${TARGET_BLOCKS} blocks)`);
 
     while (true) {
-      // Get weights for current phase of the simulation
       const weights = getActionWeights(state.currentBlock, state.startBlock, BLOCKS_PER_DAY);
-
-      // Execute epoch actions
       for (let i = 0; i < ACTIONS_PER_EPOCH; i++) {
         const actionName = selectAction(weights, state.rng.nextFloat());
         const actionFn = ACTION_DISPATCH[actionName] ?? actionMineBlocks;
         const result = await actionFn(state);
         state.logger.record(state.currentBlock, result);
       }
-
-      // Advance blocks
       const blocksToMine = Number(state.rng.nextInRange(
         BigInt(BLOCKS_PER_EPOCH_MIN),
         BigInt(BLOCKS_PER_EPOCH_MAX),
       ));
       await mineBlocks(state.provider, blocksToMine);
       state.currentBlock = await state.provider.getBlockNumber();
-
-      // Periodic invariant check
       epoch++;
 
       if (epoch % INVARIANT_CHECK_EVERY === 0) {
@@ -746,8 +664,6 @@ const RUN_FORK = process.env.RUN_FORK === "true";
         for (const r of results) {
           expect(r.passed, r.message).to.be.true;
         }
-
-        // Progress log
         const elapsed = state.currentBlock - state.startBlock;
         const pct = Math.floor((elapsed * 100) / TARGET_BLOCKS);
         const ssvCount = [...state.clusterBook.values()].filter(
@@ -758,8 +674,6 @@ const RUN_FORK = process.env.RUN_FORK === "true";
             `Clusters: ${state.clusterBook.size} (${ssvCount} SSV) | Invariants: all passed`,
         );
       }
-
-      // Check termination
       const elapsed = state.currentBlock - state.startBlock;
       const allMigrated = [...state.clusterBook.values()].every(
         (c) => c.version === VERSION_ETH || !c.cluster.active,
@@ -773,8 +687,6 @@ const RUN_FORK = process.env.RUN_FORK === "true";
         break;
       }
     }
-
-    // Post-loop cleanup
     console.log("[SIM] Running post-loop cleanup...");
 
     console.log("[SIM]   Force-migrating remaining SSV clusters...");
@@ -785,16 +697,12 @@ const RUN_FORK = process.env.RUN_FORK === "true";
 
     console.log("[SIM]   Claiming all rewards...");
     await claimAllRewards(state);
-
-    // Final invariant suite
     console.log("[SIM] Running final invariant checks...");
     const finals = await runFinalInvariants(state, invCtx);
 
     for (const r of finals) {
       expect(r.passed, r.message).to.be.true;
     }
-
-    // Print summary
     console.log(state.logger.formatSummary());
   });
 });

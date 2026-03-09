@@ -40,13 +40,10 @@ export async function actionCommitEBRoot(state: SimulationState): Promise<Action
   }
 
   const currentBlock = await state.provider.getBlockNumber();
-  // Use a block slightly in the past to avoid FutureBlockNumber
   const oracleBlock = currentBlock - 1;
   if (oracleBlock <= 0) {
     return { name: NAME, success: false, revertReason: "SKIP: block too early" };
   }
-
-  // Build Merkle tree entries (assume 32 ETH/validator)
   const entries = ethClusters.map((cr) => {
     const id = clusterKey(ethers, cr.owner, cr.operatorIds);
     const effectiveBalance = 32 * Number(cr.cluster.validatorCount);
@@ -66,7 +63,6 @@ export async function actionCommitEBRoot(state: SimulationState): Promise<Action
   const { root, proofs } = generateMerkleForClusterEB(ethersNs, entries);
 
   try {
-    // Have 3 oracles call commitRoot to reach quorum
     const oraclesToUse = state.oracleSigners.slice(0, 3);
 
     for (const oracleSigner of oraclesToUse) {
@@ -81,8 +77,6 @@ export async function actionCommitEBRoot(state: SimulationState): Promise<Action
         .commitRoot(root, oracleBlock);
       await tx.wait();
     }
-
-    // Update each cluster's balance via the oracle proof
     let updatedCount = 0;
     for (const cr of ethClusters) {
       const id = clusterKey(ethers, cr.owner, cr.operatorIds);
@@ -113,7 +107,6 @@ export async function actionCommitEBRoot(state: SimulationState): Promise<Action
 
         updatedCount++;
       } catch {
-        // Individual cluster update may fail — continue
       }
     }
 
