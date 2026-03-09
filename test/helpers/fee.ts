@@ -20,10 +20,8 @@ export function calcClusterBurn(params: {
   const { blockDiff, numOperators, ethFee, networkFee, effectiveVUnits } = params;
   const operatorIndexDelta = numOperators * blockDiff * ethFee;
   const networkFeeIndexDelta = blockDiff * networkFee;
-
-  const operatorFeeUnits = (operatorIndexDelta * effectiveVUnits) / BPS_DENOMINATOR;
-  const networkFeeUnits = (networkFeeIndexDelta * effectiveVUnits) / BPS_DENOMINATOR;
-
+  const operatorFeeUnits = (operatorIndexDelta * effectiveVUnits) / VUNITS_PRECISION;
+  const networkFeeUnits = (networkFeeIndexDelta * effectiveVUnits) / VUNITS_PRECISION;
   return (operatorFeeUnits + networkFeeUnits) * ETH_DEDUCTED_DIGITS;
 }
 
