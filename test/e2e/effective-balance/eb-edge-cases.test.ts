@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { Cluster } from "../../common/types.ts";
 import {
@@ -10,6 +9,7 @@ import {
   whitelistAddresses,
   getCurrentClusterState,
   generateMerkleForClusterEB,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
@@ -22,7 +22,7 @@ import {
 import {
   mineBlocks,
   getBlockNumber,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 import { ethers as ethersLib } from "ethers";
 
 async function getClusterFromEBUpdateTx(network: any, tx: any): Promise<Cluster> {
@@ -138,7 +138,7 @@ describe("EB Edge Cases", () => {
   let connection: NetworkConnection<"generic">;
 
   before(async function () {
-    ({ connection } = await getTestConnection());
+    ({ connection } = await setupTestContext());
   });
 
   describe("EB Limits Enforcement", () => {

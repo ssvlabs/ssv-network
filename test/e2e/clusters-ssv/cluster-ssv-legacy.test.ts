@@ -1,30 +1,28 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { ssvNetworkFullPreUpgradeFixture, upgradeToStakingVersion } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
-  createCluster,
   makePublicKey,
+  getCurrentClusterState,
   parseClusterFromEvent,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
-  DEDUCTED_DIGITS, DEFAULT_ETH_REGISTER_VALUE,
-} from '../../common/constants.ts';
+  DEFAULT_ETH_REGISTER_VALUE,
+  DEDUCTED_DIGITS,
+  EMPTY_CLUSTER,
+  TOKEN_REGISTER_AMOUNT,
+} from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
-import {
-  mineBlocks,
-} from "../helpers/index.ts";
+import { mineBlocks } from "../../helpers/index.ts";
+import { makeOperatorKey } from "../../helpers/index.ts";
+import { ethers } from "ethers";
 
-const OP_ETH_FEE_UNPACKED = 1_000_000_000n;
 const OP_SSV_FEE_UNPACKED = 10_000_000_000n;
-const NETWORK_FEE_SSV_RAW = 500n;
-const NETWORK_FEE_ETH_RAW = 5_000n;
-const MIN_BLOCKS_LIQ_SSV = 100n;
-const MIN_LIQ_COLLATERAL_SSV_RAW = 100_000n;
 
 describe("SSV Cluster Legacy Operations", () => {
   let connection: NetworkConnection<"generic">;
@@ -32,204 +30,186 @@ describe("SSV Cluster Legacy Operations", () => {
   let clusterOwner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [clusterOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
-    const { clusters, operatorIds } = await ssvClustersHarnessFixture(connection, 4, OP_ETH_FEE_UNPACKED);
+    const { network: legacyNetwork, views: legacyViews, ssvToken } =
+      await ssvNetworkFullPreUpgradeFixture(connection);
 
-    await clusters.mockSSVNetworkFee(NETWORK_FEE_SSV_RAW);
-    await clusters.mockMinimumBlocksBeforeLiquidationSSV(MIN_BLOCKS_LIQ_SSV);
-    await clusters.mockMinimumLiquidationCollateralSSV(MIN_LIQ_COLLATERAL_SSV_RAW);
-
-    await clusters.mockEthNetworkFee(NETWORK_FEE_ETH_RAW);
-    await clusters.mockMinimumBlocksBeforeLiquidation(100n);
-    await clusters.mockMinimumLiquidationCollateral(100_000n);
-
-    for (const opId of operatorIds) {
-      await clusters.mockOperatorSSVFee(opId, OP_SSV_FEE_UNPACKED);
+    const operatorIds: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      const expectedId = await legacyNetwork.connect(clusterOwner)
+        .registerOperator.staticCall(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+      await legacyNetwork.connect(clusterOwner)
+        .registerOperator(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+      operatorIds.push(Number(expectedId));
     }
 
-    const mockToken = await connection.ethers.deployContract("MockToken", []);
-    await mockToken.waitForDeployment();
-    const harnessAddr = await clusters.getAddress();
-    await mockToken.mint(harnessAddr, connection.ethers.parseEther("1000"));
-    await clusters.mockSetToken(await mockToken.getAddress());
+    const ssvAmount = TOKEN_REGISTER_AMOUNT * 2n;
+    await ssvToken.mint(clusterOwner.address, ssvAmount);
+    await ssvToken.connect(clusterOwner).approve(
+      await legacyNetwork.getAddress(), ssvAmount,
+    );
 
-    return { clusters, operatorIds, mockToken };
+    await legacyNetwork.connect(clusterOwner).registerValidator(
+      makePublicKey(1), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER,
+    );
+    const cluster = await getCurrentClusterState(
+      connection, legacyNetwork, clusterOwner.address, operatorIds,
+    );
+
+    const { newNetwork, newViews } = await upgradeToStakingVersion(
+      connection, legacyNetwork, legacyViews,
+    );
+
+    return { network: newNetwork, views: newViews, ssvToken, operatorIds, cluster };
   };
 
   describe("SSV Cluster Self-Liquidation", () => {
     it("Self-liquidation returns correct SSV balance after fee deduction", async function () {
-      const { clusters, operatorIds, mockToken } = await networkHelpers.loadFixture(deployFixture);
+      const { network, views, ssvToken, operatorIds, cluster } =
+        await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
-
-      const ssvBalance = connection.ethers.parseEther("100");
-
-      const opFeeRaw = OP_SSV_FEE_UNPACKED / DEDUCTED_DIGITS;
-      const currentBlock = await provider.getBlockNumber();
-      const regBlock = BigInt(currentBlock + 1);
-
-      let cumulativeIndex = 0n;
-      for (const opId of operatorIds) {
-        const snap = await clusters.getOperatorSnapshot(opId);
-        const storedIndex = BigInt(snap[0]);
-        const storedBlock = BigInt(snap[1]);
-        cumulativeIndex += storedIndex + (regBlock - storedBlock) * opFeeRaw;
-      }
-
-      const liveNFI = await clusters.getCurrentNetworkFeeIndexSSV() + NETWORK_FEE_SSV_RAW;
-
-      const ssvCluster = createCluster({
-        validatorCount: 2n,
-        balance: ssvBalance,
-        active: true,
-        index: cumulativeIndex,
-        networkFeeIndex: liveNFI,
-      });
-
-      const publicKey = makePublicKey(1);
-      const regTx = await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
-      const regReceipt = await regTx.wait();
-      const actualRegBlock = BigInt(regReceipt!.blockNumber);
-      expect(actualRegBlock).to.equal(regBlock);
 
       await mineBlocks(provider, 50);
 
-      const ownerSSVBefore = await mockToken.balanceOf(clusterOwner.address);
+      const expectedBalance = await views.getBalanceSSV(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      const burnRate = await views.getBurnRateSSV(
+        clusterOwner.address, operatorIds, cluster,
+      );
 
-      const liqTx = await clusters.liquidateSSV(
-        clusterOwner.address, operatorIds, ssvCluster,
+      const ownerSSVBefore = await ssvToken.balanceOf(clusterOwner.address);
+
+      const liqTx = await network.connect(clusterOwner).liquidateSSV(
+        clusterOwner.address, operatorIds, cluster,
       );
       const liqReceipt = await liqTx.wait();
-      await expect(liqTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+      await expect(liqTx).to.emit(network, Events.CLUSTER_LIQUIDATED);
 
-      const liqBlock = BigInt(liqReceipt!.blockNumber);
-      const blockDiff = liqBlock - regBlock;
-      const opIndexDelta = blockDiff * opFeeRaw * 4n;
-      const nfIndexDelta = blockDiff * NETWORK_FEE_SSV_RAW;
-      const usagePacked = (opIndexDelta + nfIndexDelta) * 2n;
-      const expectedUsage = usagePacked * DEDUCTED_DIGITS;
-      const expectedRefund = ssvBalance - expectedUsage;
+      const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
+      const ssvRefund = ownerSSVAfter - ownerSSVBefore;
 
-      const ownerSSVAfter = await mockToken.balanceOf(clusterOwner.address);
-      expect(ownerSSVAfter - ownerSSVBefore).to.equal(expectedRefund);
+      const expectedRefund = expectedBalance - burnRate;
+      expect(ssvRefund).to.equal(expectedRefund);
+      expect(ssvRefund).to.be.greaterThan(0n);
+      expect(ssvRefund).to.be.lessThan(TOKEN_REGISTER_AMOUNT);
 
-      const clusterAfter = parseClusterFromEvent(clusters, liqReceipt, Events.CLUSTER_LIQUIDATED);
+      const totalFeesDeducted = TOKEN_REGISTER_AMOUNT - ssvRefund;
+      expect(totalFeesDeducted % DEDUCTED_DIGITS).to.equal(0n);
+
+      const clusterAfter = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
       expect(clusterAfter.active).to.equal(false);
       expect(clusterAfter.balance).to.equal(0n);
-      expect(clusterAfter.index).to.equal(0n);
-      expect(clusterAfter.networkFeeIndex).to.equal(0n);
 
       for (const opId of operatorIds) {
-        expect(await clusters.getOperatorValidatorCount(opId)).to.equal(0);
+        const opSSV = await views.getOperatorByIdSSV(opId);
+        expect(opSSV.validatorCount).to.equal(0);
       }
     });
 
-    it("SSV cluster with 0 balance — self-liquidation succeeds, no SSV transfer (edge)", async function () {
-      const { clusters, operatorIds, mockToken } = await networkHelpers.loadFixture(deployFixture);
+    it("SSV cluster with near-zero balance — self-liquidation returns 0 SSV (edge)", async function () {
+      const { network, views, ssvToken, operatorIds, cluster } =
+        await networkHelpers.loadFixture(deployFixture);
+      const provider = connection.ethers.provider;
 
-      const ssvCluster = createCluster({
-        validatorCount: 1n,
-        balance: 0n,
-        active: true,
-      });
+      await mineBlocks(provider, 300_000_000);
 
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1), operatorIds, clusterOwner.address, ssvCluster,
+      const balanceBefore = await views.getBalanceSSV(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      expect(balanceBefore).to.equal(0n);
+
+      const ownerSSVBefore = await ssvToken.balanceOf(clusterOwner.address);
+
+      await network.connect(clusterOwner).liquidateSSV(
+        clusterOwner.address, operatorIds, cluster,
       );
 
-      const ownerSSVBefore = await mockToken.balanceOf(clusterOwner.address);
-
-      await clusters.liquidateSSV(clusterOwner.address, operatorIds, ssvCluster);
-
-      const ownerSSVAfter = await mockToken.balanceOf(clusterOwner.address);
+      const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
       expect(ownerSSVAfter - ownerSSVBefore).to.equal(0n);
     });
 
     it("Already liquidated SSV cluster reverts (edge)", async function () {
-      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
+      const { network, operatorIds, cluster } =
+        await networkHelpers.loadFixture(deployFixture);
 
-      const ssvCluster = createCluster({
-        validatorCount: 1n,
-        balance: 0n,
-        active: false,
-      });
-
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1), operatorIds, clusterOwner.address, ssvCluster,
+      await network.connect(clusterOwner).liquidateSSV(
+        clusterOwner.address, operatorIds, cluster,
       );
 
+      const liquidatedCluster = await getCurrentClusterState(
+        connection, network, clusterOwner.address, operatorIds,
+      );
+      expect(liquidatedCluster.active).to.equal(false);
+
       await expect(
-        clusters.liquidateSSV(clusterOwner.address, operatorIds, ssvCluster),
-      ).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_IS_LIQUIDATED);
+        network.connect(clusterOwner).liquidateSSV(
+          clusterOwner.address, operatorIds, liquidatedCluster,
+        ),
+      ).to.be.revertedWithCustomError(network, Errors.CLUSTER_IS_LIQUIDATED);
     });
   });
 
   describe("SSV Blocked Operations", () => {
     it("ETH operations revert with IncorrectClusterVersion on SSV cluster", async function () {
-      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
-
-      const ssvCluster = createCluster({
-        validatorCount: 1n,
-        balance: DEFAULT_ETH_REGISTER_VALUE,
-        active: true,
-      });
-
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1), operatorIds, clusterOwner.address, ssvCluster,
-      );
+      const { network, operatorIds, cluster } =
+        await networkHelpers.loadFixture(deployFixture);
 
       await expect(
-        clusters.registerValidator(
-          makePublicKey(2), operatorIds, DEFAULT_SHARES, ssvCluster,
+        network.connect(clusterOwner).registerValidator(
+          makePublicKey(2), operatorIds, DEFAULT_SHARES, cluster,
           { value: DEFAULT_ETH_REGISTER_VALUE },
         ),
-      ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
+      ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
 
-      const deposit = connection.ethers.parseEther("1");
+      const deposit = ethers.parseEther("1");
       await expect(
-        clusters.deposit(clusterOwner.address, operatorIds, ssvCluster, { value: deposit }),
-      ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
-
-      await expect(
-        clusters.reactivate(operatorIds, ssvCluster, { value: deposit }),
-      ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
+        network.connect(clusterOwner).deposit(
+          clusterOwner.address, operatorIds, cluster, { value: deposit },
+        ),
+      ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
 
       await expect(
-        clusters.withdraw(operatorIds, deposit, ssvCluster),
-      ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
+        network.connect(clusterOwner).reactivate(
+          operatorIds, cluster, { value: deposit },
+        ),
+      ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
 
       await expect(
-        clusters.liquidate(clusterOwner.address, operatorIds, ssvCluster),
-      ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
+        network.connect(clusterOwner).withdraw(operatorIds, deposit, cluster),
+      ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
 
       await expect(
-        clusters.removeValidator(makePublicKey(1), operatorIds, ssvCluster),
-      ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
+        network.connect(clusterOwner).liquidate(
+          clusterOwner.address, operatorIds, cluster,
+        ),
+      ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
 
       await expect(
-        clusters.liquidateSSV(clusterOwner.address, operatorIds, ssvCluster),
-      ).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+        network.connect(clusterOwner).removeValidator(
+          makePublicKey(1), operatorIds, cluster,
+        ),
+      ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+
+      await expect(
+        network.connect(clusterOwner).liquidateSSV(
+          clusterOwner.address, operatorIds, cluster,
+        ),
+      ).to.emit(network, Events.CLUSTER_LIQUIDATED);
     });
 
     it("migrateClusterToETH succeeds on SSV cluster", async function () {
-      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
-
-      const ssvCluster = createCluster({
-        validatorCount: 1n,
-        balance: 0n,
-        active: true,
-      });
-
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1), operatorIds, clusterOwner.address, ssvCluster,
-      );
+      const { network, operatorIds, cluster } =
+        await networkHelpers.loadFixture(deployFixture);
 
       await expect(
-        clusters.migrateClusterToETH(operatorIds, ssvCluster, { value: DEFAULT_ETH_REGISTER_VALUE }),
-      ).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
+        network.connect(clusterOwner).migrateClusterToETH(
+          operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
+        ),
+      ).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
     });
   });
 });

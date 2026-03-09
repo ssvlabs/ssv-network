@@ -2,7 +2,6 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType, Cluster } from "../../common/types.ts";
 import {
@@ -11,6 +10,7 @@ import {
   makeOperatorKey,
   whitelistAddresses,
   getCurrentClusterState,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
@@ -30,7 +30,7 @@ import {
   calcClusterBurn,
   defaultVUnits,
   calcOperatorFeeAccrual,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 describe("Validator Edge Cases", () => {
   let connection: NetworkConnection<"generic">;
@@ -41,9 +41,7 @@ describe("Validator Edge Cases", () => {
   let otherAccount: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner, otherAccount] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner, otherAccount] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -64,7 +62,6 @@ describe("Validator Edge Cases", () => {
       await network
         .connect(opOwner)
         .registerOperator(makeOperatorKey(seed), fee, false);
-      // IDs are sequential
       opIds.push(i + 1);
     }
     await whitelistAddresses(network, opOwner, opIds, [owner.address]);
@@ -115,8 +112,6 @@ describe("Validator Edge Cases", () => {
       const { network } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
       const opIds = await setupDefaultCluster(network, provider, clusterOwner);
-
-      // 32-byte key (should be 48)
       const shortKey = "0x" + "aa".repeat(32);
 
       await expect(
@@ -141,7 +136,7 @@ describe("Validator Edge Cases", () => {
       await expect(
         network.connect(clusterOwner).registerValidator(
           makePublicKey(1),
-          opIds.slice(0, 3), // only 3 operators
+          opIds.slice(0, 3),
           DEFAULT_SHARES,
           EMPTY_CLUSTER,
           { value: DEFAULT_ETH_REGISTER_VALUE },
@@ -155,8 +150,6 @@ describe("Validator Edge Cases", () => {
     it("Reverts with InvalidOperatorIdsLength for 5 operators (not 4,7,10,13)", async function () {
       const { network } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
-
-      // Register 5 operators
       const opIds: number[] = [];
       for (let i = 0; i < 5; i++) {
         await network
@@ -205,8 +198,6 @@ describe("Validator Edge Cases", () => {
       const { network } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
       const opIds = await setupDefaultCluster(network, provider, clusterOwner);
-
-      // Duplicate: [1, 1, 2, 3]
       const dups = [opIds[0], opIds[0], opIds[1], opIds[2]];
 
       await expect(

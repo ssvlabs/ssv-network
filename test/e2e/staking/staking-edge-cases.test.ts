@@ -1,13 +1,13 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
   registerOperators,
   makePublicKey,
   whitelistAddresses,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
@@ -26,7 +26,7 @@ import {
   calcAccEthPerShareDelta,
   calcStakingReward,
   defaultVUnits,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 const PRECISION = 10n ** 18n;
 const PACKED_NETWORK_FEE = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
@@ -45,9 +45,7 @@ describe("E2E Staking Edge Cases", () => {
   let stakerB: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [deployer, operatorOwner, clusterOwner, stakerA, stakerB] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [deployer, operatorOwner, clusterOwner, stakerA, stakerB] } = await setupTestContext());
     provider = connection.ethers.provider;
   });
 

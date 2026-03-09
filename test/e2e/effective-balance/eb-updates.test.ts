@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { Cluster, NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -10,17 +9,18 @@ import {
   whitelistAddresses,
   getCurrentClusterState,
   generateMerkleForClusterEB,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
-  MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE,
   STAKE_AMOUNT,
   MINIMAL_LIQUIDATION_THRESHOLD,
   ETH_DEDUCTED_DIGITS,
+  OP_ETH_FEE_RAW,
 } from "../../common/constants.ts";
 import {
   mineBlocks,
@@ -29,9 +29,8 @@ import {
   calcVUnits,
   defaultVUnits,
   calcLiquidationThreshold,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
-const PACKED_ETH_FEE = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
 const PACKED_NETWORK_FEE = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
 
 async function getClusterFromEBUpdateTx(
@@ -206,7 +205,7 @@ describe("EB Updates", () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   describe("First EB Update — Implicit to Explicit (Same vUnits)", () => {
@@ -265,11 +264,11 @@ describe("EB Updates", () => {
       expect(calcVUnits(96n)).to.equal(30000n);
 
       const oldBurn = calcClusterBurn({
-        blockDiff: 100n, numOperators: 4n, ethFee: PACKED_ETH_FEE,
+        blockDiff: 100n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
         networkFee: PACKED_NETWORK_FEE, effectiveVUnits: 20000n,
       });
       const newBurn = calcClusterBurn({
-        blockDiff: 100n, numOperators: 4n, ethFee: PACKED_ETH_FEE,
+        blockDiff: 100n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
         networkFee: PACKED_NETWORK_FEE, effectiveVUnits: 30000n,
       });
       expect(newBurn * 20000n).to.equal(oldBurn * 30000n);
@@ -303,11 +302,11 @@ describe("EB Updates", () => {
       expect(calcVUnits(64n)).to.equal(20000n);
 
       const highBurn = calcClusterBurn({
-        blockDiff: 100n, numOperators: 4n, ethFee: PACKED_ETH_FEE,
+        blockDiff: 100n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
         networkFee: PACKED_NETWORK_FEE, effectiveVUnits: 30000n,
       });
       const lowBurn = calcClusterBurn({
-        blockDiff: 100n, numOperators: 4n, ethFee: PACKED_ETH_FEE,
+        blockDiff: 100n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
         networkFee: PACKED_NETWORK_FEE, effectiveVUnits: 20000n,
       });
       expect(lowBurn * 30000n).to.equal(highBurn * 20000n);
@@ -336,19 +335,19 @@ describe("EB Updates", () => {
 
       const thresholdOld = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD,
-        numOperators: 4n, ethFee: PACKED_ETH_FEE,
+        numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
         networkFee: PACKED_NETWORK_FEE, effectiveVUnits: 20000n,
       });
       const thresholdNew = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD,
-        numOperators: 4n, ethFee: PACKED_ETH_FEE,
+        numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
         networkFee: PACKED_NETWORK_FEE, effectiveVUnits: 40000n,
       });
 
       expect(balanceAfterFirst).to.be.greaterThan(thresholdNew);
 
       const burnPerBlock = calcClusterBurn({
-        blockDiff: 1n, numOperators: 4n, ethFee: PACKED_ETH_FEE,
+        blockDiff: 1n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
         networkFee: PACKED_NETWORK_FEE, effectiveVUnits: 20000n,
       });
 
@@ -406,7 +405,7 @@ describe("EB Updates", () => {
 
       const expectedFees = calcClusterBurn({
         blockDiff: actualBlockDiff,
-        numOperators: 4n, ethFee: PACKED_ETH_FEE,
+        numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
         networkFee: PACKED_NETWORK_FEE, effectiveVUnits: 20000n,
       });
 
