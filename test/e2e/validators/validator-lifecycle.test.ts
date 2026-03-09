@@ -586,7 +586,7 @@ describe("Validator Lifecycle", function () {
       await remove2Tx.wait();
     });
 
-    it("Remove non-existent validator reverts", async () => {
+    it("Remove non-existent validator reverts with ValidatorDoesNotExist", async () => {
       const { network } = await networkHelpers.loadFixture(deployFixture);
 
       const operatorIds = await registerOps(network, 4, MINIMAL_OPERATOR_ETH_FEE);
@@ -617,7 +617,7 @@ describe("Validator Lifecycle", function () {
           .removeValidator(makePublicKey(999), operatorIds, cluster),
       ).to.be.revertedWithCustomError(
         network,
-        Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA,
+        Errors.VALIDATOR_DOES_NOT_EXIST,
       );
     });
   });

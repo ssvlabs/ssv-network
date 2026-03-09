@@ -287,7 +287,7 @@ describe("Validator Edge Cases", () => {
   });
 
   describe("Remove Validator — Revert Cases", () => {
-    it("Reverts with IncorrectValidatorStateWithData for non-existent validator", async function () {
+    it("Reverts with ValidatorDoesNotExist for non-existent validator", async function () {
       const { network } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
       const opIds = await setupDefaultCluster(network, provider, clusterOwner);
@@ -312,7 +312,7 @@ describe("Validator Edge Cases", () => {
         ),
       ).to.be.revertedWithCustomError(
         network,
-        Errors.INCORRECT_VALIDATOR_STATE,
+        Errors.VALIDATOR_DOES_NOT_EXIST,
       );
     });
 
@@ -548,7 +548,7 @@ describe("Validator Edge Cases", () => {
       await expect(removeTx).to.emit(network, Events.VALIDATOR_REMOVED);
     });
 
-    it("exitValidator reverts for non-existent validator", async function () {
+    it("exitValidator reverts with ValidatorDoesNotExist for non-existent validator", async function () {
       const { network } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
       const opIds = await setupDefaultCluster(network, provider, clusterOwner);
@@ -559,7 +559,7 @@ describe("Validator Edge Cases", () => {
           .exitValidator(makePublicKey(999), opIds),
       ).to.be.revertedWithCustomError(
         network,
-        Errors.INCORRECT_VALIDATOR_STATE,
+        Errors.VALIDATOR_DOES_NOT_EXIST,
       );
     });
 
