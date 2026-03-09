@@ -20,8 +20,6 @@ export const SSV_MODULE_CONTRACTS: Record<SSVModules, string> = {
   [SSVModules.SSVStaking]: "SSVStaking",
   [SSVModules.SSVValidators]: "SSVValidators",
 };
-
-// todo make and object to simplify imports in other files (Constants.NAME_OF_VALUE...)
 export const DEFAULT_SHARES = "0x1234";
 export const DEFAULT_ETH_REGISTER_VALUE: bigint = ethers.parseEther("10");
 export const SMALL_ETH_REGISTER_VALUE: bigint = ethers.parseEther("1");
@@ -51,3 +49,10 @@ export const DEDUCTED_DIGITS = 10_000_000n;
 export const ETH_DEDUCTED_DIGITS = 100_000n;
 export const OPERATOR_FEE_PRECISION = ETH_DEDUCTED_DIGITS;
 export const BPS_DENOMINATOR = PRECISION_FACTOR;
+export const QUORUM_BPS = envBigInt("FORK_QUORUM_BPS", 7500n);
+export const TOKEN_REGISTER_AMOUNT = ethers.parseEther("100");
+export const MINIMAL_OPERATOR_FEE_SSV = 1000000000n;
+export const DEFAULT_OPERATOR_ETH_FEE = 1770_000_000n;
+export const OP_ETH_FEE_RAW = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+export const DEFAULT_NETWORK_FEE_RAW = 5_000n;
+export const DEFAULT_NETWORK_FEE_UNPACKED = DEFAULT_NETWORK_FEE_RAW * ETH_DEDUCTED_DIGITS;
