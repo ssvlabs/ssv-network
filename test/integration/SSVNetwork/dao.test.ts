@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from '../../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import { STAKE_AMOUNT } from '../../common/constants.ts';
@@ -8,6 +7,7 @@ import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.js';
 import { ethers } from 'ethers';
+import { setupTestContext } from '../../common/helpers.ts';
 
 describe("SSVNetwork Integration - DAO Oracle Quorum", () => {
   let connection: NetworkConnection<"generic">;
@@ -19,8 +19,8 @@ describe("SSVNetwork Integration - DAO Oracle Quorum", () => {
   const numberOfOracles = 4n;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    const signers = await connection.ethers.getSigners();
+    let signers: HardhatEthersSigner[];
+    ({ connection, networkHelpers, signers } = await setupTestContext());
     staker = signers[2];
     oracles = signers.slice(10, 14);
   });
