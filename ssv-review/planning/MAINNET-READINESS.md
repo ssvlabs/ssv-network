@@ -1,7 +1,7 @@
 # SSV Network v2.0.0 — Mainnet Readiness Checklist
 
 **Generated:** 2026-02-17
-**Updated:** 2026-02-17 (new audit findings folded in)
+**Updated:** 2026-03-03 (closed TEST-20 with staking cooldown-change coverage)
 **Sources:** Verified bug report, verified test coverage gap analysis, verified scripts & ops audit, DIP-X vs implementation review reports (ETH Payments, Effective Balance, SSV Staking)
 **Branch:** `ssv-staking` (base for all feature branches)
 
@@ -21,10 +21,9 @@
 | BUG-8 | ~~ Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug, added NatSpec) |
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
 | BUG-10 | ~~Remove liquidation check in `withdraw` function~~ | Critical Bug Fix | P2 | ✅ Fixed |
-| BUG-11 | Remove liquidation check in `withdraw` function | Critical Bug Fix | P2 | ⚠️ Needs Product approval |
 | BUG-12 | ~~`removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters~~ | Critical Bug Fix | P1 | ✅ Done (Product approved) |
-| BUG-13 | Silent default ETH fee assignment for legacy operators during migration | Observability Fix | P2 | ✅ Fixed (PR #502) |
-| BUG-14 | ~~Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment)~~ | Critical Bug Fix | P1 | ⚠️ Open |
+| BUG-13 | ~~Silent default ETH fee assignment for legacy operators during migration~~ | Observability Fix | P2 | ✅ Fixed (PR #502) |
+| BUG-14 | ~~Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment)~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-14b | ~~`reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators~~ | Critical Bug Fix | P1 | ✅ Fixed (ensureETHDefaults marker pattern) |
 | SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
@@ -45,7 +44,7 @@
 | SEC-16b | ~~Dust ETH stranded in `accrued` after full cSSV transfer + claim~~ | Security Hardening | P1 | ✅ Fixed |
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
 | SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
-| SEC-19 | `minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled | Security Hardening | P1 | S |
+| SEC-19 | ~~`minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled~~ | Security Hardening | P1 | ✅ Fixed |
 | TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
 | TEST-3 | ~~Balance delta assertions ers | Unit Test Completeness | P0 | S |
@@ -66,7 +65,7 @@
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
 | TEST-19 | ~~Operator removal impact on active ETH clusters~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-19a | Operator removal impact on active ETH clusters (edge cases) | Unit Test Completeness | P1 | S |
-| TEST-20 | Cooldown duration changes affecting pending requests | Unit Test Completeness | P1 | S |
+| TEST-20 | ~~Cooldown duration changes affecting pending requests~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-21 | ~~EB boundary values (min/max per validator)~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-22 | ~~Dust/precision edge cases~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-23 | ~~Max operator count (13) with EB~~ | Unit Test Completeness | P2 | ✅ Closed |
@@ -76,7 +75,7 @@
 | TEST-27 | ~~Operator at max validator limit~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
 | TEST-29 | ~~Add contract ETH balance delta assertions to deposit tests~~ | Unit Test Completeness | P1 | ✅ Done |
-| TEST-30 | Resolve TODO comments with deferred assertions | Unit Test Completeness | P1 | M |
+| TEST-30 | ~~Resolve TODO comments with deferred assertions | Unit Test Completeness~~ | P1 | ✅ Done |
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
 | TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
@@ -1926,12 +1925,12 @@ it("removed operator can withdraw frozen earnings", async () => {
 ---
 
 
-### [TEST-20] Cooldown duration changes affecting pending requests
+### [TEST-20] ~~Cooldown duration changes affecting pending requests~~
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Closed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-03
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -1940,9 +1939,16 @@ Test how changes to `cooldownDuration` affect pending unstake withdrawal request
 **Context:**
 `setUnstakeCooldownDuration` is tested for storage but not for impact on existing pending requests.
 
+**Resolution:**
+Added direct coverage for cooldown-change behavior on existing pending unstake requests in staking unit tests:
+- cooldown reduction after request creation does not unlock existing request early
+- cooldown increase after request creation preserves original unlock time
+
+This matches the `test(staking): cover cooldown updates on pending unstake requests` change and validates that `unlockTime` is fixed at request creation.
+
 **Acceptance Criteria:**
-- [ ] Test: User requests unstake, DAO reduces cooldown → can user withdraw earlier?
-- [ ] Test: User requests unstake, DAO increases cooldown → does user's original unlock time hold?
+- [x] Test: User requests unstake, DAO reduces cooldown → can user withdraw earlier?
+- [x] Test: User requests unstake, DAO increases cooldown → does user's original unlock time hold?
 
 **Agent Instructions:**
 1. Read `test/unit/SSVStaking/requestUnstake.test.ts` and `test/unit/SSVStaking/withdrawUnlocked.test.ts`.
@@ -1951,8 +1957,8 @@ Test how changes to `cooldownDuration` affect pending unstake withdrawal request
 4. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Cooldown reduction — earlier withdrawal test
-- [ ] Sub-task 2: Cooldown increase — original unlock time test
+- [x] Sub-task 1: Cooldown reduction — earlier withdrawal test
+- [x] Sub-task 2: Cooldown increase — original unlock time test
 
 ---
 

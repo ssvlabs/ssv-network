@@ -55,8 +55,23 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    // todo check args with pre-calculated cluster
-    await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
+    const expectedCluster = [
+      2n,
+      0n,
+      0n,
+      true,
+      DEFAULT_ETH_REGISTER_VALUE,
+    ];
+
+    await expect(tx)
+      .to.emit(validators, Events.VALIDATOR_ADDED)
+      .withArgs(
+        clusterOwner.address,
+        operatorIds,
+        publicKeys[0],
+        shares[0],
+        expectedCluster
+      );
   });
 
   it("Updates operatorEthVUnits even when cluster EB snapshot is not set", async function () {
