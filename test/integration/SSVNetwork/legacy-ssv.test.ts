@@ -82,7 +82,6 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, cluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-
     });
 
     it("Operator registered via ETH cluster has ETH fee but zero SSV fee", async function () {

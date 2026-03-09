@@ -130,7 +130,7 @@ describe("SSVNetwork full integration tests", () => {
         0,
         connection.ethers.ZeroAddress,
         true,
-        true
+        false
       ]);
     });
 
@@ -1588,8 +1588,6 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.equal(DEFAULT_ETH_EB_PER_VALIDATOR);
       expect(await views.getClusterAssetType(clusterOwner, operatorIds))
         .to.be.equal(CLUSTER_VERSION_ETH);
-
-      // ssv legacy getters revert for ETH clusters
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
       await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
