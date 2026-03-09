@@ -225,7 +225,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, VERSION_ETH);
 
         if (!cluster.active) {
@@ -236,7 +237,7 @@ contract SSVViews is ISSVViews {
         uint64 burnRate;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             clusterIndex += operator.ethSnapshot.index + (uint64(block.number) - operator.ethSnapshot.block) * PackedETH.unwrap(operator.ethFee);
             burnRate += PackedETH.unwrap(operator.ethFee);
         }
@@ -262,7 +263,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, VERSION_SSV);
 
         if (!cluster.active) {
@@ -273,7 +275,7 @@ contract SSVViews is ISSVViews {
         uint64 burnRate;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * PackedSSV.unwrap(operator.fee);
             burnRate += PackedSSV.unwrap(operator.fee);
         }
@@ -310,16 +312,17 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
+        StorageData storage s = SSVStorage.load();
         (bytes32 hashedCluster, ) = cluster.validateHashedCluster(
             clusterOwner,
             operatorIds,
-            SSVStorage.load()
+            s
         );
 
         PackedETH operatorsFee;
         uint256 len = operatorIds.length;
         for (uint256 i; i < len; ++i) {
-            Operator memory op = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory op = s.operators[operatorIds[i]];
             if (op.owner != address(0)) {
                 operatorsFee = operatorsFee.add(op.ethFee);
             }
@@ -343,7 +346,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
 
         if (version != VERSION_SSV) {
             return 0;
@@ -352,7 +356,7 @@ contract SSVViews is ISSVViews {
         PackedSSV aggregateFee;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             if (operator.owner != address(0)) {
                 aggregateFee = aggregateFee.add(operator.fee);
             }
@@ -390,7 +394,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256 balance) {
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         if (version != VERSION_ETH) {
             return 0;
         }
@@ -399,7 +404,7 @@ contract SSVViews is ISSVViews {
         uint64 clusterIndex;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             clusterIndex += operator.ethSnapshot.index + (uint64(block.number) - operator.ethSnapshot.block) * PackedETH.unwrap(operator.ethFee);
         }
 
@@ -416,7 +421,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256 balance) {
-        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         if (version != VERSION_SSV) {
             return 0;
         }
@@ -425,7 +431,7 @@ contract SSVViews is ISSVViews {
         uint64 clusterIndex;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * PackedSSV.unwrap(operator.fee);
         }
 
@@ -531,9 +537,10 @@ contract SSVViews is ISSVViews {
      * @inheritdoc ISSVViews
      */
     function getOperatorFeePeriods() external view override returns (OperatorFeePeriodsData memory) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
         return OperatorFeePeriodsData(
-            SSVStorageProtocol.load().declareOperatorFeePeriod,
-            SSVStorageProtocol.load().executeOperatorFeePeriod
+            sp.declareOperatorFeePeriod,
+            sp.executeOperatorFeePeriod
         );
     }
 

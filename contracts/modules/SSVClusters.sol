@@ -212,7 +212,6 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
         ClusterLib.validateClusterVersion(version, VERSION_ETH);
-        cluster.validateClusterIsNotLiquidated();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
@@ -222,7 +221,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             {
                 uint256 operatorsLength = operatorIds.length;
                 for (uint256 i; i < operatorsLength; ++i) {
-                    Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
+                    Operator storage operator = s.operators[operatorIds[i]];
                     clusterIndex +=
                         operator.ethSnapshot.index +
                         (uint64(block.number) - operator.ethSnapshot.block) *
@@ -438,6 +437,10 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     }
 
     function _verifyEBStaleness(UpdateCtx memory ctx, bytes32 clusterId, StorageEB storage seb) internal view {
+        if (ctx.blockNum != seb.latestCommittedBlock) {
+            revert MustUseLatestRoot();
+        }
+
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
         if (ebSnapshot.lastRootBlockNum != 0 && ctx.blockNum <= ebSnapshot.lastRootBlockNum) {
             revert StaleUpdate();

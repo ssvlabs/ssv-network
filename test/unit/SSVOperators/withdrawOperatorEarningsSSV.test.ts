@@ -54,7 +54,7 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
         [GasGroup.WITHDRAW_OPERATOR_BALANCE]
       )
     )
-      .to.emit(operators, Events.OPERATOR_WITHDRAWN)
+      .to.emit(operators, Events.OPERATOR_WITHDRAWN_SSV)
       .withArgs(owner.address, 1, amount);
 
     const operatorAfter = await operators.getOperator(1);
@@ -92,7 +92,7 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
         [GasGroup.WITHDRAW_OPERATOR_BALANCE]
       )
     )
-      .to.emit(operators, Events.OPERATOR_WITHDRAWN)
+      .to.emit(operators, Events.OPERATOR_WITHDRAWN_SSV)
       .withArgs(owner.address, 1, expectedAmount);
 
     const operatorAfter = await operators.getOperator(1);

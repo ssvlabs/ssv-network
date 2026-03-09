@@ -367,6 +367,36 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
       
       expect(actualEarnings).to.equal(expectedTotal, "Earnings should scale with validator count");
     });
+
+    it("removeValidator triggers exact settlement of operator earnings", async function() {
+      const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const validatorKey = makePublicKey(1);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        validatorKey,
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const blocksToMine = 100n;
+      await connection.networkHelpers.mine(blocksToMine);
+
+      const currentCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, currentCluster);
+
+      // Fee settled over blocksToMine + 1 block (the removeValidator tx itself)
+      const expectedEarningsPerOperator = (blocksToMine + 1n) * MINIMAL_OPERATOR_ETH_FEE;
+
+      for (const opId of operatorIds) {
+        const earnings = await views.getOperatorEarnings(opId);
+        expect(earnings).to.equal(expectedEarningsPerOperator);
+      }
+    });
   });
 
   // ============================================================================

@@ -43,12 +43,14 @@ export const Errors = {
   INVALID_PROOF: "InvalidProof",
   EB_EXCEEDS_MAXIMUM: "EBExceedsMaximum",
   STALE_UPDATE: "StaleUpdate",
+  MUST_USE_LATEST_ROOT: "MustUseLatestRoot",
   NOT_ORACLE: "NotOracle",
   STALE_BLOCK_NUMBER: "StaleBlockNumber",
   FUTURE_BLOCK_NUMBER: "FutureBlockNumber",
   ALREADY_VOTED: "AlreadyVoted",
   ZERO_ADDRESS: "ZeroAddress",
   ORACLE_ALREADY_ASSIGNED: "OracleAlreadyAssigned",
+  INVALID_ORACLE_ID: "InvalidOracleId",
   INVALID_QUORUM: "InvalidQuorum",
   MAX_REQUESTS_AMOUNT_REACHED: "MaxRequestsAmountReached",
   NOT_CSSV: "NotCSSV",
@@ -62,5 +64,6 @@ export const Errors = {
   ORACLE_HAS_ZERO_WEIGHT: "OracleHasZeroWeight",
   MAX_VALUE_EXCEEDED: "MaxValueExceeded",
   MAX_PRECISION_EXCEEDED: "MaxPrecisionExceeded",
-  INVALID_RECIPIENT: "InvalidRecipient"
+  INVALID_RECIPIENT: "InvalidRecipient",
+  UPDATE_TOO_FREQUENT: "UpdateTooFrequent",
 } as const;

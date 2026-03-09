@@ -9,7 +9,7 @@ import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../libraries/storage/SSVStorageEB.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
-import {SSVStorageStaking, StorageStaking} from "../libraries/storage/SSVStorageStaking.sol";
+import {SSVStorageStaking, StorageStaking, MAX_DELEGATION_SLOTS} from "../libraries/storage/SSVStorageStaking.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
 contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
@@ -169,14 +169,19 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
             revert FutureBlockNumber();
         }
 
-        uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
-        if (totalStaked == 0) revert OracleHasZeroWeight();
-
         // block and root combined to keep block-root proposal tied together
         bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, merkleRoot));
 
         if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
         seb.hasVoted[commitmentKey][oracleId] = true;
+
+        // Freeze supply on the first vote to prevent supply manipulation between votes.
+        uint256 totalStaked = seb.roundFrozenSupply[commitmentKey];
+        if (totalStaked == 0) {
+            totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
+            if (totalStaked == 0) revert OracleHasZeroWeight();
+            seb.roundFrozenSupply[commitmentKey] = totalStaked;
+        }
 
         uint256 weight = totalStaked / s.defaultOracleIds.length;
         seb.rootCommitments[commitmentKey] += weight;
@@ -190,6 +195,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
             seb.latestCommittedBlock = blockNum;
 
             delete seb.rootCommitments[commitmentKey];
+            delete seb.roundFrozenSupply[commitmentKey];
             // Do not delete hasVoted to prevent re-voting if same key is somehow reused
 
             emit RootCommitted(merkleRoot, blockNum);
@@ -204,7 +210,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
      */
     function replaceOracle(uint32 oracleId, address newOracle) external override {
         StorageStaking storage s = SSVStorageStaking.load();
-        if (oracleId == 0) revert ZeroAmount(); // reuse error for invalid id
+        if (oracleId == 0 || oracleId > MAX_DELEGATION_SLOTS) revert InvalidOracleId();
         if (newOracle == address(0)) revert ZeroAddress();
 
         address oldOracle = s.oracles[oracleId];
@@ -245,5 +251,13 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     function setUnstakeCooldownDuration(uint64 duration) external override {
         SSVStorageStaking.load().cooldownDuration = duration;
         emit CooldownDurationUpdated(duration);
+    }
+
+    /**
+     * @inheritdoc ISSVDAO
+     */
+    function updateMinBlocksBetweenUpdates(uint32 blocks) external override {
+        SSVStorageEB.load().minBlocksBetweenUpdates = blocks;
+        emit MinBlocksBetweenUpdatesUpdated(blocks);
     }
 }

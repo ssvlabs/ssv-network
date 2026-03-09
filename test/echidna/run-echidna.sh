@@ -132,12 +132,22 @@ echidna test/echidna/SSVStakingEchidna.sol \
 
 echo ""
 echo "=========================================="
-echo "  [9/9] SSVDAOEchidna"
+echo "  [9/10] SSVDAOEchidna"
 echo "=========================================="
 echo ""
 
 echidna test/echidna/SSVDAOEchidna.sol \
     --contract SSVDAOEchidna \
+    --config test/echidna/echidna.yaml
+
+echo ""
+echo "=========================================="
+echo "  [10/10] SSVMigrationEchidna"
+echo "=========================================="
+echo ""
+
+echidna test/echidna/SSVMigrationEchidna.sol \
+    --contract SSVMigrationEchidna \
     --config test/echidna/echidna.yaml
 
 echo ""

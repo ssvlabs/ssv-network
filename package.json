@@ -35,6 +35,7 @@
     "test:unit": "npx hardhat test test/unit/**/*.test.ts",
     "test:unit:gas": "npx hardhat test test/unit/**/*.test.ts --gas-stats",
     "test:integration": "npx hardhat test test/integration/*.test.ts",
+    "test:e2e": "npx hardhat test test/e2e/**/*.test.ts",
     "test:integration:gas": "npx hardhat test test/integration/*.test.ts --gas-stats",
     "test-forked": "FORK_TESTING_ENABLED=true npx hardhat test test-forked/*.ts",
     "gas:report": "REPORT_GAS=true npx hardhat test",

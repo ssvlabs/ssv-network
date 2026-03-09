@@ -1,6 +1,6 @@
-# Echidna Security Testing for CSSVToken
+# Echidna Invariant Testing — SSV Network v2
 
-Fuzz testing for CSSVToken using [Echidna](https://github.com/crytic/echidna).
+Fuzz testing for SSV Network v2 smart contracts using [Echidna](https://github.com/crytic/echidna).
 
 ## Quick Start (macOS)
 
@@ -172,3 +172,153 @@ test/echidna/
 | `echidna_commit_root_not_stale` | Commit block is newer than last committed |
 | `echidna_committed_block_monotonic` | Latest committed block is monotonic |
 | `echidna_oracle_mapping_consistent` | Oracle ID mappings remain consistent |
+
+---
+
+## Planned Invariants (Not Yet Implemented)
+
+Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the 73 existing invariants above. Only invariants that are **not already covered** are listed below. Grouped by priority.
+
+### Strengthen Existing (partial coverage → full)
+
+These existing invariants should be upgraded to catch more subtle bugs:
+
+| Existing Property | Upgrade | Ref |
+|---|---|---|
+| `echidna_network_fee_matches_expected` | Add explicit monotonicity: track `prevEthIndex` / `prevSsvIndex` in harness, assert never decreases | A8 |
+| `echidna_cssv_supply_matches_users` | Add per-operation delta: on stake `amount`, assert cSSV supply increased by exactly `amount` | A11 |
+| `echidna_user_index_leq_acc` | Strengthen to exact equality: after `_settle(user)`, assert `userIndex[user] == accEthPerShare` | A14 |
+| `echidna_pool_matches_dao_balance` | Add per-claim delta: on successful claim of `payout`, assert both `stakingEthPoolBalance` and `ethDaoBalance` decreased by exactly `payout` | A16 |
+| `echidna_accrued_within_pool` | Add cumulative tracking: wrap `claimEthRewards` to track `totalEthPaidOut`, assert `totalEthPaidOut <= totalEthCredited` | C2 |
+
+### High Priority — New Invariants
+
+Directly testable with current harness patterns. High bug-catching value.
+
+#### Oracle / EB Governance
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_finalized_weight_cleared` | Always | If `ebRoots[blockNum] == root != 0`, then `rootCommitments[key] == 0` — prevents re-finalization | A4 |
+| `echidna_commitment_weight_lte_supply` | Always | For each tracked `commitmentKey`, `rootCommitments[key] <= cSSV.totalSupply()` — catches quorum overflow | A5 |
+| `echidna_finalization_implies_quorum` | Conditional | At finalization time, accumulated weight >= `threshold(totalSupply, quorumBps)` — catches quorum bypass | B1 |
+
+#### DAO Accounting
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_dao_earnings_monotonic` | Always | `networkTotalEarnings()` (ETH) and `networkTotalEarningsSSV()` never decrease as `block.number` advances — catches settlement regression | A9 |
+| `echidna_dao_index_block_lte_current` | Always | `ethDaoIndexBlockNumber <= block.number` and `daoIndexBlockNumber <= block.number` — catches "time-travel" indices | A10 |
+
+#### Staking Rewards Precision
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_cssv_transfer_settles_both` | Always | After `onCSSVTransfer(from, to, amount)`, both `userIndex[from]` and `userIndex[to]` equal `accEthPerShare` — catches reward smuggling via transfer | A15 |
+| `echidna_claim_payout_precision` | Always | Any successful claim `payout` satisfies `payout % ETH_DEDUCTED_DIGITS == 0` — catches precision bypass | A17 |
+| `echidna_no_free_rewards_on_transfer` | Candidate | cSSV transfer does not move already-accrued rewards from sender to receiver — catches reward smuggling (needs 2-actor before/after tracking) | C3 |
+
+#### EB Snapshot Safety
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_eb_snapshot_block_lte_current` | Always | `clusterEB[id].lastUpdateBlock <= block.number` — catches future-dated EB snapshots | A18 |
+| `echidna_eb_snapshot_root_monotonic` | Always | `clusterEB[id].lastRootBlockNum` never decreases per cluster — catches stale proof replay | A19 |
+
+#### EB Update Correctness
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_eb_update_requires_latest_root` | Conditional | `updateClusterBalance(blockNum, ...)` with non-latest committed root must always revert (SSV-17 latest-root-only rule) | SSV-17 |
+| `echidna_eb_update_requires_root` | Conditional | `updateClusterBalance(blockNum, ...)` succeeds only if `ebRoots[blockNum] != 0` | B3 |
+| `echidna_eb_update_frequency` | Conditional | Same cluster cannot update twice within `minBlocksBetweenUpdates` — second update reverts | B4 |
+| `echidna_eb_update_staleness` | Conditional | Successful update requires `blockNum > lastRootBlockNum` for that cluster | B5 |
+
+#### Fee Settlement Correctness
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_fee_index_current_after_settle` | Conditional | After ETH cluster fee settlement, stored fee indices equal protocol "current" indices | B9 |
+| `echidna_fee_uses_old_vunits_on_eb_change` | Conditional | When EB update changes vUnits, fees for elapsed period use old vUnits, not new | B11 |
+
+#### Liquidation Completeness
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_liquidation_clears_eb_snapshot` | Conditional | After liquidation, `clusterEB[clusterId].vUnits == 0` — catches stale EB after liquidation | B13 |
+| `echidna_liquidation_pays_exact_balance` | Conditional | ETH paid to liquidator equals cluster balance at liquidation time — catches over/underpayment | B14 |
+
+### Medium Priority — New Invariants
+
+Requires more harness bookkeeping or complex setup (Merkle builder, multi-actor tracking).
+
+#### EB Proof Verification
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_eb_merkle_proof_verified` | Conditional | Successful EB update implies `MerkleProof.verify(proof, root, leaf) == true` for expected leaf encoding | B6 |
+| `echidna_eb_bounds_enforced` | Conditional | Successful EB update has `effectiveBalance` within protocol bounds (min 32 ETH/validator, max 2048 ETH/validator) | B7 |
+| `echidna_eb_snapshot_fields_exact` | Conditional | After successful update: `vUnits == ebToVUnits(effectiveBalance)`, `lastRootBlockNum == blockNum`, `lastUpdateBlock == block.number` | B8 |
+
+#### Operator Fee Governance
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_declare_fee_from_zero_reverts` | Conditional | If operator legacy fee = 0 and ETH fee = 0, declaring non-zero ETH fee reverts (if enforced) | B17 |
+| `echidna_execute_rejects_legacy_declarations` | Conditional | `executeOperatorFee` rejects declarations timestamped before `UPGRADE_TIMESTAMP` | B19 |
+
+#### Legacy SSV
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_ssv_liquidation_resets_and_pays` | Conditional | `liquidateSSV()` success → cluster inactive, indexes zeroed, remaining SSV transferred to liquidator | B15 |
+
+#### DAO Earnings Formula
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_dao_earnings_matches_formula` | Candidate | `networkTotalEarnings()` equals `daoBalance + (blockDelta * ethNetworkFee * daoTotalEthVUnits / precision)` — catches packing/rounding/checkpoint errors | C4 |
+
+### Lower Priority — Heavy Harness Required
+
+Significant implementation effort. Requires custom delta-block simulators, per-cluster tracking arrays, or boundary-probing helpers.
+
+#### vUnit Aggregation
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_dao_vunits_equals_sum` | Candidate | `daoTotalEthVUnits == Σ(cluster baseline) ± Σ(cluster deviations)` — catches vUnit drift | C5 |
+| `echidna_operator_vunits_matches_clusters` | Candidate | Per-operator vUnits equals sum of their cluster deviations — catches earnings misallocation | C6 |
+
+#### Migration
+
+| Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_migration_removed_refund_exact` | Implemented | On successful SSV→ETH migration, refunded SSV must equal settlement computed with full cumulative SSV index (including removed operators' frozen `snapshot.index`) | BUG-14 |
+| `echidna_migration_removed_operator_not_eth_initialized` | Implemented | Operators removed before migration (`snapshot.block == 0 && ethSnapshot.block == 0`) must remain excluded from ETH initialization and ETH validator-count updates | BUG-14 |
+| `echidna_removed_operator_state_and_frozen_index_preserved` | Implemented | Removed operators must keep zeroed snapshot blocks while preserving frozen `snapshot.index` across subsequent actions | BUG-14 |
+| `echidna_migration_one_way` | Candidate | After `migrateClusterToETH`: ETH mode active, SSV balance returned, legacy operations revert — catches partial migration / stuck funds | C7 |
+
+#### Overflow / Extreme Value
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_eth_accrual_no_overflow` | Candidate | With max fee, max validators, max EB, simulating 5 years of blocks: all ETH balances + indices remain within type bounds | X4 |
+| `echidna_ssv_accrual_no_overflow` | Candidate | Same as above for SSV scaling factor and fee math | X5 |
+| `echidna_intermediate_mul_no_overflow` | Candidate | For worst-case params, `fee * vUnits * deltaBlocks` stays `< type(uint256).max` | X6 |
+| `echidna_pack_reverts_on_overflow` | Candidate | Packing `uint256 → uint64` reverts (not truncates) when value exceeds range | X7 |
+
+### Harness Requirements for Planned Invariants
+
+To make the above invariants exercisable, the following harness features are needed:
+
+| Harness Feature | Required By | Description |
+|---|---|---|
+| **Prev-value tracking** | A8, A9, A18, A19 | Store `prevIndex`, `prevEarnings`, `prevBlock` in harness to assert monotonicity |
+| **Touched-key arrays** | A4, A5, B1 | Track `bytes32[] touchedCommitmentKeys` since mappings aren't iterable |
+| **Per-claim delta tracking** | A16, C2 | Wrap `claimEthRewards` to capture before/after pool balances |
+| **2-actor reward tracking** | A15, C3 | Track accrued rewards for both sender/receiver around cSSV transfers |
+| **Merkle tree builder** | B6, B7, B8 | Tiny in-harness Merkle builder for valid proof happy paths |
+| **Delta-block simulator** | X4, X5, X6 | Test-only function that applies fee accrual math with explicit `deltaBlocks` input |
+| **Per-cluster EB tracking** | C5, C6 | Arrays tracking baseline and deviation per cluster for global sum verification |
+| **Max-param configurator** | X4, X5, X6, X7 | Helpers to set operator fee = max, validators = max, EB = max bound |

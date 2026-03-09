@@ -252,17 +252,25 @@ library ClusterLib {
 
         cluster.validatorCount += validatorCountDelta;
 
-        if (
-            isLiquidatableWithEB(
-                cluster,
-                hashedCluster,
-                burnRate,
-                PackedETH.unwrap(sp.ethNetworkFee),
-                sp.minimumBlocksBeforeLiquidation,
-                sp.minimumLiquidationCollateral
-            )
-        ) {
-            revert ISSVNetworkCore.InsufficientBalance();
+        {
+            StorageEB storage seb = SSVStorageEB.load();
+            uint64 storedVUnits = seb.clusterEB[hashedCluster].vUnits;
+            uint64 projectedVUnits = storedVUnits > 0
+                ? storedVUnits + uint64(validatorCountDelta) * VUNITS_PRECISION
+                : uint64(cluster.validatorCount) * VUNITS_PRECISION;
+
+            if (
+                isLiquidatableWithVUnits(
+                    cluster,
+                    projectedVUnits,
+                    burnRate,
+                    PackedETH.unwrap(sp.ethNetworkFee),
+                    sp.minimumBlocksBeforeLiquidation,
+                    sp.minimumLiquidationCollateral
+                )
+            ) {
+                revert ISSVNetworkCore.InsufficientBalance();
+            }
         }
 
         s.ethClusters[hashedCluster] = hashClusterData(cluster);
