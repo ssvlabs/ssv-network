@@ -118,7 +118,7 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
-    
+
     await operators.mockSetOperatorLegacySSV(1, 1);
     await seedOperatorWithSSVBalance(operators, 1, 5n);
 
