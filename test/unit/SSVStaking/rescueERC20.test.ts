@@ -34,6 +34,20 @@ describe("SSVStaking function `rescueERC20()`", async () => {
     return { staking, ssvToken, cssvToken, randomToken, rescueAmount };
   };
 
+  const deployWithNonStandardToken = async () => {
+    const { staking } = await ssvStakingHarnessFixture(connection);
+
+    const nonStandardToken = await connection.ethers.deployContract("NonStandardERC20Mock");
+    await nonStandardToken.waitForDeployment();
+
+    await nonStandardToken.mint(owner.address, connection.ethers.parseEther("1000"));
+
+    const rescueAmount = connection.ethers.parseEther("100");
+    await nonStandardToken.transfer(await staking.getAddress(), rescueAmount);
+
+    return { staking, nonStandardToken, rescueAmount };
+  };
+
   it("Rescues accidentally sent ERC20 tokens and emits ERC20Rescued event", async function () {
     const { staking, randomToken, rescueAmount } =
       await networkHelpers.loadFixture(deployWithExtraToken);
@@ -69,6 +83,24 @@ describe("SSVStaking function `rescueERC20()`", async () => {
 
     const balanceAfter = await randomToken.balanceOf(recipient.address);
     expect(balanceAfter - balanceBefore).to.equal(rescueAmount);
+  });
+
+  it("Rescues non-standard ERC20 tokens that do not return a value", async function () {
+    const { staking, nonStandardToken, rescueAmount } =
+      await networkHelpers.loadFixture(deployWithNonStandardToken);
+
+    const tokenAddress = await nonStandardToken.getAddress();
+
+    await expect(
+      trackGas(
+        staking.rescueERC20(tokenAddress, recipient.address, rescueAmount),
+        [GasGroup.RESCUE_ERC20]
+      )
+    )
+      .to.emit(staking, Events.ERC20_RESCUED)
+      .withArgs(tokenAddress, recipient.address, rescueAmount);
+
+    expect(await nonStandardToken.balanceOf(recipient.address)).to.equal(rescueAmount);
   });
 
   it("Is reverted with 'ZeroAddress' when token address is zero", async function () {
