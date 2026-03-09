@@ -1,12 +1,12 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS, MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
+import { setupTestContext, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
+import { DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS, MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
+import { mockEBAndUpdate } from "../../helpers/oracle.ts";
 import { ethers } from "ethers";
 
 const INITIAL_FEE = MINIMAL_OPERATOR_ETH_FEE;
@@ -20,21 +20,9 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   let liquidator: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [clusterOwner, liquidator] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, liquidator] } = await setupTestContext());
   });
 
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds]),
-    );
-  };
-
-  const getEBRoot = (clusterId: string, effectiveBalance: number): string => {
-    const coder = ethers.AbiCoder.defaultAbiCoder();
-    const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
-    return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
-  };
 
   const deployWithInitialFee = async () => ssvClustersHarnessFixture(connection, 4, INITIAL_FEE);
   const deployWithDoubledFee = async () => ssvClustersHarnessFixture(connection, 4, DOUBLED_FEE);
@@ -44,31 +32,6 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     return {
       snapshotBlock: BigInt(snapshotBlock),
       earningsWei: operatorEarnings * ETH_DEDUCTED_DIGITS,
-    };
-  };
-
-  const setEB = async (
-    clusters: any,
-    operatorIds: bigint[],
-    cluster: any,
-    effectiveBalance: number,
-  ) => {
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    const ebBlockNum = 1;
-    const root = getEBRoot(clusterId, effectiveBalance);
-    await clusters.mockSetEBRoot(ebBlockNum, root);
-    const tx = await clusters.updateClusterBalance(
-      ebBlockNum,
-      clusterOwner.address,
-      operatorIds,
-      cluster,
-      effectiveBalance,
-      [],
-    );
-    const receipt = await tx.wait();
-    return {
-      cluster: parseClusterFromEvent(clusters, receipt, Events.CLUSTER_BALANCE_UPDATED),
-      block: BigInt(receipt!.blockNumber),
     };
   };
 
@@ -82,8 +45,8 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
 
-    const { cluster: clusterAfterEB, block: ebBlock } = await setEB(clusters, operatorIds, clusterAfterReg, 64);
-    const expectedVUnits = (64n * BPS_DENOMINATOR + 31n) / 32n;
+    const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 64, 1);
+    const expectedVUnits = (64n * VUNITS_PRECISION + 31n) / 32n;
     expect(expectedVUnits).to.equal(20000n);
 
     await networkHelpers.mine(500);
@@ -120,14 +83,14 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const numOps = BigInt(operatorIds.length);
 
     const p1Blocks = w1Block - ebBlock;
-    const expectedBurnP1 = (numOps * p1Blocks * packedInitial * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-    const expectedEarningsAtFeeExec = ((fcBlock - snapBeforeFeeExec.snapshotBlock) * packedInitial * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedBurnP1 = (numOps * p1Blocks * packedInitial * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+    const expectedEarningsAtFeeExec = ((fcBlock - snapBeforeFeeExec.snapshotBlock) * packedInitial * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     const transitionBlocks = fcBlock - w1Block;
     const p2NewFeeBlocks = w2Block - fcBlock;
     const idxOpP2 = numOps * (transitionBlocks * packedInitial + p2NewFeeBlocks * packedDoubled);
-    const expectedBurnP2 = (idxOpP2 * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-    const expectedEarningsAtSettle = ((settleBlock - snapAfterFeeExec.snapshotBlock) * packedDoubled * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedBurnP2 = (idxOpP2 * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+    const expectedEarningsAtSettle = ((settleBlock - snapAfterFeeExec.snapshotBlock) * packedDoubled * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     expect(burnP1).to.equal(expectedBurnP1);
     expect(burnP2).to.equal(expectedBurnP2);
@@ -146,8 +109,8 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
 
-    const { cluster: clusterAfterEB, block: ebBlock } = await setEB(clusters, operatorIds, clusterAfterReg, 128);
-    const expectedVUnits = (128n * BPS_DENOMINATOR + 31n) / 32n;
+    const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 128, 1);
+    const expectedVUnits = (128n * VUNITS_PRECISION + 31n) / 32n;
     expect(expectedVUnits).to.equal(40000n);
 
     await networkHelpers.mine(500);
@@ -184,14 +147,14 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const numOps = BigInt(operatorIds.length);
 
     const p1Blocks = w1Block - ebBlock;
-    const expectedBurnP1 = (numOps * p1Blocks * packedDoubled * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-    const expectedEarningsAtFeeExec = ((fcBlock - snapBeforeFeeExec.snapshotBlock) * packedDoubled * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedBurnP1 = (numOps * p1Blocks * packedDoubled * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+    const expectedEarningsAtFeeExec = ((fcBlock - snapBeforeFeeExec.snapshotBlock) * packedDoubled * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     const transitionBlocks = fcBlock - w1Block;
     const p2NewFeeBlocks = w2Block - fcBlock;
     const idxOpP2 = numOps * (transitionBlocks * packedDoubled + p2NewFeeBlocks * packedInitial);
-    const expectedBurnP2 = (idxOpP2 * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-    const expectedEarningsAtSettle = ((settleBlock - snapAfterFeeExec.snapshotBlock) * packedInitial * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedBurnP2 = (idxOpP2 * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+    const expectedEarningsAtSettle = ((settleBlock - snapAfterFeeExec.snapshotBlock) * packedInitial * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     expect(burnP1).to.equal(expectedBurnP1);
     expect(burnP2).to.equal(expectedBurnP2);
@@ -210,8 +173,8 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
 
-    const { cluster: clusterAfterEB, block: ebBlock } = await setEB(clusters, operatorIds, clusterAfterReg, 96);
-    const expectedVUnits = (96n * BPS_DENOMINATOR + 31n) / 32n;
+    const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 96, 1);
+    const expectedVUnits = (96n * VUNITS_PRECISION + 31n) / 32n;
     expect(expectedVUnits).to.equal(30000n);
 
     await networkHelpers.mine(200);
@@ -237,15 +200,15 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const preChangeBlocks = fcBlock - ebBlock;
     const postChangeBlocks = wBlock - fcBlock;
     const idxOp = numOps * (preChangeBlocks * packedInitial + postChangeBlocks * packedTripled);
-    const expectedBurn = (idxOp * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedBurn = (idxOp * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     expect(totalBurn).to.equal(expectedBurn);
     expect(totalBurn).to.be.greaterThan(0n);
     expect(clusterAfterW.balance).to.be.greaterThan(0n);
 
     const totalBlocks = wBlock - ebBlock;
-    const burnIfAllOld = (numOps * totalBlocks * packedInitial * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-    const burnIfAllNew = (numOps * totalBlocks * packedTripled * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const burnIfAllOld = (numOps * totalBlocks * packedInitial * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+    const burnIfAllNew = (numOps * totalBlocks * packedTripled * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     expect(totalBurn).to.be.greaterThan(burnIfAllOld);
     expect(totalBurn).to.be.lessThan(burnIfAllNew);
@@ -285,11 +248,11 @@ describe("Operator fee change + EB burn rate interaction", async () => {
       numOps * (
         (fcBlock - regBlock) * packedInitial +
         (wBlock - fcBlock) * packedDoubled
-      ) * baselineVUnits / BPS_DENOMINATOR
+      ) * baselineVUnits / VUNITS_PRECISION
     ) * ETH_DEDUCTED_DIGITS;
     expect(clusterAfterReg.balance - clusterAfterW.balance).to.equal(expectedBurn);
 
-    const expectedFeeExecDelta = ((fcBlock - snapBeforeFeeExec.snapshotBlock) * packedInitial * baselineVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedFeeExecDelta = ((fcBlock - snapBeforeFeeExec.snapshotBlock) * packedInitial * baselineVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
     expect(snapAfterFeeExec.earningsWei - snapBeforeFeeExec.earningsWei).to.equal(expectedFeeExecDelta);
 
     const settleTx = await clusters.mockExecuteAllOperatorFees([operatorIds[0]], DOUBLED_FEE);
@@ -297,7 +260,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const settleReceipt = await settleTx.wait();
     const settleBlock = BigInt(settleReceipt!.blockNumber);
     const snapAfterSettle = await getOperatorSnapshotWei(clusters, operatorIds[0]);
-    const expectedSettleDelta = ((settleBlock - snapAfterFeeExec.snapshotBlock) * packedDoubled * baselineVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedSettleDelta = ((settleBlock - snapAfterFeeExec.snapshotBlock) * packedDoubled * baselineVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
     expect(snapAfterSettle.earningsWei - snapAfterFeeExec.earningsWei).to.equal(expectedSettleDelta);
   });
 
@@ -310,7 +273,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
 
-    const { cluster: clusterAfterEB } = await setEB(clusters, operatorIds, clusterAfterReg, 64);
+    const { cluster: clusterAfterEB } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 64, 1);
 
     await networkHelpers.mine(40);
     await clusters.mockRemoveOperator(operatorIds[0]);
@@ -343,7 +306,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
 
-    const { cluster: clusterAfterEB } = await setEB(clusters, operatorIds, clusterAfterReg, 2048);
+    const { cluster: clusterAfterEB } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 2048, 1);
     await clusters.mockExecuteAllOperatorFees(operatorIds, TRIPLED_FEE);
     await networkHelpers.mine(2);
 
@@ -363,7 +326,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     );
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
-    const { cluster: clusterAfterEB, block: ebBlock } = await setEB(clusters, operatorIds, clusterAfterReg, 96);
+    const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 96, 1);
     const vUnits = 30_000n;
 
     await networkHelpers.mine(10);
@@ -394,7 +357,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
         (fc1Block - ebBlock) * packedInitial +
         (fc2Block - fc1Block) * packedDoubled +
         (wBlock - fc2Block) * packedTripled
-      ) * vUnits / BPS_DENOMINATOR
+      ) * vUnits / VUNITS_PRECISION
     ) * ETH_DEDUCTED_DIGITS;
     expect(clusterAfterEB.balance - clusterAfterW.balance).to.equal(expectedBurn);
 
@@ -404,7 +367,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const settleReceipt = await settleTx.wait();
     const settleBlock = BigInt(settleReceipt!.blockNumber);
     const snapAfterSettle = await getOperatorSnapshotWei(clusters, operatorIds[0]);
-    const expectedSettleDelta = ((settleBlock - snapAfterFc2.snapshotBlock) * packedTripled * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedSettleDelta = ((settleBlock - snapAfterFc2.snapshotBlock) * packedTripled * vUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
     expect(snapAfterSettle.earningsWei - snapAfterFc2.earningsWei).to.equal(expectedSettleDelta);
   });
 
@@ -416,7 +379,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     );
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
-    const { cluster: clusterAfterEB, block: ebBlock } = await setEB(clusters, operatorIds, clusterAfterReg, 2048);
+    const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 2048, 1);
 
     const maxVUnits = 640_000n;
     expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(maxVUnits);
@@ -442,7 +405,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
       numOps * (
         (fcBlock - ebBlock) * packedInitial +
         (wBlock - fcBlock) * packedDoubled
-      ) * maxVUnits / BPS_DENOMINATOR
+      ) * maxVUnits / VUNITS_PRECISION
     ) * ETH_DEDUCTED_DIGITS;
     expect(clusterAfterEB.balance - clusterAfterW.balance).to.equal(expectedBurn);
 
@@ -452,7 +415,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const settleReceipt = await settleTx.wait();
     const settleBlock = BigInt(settleReceipt!.blockNumber);
     const snapAfterSettle = await getOperatorSnapshotWei(clusters, operatorIds[0]);
-    const expectedSettleDelta = ((settleBlock - snapAfterFc.snapshotBlock) * packedDoubled * maxVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedSettleDelta = ((settleBlock - snapAfterFc.snapshotBlock) * packedDoubled * maxVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
     expect(snapAfterSettle.earningsWei - snapAfterFc.earningsWei).to.equal(expectedSettleDelta);
   });
 
@@ -465,7 +428,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
 
-    const { cluster: clusterAfterEB, block: ebBlock } = await setEB(clusters, operatorIds, clusterAfterReg, 64);
+    const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 64, 1);
     const vUnits = 20_000n;
 
     await networkHelpers.mine(100);
@@ -490,11 +453,11 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const p1Blocks = fcBlock - ebBlock;
     const p2Blocks = wBlock - fcBlock;
     const idxOp = numOps * (p1Blocks * packedInitialOp + p2Blocks * packedDoubledOp);
-    const operatorFeeUnits = (idxOp * vUnits) / BPS_DENOMINATOR;
+    const operatorFeeUnits = (idxOp * vUnits) / VUNITS_PRECISION;
 
     const currentNetworkFeeIndex = clusterAfterW.networkFeeIndex;
     const idxNet = currentNetworkFeeIndex - oldNetworkFeeIndex;
-    const networkFeeUnits = (idxNet * vUnits) / BPS_DENOMINATOR;
+    const networkFeeUnits = (idxNet * vUnits) / VUNITS_PRECISION;
 
     const expectedBurn = (operatorFeeUnits + networkFeeUnits) * ETH_DEDUCTED_DIGITS;
     const actualBurn = clusterAfterEB.balance - clusterAfterW.balance;
@@ -514,7 +477,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
 
     await networkHelpers.mine(50);
 
-    await setEB(clusters, operatorIds, clusterAfterReg, 96);
+    await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 96, 1);
     const vUnitsAfterEB = 30_000n;
 
     await networkHelpers.mine(50);
@@ -527,7 +490,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
 
     const packedInitial = INITIAL_FEE / ETH_DEDUCTED_DIGITS;
     const blocksDelta = fcBlock - snap2.snapshotBlock;
-    const expectedDelta = (blocksDelta * packedInitial * vUnitsAfterEB / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedDelta = (blocksDelta * packedInitial * vUnitsAfterEB / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     expect(snap3.earningsWei - snap2.earningsWei).to.equal(expectedDelta);
 
@@ -540,7 +503,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
 
     const packedDoubled = DOUBLED_FEE / ETH_DEDUCTED_DIGITS;
     const blocksDelta2 = settleBlock - snap3.snapshotBlock;
-    const expectedDelta2 = (blocksDelta2 * packedDoubled * vUnitsAfterEB / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedDelta2 = (blocksDelta2 * packedDoubled * vUnitsAfterEB / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     expect(snap4.earningsWei - snap3.earningsWei).to.equal(expectedDelta2);
   });
@@ -565,8 +528,8 @@ describe("Operator fee change + EB burn rate interaction", async () => {
 
     expect(cluster.validatorCount).to.equal(4);
 
-    const { cluster: clusterAfterEB, block: ebBlock } = await setEB(clusters, operatorIds, cluster, 128);
-    const expectedVUnits = (128n * BPS_DENOMINATOR + 31n) / 32n;
+    const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, cluster, 128, 1);
+    const expectedVUnits = (128n * VUNITS_PRECISION + 31n) / 32n;
     expect(expectedVUnits).to.equal(40_000n);
 
     await networkHelpers.mine(100);
@@ -589,10 +552,10 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const p1Blocks = fcBlock - ebBlock;
     const p2Blocks = wBlock - fcBlock;
     const idxOp = numOps * (p1Blocks * packedInitial + p2Blocks * packedTripled);
-    const expectedBurnOp = (idxOp * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedBurnOp = (idxOp * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     const idxNet = clusterAfterW.networkFeeIndex - clusterAfterEB.networkFeeIndex;
-    const expectedBurnNet = (idxNet * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedBurnNet = (idxNet * expectedVUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     const expectedTotalBurn = expectedBurnOp + expectedBurnNet;
     const actualBurn = clusterAfterEB.balance - clusterAfterW.balance;

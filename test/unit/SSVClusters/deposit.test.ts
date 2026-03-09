@@ -1,11 +1,10 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
+import { setupTestContext, computeClusterId, createCluster, makePublicKey, parseClusterFromEvent, registerAndParseCluster } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
@@ -19,32 +18,11 @@ describe("SSVClusters function `deposit()`", async () => {
   let otherAccount: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [clusterOwner, otherAccount] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, otherAccount] } = await setupTestContext());
   });
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
     return ssvClustersHarnessFixture(connection);
-  };
-
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
-  };
-
-  const registerCluster = async (clusters: any, operatorIds: bigint[]) => {
-    const receipt = await trackGas(
-      clusters.registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        createCluster(),
-        { value: DEFAULT_ETH_REGISTER_VALUE }
-      ),
-    );
-    return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
   };
 
   const getContractEthBalance = async (clusters: any) =>
@@ -54,7 +32,7 @@ describe("SSVClusters function `deposit()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
+    const clusterBeforeDeposit = await registerAndParseCluster(clusters, operatorIds);
 
     const depositAmount = 1n;
     const contractBalanceBeforeDeposit = await getContractEthBalance(clusters);
@@ -80,10 +58,10 @@ describe("SSVClusters function `deposit()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
+    const clusterBeforeDeposit = await registerAndParseCluster(clusters, operatorIds);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    await clusters.mockSetClusterVUnits(clusterId, 7n * BPS_DENOMINATOR);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    await clusters.mockSetClusterVUnits(clusterId, 7n * VUNITS_PRECISION);
 
     const beforeClusterVUnits = await clusters.getClusterVUnits(clusterId);
     const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => clusters.getOperatorEthVUnits(id)));
@@ -113,7 +91,7 @@ describe("SSVClusters function `deposit()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
+    const clusterBeforeDeposit = await registerAndParseCluster(clusters, operatorIds);
 
     const depositAmount = 2n;
     const contractBalanceBeforeDeposit = await getContractEthBalance(clusters);
@@ -145,7 +123,7 @@ describe("SSVClusters function `deposit()`", async () => {
       await clusters.mockSetOperatorFee(operatorId, 0n);
     }
 
-    const clusterBeforeDeposits = await registerCluster(clusters, operatorIds);
+    const clusterBeforeDeposits = await registerAndParseCluster(clusters, operatorIds);
     const contractBalanceBeforeDeposits = await getContractEthBalance(clusters);
 
     const deposit1 = ethers.parseEther("0.01");
@@ -184,7 +162,7 @@ describe("SSVClusters function `deposit()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
+    const clusterBeforeDeposit = await registerAndParseCluster(clusters, operatorIds);
 
     const mismatchedCluster = {
       ...clusterBeforeDeposit,
@@ -244,7 +222,7 @@ describe("SSVClusters function `deposit()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
+    const clusterBeforeDeposit = await registerAndParseCluster(clusters, operatorIds);
 
     const mismatchedCluster = {
       ...clusterBeforeDeposit,

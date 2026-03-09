@@ -1,10 +1,8 @@
 import { expect } from "chai";
-import { ethers } from "ethers";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import {
   DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
@@ -19,7 +17,7 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   const deployOperatorsFixture = async () =>
@@ -44,8 +42,6 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
       operators.executeOperatorFee(1),
       [GasGroup.EXECUTE_OPERATOR_FEE]
     );
-
-    // Simulate only ETH balance to avoid token transfer dependence and fund contract for the payout.
     await operators.mockSetOperatorBalances(1, 2, 0);
     const harnessAddress = await operators.getAddress();
     await networkHelpers.setBalance(harnessAddress, connection.ethers.parseEther("1"));
@@ -68,8 +64,6 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
   it("Withdraws both ETH and SSV earnings when both have balances", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const [owner] = await connection.ethers.getSigners();
-
-    // Deploy MockToken and set it
     const token = await connection.ethers.deployContract("MockToken");
     await token.waitForDeployment();
     await operators.mockSetToken(await token.getAddress());
@@ -78,8 +72,6 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
-
-    // Fund operators contract with ETH and SSV
     const harnessAddress = await operators.getAddress();
     await networkHelpers.setBalance(harnessAddress, connection.ethers.parseEther("1"));
     await token.mint(harnessAddress, connection.ethers.parseEther("100"));
@@ -134,11 +126,7 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
-
-    // Ensure balances are zero
     await operators.mockSetOperatorBalances(1, 0, 0);
-
-    // Should not revert, just do nothing
     await operators.withdrawAllVersionOperatorEarnings(1);
 
     const operatorAfter = await operators.getOperator(1);
