@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
@@ -16,8 +16,7 @@ describe("SSVStaking function `requestUnstake()`", async () => {
   let staker: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [staker] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [staker] } = await setupTestContext());
   });
 
   const stakeFirst = async () => {
@@ -47,12 +46,8 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     await expect(receipt)
       .to.emit(staking, Events.UNSTAKE_REQUESTED)
       .withArgs(staker.address, unstakeAmount, expectedUnlockTime);
-
-    // Verify cSSV burned from user
     const cssvBalanceAfter = await cssvToken.balanceOf(staker.address);
     expect(cssvBalanceAfter).to.equal(cssvBalanceBefore - unstakeAmount);
-
-    // Verify totalSupply decreased
     const totalSupplyAfter = await cssvToken.totalSupply();
     expect(totalSupplyAfter).to.equal(totalSupplyBefore - unstakeAmount);
   });
@@ -154,17 +149,11 @@ describe("SSVStaking function `requestUnstake()`", async () => {
 
     const firstAmount = STAKE_AMOUNT / 4n;
     const secondAmount = STAKE_AMOUNT / 4n;
-
-    // First request
     const tx1 = await staking.requestUnstake(firstAmount);
     const receipt1 = await tx1.wait();
     const block1 = await connection.ethers.provider.getBlock(receipt1.blockNumber);
     const expectedUnlock1 = BigInt(block1!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
-
-    // Advance time slightly
     await networkHelpers.time.increase(100n);
-
-    // Second request
     const tx2 = await staking.requestUnstake(secondAmount);
     const receipt2 = await tx2.wait();
     const block2 = await connection.ethers.provider.getBlock(receipt2.blockNumber);
@@ -181,8 +170,6 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     expect(amount2).to.equal(secondAmount);
     expect(unlock2).to.equal(expectedUnlock2);
     expect(unlock2).to.be.greaterThan(unlock1);
-
-    // Verify cSSV balance reduced by both amounts
     const cssvBalance = await cssvToken.balanceOf(staker.address);
     expect(cssvBalance).to.equal(STAKE_AMOUNT - firstAmount - secondAmount);
   });
@@ -198,20 +185,14 @@ describe("SSVStaking function `requestUnstake()`", async () => {
 
     const block = await connection.ethers.provider.getBlock(receipt.blockNumber);
     const [, unlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
-
-    // unlockTime must equal block.timestamp + cooldown (seconds-based)
     const expectedFromTimestamp = BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
     expect(unlockTime).to.equal(expectedFromTimestamp);
-
-    // unlockTime must NOT equal block.number + cooldown (blocks-based)
     const incorrectFromBlockNumber = BigInt(block!.number) + DEFAULT_UNSTAKE_COOLDOWN;
     expect(unlockTime).to.not.equal(incorrectFromBlockNumber);
   });
 
   it("Settles pending rewards before unstaking when fees have accrued", async function () {
     const { staking, cssvToken } = await networkHelpers.loadFixture(stakeFirst);
-
-    // Simulate fee accrual
     const newFees = 1_000_000_000n;
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(newFees);
@@ -226,11 +207,7 @@ describe("SSVStaking function `requestUnstake()`", async () => {
 
     const userIndexAfter = await staking.getUserIndex(staker.address);
     const accruedAfter = await staking.getUserAccrued(staker.address);
-
-    // User index should be updated to current accEthPerShare
     expect(userIndexAfter).to.be.greaterThan(userIndexBefore);
-
-    // User should have accrued some rewards
     expect(accruedAfter).to.be.greaterThan(accruedBefore);
   });
 });

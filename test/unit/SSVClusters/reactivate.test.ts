@@ -1,14 +1,14 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { setupTestContext, computeClusterId, createCluster, makePublicKey, parseClusterFromEvent, calcLiquidationThreshold } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { mockEBAndUpdate } from "../../helpers/oracle.ts";
 import { ethers } from "ethers";
 
 describe("SSVClusters function `reactivate()`", async () => {
@@ -19,20 +19,13 @@ describe("SSVClusters function `reactivate()`", async () => {
   let otherAccount: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [clusterOwner, otherAccount] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, otherAccount] } = await setupTestContext());
   });
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
     return ssvClustersHarnessFixture(connection);
   };
 
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
-  };
 
   const createAndFundCluster = async (clusters: any, operatorIds: bigint[], depositValue: bigint) => {
     const registerTx = await clusters.registerValidator(
@@ -46,40 +39,11 @@ describe("SSVClusters function `reactivate()`", async () => {
     return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
   };
 
-  const setEB = async (clusters: any, clusterId: string, effectiveBalance: number, cluster: any, operatorIds: bigint[]) => {
-    const blockNum = 1;
-    const coder = ethers.AbiCoder.defaultAbiCoder();
-    const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
-    const root = ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
-    
-    await clusters.mockSetEBRoot(blockNum, root);
-    const updateTx = await clusters.updateClusterBalance(
-      blockNum,
-      clusterOwner.address,
-      operatorIds,
-      cluster,
-      effectiveBalance,
-      []
-    );
-    const updateReceipt = await updateTx.wait();
-    return parseClusterFromEvent(clusters, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
-  };
-
   const getOperatorEthEarnings = async (clusters: any, operatorId: bigint): Promise<bigint> => {
     const [, , balance] = await clusters.getOperatorEthSnapshot(operatorId);
     return balance;
   };
 
-  const liquidationThresholdForVUnits = (
-    vUnits: bigint,
-    operatorFeePacked: bigint,
-    operatorsCount: number,
-    networkFeePacked: bigint,
-    minimumBlocksBeforeLiquidation: bigint
-  ): bigint => {
-    const burnRatePacked = operatorFeePacked * BigInt(operatorsCount);
-    return ((minimumBlocksBeforeLiquidation * (burnRatePacked + networkFeePacked) * vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-  };
 
   const registerAndLiquidate = async (clusters: any, operatorIds: bigint[]) => {
     const registerTx = await clusters.registerValidator(
@@ -136,7 +100,7 @@ describe("SSVClusters function `reactivate()`", async () => {
     );
     await reactivateTx.wait();
 
-    const baselineVUnits = clusterAfterLiquidation.validatorCount * BPS_DENOMINATOR;
+    const baselineVUnits = clusterAfterLiquidation.validatorCount * VUNITS_PRECISION;
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(baselineVUnits);
@@ -200,8 +164,6 @@ describe("SSVClusters function `reactivate()`", async () => {
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
     const { clusterAfterLiquidation } = await registerAndLiquidate(clusters, operatorIds);
-
-    // Make minimum collateral slightly higher than the provided deposit to force insufficiency.
     await clusters.mockMinimumLiquidationCollateral(DEFAULT_ETH_REGISTER_VALUE + 1_000_000_000n);
 
     await expect(clusters.reactivate(
@@ -219,8 +181,6 @@ describe("SSVClusters function `reactivate()`", async () => {
     await clusters.mockMinimumLiquidationCollateral(0n);
 
     const { clusterAfterLiquidation } = await registerAndLiquidate(clusters, operatorIds);
-
-    // Increase liquidation runway requirements only for the reactivation call.
     await clusters.mockMinimumBlocksBeforeLiquidation(1_000_000_000n);
 
     await expect(clusters.reactivate(
@@ -250,11 +210,11 @@ describe("SSVClusters function `reactivate()`", async () => {
     await clusters.mockMinimumLiquidationCollateral(0n);
 
     const clusterAfterRegister = await createAndFundCluster(clusters, operatorIds, DEFAULT_ETH_REGISTER_VALUE);
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    const clusterAfterEB64 = await setEB(clusters, clusterId, 64, clusterAfterRegister, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    const { cluster: clusterAfterEB64 } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterRegister, 64, 1);
 
     const vUnitsAt64 = await clusters.getClusterVUnits(clusterId);
-    expect(vUnitsAt64).to.equal(2n * BPS_DENOMINATOR);
+    expect(vUnitsAt64).to.equal(2n * VUNITS_PRECISION);
 
     await clusters.mockMinimumLiquidationCollateral(DEFAULT_ETH_REGISTER_VALUE + 1n);
     const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB64);
@@ -263,20 +223,20 @@ describe("SSVClusters function `reactivate()`", async () => {
 
     await clusters.mockMinimumLiquidationCollateral(0n);
 
-    const baselineThreshold = liquidationThresholdForVUnits(
-      BPS_DENOMINATOR,
-      operatorFeePacked,
-      operatorIds.length,
-      networkFeePacked,
-      minimumBlocksBeforeLiquidation
-    );
-    const thresholdAt64 = liquidationThresholdForVUnits(
-      vUnitsAt64,
-      operatorFeePacked,
-      operatorIds.length,
-      networkFeePacked,
-      minimumBlocksBeforeLiquidation
-    );
+    const baselineThreshold = calcLiquidationThreshold({
+      minimumBlocksBeforeLiquidation,
+      numOperators: BigInt(operatorIds.length),
+      ethFee: operatorFeePacked,
+      networkFee: networkFeePacked,
+      effectiveVUnits: VUNITS_PRECISION,
+    });
+    const thresholdAt64 = calcLiquidationThreshold({
+      minimumBlocksBeforeLiquidation,
+      numOperators: BigInt(operatorIds.length),
+      ethFee: operatorFeePacked,
+      networkFee: networkFeePacked,
+      effectiveVUnits: vUnitsAt64,
+    });
     expect(thresholdAt64).to.equal(baselineThreshold * 2n);
 
     await expect(
@@ -309,11 +269,11 @@ describe("SSVClusters function `reactivate()`", async () => {
     await clusters.mockMinimumLiquidationCollateral(0n);
 
     const clusterAfterRegister = await createAndFundCluster(clusters, operatorIds, DEFAULT_ETH_REGISTER_VALUE);
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    const clusterAfterEB2048 = await setEB(clusters, clusterId, 2048, clusterAfterRegister, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    const { cluster: clusterAfterEB2048 } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterRegister, 2048, 1);
 
     const vUnitsAt2048 = await clusters.getClusterVUnits(clusterId);
-    expect(vUnitsAt2048).to.equal(64n * BPS_DENOMINATOR);
+    expect(vUnitsAt2048).to.equal(64n * VUNITS_PRECISION);
 
     await clusters.mockMinimumLiquidationCollateral(DEFAULT_ETH_REGISTER_VALUE + 1n);
     const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB2048);
@@ -322,20 +282,20 @@ describe("SSVClusters function `reactivate()`", async () => {
 
     await clusters.mockMinimumLiquidationCollateral(0n);
 
-    const baselineThreshold = liquidationThresholdForVUnits(
-      BPS_DENOMINATOR,
-      operatorFeePacked,
-      operatorIds.length,
-      networkFeePacked,
-      minimumBlocksBeforeLiquidation
-    );
-    const thresholdAt2048 = liquidationThresholdForVUnits(
-      vUnitsAt2048,
-      operatorFeePacked,
-      operatorIds.length,
-      networkFeePacked,
-      minimumBlocksBeforeLiquidation
-    );
+    const baselineThreshold = calcLiquidationThreshold({
+      minimumBlocksBeforeLiquidation,
+      numOperators: BigInt(operatorIds.length),
+      ethFee: operatorFeePacked,
+      networkFee: networkFeePacked,
+      effectiveVUnits: VUNITS_PRECISION,
+    });
+    const thresholdAt2048 = calcLiquidationThreshold({
+      minimumBlocksBeforeLiquidation,
+      numOperators: BigInt(operatorIds.length),
+      ethFee: operatorFeePacked,
+      networkFee: networkFeePacked,
+      effectiveVUnits: vUnitsAt2048,
+    });
     expect(thresholdAt2048).to.equal(baselineThreshold * 64n);
 
     await expect(
@@ -374,7 +334,7 @@ describe("SSVClusters function `reactivate()`", async () => {
     const liquidateReceipt = await liquidateTx.wait();
     const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
 
     const migrateTx = await clusters.migrateClusterToETH(
@@ -390,8 +350,8 @@ describe("SSVClusters function `reactivate()`", async () => {
     expect(clusterAfterMigration.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(10_000n); // baseline + deviation
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(10_000n);
     }
   });
 
@@ -410,7 +370,7 @@ describe("SSVClusters function `reactivate()`", async () => {
     const publicKey = makePublicKey(1);
     await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     await clusters.mockSetClusterVUnits(clusterId, 12_000n);
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(12_000n);
 
@@ -426,36 +386,23 @@ describe("SSVClusters function `reactivate()`", async () => {
     await migrateTx.wait();
 
     for (const operatorId of operatorIds) {
-      // Explicit snapshot of 12000 vUnits with baseline of 10000 (1 validator) = deviation of 2000
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(2_000n); // deviation only
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(12_000n); // baseline + deviation
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(2_000n);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(12_000n);
     }
   });
 
   it("Maintains daoTotalEthVUnits consistency through liquidation/reactivation", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
-    
-    // Create cluster with EB deviation
     const cluster = await createAndFundCluster(clusters, operatorIds, ethers.parseEther("10"));
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    
-    // Set EB to create deviation (1000 ETH, 31.25x baseline)
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const effectiveBalance = 1000;
-    await setEB(clusters, clusterId, effectiveBalance, cluster, operatorIds);
-    
-    // Get initial DAO vUnits
+    await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, cluster, effectiveBalance, 1);
     const initialDaoVUnits = await clusters.getDaoTotalEthVUnits();
     const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-    const baselineVUnits = cluster.validatorCount * BPS_DENOMINATOR;
-    
-    // Calculate expected deviation (EB creates positive deviation)
+    const baselineVUnits = cluster.validatorCount * VUNITS_PRECISION;
     const expectedDeviation = clusterVUnits > baselineVUnits ? clusterVUnits - baselineVUnits : 0n;
-    
-    // The liquidation subtracts deviation from each operator, but DAO vUnits can't go negative
     const totalDeviationToSubtract = expectedDeviation * BigInt(operatorIds.length);
     const expectedAfterLiquidation = totalDeviationToSubtract > initialDaoVUnits ? 0n : initialDaoVUnits - totalDeviationToSubtract;
-    
-    // Liquidate cluster
     const liquidateTx = await clusters.liquidate(
       clusterOwner.address,
       operatorIds,
@@ -463,43 +410,26 @@ describe("SSVClusters function `reactivate()`", async () => {
     );
     const liquidateReceipt = await liquidateTx.wait();
     const liquidatedCluster = parseClusterFromEvent(clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED);
-    
-    // Verify DAO vUnits decreased correctly (can't go negative)
     const afterLiquidation = await clusters.getDaoTotalEthVUnits();
     expect(afterLiquidation).to.equal(expectedAfterLiquidation);
-    
-    // Reactivate cluster using the liquidated cluster state
     const reactivateTx = await clusters.reactivate(
       operatorIds,
       liquidatedCluster,
       { value: ethers.parseEther("20") }
     );
     await reactivateTx.wait();
-    
-    // Verify DAO vUnits restored to initial value
     const afterReactivation = await clusters.getDaoTotalEthVUnits();
     expect(afterReactivation).to.equal(initialDaoVUnits);
-    
-    // Verify EB snapshot preserved through liquidation/reactivation cycle
     const finalClusterVUnits = await clusters.getClusterVUnits(clusterId);
     expect(finalClusterVUnits).to.equal(clusterVUnits);
-    
-    // Additional EB preservation checks:
-    // 1. Verify the EB snapshot still exists after reactivation
     const ebSnapshotAfterReactivation = await clusters.getClusterVUnits(clusterId);
-    let expectedVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + 31n) / 32n;
+    let expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
     expect(ebSnapshotAfterReactivation).to.equal(expectedVUnits);
-    
-    // 2. Verify the EB value matches the original effective balance
-    expectedVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + 31n) / 32n;
+    expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
     expect(finalClusterVUnits).to.equal(expectedVUnits, "EB vUnits should match original effective balance calculation");
-    
-    // 3. Verify the deviation is still correctly calculated
-    const finalBaselineVUnits = liquidatedCluster.validatorCount * BPS_DENOMINATOR;
+    const finalBaselineVUnits = liquidatedCluster.validatorCount * VUNITS_PRECISION;
     const finalDeviation = finalClusterVUnits > finalBaselineVUnits ? finalClusterVUnits - finalBaselineVUnits : 0n;
     expect(finalDeviation).to.equal(expectedDeviation, "Deviation should be preserved through liquidation/reactivation");
-    
-    // 4. Verify operator deviation vUnits are preserved
     for (const operatorId of operatorIds) {
       const operatorEthVUnits = await clusters.getOperatorEthVUnits(operatorId);
       expect(operatorEthVUnits).to.equal(finalDeviation, "Each operator should have the deviation vUnits preserved");
@@ -512,16 +442,16 @@ describe("SSVClusters function `reactivate()`", async () => {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
 
     const clusterAfterRegister = await createAndFundCluster(clusters, operatorIds, ethers.parseEther("10"));
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    const clusterAfterEB = await setEB(clusters, clusterId, 96, clusterAfterRegister, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    const { cluster: clusterAfterEB } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterRegister, 96, 1);
 
     const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-    const baselineVUnits = clusterAfterEB.validatorCount * BPS_DENOMINATOR;
+    const baselineVUnits = clusterAfterEB.validatorCount * VUNITS_PRECISION;
     const expectedDeviation = clusterVUnits - baselineVUnits;
     const initialDaoVUnits = await clusters.getDaoTotalEthVUnits();
 
-    expect(clusterVUnits).to.equal(3n * BPS_DENOMINATOR);
-    expect(expectedDeviation).to.equal(2n * BPS_DENOMINATOR);
+    expect(clusterVUnits).to.equal(3n * VUNITS_PRECISION);
+    expect(expectedDeviation).to.equal(2n * VUNITS_PRECISION);
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation);
     }

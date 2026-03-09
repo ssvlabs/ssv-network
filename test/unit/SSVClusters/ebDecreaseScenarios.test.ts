@@ -1,11 +1,10 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
+import { setupTestContext, computeClusterId, computeEBRoot, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { ethers } from "ethers";
@@ -19,32 +18,21 @@ describe("EB decrease scenarios", async () => {
   let liquidator: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [clusterOwner, liquidator] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, liquidator] } = await setupTestContext());
   });
 
   const deployClustersWithFee = async () => {
     return ssvClustersHarnessFixture(connection, 4, OPERATOR_FEE);
   };
 
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
-  };
 
-  const getEBRoot = (clusterId: string, effectiveBalance: number): string => {
-    const coder = ethers.AbiCoder.defaultAbiCoder();
-    const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
-    return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
-  };
 
   it("EB decrease from 64 to 32 ETH reduces vUnits, clears deviation, settles fees at old rate", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
 
     await clusters.mockEthNetworkFee(0n);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
     const regTx = await clusters.registerValidator(
       makePublicKey(1),
@@ -56,7 +44,7 @@ describe("EB decrease scenarios", async () => {
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
 
-    const root1 = getEBRoot(clusterId, 64);
+    const root1 = computeEBRoot(clusterId, 64);
     await clusters.mockSetEBRoot(1, root1);
 
     const ebTx1 = await clusters.updateClusterBalance(1, clusterOwner.address, operatorIds, clusterAfterReg, 64, []);
@@ -64,10 +52,10 @@ describe("EB decrease scenarios", async () => {
     const blockEB64 = ebReceipt1!.blockNumber;
     const clusterAfterEB64 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedVUnits64 = ((64n * BPS_DENOMINATOR) + 31n) / 32n; // ceil(64 * 10000 / 32) = 20000
+    const expectedVUnits64 = ((64n * VUNITS_PRECISION) + 31n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits64);
 
-    const expectedDeviation64 = expectedVUnits64 - BPS_DENOMINATOR; // 10000
+    const expectedDeviation64 = expectedVUnits64 - VUNITS_PRECISION;
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation64);
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(expectedVUnits64);
@@ -77,7 +65,7 @@ describe("EB decrease scenarios", async () => {
 
     const balanceAfterEB64 = clusterAfterEB64.balance;
 
-    const root2 = getEBRoot(clusterId, 32);
+    const root2 = computeEBRoot(clusterId, 32);
     await clusters.mockSetEBRoot(2, root2);
 
     const ebTx2 = await clusters.updateClusterBalance(2, clusterOwner.address, operatorIds, clusterAfterEB64, 32, []);
@@ -85,22 +73,18 @@ describe("EB decrease scenarios", async () => {
     const blockEB32 = ebReceipt2!.blockNumber;
     const clusterAfterEB32 = parseClusterFromEvent(clusters, ebReceipt2, Events.CLUSTER_BALANCE_UPDATED);
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION);
     }
-
-    // Calculate exact expected fees using SPEC.md formula:
-    // fees = (blocksDelta * sum(packedOperatorFees) * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS
-    // During the 64 ETH period, fees are charged at 64 ETH rate (20,000 vUnits)
     const blocksDelta = BigInt(blockEB32 - blockEB64);
     const vUnits64 = 20000n;
     const ETH_DEDUCTED_DIGITS = 100_000n;
-    const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS; // 100_000
-    const totalPackedFeeRate = 4n * packedOpFee; // 4 operators
-    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
+    const totalPackedFeeRate = 4n * packedOpFee;
+    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
 
     const feesDeducted = balanceAfterEB64 - clusterAfterEB32.balance;
     expect(feesDeducted).to.equal(expectedFees);
@@ -111,7 +95,7 @@ describe("EB decrease scenarios", async () => {
   it("EB decrease below 32 ETH per validator reverts with EBBelowMinimum", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
     const regTx = await clusters.registerValidator(
       makePublicKey(1),
@@ -123,17 +107,17 @@ describe("EB decrease scenarios", async () => {
     const regReceipt = await regTx.wait();
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
 
-    const root1 = getEBRoot(clusterId, 128);
+    const root1 = computeEBRoot(clusterId, 128);
     await clusters.mockSetEBRoot(1, root1);
 
     const ebTx1 = await clusters.updateClusterBalance(1, clusterOwner.address, operatorIds, clusterAfterReg, 128, []);
     const ebReceipt1 = await ebTx1.wait();
     const clusterAfter128 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.be.gt(BPS_DENOMINATOR);
+    expect(await clusters.getClusterVUnits(clusterId)).to.be.gt(VUNITS_PRECISION);
 
     const belowMinEB = 31;
-    const root2 = getEBRoot(clusterId, belowMinEB);
+    const root2 = computeEBRoot(clusterId, belowMinEB);
     await clusters.mockSetEBRoot(2, root2);
 
     await expect(
@@ -161,9 +145,9 @@ describe("EB decrease scenarios", async () => {
     const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
     expect(clusterAfterReg.active).to.equal(true);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
-    const root1 = getEBRoot(clusterId, 64);
+    const root1 = computeEBRoot(clusterId, 64);
     await clusters.mockSetEBRoot(1, root1);
 
     const ebTx1 = await clusters.updateClusterBalance(1, clusterOwner.address, operatorIds, clusterAfterReg, 64, []);
@@ -179,7 +163,7 @@ describe("EB decrease scenarios", async () => {
 
     await networkHelpers.mine(70);
 
-    const root2 = getEBRoot(clusterId, 32);
+    const root2 = computeEBRoot(clusterId, 32);
     await clusters.mockSetEBRoot(2, root2);
 
     const ebTx2 = await clusters.updateClusterBalance(2, clusterOwner.address, operatorIds, clusterAfterEB64, 32, []);
@@ -197,7 +181,7 @@ describe("EB decrease scenarios", async () => {
     await clusters.mockMinimumLiquidationCollateral(0n);
     await clusters.mockMinimumBlocksBeforeLiquidation(1n);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
     const regTx = await clusters.registerValidator(
       makePublicKey(1),
@@ -214,21 +198,21 @@ describe("EB decrease scenarios", async () => {
     }
     expect(await clusters.getDaoTotalEthVUnits()).to.equal(BPS_DENOMINATOR);
 
-    const root1 = getEBRoot(clusterId, 64);
+    const root1 = computeEBRoot(clusterId, 64);
     await clusters.mockSetEBRoot(1, root1);
 
     const ebTx1 = await clusters.updateClusterBalance(1, clusterOwner.address, operatorIds, clusterAfterReg, 64, []);
     const ebReceipt1 = await ebTx1.wait();
     const clusterAfterEB64 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedDeviation = 20000n - BPS_DENOMINATOR; // 10000
+    const expectedDeviation = 20000n - VUNITS_PRECISION;
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation);
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(20000n);
     }
     expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
 
-    const root2 = getEBRoot(clusterId, 32);
+    const root2 = computeEBRoot(clusterId, 32);
     await clusters.mockSetEBRoot(2, root2);
 
     const ebTx2 = await clusters.updateClusterBalance(2, clusterOwner.address, operatorIds, clusterAfterEB64, 32, []);
@@ -237,10 +221,10 @@ describe("EB decrease scenarios", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION);
     }
-    expect(await clusters.getDaoTotalEthVUnits()).to.equal(BPS_DENOMINATOR);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(VUNITS_PRECISION);
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
   });
 });

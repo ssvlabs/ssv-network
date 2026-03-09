@@ -1,15 +1,13 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey, makePublicKeys } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
+import { setupTestContext, createCluster, makePublicKey, makePublicKeys, computeClusterId } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
-import { ethers } from "ethers";
 
 describe("SSVClusters function `bulkExitValidator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -21,9 +19,7 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
   let deployClustersWith13Operators!: ReturnType<typeof getValidatorsHarnessFixture>;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [clusterOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner] } = await setupTestContext());
 
     deployClustersWith7Operators = getValidatorsHarnessFixture(connection, 7);
     deployClustersWith10Operators = getValidatorsHarnessFixture(connection, 10);
@@ -32,12 +28,6 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
 
   const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
     return ssvValidatorsHarnessFixture(connection);
-  };
-
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
   };
 
   it("Exits multiple validators and emits events", async function () {
@@ -72,8 +62,8 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    await validators.mockSetClusterVUnits(clusterId, 9n * BPS_DENOMINATOR);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    await validators.mockSetClusterVUnits(clusterId, 9n * VUNITS_PRECISION);
 
     const beforeClusterVUnits = await validators.getClusterVUnits(clusterId);
     const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => validators.getOperatorEthVUnits(id)));

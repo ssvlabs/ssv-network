@@ -1,11 +1,10 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { setupTestContext, computeClusterId, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -22,9 +21,7 @@ describe("SSVClusters function `liquidate()`", async () => {
   let deployClustersWith13Operators!: ReturnType<typeof getClustersHarnessFixture>;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [clusterOwner, otherAccount] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, otherAccount] } = await setupTestContext());
 
     deployClustersWith7Operators = getClustersHarnessFixture(connection, 7);
     deployClustersWith10Operators = getClustersHarnessFixture(connection, 10);
@@ -35,11 +32,6 @@ describe("SSVClusters function `liquidate()`", async () => {
     return ssvClustersHarnessFixture(connection);
   };
 
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
-  };
 
   it("Allows the cluster owner to liquidate and emits correct event", async function () {
     const { clusters, operatorIds } =
@@ -86,8 +78,6 @@ describe("SSVClusters function `liquidate()`", async () => {
     );
     const registerReceipt = await registerTx.wait();
     const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
-
-    // Make liquidatable for third party via minimum collateral.
     const harnessAddress = await clusters.getAddress();
     const harnessBalance = await connection.ethers.provider.getBalance(harnessAddress);
     const minCollateral = harnessBalance / ETH_DEDUCTED_DIGITS + 1n;
@@ -183,19 +173,19 @@ describe("SSVClusters function `liquidate()`", async () => {
     const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR); // baseline + deviation
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION);
     }
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
 
     const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister);
     await liquidateTx.wait();
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(0n); // baseline removed on liquidation
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(0n);
     }
   });
 
@@ -236,21 +226,15 @@ describe("SSVClusters function `liquidate()`", async () => {
     const clusterAfter3 = parseClusterFromEvent(clusters, receipt3, Events.VALIDATOR_ADDED);
 
     for (const operatorId of operatorIds) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * BPS_DENOMINATOR); // baseline + deviation
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION);
     }
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    // Set explicit snapshot to 5 validators worth (more than 3 validators baseline)
-    // EB floor is 32 ETH per validator, so vUnits >= baseline always
-    // 5 * 10000 = 50000 vUnits, baseline = 3 * 10000 = 30000, deviation = 20000
-    const explicitVUnits = 5n * BPS_DENOMINATOR;
-    const baseline = 3n * BPS_DENOMINATOR;
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    const explicitVUnits = 5n * VUNITS_PRECISION;
+    const baseline = 3n * VUNITS_PRECISION;
     const deviation = explicitVUnits - baseline;
     await clusters.mockSetClusterVUnits(clusterId, explicitVUnits);
-    // Also mock the operatorEthVUnits and daoTotalEthVUnits to be consistent (as if EB update happened)
-    // updateDAO subtracts baseline, _executeLiquidation subtracts deviation
-    // So daoTotalEthVUnits needs baseline + deviation = explicitVUnits
     await clusters.mockSetDaoTotalEthVUnits(explicitVUnits);
     for (const operatorId of operatorIds) {
       await clusters.mockSetOperatorEthVUnits(operatorId, deviation);
@@ -266,16 +250,13 @@ describe("SSVClusters function `liquidate()`", async () => {
 
     const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfter3);
     await liquidateTx.wait();
-
-    // After liquidation: baseline removed (ethValidatorCount = 0), deviation removed
-    // operatorEthVUnits -= deviation, ethValidatorCount = 0
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(0n);
     }
 
     const afterSnapshotVUnits = await clusters.getClusterVUnits(clusterId);
-    expect(afterSnapshotVUnits).to.equal(explicitVUnits); // Snapshot vunits stored after liquidation
+    expect(afterSnapshotVUnits).to.equal(explicitVUnits);
   });
 
   it("Allows the cluster owner to liquidate with 7 operators", async function () {

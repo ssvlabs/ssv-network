@@ -1,9 +1,8 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, seedOperatorWithETHBalance, setupTestContext } from "../../common/helpers.ts";
 import {
   DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
@@ -19,17 +18,12 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   const deployOperatorsFixture = async () =>
     ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
 
-  const seedOperatorWithETHBalance = async (operators: any, operatorId: number, ethSnapshotBalance: bigint) => {
-    const harnessAddress = await operators.getAddress();
-    await networkHelpers.setBalance(harnessAddress, connection.ethers.parseEther("1000"));
-    await operators.mockSetOperatorBalances(operatorId, Number(ethSnapshotBalance), 0);
-  };
 
   it("withdrawOperatorEarnings withdraws specific amount and emits event", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
@@ -39,7 +33,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
-    await seedOperatorWithETHBalance(operators, 1, 5n);
+    await seedOperatorWithETHBalance(networkHelpers, connection, operators, 1, 5n);
 
     const amount = 2n * ETH_DEDUCTED_DIGITS;
 
@@ -63,9 +57,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
-    await seedOperatorWithETHBalance(operators, 1, 5n);
-
-    // Withdraw zero should succeed (snapshot gets updated as part of the process)
+    await seedOperatorWithETHBalance(networkHelpers, connection, operators, 1, 5n);
     await operators.withdrawOperatorEarnings(1, 0n);
   });
 
@@ -77,7 +69,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
-    await seedOperatorWithETHBalance(operators, 1, 4n);
+    await seedOperatorWithETHBalance(networkHelpers, connection, operators, 1, 4n);
 
     const expectedAmount = 4n * ETH_DEDUCTED_DIGITS;
 
@@ -116,7 +108,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
-    await seedOperatorWithETHBalance(operators, 1, 1n);
+    await seedOperatorWithETHBalance(networkHelpers, connection, operators, 1, 1n);
 
     await expect(operators.connect(other).withdrawOperatorEarnings(1, ETH_DEDUCTED_DIGITS)).to.be.revertedWithCustomError(
       operators,
@@ -131,7 +123,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
-    await seedOperatorWithETHBalance(operators, 1, 5n);
+    await seedOperatorWithETHBalance(networkHelpers, connection, operators, 1, 5n);
 
     await expect(operators.withdrawOperatorEarnings(1, 1n))
       .to.be.revertedWithCustomError(operators, Errors.MAX_PRECISION_EXCEEDED);
@@ -145,7 +137,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
-    await seedOperatorWithETHBalance(operators, 1, 1n);
+    await seedOperatorWithETHBalance(networkHelpers, connection, operators, 1, 1n);
 
     await expect(operators.connect(other).withdrawAllOperatorEarnings(1)).to.be.revertedWithCustomError(
       operators,
@@ -158,7 +150,7 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     const [owner] = await connection.ethers.getSigners();
 
     await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
-    await seedOperatorWithETHBalance(operators, 1, 1n);
+    await seedOperatorWithETHBalance(networkHelpers, connection, operators, 1, 1n);
 
     const amount = 1n * ETH_DEDUCTED_DIGITS;
 

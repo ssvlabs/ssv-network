@@ -1,17 +1,17 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Errors } from "../../common/errors.ts";
 import { ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 
 describe("SSVStaking reentrancy guard", async () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   it("Blocks reentrancy during ETH rewards claim", async function () {

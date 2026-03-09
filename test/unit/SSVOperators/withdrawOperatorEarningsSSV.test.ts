@@ -1,9 +1,8 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import {
   DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
@@ -19,7 +18,7 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   const deployOperatorsFixture = async () =>
@@ -71,8 +70,6 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
     );
     await operators.mockSetOperatorLegacySSV(1, 1);
     await seedOperatorWithSSVBalance(operators, 1, 5n);
-
-    // Withdraw zero should succeed (snapshot gets updated as part of the process)
     await operators.withdrawOperatorEarningsSSV(1, 0n);
   });
 
