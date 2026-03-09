@@ -85,13 +85,13 @@ describe("SSVStaking function `stake()`", async () => {
       .withArgs(staker.address, minAmount);
   });
 
-  it("Is reverted with 'StakeTooLow' when staking zero amount", async function () {
+  it("Is reverted with 'ZeroAmount' when staking zero amount", async function () {
     const { staking } =
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await expect(staking.stake(0n)).to.be.revertedWithCustomError(
       staking,
-      Errors.STAKE_TOO_LOW
+      Errors.ZERO_AMOUNT
     );
   });
 
