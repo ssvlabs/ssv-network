@@ -229,6 +229,7 @@ Directly testable with current harness patterns. High bug-catching value.
 
 | Planned Property | Type | Description | Ref |
 |---|---|---|---|
+| `echidna_eb_update_requires_latest_root` | Conditional | `updateClusterBalance(blockNum, ...)` with non-latest committed root must always revert (SSV-17 latest-root-only rule) | SSV-17 |
 | `echidna_eb_update_requires_root` | Conditional | `updateClusterBalance(blockNum, ...)` succeeds only if `ebRoots[blockNum] != 0` | B3 |
 | `echidna_eb_update_frequency` | Conditional | Same cluster cannot update twice within `minBlocksBetweenUpdates` — second update reverts | B4 |
 | `echidna_eb_update_staleness` | Conditional | Successful update requires `blockNum > lastRootBlockNum` for that cluster | B5 |
@@ -291,8 +292,11 @@ Significant implementation effort. Requires custom delta-block simulators, per-c
 
 #### Migration
 
-| Planned Property | Type | Description | Ref |
+| Property | Type | Description | Ref |
 |---|---|---|---|
+| `echidna_migration_removed_refund_exact` | Implemented | On successful SSV→ETH migration, refunded SSV must equal settlement computed with full cumulative SSV index (including removed operators' frozen `snapshot.index`) | BUG-14 |
+| `echidna_migration_removed_operator_not_eth_initialized` | Implemented | Operators removed before migration (`snapshot.block == 0 && ethSnapshot.block == 0`) must remain excluded from ETH initialization and ETH validator-count updates | BUG-14 |
+| `echidna_removed_operator_state_and_frozen_index_preserved` | Implemented | Removed operators must keep zeroed snapshot blocks while preserving frozen `snapshot.index` across subsequent actions | BUG-14 |
 | `echidna_migration_one_way` | Candidate | After `migrateClusterToETH`: ETH mode active, SSV balance returned, legacy operations revert — catches partial migration / stuck funds | C7 |
 
 #### Overflow / Extreme Value

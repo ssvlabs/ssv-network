@@ -26,6 +26,8 @@ struct StorageEB {
     mapping(bytes32 => uint256) rootCommitments;
     /// @notice Tracks if an oracle ID has voted for a specific commitment key
     mapping(bytes32 => mapping(uint32 => bool)) hasVoted;
+    /// @notice Frozen cSSV total supply at the first vote of each commitment round
+    mapping(bytes32 => uint256) roundFrozenSupply;
 }
 
 library SSVStorageEB {

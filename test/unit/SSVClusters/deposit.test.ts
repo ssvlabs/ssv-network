@@ -211,6 +211,35 @@ describe("SSVClusters function `deposit()`", async () => {
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 
+  it("Deposit into zero-validator cluster accrues no fees over elapsed blocks", async function () {
+    const deployWithFee = async () => ssvClustersHarnessFixture(connection, 4, 10_000_000_000n);
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithFee);
+
+    const publicKey = makePublicKey(1);
+    const registerTx = await clusters.registerValidator(
+      publicKey, operatorIds, DEFAULT_SHARES, createCluster(), { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const removeTx = await clusters.removeValidator(publicKey, operatorIds, clusterAfterRegister);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    const balanceAtRemoval = clusterAfterRemove.balance;
+
+    await networkHelpers.mine(100);
+
+    const depositAmount = ethers.parseEther("0.5");
+    const depositTx = await clusters.deposit(
+      clusterOwner.address, operatorIds, clusterAfterRemove, { value: depositAmount }
+    );
+    const depositReceipt = await depositTx.wait();
+    const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+
+    expect(clusterAfterDeposit.balance).to.equal(balanceAtRemoval + depositAmount);
+  });
+
   it("Does not change contract balance when deposit reverts", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);

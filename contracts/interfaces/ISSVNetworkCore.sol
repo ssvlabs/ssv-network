@@ -290,6 +290,11 @@ interface ISSVNetworkCore {
     error StaleUpdate(); // 0x666a2814
 
     /**
+     * @dev Thrown when eb update does not use latest committed root block
+     */
+    error MustUseLatestRoot();
+
+    /**
      * @dev Thrown when the merkle proof is invalid
      */
     error InvalidProof(); // 0x09bde339
@@ -368,6 +373,11 @@ interface ISSVNetworkCore {
      * @dev Thrown when oracle is already assigned with the selected address
      */
     error OracleAlreadyAssigned(); // 0xa97938cb
+
+    /**
+     * @dev Thrown when oracleId exceeds the maximum allowed oracle slots
+     */
+    error InvalidOracleId();
 
     /**
      * @dev Thrown when the maximum unstake requests amount reached

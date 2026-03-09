@@ -7,7 +7,7 @@ import "../libraries/OperatorLib.sol";
 import "../libraries/ProtocolLib.sol";
 import "../libraries/CoreLib.sol";
 import "../libraries/ValidatorLib.sol";
-import {VERSION_ETH} from "../libraries/SSVCoreTypes.sol";
+import {VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
@@ -174,7 +174,6 @@ contract SSVValidators is ISSVValidators {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(owner, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, VERSION_ETH);
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         uint32 validatorsRemoved;
@@ -190,57 +189,81 @@ contract SSVValidators is ISSVValidators {
             validatorsRemoved++;
         }
 
-        if (cluster.active) {
-            StorageProtocol storage sp = SSVStorageProtocol.load();
-            // slither-disable-next-line unused-return
-            (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
-                operatorIds,
-                false,
-                validatorsRemoved,
-                s,
-                sp
-            );
+        if (version == VERSION_ETH) {
+            if (cluster.active) {
+                StorageProtocol storage sp = SSVStorageProtocol.load();
+                // slither-disable-next-line unused-return
+                (uint64 clusterIndex, ) = OperatorLib.updateClusterOperators(
+                    operatorIds,
+                    false,
+                    validatorsRemoved,
+                    s,
+                    sp
+                );
 
-            cluster.updateClusterData(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
+                cluster.updateClusterData(hashedCluster, clusterIndex, sp.currentNetworkFeeIndex());
 
-            sp.updateDAO(false, validatorsRemoved);
-        }
-
-        cluster.validatorCount -= validatorsRemoved;
-
-        {
-            // Deviation-only model: baseline removed via ethValidatorCount (already updated above)
-            // Do NOT subtract baseline from operatorEthVUnits
-            // Only handle deviation cleanup for explicit EB clusters
-            StorageEB storage seb = SSVStorageEB.load();
-            ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
-            
-            if (ebSnapshot.vUnits > 0) {
-                // Cluster has explicit EB tracking - subtract baseline from snapshot
-                uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
-                ebSnapshot.vUnits -= deltaClusterVUnits;
-                
-                // When cluster becomes empty, clean up any remaining deviation
-                if (cluster.validatorCount == 0) {
-                    uint64 remainingVUnits = ebSnapshot.vUnits;
-                    if (remainingVUnits > 0 && cluster.active) {
-                        // remainingVUnits is pure deviation (no baseline left since validatorCount=0)
-                        // Skip for liquidated clusters: deviation already cleaned up in _executeLiquidation
-                        uint256 operatorsLength = operatorIds.length;
-                        for (uint256 i; i < operatorsLength; ++i) {
-                            seb.operatorEthVUnits[operatorIds[i]] -= remainingVUnits;
-                        }
-                        StorageProtocol storage sp = SSVStorageProtocol.load();
-                        sp.updateDAOEthVUnits(remainingVUnits, 0);
-                    }
-                    ebSnapshot.vUnits = 0;
-                }
+                sp.updateDAO(false, validatorsRemoved);
             }
-            // For implicit clusters (ebSnapshot.vUnits == 0): nothing to do
-            // Baseline removal handled via ethValidatorCount decrement
-        }
 
-        s.ethClusters[hashedCluster] = cluster.hashClusterData();
+            cluster.validatorCount -= validatorsRemoved;
+
+            {
+                // Deviation-only model: baseline removed via ethValidatorCount (already updated above)
+                // Do NOT subtract baseline from operatorEthVUnits
+                // Only handle deviation cleanup for explicit EB clusters
+                StorageEB storage seb = SSVStorageEB.load();
+                ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
+                
+                if (ebSnapshot.vUnits > 0) {
+                    // Cluster has explicit EB tracking - subtract baseline from snapshot
+                    uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
+                    ebSnapshot.vUnits -= deltaClusterVUnits;
+                    
+                    // When cluster becomes empty, clean up any remaining deviation
+                    if (cluster.validatorCount == 0) {
+                        uint64 remainingVUnits = ebSnapshot.vUnits;
+                        if (remainingVUnits > 0 && cluster.active) {
+                            // remainingVUnits is pure deviation (no baseline left since validatorCount=0)
+                            // Skip for liquidated clusters: deviation already cleaned up in _executeLiquidation
+                            uint256 operatorsLength = operatorIds.length;
+                            for (uint256 i; i < operatorsLength; ++i) {
+                                seb.operatorEthVUnits[operatorIds[i]] -= remainingVUnits;
+                            }
+                            StorageProtocol storage sp = SSVStorageProtocol.load();
+                            sp.updateDAOEthVUnits(remainingVUnits, 0);
+                        }
+                        ebSnapshot.vUnits = 0;
+                    }
+                }
+                // For implicit clusters (ebSnapshot.vUnits == 0): nothing to do
+                // Baseline removal handled via ethValidatorCount decrement
+            }
+
+            s.ethClusters[hashedCluster] = cluster.hashClusterData();
+        } else if (version == VERSION_SSV) {
+            if (cluster.active) {
+                StorageProtocol storage sp = SSVStorageProtocol.load();
+                // slither-disable-next-line unused-return
+                (uint64 clusterIndex, ) = OperatorLib.updateClusterOperatorsSSV(
+                    operatorIds,
+                    false,
+                    validatorsRemoved,
+                    s,
+                    sp
+                );
+                uint64 currentNetworkFeeIndexSSV = sp.currentNetworkFeeIndexSSV();
+                cluster.updateBalanceSSV(clusterIndex, currentNetworkFeeIndexSSV);
+                cluster.index = clusterIndex;
+                cluster.networkFeeIndex = currentNetworkFeeIndexSSV;
+                sp.updateDAOSSV(false, validatorsRemoved);
+            }
+
+            cluster.validatorCount -= validatorsRemoved;
+            s.clusters[hashedCluster] = cluster.hashClusterData();
+        } else {
+            revert ISSVNetworkCore.IncorrectClusterVersion();
+        }
 
         for (uint i; i < validatorsLength; ++i) {
             emit ValidatorRemoved(owner, operatorIds, publicKeys[i], cluster);
