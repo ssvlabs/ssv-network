@@ -3243,6 +3243,23 @@ describe("SSVNetwork full integration tests", () => {
       expect(await randomToken.balanceOf(randomUser.address)).to.be.equal(123);
     });
 
+    it("Withdraws non-standard ERC20 tokens that do not return a value", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const nonStandardToken = await connection.ethers.deployContract("NonStandardERC20Mock");
+      await nonStandardToken.waitForDeployment();
+      const tokenAddress = await nonStandardToken.getAddress();
+
+      await nonStandardToken.mint(await network.getAddress(), 123);
+
+      await expect(network.rescueERC20(tokenAddress, randomUser.address, 123))
+        .to.emit(network, Events.ERC20_RESCUED)
+        .withArgs(tokenAddress, randomUser.address, 123);
+
+      expect(await nonStandardToken.balanceOf(randomUser.address)).to.be.equal(123);
+    });
+
     it("Is reverted with 'Ownable: caller is not the owner' if the caller is not the owner", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
