@@ -1,11 +1,11 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 import { ethers } from "ethers";
 
@@ -19,9 +19,7 @@ describe("SSVDAO function `replaceOracle()`", async () => {
   let otherOracle: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [owner, oldOracle, newOracle, otherOracle] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner, oldOracle, newOracle, otherOracle] } = await setupTestContext());
   });
 
   const deployDAOFixture = async () => ssvDAOHarnessFixture(connection);

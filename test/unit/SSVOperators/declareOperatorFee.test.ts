@@ -1,10 +1,9 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import {
   DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
@@ -21,9 +20,7 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
   let owner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [owner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner] } = await setupTestContext());
   });
 
   const deployOperatorsFixture = async () =>
@@ -40,7 +37,7 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
     );
 
     const operatorId = 1;
-    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n; // within allowed increase and precision
+    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
 
     await expect(
       trackGas(
@@ -63,7 +60,7 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
       [GasGroup.REGISTER_OPERATOR]
     );
 
-    await operators.mockSetMinimumOperatorEthFee(20_000_000); // above 10_000_000
+    await operators.mockSetMinimumOperatorEthFee(20_000_000);
     await expect(operators.declareOperatorFee(1, 10_000_000)).to.be.revertedWithCustomError(operators, Errors.FEE_TOO_LOW);
   });
 
@@ -111,12 +108,9 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
 
   it("Is reverted with 'FeeExceedsIncreaseLimit' when increasing fee beyond allowed percentage", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
-    // Fixture sets max increase to 100% (10_000)
     
     const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE);
     await operators.registerOperator(makeOperatorKey(1), initialFee, false);
-
-    // Try to increase by > 100% (e.g. triple the fee)
     const newFee = initialFee * 3;
     
     await expect(operators.declareOperatorFee(1, newFee)).to.be.revertedWithCustomError(

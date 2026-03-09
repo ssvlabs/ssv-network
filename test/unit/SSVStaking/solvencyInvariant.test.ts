@@ -1,9 +1,9 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { DEFAULT_UNSTAKE_COOLDOWN, STAKE_AMOUNT, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 
 describe("SSVStaking solvency invariant (cSSV supply <= SSV backing)", async () => {
@@ -14,8 +14,7 @@ describe("SSVStaking solvency invariant (cSSV supply <= SSV backing)", async () 
   let staker3: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [staker1, staker2, staker3] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [staker1, staker2, staker3] } = await setupTestContext());
   });
 
   const deployStakingFixture = async () => ssvStakingHarnessFixture(connection);
@@ -157,16 +156,12 @@ describe("SSVStaking solvency invariant (cSSV supply <= SSV backing)", async () 
     await staking.stake(STAKE_AMOUNT);
     await staking.connect(staker2).stake(STAKE_AMOUNT);
     await expectStakingSolvent(staking, ssvToken, cssvToken);
-
-    // Keep sync deterministic for this test and fund ETH payouts.
     await staking.mockSetDaoTotalEthVUnits(0n);
     await staking.mockSetEthNetworkFee(0n);
     await staker1.sendTransaction({
       to: await staking.getAddress(),
       value: connection.ethers.parseEther("1"),
     });
-
-    // Set rewards and matching packed pool/DAO balances.
     const user1Accrued = 6n * ETH_DEDUCTED_DIGITS;
     const user2Accrued = 9n * ETH_DEDUCTED_DIGITS;
     await staking.mockSetUserAccrued(staker1.address, user1Accrued);
@@ -202,8 +197,6 @@ describe("SSVStaking solvency invariant (cSSV supply <= SSV backing)", async () 
     await staking.stake(STAKE_AMOUNT);
     await staking.connect(staker2).stake(STAKE_AMOUNT);
     await expectStakingSolvent(staking, ssvToken, cssvToken);
-
-    // Model cSSV transfer hook settlement as called by the cSSV contract.
     const cssvSigner = await impersonate(await cssvToken.getAddress());
     await staking.mockSetDaoTotalEthVUnits(0n);
     await staking.mockSetEthNetworkFee(0n);
@@ -216,15 +209,11 @@ describe("SSVStaking solvency invariant (cSSV supply <= SSV backing)", async () 
       staker2.address,
       STAKE_AMOUNT / 2n
     );
-    // pending = balance * (accEthPerShare - userIndex) / PRECISION
-    //         = STAKE_AMOUNT * (2e18 - 1e18) / 1e18 = STAKE_AMOUNT
     expect(await staking.getUserAccrued(staker1.address)).to.equal(STAKE_AMOUNT);
     expect(await staking.getUserAccrued(staker2.address)).to.equal(STAKE_AMOUNT);
     expect(await staking.getUserIndex(staker1.address)).to.equal(2n * 10n ** 18n);
     expect(await staking.getUserIndex(staker2.address)).to.equal(2n * 10n ** 18n);
     await expectStakingSolvent(staking, ssvToken, cssvToken);
-
-    // Apply the ERC20 transfer in the harness token to complete the flow.
     await cssvToken.transfer(staker2.address, STAKE_AMOUNT / 2n);
     await expectStakingSolvent(staking, ssvToken, cssvToken);
   });

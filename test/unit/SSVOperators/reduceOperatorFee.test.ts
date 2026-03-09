@@ -1,9 +1,8 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import {
   DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
@@ -18,7 +17,7 @@ describe("SSVOperators function `reduceOperatorFee()`", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   const deployOperatorsFixture = async () =>
@@ -67,19 +66,11 @@ describe("SSVOperators function `reduceOperatorFee()`", async () => {
 
     await operators.registerOperator(makeOperatorKey(1), initialFee, false);
     await operators.declareOperatorFee(1, declaredFee);
-
-    // Verify declaration exists
     let request = await operators.getOperatorFeeChangeRequest(1);
     expect(request.approvalBeginTime).to.be.gt(0);
-
-    // Reduce fee
     await operators.reduceOperatorFee(1, reducedFee);
-
-    // Verify declaration is cleared
     request = await operators.getOperatorFeeChangeRequest(1);
     expect(request.approvalBeginTime).to.equal(0);
-    
-    // Verify fee is reduced
     const op = await operators.getOperator(1);
     expect(op.ethFee).to.equal(BigInt(reducedFee) / ETH_DEDUCTED_DIGITS);
   });

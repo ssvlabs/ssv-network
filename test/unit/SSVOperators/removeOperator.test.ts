@@ -2,10 +2,9 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -19,9 +18,7 @@ describe("SSVOperators function `removeOperator()`", async () => {
   let other: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [owner, other] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner, other] } = await setupTestContext());
   });
 
   const deployOperatorsFixture = async () => ssvOperatorsHarnessFixture(connection);
@@ -71,11 +68,7 @@ describe("SSVOperators function `removeOperator()`", async () => {
     
     await operators.mockSetToken(await token.getAddress());
     await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
-
-    // Set SSV balance (mock uses raw storage value, so 100 units)
     await operators.mockSetOperatorBalances(1, 0n, 100n);
-    
-    // Mint tokens to operators contract
     await token.mint(await operators.getAddress(), ethers.parseEther("1000"));
 
     const before = await token.balanceOf(owner.address);
@@ -95,9 +88,7 @@ describe("SSVOperators function `removeOperator()`", async () => {
     expect(op.ethFee).to.equal(0n);
     expect(op.fee).to.equal(0n);
     expect(op.validatorCount).to.equal(0n);
-    // Owner is NOT cleared in current implementation
     expect(op.owner).to.equal(owner.address);
-    // Whitelist IS cleared
     expect(await operators.getOperatorWhitelist(1)).to.equal(ethers.ZeroAddress);
   });
 

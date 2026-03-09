@@ -1,10 +1,10 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { Cluster, NetworkHelpersType } from "../../common/types.ts";
 import {
+  setupTestContext,
   generateMerkleForClusterEB,
   makeOperatorKey,
   makePublicKey,
@@ -28,7 +28,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   const EB_64 = 64;
@@ -46,8 +46,6 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     await ssvToken.transfer(staker.address, STAKE_AMOUNT);
     await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
     await network.connect(staker).stake(STAKE_AMOUNT);
-
-    // Keep formulas deterministic for fee-only assertions.
     await network.connect(deployer).updateNetworkFee(0n);
 
     return {
