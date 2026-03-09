@@ -9,7 +9,12 @@
 
 ## Executive Summary
 
-The auditor identified a valid protocol insolvency risk where cluster owners can remove validators from nearly-liquidatable ETH clusters, creating unbacked operator fee debt that draws from the shared ETH pool used for staking rewards. This is a **regression** from legacy SSV-payment clusters due to shared ETH accounting.
+The auditor identified a valid ETH-accounting insolvency risk with two coupled effects:
+
+1. **Liquidation bypass race:** when a cluster is liquidatable, owner can front-run with `removeValidator` in the same block, causing the queued liquidation tx to revert on stale cluster state.
+2. **Shared-pool insolvency:** on underfunded removal, settled fees are credited in accounting (operators + network earnings), while cluster payment is capped at zero-floor balance, creating an unbacked gap pulled from shared protocol ETH.
+
+This is a **regression** from legacy SSV-payment clusters due to shared ETH accounting.
 
 **Auditor Quote:**
 > "Once the cluster is below the runway and has not been liquidated (unlikely), the cluster owner can avoid liquidation by removing themselves. In the worst-case scenario, it allows removing validators from the protocol (which is fine), even if the cluster's balance is insufficient to pay the operators. But my concern is that it sets the cluster balance to zero if usage exceeds the current balance during withdrawal, which starts putting the protocol into insolvency which is a problem because rewards are also ETH so now you have a mixing of funds."
@@ -20,7 +25,7 @@ The auditor identified a valid protocol insolvency risk where cluster owners can
 
 ### Root Cause
 
-**Location:** [contracts/modules/SSVValidators.sol:192-207](../contracts/modules/SSVValidators.sol#L192-L207)
+**Location:** [contracts/modules/SSVValidators.sol:192-207](../../contracts/modules/SSVValidators.sol#L192-L207)
 
 **Execution Order in `_bulkRemoveValidator` (ETH version):**
 
@@ -40,69 +45,75 @@ if (version == VERSION_ETH) {
 
 **The Critical Flaw:**
 
-1. **`updateClusterOperators()`** ([OperatorLib.sol:254-283](../contracts/libraries/OperatorLib.sol#L254-L283)) calls **`updateSnapshotSt()`** ([OperatorLib.sol:53-73](../contracts/libraries/OperatorLib.sol#L53-L73)) which credits operator earnings:
+1. **`updateClusterOperators()`** ([OperatorLib.sol:254-283](../../contracts/libraries/OperatorLib.sol#L254-L283)) calls **`updateSnapshotSt()`** ([OperatorLib.sol:53-73](../../contracts/libraries/OperatorLib.sol#L53-L73)) which credits operator earnings:
    ```solidity
    // Line 70: Operator earnings CREDITED
    operator.ethSnapshot.balance += fees_earned  // FULL fees: time × rate × vUnits
    ```
 
-2. **`updateClusterData()`** ([ClusterLib.sol:156-165](../contracts/libraries/ClusterLib.sol#L156-L165)) → **`updateBalanceWithEB()`** ([ClusterLib.sol:306-321](../contracts/libraries/ClusterLib.sol#L306-L321)) deducts fees from cluster:
+2. **`updateClusterData()`** ([ClusterLib.sol:156-165](../../contracts/libraries/ClusterLib.sol#L156-L165)) -> **`updateBalanceWithEB()`** ([ClusterLib.sol:306-321](../../contracts/libraries/ClusterLib.sol#L306-L321)) deducts fees from cluster:
    ```solidity
    // Line 320: Cluster balance CAPPED AT ZERO
    cluster.balance = usage > cluster.balance ? 0 : cluster.balance - usage;
    ```
 
-**Result:** If `cluster.balance = 0.0005 ETH` and `fees_owed = 0.002 ETH`:
-- ✅ Operators credited: **0.002 ETH** in `operator.ethSnapshot.balance`
-- ✅ Cluster pays: **0.0005 ETH** (then balance → 0)
-- ❌ **Unbacked debt: 0.0015 ETH**
+3. `updateBalanceWithEB()` includes network-fee usage units as well, so the accounting settled at removal is:
+   - operator earnings delta
+   - DAO/network earnings delta
+   - both against a cluster balance that can floor to zero
+
+**Result:** if total settled usage exceeds `cluster.balance`, the gap is unbacked and later paid from shared protocol ETH.
 
 ---
 
 ## Attack Scenario
 
-### Concrete Exploit
+### Concrete Exploit (Reproduced)
 
 ```
 Initial State:
-  Cluster balance = 0.0009 ETH (below 0.00094 ETH minimum collateral)
-  Cluster is NOW liquidatable
-  Fees accumulating: ~0.00001 ETH/block (4 operators × 0.0000018 ETH + network)
+  Cluster is liquidatable
+  Liquidator has a valid tx using current cluster snapshot
 
 Block N:
-  Liquidator bot detects liquidatable cluster, submits liquidate() tx
+  Liquidator submits liquidate(cluster_snapshot_t0)
 
 Block N (same block, higher gas priority):
-  Attacker front-runs with bulkRemoveValidator()
+  Owner front-runs with removeValidator(cluster_snapshot_t0)
 
   Execution:
-  1. updateClusterOperators() → operators credited 0.0015 ETH total ✅
-  2. updateClusterData() → cluster.balance: 0.0009 - 0.0015 = 0 (capped) ✅
+  1. updateClusterOperators() updates operator snapshots/credits
+  2. updateClusterData() settles usage and caps cluster.balance at 0
   3. Validators removed, cluster.validatorCount = 0 ✅
 
+Block N (later tx position):
+  Queued liquidate(cluster_snapshot_t0) reverts with IncorrectClusterState
+  (snapshot no longer matches stored cluster hash)
+
 Block N+1:
-  Liquidator tx executes but cluster.validatorCount = 0 → liquidation fails/no-op
+  liquidate(cluster_snapshot_t1_after_remove) reverts with ClusterNotLiquidatable
+  (validatorCount == 0)
 
-Block N+2:
-  Operators call withdrawOperatorEarnings()
-  → 0.0015 ETH withdrawn from SSVNetwork contract balance
-  → This ETH was deposited by OTHER clusters or staking users
-
-Result:
-  Protocol ETH balance is now 0.0006 ETH short
-  (cluster paid 0.0009, operators withdrew 0.0015)
+Then:
+  Operators withdraw credited earnings from shared protocol ETH pool
+  Gap is paid by ETH deposited by other protocol users/clusters
 ```
 
-### Economic Analysis - Collusion Scenario
+### Economic Analysis (Reproduced Two-Cluster Case)
 
-If attacker **owns all 4 operators** in the cluster:
+From `test/sanity/ssv-10-liquidatable-attack.test.ts` two-cluster run:
+
 ```
-Attacker loss:  0.0009 ETH (cluster deposit forfeited)
-Attacker gain:  0.0015 ETH (operator earnings withdrawal)
-Net profit:     0.0006 ETH per exploit ✅ ECONOMICALLY VIABLE
+Attacker cluster deposit:                    10.0 ETH
+Settled fees at remove (ops + DAO):         16.04183884712 ETH
+Paid by attacker cluster (capped):          10.0 ETH
+Missing payment gap:                         6.04183884712 ETH
+
+Withdrawn by attacker operators:            16.002140715 ETH
+Extracted beyond attacker payment source:    6.002140715 ETH
 ```
 
-This is **profitable** when attacker controls operators!
+This demonstrates real extraction from shared pool funds that are not sourced by attacker cluster payment.
 
 ---
 
@@ -142,8 +153,8 @@ This is **profitable** when attacker controls operators!
 ## Invariant Violation
 
 ```
-Expected: operator_earnings_credited <= cluster_fees_paid
-Actual:   operator_earnings_credited >  cluster_fees_paid  (when balance capped at 0)
+Expected: (operator_credits + network_earnings_credits) <= cluster_fees_paid
+Actual:   (operator_credits + network_earnings_credits) >  cluster_fees_paid  (when balance capped at 0)
 ```
 
 This violates protocol solvency:
@@ -151,6 +162,7 @@ This violates protocol solvency:
 INVARIANT (should hold but can be violated):
   address(SSVNetwork).balance >=
     Σ(operator.ethSnapshot.balance for all operators) +
+    Σ(network earnings payable) +
     Σ(pending staking reward claims)
 ```
 
@@ -160,7 +172,7 @@ INVARIANT (should hold but can be violated):
 
 ### Not CRITICAL because:
 - Attack requires precise timing (race condition with liquidator bots)
-- Economic incentive is weak for non-operator-owners (attacker loses deposit)
+- Economic incentive depends on operator ownership/control and fee profile
 - Liquidation threshold provides ~7 days runway (small exploitable window)
 - Total unbacked debt is bounded by individual cluster size
 
@@ -169,7 +181,7 @@ INVARIANT (should hold but can be violated):
 - Same ETH balance backs both operator earnings and staking rewards
 - No separation of concerns between cluster fee payments and staking pool
 - Can accumulate across multiple malicious clusters
-- **Operator-owner collusion is economically profitable**
+- Reproduced extraction exceeds attacker cluster payment source
 
 ---
 
@@ -179,7 +191,7 @@ INVARIANT (should hold but can be violated):
 
 **Fix:** Add solvency check BEFORE crediting operators in `_bulkRemoveValidator`
 
-**Location:** [contracts/modules/SSVValidators.sol:192](../contracts/modules/SSVValidators.sol#L192)
+**Location:** [contracts/modules/SSVValidators.sol:192](../../contracts/modules/SSVValidators.sol#L192)
 
 ```solidity
 if (version == VERSION_ETH) {
@@ -287,11 +299,12 @@ struct ProtocolBalances {
 
 If cluster balance < fees owed, validator removal:
 - Credits operators for FULL fees owed (based on block difference × fee rate × vUnits)
+- Credits network earnings via index updates
 - Deducts only AVAILABLE balance from cluster (caps at 0)
-- Creates unbacked debt: operator earnings > cluster payment
+- Creates unbacked debt: (operator + network earnings credits) > cluster payment
 
-⚠️ This can lead to protocol insolvency as operator withdrawals draw from
-shared ETH pool (mixing cluster operational funds with staking rewards).
+⚠️ This can lead to protocol insolvency as withdrawals draw from
+shared ETH pool (mixing cluster operational funds with staking/reward funds).
 
 **Mitigation (v2.0.0):** Validator removal reverts with `InsufficientBalance`
 if cluster balance < fees owed. Clusters MUST maintain balance > liquidation
@@ -307,10 +320,11 @@ threshold. Liquidation is the intended path for underfunded clusters.
 INVARIANT: Protocol ETH solvency
   address(SSVNetwork).balance >=
     Σ(operator.ethSnapshot.balance for all operators) +
+    Σ(network earnings payable) +
     Σ(pending staking reward claims)
 
 VIOLATION RISK: If clusters remove validators when balance < fees_owed,
-operators are credited more than cluster pays, drawing from shared ETH pool.
+credits can exceed cluster payment, drawing from shared ETH pool.
 
 ENFORCEMENT: v2.0.0 adds pre-removal solvency check - validator removal
 reverts if cluster balance < total fees due.
@@ -321,9 +335,10 @@ reverts if cluster balance < total fees due.
 ## Acceptance Criteria
 
 - [ ] Implement solvency check in `_bulkRemoveValidator()` before `updateClusterOperators()`
+- [ ] Add deterministic same-block race test: liquidate tx stale-state revert + next-block `ClusterNotLiquidatable`
 - [ ] Add comprehensive test: Remove validator when balance < fees → reverts with `InsufficientBalance`
 - [ ] Add test: Remove validator when balance >= fees → succeeds
-- [ ] Add test: Operator-owner collusion scenario → prevented by solvency check
+- [ ] Add two-cluster extraction test: attacker withdrawals exceed attacker cluster payment source
 - [ ] Update FLOWS.md §1.3 and §1.4 with security note
 - [ ] Update SPEC.md §4 with solvency invariant documentation
 - [ ] Verify no regression in existing validator removal tests
@@ -336,8 +351,8 @@ reverts if cluster balance < total fees due.
 | Aspect | Assessment |
 |--------|------------|
 | **Validity** | ✅ VALID - Auditor concern is accurate |
-| **Severity** | ⚠️ MEDIUM - Theoretical insolvency, limited practical exploitability |
-| **Root Cause** | Operator earnings credited before balance underflow protection |
+| **Severity** | ⚠️ MEDIUM - Reproduced insolvency path, but bounded and timing/ownership constrained |
+| **Root Cause** | Credits/accounting settled before zero-floor payment cap can absorb all usage |
 | **Insolvency Risk** | YES - Shared ETH pool enables cross-contamination |
 | **Regression** | YES - Worse than SSV clusters due to ETH mixing |
 | **Fix Complexity** | LOW - Single check before operator update |
@@ -348,9 +363,11 @@ reverts if cluster balance < total fees due.
 ---
 
 **Files Affected:**
-- [contracts/modules/SSVValidators.sol:192-207](../contracts/modules/SSVValidators.sol#L192-L207)
-- [contracts/libraries/ClusterLib.sol:306-321](../contracts/libraries/ClusterLib.sol#L306-L321)
-- [contracts/libraries/OperatorLib.sol:53-73](../contracts/libraries/OperatorLib.sol#L53-L73)
+- [contracts/modules/SSVValidators.sol:192-207](../../contracts/modules/SSVValidators.sol#L192-L207)
+- [contracts/libraries/ClusterLib.sol:306-321](../../contracts/libraries/ClusterLib.sol#L306-L321)
+- [contracts/libraries/OperatorLib.sol:53-73](../../contracts/libraries/OperatorLib.sol#L53-L73)
+- [contracts/modules/SSVClusters.sol:35-64](../../contracts/modules/SSVClusters.sol#L35-L64)
+- [test/sanity/ssv-10-liquidatable-attack.test.ts](../../test/sanity/ssv-10-liquidatable-attack.test.ts)
 
 **Generated:** 2026-03-09
 **Analysis by:** SSV Bug Fixer Agent
