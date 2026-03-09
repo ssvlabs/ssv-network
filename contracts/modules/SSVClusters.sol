@@ -391,20 +391,19 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         if (ctx.version == VERSION_ETH) {
             // ETH clusters: full accounting flow
             uint64 storedVUnits = seb.clusterEB[clusterId].vUnits;
-            uint64 effectiveOldVUnits = storedVUnits;
-            if (effectiveOldVUnits == 0) {
-                effectiveOldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            if (storedVUnits == 0) {
+                storedVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
             }
 
             uint64 burnRate;
             if (cluster.active) {
-                burnRate = _applyClusterFeeUpdates(operatorIds, cluster, effectiveOldVUnits, s, sp);
+                burnRate = _applyClusterFeeUpdates(operatorIds, cluster, storedVUnits, s, sp);
             }
 
             // Apply new vUnits BEFORE liquidation check so auto-liquidation
-            if (cluster.active && newVUnits != effectiveOldVUnits) {
-                _updateOperatorVUnits(operatorIds, seb, effectiveOldVUnits, newVUnits);
-                sp.updateDAOEthVUnits(effectiveOldVUnits, newVUnits);
+            if (cluster.active && newVUnits != storedVUnits) {
+                _updateOperatorVUnits(operatorIds, seb, storedVUnits, newVUnits);
+                sp.updateDAOEthVUnits(storedVUnits, newVUnits);
             }
             _updateEBSnapshot(seb, clusterId, ctx.blockNum, newVUnits);
 
