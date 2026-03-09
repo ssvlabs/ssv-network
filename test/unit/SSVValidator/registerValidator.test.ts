@@ -489,7 +489,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
       DEFAULT_SHARES,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
-      )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA).withArgs(publicKey);
+      )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA).withArgs(publicKey, clusterOwner.address);
   });
 
   it("Is reverted with 'InvalidOperatorIdsLength' if the length is not allowed one for clusters", async function () {

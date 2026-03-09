@@ -217,7 +217,7 @@ interface ISSVNetworkCore {
     /**
      * @dev Thrown when trying to register a validator that is already registered
      */
-    error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
+    error ValidatorAlreadyExistsWithData(bytes publicKey, address owner); // 0xeac68b51
 
     /**
      * @dev Thrown when public keys list is empty

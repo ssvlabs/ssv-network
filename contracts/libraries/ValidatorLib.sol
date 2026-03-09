@@ -51,7 +51,7 @@ library ValidatorLib {
         bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, owner));
 
         if (s.validatorPKs[hashedPk] != bytes32(0)) {
-            revert ISSVNetworkCore.ValidatorAlreadyExistsWithData(publicKey);
+            revert ISSVNetworkCore.ValidatorAlreadyExistsWithData(publicKey, owner);
         }
 
         s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
