@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -10,6 +9,7 @@ import {
   makeOperatorKey,
   whitelistAddresses,
   getCurrentClusterState,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
@@ -28,7 +28,7 @@ import {
   getTxBlock,
   defaultVUnits,
   calcOperatorFeeAccrual,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 describe("Operator Edge Cases", () => {
   let connection: NetworkConnection<"generic">;
@@ -40,9 +40,7 @@ describe("Operator Edge Cases", () => {
   let otherAccount: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner, otherAccount, operatorOwner2] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner, otherAccount, operatorOwner2] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -80,7 +78,7 @@ describe("Operator Edge Cases", () => {
       await network
         .connect(operatorOwner)
         .registerOperator(zeroFeeKey, 0, false);
-      const opId0 = 1n; // first operator
+      const opId0 = 1n;
 
       const opIds: number[] = [Number(opId0)];
       for (let i = 2; i <= 4; i++) {
@@ -352,7 +350,7 @@ describe("Operator Edge Cases", () => {
 
       const increasedFee = 1_900_000_000n;
       const packedCurrent = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
-      const packedNew = increasedFee / ETH_DEDUCTED_DIGITS; // 19_000
+      const packedNew = increasedFee / ETH_DEDUCTED_DIGITS;
 
       await network
         .connect(operatorOwner)

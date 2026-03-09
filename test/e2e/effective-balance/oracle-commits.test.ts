@@ -1,9 +1,9 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
 import {
@@ -12,7 +12,7 @@ import {
 import {
   mineBlocks,
   getBlockNumber,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 describe("Oracle Commits", () => {
   let connection: NetworkConnection<"generic">;
@@ -26,9 +26,7 @@ describe("Oracle Commits", () => {
   let nonOracle: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    const signers = await connection.ethers.getSigners();
-    [oracle1, oracle2, oracle3, oracle4, staker, nonOracle] = signers;
+    ({ connection, networkHelpers, signers: [oracle1, oracle2, oracle3, oracle4, staker, nonOracle] } = await setupTestContext());
   });
 
   const deployFixture = async () => {

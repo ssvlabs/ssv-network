@@ -2,7 +2,6 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { ethers } from "ethers";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -12,6 +11,7 @@ import {
   parseClusterFromEvent,
   generateMerkleForClusterEB,
   getValidOperatorFeeIncrease,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
@@ -30,7 +30,7 @@ import {
   calcLiquidationThreshold,
   snapshotContractBalance,
   checkETHConservation,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 describe("Cross-Cutting: Multi-Step Flows", () => {
   let connection: NetworkConnection<"generic">;
@@ -45,8 +45,7 @@ describe("Cross-Cutting: Multi-Step Flows", () => {
   let oracle3: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner, clusterOwner2, staker, liquidator, oracle1, oracle2, oracle3] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner, clusterOwner2, staker, liquidator, oracle1, oracle2, oracle3] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -150,8 +149,6 @@ describe("Cross-Cutting: Multi-Step Flows", () => {
 
       const feePeriods = await views.getOperatorFeePeriods();
       const declareTimePeriod = BigInt(feePeriods[0]);
-
-      // Advance time past declare period
       await provider.send("evm_increaseTime", [Number(declareTimePeriod) + 1]);
       await mineBlocks(provider, 1);
 

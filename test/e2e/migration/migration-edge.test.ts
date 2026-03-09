@@ -1,28 +1,38 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
-import type { NetworkHelpersType, Cluster } from "../../common/types.ts";
+import { ssvNetworkFullPreUpgradeFixture, upgradeToStakingVersion } from "../../setup/fixtures.ts";
+import type { NetworkHelpersType } from "../../common/types.ts";
 import {
   makePublicKey,
+  getCurrentClusterState,
+  extractEventArgs,
   parseClusterFromEvent,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
+  DEFAULT_SHARES,
+  DEFAULT_ETH_REGISTER_VALUE,
   DEDUCTED_DIGITS,
   MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE_ETH,
-  ETH_DEDUCTED_DIGITS, DEFAULT_ETH_REGISTER_VALUE,
-} from '../../common/constants.ts';
+  ETH_DEDUCTED_DIGITS,
+  EMPTY_CLUSTER,
+  TOKEN_REGISTER_AMOUNT,
+  MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+  VUNITS_PRECISION,
+} from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
 import {
   mineBlocks,
   calcLiquidationThreshold,
   defaultVUnits,
-  calcSSVClusterFees,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
+import { makeOperatorKey } from "../../helpers/index.ts";
 import { ethers } from "ethers";
+
+const OP_SSV_FEE_UNPACKED = 10_000_000_000n;
 
 describe("Migration Edge Cases", () => {
   let connection: NetworkConnection<"generic">;
@@ -32,451 +42,383 @@ describe("Migration Edge Cases", () => {
   let clusterOwnerB: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [clusterOwner, clusterOwnerB] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, clusterOwnerB] } = await setupTestContext());
   });
 
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds]),
-    );
-  };
-
-  const getMigratedEventArgs = (clusters: any, receipt: any) => {
-    for (const log of receipt.logs ?? []) {
-      let parsed;
-      try {
-        parsed = clusters.interface.parseLog(log);
-      } catch {
-        continue;
-      }
-      if (parsed?.name === Events.CLUSTER_MIGRATED_TO_ETH) {
-        return parsed.args;
-      }
-    }
-    throw new Error("ClusterMigratedToETH event not found");
-  };
-
-
   describe("Migration — SSV Refund Is Exactly Correct After Extended Fee Accrual", () => {
-    const deployFixture = async () => {
-      const result = await ssvClustersHarnessFixture(connection, 4, 0n);
-      const { clusters, operatorIds } = result;
+    const OP_SSV_FEE_CUSTOM = 1_500n * DEDUCTED_DIGITS;
 
-      for (const opId of operatorIds) {
-        await clusters.mockOperatorSSVFee(opId, 1_500n * DEDUCTED_DIGITS);
+    const deployFixture = async () => {
+      const { network: legacyNetwork, views: legacyViews, ssvToken } =
+        await ssvNetworkFullPreUpgradeFixture(connection);
+
+      const operatorIds: number[] = [];
+      for (let i = 0; i < 4; i++) {
+        const expectedId = await legacyNetwork.connect(clusterOwner)
+          .registerOperator.staticCall(makeOperatorKey(i + 1), OP_SSV_FEE_CUSTOM, false);
+        await legacyNetwork.connect(clusterOwner)
+          .registerOperator(makeOperatorKey(i + 1), OP_SSV_FEE_CUSTOM, false);
+        operatorIds.push(Number(expectedId));
       }
 
-      await clusters.mockSSVNetworkFee(800n);
-      const netFeeIndexTx = await clusters.mockCurrentNetworkFeeIndexSSV(0n);
-      const netFeeIndexReceipt = await netFeeIndexTx.wait();
-      const netFeeBlock = netFeeIndexReceipt!.blockNumber;
+      const ssvDeposit = ethers.parseEther("500");
+      await ssvToken.mint(clusterOwner.address, ssvDeposit);
+      await ssvToken.connect(clusterOwner).approve(
+        await legacyNetwork.getAddress(), ssvDeposit,
+      );
 
-      await clusters.mockEthNetworkFee(BigInt(NETWORK_FEE_ETH));
-      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
-      await clusters.mockMinimumLiquidationCollateral(0n);
+      const halfDeposit = ssvDeposit / 2n;
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, halfDeposit, EMPTY_CLUSTER,
+      );
+      let cluster = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, halfDeposit, cluster,
+      );
+      cluster = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
 
-      const mockToken = await connection.ethers.deployContract("MockToken", []);
-      await mockToken.waitForDeployment();
-      await clusters.mockSetToken(await mockToken.getAddress());
-      const harnessAddress = await clusters.getAddress();
-      await mockToken.mint(harnessAddress, ethers.parseEther("2000"));
+      const { newNetwork, newViews } = await upgradeToStakingVersion(
+        connection, legacyNetwork, legacyViews,
+      );
 
-      return { clusters, operatorIds, mockToken, netFeeBlock };
+      return { network: newNetwork, views: newViews, ssvToken, operatorIds, cluster, ssvDeposit };
     };
 
     it("SSV refund matches independent fee calculation after 1000 blocks", async function () {
-      const { clusters, operatorIds, mockToken, netFeeBlock } =
+      const { network, views, ssvToken, operatorIds, cluster, ssvDeposit } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const ssvBalance = ethers.parseEther("500");
-      const ssvCluster: Cluster = {
-        validatorCount: 2n,
-        networkFeeIndex: 0n,
-        index: 0n,
-        balance: ssvBalance,
-        active: true,
-      };
-
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1),
-        operatorIds,
-        clusterOwner.address,
-        ssvCluster,
-      );
-
-      const opSnapshots: { block: bigint; index: bigint }[] = [];
-      for (const opId of operatorIds) {
-        const [index, blockNumber] = await clusters.getOperatorSnapshot(opId);
-        opSnapshots.push({ block: BigInt(blockNumber), index: BigInt(index) });
-      }
-
       await mineBlocks(provider, 1000);
 
-      const ownerSSVBefore = await mockToken.balanceOf(clusterOwner.address);
+      const ssvBalanceBefore = await views.getBalanceSSV(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      const burnRate = await views.getBurnRateSSV(
+        clusterOwner.address, operatorIds, cluster,
+      );
+
+      const ownerSSVBefore = await ssvToken.balanceOf(clusterOwner.address);
 
       const ethDeposit = ethers.parseEther("10");
-      const migrateTx = await clusters.connect(clusterOwner).migrateClusterToETH(
-        operatorIds,
-        ssvCluster,
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
+        operatorIds, cluster,
         { value: ethDeposit },
       );
       const receipt = await migrateTx.wait();
-      const migrationBlock = BigInt(receipt!.blockNumber);
 
-      const expectedFees = calcSSVClusterFees({
-        currentBlock: migrationBlock,
-        opSnapshots,
-        opFeeRaw: 1_500n,
-        netFeeBlock: BigInt(netFeeBlock),
-        netFeeRaw: 800n,
-        storedNetFeeIndex: 0n,
-        validatorCount: 2n,
-        clusterIndex: 0n,
-        clusterNetworkFeeIndex: 0n,
-      });
-
-      const eventArgs = getMigratedEventArgs(clusters, receipt);
+      const eventArgs = extractEventArgs(network, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
       const actualRefund = BigInt(eventArgs.ssvRefunded);
 
-      const ownerSSVAfter = await mockToken.balanceOf(clusterOwner.address);
-      const tokenRefund = BigInt(ownerSSVAfter) - BigInt(ownerSSVBefore);
+      const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
+      const tokenRefund = ownerSSVAfter - ownerSSVBefore;
       expect(tokenRefund).to.equal(actualRefund);
 
-      const expectedRefund = ssvBalance - expectedFees;
+      const expectedRefund = ssvBalanceBefore - burnRate;
       expect(actualRefund).to.equal(expectedRefund);
-      expect(actualRefund).to.be.lessThan(ssvBalance);
+      expect(actualRefund).to.be.lessThan(ssvDeposit);
 
-      const totalFees = ssvBalance - actualRefund;
-      expect(totalFees).to.equal(expectedFees);
+      const totalFees = ssvDeposit - actualRefund;
       expect(totalFees % DEDUCTED_DIGITS).to.equal(0n);
     });
   });
 
   describe("Migration of Cluster Where Some Operators Were Removed", () => {
     const deployFixture = async () => {
-      const result = await ssvClustersHarnessFixture(connection, 4, 0n);
-      const { clusters, operatorIds } = result;
+      const { network: legacyNetwork, views: legacyViews, ssvToken } =
+        await ssvNetworkFullPreUpgradeFixture(connection);
 
-      for (const opId of operatorIds) {
-        await clusters.mockOperatorSSVFee(opId, 1_000n * DEDUCTED_DIGITS);
+      const operatorIds: number[] = [];
+      for (let i = 0; i < 4; i++) {
+        const expectedId = await legacyNetwork.connect(clusterOwner)
+          .registerOperator.staticCall(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+        await legacyNetwork.connect(clusterOwner)
+          .registerOperator(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+        operatorIds.push(Number(expectedId));
       }
-      await clusters.mockSSVNetworkFee(500n);
-      await clusters.mockCurrentNetworkFeeIndexSSV(0n);
 
-      await clusters.mockEthNetworkFee(BigInt(NETWORK_FEE_ETH));
-      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
-      await clusters.mockMinimumLiquidationCollateral(0n);
+      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
+      await ssvToken.connect(clusterOwner).approve(
+        await legacyNetwork.getAddress(), TOKEN_REGISTER_AMOUNT,
+      );
 
-      const mockToken = await connection.ethers.deployContract("MockToken", []);
-      await mockToken.waitForDeployment();
-      await clusters.mockSetToken(await mockToken.getAddress());
-      const harnessAddress = await clusters.getAddress();
-      await mockToken.mint(harnessAddress, ethers.parseEther("2000"));
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER,
+      );
+      const cluster = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
 
-      return { clusters, operatorIds, mockToken };
+      const { newNetwork, newViews } = await upgradeToStakingVersion(
+        connection, legacyNetwork, legacyViews,
+      );
+
+      return { network: newNetwork, views: newViews, ssvToken, operatorIds, cluster };
     };
 
     it("Migration succeeds when Op1 is removed — removed operator is skipped", async function () {
-      const { clusters, operatorIds, mockToken } =
+      const { network, views, operatorIds, cluster } =
         await networkHelpers.loadFixture(deployFixture);
 
-      const ssvCluster: Cluster = {
-        validatorCount: 1n,
-        networkFeeIndex: 0n,
-        index: 0n,
-        balance: ethers.parseEther("10"),
-        active: true,
-      };
-
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1),
-        operatorIds,
-        clusterOwner.address,
-        ssvCluster,
-      );
-
-      await clusters.mockRemoveOperator(operatorIds[0]);
+      await network.connect(clusterOwner).removeOperator(operatorIds[0]);
 
       const ethDeposit = ethers.parseEther("10");
-      const migrateTx = await clusters.connect(clusterOwner).migrateClusterToETH(
-        operatorIds,
-        ssvCluster,
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
+        operatorIds, cluster,
         { value: ethDeposit },
       );
-      const receipt = await migrateTx.wait();
+      await migrateTx.wait();
 
-      await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
+      await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
-      const op1EthVCount = await clusters.getOperatorEthValidatorCount(operatorIds[0]);
-      expect(op1EthVCount).to.equal(0n);
+      const op0 = await views.getOperatorById(operatorIds[0]);
+      expect(op0.validatorCount).to.equal(0);
 
       for (let i = 1; i < operatorIds.length; i++) {
-        const ethVCount = await clusters.getOperatorEthValidatorCount(operatorIds[i]);
-        expect(ethVCount).to.equal(1n);
+        const op = await views.getOperatorById(operatorIds[i]);
+        expect(op.validatorCount).to.equal(1);
       }
     });
   });
 
   describe("DAO Earnings Settlement During Migration", () => {
     const deployFixture = async () => {
-      const result = await ssvClustersHarnessFixture(connection, 4, 0n);
-      const { clusters, operatorIds } = result;
+      const { network: legacyNetwork, views: legacyViews, ssvToken } =
+        await ssvNetworkFullPreUpgradeFixture(connection);
 
-      for (const opId of operatorIds) {
-        await clusters.mockOperatorSSVFee(opId, 1_000n * DEDUCTED_DIGITS);
+      const operatorIds: number[] = [];
+      for (let i = 0; i < 4; i++) {
+        const expectedId = await legacyNetwork.connect(clusterOwner)
+          .registerOperator.staticCall(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+        await legacyNetwork.connect(clusterOwner)
+          .registerOperator(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+        operatorIds.push(Number(expectedId));
       }
-      await clusters.mockSSVNetworkFee(500n);
-      await clusters.mockCurrentNetworkFeeIndexSSV(0n);
 
-      await clusters.mockEthNetworkFee(BigInt(NETWORK_FEE_ETH));
-      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
-      await clusters.mockMinimumLiquidationCollateral(0n);
+      const ssvDeposit = TOKEN_REGISTER_AMOUNT * 2n;
+      await ssvToken.mint(clusterOwner.address, ssvDeposit);
+      await ssvToken.connect(clusterOwner).approve(
+        await legacyNetwork.getAddress(), ssvDeposit,
+      );
 
-      const mockToken = await connection.ethers.deployContract("MockToken", []);
-      await mockToken.waitForDeployment();
-      await clusters.mockSetToken(await mockToken.getAddress());
-      const harnessAddress = await clusters.getAddress();
-      await mockToken.mint(harnessAddress, ethers.parseEther("2000"));
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER,
+      );
+      let cluster = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, cluster,
+      );
+      cluster = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
 
-      return { clusters, operatorIds, mockToken };
+      const { newNetwork, newViews } = await upgradeToStakingVersion(
+        connection, legacyNetwork, legacyViews,
+      );
+
+      return { network: newNetwork, views: newViews, ssvToken, operatorIds, cluster };
     };
 
     it("DAO earnings for both SSV and ETH are settled during migration", async function () {
-      const { clusters, operatorIds } =
+      const { network, views, operatorIds, cluster } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const ssvCluster: Cluster = {
-        validatorCount: 2n,
-        networkFeeIndex: 0n,
-        index: 0n,
-        balance: ethers.parseEther("100"),
-        active: true,
-      };
-
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1),
-        operatorIds,
-        clusterOwner.address,
-        ssvCluster,
-      );
-
       await mineBlocks(provider, 100);
 
-      const migrateTx = await clusters.connect(clusterOwner).migrateClusterToETH(
-        operatorIds,
-        ssvCluster,
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
+        operatorIds, cluster,
         { value: DEFAULT_ETH_REGISTER_VALUE },
       );
-      const receipt = await migrateTx.wait();
-      const migrationBlock = receipt!.blockNumber;
+      await migrateTx.wait();
 
-      const daoEthBlockAfter = await clusters.getDaoEthIndexBlockNumber();
-      const daoEthValidatorCount = await clusters.getDaoEthValidatorCount();
+      await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
-      expect(daoEthValidatorCount).to.equal(2n);
-      expect(Number(daoEthBlockAfter)).to.equal(migrationBlock);
+      const networkValidators = await views.getNetworkValidatorsCount();
+      expect(networkValidators).to.equal(2);
 
-      await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
+      for (const opId of operatorIds) {
+        const opETH = await views.getOperatorById(opId);
+        expect(opETH.validatorCount).to.equal(2);
+        const opSSV = await views.getOperatorByIdSSV(opId);
+        expect(opSSV.validatorCount).to.equal(0);
+      }
     });
   });
 
   describe("Multiple Migrations — Same Operators, Different Clusters", () => {
     const deployFixture = async () => {
-      const result = await ssvClustersHarnessFixture(connection, 4, MINIMAL_OPERATOR_ETH_FEE);
-      const { clusters, operatorIds } = result;
+      const { network: legacyNetwork, views: legacyViews, ssvToken } =
+        await ssvNetworkFullPreUpgradeFixture(connection);
 
-      for (const opId of operatorIds) {
-        await clusters.mockOperatorSSVFee(opId, 1_000n * DEDUCTED_DIGITS);
+      const operatorIds: number[] = [];
+      for (let i = 0; i < 4; i++) {
+        const expectedId = await legacyNetwork.connect(clusterOwner)
+          .registerOperator.staticCall(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+        await legacyNetwork.connect(clusterOwner)
+          .registerOperator(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+        operatorIds.push(Number(expectedId));
       }
-      await clusters.mockSSVNetworkFee(500n);
-      await clusters.mockCurrentNetworkFeeIndexSSV(0n);
 
-      await clusters.mockEthNetworkFee(BigInt(NETWORK_FEE_ETH));
-      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
-      await clusters.mockMinimumLiquidationCollateral(0n);
+      const ssvDeposit = TOKEN_REGISTER_AMOUNT * 3n;
+      await ssvToken.mint(clusterOwner.address, ssvDeposit);
+      await ssvToken.connect(clusterOwner).approve(
+        await legacyNetwork.getAddress(), ssvDeposit,
+      );
 
-      const mockToken = await connection.ethers.deployContract("MockToken", []);
-      await mockToken.waitForDeployment();
-      await clusters.mockSetToken(await mockToken.getAddress());
-      const harnessAddress = await clusters.getAddress();
-      await mockToken.mint(harnessAddress, ethers.parseEther("5000"));
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER,
+      );
+      let clusterA = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, clusterA,
+      );
+      clusterA = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
 
-      return { clusters, operatorIds, mockToken };
+      await ssvToken.mint(clusterOwnerB.address, TOKEN_REGISTER_AMOUNT);
+      await ssvToken.connect(clusterOwnerB).approve(
+        await legacyNetwork.getAddress(), TOKEN_REGISTER_AMOUNT,
+      );
+
+      await legacyNetwork.connect(clusterOwnerB).registerValidator(
+        makePublicKey(3), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER,
+      );
+      const clusterB = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwnerB.address, operatorIds,
+      );
+
+      const { newNetwork, newViews } = await upgradeToStakingVersion(
+        connection, legacyNetwork, legacyViews,
+      );
+
+      return { network: newNetwork, views: newViews, ssvToken, operatorIds, clusterA, clusterB };
     };
 
     it("Two clusters with same operators migrate correctly without index corruption", async function () {
-      const { clusters, operatorIds } =
+      const { network, views, operatorIds, clusterA, clusterB } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const clusterA: Cluster = {
-        validatorCount: 2n,
-        networkFeeIndex: 0n,
-        index: 0n,
-        balance: ethers.parseEther("50"),
-        active: true,
-      };
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1),
-        operatorIds,
-        clusterOwner.address,
-        clusterA,
-      );
-
-      const clusterB: Cluster = {
-        validatorCount: 1n,
-        networkFeeIndex: 0n,
-        index: 0n,
-        balance: ethers.parseEther("30"),
-        active: true,
-      };
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(2),
-        operatorIds,
-        clusterOwnerB.address,
-        clusterB,
-      );
-
       await mineBlocks(provider, 100);
 
-      const ethDeposit1 = ethers.parseEther("5");
-      const migrateTx1 = await clusters.connect(clusterOwner).migrateClusterToETH(
-        operatorIds,
-        clusterA,
-        { value: ethDeposit1 },
+      const migrateTx1 = await network.connect(clusterOwner).migrateClusterToETH(
+        operatorIds, clusterA,
+        { value: ethers.parseEther("5") },
       );
       await migrateTx1.wait();
+      await expect(migrateTx1).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
       for (const opId of operatorIds) {
-        const ethVCount = await clusters.getOperatorEthValidatorCount(opId);
-        expect(ethVCount).to.equal(2n);
-      }
-
-      const opEthSnapshotsAfterMig1: { block: bigint; index: bigint }[] = [];
-      for (const opId of operatorIds) {
-        const [index, blockNumber] = await clusters.getOperatorEthSnapshot(opId);
-        opEthSnapshotsAfterMig1.push({ block: BigInt(blockNumber), index: BigInt(index) });
+        const opETH = await views.getOperatorById(opId);
+        expect(opETH.validatorCount).to.equal(2);
       }
 
       await mineBlocks(provider, 100);
 
-      const ethDeposit2 = ethers.parseEther("3");
-      const migrateTx2 = await clusters.connect(clusterOwnerB).migrateClusterToETH(
-        operatorIds,
-        clusterB,
-        { value: ethDeposit2 },
+      const migrateTx2 = await network.connect(clusterOwnerB).migrateClusterToETH(
+        operatorIds, clusterB,
+        { value: ethers.parseEther("3") },
       );
       const receipt2 = await migrateTx2.wait();
-      const migration2Block = BigInt(receipt2!.blockNumber);
+      await expect(migrateTx2).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
       for (const opId of operatorIds) {
-        const ethVCount = await clusters.getOperatorEthValidatorCount(opId);
-        expect(ethVCount).to.equal(3n);
+        const opETH = await views.getOperatorById(opId);
+        expect(opETH.validatorCount).to.equal(3);
       }
 
-      const clusterBAfter = parseClusterFromEvent(clusters, receipt2, Events.CLUSTER_MIGRATED_TO_ETH);
-
-      const ethFeePerOp = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
-      let expectedClusterBIndex = 0n;
-      for (const snap of opEthSnapshotsAfterMig1) {
-        const blockDiff = migration2Block - snap.block;
-        const currentIndex = snap.index + blockDiff * ethFeePerOp;
-        expectedClusterBIndex += currentIndex;
+      for (const opId of operatorIds) {
+        const opSSV = await views.getOperatorByIdSSV(opId);
+        expect(opSSV.validatorCount).to.equal(0);
       }
-      expect(BigInt(clusterBAfter.index)).to.equal(expectedClusterBIndex);
 
-      const clusterIdA = getClusterId(clusterOwner.address, operatorIds);
-      const clusterIdB = getClusterId(clusterOwnerB.address, operatorIds);
-      const hashA = await clusters.getClusterHash(clusterIdA);
-      const hashB = await clusters.getClusterHash(clusterIdB);
-      expect(hashA).to.not.equal(ethers.ZeroHash);
-      expect(hashB).to.not.equal(ethers.ZeroHash);
+      expect(await views.getNetworkValidatorsCount()).to.equal(3);
+
+      const clusterBAfter = parseClusterFromEvent(network, receipt2, Events.CLUSTER_MIGRATED_TO_ETH);
+      expect(clusterBAfter.balance).to.equal(ethers.parseEther("3"));
+      expect(clusterBAfter.validatorCount).to.equal(1n);
     });
   });
 
   describe("Revert — Migrate With Insufficient ETH For Liquidation Check", () => {
     const deployFixture = async () => {
-      const result = await ssvClustersHarnessFixture(connection, 4, MINIMAL_OPERATOR_ETH_FEE);
-      const { clusters, operatorIds } = result;
-      for (const opId of operatorIds) {
-        await clusters.mockOperatorSSVFee(opId, 1_000n * DEDUCTED_DIGITS);
+      const { network: legacyNetwork, views: legacyViews, ssvToken } =
+        await ssvNetworkFullPreUpgradeFixture(connection);
+
+      const operatorIds: number[] = [];
+      for (let i = 0; i < 4; i++) {
+        const expectedId = await legacyNetwork.connect(clusterOwner)
+          .registerOperator.staticCall(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+        await legacyNetwork.connect(clusterOwner)
+          .registerOperator(makeOperatorKey(i + 1), OP_SSV_FEE_UNPACKED, false);
+        operatorIds.push(Number(expectedId));
       }
-      await clusters.mockSSVNetworkFee(500n);
-      await clusters.mockCurrentNetworkFeeIndexSSV(0n);
 
-      await clusters.mockEthNetworkFee(5_000n);
-      await clusters.mockMinimumBlocksBeforeLiquidation(100n);
-      await clusters.mockMinimumLiquidationCollateral(0n);
-
-      const mockToken = await connection.ethers.deployContract("MockToken", []);
-      await mockToken.waitForDeployment();
-      await clusters.mockSetToken(await mockToken.getAddress());
-      const harnessAddress = await clusters.getAddress();
-      await mockToken.mint(harnessAddress, ethers.parseEther("2000"));
-
-      return { clusters, operatorIds, mockToken };
-    };
-
-    it("Reverts when ETH deposit is below liquidation threshold", async function () {
-      const { clusters, operatorIds } =
-        await networkHelpers.loadFixture(deployFixture);
-
-      const ssvCluster: Cluster = {
-        validatorCount: 2n,
-        networkFeeIndex: 0n,
-        index: 0n,
-        balance: ethers.parseEther("10"),
-        active: true,
-      };
-
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1),
-        operatorIds,
-        clusterOwner.address,
-        ssvCluster,
+      const ssvDeposit = TOKEN_REGISTER_AMOUNT * 2n;
+      await ssvToken.mint(clusterOwner.address, ssvDeposit);
+      await ssvToken.connect(clusterOwner).approve(
+        await legacyNetwork.getAddress(), ssvDeposit,
       );
 
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER,
+      );
+      let cluster = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, cluster,
+      );
+      cluster = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
+
+      const { newNetwork, newViews } = await upgradeToStakingVersion(
+        connection, legacyNetwork, legacyViews,
+      );
+
+      return { network: newNetwork, views: newViews, ssvToken, operatorIds, cluster };
+    };
+
+    const ethFeeRaw = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+    const networkFeeRaw = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+
+    it("Reverts when ETH deposit is below liquidation threshold", async function () {
+      const { network, operatorIds, cluster } =
+        await networkHelpers.loadFixture(deployFixture);
+
       const threshold = calcLiquidationThreshold({
-        minimumBlocksBeforeLiquidation: 100n,
+        minimumBlocksBeforeLiquidation: MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
         numOperators: 4n,
         ethFee: 17_788n,
         networkFee: 5_000n,
         effectiveVUnits: defaultVUnits(2n),
       });
 
-      const migrateTx = await clusters.connect(clusterOwner).migrateClusterToETH(
-        operatorIds,
-        ssvCluster,
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
+        operatorIds, cluster,
         { value: threshold },
       );
       await migrateTx.wait();
-      await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
+      await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
     });
 
     it("Reverts when ETH deposit is 1 wei below threshold", async function () {
-      const { clusters, operatorIds } =
+      const { network, operatorIds, cluster } =
         await networkHelpers.loadFixture(deployFixture);
 
-      const ssvCluster: Cluster = {
-        validatorCount: 2n,
-        networkFeeIndex: 0n,
-        index: 0n,
-        balance: ethers.parseEther("10"),
-        active: true,
-      };
-
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1),
-        operatorIds,
-        clusterOwner.address,
-        ssvCluster,
-      );
-
       const threshold = calcLiquidationThreshold({
-        minimumBlocksBeforeLiquidation: 100n,
+        minimumBlocksBeforeLiquidation: MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
         numOperators: 4n,
         ethFee: 17_788n,
         networkFee: 5_000n,
@@ -484,40 +426,23 @@ describe("Migration Edge Cases", () => {
       });
 
       await expect(
-        clusters.connect(clusterOwner).migrateClusterToETH(
-          operatorIds,
-          ssvCluster,
+        network.connect(clusterOwner).migrateClusterToETH(
+          operatorIds, cluster,
           { value: threshold - 1n },
         ),
-      ).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
+      ).to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
     });
 
     it("Reverts when ETH deposit is 0", async function () {
-      const { clusters, operatorIds } =
+      const { network, operatorIds, cluster } =
         await networkHelpers.loadFixture(deployFixture);
 
-      const ssvCluster: Cluster = {
-        validatorCount: 2n,
-        networkFeeIndex: 0n,
-        index: 0n,
-        balance: ethers.parseEther("10"),
-        active: true,
-      };
-
-      await clusters.mockRegisterSSVValidator(
-        makePublicKey(1),
-        operatorIds,
-        clusterOwner.address,
-        ssvCluster,
-      );
-
       await expect(
-        clusters.connect(clusterOwner).migrateClusterToETH(
-          operatorIds,
-          ssvCluster,
+        network.connect(clusterOwner).migrateClusterToETH(
+          operatorIds, cluster,
           { value: 0n },
         ),
-      ).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
+      ).to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
     });
   });
 });

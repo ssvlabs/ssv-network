@@ -1,13 +1,13 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../common/types.ts";
 import {
   registerOperators,
   makePublicKey,
   whitelistAddresses,
+  setupTestContext,
 } from "../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
@@ -22,7 +22,7 @@ import {
   calcClusterBurn,
   defaultVUnits,
   snapshotContractBalance,
-} from "./helpers/index.ts";
+} from "../helpers/index.ts";
 
 describe("E2E Smoke Test", () => {
   let connection: NetworkConnection<"generic">;
@@ -32,8 +32,7 @@ describe("E2E Smoke Test", () => {
   let clusterOwner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -71,7 +70,7 @@ describe("E2E Smoke Test", () => {
     const blockAfter = await getBlockNumber(provider);
     expect(blockAfter - blockBefore).to.equal(10);
 
-    const vUnits = defaultVUnits(1n); // 1 validator, implicit EB
+    const vUnits = defaultVUnits(1n);
     const expectedBurn = calcClusterBurn({
       blockDiff: 10n,
       numOperators: 4n,
