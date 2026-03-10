@@ -506,13 +506,10 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         uint64 deltaAbs = deltaPositive ? newVUnits - storedVUnits : storedVUnits - newVUnits;
 
         uint256 operatorsLength = operatorIds.length;
-        for (uint256 i; i < operatorsLength; ) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             if (deltaPositive) seb.operatorEthVUnits[operatorId] += deltaAbs;
             else seb.operatorEthVUnits[operatorId] -= deltaAbs;
-            unchecked {
-                ++i;
-            }
         }
     }
 
