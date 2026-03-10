@@ -223,7 +223,7 @@ describe("Validator Edge Cases", () => {
       );
     });
 
-    it("Reverts with ValidatorAlreadyExistsWithData when registering same validator twice", async function () {
+    it("Reverts with ValidatorAlreadyRegistered when registering same validator twice", async function () {
       const { network } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
       const opIds = await setupDefaultCluster(network, provider, clusterOwner);
@@ -252,7 +252,7 @@ describe("Validator Edge Cases", () => {
         ),
       ).to.be.revertedWithCustomError(
         network,
-        Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA,
+        Errors.VALIDATOR_ALREADY_REGISTERED,
       );
     });
 

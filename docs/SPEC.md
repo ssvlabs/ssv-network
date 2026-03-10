@@ -1127,7 +1127,7 @@ SSV validator count + ETH validator count equals total across both cluster types
 - `ClusterDoesNotExist` — cluster not found
 - `InsufficientBalance` — balance too low for operation
 - `InvalidPublicKeyLength` — validator public key wrong length
-- `ValidatorAlreadyExistsWithData(bytes publicKey)` — validator already registered
+- `ValidatorAlreadyRegistered(bytes publicKey, address owner)` — validator already registered
 - `ValidatorDoesNotExist` — validator not found
 - `IncorrectClusterState` — submitted cluster struct doesn't match stored hash
 - `IncorrectClusterVersion` — operating on wrong cluster version (e.g. SSV cluster for ETH operation)

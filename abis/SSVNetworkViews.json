@@ -355,7 +355,7 @@
         "type": "bytes"
       }
     ],
-    "name": "ValidatorAlreadyExistsWithData",
+    "name": "ValidatorAlreadyRegistered",
     "type": "error"
   },
   {

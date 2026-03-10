@@ -1856,7 +1856,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if the public key is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if the public key is already registered", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -1879,7 +1879,7 @@ describe("SSVNetwork full integration tests", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
         .withArgs(validatorKey, clusterOwner.address);
     });
 
@@ -2136,7 +2136,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if  one of public keys is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if  one of public keys is already registered", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2159,7 +2159,7 @@ describe("SSVNetwork full integration tests", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
         .withArgs(keys[7], clusterOwner.address);
     });
 

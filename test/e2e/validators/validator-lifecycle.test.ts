@@ -475,7 +475,7 @@ describe("Validator Lifecycle", function () {
         ),
       ).to.be.revertedWithCustomError(
         network,
-        Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA,
+        Errors.VALIDATOR_ALREADY_REGISTERED,
       );
     });
   });
