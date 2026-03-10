@@ -89,13 +89,13 @@ describe("SSVDAO function `replaceOracle()`", async () => {
       .to.be.revertedWithCustomError(dao, Errors.ORACLE_ALREADY_ASSIGNED);
   });
 
-  it("Is reverted with 'SameOracleNotAllowed' when replacing with same address", async function () {
+  it("Is reverted with 'SameOracleAddressNotAllowed' when replacing with same address", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
     await dao.mockSetOracle(1, oldOracle.address);
 
     await expect(dao.replaceOracle(1, oldOracle.address))
-      .to.be.revertedWithCustomError(dao, Errors.SAME_ORACLE_NOT_ALLOWED);
+      .to.be.revertedWithCustomError(dao, Errors.SAME_ORACLE_ADDRESS_NOT_ALLOWED);
   });
 
   it("Can replace an oracle with ID that had no previous address", async function () {

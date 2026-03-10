@@ -377,7 +377,7 @@ interface ISSVNetworkCore {
     /**
      * @dev Thrown when attempting to replace an oracle with the same address
      */
-    error SameOracleNotAllowed(); // 0xe991f7e9
+    error SameOracleAddressNotAllowed(); // 0xe991f7e9
 
     /**
      * @dev Thrown when oracleId exceeds the maximum allowed oracle slots
