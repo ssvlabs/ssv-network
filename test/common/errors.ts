@@ -2,7 +2,7 @@ export const Errors = {
   EMPTY_PUBLIC_KEYS_LIST: "EmptyPublicKeysList",
   INVALID_PUBLIC_KEYS_LENGTH: "InvalidPublicKeyLength",
   PUBLIC_KEYS_SHARES_LENGTH_MISMATCH: "PublicKeysSharesLengthMismatch",
-  VALIDATOR_ALREADY_EXISTS_WITH_DATA: "ValidatorAlreadyExistsWithData",
+  VALIDATOR_ALREADY_REGISTERED: "ValidatorAlreadyRegistered",
   INCORRECT_VALIDATOR_STATE_WITH_DATA: "IncorrectValidatorStateWithData",
   VALIDATOR_DOES_NOT_EXIST: "ValidatorDoesNotExist",
   INVALID_OPERATOR_IDS_LENGTH: "InvalidOperatorIdsLength",

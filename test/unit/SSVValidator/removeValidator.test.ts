@@ -184,7 +184,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     await trackGasFromReceipt(removeReceipt, [GasGroup.REMOVE_VALIDATOR_13]);
   });
 
-  it("Is reverted with 'IncorrectValidatorState' when validator was not registered", async function () {
+  it("Is reverted with 'ValidatorDoesNotExist' when validator was not registered", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -204,7 +204,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
       nonExistingKey,
       operatorIds,
       clusterAfterRegister
-    )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
   });
 
   it("Is reverted with 'IncorrectClusterState' when provided cluster data is stale or mismatched", async function () {
@@ -245,7 +245,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_DOES_NOT_EXIST);
   });
 
-  it("Is reverted with 'IncorrectValidatorState' when removing a validator twice", async function () {
+  it("Is reverted with 'ValidatorDoesNotExist' when removing a validator twice", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -268,7 +268,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
       publicKey,
       operatorIds,
       clusterAfterRemove
-    )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
   });
 
   it("Removes validator from active legacy SSV cluster and verifies operator counts and cluster hash", async function () {

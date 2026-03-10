@@ -81,12 +81,8 @@ contract SSVValidators is ISSVValidators {
      * @inheritdoc ISSVValidators
      */
     function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
-        if (
-            !ValidatorLib.validateCorrectState(
-                SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKey, msg.sender))],
-                ValidatorLib.hashOperatorIds(operatorIds)
-            )
-        ) revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKey);
+        StorageData storage s = SSVStorage.load();
+        _validateExistingValidator(publicKey, msg.sender, ValidatorLib.hashOperatorIds(operatorIds), s);
 
         emit ValidatorExited(msg.sender, operatorIds, publicKey);
     }
@@ -98,15 +94,11 @@ contract SSVValidators is ISSVValidators {
         if (publicKeys.length == 0) {
             revert ISSVNetworkCore.ValidatorDoesNotExist();
         }
+        StorageData storage s = SSVStorage.load();
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
 
         for (uint i; i < publicKeys.length; ++i) {
-            if (
-                !ValidatorLib.validateCorrectState(
-                    SSVStorage.load().validatorPKs[keccak256(abi.encodePacked(publicKeys[i], msg.sender))],
-                    hashedOperatorIds
-                )
-            ) revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKeys[i]);
+            _validateExistingValidator(publicKeys[i], msg.sender, hashedOperatorIds, s);
 
             emit ValidatorExited(msg.sender, operatorIds, publicKeys[i]);
         }
@@ -179,11 +171,7 @@ contract SSVValidators is ISSVValidators {
         uint32 validatorsRemoved;
 
         for (uint i; i < validatorsLength; ++i) {
-            bytes32 hashedValidator = keccak256(abi.encodePacked(publicKeys[i], owner));
-            bytes32 validatorData = s.validatorPKs[hashedValidator];
-
-            if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds))
-                revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKeys[i]);
+            bytes32 hashedValidator = _validateExistingValidator(publicKeys[i], owner, hashedOperatorIds, s);
 
             delete s.validatorPKs[hashedValidator];
             validatorsRemoved++;
@@ -267,6 +255,22 @@ contract SSVValidators is ISSVValidators {
 
         for (uint i; i < validatorsLength; ++i) {
             emit ValidatorRemoved(owner, operatorIds, publicKeys[i], cluster);
+        }
+    }
+
+    function _validateExistingValidator(
+        bytes memory publicKey,
+        address owner,
+        bytes32 hashedOperatorIds,
+        StorageData storage s
+    ) internal view returns (bytes32 hashedValidator) {
+        hashedValidator = keccak256(abi.encodePacked(publicKey, owner));
+        bytes32 validatorData = s.validatorPKs[hashedValidator];
+        if (validatorData == bytes32(0)) {
+            revert ISSVNetworkCore.ValidatorDoesNotExist();
+        }
+        if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds)) {
+            revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKey);
         }
     }
 

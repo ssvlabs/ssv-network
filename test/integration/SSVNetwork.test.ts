@@ -1856,7 +1856,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if the public key is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if the public key is already registered", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -1879,8 +1879,8 @@ describe("SSVNetwork full integration tests", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
-        .withArgs(validatorKey);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
+        .withArgs(validatorKey, clusterOwner.address);
     });
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
@@ -2136,7 +2136,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if  one of public keys is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if  one of public keys is already registered", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2159,8 +2159,8 @@ describe("SSVNetwork full integration tests", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
-        .withArgs(keys[7]);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
+        .withArgs(keys[7], clusterOwner.address);
     });
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
@@ -2439,7 +2439,7 @@ describe("SSVNetwork full integration tests", () => {
       const incorrectValidator: string = validatorKey + "11";
 
       await expect(network.connect(clusterOwner).removeValidator(incorrectValidator, operatorIds, cluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
@@ -2452,7 +2452,7 @@ describe("SSVNetwork full integration tests", () => {
       const updatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       await expect(network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, updatedCluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2510,7 +2510,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
     });
 
-    it("Is reverted with 'IncorrectValidatorStateWithData' if the validator was never registered", async function() {
+    it("Is reverted with 'ValidatorDoesNotExist' if the validator was never registered", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2520,8 +2520,7 @@ describe("SSVNetwork full integration tests", () => {
       const incorrectValidator: string = validatorKey + "11";
 
       await expect(network.connect(clusterOwner).bulkRemoveValidator([incorrectValidator], operatorIds, cluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE)
-        .withArgs(incorrectValidator);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
@@ -2534,7 +2533,7 @@ describe("SSVNetwork full integration tests", () => {
       const updatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       await expect(network.connect(clusterOwner).bulkRemoveValidator([validatorKey], operatorIds, updatedCluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2857,7 +2856,7 @@ describe("SSVNetwork full integration tests", () => {
         .withArgs(clusterOwner.address, operatorIds, validatorKey)
     });
 
-    it("Is reverted with 'IncorrectValidatorStateWithData' if the key does not exist or belong to a caller", async function(){
+    it("Is reverted with 'ValidatorDoesNotExist' if the key does not exist or belong to a caller", async function(){
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2865,12 +2864,10 @@ describe("SSVNetwork full integration tests", () => {
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
 
       await expect(network.connect(clusterOwner).exitValidator(makePublicKey(123), operatorIds))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-        .withArgs(makePublicKey(123));
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
 
       await expect(network.connect(randomUser).exitValidator(validatorKey, operatorIds))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-        .withArgs(validatorKey);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2887,7 +2884,7 @@ describe("SSVNetwork full integration tests", () => {
         .withArgs(clusterOwner.address, operatorIds, validatorKey)
     });
 
-    it("Is reverted with 'IncorrectValidatorStateWithData' if the key does not exist or belong to a caller", async function(){
+    it("Is reverted with 'ValidatorDoesNotExist' if the key does not exist or belong to a caller", async function(){
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2895,12 +2892,10 @@ describe("SSVNetwork full integration tests", () => {
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
 
       await expect(network.connect(clusterOwner).bulkExitValidator([makePublicKey(123)], operatorIds))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-        .withArgs(makePublicKey(123));
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
 
       await expect(network.connect(randomUser).bulkExitValidator([validatorKey], operatorIds))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-        .withArgs(validatorKey);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
