@@ -44,6 +44,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         if (amount == 0) {
             revert ZeroAmount();
         }
+
         if (amount < MINIMAL_STAKING_AMOUNT) {
             revert StakeTooLow();
         }
