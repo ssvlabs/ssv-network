@@ -51,6 +51,7 @@ export const Errors = {
   ALREADY_VOTED: "AlreadyVoted",
   ZERO_ADDRESS: "ZeroAddress",
   ORACLE_ALREADY_ASSIGNED: "OracleAlreadyAssigned",
+  SAME_ORACLE_ADDRESS_NOT_ALLOWED: "SameOracleAddressNotAllowed",
   INVALID_ORACLE_ID: "InvalidOracleId",
   INVALID_QUORUM: "InvalidQuorum",
   MAX_REQUESTS_AMOUNT_REACHED: "MaxRequestsAmountReached",
@@ -65,5 +66,4 @@ export const Errors = {
   ORACLE_HAS_ZERO_WEIGHT: "OracleHasZeroWeight",
   MAX_VALUE_EXCEEDED: "MaxValueExceeded",
   MAX_PRECISION_EXCEEDED: "MaxPrecisionExceeded",
-  UPDATE_TOO_FREQUENT: "UpdateTooFrequent",
 } as const;

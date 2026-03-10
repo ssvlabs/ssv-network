@@ -375,6 +375,11 @@ interface ISSVNetworkCore {
     error OracleAlreadyAssigned(); // 0xa97938cb
 
     /**
+     * @dev Thrown when attempting to replace an oracle with the same address
+     */
+    error SameOracleAddressNotAllowed(); // 0xe991f7e9
+
+    /**
      * @dev Thrown when oracleId exceeds the maximum allowed oracle slots
      */
     error InvalidOracleId();
