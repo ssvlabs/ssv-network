@@ -54,6 +54,8 @@ export const Errors = {
   SAME_ORACLE_ADDRESS_NOT_ALLOWED: "SameOracleAddressNotAllowed",
   INVALID_ORACLE_ID: "InvalidOracleId",
   INVALID_QUORUM: "InvalidQuorum",
+  INVALID_OPERATOR_FEE_INCREASE_LIMIT: "InvalidOperatorFeeIncreaseLimit",
+  INVALID_OPERATOR_FEE_RANGE: "InvalidOperatorFeeRange",
   MAX_REQUESTS_AMOUNT_REACHED: "MaxRequestsAmountReached",
   NOT_CSSV: "NotCSSV",
   INVALID_TOKEN: "InvalidToken",

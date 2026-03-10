@@ -72,6 +72,10 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
      * @inheritdoc ISSVDAO
      */
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external override {
+        if (percentage > BPS_DENOMINATOR) {
+            revert InvalidOperatorFeeIncreaseLimit();
+        }
+
         SSVStorageProtocol.load().operatorMaxFeeIncrease = percentage;
         emit OperatorFeeIncreaseLimitUpdated(percentage);
     }
@@ -136,7 +140,12 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
      * @inheritdoc ISSVDAO
      */
     function updateMaximumOperatorFee(uint256 maxFee) external override {
-        SSVStorageProtocol.load().operatorMaxFee = PackedETHLib.pack(maxFee);
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (maxFee < PackedETHLib.unpack(sp.minimumOperatorEthFee)) {
+            revert InvalidOperatorFeeRange();
+        }
+
+        sp.operatorMaxFee = PackedETHLib.pack(maxFee);
         emit OperatorMaximumFeeUpdated(maxFee);
     }
 
@@ -145,7 +154,12 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
      * @inheritdoc ISSVDAO
      */
     function updateMinimumOperatorEthFee(uint256 minFee) external override {
-        SSVStorageProtocol.load().minimumOperatorEthFee = PackedETHLib.pack(minFee);
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (minFee > PackedETHLib.unpack(sp.operatorMaxFee)) {
+            revert InvalidOperatorFeeRange();
+        }
+
+        sp.minimumOperatorEthFee = PackedETHLib.pack(minFee);
         emit MinimumOperatorEthFeeUpdated(minFee);
     }
 

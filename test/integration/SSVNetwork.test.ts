@@ -25,7 +25,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE,
-  OPERATOR_MAX_FEE_INCREASE, SMALL_ETH_REGISTER_VALUE, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
+  OPERATOR_FEE_PRECISION, OPERATOR_MAX_FEE_INCREASE, SMALL_ETH_REGISTER_VALUE, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
 } from '../common/constants.ts';
 import { Events } from '../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
@@ -933,6 +933,14 @@ describe("SSVNetwork full integration tests", () => {
       await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
+
+    it("Reverts when new maximum fee is below the configured minimum fee", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.updateMaximumOperatorFee(MINIMAL_OPERATOR_ETH_FEE - OPERATOR_FEE_PRECISION))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_RANGE);
+    });
   });
 
   describe("Function 'updateMinimumOperatorEthFee()'", async function() {
@@ -972,6 +980,14 @@ describe("SSVNetwork full integration tests", () => {
       await expect(
         network.registerOperator(makeOperatorKey(1), raisedMinFee, false)
       ).to.emit(network, Events.OPERATOR_ADDED);
+    });
+
+    it("Reverts when new minimum fee exceeds the configured maximum fee", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.updateMinimumOperatorEthFee(MAXIMUM_OPERATORS_FEE + OPERATOR_FEE_PRECISION))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_RANGE);
     });
   });
 
@@ -1287,15 +1303,15 @@ describe("SSVNetwork full integration tests", () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      const tx = await network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n);
+      const tx = await network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_FEE_INCREASE_LIMIT]);
 
       await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_INCREASE_LIMIT_UPDATED)
-        .withArgs(OPERATOR_MAX_FEE_INCREASE + 1n);
+        .withArgs(OPERATOR_MAX_FEE_INCREASE);
 
-      expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE + 1n);
+      expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE);
     });
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
@@ -1304,6 +1320,14 @@ describe("SSVNetwork full integration tests", () => {
 
       await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+
+    it("Reverts when fee increase limit exceeds 100%", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_INCREASE_LIMIT);
     });
   });
 
