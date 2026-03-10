@@ -341,13 +341,18 @@ library ClusterLib {
         StorageData storage s
     ) internal view returns (bytes32 clusterData, uint8 version) {
         clusterData = s.ethClusters[hashedCluster];
+        bytes32 clusterDataSSV = s.clusters[hashedCluster];
+
+        if (clusterData != bytes32(0) && clusterDataSSV != bytes32(0)) {
+            revert ISSVNetworkCore.IncorrectClusterState();
+        }
+
         if (clusterData != bytes32(0)) {
             return (clusterData, VERSION_ETH);
         }
 
-        clusterData = s.clusters[hashedCluster];
-        if (clusterData != bytes32(0)) {
-            return (clusterData, VERSION_SSV);
+        if (clusterDataSSV != bytes32(0)) {
+            return (clusterDataSSV, VERSION_SSV);
         }
 
         revert ISSVNetworkCore.ClusterDoesNotExist();

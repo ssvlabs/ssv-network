@@ -2927,12 +2927,12 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
-    it("Is reverted with 'ZeroAmount' is caller is trying to stake 0 SSV", async function(){
+    it("Is reverted with 'StakeTooLow' is caller is trying to stake 0 SSV", async function(){
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       await expect(network.stake(0))
-        .to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+        .to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
   });
 
@@ -3544,6 +3544,31 @@ describe("SSVNetwork full integration tests", () => {
       }
       await updateClusterBalancesForDefaultClusters(network, clusters, merkleData, blockNum, 33);
 
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+    });
+
+    it("Prevents reentrancy in 'reactivate()'", async function () {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      const Malicious = await connection.ethers.getContractFactory("MaliciousReactivate");
+      const malicious = await Malicious.deploy(await network.getAddress());
+      await malicious.waitForDeployment();
+
+      await whitelistAddresses(network, operatorOwner, operatorIds, [await malicious.getAddress()]);
+
+      await malicious.registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const cluster = await getCurrentClusterState(connection, network, await malicious.getAddress(), operatorIds);
+
+      await malicious.setParams(operatorIds, cluster);
+      await malicious.setReactivateParams(operatorIds, cluster);
       await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
     });
 

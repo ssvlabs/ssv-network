@@ -133,7 +133,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     function reactivate(
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external payable override {
+    ) external payable override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
