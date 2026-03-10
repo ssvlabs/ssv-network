@@ -86,7 +86,7 @@ describe("SSVClusters function `exitValidator()`", async () => {
     expect(afterOperatorVUnits).to.deep.equal(beforeOperatorVUnits);
   });
 
-  it("Is reverted with 'IncorrectValidatorStateWithData' when validator was not registered", async function () {
+  it("Is reverted with 'ValidatorDoesNotExist' when validator was not registered", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -95,7 +95,7 @@ describe("SSVClusters function `exitValidator()`", async () => {
     await expect(validators.exitValidator(
       missingPk,
       operatorIds
-    )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(missingPk);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
   });
 
   it("Calling exitValidator twice on the same validator succeeds both times without reverting", async function () {

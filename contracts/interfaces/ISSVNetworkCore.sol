@@ -217,7 +217,7 @@ interface ISSVNetworkCore {
     /**
      * @dev Thrown when trying to register a validator that is already registered
      */
-    error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
+    error ValidatorAlreadyRegistered(bytes publicKey, address owner); // 0x75106a26
 
     /**
      * @dev Thrown when public keys list is empty
@@ -388,5 +388,15 @@ interface ISSVNetworkCore {
      * @dev Thrown when the maximum unstake requests amount reached
      */
     error MaxRequestsAmountReached(); // 0xee0e82ff
+
+
+    // legacy errors
+    error ValidatorAlreadyExists(); // 0x8d09a73e
+    error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
+    error IncorrectValidatorState(); // 0x2feda3c1
+    error ExceedValidatorLimit(uint64 operatorId); // 0x6df5ab76
+    error CallerNotOwner(); // 0x5cd83192
+    error TargetModuleDoesNotExist(); // 0x8f9195fb
+    error CallerNotWhitelisted(); // 0x8c6e5d71
 
 }

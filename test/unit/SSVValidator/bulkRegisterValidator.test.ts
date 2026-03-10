@@ -370,7 +370,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.PUBLIC_KEYS_SHARES_LENGTH_MISMATCH);
   });
 
-  it("Is reverted with 'ValidatorAlreadyExistsWithData' if trying to register already existing key", async function () {
+  it("Is reverted with 'ValidatorAlreadyRegistered' if trying to register already existing key", async function () {
     const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
     const publicKey = makePublicKey(1);
@@ -381,7 +381,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [DEFAULT_SHARES, DEFAULT_SHARES],
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
-    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA).withArgs(publicKey);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_REGISTERED).withArgs(publicKey, clusterOwner.address);
   });
 
   it("Is reverted with 'InvalidOperatorIdsLength' if the length is not allowed one for clusters", async function () {

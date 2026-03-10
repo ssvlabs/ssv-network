@@ -1725,7 +1725,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if the public key is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if the public key is already registered", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const validatorKey = makePublicKey(1);
@@ -1755,7 +1755,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(network.connect(clusterOwner).registerValidator(
         validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
         .withArgs(validatorKey);
     });
 
@@ -2036,7 +2036,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if one of public keys is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if one of public keys is already registered", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
@@ -2066,7 +2066,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(network.connect(clusterOwner).bulkRegisterValidator(
         keys, operatorIds, shares, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
         .withArgs(keys[7]);
     });
 
