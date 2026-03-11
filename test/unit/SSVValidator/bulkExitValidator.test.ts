@@ -177,7 +177,7 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
   });
 
-  it("Is reverted with 'IncorrectValidatorStateWithData' when any validator is not registered", async function () {
+  it("Is reverted with 'ValidatorDoesNotExist' when any validator is not registered", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -193,7 +193,7 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
     await expect(validators.bulkExitValidator(
       publicKeys,
       operatorIds
-    )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(publicKeys[1]);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
   });
 
   it("Is reverted with 'IncorrectValidatorStateWithData' when operator ids do not match stored validators", async function () {

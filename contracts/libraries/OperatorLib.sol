@@ -305,7 +305,7 @@ library OperatorLib {
         uint32 currentBlock = uint32(block.number);
         bool hasDeviation = sp.daoTotalEthVUnits != uint64(sp.ethDaoValidatorCount) * VUNITS_PRECISION;
 
-        for (uint256 i; i < operatorsLength; ) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
@@ -347,10 +347,6 @@ library OperatorLib {
                 cumulativeFee += PackedETH.unwrap(operator.ethFee);
             }
             cumulativeIndex += operator.ethSnapshot.index;
-
-            unchecked {
-                ++i;
-            }
         }
     }
 

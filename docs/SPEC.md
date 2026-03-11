@@ -62,7 +62,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 #### Effective Balance & Oracle
 
 **Q: When is the EB snapshot updated?**
-- Always on `updateClusterBalance`, even if the cluster is liquidated. Fee/accounting updates are skipped for inactive clusters, but `clusterEB.vUnits` is always written → SPEC §4 "Behavior on liquidated clusters"
+- When a valid proof exists in the latest committed root. The contract can write `clusterEB.vUnits` even for liquidated clusters, but in production inactive/liquidated clusters are omitted from oracle roots, so they typically cannot be updated until they become active again → SPEC §4 "Behavior on liquidated clusters"
 
 **Q: Does `updateClusterBalance` auto-liquidate?**
 - Only for active ETH clusters. If the cluster becomes undercollateralized after the EB update, it is auto-liquidated within the same call → SPEC §4 "Update Flow" step 7
@@ -74,7 +74,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Yes — `commitmentKey = keccak256(blockNum, merkleRoot)`, so a different root = a different key. Oracles cannot re-vote on the exact same `(blockNum, merkleRoot)` pair → SPEC §4 "Failed Quorum Behavior"
 
 **Q: What is the risk of reactivating a cluster with a stale EB snapshot?**
-- If EB increased during liquidation: solvency check passes with less ETH than needed → risk of immediate auto-liquidation after next `updateClusterBalance`. Mitigation: call `updateClusterBalance` before reactivating → SPEC §2 "Stale EB Risk on Reactivation"
+- If EB increased during liquidation: solvency check passes with less ETH than needed → risk of auto-liquidation on the first allowed post-reactivation `updateClusterBalance`. If EB decreased, the owner may overfund. Because inactive clusters are omitted from the root, the practical mitigation is off-chain EB awareness and conservative funding, not an on-chain pre-reactivation update → SPEC §2 "Stale EB Risk on Reactivation"
 
 **Q: How is the Merkle leaf encoded?**
 - `keccak256(keccak256(abi.encode(clusterID, effectiveBalance)))` where `effectiveBalance` is `uint32` in whole ETH and `clusterID = keccak256(abi.encodePacked(owner, sortedOperatorIds))` → SPEC §4 "Merkle Tree Structure"
@@ -349,14 +349,25 @@ When a cluster is liquidated (via `liquidate`, `liquidateSSV`, or auto-liquidati
 
 ### Stale EB Risk on Reactivation
 
-**Oracle behavior:** SSV oracles typically do not proactively update EB for liquidated clusters in their regular sweeps (since fee/accounting updates are skipped for inactive clusters and there is no economic benefit to the liquidated cluster owner). However, **the protocol allows permissionless EB updates** — the `updateClusterBalance` function can be called by anyone (including the cluster owner) on liquidated clusters to refresh the EB snapshot in preparation for reactivation.
+**Oracle behavior:** Oracles build the Merkle tree from active clusters only. When a cluster is liquidated / inactive, it is excluded from the root and `updateClusterBalance` is not called for it by the oracle flow. The contract still supports the code path for updating a liquidated cluster if a valid proof exists, but under the current oracle behavior there is usually no proof available for an inactive cluster in the latest committed root.
 
-**Why this matters:** During the liquidation period, the beacon-chain EB may diverge from the stored snapshot:
+**Why this matters:** During the liquidation period, the beacon-chain EB may diverge from the last on-chain snapshot stored in `clusterEB`. This creates a gap between:
+- the **on-chain EB snapshot** used by `reactivate` / liquidated-cluster migration solvency checks, and
+- the **real beacon-chain EB** observed off-chain.
+
+During that gap:
 
 - **EB increases** (e.g. owner consolidates validators): reactivation solvency check uses stale lower EB → cluster passes with less ETH than required → auto-liquidation risk on next `updateClusterBalance` (if not updated before reactivation)
-- **EB decreases** (e.g. slashing): reactivation solvency check uses stale higher EB → cluster owner overestimates required deposit → wastes ETH (conservative but safe)
+- **EB decreases** (e.g. slashing): reactivation solvency check uses stale higher EB → cluster owner may deposit more ETH than necessary
 
-**Mitigation:** Cluster owners (or any interested party) can call `updateClusterBalance` on a liquidated cluster **before reactivation** to ensure the stored EB snapshot reflects current beacon-chain state. This eliminates the risk of immediate auto-liquidation after reactivation. If the owner does not perform this update, they should deposit a conservative ETH buffer to account for potential EB drift during the liquidation period.
+There is also a temporary accounting mismatch after reactivation: until the first successful post-reactivation `updateClusterBalance`, fee settlement continues from the stale on-chain EB snapshot rather than the real beacon-chain EB.
+
+**Practical mitigation:** Since inactive clusters are omitted from the root, the mitigation is operational/off-chain:
+- use beacon-chain-aware tooling to estimate the required deposit from the cluster's actual current EB
+- add a conservative ETH buffer when reactivating or migrating a liquidated cluster
+- expect the on-chain snapshot to be corrected only after the cluster is active again and included in a later oracle root
+
+Company-operated or third-party webapps can help here by reading the cluster's actual beacon-chain EB off-chain and suggesting a deposit amount that is safer than the stale on-chain snapshot alone.
 
 ---
 
@@ -493,7 +504,7 @@ Permissionless — anyone can submit a valid proof:
 7. **ETH clusters only**: apply fee settlements, update operator/DAO vUnit deviations, auto-liquidate if undercollateralized
 8. **SSV clusters**: no fee/accounting updates; EB snapshot stored for future migration only
 
-**Behavior on liquidated clusters:** The EB snapshot (`clusterEB[clusterId].vUnits`) is **always updated**, even if the cluster is liquidated (`cluster.active == false`). Fee settlements, vUnit deviation updates, and the auto-liquidation check are all skipped. `ClusterBalanceUpdated` is still emitted. This means the stale EB is corrected in storage even while the cluster is inactive, so that reactivation uses the latest known EB.
+**Behavior on liquidated clusters:** If a valid proof exists, the EB snapshot (`clusterEB[clusterId].vUnits`) can still be updated even when `cluster.active == false`; fee settlements, vUnit deviation updates, and the auto-liquidation check are skipped. In production, however, oracle roots exclude inactive / liquidated clusters, so this path is typically unreachable until the cluster becomes active again and re-enters the tree. As a result, the on-chain EB snapshot may remain stale throughout the liquidation period.
 
 **SSV cluster accounting:** Legacy SSV clusters continue to use `validatorCount`-based fee calculations (see "SSV Cluster Balance Update (Legacy)" in Accounting Formulas). The EB snapshot is stored but does not affect fee deductions — it only prepares the cluster for future migration to ETH.
 
@@ -1127,7 +1138,7 @@ SSV validator count + ETH validator count equals total across both cluster types
 - `ClusterDoesNotExist` — cluster not found
 - `InsufficientBalance` — balance too low for operation
 - `InvalidPublicKeyLength` — validator public key wrong length
-- `ValidatorAlreadyExistsWithData(bytes publicKey)` — validator already registered
+- `ValidatorAlreadyRegistered(bytes publicKey, address owner)` — validator already registered
 - `ValidatorDoesNotExist` — validator not found
 - `IncorrectClusterState` — submitted cluster struct doesn't match stored hash
 - `IncorrectClusterVersion` — operating on wrong cluster version (e.g. SSV cluster for ETH operation)

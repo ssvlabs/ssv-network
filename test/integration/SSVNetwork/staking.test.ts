@@ -462,7 +462,7 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
     it("Cannot stake zero amount", async function() {
       const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.stake(0)).to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+      await expect(network.stake(0)).to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
     it("Cannot stake below minimum stake amount", async function() {

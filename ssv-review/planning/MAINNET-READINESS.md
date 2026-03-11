@@ -16,16 +16,16 @@
 | BUG-3 | ~~`ensureETHDefaults` resurrects removed operators~~ | Critical Bug Fix | P0 | ✅ Mitigated |
 | BUG-4 | ~~Double deviation cleanup on liquidated cluster validator removal~~ | Critical Bug Fix | P0 | ✅ Fixed ([PR #429](https://github.com/ssvlabs/ssv-network/pull/429)) |
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
-| BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
+| BUG-6 | ~~Rewards lost when `totalStaked == 0` in staking `_syncFees`~~ | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
-| BUG-8 | ~~ Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug, added NatSpec) |
+| BUG-8 | ~~Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug, added NatSpec) |
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
 | BUG-10 | ~~Remove liquidation check in `withdraw` function~~ | Critical Bug Fix | P2 | ✅ Fixed |
 | BUG-12 | ~~`removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters~~ | Critical Bug Fix | P1 | ✅ Done (Product approved) |
 | BUG-13 | ~~Silent default ETH fee assignment for legacy operators during migration~~ | Observability Fix | P2 | ✅ Fixed (PR #502) |
 | BUG-14 | ~~Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment)~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-14b | ~~`reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators~~ | Critical Bug Fix | P1 | ✅ Fixed (ensureETHDefaults marker pattern) |
-| SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
+| SEC-1 | ~~`setQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
 | SEC-4 | ~~`setUnstakeCooldownDuration` allows zero cooldown~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only, no accounting risk) |
@@ -47,7 +47,7 @@
 | SEC-19 | ~~`minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled~~ | Security Hardening | P1 | ✅ Fixed |
 | TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
-| TEST-3 | ~~Balance delta assertions ers | Unit Test Completeness | P0 | S |
+| TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | S✅ Closed (PR #445) |
 | TEST-4 | ~~`updateClusterBalance` on liquidated clusters~~ | Unit Test Completeness | P0 | ✅ Closed (PR #447 + enhanced with 3 edge cases) |
 | TEST-5 | ~~Oracle quorum edge cases~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #449) |
 | TEST-6 | ~~EB decrease scenarios~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #451) |
@@ -60,7 +60,7 @@
 | TEST-13 | ~~Liquidation + reactivation multi-cycle accounting~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-14 | ~~Reactivation with EB deviation solvency check~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-15 | SSV cluster operations completeness | Unit Test Completeness | P1 | M |
-| TEST-16 | View function coverage (SSVViews) | Unit Test Completeness | P1 | ✅ Fixed |
+| TEST-16 | ~~View function coverage (SSVViews)~~ | Unit Test Completeness | P1 | ✅ Fixed |
 | TEST-17 | Staking rewards from EB-weighted cluster fees | Unit Test Completeness | P1 | S |
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
 | TEST-19 | ~~Operator removal impact on active ETH clusters~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
@@ -75,7 +75,7 @@
 | TEST-27 | ~~Operator at max validator limit~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
 | TEST-29 | ~~Add contract ETH balance delta assertions to deposit tests~~ | Unit Test Completeness | P1 | ✅ Done |
-| TEST-30 | ~~Resolve TODO comments with deferred assertions | Unit Test Completeness~~ | P1 | ✅ Done |
+| TEST-30 | ~~Resolve TODO comments with deferred assertions~~ | Unit Test Completeness~~ | P1 | ✅ Done |
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
 | TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |

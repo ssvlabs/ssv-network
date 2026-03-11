@@ -215,8 +215,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
 
         address oldOracle = s.oracles[oracleId];
         if (oldOracle == newOracle) {
-            emit OracleReplaced(oracleId, oldOracle, newOracle);
-            return;
+            revert SameOracleAddressNotAllowed();
         }
 
         // Clear reverse mapping for old oracle if existed

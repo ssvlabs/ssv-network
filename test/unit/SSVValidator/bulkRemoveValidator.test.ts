@@ -271,7 +271,7 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
   });
 
-  it("Is reverted with 'IncorrectValidatorStateWithData' when trying to remove non-existent validators", async function () {
+  it("Is reverted with 'ValidatorDoesNotExist' when trying to remove non-existent validators", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -291,7 +291,7 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
       [missingKey],
       operatorIds,
       clusterAfterRegister
-    )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(missingKey);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
   });
 
   it("Is reverted with 'IncorrectClusterState' when provided cluster data is stale or mismatched", async function () {
@@ -394,8 +394,7 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
     await expect(
       validators.bulkRemoveValidator([key1, missingKey, key2], operatorIds, clusterAfterRegister)
     )
-      .to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-      .withArgs(missingKey);
+      .to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
 
     expect(await validators.getOperatorEthValidatorCount(operatorIds[0])).to.equal(operatorCountBefore);
     expect(await validators.getDaoEthValidatorCount()).to.equal(daoCountBefore);
@@ -421,8 +420,7 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
     await expect(
       clusters.connect(clusterOwner).bulkRemoveValidator([key1, missingKey, key2], operatorIds, ssvCluster)
     )
-      .to.be.revertedWithCustomError(clusters, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-      .withArgs(missingKey);
+      .to.be.revertedWithCustomError(clusters, Errors.VALIDATOR_DOES_NOT_EXIST);
 
     expect(await clusters.getOperatorValidatorCount(operatorIds[0])).to.equal(operatorCountBefore);
     expect(await clusters.getDaoValidatorCount()).to.equal(daoCountBefore);

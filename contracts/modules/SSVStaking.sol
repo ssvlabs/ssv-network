@@ -41,9 +41,6 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
      * @inheritdoc ISSVStaking
      */
     function stake(uint256 amount) external nonReentrant {
-        if (amount == 0) {
-            revert ZeroAmount();
-        }
         if (amount < MINIMAL_STAKING_AMOUNT) {
             revert StakeTooLow();
         }

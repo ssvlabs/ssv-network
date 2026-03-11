@@ -133,7 +133,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     function reactivate(
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external payable override {
+    ) external payable override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -391,20 +391,19 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         if (ctx.version == VERSION_ETH) {
             // ETH clusters: full accounting flow
             uint64 storedVUnits = seb.clusterEB[clusterId].vUnits;
-            uint64 effectiveOldVUnits = storedVUnits;
-            if (effectiveOldVUnits == 0) {
-                effectiveOldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            if (storedVUnits == 0) {
+                storedVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
             }
 
             uint64 burnRate;
             if (cluster.active) {
-                burnRate = _applyClusterFeeUpdates(operatorIds, cluster, effectiveOldVUnits, s, sp);
+                burnRate = _applyClusterFeeUpdates(operatorIds, cluster, storedVUnits, s, sp);
             }
 
             // Apply new vUnits BEFORE liquidation check so auto-liquidation
-            if (cluster.active && newVUnits != effectiveOldVUnits) {
-                _updateOperatorVUnits(operatorIds, seb, effectiveOldVUnits, newVUnits);
-                sp.updateDAOEthVUnits(effectiveOldVUnits, newVUnits);
+            if (cluster.active && newVUnits != storedVUnits) {
+                _updateOperatorVUnits(operatorIds, seb, storedVUnits, newVUnits);
+                sp.updateDAOEthVUnits(storedVUnits, newVUnits);
             }
             _updateEBSnapshot(seb, clusterId, ctx.blockNum, newVUnits);
 
@@ -507,13 +506,10 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         uint64 deltaAbs = deltaPositive ? newVUnits - storedVUnits : storedVUnits - newVUnits;
 
         uint256 operatorsLength = operatorIds.length;
-        for (uint256 i; i < operatorsLength; ) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             if (deltaPositive) seb.operatorEthVUnits[operatorId] += deltaAbs;
             else seb.operatorEthVUnits[operatorId] -= deltaAbs;
-            unchecked {
-                ++i;
-            }
         }
     }
 
