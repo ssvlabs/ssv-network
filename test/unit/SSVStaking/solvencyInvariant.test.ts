@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 import { DEFAULT_UNSTAKE_COOLDOWN, STAKE_AMOUNT, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
@@ -17,7 +17,7 @@ describe("SSVStaking solvency invariant (cSSV supply <= SSV backing)", async () 
     ({ connection, networkHelpers, signers: [staker1, staker2, staker3] } = await setupTestContext());
   });
 
-  const deployStakingFixture = async () => ssvStakingHarnessFixture(connection);
+  const deployStakingFixture = async () => defaultStakingFixture(connection);
 
   const expectStakingSolvent = async (
     staking: any,
