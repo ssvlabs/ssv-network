@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
@@ -17,7 +17,7 @@ describe("Network fee update impact on active clusters", async () => {
     ({ connection, networkHelpers, signers: [clusterOwner] } = await setupTestContext());
   });
 
-  const deployFixture = async () => ssvClustersHarnessFixture(connection);
+  const deployFixture = async () => defaultClustersFixture(connection);
 
 
   it("Increase ETH network fee cluster burns faster", async function () {

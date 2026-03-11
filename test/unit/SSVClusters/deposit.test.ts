@@ -2,6 +2,7 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, createCluster, makePublicKey, parseClusterFromEvent, registerAndParseCluster } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
@@ -22,7 +23,7 @@ describe("SSVClusters function `deposit()`", async () => {
   });
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
-    return ssvClustersHarnessFixture(connection);
+    return defaultClustersFixture(connection);
   };
 
 

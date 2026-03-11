@@ -4,10 +4,10 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
+import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
-  MAXIMUM_OPERATORS_FEE,
-  MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
+  ETH_DEDUCTED_DIGITS,
+  MINIMAL_OPERATOR_ETH_FEE,
 } from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -23,10 +23,9 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
     ({ connection, networkHelpers, signers: [owner] } = await setupTestContext());
   });
 
-  const deployOperatorsFixture = async () =>
-    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
+  const deployOperatorsFixture = async () => defaultOperatorsFixture(connection);
   const deployOperatorsWithTightMaxFee = async () =>
-    ssvOperatorsHarnessFixture(connection, MINIMAL_OPERATOR_ETH_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
+    ssvOperatorsHarnessFixture(connection, MINIMAL_OPERATOR_ETH_FEE);
 
   it("Declares operator fee within allowed limits and emits event", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);

@@ -1,7 +1,8 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { getClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, createCluster, makePublicKey } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from "../../common/constants.ts";
@@ -58,7 +59,7 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
 
 
   const deploySSVClustersFixture = async () => {
-    const fixture = await ssvClustersHarnessFixture(connection);
+    const fixture = await defaultClustersFixture(connection);
     return setupSSVClustersFixture(fixture);
   };
 

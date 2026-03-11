@@ -4,11 +4,13 @@ export { registerOperators, registerOperatorsSSV, whitelistAddresses, getOperato
 export { computeClusterId, computeEBRoot, setupOracles, commitEBRoot, generateMerkleForClusterEB, buildEBMerkleForDefaultClusters, updateClusterBalancesForDefaultClusters, mockEBAndUpdate, } from "./oracle.ts";
 export { calcOperatorFeeAccrual, calcNetworkFeeAccrual, calcClusterBurn, calcVUnits, defaultVUnits, calcLiquidationThreshold, calcAccEthPerShareDelta, calcStakingReward, calcSSVClusterFees, setupMockProtocol, } from "./fee.ts";
 export type { BalanceSnapshot } from "./balance.ts";
-export { snapshotBalance, assertBalanceDelta, snapshotContractBalance, } from "./balance.ts";
+export type { ETHDeltaCheck, ETHDeltaResult } from "./balance.ts";
+export { snapshotBalance, assertBalanceDelta, snapshotContractBalance, expectETHDelta, expectContractETHDelta, expectETHDeltas, } from "./balance.ts";
 export { mineBlocks, getBlockNumber, mineToBlock, getTxBlock, setAccountBalance, } from "./blocks.ts";
 export type { TrackedCluster } from "./invariants.ts";
 export { checkETHConservation, checkValidatorCountConsistency, checkCSSVSupplyConsistency, checkAccumulatorMonotonicity, checkOracleBlockMonotonicity, assertOperatorVUnits, } from "./invariants.ts";
 export { approveAndStake } from "./staking.ts";
+export { defaultOperatorsFixture, defaultClustersFixture, defaultValidatorsFixture, defaultDAOFixture, defaultStakingFixture } from "./fixture-presets.ts";
 export type { TestContext } from "./context.ts";
 export { setupTestContext } from "./context.ts";
 export type { GasReportEntry, GasReport } from "./gas.ts";

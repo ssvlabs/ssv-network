@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -20,7 +20,7 @@ describe("SSVStaking function `rescueERC20()`", async () => {
   });
 
   const deployWithExtraToken = async () => {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
 
     const randomToken = await connection.ethers.deployContract("MockToken");
     await randomToken.waitForDeployment();

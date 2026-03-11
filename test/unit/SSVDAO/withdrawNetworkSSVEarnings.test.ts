@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultDAOFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -19,7 +19,7 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
   });
 
   const deployDAOWithTokenFixture = async () => {
-    const { dao } = await ssvDAOHarnessFixture(connection);
+    const { dao } = await defaultDAOFixture(connection);
 
     const mockToken = await connection.ethers.deployContract("MockToken", []);
     await mockToken.waitForDeployment();
@@ -35,7 +35,7 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
   };
 
   it("Is reverted with 'InsufficientBalance' when trying to withdraw more than available", async function () {
-    const { dao } = await ssvDAOHarnessFixture(connection);
+    const { dao } = await defaultDAOFixture(connection);
 
     await dao.mockSetDaoBalance(100n);
 
@@ -46,7 +46,7 @@ describe("SSVDAO function `withdrawNetworkSSVEarnings()`", async () => {
   });
 
   it("Is reverted when amount is not a multiple of 1e7 (shrink precision)", async function () {
-    const { dao } = await ssvDAOHarnessFixture(connection);
+    const { dao } = await defaultDAOFixture(connection);
 
     await expect(dao.withdrawNetworkSSVEarnings(1n))
       .to.be.revertedWithCustomError(dao, Errors.MAX_PRECISION_EXCEEDED);

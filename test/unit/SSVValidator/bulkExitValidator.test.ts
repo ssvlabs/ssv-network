@@ -1,7 +1,8 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
+import { getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultValidatorsFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, createCluster, makePublicKey, makePublicKeys, computeClusterId } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
@@ -27,7 +28,7 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
   });
 
   const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
-    return ssvValidatorsHarnessFixture(connection);
+    return defaultValidatorsFixture(connection);
   };
 
   it("Exits multiple validators and emits events", async function () {

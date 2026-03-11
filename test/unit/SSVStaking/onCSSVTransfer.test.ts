@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
@@ -21,7 +21,7 @@ describe("SSVStaking function `onCSSVTransfer()`", async () => {
     ({ connection, networkHelpers, signers: [staker, receiver, thirdUser] } = await setupTestContext());
   });
 
-  const deployStakingFixture = async () => ssvStakingHarnessFixture(connection);
+  const deployStakingFixture = async () => defaultStakingFixture(connection);
 
   async function impersonate(address: string) {
     await connection.ethers.provider.send("hardhat_impersonateAccount", [address]);

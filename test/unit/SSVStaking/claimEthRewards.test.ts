@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
@@ -20,7 +20,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   const stakeAndAccrueRewards = async () => {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await trackGas(
       staking.stake(STAKE_AMOUNT),
@@ -89,7 +89,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Is reverted with 'NothingToClaim' when there are no rewards", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
@@ -101,7 +101,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Is reverted with 'NothingToClaim' when accrued amount is too small to payout", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
@@ -133,7 +133,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Syncs fees before claiming", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
     
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await trackGas(
@@ -189,7 +189,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Allows multiple claims as rewards continue to accrue", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
@@ -215,7 +215,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Settles pending rewards before claiming", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
@@ -239,7 +239,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Does not affect other users' accrued balances", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
     const [, otherUser] = await connection.ethers.getSigners();
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);

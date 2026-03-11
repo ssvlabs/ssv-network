@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Errors } from "../../common/errors.ts";
 import { ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
@@ -15,7 +15,7 @@ describe("SSVStaking reentrancy guard", async () => {
   });
 
   it("Blocks reentrancy during ETH rewards claim", async function () {
-    const { staking } = await ssvStakingHarnessFixture(connection);
+    const { staking } = await defaultStakingFixture(connection);
 
     const malicious = await connection.ethers.deployContract(
       "MaliciousClaimEthRewards",

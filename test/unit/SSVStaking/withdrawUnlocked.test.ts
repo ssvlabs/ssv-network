@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
@@ -20,7 +20,7 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
   });
 
   const stakeAndRequestUnstake = async () => {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await trackGas(
       staking.stake(STAKE_AMOUNT),
@@ -69,7 +69,7 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
   });
 
   it("Is reverted with 'NothingToWithdraw' when there is no pending withdrawal", async function () {
-    const { staking } = await ssvStakingHarnessFixture(connection);
+    const { staking } = await defaultStakingFixture(connection);
 
     await expect(staking.withdrawUnlocked()).to.be.revertedWithCustomError(
       staking,
@@ -130,7 +130,7 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
   });
 
   it("Withdraws multiple unlocked requests in a single call", async function () {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
 
@@ -164,7 +164,7 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
   });
 
   it("Withdraws only unlocked requests, leaving locked ones pending", async function () {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
@@ -194,7 +194,7 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
   });
 
   it("Allows second withdrawal after remaining requests unlock", async function () {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);

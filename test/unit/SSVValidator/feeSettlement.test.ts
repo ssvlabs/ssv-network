@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { ssvValidatorsHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultValidatorsFixture } from "../../helpers/fixture-presets.ts";
 import { deployHarnessModule } from "../../setup/deploy.ts";
 import { SSVModules } from "../../common/types.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
@@ -25,7 +25,7 @@ describe("Validator register/remove with non-zero ETH operator fees", async () =
   });
 
   const deployValidatorsWithFee = async () => {
-    return ssvValidatorsHarnessFixture(connection, 4, OPERATOR_FEE);
+    return defaultValidatorsFixture(connection, 4, OPERATOR_FEE);
   };
 
   const deployValidatorsWithDifferentFees = async () => {
