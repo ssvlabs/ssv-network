@@ -22,7 +22,7 @@ This document tracks issues from the audit report source in a management-friendl
 | SSV-7 | ~~EB auto-liquidation can leave ethValidatorCount inflated~~ | Audit Finding | P2 | ✅ Fixed |
 | SSV-8 | ~~Double-accounting EB deviation blocks validator removal from liquidated clusters~~ | Audit Finding | P2 | ✅ Fixed |
 | SSV-9 | ~~Incorrect oracle weight may reach premature quorum~~ | Audit Finding | P2 | ✅ Fixed |
-| SSV-10 | Cluster owners can avoid liquidation by removing all validators before withdrawal | Audit Finding | P3 | TBD |
+| SSV-10 | ~~Cluster owners can avoid liquidation by removing all validators before withdrawal~~ | Audit Finding | P3 | ✅ Acknowledged |
 | SSV-11 | ~~Legacy fee requests may execute after upgrade with incompatible fee scale~~ | Audit Finding | P3 | ✅ Fixed (uses UPGRADE_TIMESTAMP) |
 | SSV-12 | ~~Liquidation fallback adds operatorEthVUnits in sub-baseline case | Audit Finding~~ | P3 | ✅ Acknowledged (unreachable under current invariants) |
 | SSV-13 | ~~Operator registration can be DoSed~~ | Audit Finding | P3 | ✅ Acknowledged |
@@ -799,7 +799,28 @@ Result: No underflow, no double-accounting ✅
 
 ### [SSV-10] Cluster Owners Can Avoid Liquidation By Removing All Validators Before Withdrawal
 
-See [./SSV-10-DETAILED-ANALYSIS.md](./SSV-10-DETAILED-ANALYSIS.md)
+**Revised Conclusion:**
+
+The code path is real:
+- an owner can front-run a same-block `liquidate()` call with `removeValidator()`
+- the stale liquidation tx then reverts on outdated cluster state
+- if enough unpaid usage has accumulated, the subsequent removal settlement can create an accounting gap against the shared ETH pool
+
+However, this is **not** an "instant insolvency at first liquidation boundary" issue.
+
+For clusters that become liquidatable via the normal burn-threshold branch, the liquidation threshold period itself acts as a **buffer**. Once a cluster first becomes liquidatable, it still has roughly one threshold-period worth of additional runway before settlement would drive balance all the way to zero. In practice, exploitability therefore depends on a prolonged failure of liquidation liveness, not just on mempool ordering.
+
+**Protocol Team / QA Assessment:**
+
+Liquidator bots are a **critical protocol component**, not an optional convenience. The protocol is intentionally designed around:
+- permissionless liquidation
+- active liquidator monitoring
+- a liquidation threshold period that provides a safety margin when liquidators are delayed, miss a block, or encounter short-term operational issues
+
+Under these assumptions:
+- a liquidatable cluster should be picked up quickly by liquidators
+- the threshold-period buffer should prevent the cluster from remaining underfunded long enough for `removeValidator()` to settle all the way to zero
+- if liquidators fail for the entire buffer window, that represents a broader operational problem more severe than this individual finding
 
 ---
 
