@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
@@ -20,7 +20,7 @@ describe("SSVStaking function `requestUnstake()`", async () => {
   });
 
   const stakeFirst = async () => {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await trackGas(
       staking.stake(STAKE_AMOUNT),

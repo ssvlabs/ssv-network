@@ -1,13 +1,15 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { getClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { expectETHDelta, expectETHDeltas, expectContractETHDelta } from "../../helpers/balance.ts";
 import { ethers } from "ethers";
 
 describe("SSVClusters function `liquidate()`", async () => {
@@ -29,7 +31,7 @@ describe("SSVClusters function `liquidate()`", async () => {
   });
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
-    return ssvClustersHarnessFixture(connection);
+    return defaultClustersFixture(connection);
   };
 
 
@@ -83,25 +85,12 @@ describe("SSVClusters function `liquidate()`", async () => {
     const minCollateral = harnessBalance / ETH_DEDUCTED_DIGITS + 1n;
     await clusters.mockMinimumLiquidationCollateral(minCollateral);
 
-    const liquidatorBalanceBefore = await connection.ethers.provider.getBalance(otherAccount.address);
-    const harnessBalanceBefore = await connection.ethers.provider.getBalance(harnessAddress);
-
-    const tx = await clusters.connect(otherAccount).liquidate(
-      clusterOwner.address,
-      operatorIds,
-      clusterAfterRegister
-    );
-    const receipt: any = await tx.wait();
-
-    const liquidatorBalanceAfter = await connection.ethers.provider.getBalance(otherAccount.address);
-    const harnessBalanceAfter = await connection.ethers.provider.getBalance(harnessAddress);
-
-    const payout = harnessBalanceBefore - harnessBalanceAfter;
-
-    expect(payout).to.equal(DEFAULT_ETH_REGISTER_VALUE);
-
-    const gasCost = receipt!.gasUsed * (receipt.effectiveGasPrice ?? receipt!.gasPrice);
-    expect(liquidatorBalanceAfter - liquidatorBalanceBefore + BigInt(gasCost)).to.equal(payout);
+    await expectETHDeltas(connection.ethers.provider,
+      () => clusters.connect(otherAccount).liquidate(clusterOwner.address, operatorIds, clusterAfterRegister),
+      [
+        { address: otherAccount.address, expectedDelta: DEFAULT_ETH_REGISTER_VALUE, accountForGas: true },
+        { address: harnessAddress, expectedDelta: -DEFAULT_ETH_REGISTER_VALUE },
+      ]);
   });
 
   it("Transfers no ETH when cluster remaining balance is zero after fee accrual", async function () {
@@ -121,14 +110,9 @@ describe("SSVClusters function `liquidate()`", async () => {
     const drainFeeIndex = DEFAULT_ETH_REGISTER_VALUE / ETH_DEDUCTED_DIGITS;
     await clusters.mockCurrentNetworkFeeIndex(drainFeeIndex);
 
-    const harnessAddress = await clusters.getAddress();
-    const harnessEthBefore = await connection.ethers.provider.getBalance(harnessAddress);
-
-    await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister);
-
-    const harnessEthAfter = await connection.ethers.provider.getBalance(harnessAddress);
-
-    expect(harnessEthAfter).to.equal(harnessEthBefore);
+    await expectContractETHDelta(connection.ethers.provider, await clusters.getAddress(),
+      () => clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister),
+      0n);
   });
 
   it("Self-liquidation returns remaining ETH balance to the cluster owner", async function () {
@@ -145,15 +129,9 @@ describe("SSVClusters function `liquidate()`", async () => {
     const registerReceipt = await registerTx.wait();
     const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
 
-    const ownerEthBefore = await connection.ethers.provider.getBalance(clusterOwner.address);
-
-    const tx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister);
-    const receipt: any = await tx.wait();
-
-    const ownerEthAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
-    const gasCost = receipt!.gasUsed * (receipt.effectiveGasPrice ?? receipt!.gasPrice);
-
-    expect(ownerEthAfter - ownerEthBefore + BigInt(gasCost)).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+    await expectETHDelta(connection.ethers.provider, clusterOwner.address,
+      () => clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister),
+      DEFAULT_ETH_REGISTER_VALUE, { accountForGas: true });
   });
 
   it("Updates operatorEthVUnits on liquidation even when cluster EB snapshot is not set", async function () {

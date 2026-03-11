@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultDAOFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { setupTestContext } from "../../common/helpers.ts";
@@ -19,7 +19,7 @@ describe("SSVDAO function `updateNetworkFeeSSV()`", async () => {
     ({ connection, networkHelpers, signers: [owner] } = await setupTestContext());
   });
 
-  const deployDAOFixture = async () => ssvDAOHarnessFixture(connection);
+  const deployDAOFixture = async () => defaultDAOFixture(connection);
 
   it("Updates the SSV network fee and emits NetworkFeeUpdated event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);

@@ -1,12 +1,10 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
+import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
-  MAXIMUM_OPERATORS_FEE,
-  MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
+  MINIMAL_OPERATOR_ETH_FEE,
   DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS,
 } from '../../common/constants.ts';
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
@@ -19,8 +17,7 @@ describe("SSVOperators reentrancy guard", async () => {
     ({ connection, networkHelpers } = await setupTestContext());
   });
 
-  const deployOperatorsFixture = async () =>
-    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
+  const deployOperatorsFixture = async () => defaultOperatorsFixture(connection);
 
   it("Blocks reentrancy during ETH earnings withdrawal", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);

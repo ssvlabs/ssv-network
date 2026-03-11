@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
+import { getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
+import { defaultValidatorsFixture } from '../../helpers/fixture-presets.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import { setupTestContext, makePublicKey, makePublicKeys, createCluster, parseClusterFromEvent, computeClusterId } from '../../common/helpers.ts';
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from '../../common/constants.ts';
@@ -27,7 +28,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
   });
 
   const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
-    return ssvValidatorsHarnessFixture(connection);
+    return defaultValidatorsFixture(connection);
   };
 
   it("Registers a new validator, creates new cluster with the expected data and emits correct events", async function () {

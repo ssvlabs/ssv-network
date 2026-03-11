@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultDAOFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
@@ -30,7 +30,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
   });
 
   const deployDAOWithOraclesFixture = async () => {
-    const { dao, cssv } = await ssvDAOHarnessFixture(connection);
+    const { dao, cssv } = await defaultDAOFixture(connection);
 
     await dao.mockSetOracle(1, oracle1.address);
     await dao.mockSetOracle(2, oracle2.address);
@@ -41,7 +41,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
   };
 
   const deployDAOWithFourOraclesFixture = async () => {
-    const { dao, cssv } = await ssvDAOHarnessFixture(connection);
+    const { dao, cssv } = await defaultDAOFixture(connection);
 
     await dao.mockSetOracle(1, oracle1.address);
     await dao.mockSetOracle(2, oracle2.address);

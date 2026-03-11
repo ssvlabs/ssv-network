@@ -27,6 +27,7 @@ import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import { Errors } from '../../common/errors.js';
 import { deployContract } from '../../../scripts/common/helpers.js';
 import { trackGasFromReceipt, GasGroup } from '../../helpers/gas-usage.ts';
+import { expectETHDelta, expectETHDeltas } from '../../helpers/balance.ts';
 
 /**
  * Enhanced Integration Tests for SSVNetwork Operators
@@ -76,23 +77,12 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
       const expectedEarnings = earningsPeriod * MINIMAL_OPERATOR_ETH_FEE;
       const actualEarnings = await views.getOperatorEarnings(operatorIds[0]);
       expect(actualEarnings).to.equal(expectedEarnings, "Operator earnings mismatch after mining");
-      const ownerEthBefore = await connection.ethers.provider.getBalance(operatorOwner.address);
-      const contractBalanceBefore = await connection.ethers.provider.getBalance(await network.getAddress());
-
-      const tx = await network.withdrawOperatorEarnings(operatorIds[0], actualEarnings);
-      const receipt = await tx.wait();
-      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
-      const ownerEthAfter = await connection.ethers.provider.getBalance(operatorOwner.address);
-      const contractBalanceAfter = await connection.ethers.provider.getBalance(await network.getAddress());
-
-      expect(ownerEthAfter).to.equal(
-        ownerEthBefore + actualEarnings - gasUsed,
-        "Owner ETH balance delta incorrect"
-      );
-      expect(contractBalanceAfter).to.equal(
-        contractBalanceBefore - actualEarnings,
-        "Contract ETH balance delta incorrect"
-      );
+      await expectETHDeltas(connection.ethers.provider,
+        () => network.withdrawOperatorEarnings(operatorIds[0], actualEarnings),
+        [
+          { address: operatorOwner.address, expectedDelta: actualEarnings, accountForGas: true },
+          { address: await network.getAddress(), expectedDelta: -actualEarnings },
+        ]);
       const earningsAfter = await views.getOperatorEarnings(operatorIds[0]);
       expect(earningsAfter).to.equal(MINIMAL_OPERATOR_ETH_FEE, "Remaining earnings should equal 1 block fee");
     });
@@ -116,18 +106,11 @@ describe("SSVNetwork Integration - Operators (Enhanced)", () => {
       await connection.networkHelpers.mine(earningsPeriod);
 
       const earningsBefore = await views.getOperatorEarnings(operatorIds[0]);
-      const ownerEthBefore = await connection.ethers.provider.getBalance(operatorOwner.address);
-
-      const tx = await network.withdrawAllOperatorEarnings(operatorIds[0]);
-      const receipt = await tx.wait();
-      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
       const expectedWithdrawn = earningsBefore + MINIMAL_OPERATOR_ETH_FEE;
 
-      const ownerEthAfter = await connection.ethers.provider.getBalance(operatorOwner.address);
-      expect(ownerEthAfter).to.equal(
-        ownerEthBefore + expectedWithdrawn - gasUsed,
-        "Owner should receive exact withdrawn amount minus gas"
-      );
+      await expectETHDelta(connection.ethers.provider, operatorOwner.address,
+        () => network.withdrawAllOperatorEarnings(operatorIds[0]),
+        expectedWithdrawn, { accountForGas: true });
       expect(await views.getOperatorEarnings(operatorIds[0])).to.equal(0n);
     });
   });

@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
@@ -20,7 +20,7 @@ describe("SSVStaking function `stake()`", async () => {
     ({ connection, networkHelpers, signers: [staker, other] } = await setupTestContext());
   });
 
-  const deployStakingFixture = async () => ssvStakingHarnessFixture(connection);
+  const deployStakingFixture = async () => defaultStakingFixture(connection);
 
   it("Stakes SSV tokens, mints cSSV and emits Staked event", async function () {
     const { staking, ssvToken, cssvToken } =
