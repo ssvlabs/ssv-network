@@ -61,7 +61,7 @@
 | TEST-14 | ~~Reactivation with EB deviation solvency check~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-15 | SSV cluster operations completeness | Unit Test Completeness | P1 | M |
 | TEST-16 | ~~View function coverage (SSVViews)~~ | Unit Test Completeness | P1 | ✅ Fixed |
-| TEST-17 | Staking rewards from EB-weighted cluster fees | Unit Test Completeness | P1 | S |
+| TEST-17 | ~~Staking rewards from EB-weighted cluster fees~~ | Unit Test Completeness | P1 | ✅ Closed (Covered in `test/integration/SSVNetwork/staking.test.ts`) |
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
 | TEST-19 | ~~Operator removal impact on active ETH clusters~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-19a | Operator removal impact on active ETH clusters (edge cases) | Unit Test Completeness | P1 | S |
@@ -1767,9 +1767,9 @@ No dedicated unit test file exists for SSVViews. Functions like `getBalance`, `i
 ### [TEST-17] Staking rewards from EB-weighted cluster fees
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** Closed
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-03-02
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -1779,8 +1779,8 @@ Test that EB-weighted clusters produce proportionally more staking rewards via t
 Staking integration tests use basic network fees but don't verify that higher-EB clusters contribute proportionally more to the staking pool.
 
 **Acceptance Criteria:**
-- [ ] Test: Cluster with EB=64 generates 2x network fees vs EB=32 → verify staking pool receives 2x rewards
-- [ ] Test: Multiple clusters with different EBs → verify cumulative staking rewards match sum of EB-weighted network fees
+- [x] Test: Cluster with EB=64 generates 2x network fees vs EB=32 → verify staking pool receives 2x rewards
+- [x] Test: Multiple clusters with different EBs → verify cumulative staking rewards match sum of EB-weighted network fees
 
 **Agent Instructions:**
 1. Read `test/integration/SSVNetwork/staking.test.ts`.
@@ -1788,8 +1788,8 @@ Staking integration tests use basic network fees but don't verify that higher-EB
 3. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: EB=64 vs EB=32 staking reward comparison
-- [ ] Sub-task 2: Multi-cluster cumulative staking rewards
+- [x] Sub-task 1: EB=64 vs EB=32 staking reward comparison
+- [x] Sub-task 2: Multi-cluster cumulative staking rewards
 
 ---
 
