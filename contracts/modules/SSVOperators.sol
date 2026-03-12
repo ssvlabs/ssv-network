@@ -74,10 +74,18 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
         operator.checkOwner();
 
-        OperatorLib.updateSnapshotsSt(operator, operatorId);
+        PackedETH currentBalanceETH = PACKED_ETH_ZERO;
+        PackedSSV currentBalanceSSV = PACKED_SSV_ZERO;
 
-        PackedETH currentBalanceETH = operator.ethSnapshot.balance;
-        PackedSSV currentBalanceSSV = operator.snapshot.balance;
+        if (operator.snapshot.block != 0) {
+            OperatorLib.updateSnapshotStSSV(operator);
+            currentBalanceSSV = operator.snapshot.balance;
+        }
+
+        if (operator.ethSnapshot.block != 0) {
+            OperatorLib.updateSnapshotSt(operator, operatorId);
+            currentBalanceETH = operator.ethSnapshot.balance;
+        }
 
         _resetOperatorState(operator);
 
@@ -236,20 +244,24 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
      * @inheritdoc ISSVOperators
      */
     function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override nonReentrant {
-        StorageData storage s = SSVStorage.load();        
-        s.operators[operatorId].checkOwner();
+        StorageData storage s = SSVStorage.load();
+        Operator storage operator = s.operators[operatorId];
+        operator.checkOwner();
 
-        Operator memory operator = s.operators[operatorId]; 
+        PackedETH ethBalance = PACKED_ETH_ZERO;
+        PackedSSV ssvBalance = PACKED_SSV_ZERO;
 
-        operator.updateSnapshots(operatorId);
+        if (operator.snapshot.block != 0) {
+            OperatorLib.updateSnapshotStSSV(operator);
+            ssvBalance = operator.snapshot.balance;
+            operator.snapshot.balance = PACKED_SSV_ZERO;
+        }
 
-        PackedETH ethBalance = operator.ethSnapshot.balance;
-        PackedSSV ssvBalance = operator.snapshot.balance;
-
-        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
-        operator.snapshot.balance = PACKED_SSV_ZERO;
-
-        s.operators[operatorId] = operator;
+        if (operator.ethSnapshot.block != 0) {
+            OperatorLib.updateSnapshotSt(operator, operatorId);
+            ethBalance = operator.ethSnapshot.balance;
+            operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        }
 
         if (PackedETHLib.raw(ethBalance) > 0) {
             _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(ethBalance));
@@ -285,6 +297,8 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         operator.checkOwner();
 
         if (version == VERSION_ETH) {
+            if (operator.ethSnapshot.block == 0) revert ISSVNetworkCore.InsufficientBalance();
+            
             PackedETH shrunkWithdrawn;
             PackedETH shrunkAmount = PackedETHLib.pack(amount);
             OperatorLib.updateSnapshotSt(operator, operatorId);
@@ -303,6 +317,8 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
             _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(shrunkWithdrawn));
 
         } else if (version == VERSION_SSV) {
+            if (operator.snapshot.block == 0) revert ISSVNetworkCore.InsufficientBalance();
+
             PackedSSV shrunkWithdrawn;
             PackedSSV shrunkAmount = PackedSSVLib.pack(amount);
             OperatorLib.updateSnapshotStSSV(operator);

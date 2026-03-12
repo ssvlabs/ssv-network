@@ -98,26 +98,6 @@ library OperatorLib {
     }
 
     /**
-     * @notice Updates both ETH and SSV operator snapshots
-     * @param operator Operator data
-     * @param operatorId Operator ID
-     */
-    function updateSnapshots(ISSVNetworkCore.Operator memory operator, uint64 operatorId) internal view {
-        updateSnapshot(operator, operatorId);
-        updateSnapshotSSV(operator);
-    }
-
-    /**
-     * @notice Updates both stored ETH and SSV operator snapshots
-     * @param operator Operator storage reference
-     * @param operatorId Operator ID
-     */
-    function updateSnapshotsSt(ISSVNetworkCore.Operator storage operator, uint64 operatorId) internal {
-        updateSnapshotSt(operator, operatorId);
-        updateSnapshotStSSV(operator);
-    }
-
-    /**
      * @notice Returns default ETH fee for operators
      * @return Default ETH fee
      */
