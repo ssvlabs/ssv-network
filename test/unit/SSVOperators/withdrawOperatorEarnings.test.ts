@@ -152,5 +152,22 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
       Errors.CALLER_NOT_OWNER
     );
   });
+
+  it("Withdraws exactly 1 * ETH_DEDUCTED_DIGITS (minimum non-zero precision unit) and zeroes balance", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const [owner] = await connection.ethers.getSigners();
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await seedOperatorWithETHBalance(operators, 1, 1n);
+
+    const amount = 1n * ETH_DEDUCTED_DIGITS;
+
+    await expect(operators.withdrawOperatorEarnings(1, amount))
+      .to.emit(operators, Events.OPERATOR_WITHDRAWN)
+      .withArgs(owner.address, 1, amount);
+
+    const operatorAfter = await operators.getOperator(1);
+    expect(operatorAfter.ethSnapshot.balance).to.equal(0n);
+  });
 });
 

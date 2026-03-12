@@ -32,12 +32,4 @@ library SSVReentrancyGuardLib {
     function _nonReentrantAfter() internal {
         SSVStorageReentrancy.load().status = NOT_ENTERED;
     }
-
-    /**
-     * @notice Returns reentrancy guard storage slot
-     * @return Storage slot
-     */
-    function _reentrancyGuardStorageSlot() internal pure returns (bytes32) {
-        return SSVStorageReentrancy.slot();
-    }
 }

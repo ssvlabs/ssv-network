@@ -86,7 +86,7 @@ describe("SSVClusters function `exitValidator()`", async () => {
     expect(afterOperatorVUnits).to.deep.equal(beforeOperatorVUnits);
   });
 
-  it("Is reverted with 'IncorrectValidatorStateWithData' when validator was not registered", async function () {
+  it("Is reverted with 'ValidatorDoesNotExist' when validator was not registered", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -95,7 +95,40 @@ describe("SSVClusters function `exitValidator()`", async () => {
     await expect(validators.exitValidator(
       missingPk,
       operatorIds
-    )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(missingPk);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
+  });
+
+  it("Calling exitValidator twice on the same validator succeeds both times without reverting", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    const publicKey = makePublicKey(1);
+
+    await validators.registerValidator(
+      publicKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+
+    await validators.exitValidator(publicKey, operatorIds);
+
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const validatorDataBeforeSecondExit = await validators.getValidatorData(publicKey, clusterOwner.address);
+    const clusterVUnitsBeforeSecondExit = await validators.getClusterVUnits(clusterId);
+    const operatorVUnitsBeforeSecondExit = await Promise.all(operatorIds.map((id) => validators.getOperatorEthVUnits(id)));
+
+    const tx = await validators.exitValidator(publicKey, operatorIds);
+    await expect(tx).to.emit(validators, Events.VALIDATOR_EXITED).withArgs(clusterOwner.address, operatorIds, publicKey);
+
+    const validatorDataAfterSecondExit = await validators.getValidatorData(publicKey, clusterOwner.address);
+    const clusterVUnitsAfterSecondExit = await validators.getClusterVUnits(clusterId);
+    const operatorVUnitsAfterSecondExit = await Promise.all(operatorIds.map((id) => validators.getOperatorEthVUnits(id)));
+
+    expect(validatorDataAfterSecondExit).to.equal(validatorDataBeforeSecondExit);
+    expect(clusterVUnitsAfterSecondExit).to.equal(clusterVUnitsBeforeSecondExit);
+    expect(operatorVUnitsAfterSecondExit).to.deep.equal(operatorVUnitsBeforeSecondExit);
   });
 
   it("Is reverted with 'IncorrectValidatorStateWithData' when operator ids do not match the validator", async function () {

@@ -180,11 +180,6 @@ interface ISSVNetworkCore {
     error FeeIncreaseNotAllowed(); // 0x410a2b6c
 
     /**
-     * @dev Thrown when caller is not authorized to perform the action
-     */
-    error NotAuthorized(); // 0xea8e4eb5
-
-    /**
      * @dev Thrown when operators list is not unique and has duplicates
      */
     error OperatorsListNotUnique(); // 0xa5a1ff5d
@@ -222,17 +217,12 @@ interface ISSVNetworkCore {
     /**
      * @dev Thrown when trying to register a validator that is already registered
      */
-    error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
+    error ValidatorAlreadyRegistered(bytes publicKey, address owner); // 0x75106a26
 
     /**
      * @dev Thrown when public keys list is empty
      */
     error EmptyPublicKeysList(); // 0xdf83e679
-
-    /**
-     * @dev Thrown when contract address is invalid
-     */
-    error InvalidContractAddress(); // 0xa710429d
 
     /**
      * @dev Thrown when address is a whitelisting contract
@@ -298,6 +288,11 @@ interface ISSVNetworkCore {
      * @dev Thrown when eb update is stale
      */
     error StaleUpdate(); // 0x666a2814
+
+    /**
+     * @dev Thrown when eb update does not use latest committed root block
+     */
+    error MustUseLatestRoot();
 
     /**
      * @dev Thrown when the merkle proof is invalid
@@ -380,8 +375,28 @@ interface ISSVNetworkCore {
     error OracleAlreadyAssigned(); // 0xa97938cb
 
     /**
+     * @dev Thrown when attempting to replace an oracle with the same address
+     */
+    error SameOracleAddressNotAllowed(); // 0xe991f7e9
+
+    /**
+     * @dev Thrown when oracleId exceeds the maximum allowed oracle slots
+     */
+    error InvalidOracleId();
+
+    /**
      * @dev Thrown when the maximum unstake requests amount reached
      */
     error MaxRequestsAmountReached(); // 0xee0e82ff
+
+
+    // legacy errors
+    error ValidatorAlreadyExists(); // 0x8d09a73e
+    error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
+    error IncorrectValidatorState(); // 0x2feda3c1
+    error ExceedValidatorLimit(uint64 operatorId); // 0x6df5ab76
+    error CallerNotOwner(); // 0x5cd83192
+    error TargetModuleDoesNotExist(); // 0x8f9195fb
+    error CallerNotWhitelisted(); // 0x8c6e5d71
 
 }

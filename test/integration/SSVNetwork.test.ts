@@ -85,6 +85,17 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getNetworkValidatorsCount()).to.equal(0);
       expect(await views.totalStaked()).to.equal(0n);
     });
+
+    it("Calling initializeSSVStaking again reverts with already-initialized error", async function () {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const upgradeFactory = await connection.ethers.getContractFactory("SSVNetworkSSVStakingUpgrade");
+      const upgradeNetwork = upgradeFactory.attach(await network.getAddress());
+
+      await expect(
+        upgradeNetwork.initializeSSVStaking(DEFAULT_UNSTAKE_COOLDOWN, [1, 2, 3, 4], 7500)
+      ).to.be.revertedWith("Initializable: contract is already initialized");
+    });
   });
 
   describe("Function 'registerOperator()'", async function () {
@@ -985,6 +996,27 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
+  describe("Function 'updateMinBlocksBetweenUpdates()'", async function() {
+    it("Updates the EB update cooldown blocks and emits correct event", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const newMinBlocks = 7200n;
+
+      await expect(network.updateMinBlocksBetweenUpdates(newMinBlocks))
+        .to.emit(network, Events.MIN_BLOCKS_BETWEEN_UPDATES_UPDATED)
+        .withArgs(newMinBlocks);
+    });
+
+    it("Is reverted if the caller is not the owner", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.connect(randomUser).updateMinBlocksBetweenUpdates(7200n))
+        .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+  });
+
   describe("Function 'setQuorumBps()'", async function() {
     it("Changes quorum and emits correct event", async function() {
       const { network, views } =
@@ -1824,7 +1856,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if the public key is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if the public key is already registered", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -1847,8 +1879,8 @@ describe("SSVNetwork full integration tests", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
-        .withArgs(validatorKey);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
+        .withArgs(validatorKey, clusterOwner.address);
     });
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
@@ -2104,7 +2136,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if  one of public keys is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if  one of public keys is already registered", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2127,8 +2159,8 @@ describe("SSVNetwork full integration tests", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
-        .withArgs(keys[7]);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
+        .withArgs(keys[7], clusterOwner.address);
     });
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
@@ -2407,7 +2439,7 @@ describe("SSVNetwork full integration tests", () => {
       const incorrectValidator: string = validatorKey + "11";
 
       await expect(network.connect(clusterOwner).removeValidator(incorrectValidator, operatorIds, cluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
@@ -2420,7 +2452,7 @@ describe("SSVNetwork full integration tests", () => {
       const updatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       await expect(network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, updatedCluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2478,7 +2510,7 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_STATE);
     });
 
-    it("Is reverted with 'IncorrectValidatorStateWithData' if the validator was never registered", async function() {
+    it("Is reverted with 'ValidatorDoesNotExist' if the validator was never registered", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2488,8 +2520,7 @@ describe("SSVNetwork full integration tests", () => {
       const incorrectValidator: string = validatorKey + "11";
 
       await expect(network.connect(clusterOwner).bulkRemoveValidator([incorrectValidator], operatorIds, cluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE)
-        .withArgs(incorrectValidator);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
@@ -2502,7 +2533,7 @@ describe("SSVNetwork full integration tests", () => {
       const updatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       await expect(network.connect(clusterOwner).bulkRemoveValidator([validatorKey], operatorIds, updatedCluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2825,7 +2856,7 @@ describe("SSVNetwork full integration tests", () => {
         .withArgs(clusterOwner.address, operatorIds, validatorKey)
     });
 
-    it("Is reverted with 'IncorrectValidatorStateWithData' if the key does not exist or belong to a caller", async function(){
+    it("Is reverted with 'ValidatorDoesNotExist' if the key does not exist or belong to a caller", async function(){
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2833,12 +2864,10 @@ describe("SSVNetwork full integration tests", () => {
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
 
       await expect(network.connect(clusterOwner).exitValidator(makePublicKey(123), operatorIds))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-        .withArgs(makePublicKey(123));
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
 
       await expect(network.connect(randomUser).exitValidator(validatorKey, operatorIds))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-        .withArgs(validatorKey);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2855,7 +2884,7 @@ describe("SSVNetwork full integration tests", () => {
         .withArgs(clusterOwner.address, operatorIds, validatorKey)
     });
 
-    it("Is reverted with 'IncorrectValidatorStateWithData' if the key does not exist or belong to a caller", async function(){
+    it("Is reverted with 'ValidatorDoesNotExist' if the key does not exist or belong to a caller", async function(){
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -2863,12 +2892,10 @@ describe("SSVNetwork full integration tests", () => {
         await registerDefaultCluster(connection, network, views, operatorOwner, clusterOwner);
 
       await expect(network.connect(clusterOwner).bulkExitValidator([makePublicKey(123)], operatorIds))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-        .withArgs(makePublicKey(123));
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
 
       await expect(network.connect(randomUser).bulkExitValidator([validatorKey], operatorIds))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA)
-        .withArgs(validatorKey);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2900,12 +2927,12 @@ describe("SSVNetwork full integration tests", () => {
         .to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
-    it("Is reverted with 'ZeroAmount' is caller is trying to stake 0 SSV", async function(){
+    it("Is reverted with 'StakeTooLow' is caller is trying to stake 0 SSV", async function(){
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       await expect(network.stake(0))
-        .to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+        .to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
   });
 
@@ -3211,6 +3238,23 @@ describe("SSVNetwork full integration tests", () => {
       expect(await randomToken.balanceOf(randomUser.address)).to.be.equal(123);
     });
 
+    it("Withdraws non-standard ERC20 tokens that do not return a value", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const nonStandardToken = await connection.ethers.deployContract("NonStandardERC20Mock");
+      await nonStandardToken.waitForDeployment();
+      const tokenAddress = await nonStandardToken.getAddress();
+
+      await nonStandardToken.mint(await network.getAddress(), 123);
+
+      await expect(network.rescueERC20(tokenAddress, randomUser.address, 123))
+        .to.emit(network, Events.ERC20_RESCUED)
+        .withArgs(tokenAddress, randomUser.address, 123);
+
+      expect(await nonStandardToken.balanceOf(randomUser.address)).to.be.equal(123);
+    });
+
     it("Is reverted with 'Ownable: caller is not the owner' if the caller is not the owner", async function() {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
@@ -3500,6 +3544,31 @@ describe("SSVNetwork full integration tests", () => {
       }
       await updateClusterBalancesForDefaultClusters(network, clusters, merkleData, blockNum, 33);
 
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+    });
+
+    it("Prevents reentrancy in 'reactivate()'", async function () {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      const Malicious = await connection.ethers.getContractFactory("MaliciousReactivate");
+      const malicious = await Malicious.deploy(await network.getAddress());
+      await malicious.waitForDeployment();
+
+      await whitelistAddresses(network, operatorOwner, operatorIds, [await malicious.getAddress()]);
+
+      await malicious.registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const cluster = await getCurrentClusterState(connection, network, await malicious.getAddress(), operatorIds);
+
+      await malicious.setParams(operatorIds, cluster);
+      await malicious.setReactivateParams(operatorIds, cluster);
       await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
     });
 

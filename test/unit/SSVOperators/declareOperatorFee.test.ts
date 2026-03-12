@@ -6,7 +6,7 @@ import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey } from "../../common/helpers.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
+  DECLARE_OPERATOR_FEE_PERIOD, DEFAULT_OPERATOR_ETH_FEE, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
   MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
 } from '../../common/constants.ts';
@@ -135,6 +135,26 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
 
     await expect(operators.declareOperatorFee(1, 1n))
       .to.be.revertedWithCustomError(operators, Errors.MAX_PRECISION_EXCEEDED);
+  });
+
+  it("Emits OperatorFeeExecuted when defaulting legacy SSV operator to ETH fee on declare", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    const operatorId = 1;
+    await operators.mockSetOperatorLegacySSV(operatorId, 1);
+
+    const newFee = DEFAULT_OPERATOR_ETH_FEE + DEFAULT_OPERATOR_ETH_FEE / 2n; // 1.5× = 2_655_000_000n
+
+    const tx = await operators.declareOperatorFee(operatorId, newFee);
+    const receipt = await tx.wait();
+    const expectedBlock = BigInt(receipt!.blockNumber);
+
+    await expect(tx).to.emit(operators, Events.OPERATOR_FEE_EXECUTED)
+      .withArgs(owner.address, operatorId, expectedBlock, DEFAULT_OPERATOR_ETH_FEE);
+
+    await expect(tx).to.emit(operators, Events.OPERATOR_FEE_DECLARED)
+      .withArgs(owner.address, operatorId, expectedBlock, newFee);
   });
 
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to declare fee", async function () {

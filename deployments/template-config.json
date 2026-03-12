@@ -10,6 +10,8 @@
   "quorumBps": 7500,
   "defaultOracleIds": [1, 2, 3, 4],
   "cssvToken": "",
-  "protocolParams": {},
+  "protocolParams": {
+    "minBlocksBetweenUpdates": "7200"
+  },
   "oracles": {}
 }

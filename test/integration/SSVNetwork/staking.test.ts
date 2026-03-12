@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { anyValue } from "@nomicfoundation/hardhat-ethers-chai-matchers/withArgs";
 import type { NetworkConnection } from "hardhat/types/network";
 import { getTestConnection } from '../../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../../setup/fixtures.ts';
@@ -378,16 +379,10 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       const phaseASyncTx = await network.connect(staker).syncFees();
       const phaseAReceipt = await phaseASyncTx.wait();
       const phaseAViewDelta = phaseAEnd - phaseAStart;
-      const phaseAFeesLog = phaseAReceipt!.logs.find((log: any) => {
-        try {
-          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
-        } catch {
-          return false;
-        }
-      });
-      const phaseAFees = phaseAFeesLog
-        ? BigInt(network.interface.parseLog(phaseAFeesLog)!.args[0])
-        : 0n;
+      const phaseAFees: bigint = phaseAReceipt!.logs
+        .map((log) => network.interface.parseLog(log))
+        .find((e) => e?.name === Events.FEES_SYNCED)!.args.newFeesWei;
+      await expect(phaseASyncTx).to.emit(network, Events.FEES_SYNCED).withArgs(phaseAFees, anyValue);
 
       const allSigners = await connection.ethers.getSigners();
       const oracles = allSigners.slice(10, 14);
@@ -449,27 +444,25 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
         proofs[clusterId2],
       );
 
+      // Settle transition-period fees (replaceOracle + commitRoot + updateClusterBalance blocks)
+      // so phase B window starts at a clean checkpoint with only 30k vUnits active.
+      await network.connect(staker).syncFees();
+
       const phaseBStart = await views.getNetworkEarnings();
       await connection.networkHelpers.mine(blocks);
       const phaseBEnd = await views.getNetworkEarnings();
       const phaseBSyncTx = await network.connect(staker).syncFees();
       const phaseBReceipt = await phaseBSyncTx.wait();
       const phaseBViewDelta = phaseBEnd - phaseBStart;
-      const phaseBFeesLog = phaseBReceipt!.logs.find((log: any) => {
-        try {
-          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
-        } catch {
-          return false;
-        }
-      });
-      const phaseBFees = phaseBFeesLog
-        ? BigInt(network.interface.parseLog(phaseBFeesLog)!.args[0])
-        : 0n;
+      const phaseBFees: bigint = phaseBReceipt!.logs
+        .map((log) => network.interface.parseLog(log))
+        .find((e) => e?.name === Events.FEES_SYNCED)!.args.newFeesWei;
+      await expect(phaseBSyncTx).to.emit(network, Events.FEES_SYNCED).withArgs(phaseBFees, anyValue);
 
       // Two implicit 32-EB clusters (20k vUnits total) should become 32+64 EB (30k vUnits):
       // fee rate scales from 2x to 3x, so over equal blocks the fee deltas scale 3:2.
       expect(phaseBViewDelta * 2n).to.equal(phaseAViewDelta * 3n);
-      expect(phaseBFees).to.be.greaterThan(phaseAFees);
+      expect(phaseBFees * 2n).to.equal(phaseAFees * 3n)
     });
   });
 
@@ -687,7 +680,7 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
     it("Cannot stake zero amount", async function() {
       const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.stake(0)).to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+      await expect(network.stake(0)).to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
     it("Cannot stake below minimum stake amount", async function() {
