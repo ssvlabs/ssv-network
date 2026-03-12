@@ -91,6 +91,31 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     )).to.be.revertedWithCustomError(clusters, Errors.ROOT_NOT_FOUND);
   });
 
+  it("Is reverted with 'MustUseLatestRoot' when provided root is not the latest committed root", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const cluster = await registerCluster(clusters, operatorIds);
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+
+    const staleBlockNum = 1;
+    const latestBlockNum = 2;
+    const staleEffectiveBalance = 32;
+    const latestEffectiveBalance = 33;
+
+    await clusters.mockSetEBRoot(staleBlockNum, getEBRoot(clusterId, staleEffectiveBalance));
+    await clusters.mockSetEBRoot(latestBlockNum, getEBRoot(clusterId, latestEffectiveBalance));
+
+    await expect(clusters.updateClusterBalance(
+      staleBlockNum,
+      clusterOwner.address,
+      operatorIds,
+      cluster,
+      staleEffectiveBalance,
+      []
+    )).to.be.revertedWithCustomError(clusters, Errors.MUST_USE_LATEST_ROOT);
+  });
+
   it("Updates cluster balance when proof is valid", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
@@ -387,6 +412,82 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
       effectiveBalance,
       []
     )).to.be.revertedWithCustomError(clusters, Errors.STALE_UPDATE);
+  });
+
+  it("Is reverted with 'UpdateTooFrequent' when a second EB update is within the cooldown window", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const cluster = await registerCluster(clusters, operatorIds);
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const effectiveBalance = 32;
+
+    await clusters.mockSetMinBlocksBetweenUpdates(5);
+    await clusters.mockSetEBRoot(1, getEBRoot(clusterId, effectiveBalance));
+
+    const tx1 = await clusters.updateClusterBalance(
+      1,
+      clusterOwner.address,
+      operatorIds,
+      cluster,
+      effectiveBalance,
+      []
+    );
+    const receipt1 = await tx1.wait();
+    const clusterAfter1 = parseClusterFromEvent(clusters, receipt1, Events.CLUSTER_BALANCE_UPDATED);
+
+    await clusters.mockSetEBRoot(2, getEBRoot(clusterId, effectiveBalance));
+
+    await expect(clusters.updateClusterBalance(
+      2,
+      clusterOwner.address,
+      operatorIds,
+      clusterAfter1,
+      effectiveBalance,
+      []
+    )).to.be.revertedWithCustomError(clusters, Errors.UPDATE_TOO_FREQUENT);
+  });
+
+  it("Allows a second EB update after the cooldown window passes", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const cluster = await registerCluster(clusters, operatorIds);
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const effectiveBalance = 32;
+
+    await clusters.mockSetMinBlocksBetweenUpdates(3);
+    await clusters.mockSetEBRoot(1, getEBRoot(clusterId, effectiveBalance));
+
+    const tx1 = await clusters.updateClusterBalance(
+      1,
+      clusterOwner.address,
+      operatorIds,
+      cluster,
+      effectiveBalance,
+      []
+    );
+    const receipt1 = await tx1.wait();
+    const clusterAfter1 = parseClusterFromEvent(clusters, receipt1, Events.CLUSTER_BALANCE_UPDATED);
+
+    await networkHelpers.mine(3);
+
+    await clusters.mockSetEBRoot(2, getEBRoot(clusterId, effectiveBalance));
+
+    const tx2 = await clusters.updateClusterBalance(
+      2,
+      clusterOwner.address,
+      operatorIds,
+      clusterAfter1,
+      effectiveBalance,
+      []
+    );
+    const receipt2 = await tx2.wait();
+
+    await expect(tx2).to.emit(clusters, Events.CLUSTER_BALANCE_UPDATED);
+    const eventArgs = getClusterBalanceUpdatedEventArgs(clusters, receipt2);
+    expect(eventArgs.blockNum).to.equal(2n);
+    expect(eventArgs.effectiveBalance).to.equal(effectiveBalance);
   });
 
   it("Updates only EB snapshot for SSV clusters (no ETH operator vUnits accounting)", async function () {

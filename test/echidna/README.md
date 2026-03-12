@@ -192,7 +192,76 @@ test/echidna/
 
 ## Planned Invariants (Remaining)
 
-Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the current implemented suite (FUZZ-1 and FUZZ-2 complete). Only invariants that are **still not covered** are listed below.
+Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the 73 existing invariants above. Only invariants that are **not already covered** are listed below. Grouped by priority.
+
+### Strengthen Existing (partial coverage → full)
+
+These existing invariants should be upgraded to catch more subtle bugs:
+
+| Existing Property | Upgrade | Ref |
+|---|---|---|
+| `echidna_network_fee_matches_expected` | Add explicit monotonicity: track `prevEthIndex` / `prevSsvIndex` in harness, assert never decreases | A8 |
+| `echidna_cssv_supply_matches_users` | Add per-operation delta: on stake `amount`, assert cSSV supply increased by exactly `amount` | A11 |
+| `echidna_user_index_leq_acc` | Strengthen to exact equality: after `_settle(user)`, assert `userIndex[user] == accEthPerShare` | A14 |
+| `echidna_pool_matches_dao_balance` | Add per-claim delta: on successful claim of `payout`, assert both `stakingEthPoolBalance` and `ethDaoBalance` decreased by exactly `payout` | A16 |
+| `echidna_accrued_within_pool` | Add cumulative tracking: wrap `claimEthRewards` to track `totalEthPaidOut`, assert `totalEthPaidOut <= totalEthCredited` | C2 |
+
+### High Priority — New Invariants
+
+Directly testable with current harness patterns. High bug-catching value.
+
+#### Oracle / EB Governance
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_finalized_weight_cleared` | Always | If `ebRoots[blockNum] == root != 0`, then `rootCommitments[key] == 0` — prevents re-finalization | A4 |
+| `echidna_commitment_weight_lte_supply` | Always | For each tracked `commitmentKey`, `rootCommitments[key] <= cSSV.totalSupply()` — catches quorum overflow | A5 |
+| `echidna_finalization_implies_quorum` | Conditional | At finalization time, accumulated weight >= `threshold(totalSupply, quorumBps)` — catches quorum bypass | B1 |
+
+#### DAO Accounting
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_dao_earnings_monotonic` | Always | `networkTotalEarnings()` (ETH) and `networkTotalEarningsSSV()` never decrease as `block.number` advances — catches settlement regression | A9 |
+| `echidna_dao_index_block_lte_current` | Always | `ethDaoIndexBlockNumber <= block.number` and `daoIndexBlockNumber <= block.number` — catches "time-travel" indices | A10 |
+
+#### Staking Rewards Precision
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_cssv_transfer_settles_both` | Always | After `onCSSVTransfer(from, to, amount)`, both `userIndex[from]` and `userIndex[to]` equal `accEthPerShare` — catches reward smuggling via transfer | A15 |
+| `echidna_claim_payout_precision` | Always | Any successful claim `payout` satisfies `payout % ETH_DEDUCTED_DIGITS == 0` — catches precision bypass | A17 |
+| `echidna_no_free_rewards_on_transfer` | Candidate | cSSV transfer does not move already-accrued rewards from sender to receiver — catches reward smuggling (needs 2-actor before/after tracking) | C3 |
+
+#### EB Snapshot Safety
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_eb_snapshot_block_lte_current` | Always | `clusterEB[id].lastUpdateBlock <= block.number` — catches future-dated EB snapshots | A18 |
+| `echidna_eb_snapshot_root_monotonic` | Always | `clusterEB[id].lastRootBlockNum` never decreases per cluster — catches stale proof replay | A19 |
+
+#### EB Update Correctness
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_eb_update_requires_latest_root` | Conditional | `updateClusterBalance(blockNum, ...)` with non-latest committed root must always revert (SSV-17 latest-root-only rule) | SSV-17 |
+| `echidna_eb_update_requires_root` | Conditional | `updateClusterBalance(blockNum, ...)` succeeds only if `ebRoots[blockNum] != 0` | B3 |
+| `echidna_eb_update_frequency` | Conditional | Same cluster cannot update twice within `minBlocksBetweenUpdates` — second update reverts | B4 |
+| `echidna_eb_update_staleness` | Conditional | Successful update requires `blockNum > lastRootBlockNum` for that cluster | B5 |
+
+#### Fee Settlement Correctness
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_fee_index_current_after_settle` | Conditional | After ETH cluster fee settlement, stored fee indices equal protocol "current" indices | B9 |
+| `echidna_fee_uses_old_vunits_on_eb_change` | Conditional | When EB update changes vUnits, fees for elapsed period use old vUnits, not new | B11 |
+
+#### Liquidation Completeness
+
+| Planned Property | Type | Description | Ref |
+|---|---|---|---|
+| `echidna_liquidation_clears_eb_snapshot` | Conditional | After liquidation, `clusterEB[clusterId].vUnits == 0` — catches stale EB after liquidation | B13 |
+| `echidna_liquidation_pays_exact_balance` | Conditional | ETH paid to liquidator equals cluster balance at liquidation time — catches over/underpayment | B14 |
 
 ### Medium Priority — New Invariants
 
@@ -238,8 +307,11 @@ Significant implementation effort. Requires custom delta-block simulators, per-c
 
 #### Migration
 
-| Planned Property | Type | Description | Ref |
+| Property | Type | Description | Ref |
 |---|---|---|---|
+| `echidna_migration_removed_refund_exact` | Implemented | On successful SSV→ETH migration, refunded SSV must equal settlement computed with full cumulative SSV index (including removed operators' frozen `snapshot.index`) | BUG-14 |
+| `echidna_migration_removed_operator_not_eth_initialized` | Implemented | Operators removed before migration (`snapshot.block == 0 && ethSnapshot.block == 0`) must remain excluded from ETH initialization and ETH validator-count updates | BUG-14 |
+| `echidna_removed_operator_state_and_frozen_index_preserved` | Implemented | Removed operators must keep zeroed snapshot blocks while preserving frozen `snapshot.index` across subsequent actions | BUG-14 |
 | `echidna_migration_one_way` | Candidate | After `migrateClusterToETH`: ETH mode active, SSV balance returned, legacy operations revert — catches partial migration / stuck funds | C7 |
 
 #### Overflow / Extreme Value

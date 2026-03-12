@@ -205,12 +205,15 @@ describe("SSV Cluster Legacy Operations", () => {
         clusters.liquidate(clusterOwner.address, operatorIds, ssvCluster),
       ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
 
-      await expect(
-        clusters.removeValidator(makePublicKey(1), operatorIds, ssvCluster),
-      ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
+      // removeValidator is allowed on SSV clusters (BUG-12 fix)
+      const removeTx = await clusters.removeValidator(makePublicKey(1), operatorIds, ssvCluster);
+      const removeReceipt = await removeTx.wait();
+      const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+      expect(clusterAfterRemove.validatorCount).to.equal(0n);
+      expect(clusterAfterRemove.active).to.equal(true);
 
       await expect(
-        clusters.liquidateSSV(clusterOwner.address, operatorIds, ssvCluster),
+        clusters.liquidateSSV(clusterOwner.address, operatorIds, clusterAfterRemove),
       ).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
     });
 

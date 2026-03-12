@@ -80,7 +80,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     expect(daoBalanceBefore - daoBalanceAfter).to.equal(expectedPayoutShrunk);
   });
 
-  it("Keeps remainder in accrued balance after claiming (precision handling)", async function () {
+  it("Keeps remainder in accrued when user still holds cSSV (precision handling)", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeAndAccrueRewards);
 
     // Use an amount with a remainder when divided by DEDUCTED_DIGITS (1e7)
@@ -95,6 +95,55 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     );
 
     const expectedRemainder = accruedAmount % ETH_DEDUCTED_DIGITS; 
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(expectedRemainder);
+  });
+
+  it("Zeros dust in accrued when user holds 0 cSSV after full transfer (SEC-16b)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const [, receiver] = await connection.ethers.getSigners();
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    await cssvToken.transfer(receiver.address, STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(0n);
+
+    const accruedWithDust = 1_234_599_999n; // payout = 1_234_500_000, dust = 99_999
+    const packedPayout = accruedWithDust / ETH_DEDUCTED_DIGITS; // 12345
+    await staking.mockSetUserAccrued(staker.address, accruedWithDust);
+    await staking.mockSetStakingEthPoolBalance(packedPayout + 1_000_000n);
+    await staking.mockSetEthDaoBalance(packedPayout + 1_000_000n);
+
+    const stakingAddress = await staking.getAddress();
+    await staker.sendTransaction({ to: stakingAddress, value: connection.ethers.parseEther("1") });
+
+    await staking.claimEthRewards();
+
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(0n);
+  });
+
+  it("Keeps remainder when user still holds cSSV despite dust (SEC-16b no false positive)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(STAKE_AMOUNT);
+
+    const accruedWithDust = 1_234_599_999n;
+    const packedPayout = accruedWithDust / ETH_DEDUCTED_DIGITS;
+    await staking.mockSetUserAccrued(staker.address, accruedWithDust);
+    await staking.mockSetStakingEthPoolBalance(packedPayout + 1_000_000n);
+    await staking.mockSetEthDaoBalance(packedPayout + 1_000_000n);
+
+    const stakingAddress = await staking.getAddress();
+    await staker.sendTransaction({ to: stakingAddress, value: connection.ethers.parseEther("1") });
+
+    await staking.claimEthRewards();
+
+    const expectedRemainder = accruedWithDust % ETH_DEDUCTED_DIGITS;
     const accruedAfter = await staking.getUserAccrued(staker.address);
     expect(accruedAfter).to.equal(expectedRemainder);
   });
@@ -312,5 +361,250 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     // Other user's accrued balance should be unchanged
     const otherAccruedAfter = await staking.getUserAccrued(otherUser.address);
     expect(otherAccruedAfter).to.equal(otherAccrued);
+  });
+
+  it("Zeros dust when user unstakes all cSSV then claims (SEC-16b unstake flow)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    // Accrue sub-dust rewards
+    const dustAmount = 50_000n; // Sub-ETH_DEDUCTED_DIGITS
+    await staking.mockSetUserAccrued(staker.address, dustAmount);
+
+    // Unstake ALL cSSV
+    await staking.requestUnstake(STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(0n);
+
+    // Claim should succeed with zero payout and zero dust (SEC-16b fix)
+    const tx = await staking.claimEthRewards();
+    await expect(tx)
+      .to.emit(staking, Events.REWARDS_CLAIMED)
+      .withArgs(staker.address, 0n); // Zero payout event
+
+    // Verify dust was zeroed
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(0n);
+  });
+
+  it("Zeros exactly 99,999 wei dust (max) when bal == 0 after full unstake (SEC-16b boundary)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const maxDust = ETH_DEDUCTED_DIGITS - 1n; // 99,999 wei
+    await staking.mockSetUserAccrued(staker.address, maxDust);
+
+    // Unstake ALL cSSV
+    await staking.requestUnstake(STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(0n);
+
+    // Claim should succeed with zero payout (SEC-16b fix)
+    const tx = await staking.claimEthRewards();
+    await expect(tx)
+      .to.emit(staking, Events.REWARDS_CLAIMED)
+      .withArgs(staker.address, 0n);
+
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(0n);
+  });
+
+  it("Keeps remainder when user unstakes partial cSSV and claims (SEC-16b partial unstake)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    // Unstake HALF cSSV
+    await staking.requestUnstake(STAKE_AMOUNT / 2n);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(STAKE_AMOUNT / 2n);
+
+    // Accrue 150K wei (payout = 100K, remainder = 50K)
+    const accruedWithRemainder = 150_000n;
+    const expectedPayout = 100_000n;
+    const expectedRemainder = 50_000n;
+
+    await staking.mockSetUserAccrued(staker.address, accruedWithRemainder);
+    await staking.mockSetStakingEthPoolBalance(expectedPayout / ETH_DEDUCTED_DIGITS + 1n);
+    await staking.mockSetEthDaoBalance(expectedPayout / ETH_DEDUCTED_DIGITS + 1n);
+
+    const stakingAddress = await staking.getAddress();
+    await staker.sendTransaction({ to: stakingAddress, value: connection.ethers.parseEther("1") });
+
+    await staking.claimEthRewards();
+
+    // Should keep remainder (bal > 0)
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(expectedRemainder);
+  });
+
+  it("Zeros dust after multiple partial cSSV transfers resulting in bal == 0 (SEC-16b multi-transfer)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const [, receiver] = await connection.ethers.getSigners();
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    // Transfer 25% cSSV
+    await cssvToken.transfer(receiver.address, STAKE_AMOUNT / 4n);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(STAKE_AMOUNT * 3n / 4n);
+
+    // Transfer another 25% cSSV
+    await cssvToken.transfer(receiver.address, STAKE_AMOUNT / 4n);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(STAKE_AMOUNT / 2n);
+
+    // Transfer remaining 50% cSSV
+    await cssvToken.transfer(receiver.address, STAKE_AMOUNT / 2n);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(0n);
+
+    // Set sub-dust accrued
+    await staking.mockSetUserAccrued(staker.address, 75_000n);
+
+    // Claim should succeed with zero payout (SEC-16b fix)
+    const tx = await staking.claimEthRewards();
+    await expect(tx)
+      .to.emit(staking, Events.REWARDS_CLAIMED)
+      .withArgs(staker.address, 0n);
+
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(0n);
+  });
+
+  it("Zeros exactly 99,999 wei remainder when bal == 0 but keeps it when bal > 0 (SEC-16b max dust)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const [, receiver] = await connection.ethers.getSigners();
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    // Scenario 1: User has cSSV, accrues 199,999 wei (payout = 100K, remainder = 99,999)
+    const accruedAmount = 199_999n;
+    const expectedPayout = 100_000n;
+    const maxDust = ETH_DEDUCTED_DIGITS - 1n; // 99,999 wei
+
+    await staking.mockSetUserAccrued(staker.address, accruedAmount);
+    await staking.mockSetStakingEthPoolBalance(expectedPayout / ETH_DEDUCTED_DIGITS + 1n);
+    await staking.mockSetEthDaoBalance(expectedPayout / ETH_DEDUCTED_DIGITS + 1n);
+
+    const stakingAddress = await staking.getAddress();
+    await staker.sendTransaction({ to: stakingAddress, value: connection.ethers.parseEther("1") });
+
+    // Claim while bal > 0
+    await staking.claimEthRewards();
+
+    // Should keep max dust (bal > 0)
+    let accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(maxDust);
+
+    // Scenario 2: User transfers all cSSV, then claims with max dust
+    await cssvToken.transfer(receiver.address, STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(0n);
+
+    // Try to claim max dust with bal == 0 (should succeed with zero payout - SEC-16b fix)
+    const tx2 = await staking.claimEthRewards();
+    await expect(tx2)
+      .to.emit(staking, Events.REWARDS_CLAIMED)
+      .withArgs(staker.address, 0n);
+
+    accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(0n);
+  });
+
+  it("Allows new accrual after dust was zeroed when user receives cSSV back (SEC-16b re-stake)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const [, receiver] = await connection.ethers.getSigners();
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    // Transfer all cSSV → dust zeroed scenario
+    await cssvToken.transfer(receiver.address, STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(0n);
+
+    await staking.mockSetUserAccrued(staker.address, 50_000n);
+
+    // Claim should succeed with zero payout (SEC-16b fix)
+    const firstClaim = await staking.claimEthRewards();
+    await expect(firstClaim)
+      .to.emit(staking, Events.REWARDS_CLAIMED)
+      .withArgs(staker.address, 0n);
+    expect(await staking.getUserAccrued(staker.address)).to.equal(0n);
+
+    // Receive cSSV back
+    await cssvToken.connect(receiver).transfer(staker.address, STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(STAKE_AMOUNT);
+
+    // Accrue new rewards
+    const newReward = 200_000_000n; // 200M wei
+    await staking.mockSetUserAccrued(staker.address, newReward);
+    await staking.mockSetStakingEthPoolBalance(newReward / ETH_DEDUCTED_DIGITS);
+    await staking.mockSetEthDaoBalance(newReward / ETH_DEDUCTED_DIGITS);
+
+    const stakingAddress = await staking.getAddress();
+    await staker.sendTransaction({ to: stakingAddress, value: connection.ethers.parseEther("1") });
+
+    // Claim should work (bal > 0, new rewards)
+    const tx = await staking.claimEthRewards();
+    await expect(tx).to.emit(staking, Events.REWARDS_CLAIMED);
+
+    // Verify new accrual worked correctly (no interference from previous forfeit)
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(0n); // All claimed (200M is exact multiple)
+  });
+
+  it("Storage state is clean after dust is zeroed (SEC-16b view consistency)", async function () {
+    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const [, receiver] = await connection.ethers.getSigners();
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    // Get initial user index after stake
+    const initialIndex = await staking.getUserIndex(staker.address);
+
+    await cssvToken.transfer(receiver.address, STAKE_AMOUNT);
+    await staking.mockSetUserAccrued(staker.address, 50_000n);
+
+    // Before claim: accrued should show dust
+    const accruedBefore = await staking.getUserAccrued(staker.address);
+    expect(accruedBefore).to.equal(50_000n);
+
+    // Claim should succeed with zero payout (SEC-16b fix)
+    const tx = await staking.claimEthRewards();
+    await expect(tx)
+      .to.emit(staking, Events.REWARDS_CLAIMED)
+      .withArgs(staker.address, 0n);
+
+    // After dust zeroed, accrued storage should be 0
+    // This ensures view functions like previewClaimableEth return 0
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(0n);
+
+    // User index should still be synced (not reset)
+    const userIndexAfter = await staking.getUserIndex(staker.address);
+    expect(userIndexAfter).to.equal(initialIndex); // Index preserved, not reset to 0
+  });
+
+  it("Handles exact ETH_DEDUCTED_DIGITS boundary (100,000 wei) correctly (SEC-16b boundary)", async function () {
+    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+
+    await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const exactBoundary = ETH_DEDUCTED_DIGITS; // 100,000 wei
+    await staking.mockSetUserAccrued(staker.address, exactBoundary);
+    await staking.mockSetStakingEthPoolBalance(1n); // 1 packed unit
+    await staking.mockSetEthDaoBalance(1n);
+
+    const stakingAddress = await staking.getAddress();
+    await staker.sendTransaction({ to: stakingAddress, value: connection.ethers.parseEther("1") });
+
+    await staking.claimEthRewards();
+
+    // Should have 0 remainder (exact payout, no dust)
+    const accruedAfter = await staking.getUserAccrued(staker.address);
+    expect(accruedAfter).to.equal(0n);
   });
 });
