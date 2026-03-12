@@ -250,6 +250,11 @@ interface ISSVNetworkCore {
     error IncorrectOperatorVersion(uint8 operatorVersion); // 0xf222e863
 
     /**
+     * @dev Thrown when an operator with no SSV activity attempts to withdraw SSV earnings
+     */
+    error NoSSVEarnings(); // 0x08d08b0b
+
+    /**
      * @dev Thrown when cluster version is incorrect
      */
     error IncorrectClusterVersion(); // 0xf6749746

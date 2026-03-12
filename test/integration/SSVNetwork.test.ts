@@ -1271,6 +1271,54 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
+  describe("Function 'withdrawOperatorEarningsSSV()' — ETH-only operator guard", async function() {
+    it("Is reverted with 'NoSSVEarnings' when ETH-only operator calls withdrawOperatorEarningsSSV", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      await expect(network.withdrawOperatorEarningsSSV(operatorIds[0], 0n))
+        .to.be.revertedWithCustomError(network, Errors.NO_SSV_EARNINGS);
+    });
+
+    it("Is reverted with 'NoSSVEarnings' when ETH-only operator calls withdrawAllOperatorEarningsSSV", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+      await expect(network.withdrawAllOperatorEarningsSSV(operatorIds[0]))
+        .to.be.revertedWithCustomError(network, Errors.NO_SSV_EARNINGS);
+    });
+
+    it("ETH-only operator can still withdraw ETH earnings normally", async function() {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      await connection.networkHelpers.mine(100n);
+
+      const earnings: bigint = await views.getOperatorEarnings(operatorIds[0]);
+      expect(earnings).to.be.greaterThan(0n);
+
+      await expect(network.withdrawOperatorEarnings(operatorIds[0], earnings))
+        .to.emit(network, Events.OPERATOR_WITHDRAWN)
+        .withArgs(operatorOwner.address, operatorIds[0], earnings);
+
+      await expect(network.withdrawOperatorEarningsSSV(operatorIds[0], 0n))
+        .to.be.revertedWithCustomError(network, Errors.NO_SSV_EARNINGS);
+    });
+  });
+
   describe("Function 'setFeeRecipientAddress()'", async function(){
     it("Emits the correct event with the correct input data", async function(){
       const { network } =

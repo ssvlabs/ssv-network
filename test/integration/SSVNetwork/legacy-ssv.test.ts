@@ -289,21 +289,21 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
 
       await connection.networkHelpers.mine(100);
 
-      // SSV earnings should be 0, use precision-safe amount (10_000_000n is the shrink factor)
+      // SSV earnings should be 0 — operator has no SSV activity (snapshot.block == 0)
       const precisionSafeAmount = 10_000_000n;
       await expect(network.connect(operatorOwner).withdrawOperatorEarningsSSV(operatorIds[0], precisionSafeAmount))
-        .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
+        .to.be.revertedWithCustomError(network, Errors.NO_SSV_EARNINGS);
     });
 
-    it("withdrawAllOperatorEarningsSSV reverts with InsufficientBalance when no SSV earnings", async function () {
+    it("withdrawAllOperatorEarningsSSV reverts with NoSSVEarnings when no SSV earnings", async function () {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
 
-      // No cluster registered, so no earnings
+      // No cluster registered, so no earnings — operator has no SSV activity
       await expect(network.connect(operatorOwner).withdrawAllOperatorEarningsSSV(operatorIds[0]))
-        .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
+        .to.be.revertedWithCustomError(network, Errors.NO_SSV_EARNINGS);
     });
 
     it("withdrawOperatorEarningsSSV requires operator ownership", async function () {
