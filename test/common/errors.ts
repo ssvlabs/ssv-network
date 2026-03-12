@@ -66,4 +66,5 @@ export const Errors = {
   ORACLE_HAS_ZERO_WEIGHT: "OracleHasZeroWeight",
   MAX_VALUE_EXCEEDED: "MaxValueExceeded",
   MAX_PRECISION_EXCEEDED: "MaxPrecisionExceeded",
+  NO_SSV_EARNINGS: "NoSSVEarnings",
 } as const;

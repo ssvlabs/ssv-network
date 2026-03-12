@@ -106,8 +106,9 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
+    await seedOperatorWithSSVBalance(operators, 1, 1n);
 
-    await expect(operators.withdrawOperatorEarningsSSV(1, DEDUCTED_DIGITS)).to.be.revertedWithCustomError(
+    await expect(operators.withdrawOperatorEarningsSSV(1, 2n * DEDUCTED_DIGITS)).to.be.revertedWithCustomError(
       operators,
       Errors.INSUFFICIENT_BALANCE
     );
@@ -139,6 +140,39 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
     await expect(operators.connect(other).withdrawOperatorEarningsSSV(1, DEDUCTED_DIGITS)).to.be.revertedWithCustomError(
       operators,
       Errors.CALLER_NOT_OWNER
+    );
+  });
+
+  it("Is reverted with 'NoSSVEarnings' when ETH-only operator calls withdrawOperatorEarningsSSV", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+
+    await expect(operators.withdrawOperatorEarningsSSV(1, 0n)).to.be.revertedWithCustomError(
+      operators,
+      Errors.NO_SSV_EARNINGS
+    );
+
+    await expect(operators.withdrawOperatorEarningsSSV(1, DEDUCTED_DIGITS)).to.be.revertedWithCustomError(
+      operators,
+      Errors.NO_SSV_EARNINGS
+    );
+  });
+
+  it("Is reverted with 'NoSSVEarnings' when ETH-only operator calls withdrawAllOperatorEarningsSSV", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+
+    await expect(operators.withdrawAllOperatorEarningsSSV(1)).to.be.revertedWithCustomError(
+      operators,
+      Errors.NO_SSV_EARNINGS
     );
   });
 });

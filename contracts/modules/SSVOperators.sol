@@ -303,6 +303,8 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
             _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(shrunkWithdrawn));
 
         } else if (version == VERSION_SSV) {
+            if (operator.snapshot.block == 0) revert NoSSVEarnings();
+
             PackedSSV shrunkWithdrawn;
             PackedSSV shrunkAmount = PackedSSVLib.pack(amount);
             OperatorLib.updateSnapshotStSSV(operator);

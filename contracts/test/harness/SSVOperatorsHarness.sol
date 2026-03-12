@@ -64,6 +64,9 @@ contract SSVOperatorsHarness is SSVOperators {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].ethSnapshot.balance = PackedETH.wrap(ethSnapshotBalance);
         s.operators[operatorId].snapshot.balance = PackedSSV.wrap(ssvSnapshotBalance);
+        if (ssvSnapshotBalance > 0 && s.operators[operatorId].snapshot.block == 0) {
+            s.operators[operatorId].snapshot.block = uint32(block.number);
+        }
     }
 
     function mockSetToken(address token) external {
