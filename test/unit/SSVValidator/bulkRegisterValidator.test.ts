@@ -55,8 +55,23 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    // todo check args with pre-calculated cluster
-    await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
+    const expectedCluster = [
+      2n,
+      0n,
+      0n,
+      true,
+      DEFAULT_ETH_REGISTER_VALUE,
+    ];
+
+    await expect(tx)
+      .to.emit(validators, Events.VALIDATOR_ADDED)
+      .withArgs(
+        clusterOwner.address,
+        operatorIds,
+        publicKeys[0],
+        shares[0],
+        expectedCluster
+      );
   });
 
   it("Updates operatorEthVUnits even when cluster EB snapshot is not set", async function () {
@@ -355,7 +370,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.PUBLIC_KEYS_SHARES_LENGTH_MISMATCH);
   });
 
-  it("Is reverted with 'ValidatorAlreadyExistsWithData' if trying to register already existing key", async function () {
+  it("Is reverted with 'ValidatorAlreadyRegistered' if trying to register already existing key", async function () {
     const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
     const publicKey = makePublicKey(1);
@@ -366,7 +381,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [DEFAULT_SHARES, DEFAULT_SHARES],
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
-    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA).withArgs(publicKey);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_REGISTERED).withArgs(publicKey, clusterOwner.address);
   });
 
   it("Is reverted with 'InvalidOperatorIdsLength' if the length is not allowed one for clusters", async function () {

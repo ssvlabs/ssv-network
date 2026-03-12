@@ -40,6 +40,7 @@ import { ethers } from "ethers";
  * | defaultOperatorEthFee          | 1,770,000,000 wei/block            | 1,770,000,000     |
  * | quorumBps                      | 75%                                | 7,500             |
  * | cooldownDuration               | 604,800 seconds (7 days)           | 604,800           |
+ * | minBlocksBetweenUpdates        | 0 blocks                           | 0.                |
  *
  */
 
@@ -52,6 +53,7 @@ type ParamsCandidateJson = {
   defaultOperatorEthFee: string;
   quorumBps: number;
   cooldownDuration: number;
+  minBlocksBetweenUpdates: number;
   defaultOracleIds: number[];
 };
 
@@ -68,6 +70,7 @@ const CONFIG = {
   defaultOperatorEthFee: BigInt(_raw.defaultOperatorEthFee),
   quorumBps: BigInt(_raw.quorumBps),
   cooldownDuration: BigInt(_raw.cooldownDuration),
+  minBlocksBetweenUpdates: BigInt(_raw.minBlocksBetweenUpdates),
   defaultOracleIds: _raw.defaultOracleIds,
 };
 
@@ -105,6 +108,7 @@ describe("Mainnet Governance Config Validation", async () => {
         "defaultOperatorEthFee",
         "quorumBps",
         "cooldownDuration",
+        "minBlocksBetweenUpdates",
         "defaultOracleIds",
       ];
       for (const field of required) {
@@ -119,7 +123,7 @@ describe("Mainnet Governance Config Validation", async () => {
         "liquidationThresholdPeriod",
         "minOperatorEthFee",
         "maxOperatorEthFee",
-        "defaultOperatorEthFee",
+        "defaultOperatorEthFee"
       ];
       for (const field of stringFields) {
         const value = _raw[field];
@@ -137,6 +141,11 @@ describe("Mainnet Governance Config Validation", async () => {
     it("cooldownDuration is a positive integer", () => {
       expect(Number.isInteger(_raw.cooldownDuration)).to.be.true;
       expect(_raw.cooldownDuration).to.be.greaterThan(0);
+    });
+
+    it("minBlocksBetweenUpdates is a positive integer", () => {
+      const value = Number(_raw.minBlocksBetweenUpdates);
+      expect(Number.isInteger(value)).to.be.true;
     });
 
     it("defaultOracleIds is an array of 4 distinct valid oracle ids", () => {
@@ -472,6 +481,22 @@ describe("Mainnet Governance Config Validation", async () => {
       const { staking } = await networkHelpers.loadFixture(deployStakingFixture);
       const storedCooldown = await staking.getCooldownDuration();
       expect(storedCooldown).to.equal(CONFIG.cooldownDuration);
+    });
+  });
+
+  describe("EB update frequency", () => {
+    const deployDAOFixture = async () => {
+      const { dao } = await ssvDAOHarnessFixture(connection);
+      return { dao };
+    };
+
+    it("Stores minBlocksBetweenUpdates", async function () {
+      const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+      const value = Number(CONFIG.minBlocksBetweenUpdates);
+
+      await dao.updateMinBlocksBetweenUpdates(value);
+
+      expect(await dao.getMinBlocksBetweenUpdates()).to.equal(value);
     });
   });
 

@@ -316,13 +316,13 @@ describe("E2E Staking Edge Cases", () => {
   });
 
   describe("MINIMAL_STAKING_AMOUNT", () => {
-    it("Should revert with ZeroAmount for stake(0)", async function () {
+    it("Should revert with StakeTooLow for stake(0)", async function () {
       const { network } =
         await networkHelpers.loadFixture(deployFixture);
 
       await expect(
         network.connect(stakerA).stake(0n),
-      ).to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+      ).to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
     it("Should revert with StakeTooLow for amount below minimum", async function () {
