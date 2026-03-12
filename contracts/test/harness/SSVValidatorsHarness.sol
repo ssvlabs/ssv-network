@@ -84,6 +84,23 @@ contract SSVValidatorsHarness is SSVValidators {
         return SSVStorage.load().ethClusters[hashedCluster];
     }
 
+    function getSSVClusterHash(bytes32 hashedCluster) external view returns (bytes32) {
+        return SSVStorage.load().clusters[hashedCluster];
+    }
+
+    function getOperatorValidatorCount(uint64 operatorId) external view returns (uint32) {
+        return SSVStorage.load().operators[operatorId].validatorCount;
+    }
+
+    function getDaoValidatorCount() external view returns (uint32) {
+        return SSVStorageProtocol.load().daoValidatorCount;
+    }
+
+    function getOperatorSnapshot(uint64 operatorId) external view returns (uint64 index, uint32 blockNumber, uint64 balance) {
+        ISSVNetworkCore.Snapshot storage snap = SSVStorage.load().operators[operatorId].snapshot;
+        return (snap.index, snap.block, PackedSSV.unwrap(snap.balance));
+    }
+
     function getOperatorEthValidatorCount(uint64 operatorId) external view returns (uint32) {
         return SSVStorage.load().operators[operatorId].ethValidatorCount;
     }
@@ -222,5 +239,19 @@ contract SSVValidatorsHarness is SSVValidators {
 
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
+    }
+
+    function mockRemoveOperator(uint64 operatorId) external {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.snapshot.block = 0;
+        operator.snapshot.balance = PACKED_SSV_ZERO;
+        operator.fee = PACKED_SSV_ZERO;
+        operator.ethValidatorCount = 0;
+        operator.validatorCount = 0;
     }
 }

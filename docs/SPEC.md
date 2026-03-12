@@ -62,7 +62,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 #### Effective Balance & Oracle
 
 **Q: When is the EB snapshot updated?**
-- Always on `updateClusterBalance`, even if the cluster is liquidated. Fee/accounting updates are skipped for inactive clusters, but `clusterEB.vUnits` is always written → SPEC §4 "Behavior on liquidated clusters"
+- When a valid proof exists in the latest committed root. The contract can write `clusterEB.vUnits` even for liquidated clusters, but in production inactive/liquidated clusters are omitted from oracle roots, so they typically cannot be updated until they become active again → SPEC §4 "Behavior on liquidated clusters"
 
 **Q: Does `updateClusterBalance` auto-liquidate?**
 - Only for active ETH clusters. If the cluster becomes undercollateralized after the EB update, it is auto-liquidated within the same call → SPEC §4 "Update Flow" step 7
@@ -74,7 +74,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Yes — `commitmentKey = keccak256(blockNum, merkleRoot)`, so a different root = a different key. Oracles cannot re-vote on the exact same `(blockNum, merkleRoot)` pair → SPEC §4 "Failed Quorum Behavior"
 
 **Q: What is the risk of reactivating a cluster with a stale EB snapshot?**
-- If EB increased during liquidation: solvency check passes with less ETH than needed → risk of immediate auto-liquidation after next `updateClusterBalance`. Mitigation: call `updateClusterBalance` before reactivating → SPEC §2 "Stale EB Risk on Reactivation"
+- If EB increased during liquidation: solvency check passes with less ETH than needed → risk of auto-liquidation on the first allowed post-reactivation `updateClusterBalance`. If EB decreased, the owner may overfund. Because inactive clusters are omitted from the root, the practical mitigation is off-chain EB awareness and conservative funding, not an on-chain pre-reactivation update → SPEC §2 "Stale EB Risk on Reactivation"
 
 **Q: How is the Merkle leaf encoded?**
 - `keccak256(keccak256(abi.encode(clusterID, effectiveBalance)))` where `effectiveBalance` is `uint32` in whole ETH and `clusterID = keccak256(abi.encodePacked(owner, sortedOperatorIds))` → SPEC §4 "Merkle Tree Structure"
@@ -96,7 +96,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Yes (no guard), but it is a no-op — SSV snapshot balance is zero. See SEC-18 → FLOWS §4.8
 
 **Q: What is `DEFAULT_OPERATOR_ETH_FEE` and when is it applied?**
-- 1,770,000,000 wei/block/validator. Applied automatically on first ETH cluster interaction for pre-v2 operators that had SSV fee > 0. Operators with SSV fee = 0 get ETH fee = 0 → SPEC §1 "Operator Fee Transition"
+- 1,770,000,000 wei/block/validator. Applied automatically via `ensureETHDefaults` on first ETH interaction for legacy SSV operators (SSV fee > 0, ethSnapshot.block == 0). Also called by `declareOperatorFee` and `reduceOperatorFee` before fee changes. Operators with SSV fee = 0 get ETH fee = 0. See SPEC §1 "Operator Fee Transition" for complete behavior → SPEC §1 "Operator Fee Transition"
 
 ---
 
@@ -128,11 +128,16 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Check `validateHashedCluster` return value: `version == VERSION_ETH` (2) → ETH cluster in `s.ethClusters`; `version == VERSION_SSV` (1) → SSV cluster in `s.clusters` → SPEC §6 "Type System & Packing"
 
 **Q: What operations are blocked on legacy SSV clusters?**
-- Blocked: `registerValidator`, `bulkRegisterValidator`, `removeValidator` (BUG-11), `bulkRemoveValidator` (BUG-11), `reactivate`, `deposit` (SSV), `withdraw` (SSV)
-- Allowed: `exitValidator`, `bulkExitValidator`, `liquidate`, `liquidateSSV`, `migrateClusterToETH`, `updateClusterBalance` → SPEC §1 "Existing Clusters"
+- Blocked: `registerValidator`, `bulkRegisterValidator`, `reactivate`, `deposit` (SSV), `withdraw` (SSV), `liquidate` (ETH path)
+- Allowed: `removeValidator`, `bulkRemoveValidator`, `exitValidator`, `bulkExitValidator`, `liquidateSSV`, `migrateClusterToETH`, `updateClusterBalance` → SPEC §1 "Existing Clusters"
 
 **Q: What happens to removed operators in a cluster?**
 - Removed operators are skipped during `updateClusterOperatorsOnReactivation` and migration. The cluster operates with reduced operator coverage (e.g., 3/4). No on-chain event signals which operators were skipped — detectable off-chain by checking operator states → FLOWS §1.8 note, SPEC §1 "Minimum ETH Calculation" special cases
+
+**Q: How do `removeValidator` / `bulkRemoveValidator` behave on legacy SSV clusters?**
+- They execute against `s.clusters` (VERSION_SSV), settle SSV accounting with SSV indices when cluster is active, and update SSV operator/DAO validator counters.
+- If an SSV cluster is already liquidated, remove operations still delete validator keys and decrement cluster `validatorCount`, but they do not decrement SSV operator/DAO counts again.
+- Legacy SSV remove paths do not update EB-specific storage (`clusterEB`, `operatorEthVUnits`), which is ETH-branch accounting only.
 
 **Q: Can a cluster be reactivated after migration to ETH?**
 - Migration is one-way and irreversible. A migrated cluster that is later liquidated can be reactivated via `reactivate` (ETH flow) → SPEC §1 "Cluster Migration"
@@ -169,7 +174,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 | Staking | none | SSV → cSSV, earns ETH rewards from network fees |
 | Oracle | none | Merkle-root EB oracle with quorum voting |
 | Liquidation collateral | SSV-denominated | SSV-denominated (legacy SSV clusters) and ETH-denominated, EB-aware |
-| SSV cluster operations | full | blocked (remove, liquidate, and migrate only) |
+| SSV cluster operations | full | partial: remove/bulkRemove/exit/liquidateSSV/migrate/updateClusterBalance allowed; register/deposit/withdraw/reactivate blocked |
 | Withdraw from liquidated | blocked | allowed (ETH clusters) |
 
 ### Related Documents
@@ -188,9 +193,10 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 8. [All External Functions](#8-all-external-functions)
 9. [Access Control Matrix](#9-access-control-matrix)
 10. [Accounting Formulas](#10-accounting-formulas)
-11. [Governance Parameters](#11-governance-parameters)
-12. [Error Codes](#12-error-codes)
-13. [Constants](#13-constants)
+11. [Global Invariants](#11-global-invariants)
+12. [Governance Parameters](#12-governance-parameters)
+13. [Error Codes](#13-error-codes)
+14. [Constants](#14-constants)
 
 ---
 
@@ -257,12 +263,25 @@ Step 4: Take maximum of both thresholds
 
 **New operators**: Register with ETH fee only (no SSV fee option)
 
-**Existing operators**:
+**Existing operators (Legacy SSV Operators)**:
 - SSV fees frozen (cannot modify)
 - SSV fee accrual continues for non-migrated clusters
-- Default ETH fee assigned automatically on first ETH cluster interaction:
+- Default ETH fee assigned automatically on **first ETH interaction** via `ensureETHDefaults`:
   - If SSV fee = 0 → ETH fee = 0
   - If SSV fee > 0 → ETH fee = `DEFAULT_OPERATOR_ETH_FEE` (1,770,000,000 wei = ~0.00464 ETH/year per 32 ETH validator)
+
+**`ensureETHDefaults` is called in:**
+- `migrateClusterToETH` (for all operators in the cluster)
+- `registerValidator` / `bulkRegisterValidator` (for all operators in the cluster, ETH clusters only)
+- `declareOperatorFee` (before declaring new fee)
+- `reduceOperatorFee` (before reducing fee)
+
+**Behavior:**
+- Initializes `operator.ethSnapshot.block = block.number` (if currently 0)
+- Assigns `operator.ethFee = DEFAULT_OPERATOR_ETH_FEE` **only if** `ethFee == 0 && SSV fee > 0`
+- Emits `OperatorFeeExecuted(owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE)` when default is assigned
+- After initialization (`ethSnapshot.block > 0`), operators can explicitly set `ethFee = 0` via `reduceOperatorFee(operatorId, 0)`
+- Explicit zero fees are preserved during migration (no overwrite to default)
 
 ### Breaking Function Signature Changes
 
@@ -311,6 +330,7 @@ Examples:
 - `effectiveBalance <= validatorCount * 2048` (maximum 2048 ETH per validator)
 - Block numbers must be strictly monotonically increasing
 - Minimum blocks between updates enforced (`minBlocksBetweenUpdates`)
+- **Latest-root-only enforcement**: `blockNum` must equal `latestCommittedBlock` — prevents stale root griefing attacks
 
 ### DAO vUnit Tracking
 
@@ -329,14 +349,25 @@ When a cluster is liquidated (via `liquidate`, `liquidateSSV`, or auto-liquidati
 
 ### Stale EB Risk on Reactivation
 
-**Oracle behavior:** SSV oracles typically do not proactively update EB for liquidated clusters in their regular sweeps (since fee/accounting updates are skipped for inactive clusters and there is no economic benefit to the liquidated cluster owner). However, **the protocol allows permissionless EB updates** — the `updateClusterBalance` function can be called by anyone (including the cluster owner) on liquidated clusters to refresh the EB snapshot in preparation for reactivation.
+**Oracle behavior:** Oracles build the Merkle tree from active clusters only. When a cluster is liquidated / inactive, it is excluded from the root and `updateClusterBalance` is not called for it by the oracle flow. The contract still supports the code path for updating a liquidated cluster if a valid proof exists, but under the current oracle behavior there is usually no proof available for an inactive cluster in the latest committed root.
 
-**Why this matters:** During the liquidation period, the beacon-chain EB may diverge from the stored snapshot:
+**Why this matters:** During the liquidation period, the beacon-chain EB may diverge from the last on-chain snapshot stored in `clusterEB`. This creates a gap between:
+- the **on-chain EB snapshot** used by `reactivate` / liquidated-cluster migration solvency checks, and
+- the **real beacon-chain EB** observed off-chain.
+
+During that gap:
 
 - **EB increases** (e.g. owner consolidates validators): reactivation solvency check uses stale lower EB → cluster passes with less ETH than required → auto-liquidation risk on next `updateClusterBalance` (if not updated before reactivation)
-- **EB decreases** (e.g. slashing): reactivation solvency check uses stale higher EB → cluster owner overestimates required deposit → wastes ETH (conservative but safe)
+- **EB decreases** (e.g. slashing): reactivation solvency check uses stale higher EB → cluster owner may deposit more ETH than necessary
 
-**Mitigation:** Cluster owners (or any interested party) can call `updateClusterBalance` on a liquidated cluster **before reactivation** to ensure the stored EB snapshot reflects current beacon-chain state. This eliminates the risk of immediate auto-liquidation after reactivation. If the owner does not perform this update, they should deposit a conservative ETH buffer to account for potential EB drift during the liquidation period.
+There is also a temporary accounting mismatch after reactivation: until the first successful post-reactivation `updateClusterBalance`, fee settlement continues from the stale on-chain EB snapshot rather than the real beacon-chain EB.
+
+**Practical mitigation:** Since inactive clusters are omitted from the root, the mitigation is operational/off-chain:
+- use beacon-chain-aware tooling to estimate the required deposit from the cluster's actual current EB
+- add a conservative ETH buffer when reactivating or migrating a liquidated cluster
+- expect the on-chain snapshot to be corrected only after the cluster is active again and included in a later oracle root
+
+Company-operated or third-party webapps can help here by reading the cluster's actual beacon-chain EB off-chain and suggesting a deposit amount that is safer than the stale on-chain snapshot alone.
 
 ---
 
@@ -373,8 +404,28 @@ userIndex[user] = accEthPerShare
 
 - Call `claimEthRewards()` at any time
 - Payout truncated to ETH_DEDUCTED_DIGITS precision: `payout = accrued - (accrued % 100_000)`
-- Deducted from both `stakingEthPoolBalance` and `sp.ethDaoBalance`
-- ETH transferred to user
+- If `payout > 0`: deduct `packed(payout)` from both `stakingEthPoolBalance` and `sp.ethDaoBalance`, then transfer ETH to user
+- If `payout == 0` and `balanceOf(user) == 0`: zero `accrued[user]`, emit `RewardsClaimed(user, 0)`, and return successfully
+- If `payout == 0` and `balanceOf(user) > 0`: revert `NothingToClaim` (remainder preserved)
+
+#### Dust Handling (ETH_DEDUCTED_DIGITS Rounding)
+
+ETH rewards are packed to PackedETH (uint64) with precision of 100,000 wei (ETH_DEDUCTED_DIGITS).
+When claiming rewards:
+- `payout = floor(accrued / 100_000) * 100_000`
+- `remainder = accrued - payout`
+- If `remainder > 0` AND `balanceOf(user) == 0`: remainder is forfeited (zeroed in s.accrued)
+- If `balanceOf(user) > 0`: remainder is preserved for future claims
+
+**Rationale:** Users with zero cSSV balance cannot accrue future rewards (pending will always be 0).
+Therefore, sub-100K wei dust can never grow to claimable amounts and is safely forfeited.
+Forfeited dust remains in stakingEthPoolBalance, redistributed to remaining stakers.
+
+#### claimEthRewards Edge Cases
+
+- If `accrued == 0`: revert `NothingToClaim`
+- If `accrued > 0` but `accrued < ETH_DEDUCTED_DIGITS` and `balanceOf(user) > 0`: remainder preserved, revert `NothingToClaim` (can claim later when accrued grows)
+- If `accrued > 0` but `accrued < ETH_DEDUCTED_DIGITS` and `balanceOf(user) == 0`: dust zeroed (forfeited), emit `RewardsClaimed(user, 0)`, return success
 
 ### cSSV Token Behavior
 
@@ -444,14 +495,16 @@ Permissionless — anyone can submit a valid proof:
 
 1. Verify committed root exists for `blockNum`
 2. Verify update frequency (min blocks between updates)
-3. Verify staleness (blockNum > last root used for this cluster)
+3. Verify staleness:
+   - **Latest-root check**: `blockNum == latestCommittedBlock` (prevents stale root usage)
+   - **Per-cluster monotonicity**: `blockNum > lastRootBlockNum` for this cluster
 4. Verify Merkle proof against committed root
 5. Verify EB limits (32–2048 ETH per validator)
 6. Convert to vUnits, update EB snapshot
 7. **ETH clusters only**: apply fee settlements, update operator/DAO vUnit deviations, auto-liquidate if undercollateralized
 8. **SSV clusters**: no fee/accounting updates; EB snapshot stored for future migration only
 
-**Behavior on liquidated clusters:** The EB snapshot (`clusterEB[clusterId].vUnits`) is **always updated**, even if the cluster is liquidated (`cluster.active == false`). Fee settlements, vUnit deviation updates, and the auto-liquidation check are all skipped. `ClusterBalanceUpdated` is still emitted. This means the stale EB is corrected in storage even while the cluster is inactive, so that reactivation uses the latest known EB.
+**Behavior on liquidated clusters:** If a valid proof exists, the EB snapshot (`clusterEB[clusterId].vUnits`) can still be updated even when `cluster.active == false`; fee settlements, vUnit deviation updates, and the auto-liquidation check are skipped. In production, however, oracle roots exclude inactive / liquidated clusters, so this path is typically unreachable until the cluster becomes active again and re-enters the tree. As a result, the on-chain EB snapshot may remain stale throughout the liquidation period.
 
 **SSV cluster accounting:** Legacy SSV clusters continue to use `validatorCount`-based fee calculations (see "SSV Cluster Balance Update (Legacy)" in Accounting Formulas). The EB snapshot is stored but does not affect fee deductions — it only prepares the cluster for future migration to ETH.
 
@@ -929,7 +982,106 @@ userIndex[user] = accEthPerShare
 
 ---
 
-## 11. Governance Parameters
+## 11. Global Invariants
+
+These invariants must hold across all contract states. They are critical for verifying protocol correctness and should be checked in comprehensive test suites.
+
+### 1. ETH Conservation
+
+```
+contract.ETH_balance ≈ Σ(current ETH cluster balances)
+                     + Σ(current operator ETH earnings)
+                     + ProtocolLib.networkTotalEarnings()
+```
+
+**Notes:**
+- "current" means view-computed balances that apply pending fees (see `contracts/modules/SSVViews.sol`)
+- `≈` (approximately equal) accounts for rounding from packing/unpacking operations
+- `ProtocolLib.networkTotalEarnings()` includes both `ethDaoBalance` and pending network fee earnings
+
+### 2. SSV Conservation
+
+```
+contract.SSV_balance ≈ Σ(current SSV cluster balances)
+                     + Σ(current operator SSV earnings)
+                     + networkTotalEarningsSSV()
+                     + stakingHeldSSV
+```
+
+**Notes:**
+- `stakingHeldSSV` = total SSV still locked in the `SSVNetwork` contract, including pending unstake requests
+- `cSSV.totalSupply()` is only equal to `stakingHeldSSV` when there are no pending unstake requests
+
+### 3. Validator Count Consistency
+
+```
+ethDaoValidatorCount == Σ(cluster.validatorCount) across all active ETH clusters
+```
+
+**Note:** `Σ(operator.ethValidatorCount)` is NOT equivalent because operators are shared across clusters and would double-count validators.
+
+### 4. vUnit Consistency
+
+```
+daoTotalEthVUnits == ethDaoValidatorCount * VUNITS_PRECISION + Σ(cluster_deviations)
+```
+
+Where `cluster_deviations = clusterEB.vUnits - validatorCount * VUNITS_PRECISION` for clusters with explicit EB.
+
+### 5. Cluster Hash Integrity
+
+Every cluster operation must end with:
+```
+s.ethClusters[key] = cluster.hashClusterData()
+```
+
+Matching the actual cluster state: `keccak256(abi.encodePacked(validatorCount, networkFeeIndex, index, balance, active))`
+
+### 6. cSSV Supply Accounting
+
+```
+cSSV.totalSupply() == Σ(staked SSV) - Σ(unstake-requested SSV)
+```
+
+- Mint on `stake()`
+- Burn on `requestUnstake()`
+
+### 7. Accumulator Monotonicity
+
+```
+accEthPerShare[t+1] >= accEthPerShare[t]
+```
+
+Staking reward accumulator only increases, never decreases.
+
+### 8. Oracle Monotonicity
+
+```
+latestCommittedBlock[t+1] >= latestCommittedBlock[t]
+```
+
+Committed EB roots are strictly ordered by block number.
+
+### 9. Cluster Version Exclusivity
+
+```
+(s.clusters[key] != 0) XOR (s.ethClusters[key] != 0)
+```
+
+A cluster key exists in EITHER SSV clusters OR ETH clusters, never both.
+
+### 10. Operator Dual Tracking
+
+For each operator:
+```
+operator.validatorCount + operator.ethValidatorCount == total validators using this operator
+```
+
+SSV validator count + ETH validator count equals total across both cluster types.
+
+---
+
+## 12. Governance Parameters
 
 ### ETH Cluster Parameters
 
@@ -938,8 +1090,8 @@ userIndex[user] = accEthPerShare
 | `ethNetworkFee` | 0.000000003550929823 ETH/block (~0.00928 ETH/year) | `updateNetworkFee(uint256)` |
 | `minimumLiquidationCollateral` | 0.00094 ETH | `updateMinimumLiquidationCollateral(uint256)` |
 | `minimumBlocksBeforeLiquidation` | 50,190 blocks (~7 days) | `updateLiquidationThresholdPeriod(uint64)` |
-| `operatorMaxFee` | TBD | `updateMaximumOperatorFee(uint256)` |
-| `minimumOperatorEthFee` | TBD | `updateMinimumOperatorEthFee(uint256)` |
+| `operatorMaxFee` | 0.000000005326300000 ETH/block (~0.0140 ETH/year) | `updateMaximumOperatorFee(uint256)` |
+| `minimumOperatorEthFee` | 0.000000001065200000 ETH/block (~0.0028 ETH/year) | `updateMinimumOperatorEthFee(uint256)` |
 
 ### SSV Cluster Parameters (Legacy)
 
@@ -963,6 +1115,7 @@ userIndex[user] = accEthPerShare
 | Parameter | Initial Value | Update Function |
 |---|---|---|
 | `quorumBps` | 7,500 (75%) | `setQuorumBps(uint16)` |
+| `minBlocksBetweenUpdates` | 0 blocks | `updateMinBlocksBetweenUpdates(uint32)` |
 | Oracle set | 4 oracles | `replaceOracle(uint32, address)` |
 
 ### Operator Fee Parameters
@@ -976,7 +1129,7 @@ userIndex[user] = accEthPerShare
 
 ---
 
-## 12. Error Codes
+## 13. Error Codes
 
 ### Cluster Errors
 - `ClusterAlreadyEnabled` — reactivating an already active cluster
@@ -985,7 +1138,7 @@ userIndex[user] = accEthPerShare
 - `ClusterDoesNotExist` — cluster not found
 - `InsufficientBalance` — balance too low for operation
 - `InvalidPublicKeyLength` — validator public key wrong length
-- `ValidatorAlreadyExistsWithData(bytes publicKey)` — validator already registered
+- `ValidatorAlreadyRegistered(bytes publicKey, address owner)` — validator already registered
 - `ValidatorDoesNotExist` — validator not found
 - `IncorrectClusterState` — submitted cluster struct doesn't match stored hash
 - `IncorrectClusterVersion` — operating on wrong cluster version (e.g. SSV cluster for ETH operation)
@@ -1060,7 +1213,7 @@ userIndex[user] = accEthPerShare
 
 ---
 
-## 13. Constants
+## 14. Constants
 
 ```solidity
 // Precision

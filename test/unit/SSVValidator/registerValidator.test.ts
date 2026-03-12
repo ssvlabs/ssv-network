@@ -3,8 +3,8 @@ import type { NetworkConnection } from "hardhat/types/network";
 import { getTestConnection } from '../../setup/connection.ts';
 import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
-import { makePublicKey, parseClusterFromEvent } from '../../common/helpers.ts';
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from '../../common/constants.ts';
+import { makePublicKey, makePublicKeys, createCluster, parseClusterFromEvent } from '../../common/helpers.ts';
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_OPERATOR_ETH_FEE, DEFAULT_SHARES, EMPTY_CLUSTER, ETH_DEDUCTED_DIGITS, VUNITS_PRECISION } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.ts';
@@ -53,8 +53,23 @@ describe("SSVClusters function `registerValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    // todo check args with pre-calculated cluster
-    await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
+    const expectedCluster = [
+      1n,
+      0n,
+      0n,
+      true,
+      DEFAULT_ETH_REGISTER_VALUE,
+    ];
+
+    await expect(tx)
+      .to.emit(validators, Events.VALIDATOR_ADDED)
+      .withArgs(
+        clusterOwner.address,
+        operatorIds,
+        publicKey,
+        DEFAULT_SHARES,
+        expectedCluster
+      );
   });
 
   it("Initializes ETH defaults for legacy SSV operators and keeps them after registration", async function () {
@@ -63,18 +78,80 @@ describe("SSVClusters function `registerValidator()`", async () => {
 
     for (const operatorId of operatorIds) {
       await validators.mockSetOperatorLegacySSV(operatorId, 1);
+
+      const beforeSnapshot = await validators.getOperatorEthSnapshot(operatorId);
+      const beforeFee = await validators.getOperatorEthFee(operatorId);
+      const beforeValidatorCount = await validators.getOperatorEthValidatorCount(operatorId);
+      expect(beforeSnapshot.blockNumber).to.equal(0n);
+      expect(beforeSnapshot.index).to.equal(0n);
+      expect(beforeSnapshot.balance).to.equal(0n);
+      expect(beforeFee).to.equal(0n);
+      expect(beforeValidatorCount).to.equal(0n);
     }
 
-    await validators.registerValidator(
+    const tx = await validators.registerValidator(
       makePublicKey(1),
       operatorIds,
       DEFAULT_SHARES,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
+    const receipt = await tx.wait();
+    const expectedBlock = BigInt(receipt!.blockNumber);
 
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthFee(operatorId)).to.be.greaterThan(0n);
+      await expect(tx).to.emit(validators, Events.OPERATOR_FEE_EXECUTED)
+        .withArgs(clusterOwner.address, operatorId, expectedBlock, DEFAULT_OPERATOR_ETH_FEE);
+
+      const afterSnapshot = await validators.getOperatorEthSnapshot(operatorId);
+      const afterFee = await validators.getOperatorEthFee(operatorId);
+      const afterValidatorCount = await validators.getOperatorEthValidatorCount(operatorId);
+      expect(afterSnapshot.blockNumber).to.equal(expectedBlock);
+      expect(afterSnapshot.index).to.equal(0n);
+      expect(afterSnapshot.balance).to.equal(0n);
+      expect(afterFee).to.equal(DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS);
+      expect(afterValidatorCount).to.equal(1n);
+    }
+  });
+
+  it("Legacy SSV operators with zero SSV fee initialize ETH snapshot but keep ethFee=0 on registration", async function () {
+    const { validators, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    for (const operatorId of operatorIds) {
+      await validators.mockSetOperatorLegacySSV(operatorId, 0);
+      const beforeSnapshot = await validators.getOperatorEthSnapshot(operatorId);
+      const beforeFee = await validators.getOperatorEthFee(operatorId);
+      expect(beforeSnapshot.blockNumber).to.equal(0n);
+      expect(beforeFee).to.equal(0n);
+    }
+
+    const tx = await validators.registerValidator(
+      makePublicKey(2),
+      operatorIds,
+      DEFAULT_SHARES,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const receipt = await tx.wait();
+
+    const feeExecutedEvents = receipt?.logs
+      .map((log: any) => {
+        try {
+          return validators.interface.parseLog(log);
+        } catch {
+          return null;
+        }
+      })
+      .filter((parsed: any) => parsed?.name === Events.OPERATOR_FEE_EXECUTED);
+
+    expect(feeExecutedEvents).to.have.length(0);
+
+    for (const operatorId of operatorIds) {
+      const afterSnapshot = await validators.getOperatorEthSnapshot(operatorId);
+      const afterFee = await validators.getOperatorEthFee(operatorId);
+      expect(afterSnapshot.blockNumber).to.equal(BigInt(receipt!.blockNumber));
+      expect(afterFee).to.equal(0n);
     }
   });
 
@@ -400,7 +477,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.PUBLIC_KEYS_SHARES_LENGTH_MISMATCH);
   });
 
-  it("Is reverted with 'ValidatorAlreadyExistsWithData' if trying to register already existing key", async function () {
+  it("Is reverted with 'ValidatorAlreadyRegistered' if trying to register already existing key", async function () {
     const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
     const publicKey = makePublicKey(1);
@@ -412,7 +489,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
       DEFAULT_SHARES,
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
-      )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA).withArgs(publicKey);
+      )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_REGISTERED).withArgs(publicKey, clusterOwner.address);
   });
 
   it("Is reverted with 'InvalidOperatorIdsLength' if the length is not allowed one for clusters", async function () {
@@ -467,5 +544,123 @@ describe("SSVClusters function `registerValidator()`", async () => {
       liquidatedCluster,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.CLUSTER_IS_LIQUIDATED);
+  });
+
+  it("Is reverted with 'OperatorDoesNotExist' when one of the operators has been removed", async function () {
+    const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    await validators.mockRemoveOperator(operatorIds[1]);
+
+    await expect(validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    )).to.be.revertedWithCustomError(validators, Errors.OPERATOR_DOES_NOT_EXIST);
+  });
+
+  it("Revert on removed operator is atomic and does not partially initialize earlier operators", async function () {
+    const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    for (const operatorId of operatorIds) {
+      await validators.mockSetOperatorLegacySSV(operatorId, 1);
+    }
+
+    const firstOperator = operatorIds[0];
+    const thirdOperator = operatorIds[2];
+    const fourthOperator = operatorIds[3];
+
+    await validators.mockRemoveOperator(operatorIds[1]);
+
+    const beforeFirstSnapshot = await validators.getOperatorEthSnapshot(firstOperator);
+    const beforeFirstFee = await validators.getOperatorEthFee(firstOperator);
+    const beforeFirstCount = await validators.getOperatorEthValidatorCount(firstOperator);
+
+    await expect(validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    )).to.be.revertedWithCustomError(validators, Errors.OPERATOR_DOES_NOT_EXIST);
+
+    const afterFirstSnapshot = await validators.getOperatorEthSnapshot(firstOperator);
+    const afterFirstFee = await validators.getOperatorEthFee(firstOperator);
+    const afterFirstCount = await validators.getOperatorEthValidatorCount(firstOperator);
+
+    expect(afterFirstSnapshot.blockNumber).to.equal(beforeFirstSnapshot.blockNumber);
+    expect(afterFirstSnapshot.index).to.equal(beforeFirstSnapshot.index);
+    expect(afterFirstSnapshot.balance).to.equal(beforeFirstSnapshot.balance);
+    expect(afterFirstFee).to.equal(beforeFirstFee);
+    expect(afterFirstCount).to.equal(beforeFirstCount);
+
+    for (const operatorId of [thirdOperator, fourthOperator]) {
+      const snapshot = await validators.getOperatorEthSnapshot(operatorId);
+      const fee = await validators.getOperatorEthFee(operatorId);
+      const count = await validators.getOperatorEthValidatorCount(operatorId);
+      expect(snapshot.blockNumber).to.equal(0n);
+      expect(snapshot.index).to.equal(0n);
+      expect(snapshot.balance).to.equal(0n);
+      expect(fee).to.equal(0n);
+      expect(count).to.equal(0n);
+    }
+  });
+
+  it("Is reverted with 'OperatorDoesNotExist' when multiple operators have been removed", async function () {
+    const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    await validators.mockRemoveOperator(operatorIds[0]);
+    await validators.mockRemoveOperator(operatorIds[2]);
+
+    await expect(validators.registerValidator(
+      makePublicKey(1),
+      operatorIds,
+      DEFAULT_SHARES,
+      EMPTY_CLUSTER,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    )).to.be.revertedWithCustomError(validators, Errors.OPERATOR_DOES_NOT_EXIST);
+  });
+
+  it("Is reverted with 'ExceedValidatorLimitWithData' when registering a validator that pushes operator over the limit", async function () {
+    const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    await validators.mockValidatorsPerOperatorLimit(5);
+
+    const publicKeys = makePublicKeys(5);
+    const shares = new Array(5).fill(DEFAULT_SHARES);
+    const bulkTx = await validators.bulkRegisterValidator(
+      publicKeys, operatorIds, shares, createCluster(), { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const bulkReceipt = await bulkTx.wait();
+    const clusterAtLimit = parseClusterFromEvent(validators, bulkReceipt, Events.VALIDATOR_ADDED);
+
+    await expect(validators.registerValidator(
+      makePublicKey(6), operatorIds, DEFAULT_SHARES, clusterAtLimit, { value: DEFAULT_ETH_REGISTER_VALUE }
+    )).to.be.revertedWithCustomError(validators, Errors.OPERATOR_VALIDATORS_LIMIT_EXCEEDED)
+      .withArgs(operatorIds[0]);
+  });
+
+  it("Succeeds registering a validator after removing one to bring operator back below the limit", async function () {
+    const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
+
+    await validators.mockValidatorsPerOperatorLimit(5);
+
+    const publicKeys = makePublicKeys(5);
+    const shares = new Array(5).fill(DEFAULT_SHARES);
+    const bulkTx = await validators.bulkRegisterValidator(
+      publicKeys, operatorIds, shares, createCluster(), { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const bulkReceipt = await bulkTx.wait();
+    const clusterAtLimit = parseClusterFromEvent(validators, bulkReceipt, Events.VALIDATOR_ADDED);
+
+    const removeTx = await validators.removeValidator(publicKeys[0], operatorIds, clusterAtLimit);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(validators, removeReceipt, Events.VALIDATOR_REMOVED);
+
+    const tx = await validators.registerValidator(
+      makePublicKey(6), operatorIds, DEFAULT_SHARES, clusterAfterRemove, { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
   });
 });
