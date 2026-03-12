@@ -43,7 +43,7 @@
 | SEC-16 | ~~Missing zero-value/zero-address guards on deposit and withdraw~~ | Security Hardening | P2 | ✅ Closed |
 | SEC-16b | ~~Dust ETH stranded in `accrued` after full cSSV transfer + claim~~ | Security Hardening | P1 | ✅ Fixed |
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
-| SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
+| SEC-18 | ~~ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas)~~ | Security Hardening | P3 | ✅ Fixed |
 | SEC-19 | ~~`minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled~~ | Security Hardening | P1 | ✅ Fixed |
 | TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
@@ -1098,12 +1098,12 @@ All other setters accept any value, including 0 and extreme values that could br
 
 ---
 
-### [SEC-18] ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas)
+### [SEC-18] ~~ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas)~~
 - **Type:** Security Hardening
 - **Priority:** P3
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -1112,23 +1112,23 @@ Add an early-exit guard in `withdrawOperatorEarningsSSV` (or its underlying help
 **Context:**
 Operators registered after the v2.0.0 migration may be ETH-only (`snapshot.block == 0`, `ethSnapshot.block != 0`). New validator registrations for these operators use the ETH payment path exclusively, so they can never accumulate SSV earnings. Despite this, nothing prevents their owner from calling `withdrawOperatorEarningsSSV`. The call will succeed (the SSV balance is 0, so no tokens move), but the user pays gas for a no-op. Echidna invariants already confirm that the accounting system cannot credit SSV earnings to ETH-only operators, so there is no risk of fund loss — this is purely a UX/gas waste issue.
 
-**Acceptance Criteria:**
-- [ ] `withdrawOperatorEarningsSSV` reverts with a descriptive error (e.g., `NoSSVEarnings()`) when the operator has `snapshot.block == 0` (ETH-only)
-- [ ] ETH-capable operators (both `snapshot.block != 0` and `ethSnapshot.block != 0`) are unaffected
-- [ ] Confirm via Echidna that SSV balance of ETH-only operators cannot be artificially inflated
+**Resolution:**
+Added `NoSSVEarnings` custom error (selector `0x08d08b0b`) in `ISSVNetworkCore.sol`. In `SSVOperators.sol:_withdrawOperatorEarnings`, at the start of the `VERSION_SSV` branch, added: `if (operator.snapshot.block == 0) revert NoSSVEarnings();`. This checks whether the operator ever had SSV activity — `snapshot.block` is only set to non-zero by `updateSnapshotStSSV`, which only runs during SSV cluster operations. ETH-only operators never trigger this path, so `snapshot.block` remains 0. The guard fires before the snapshot update SSTORE, saving gas. Also updated `mockSetOperatorBalances` in the test harness to set `snapshot.block` when seeding non-zero SSV balance, so harness state is realistic.
 
-**Agent Instructions:**
-1. Read `contracts/modules/SSVOperators.sol`, focus on `withdrawOperatorEarningsSSV` and its internal helper.
-2. After the `checkOwner` call, add: `if (operator.snapshot.block == 0) revert NoSSVEarnings();`
-3. Define `NoSSVEarnings` error in `contracts/interfaces/ISSVNetworkCore.sol` if not already present.
-4. Add a unit test: register an ETH-only operator → call `withdrawOperatorEarningsSSV` → expect revert with `NoSSVEarnings`.
-5. Run `npm run test:unit`.
+**Acceptance Criteria:**
+- [x] `withdrawOperatorEarningsSSV` reverts with `NoSSVEarnings()` when the operator has `snapshot.block == 0` (ETH-only)
+- [x] ETH-capable operators (both `snapshot.block != 0` and `ethSnapshot.block != 0`) are unaffected
+- [x] Confirm via Echidna that SSV balance of ETH-only operators cannot be artificially inflated
+- [x] Unit tests: ETH-only operator calling `withdrawOperatorEarningsSSV` and `withdrawAllOperatorEarningsSSV` both revert with `NoSSVEarnings`
+- [x] Integration tests: ETH-only operator SSV withdrawal reverts, ETH withdrawal still works
+- [x] All 1188 tests pass
 
 #### Sub-items:
-- [ ] Sub-task 1: Add ETH-only operator guard to `withdrawOperatorEarningsSSV`
-- [ ] Sub-task 2: Define `NoSSVEarnings` custom error
-- [ ] Sub-task 3: Add unit test for ETH-only operator calling SSV withdrawal
-- [ ] Sub-task 4: Run full test suite
+- [x] Sub-task 1: Add ETH-only operator guard to `withdrawOperatorEarningsSSV`
+- [x] Sub-task 2: Define `NoSSVEarnings` custom error in `ISSVNetworkCore.sol`
+- [x] Sub-task 3: Add unit test for ETH-only operator calling SSV withdrawal
+- [x] Sub-task 4: Add integration test for ETH-only operator SSV withdrawal guard
+- [x] Sub-task 5: Run full test suite
 
 ---
 
