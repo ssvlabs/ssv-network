@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { ethers } from "ethers";
 import type { NetworkConnection } from "hardhat/types/network";
 import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
@@ -83,6 +84,27 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
     await networkHelpers.setBalance(harnessAddress, connection.ethers.parseEther("1"));
     await token.mint(harnessAddress, connection.ethers.parseEther("100"));
 
+    // Initialize the legacy SSV side so the all-version withdrawal has both paths active.
+    const operatorBefore = await operators.getOperator(1);
+    await operators.mockSetOperator(1, {
+      validatorCount: operatorBefore.validatorCount,
+      fee: 0n,
+      owner: operatorBefore.owner,
+      whitelisted: operatorBefore.whitelisted,
+      snapshot: {
+        block: operatorBefore.ethSnapshot.block,
+        index: 0n,
+        balance: 0n,
+      },
+      ethValidatorCount: operatorBefore.ethValidatorCount,
+      ethFee: operatorBefore.ethFee,
+      ethSnapshot: {
+        block: operatorBefore.ethSnapshot.block,
+        index: operatorBefore.ethSnapshot.index,
+        balance: operatorBefore.ethSnapshot.balance,
+      },
+    });
+
     // Simulate both ETH and SSV balances
     const ethBalance = 2n;
     const ssvBalance = 3n;
@@ -122,6 +144,55 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
     const operatorAfter = await operators.getOperator(1);
     expect(operatorAfter.ethSnapshot.balance).to.equal(0n);
     expect(operatorAfter.snapshot.balance).to.equal(0n);
+  });
+
+  it("Does not initialize ETH snapshot for a legacy SSV-only operator", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+
+    // Seed a legacy SSV-only operator: SSV fee set, ETH state unset.
+    await operators.mockSetOperatorLegacySSV(1, 12n);
+
+    const operatorBefore = await operators.getOperator(1);
+    expect(operatorBefore.fee).to.equal(12n);
+    expect(operatorBefore.ethFee).to.equal(0n);
+    expect(operatorBefore.ethSnapshot.block).to.equal(0n);
+
+    await operators.withdrawAllVersionOperatorEarnings(1);
+
+    const operatorAfter = await operators.getOperator(1);
+    expect(operatorAfter.fee).to.equal(12n);
+    expect(operatorAfter.ethFee).to.equal(0n);
+    expect(operatorAfter.snapshot.block).to.be.greaterThan(0n);
+    expect(operatorAfter.ethSnapshot.block).to.equal(0n);
+  });
+
+  it("Pays out SSV balance for a legacy SSV-only operator without initializing ETH snapshot", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const [owner] = await connection.ethers.getSigners();
+
+    const token = await connection.ethers.deployContract("MockToken");
+    await token.waitForDeployment();
+    await operators.mockSetToken(await token.getAddress());
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.mockSetOperatorLegacySSV(1, 12n);
+
+    // Seed a non-zero SSV balance and fund the contract with tokens
+    await operators.mockSetOperatorBalances(1, 0n, 50n);
+    await token.mint(await operators.getAddress(), ethers.parseEther("100"));
+
+    const ownerSsvBefore = await token.balanceOf(owner.address);
+    await operators.withdrawAllVersionOperatorEarnings(1);
+    const ownerSsvAfter = await token.balanceOf(owner.address);
+
+    expect(ownerSsvAfter).to.be.gt(ownerSsvBefore);
+
+    const operatorAfter = await operators.getOperator(1);
+    expect(operatorAfter.snapshot.balance).to.equal(0n);
+    expect(operatorAfter.ethSnapshot.block).to.equal(0n);
+    expect(operatorAfter.ethFee).to.equal(0n);
   });
 
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to withdraw", async function () {
