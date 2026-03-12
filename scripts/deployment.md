@@ -3,6 +3,7 @@
 This project uses Just recipes and TypeScript scripts to deploy and upgrade SSV Network contracts.
 
 For full documentation on environments, workflows, and config schema, see [`deployments/README.md`](../deployments/README.md).
+For emergency response after a live deployment, see [`deployments/EMERGENCY-ROLLBACK.md`](../deployments/EMERGENCY-ROLLBACK.md).
 
 ## Quick Reference
 
@@ -86,3 +87,4 @@ just attach-module SSVClusters 0xMODULE 0xPROXY hoodi
 - **Storage safety**: Never add state variables to `SSVNetwork` or `SSVNetworkViews`. All state goes through diamond storage libraries.
 - **UUPS pattern**: Upgrades use the [UUPS Proxy pattern](https://docs.openzeppelin.com/contracts/4.x/api/proxy).
 - **Library changes**: When modifying a library, you must also redeploy all modules that use it.
+- **Emergency response**: There is no global on-chain pause; rollback uses module replacement or proxy implementation replacement. Follow [`deployments/EMERGENCY-ROLLBACK.md`](../deployments/EMERGENCY-ROLLBACK.md).

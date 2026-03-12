@@ -1,7 +1,7 @@
 # SSV Network v2.0.0 — Mainnet Readiness Checklist
 
 **Generated:** 2026-02-17
-**Updated:** 2026-03-03 (closed TEST-20 with staking cooldown-change coverage)
+**Updated:** 2026-03-12
 **Sources:** Verified bug report, verified test coverage gap analysis, verified scripts & ops audit, DIP-X vs implementation review reports (ETH Payments, Effective Balance, SSV Staking)
 **Branch:** `ssv-staking` (base for all feature branches)
 
@@ -99,7 +99,7 @@
 | QUALITY-8 | Helper function duplication across test types | Code Quality | P3 | ℹ️ Low Priority — merge helpers after PR #435 |
 | QUALITY-9 | `removeOperator` should clear fee change requests | Code Quality | P2 | S |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
-| OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
+| OPS-2 | ~~Create emergency rollback procedure~~ | Operational Readiness | P1 | ✅ Closed (documented in `deployments/EMERGENCY-ROLLBACK.md`) |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
 | FUZZ-1 | ~~Strengthen 5 partially-covered echidna invariants~~ | Echidna Invariant Suite | P1 | ✅ Done |
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
@@ -2785,16 +2785,16 @@ No mainnet deployment checklist exists. The upgrade involves UUPS proxy upgrades
 - [ ] Sub-task 1: Write pre-flight checks section
 - [ ] Sub-task 2: Write deployment sequence
 - [ ] Sub-task 3: Write post-deployment verification
-- [ ] Sub-task 4: Write rollback procedures
+- [x] Sub-task 4: Write rollback procedures (covered by `deployments/EMERGENCY-ROLLBACK.md`)
 
 ---
 
-### [OPS-2] Create emergency rollback procedure
+### [OPS-2] ~~Create emergency rollback procedure~~
 - **Type:** Operational Readiness
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Closed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-12
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2803,11 +2803,21 @@ Document how to downgrade/rollback modules if critical issues are found post-dep
 **Context:**
 The UUPS proxy pattern allows module replacement. If a bug is found in a deployed module, the DAO owner can replace it with a patched version. But there's no documented procedure for this.
 
+**Resolution:**
+Added a dedicated rollback runbook at `deployments/EMERGENCY-ROLLBACK.md` and linked it from `deployments/README.md` and `scripts/deployment.md`.
+
+The runbook covers:
+- module replacement via `SSVNetwork.updateModule`
+- proxy implementation rollback for `SSVNetwork` and `SSVNetworkViews`
+- explicit confirmation that no global on-chain pause exists
+- recoverable vs. irreversible state after a live incident
+- communication steps for operators, users, and incident responders
+
 **Acceptance Criteria:**
-- [ ] Document covers: how to replace a module with a patched version
-- [ ] Covers: how to pause operations if needed (does a pause mechanism exist?)
-- [ ] Covers: which state is recoverable and which is not
-- [ ] Covers: communication plan for operators/users
+- [x] Document covers: how to replace a module with a patched version
+- [x] Covers: how to pause operations if needed (does a pause mechanism exist?)
+- [x] Covers: which state is recoverable and which is not
+- [x] Covers: communication plan for operators/users
 
 **Agent Instructions:**
 1. Read `contracts/SSVNetwork.sol` to understand `updateModule` function.
@@ -2816,9 +2826,9 @@ The UUPS proxy pattern allows module replacement. If a bug is found in a deploye
 4. Identify what state changes are irreversible (e.g., token transfers, oracle commits).
 
 #### Sub-items:
-- [ ] Sub-task 1: Document module replacement procedure
-- [ ] Sub-task 2: Document irrecoverable state changes
-- [ ] Sub-task 3: Document communication plan template
+- [x] Sub-task 1: Document module replacement procedure
+- [x] Sub-task 2: Document irrecoverable state changes
+- [x] Sub-task 3: Document communication plan template
 
 ---
 
