@@ -177,8 +177,10 @@ describe("SSVViews dedicated coverage", () => {
     expect(await views.getBalance(clusterOwner.address, operatorIds, cluster)).to.equal(cluster.balance);
     expect(await views.getBurnRate(clusterOwner.address, operatorIds, cluster)).to.be.greaterThan(0n);
 
-    expect(await views.getBalanceSSV(clusterOwner.address, operatorIds, cluster)).to.equal(0n);
-    expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, cluster)).to.equal(0n);
+    await expect(views.getBalanceSSV(clusterOwner.address, operatorIds, cluster))
+      .to.be.revertedWithCustomError(views, Errors.INCORRECT_CLUSTER_VERSION);
+    await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, cluster))
+      .to.be.revertedWithCustomError(views, Errors.INCORRECT_CLUSTER_VERSION);
   });
 
   it("getOperatorEarnings returns both ETH and SSV earnings when both snapshots are funded", async function () {
@@ -246,7 +248,9 @@ describe("SSVViews dedicated coverage", () => {
       5n * DEDUCTED_DIGITS
     );
 
-    expect(await viewsHarness.getBalance(clusterOwner.address, operatorIds, ssvCluster)).to.equal(0n);
-    expect(await viewsHarness.getBurnRate(clusterOwner.address, operatorIds, ssvCluster)).to.equal(0n);
+    await expect(viewsHarness.getBalance(clusterOwner.address, operatorIds, ssvCluster))
+      .to.be.revertedWithCustomError(viewsHarness, Errors.INCORRECT_CLUSTER_VERSION);
+    await expect(viewsHarness.getBurnRate(clusterOwner.address, operatorIds, ssvCluster))
+      .to.be.revertedWithCustomError(viewsHarness, Errors.INCORRECT_CLUSTER_VERSION);
   });
 });
