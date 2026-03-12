@@ -366,7 +366,7 @@ Same flow as 1.9 but for SSV clusters. Uses `s.clusters` instead of `s.ethCluste
 - Cluster must be liquidated (`active == false`)
 
 
-> **Note — Stale EB risk:** The solvency check uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed during liquidation. Ref: SPEC §2 "Stale EB Risk on Reactivation" for full analysis and mitigation options.
+> **Note — Stale EB risk:** The solvency check uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed during liquidation. Under the current oracle behavior, inactive / liquidated clusters are omitted from the Merkle root, so their on-chain EB snapshot usually cannot be refreshed before reactivation. In practice, deposit sizing should rely on off-chain beacon-chain-aware tooling plus a conservative buffer, not only on the on-chain snapshot. Ref: SPEC §2 "Stale EB Risk on Reactivation" for full analysis and mitigation options.
 >
 > **Note — operator removal and reactivation:** If one or more operators in a cluster's operator set have been removed (via `removeOperator`), the cluster can still be reactivated, but removed operators are silently skipped during `updateClusterOperatorsOnReactivation` (see `OperatorLib.sol:311`). The cluster will operate with reduced operator coverage (e.g., 3/4 instead of 4/4), which may compromise the cluster's fault tolerance. The reactivation fee calculation excludes removed operators' fees. No on-chain event signals which operators were skipped, but this is detectable off-chain by checking operator states before reactivation.
 
@@ -520,7 +520,7 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 - EB limits: `32 * validatorCount <= effectiveBalance <= 2048 * validatorCount`
 - Cluster must exist (ETH or SSV)
 
-> **Note — Liquidated clusters:** The EB snapshot is **always updated** regardless of cluster state; fee/accounting steps are skipped when `cluster.active == false`. Ref: SPEC §4 "Behavior on liquidated clusters" for full rules and use cases.
+> **Note — Liquidated clusters:** The contract supports updating the EB snapshot while `cluster.active == false` if a valid proof exists, and still skips fee/accounting steps in that case. In production, oracle roots exclude inactive / liquidated clusters, so `updateClusterBalance` for a liquidated cluster is usually not available through the live oracle flow. This means the on-chain EB snapshot may diverge from the real beacon-chain EB until the cluster is active again and re-included in a later root. Ref: SPEC §4 "Behavior on liquidated clusters" for full rules and use cases.
 
 #### State Mutations (ETH Cluster)
 

@@ -16,16 +16,16 @@
 | BUG-3 | ~~`ensureETHDefaults` resurrects removed operators~~ | Critical Bug Fix | P0 | ✅ Mitigated |
 | BUG-4 | ~~Double deviation cleanup on liquidated cluster validator removal~~ | Critical Bug Fix | P0 | ✅ Fixed ([PR #429](https://github.com/ssvlabs/ssv-network/pull/429)) |
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
-| BUG-6 | Rewards lost when `totalStaked == 0` in staking `_syncFees` | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
+| BUG-6 | ~~Rewards lost when `totalStaked == 0` in staking `_syncFees`~~ | Critical Bug Fix | P1 | ✅ Mitigated (deployment) |
 | BUG-7 | ~~`DEFAULT_OPERATOR_ETH_FEE` value deviates from DIP-X spec~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (negligible) |
-| BUG-8 | ~~ Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug, added NatSpec) |
+| BUG-8 | ~~Cooldown duration uses `block.timestamp` but DIP specifies blocks~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not a bug, added NatSpec) |
 | BUG-9 | ~~`uint64(delta)` silent truncation in operator earnings accumulation~~ | ~~Critical Bug Fix~~ | ~~P1~~ | ✅ Closed (not realistic) |
 | BUG-10 | ~~Remove liquidation check in `withdraw` function~~ | Critical Bug Fix | P2 | ✅ Fixed |
 | BUG-12 | ~~`removeValidator` / `bulkRemoveValidator` blocked for legacy SSV clusters~~ | Critical Bug Fix | P1 | ✅ Done (Product approved) |
 | BUG-13 | ~~Silent default ETH fee assignment for legacy operators during migration~~ | Observability Fix | P2 | ✅ Fixed (PR #502) |
 | BUG-14 | ~~Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment)~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-14b | ~~`reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators~~ | Critical Bug Fix | P1 | ✅ Fixed (ensureETHDefaults marker pattern) |
-| SEC-1 | `setQuorumBps(0)` allows zero-threshold oracle commits | Security Hardening | P2 | ✅ Mitigated (owner-only) |
+| SEC-1 | ~~`setQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
 | SEC-4 | ~~`setUnstakeCooldownDuration` allows zero cooldown~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only, no accounting risk) |
@@ -47,7 +47,7 @@
 | SEC-19 | ~~`minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled~~ | Security Hardening | P1 | ✅ Fixed |
 | TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
-| TEST-3 | ~~Balance delta assertions ers | Unit Test Completeness | P0 | S |
+| TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | S✅ Closed (PR #445) |
 | TEST-4 | ~~`updateClusterBalance` on liquidated clusters~~ | Unit Test Completeness | P0 | ✅ Closed (PR #447 + enhanced with 3 edge cases) |
 | TEST-5 | ~~Oracle quorum edge cases~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #449) |
 | TEST-6 | ~~EB decrease scenarios~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #451) |
@@ -60,8 +60,8 @@
 | TEST-13 | ~~Liquidation + reactivation multi-cycle accounting~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-14 | ~~Reactivation with EB deviation solvency check~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-15 | ~~SSV cluster operations completeness~~ | Unit Test Completeness | P1 | ✅ Closed (legacy SSV fee settlement covered; direct SSV withdraw is spec-blocked) |
-| TEST-16 | View function coverage (SSVViews) | Unit Test Completeness | P1 | ✅ Fixed |
-| TEST-17 | Staking rewards from EB-weighted cluster fees | Unit Test Completeness | P1 | S |
+| TEST-16 | ~~View function coverage (SSVViews)~~ | Unit Test Completeness | P1 | ✅ Fixed |
+| TEST-17 | ~~Staking rewards from EB-weighted cluster fees~~ | Unit Test Completeness | P1 | ✅ Closed (Covered in `test/integration/SSVNetwork/staking.test.ts`) |
 | TEST-18 | `withdrawNetworkETHEarnings` (DAO ETH withdrawal) | Unit Test Completeness | P1 | S |
 | TEST-19 | ~~Operator removal impact on active ETH clusters~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-19a | Operator removal impact on active ETH clusters (edge cases) | Unit Test Completeness | P1 | S |
@@ -73,14 +73,14 @@
 | TEST-25 | ~~Upgrade path (reinitializer) tests~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-26 | ~~Zero-validator cluster operations~~ | Unit Test Completeness | P2 | ✅ Closed |
 | TEST-27 | ~~Operator at max validator limit~~ | Unit Test Completeness | P2 | ✅ Closed |
-| TEST-28 | Uncomment SSV reentrancy test assertions | Unit Test Completeness | P0 | S |
+| TEST-28 | ~~Uncomment SSV reentrancy test assertions~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #454) |
 | TEST-29 | ~~Add contract ETH balance delta assertions to deposit tests~~ | Unit Test Completeness | P1 | ✅ Done |
-| TEST-30 | ~~Resolve TODO comments with deferred assertions | Unit Test Completeness~~ | P1 | ✅ Done |
+| TEST-30 | ~~Resolve TODO comments with deferred assertions~~ | Unit Test Completeness~~ | P1 | ✅ Done |
 | TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
 | TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
 | TEST-34 | ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~ | Unit Test Completeness | P1 | ✅ Done |
-| ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
+| ITEST-1 | ~~`commitRoot` → `updateClusterBalance` E2E flow~~ | Integration / E2E Tests | P1 | ✅ Closed |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
 | DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
 | DEPLOY-2 | Verify `liquidationThresholdPeriod` config vs spec mismatch | Deployment & Scripts | P1 | S |
@@ -101,7 +101,7 @@
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
-| FUZZ-1 | Strengthen 5 partially-covered echidna invariants | Echidna Invariant Suite | P1 | M |
+| FUZZ-1 | ~~Strengthen 5 partially-covered echidna invariants~~ | Echidna Invariant Suite | P1 | ✅ Done |
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
 | FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
@@ -1777,9 +1777,9 @@ No dedicated unit test file exists for SSVViews. Functions like `getBalance`, `i
 ### [TEST-17] Staking rewards from EB-weighted cluster fees
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** Closed
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-03-02
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -1789,8 +1789,8 @@ Test that EB-weighted clusters produce proportionally more staking rewards via t
 Staking integration tests use basic network fees but don't verify that higher-EB clusters contribute proportionally more to the staking pool.
 
 **Acceptance Criteria:**
-- [ ] Test: Cluster with EB=64 generates 2x network fees vs EB=32 → verify staking pool receives 2x rewards
-- [ ] Test: Multiple clusters with different EBs → verify cumulative staking rewards match sum of EB-weighted network fees
+- [x] Test: Cluster with EB=64 generates 2x network fees vs EB=32 → verify staking pool receives 2x rewards
+- [x] Test: Multiple clusters with different EBs → verify cumulative staking rewards match sum of EB-weighted network fees
 
 **Agent Instructions:**
 1. Read `test/integration/SSVNetwork/staking.test.ts`.
@@ -1798,8 +1798,8 @@ Staking integration tests use basic network fees but don't verify that higher-EB
 3. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: EB=64 vs EB=32 staking reward comparison
-- [ ] Sub-task 2: Multi-cluster cumulative staking rewards
+- [x] Sub-task 1: EB=64 vs EB=32 staking reward comparison
+- [x] Sub-task 2: Multi-cluster cumulative staking rewards
 
 ---
 
@@ -2487,13 +2487,13 @@ Added explicit Echidna invariant `echidna_cssv_supply_lte_ssv_backing()` in `tes
 
 ## Integration / E2E Tests
 
-### [ITEST-1] `commitRoot` → `updateClusterBalance` E2E flow
+### [ITEST-1] ~~`commitRoot` → `updateClusterBalance` E2E flow~~
 - **Type:** Integration / E2E Tests
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Status:** ✅ **CLOSED**
+- **Owner:** Test coverage update
+- **Timeline:** Completed 2026-03-03
+- **Github Link:** [test/integration/SSVNetwork/commitRootUpdateClusterBalance.test.ts](../test/integration/SSVNetwork/commitRootUpdateClusterBalance.test.ts)
 
 **Requirement:**
 Create an end-to-end test connecting oracle voting → root commitment → cluster EB update → fee recalculation.
@@ -2502,8 +2502,14 @@ Create an end-to-end test connecting oracle voting → root commitment → clust
 Unit tests for `commitRoot` and `updateClusterBalance` exist separately but no test connects the full flow. This is the core oracle→cluster pipeline.
 
 **Acceptance Criteria:**
-- [ ] Test: 3 oracles propose same root → root committed → cluster calls `updateClusterBalance` with proof from committed root → verify fees recalculated with new EB
-- [ ] Test: Multiple clusters update EB from same root → verify independent accounting
+- [x] Test: 3 oracles propose same root → root committed → cluster calls `updateClusterBalance` with proof from committed root → verify fees recalculated with new EB
+- [x] Test: Multiple clusters update EB from same root → verify independent accounting
+
+**Implementation Summary:**
+1. Added a dedicated integration suite: [commitRootUpdateClusterBalance.test.ts](../test/integration/SSVNetwork/commitRootUpdateClusterBalance.test.ts).
+2. Added E2E test for quorum flow (`3/4` oracle votes) that commits root and executes `updateClusterBalance` with valid Merkle proof.
+3. Added exact-value assertion that EB update to `64` doubles post-update operator earnings accrual vs baseline.
+4. Added multi-cluster scenario from one committed root and verified independent accounting with exact formula-based balance deltas per cluster.
 
 **Agent Instructions:**
 1. Read `test/unit/SSVDAO/commitRoot.test.ts` and `test/unit/SSVClusters/updateClusterBalance.test.ts`.
@@ -2514,8 +2520,8 @@ Unit tests for `commitRoot` and `updateClusterBalance` exist separately but no t
 6. Run `npm run test:integration`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Full oracle → cluster EB update flow
-- [ ] Sub-task 2: Multiple clusters from same root
+- [x] Sub-task 1: Full oracle → cluster EB update flow
+- [x] Sub-task 2: Multiple clusters from same root
 
 ---
 
@@ -2863,12 +2869,12 @@ Update `.env.example` with v2.0.0 parameter names and values.
 **Current state:** 73 invariants across 9 test contracts (see `test/echidna/README.md` for full master list).
 **Source:** Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` — cross-referenced all 50 proposed invariants against existing 73, identified 30 new + 5 strengthening items.
 
-### [FUZZ-1] Strengthen 5 partially-covered echidna invariants
+### [FUZZ-1] ~~Strengthen 5 partially-covered echidna invariants~~
 - **Type:** Echidna Invariant Suite
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-03-03
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2879,10 +2885,19 @@ Upgrade 5 existing invariants from partial to full coverage:
 4. `echidna_pool_matches_dao_balance` → add per-claim delta tracking (ref A16)
 5. `echidna_accrued_within_pool` → add cumulative payout tracking (ref C2)
 
+**Resolution:**
+Completed in the Echidna harnesses:
+- `test/echidna/SSVDAOEchidna.sol`: strengthened network-fee invariants with explicit monotonicity bookkeeping (`prevEthFeeCurrentIndex`, `prevSsvFeeCurrentIndex`) and mutation-time checkpoints.
+- `test/echidna/SSVStakingEchidna.sol`: added per-operation cSSV mint/burn delta checks, post-settle exact `userIndex == accEthPerShare` checks, per-claim pool/DAO delta validation, and cumulative ETH credited/paid-out tracking for payout safety.
+
+Validation run:
+- `echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml` (12/12 passing)
+- `echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml` (13/13 passing)
+
 **Acceptance Criteria:**
-- [ ] Each upgraded invariant catches the class of bugs described in the ref
-- [ ] All echidna tests still pass after modifications
-- [ ] Harness bookkeeping added (prev-value tracking, per-claim deltas, cumulative payout counter)
+- [x] Each upgraded invariant catches the class of bugs described in the ref
+- [x] All echidna tests still pass after modifications
+- [x] Harness bookkeeping added (prev-value tracking, per-claim deltas, cumulative payout counter)
 
 ---
 
