@@ -8,6 +8,7 @@ contract SSVNetworkSSVStakingUpgrade is SSVNetwork {
     /// @notice One-time initializer for the SSV Staking upgrade
     /// @param cooldownDuration Unstake cooldown duration in seconds (e.g. 604800 for 7 days)
     /// @param defaultOracleIds Default oracle IDs for new delegations
+    /// @param quorumBps Oracle quorum in basis points
     function initializeSSVStaking(
         uint64 cooldownDuration,
         uint32[MAX_DELEGATION_SLOTS] memory defaultOracleIds,
