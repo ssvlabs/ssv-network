@@ -93,7 +93,7 @@
 | QUALITY-2 | ~~Redundant `SSVStorage.load()` calls in view function loops~~ | Code Quality | P2 | ✅ Fixed |
 | QUALITY-3 | ~~`withdraw` in SSVClusters duplicates operator loop inline~~ | Code Quality | P2 | ✅ Fixed |
 | QUALITY-4 | ~~`_resetOperatorState` returns unused `Operator memory`~~ | Code Quality | P3 | ✅ Closed (cosmetic) |
-| QUALITY-5 | Remove duplicate `MaxValueExceeded` error declaration | Code Quality | P3 | 🧹 Cleanup PR candidate |
+| QUALITY-5 | ~~Remove duplicate `MaxValueExceeded` error declaration~~ | Code Quality | P3 | ✅ Fixed |
 | QUALITY-6 | Multiple fixture patterns across tests (E2E/unit/integration) | Code Quality | P1 | ⚠️ High Priority — standardize after PR #435 |
 | QUALITY-7 | Harness contracts vs. real contracts in tests | Code Quality | P2 | ⚠️ Medium Priority — migrate E2E to real contracts (PR #435) |
 | QUALITY-8 | Helper function duplication across test types | Code Quality | P3 | ℹ️ Low Priority — merge helpers after PR #435 |
@@ -3111,12 +3111,12 @@ In `SSVOperators.sol:324`, `_resetOperatorState` returns `Operator memory` but t
 
 ---
 
-### [QUALITY-5] Remove duplicate `MaxValueExceeded` error declaration
+### [QUALITY-5] ~~Remove duplicate `MaxValueExceeded` error declaration~~
 - **Type:** Code Quality
 - **Priority:** P3
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -3129,18 +3129,21 @@ The `MaxValueExceeded` error is declared in two places:
 
 This duplication results in the same error appearing twice in the generated ABI (`SSVNetwork.json:229-238`), which can cause confusion for tooling and integrations that expect unique error signatures.
 
+**Resolution:**
+Removed the duplicate `error MaxValueExceeded()` from `PackingLib` in `SSVPackedLib.sol`. Added `import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol"` and changed the revert to `revert ISSVNetworkCore.MaxValueExceeded()`. The canonical declaration remains in `ISSVNetworkCore.sol` where `ProtocolLib.sol` already references it. Both had identical selector `0x91aa3017`, so no ABI change. All 1188 tests pass.
+
 **Acceptance Criteria:**
-- [ ] Remove duplicate `MaxValueExceeded` declaration from one of the two files
-- [ ] Keep the declaration in the more appropriate location (likely `SSVPackedLib.sol` since it's a packed value validation error)
-- [ ] Verify the generated ABI no longer has duplicate entries
-- [ ] Ensure all existing tests still pass
-- [ ] Confirm no contracts rely on the specific error signature from the removed location
+- [x] Remove duplicate `MaxValueExceeded` declaration from `SSVPackedLib.sol`
+- [x] Keep the declaration in `ISSVNetworkCore.sol` (canonical location for all protocol errors)
+- [x] Verify the generated ABI no longer has duplicate entries
+- [x] Ensure all existing tests still pass
+- [x] Confirm no contracts rely on the specific error signature from the removed location
 
 #### Sub-items:
-- [ ] Sub-task 1: Determine which file should keep the `MaxValueExceeded` declaration
-- [ ] Sub-task 2: Remove the duplicate declaration
-- [ ] Sub-task 3: Regenerate ABI and verify no duplicates
-- [ ] Sub-task 4: Run full test suite to ensure no regressions
+- [x] Sub-task 1: Determine which file should keep the `MaxValueExceeded` declaration — `ISSVNetworkCore.sol`
+- [x] Sub-task 2: Remove the duplicate declaration from `SSVPackedLib.sol`, import interface, update revert
+- [x] Sub-task 3: Verify compilation and ABI
+- [x] Sub-task 4: Run full test suite to ensure no regressions
 
 ---
 
