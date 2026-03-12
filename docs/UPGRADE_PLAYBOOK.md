@@ -111,7 +111,7 @@ Complete all of the following before touching mainnet:
    - `CSSVToken`
    - All module implementations
 6. Estimate the gas cost of the full SAFE batch before mainnet execution:
-   - Simulate the complete batch against a mainnet fork (`just deploy mainnet --fork`) or via Tenderly.
+   - Simulate the complete batch against a mainnet fork (`just upgrade-fork mainnet`) or via Tenderly.
    - The batch contains roughly 24 transactions (1 `upgradeToAndCall`, 7 `updateModule`, 1 `upgradeTo`, ~11 parameter setters, ~4 `replaceOracle`). At typical mainnet gas prices the total is in the 4–6M gas range. Confirm the SAFE has enough ETH to cover execution at current gas prices.
    - If Tenderly is available, import `multisig-batch.json` and run a simulation before delivery to the committee.
 7. Dry-run the same flow on a fork or staging environment before mainnet execution.
@@ -235,16 +235,11 @@ SSVNetwork.updateMinimumOperatorEthFee(...)
 SSVNetwork.updateMinimumLiquidationCollateral(...)
 SSVNetwork.updateLiquidationThresholdPeriod(...)
 SSVNetwork.updateMinBlocksBetweenUpdates(...)
-SSVNetwork.updateOperatorFeeIncreaseLimit(...) TODO not needed if no fee changes
-SSVNetwork.updateDeclareOperatorFeePeriod(...) TODO not needed
-SSVNetwork.updateExecuteOperatorFeePeriod(...) TODO not needed
-SSVNetwork.setQuorumBps(...) TODO not needed as it's set in the initializer
 ```
 
 If additional optional fields are present in config, the batch generator will also include their corresponding setters.
 
 ### 5. Replace oracle addresses
-**TODO** remove this step from the JSON generation as the oracles' addresses are already set in the initializer.
 
 For each oracle entry in `config.json`, the batch includes:
 
@@ -279,7 +274,6 @@ Recommended review checklist:
   Verify this independently for `SSVNetworkSSVStakingUpgrade`, `SSVNetworkViews`, `CSSVToken`, and all seven module implementations before signing.
 
 ## Step 5: Initial Stake After Upgrade
-**TODO** Try to include it in the safe batch generation script.
 After the SAFE batch is executed, the first stake should be performed from the multisig account as part of the upgrade completion process.
 
 This requires two additional transactions:

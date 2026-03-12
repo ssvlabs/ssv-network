@@ -1,6 +1,7 @@
 {
-  "currentVersion": "",
-  "targetVersion": "",
+  "currentVersion": "v1.2.0",
+  "targetVersion": "v2.0.0",
+  "skipInitializer": false,
   "owner": "0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6",
   "ssvNetworkProxy": "0xDD9BC35aE942eF0cFa76930954a156B3fF30a4E1",
   "ssvNetworkViews": "0xafE830B6Ee262ba11cce5F32fDCd760FFE6a66e4",
@@ -15,7 +16,7 @@
     "minOperatorEthFee": "1065200000",
     "minimumLiquidationCollateralEth": "940000000000000",
     "liquidationThresholdPeriod": "35800",
-    "minBlocksBetweenUpdates": "7200",
+    "minBlocksBetweenUpdates": "0",
     "operatorFeeIncreaseLimit": "1000",
     "declareOperatorFeePeriod": "604800",
     "executeOperatorFeePeriod": "604800"
