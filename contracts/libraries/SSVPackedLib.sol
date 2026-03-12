@@ -2,16 +2,16 @@
 pragma solidity 0.8.24;
 
 import {PackedSSV, PackedETH} from "./SSVCoreTypes.sol";
+import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
 
 uint256 constant DEDUCTED_DIGITS = 10_000_000;
 uint256 constant ETH_DEDUCTED_DIGITS = 100_000;
 
 library PackingLib {
-    error MaxValueExceeded();
     error MaxPrecisionExceeded();
 
     function _pack(uint256 value, uint256 scale) internal pure returns (uint64) {
-        if (value > uint256(type(uint64).max) * scale) revert MaxValueExceeded();
+        if (value > uint256(type(uint64).max) * scale) revert ISSVNetworkCore.MaxValueExceeded();
         if (value % scale != 0) revert MaxPrecisionExceeded();
 
         return uint64(value / scale);
