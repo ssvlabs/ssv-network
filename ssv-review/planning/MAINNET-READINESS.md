@@ -1,7 +1,7 @@
 # SSV Network v2.0.0 — Mainnet Readiness Checklist
 
 **Generated:** 2026-02-17
-**Updated:** 2026-03-03 (closed TEST-20 with staking cooldown-change coverage)
+**Updated:** 2026-03-12
 **Sources:** Verified bug report, verified test coverage gap analysis, verified scripts & ops audit, DIP-X vs implementation review reports (ETH Payments, Effective Balance, SSV Staking)
 **Branch:** `ssv-staking` (base for all feature branches)
 
@@ -97,7 +97,7 @@
 | QUALITY-6 | Multiple fixture patterns across tests (E2E/unit/integration) | Code Quality | P1 | ⚠️ High Priority — standardize after PR #435 |
 | QUALITY-7 | Harness contracts vs. real contracts in tests | Code Quality | P2 | ⚠️ Medium Priority — migrate E2E to real contracts (PR #435) |
 | QUALITY-8 | Helper function duplication across test types | Code Quality | P3 | ℹ️ Low Priority — merge helpers after PR #435 |
-| QUALITY-9 | `removeOperator` should clear fee change requests | Code Quality | P2 | S |
+| QUALITY-9 | ~~`removeOperator` should clear fee change requests~~ | Code Quality | P2 | ✅ Closed (cleanup added + unit test) |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
@@ -3660,24 +3660,23 @@ Merge helper utilities after PR #435.
 
 ---
 
-### [QUALITY-9] Clear Operator Fee Change Requests on Removal
+### [QUALITY-9] ~~Clear Operator Fee Change Requests on Removal~~
 - **Type:** Code Quality
 - **Priority:** P2 (Medium)
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (tbd)
+- **Status:** ✅ Closed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-12
 - **Github Link:** (empty)
 
-**Issue:**
-`SSVOperators.removeOperator` does not clear `operatorFeeChangeRequests[operatorId]`.
+**Resolution:**
+`SSVOperators.removeOperator` now deletes `operatorFeeChangeRequests[operatorId]` before balances are withdrawn, so removal no longer leaves stale fee-change state behind.
 
-**Impact:**
-- Stale data persists in storage
-- Slightly increases state size and can confuse off-chain tooling
-
-**Recommendation:**
-When removing an operator, delete any pending fee change request.
+Added a unit test in `test/unit/SSVOperators/removeOperator.test.ts` that:
+- creates a real pending fee declaration via `declareOperatorFee`
+- verifies the exact stored request fields before removal
+- removes the operator
+- verifies `fee`, `approvalBeginTime`, and `approvalEndTime` are all exactly `0`
 
 **Acceptance Criteria:**
-- [ ] `removeOperator` clears `operatorFeeChangeRequests[operatorId]`
-- [ ] Unit test covers removal with an active fee change request
+- [x] `removeOperator` clears `operatorFeeChangeRequests[operatorId]`
+- [x] Unit test covers removal with an active fee change request

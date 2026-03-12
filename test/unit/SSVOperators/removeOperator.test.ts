@@ -6,7 +6,12 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey } from "../../common/helpers.ts";
-import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
+import {
+  DECLARE_OPERATOR_FEE_PERIOD,
+  ETH_DEDUCTED_DIGITS,
+  EXECUTE_OPERATOR_FEE_PERIOD,
+  MINIMAL_OPERATOR_ETH_FEE,
+} from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGas, trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -99,6 +104,35 @@ describe("SSVOperators function `removeOperator()`", async () => {
     expect(op.owner).to.equal(owner.address);
     // Whitelist IS cleared
     expect(await operators.getOperatorWhitelist(1)).to.equal(ethers.ZeroAddress);
+  });
+
+  it("Clears a pending fee change request when removing an operator", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const operatorId = 1n;
+    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+
+    const declareTx = await operators.declareOperatorFee(operatorId, Number(newFee));
+    const declareReceipt = await declareTx.wait();
+    const declareBlock = await connection.ethers.provider.getBlock(declareReceipt!.blockNumber);
+    if (declareBlock === null) {
+      throw new Error("declareOperatorFee block not found");
+    }
+
+    const requestBeforeRemoval = await operators.getOperatorFeeChangeRequest(operatorId);
+    expect(requestBeforeRemoval.fee).to.equal(newFee / ETH_DEDUCTED_DIGITS);
+    expect(requestBeforeRemoval.approvalBeginTime).to.equal(BigInt(declareBlock.timestamp) + DECLARE_OPERATOR_FEE_PERIOD);
+    expect(requestBeforeRemoval.approvalEndTime).to.equal(
+      BigInt(declareBlock.timestamp) + DECLARE_OPERATOR_FEE_PERIOD + EXECUTE_OPERATOR_FEE_PERIOD
+    );
+
+    await operators.removeOperator(operatorId);
+
+    const requestAfterRemoval = await operators.getOperatorFeeChangeRequest(operatorId);
+    expect(requestAfterRemoval.fee).to.equal(0n);
+    expect(requestAfterRemoval.approvalBeginTime).to.equal(0n);
+    expect(requestAfterRemoval.approvalEndTime).to.equal(0n);
   });
 
   it("Cannot register the same public key after removal", async function () {
