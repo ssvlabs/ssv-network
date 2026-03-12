@@ -3006,6 +3006,7 @@ Product raised the question of whether `withdraw` needs an explicit `amount <= a
 - Implemented `echidna_eth_balance_accounting` in `test/echidna/SSVClustersEchidna.sol`.
 - Invariant enforces: `address(this).balance >= totalExpectedBalance + sumTrackedOperatorEthEarnings + ethDaoBalance + stakingEthPoolBalance`.
 - Added supporting bookkeeping helpers in the cluster harness to sum tracked operator ETH earnings (`op1/op2/op3`), DAO ETH balance, and staking ETH pool balance.
+- Extended the harness with real staking/operator actors plus `action_stake`, `action_claim_rewards`, and `action_withdraw_operator_eth` so the invariant is exercised across non-cluster ETH outflow paths as well.
 - Updated `test/echidna/README.md` invariant inventory: `SSVClustersEchidna` now documents 18 invariants, including `echidna_eth_balance_accounting`.
 
 **Validation run:**
@@ -3016,13 +3017,13 @@ Product raised the question of whether `withdraw` needs an explicit `amount <= a
 **Acceptance Criteria:**
 - [x] Echidna invariant `echidna_eth_balance_accounting` implemented in the staking/cluster harness
 - [x] Invariant asserts `address(this).balance >= sum_of_all_cluster_balances + sum_of_operator_eth_earnings + ethDaoBalance + stakingEthPoolBalance` after every operation
-- [x] Harness tracks all cluster balances and operator earnings across stake/unstake/deposit/withdraw/liquidate/reactivate flows
+- [x] Harness exercises cluster, operator, and staking ETH outflow paths across `deposit` / `withdraw` / `liquidate` / `reactivate` / `stake` / `claimEthRewards` / `withdrawOperatorEarnings`
 - [x] No invariant violations in fuzz runs
 
 **Agent Instructions:**
 1. Read `test/echidna/` for existing harness patterns and how cluster/operator state is tracked.
 2. Add a new invariant function that sums all tracked cluster balances and operator ETH earnings and compares to `address(this).balance`.
-3. Ensure the harness exercises all ETH-moving operations: `deposit`, `withdraw`, `liquidate`, `reactivate`, `claimEthRewards`, `withdrawNetworkETHEarnings`, `withdrawOperatorEarnings`.
+3. Ensure the harness exercises all ETH-moving operations exposed in the current codebase: `deposit`, `withdraw`, `liquidate`, `reactivate`, `stake`, `claimEthRewards`, `withdrawOperatorEarnings`.
 4. Run Echidna and confirm no violations.
 
 #### Sub-items:

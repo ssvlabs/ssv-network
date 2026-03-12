@@ -95,6 +95,8 @@ test/echidna/
 
 ## SSVClustersEchidna (18 Invariants)
 
+This harness also instantiates staking claimants and operator owners so `echidna_eth_balance_accounting` is exercised through `claimEthRewards` and `withdrawOperatorEarnings`, not only cluster flows.
+
 | Property | Description |
 |----------|-------------|
 | `echidna_cluster_hash_consistent` | Stored cluster hash matches local view |
