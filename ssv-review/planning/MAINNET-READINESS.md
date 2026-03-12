@@ -101,7 +101,7 @@
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
-| FUZZ-1 | Strengthen 5 partially-covered echidna invariants | Echidna Invariant Suite | P1 | M |
+| FUZZ-1 | ~~Strengthen 5 partially-covered echidna invariants~~ | Echidna Invariant Suite | P1 | ✅ Done |
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
 | FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
@@ -2859,12 +2859,12 @@ Update `.env.example` with v2.0.0 parameter names and values.
 **Current state:** 73 invariants across 9 test contracts (see `test/echidna/README.md` for full master list).
 **Source:** Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` — cross-referenced all 50 proposed invariants against existing 73, identified 30 new + 5 strengthening items.
 
-### [FUZZ-1] Strengthen 5 partially-covered echidna invariants
+### [FUZZ-1] ~~Strengthen 5 partially-covered echidna invariants~~
 - **Type:** Echidna Invariant Suite
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Timeline:** 2026-03-03
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -2875,10 +2875,19 @@ Upgrade 5 existing invariants from partial to full coverage:
 4. `echidna_pool_matches_dao_balance` → add per-claim delta tracking (ref A16)
 5. `echidna_accrued_within_pool` → add cumulative payout tracking (ref C2)
 
+**Resolution:**
+Completed in the Echidna harnesses:
+- `test/echidna/SSVDAOEchidna.sol`: strengthened network-fee invariants with explicit monotonicity bookkeeping (`prevEthFeeCurrentIndex`, `prevSsvFeeCurrentIndex`) and mutation-time checkpoints.
+- `test/echidna/SSVStakingEchidna.sol`: added per-operation cSSV mint/burn delta checks, post-settle exact `userIndex == accEthPerShare` checks, per-claim pool/DAO delta validation, and cumulative ETH credited/paid-out tracking for payout safety.
+
+Validation run:
+- `echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml` (12/12 passing)
+- `echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml` (13/13 passing)
+
 **Acceptance Criteria:**
-- [ ] Each upgraded invariant catches the class of bugs described in the ref
-- [ ] All echidna tests still pass after modifications
-- [ ] Harness bookkeeping added (prev-value tracking, per-claim deltas, cumulative payout counter)
+- [x] Each upgraded invariant catches the class of bugs described in the ref
+- [x] All echidna tests still pass after modifications
+- [x] Harness bookkeeping added (prev-value tracking, per-claim deltas, cumulative payout counter)
 
 ---
 
