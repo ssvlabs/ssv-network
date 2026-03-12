@@ -80,7 +80,7 @@
 | TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
 | TEST-34 | ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~ | Unit Test Completeness | P1 | ✅ Done |
-| ITEST-1 | `commitRoot` → `updateClusterBalance` E2E flow | Integration / E2E Tests | P1 | L |
+| ITEST-1 | ~~`commitRoot` → `updateClusterBalance` E2E flow~~ | Integration / E2E Tests | P1 | ✅ Closed |
 | ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
 | DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
 | DEPLOY-2 | Verify `liquidationThresholdPeriod` config vs spec mismatch | Deployment & Scripts | P1 | S |
@@ -2477,13 +2477,13 @@ Added explicit Echidna invariant `echidna_cssv_supply_lte_ssv_backing()` in `tes
 
 ## Integration / E2E Tests
 
-### [ITEST-1] `commitRoot` → `updateClusterBalance` E2E flow
+### [ITEST-1] ~~`commitRoot` → `updateClusterBalance` E2E flow~~
 - **Type:** Integration / E2E Tests
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Status:** ✅ **CLOSED**
+- **Owner:** Test coverage update
+- **Timeline:** Completed 2026-03-03
+- **Github Link:** [test/integration/SSVNetwork/commitRootUpdateClusterBalance.test.ts](../test/integration/SSVNetwork/commitRootUpdateClusterBalance.test.ts)
 
 **Requirement:**
 Create an end-to-end test connecting oracle voting → root commitment → cluster EB update → fee recalculation.
@@ -2492,8 +2492,14 @@ Create an end-to-end test connecting oracle voting → root commitment → clust
 Unit tests for `commitRoot` and `updateClusterBalance` exist separately but no test connects the full flow. This is the core oracle→cluster pipeline.
 
 **Acceptance Criteria:**
-- [ ] Test: 3 oracles propose same root → root committed → cluster calls `updateClusterBalance` with proof from committed root → verify fees recalculated with new EB
-- [ ] Test: Multiple clusters update EB from same root → verify independent accounting
+- [x] Test: 3 oracles propose same root → root committed → cluster calls `updateClusterBalance` with proof from committed root → verify fees recalculated with new EB
+- [x] Test: Multiple clusters update EB from same root → verify independent accounting
+
+**Implementation Summary:**
+1. Added a dedicated integration suite: [commitRootUpdateClusterBalance.test.ts](../test/integration/SSVNetwork/commitRootUpdateClusterBalance.test.ts).
+2. Added E2E test for quorum flow (`3/4` oracle votes) that commits root and executes `updateClusterBalance` with valid Merkle proof.
+3. Added exact-value assertion that EB update to `64` doubles post-update operator earnings accrual vs baseline.
+4. Added multi-cluster scenario from one committed root and verified independent accounting with exact formula-based balance deltas per cluster.
 
 **Agent Instructions:**
 1. Read `test/unit/SSVDAO/commitRoot.test.ts` and `test/unit/SSVClusters/updateClusterBalance.test.ts`.
@@ -2504,8 +2510,8 @@ Unit tests for `commitRoot` and `updateClusterBalance` exist separately but no t
 6. Run `npm run test:integration`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Full oracle → cluster EB update flow
-- [ ] Sub-task 2: Multiple clusters from same root
+- [x] Sub-task 1: Full oracle → cluster EB update flow
+- [x] Sub-task 2: Multiple clusters from same root
 
 ---
 
