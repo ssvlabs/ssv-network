@@ -96,7 +96,7 @@ contract SSVViews is ISSVViews {
         op.validatorCount = operator.ethValidatorCount;
         op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
         op.isPrivate = operator.whitelisted;
-        op.isActive = operator.ethSnapshot.block != 0;
+        op.isActive = operator.ethSnapshot.block != 0 || operator.snapshot.block != 0;
     }
 
     /**
@@ -113,7 +113,7 @@ contract SSVViews is ISSVViews {
         op.validatorCount = operator.validatorCount;
         op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
         op.isPrivate = operator.whitelisted;
-        op.isActive = operator.snapshot.block != 0;
+        op.isActive = operator.ethSnapshot.block != 0 || operator.snapshot.block != 0;
     }
 
     /**
@@ -313,11 +313,12 @@ contract SSVViews is ISSVViews {
         Cluster memory cluster
     ) external view override returns (uint256) {
         StorageData storage s = SSVStorage.load();
-        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(
             clusterOwner,
             operatorIds,
             s
         );
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
 
         PackedETH operatorsFee;
         uint256 len = operatorIds.length;
@@ -348,10 +349,7 @@ contract SSVViews is ISSVViews {
     ) external view override returns (uint256) {
         StorageData storage s = SSVStorage.load();
         (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-
-        if (version != VERSION_SSV) {
-            return 0;
-        }
+        ClusterLib.validateClusterVersion(version, VERSION_SSV);
 
         PackedSSV aggregateFee;
         uint256 operatorsLength = operatorIds.length;
@@ -396,9 +394,7 @@ contract SSVViews is ISSVViews {
     ) external view override returns (uint256 balance) {
         StorageData storage s = SSVStorage.load();
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        if (version != VERSION_ETH) {
-            return 0;
-        }
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
@@ -423,9 +419,7 @@ contract SSVViews is ISSVViews {
     ) external view override returns (uint256 balance) {
         StorageData storage s = SSVStorage.load();
         (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        if (version != VERSION_SSV) {
-            return 0;
-        }
+        ClusterLib.validateClusterVersion(version, VERSION_SSV);
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
@@ -447,7 +441,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view returns (uint32 effectiveBalance) {
-        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         StorageEB storage seb = SSVStorageEB.load();

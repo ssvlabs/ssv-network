@@ -98,26 +98,6 @@ library OperatorLib {
     }
 
     /**
-     * @notice Updates both ETH and SSV operator snapshots
-     * @param operator Operator data
-     * @param operatorId Operator ID
-     */
-    function updateSnapshots(ISSVNetworkCore.Operator memory operator, uint64 operatorId) internal view {
-        updateSnapshot(operator, operatorId);
-        updateSnapshotSSV(operator);
-    }
-
-    /**
-     * @notice Updates both stored ETH and SSV operator snapshots
-     * @param operator Operator storage reference
-     * @param operatorId Operator ID
-     */
-    function updateSnapshotsSt(ISSVNetworkCore.Operator storage operator, uint64 operatorId) internal {
-        updateSnapshotSt(operator, operatorId);
-        updateSnapshotStSSV(operator);
-    }
-
-    /**
      * @notice Returns default ETH fee for operators
      * @return Default ETH fee
      */
@@ -305,7 +285,7 @@ library OperatorLib {
         uint32 currentBlock = uint32(block.number);
         bool hasDeviation = sp.daoTotalEthVUnits != uint64(sp.ethDaoValidatorCount) * VUNITS_PRECISION;
 
-        for (uint256 i; i < operatorsLength; ) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
@@ -347,10 +327,6 @@ library OperatorLib {
                 cumulativeFee += PackedETH.unwrap(operator.ethFee);
             }
             cumulativeIndex += operator.ethSnapshot.index;
-
-            unchecked {
-                ++i;
-            }
         }
     }
 

@@ -366,7 +366,7 @@ Same flow as 1.9 but for SSV clusters. Uses `s.clusters` instead of `s.ethCluste
 - Cluster must be liquidated (`active == false`)
 
 
-> **Note — Stale EB risk:** The solvency check uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed during liquidation. Ref: SPEC §2 "Stale EB Risk on Reactivation" for full analysis and mitigation options.
+> **Note — Stale EB risk:** The solvency check uses the stored `clusterEB.vUnits` snapshot, which may be stale if the beacon-chain EB changed during liquidation. Under the current oracle behavior, inactive / liquidated clusters are omitted from the Merkle root, so their on-chain EB snapshot usually cannot be refreshed before reactivation. In practice, deposit sizing should rely on off-chain beacon-chain-aware tooling plus a conservative buffer, not only on the on-chain snapshot. Ref: SPEC §2 "Stale EB Risk on Reactivation" for full analysis and mitigation options.
 >
 > **Note — operator removal and reactivation:** If one or more operators in a cluster's operator set have been removed (via `removeOperator`), the cluster can still be reactivated, but removed operators are silently skipped during `updateClusterOperatorsOnReactivation` (see `OperatorLib.sol:311`). The cluster will operate with reduced operator coverage (e.g., 3/4 instead of 4/4), which may compromise the cluster's fault tolerance. The reactivation fee calculation excludes removed operators' fees. No on-chain event signals which operators were skipped, but this is detectable off-chain by checking operator states before reactivation.
 
@@ -520,7 +520,7 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 - EB limits: `32 * validatorCount <= effectiveBalance <= 2048 * validatorCount`
 - Cluster must exist (ETH or SSV)
 
-> **Note — Liquidated clusters:** The EB snapshot is **always updated** regardless of cluster state; fee/accounting steps are skipped when `cluster.active == false`. Ref: SPEC §4 "Behavior on liquidated clusters" for full rules and use cases.
+> **Note — Liquidated clusters:** The contract supports updating the EB snapshot while `cluster.active == false` if a valid proof exists, and still skips fee/accounting steps in that case. In production, oracle roots exclude inactive / liquidated clusters, so `updateClusterBalance` for a liquidated cluster is usually not available through the live oracle flow. This means the on-chain EB snapshot may diverge from the real beacon-chain EB until the cluster is active again and re-included in a later root. Ref: SPEC §4 "Behavior on liquidated clusters" for full rules and use cases.
 
 #### State Mutations (ETH Cluster)
 
@@ -772,6 +772,7 @@ emit OperatorFeeDeclarationCancelled(owner, operatorId);
 
 #### Preconditions
 - Operator must exist
+- `operator.ethSnapshot.block != 0` (operator must be ETH-initialized; legacy SSV-only operators revert with `InsufficientBalance`)
 - `amount <= accumulated ETH earnings`
 
 #### State Mutations
@@ -788,6 +789,8 @@ emit OperatorWithdrawn(owner, operatorId, amount);
 - `operator.ethSnapshot.balance == previous_settled - amount`
 - `owner.balance == previous + amount`
 - `contract.balance == previous - amount`
+- `operator.ethSnapshot.block` unchanged (remains non-zero)
+- `operator.snapshot.block` unchanged (SSV state untouched)
 
 ---
 
@@ -795,10 +798,19 @@ emit OperatorWithdrawn(owner, operatorId, amount);
 
 Same as 4.7 but for SSV-denominated earnings. SSV token transferred instead of ETH.
 
+#### Preconditions
+- Operator must exist
+- `operator.snapshot.block != 0` (operator must be SSV-initialized; ETH-only operators revert with `InsufficientBalance`)
+- `amount <= accumulated SSV earnings`
+
 #### Events
 ```solidity
 emit OperatorWithdrawnSSV(owner, operatorId, amount);
 ```
+
+#### Postcondition Invariants
+- `operator.snapshot.balance == previous_settled - amount`
+- `operator.ethSnapshot.block` unchanged (ETH state untouched)
 
 ---
 
@@ -811,21 +823,25 @@ emit OperatorWithdrawnSSV(owner, operatorId, amount);
 - Operator must exist
 
 #### State Mutations
-1. Update both ETH and SSV snapshots (accumulate latest earnings for both)
-2. Deduct full ETH balance from `ethSnapshot.balance` (set to zero)
-3. Deduct full SSV balance from `snapshot.balance` (set to zero)
-4. Transfer full ETH earnings to operator owner (if non-zero)
-5. Transfer full SSV token earnings to operator owner (if non-zero)
+Each version branch is evaluated independently:
+- If `operator.snapshot.block != 0`: update SSV snapshot, capture and zero `snapshot.balance`
+- If `operator.ethSnapshot.block != 0`: update ETH snapshot, capture and zero `ethSnapshot.balance`
+- Transfer ETH earnings to operator owner (if captured amount non-zero)
+- Transfer SSV token earnings to operator owner (if captured amount non-zero)
+
+A legacy SSV-only operator (`snapshot.block != 0`, `ethSnapshot.block == 0`) runs only the SSV branch — `ethSnapshot.block` is **never written**, preserving the legacy state. An ETH-only operator runs only the ETH branch for the same reason.
 
 #### Events
 ```solidity
-emit OperatorWithdrawn(owner, operatorId, ethAmount);  // ETH portion
-emit OperatorWithdrawnSSV(owner, operatorId, ssvAmount);  // SSV portion
+emit OperatorWithdrawn(owner, operatorId, ethAmount);  // ETH portion, only if ethAmount > 0
+emit OperatorWithdrawnSSV(owner, operatorId, ssvAmount);  // SSV portion, only if ssvAmount > 0
 ```
 
 #### Postcondition Invariants
-- `operator.ethSnapshot.balance == 0`
-- `operator.snapshot.balance == 0`
+- `operator.ethSnapshot.balance == 0` (if ETH branch ran)
+- `operator.snapshot.balance == 0` (if SSV branch ran)
+- `operator.ethSnapshot.block` unchanged if `ethSnapshot.block` was `0` before call
+- `operator.snapshot.block` unchanged if `snapshot.block` was `0` before call
 - `owner.balance == previous + ethEarnings`
 - `owner.ssvBalance == previous + ssvEarnings`
 - `contract.balance == previous - ethEarnings`

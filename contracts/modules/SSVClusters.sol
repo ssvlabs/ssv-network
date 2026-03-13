@@ -133,7 +133,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     function reactivate(
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external payable override {
+    ) external payable override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -506,13 +506,10 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         uint64 deltaAbs = deltaPositive ? newVUnits - storedVUnits : storedVUnits - newVUnits;
 
         uint256 operatorsLength = operatorIds.length;
-        for (uint256 i; i < operatorsLength; ) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             if (deltaPositive) seb.operatorEthVUnits[operatorId] += deltaAbs;
             else seb.operatorEthVUnits[operatorId] -= deltaAbs;
-            unchecked {
-                ++i;
-            }
         }
     }
 
