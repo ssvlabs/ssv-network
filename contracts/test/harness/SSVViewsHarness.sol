@@ -46,6 +46,33 @@ contract SSVViewsHarness is SSVViews {
         operator.snapshot.block = uint32(block.number);
     }
 
+    /// @notice Sets a legacy SSV-only operator with no ETH initialization.
+    /// @param operatorId Operator id to configure.
+    /// @param owner Operator owner address.
+    /// @param ssvFee SSV fee in unpacked units.
+    /// @param ssvValidatorCount SSV validator count.
+    function mockSetLegacyOperator(
+        uint64 operatorId,
+        address owner,
+        uint256 ssvFee,
+        uint32 ssvValidatorCount
+    ) external {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+        operator.owner = owner;
+        operator.ethFee = PackedETHLib.pack(0);
+        operator.fee = PackedSSVLib.pack(ssvFee);
+        operator.ethValidatorCount = 0;
+        operator.validatorCount = ssvValidatorCount;
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.index = 0;
+        operator.ethSnapshot.balance = PackedETHLib.pack(0);
+        operator.snapshot.block = uint32(block.number);
+        operator.snapshot.index = 0;
+        operator.snapshot.balance = PackedSSVLib.pack(0);
+    }
+
     /// @notice Sets stored ETH and SSV operator earnings snapshots.
     /// @param operatorId Operator id to configure.
     /// @param ethEarnings ETH earnings in unpacked units.
@@ -64,6 +91,12 @@ contract SSVViewsHarness is SSVViews {
     /// @param fee ETH network fee in unpacked units.
     function mockSetNetworkFeeETH(uint256 fee) external {
         SSVStorageProtocol.load().ethNetworkFee = PackedETHLib.pack(fee);
+    }
+
+    /// @notice Sets the operator max ETH fee.
+    /// @param fee ETH max fee in unpacked units.
+    function mockSetOperatorMaxFee(uint256 fee) external {
+        SSVStorageProtocol.load().operatorMaxFee = PackedETHLib.pack(fee);
     }
 
     /// @notice Sets network SSV fee.

@@ -157,6 +157,47 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
       .withArgs(owner.address, operatorId, expectedBlock, newFee);
   });
 
+  it("Does not initialize a legacy operator above the current max fee when max is zero", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.mockSetOperatorLegacySSV(1, 1);
+    await operators.mockSetOperatorMaxFee(0);
+
+    await expect(operators.declareOperatorFee(1, 0n))
+      .to.be.revertedWithCustomError(operators, Errors.SAME_FEE_CHANGE_NOT_ALLOWED);
+
+    const after = await operators.getOperator(1);
+    expect(after.ethFee).to.equal(0n);
+    expect(after.ethSnapshot.block).to.equal(0n);
+  });
+
+  it("Caps legacy ETH defaulting to the live max fee before storing a zero-fee declaration", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    const cappedMaxFee = MINIMAL_OPERATOR_ETH_FEE;
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.mockSetOperatorLegacySSV(1, 1);
+    await operators.mockSetOperatorMaxFee(cappedMaxFee);
+
+    const tx = await operators.declareOperatorFee(1, 0n);
+    const receipt = await tx.wait();
+    const expectedBlock = BigInt(receipt!.blockNumber);
+
+    await expect(tx)
+      .to.emit(operators, Events.OPERATOR_FEE_EXECUTED)
+      .withArgs(owner.address, 1, expectedBlock, cappedMaxFee);
+    await expect(tx)
+      .to.emit(operators, Events.OPERATOR_FEE_DECLARED)
+      .withArgs(owner.address, 1, expectedBlock, 0n);
+
+    const after = await operators.getOperator(1);
+    expect(after.ethFee).to.equal(cappedMaxFee / ETH_DEDUCTED_DIGITS);
+
+    const request = await operators.getOperatorFeeChangeRequest(1);
+    expect(request.fee).to.equal(0n);
+  });
+
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to declare fee", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const [_, other] = await connection.ethers.getSigners();

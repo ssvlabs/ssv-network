@@ -8,7 +8,7 @@ import {ClusterLib} from "../libraries/ClusterLib.sol";
 import {OperatorLib} from "../libraries/OperatorLib.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
-import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE, PRECISION, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, PRECISION, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
@@ -48,8 +48,10 @@ contract SSVViews is ISSVViews {
         if (operator.ethSnapshot.block != 0) {
             return PackedETHLib.unpack(operator.ethFee);
         } else if (PackedSSV.unwrap(operator.fee) != 0) {
-            return DEFAULT_OPERATOR_ETH_FEE;
+            return PackedETHLib.unpack(OperatorLib.defaultOperatorEthFee());
         }
+
+        return 0;
     }
 
     /**
@@ -89,7 +91,7 @@ contract SSVViews is ISSVViews {
         if (operator.ethSnapshot.block != 0) {
             op.fee = PackedETHLib.unpack(operator.ethFee);
         } else if (PackedSSV.unwrap(operator.fee) != 0) {
-            op.fee = DEFAULT_OPERATOR_ETH_FEE;
+            op.fee = PackedETHLib.unpack(OperatorLib.defaultOperatorEthFee());
         }
 
         op.validatorCount = operator.ethValidatorCount;

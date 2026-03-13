@@ -93,6 +93,10 @@ library PackedETHLib {
         return PackedETH.unwrap(a) <= PackedETH.unwrap(b);
     }
 
+    function min(PackedETH a, PackedETH b) internal pure returns (PackedETH) {
+        return PackedETH.unwrap(a) <= PackedETH.unwrap(b) ? a : b;
+    }
+
     function add(PackedETH a, PackedETH b) internal pure returns (PackedETH) {
         return PackedETH.wrap(PackedETH.unwrap(a) + PackedETH.unwrap(b));
     }
