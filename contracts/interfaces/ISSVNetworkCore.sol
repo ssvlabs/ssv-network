@@ -335,6 +335,16 @@ interface ISSVNetworkCore {
     error InvalidQuorum(); // 0xd1735779
 
     /**
+     * @dev Thrown when trying to configure operator fee increase limit above 100%
+     */
+    error InvalidOperatorFeeIncreaseLimit(); // 0x602d89dd
+
+    /**
+     * @dev Thrown when trying to configure inconsistent operator fee bounds
+     */
+    error InvalidOperatorFeeRange(); // 0x44b0758c
+
+    /**
      * @dev Thrown when amount is zero
      */
     error ZeroAmount(); // 0x1f2a2005

@@ -520,7 +520,7 @@ describe("Mainnet Governance Config Validation", async () => {
       await dao.mockSetOracle(2, oracle2.address);
       await dao.mockSetOracle(3, oracle3.address);
       await dao.mockSetOracle(4, oracle4.address);
-      await dao.mockSetQuorumBps(Number(CONFIG.quorumBps));
+      await dao.mockupdateQuorumBps(Number(CONFIG.quorumBps));
 
       await cssv.mint(owner.address, totalSupply);
 

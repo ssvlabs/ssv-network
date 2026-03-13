@@ -323,10 +323,10 @@ async function main() {
     await (await networkOwner.updateMinimumOperatorEthFee(params.minOperatorEthFee)).wait();
   }
   if (quorumBps !== undefined) {
-    await (await networkOwner.setQuorumBps(quorumBps)).wait();
+    await (await networkOwner.updateQuorumBps(quorumBps)).wait();
   }
   if (params.unstakeCooldownDuration !== undefined) {
-    await (await networkOwner.setUnstakeCooldownDuration(params.unstakeCooldownDuration)).wait();
+    await (await networkOwner.updateUnstakeCooldownDuration(params.unstakeCooldownDuration)).wait();
   }
   for (const { id, address } of oracles) {
     await (await networkOwner.replaceOracle(id, address)).wait();
