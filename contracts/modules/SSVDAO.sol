@@ -250,7 +250,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     /**
      * @inheritdoc ISSVDAO
      */
-    function setQuorumBps(uint16 quorum) external override {
+    function updateQuorumBps(uint16 quorum) external override {
         if (quorum > BPS_DENOMINATOR) {
             revert InvalidQuorum();
         }
@@ -261,7 +261,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     /**
      * @inheritdoc ISSVDAO
      */
-    function setUnstakeCooldownDuration(uint64 duration) external override {
+    function updateUnstakeCooldownDuration(uint64 duration) external override {
         SSVStorageStaking.load().cooldownDuration = duration;
         emit CooldownDurationUpdated(duration);
     }

@@ -102,7 +102,7 @@ You are performing a security and spec compliance audit on SSV Network v2.0.0.
 
 ### 10. Governance Parameter Validation
 - [ ] **For every governance setter:** What is min/max valid value? Is there bounds validation? What breaks at 0 or max?
-- [ ] **Single-block attack chains:** Can governance execute a dangerous sequence in one tx? (e.g., setQuorumBps(0) → replaceOracle → commitRoot)
+- [ ] **Single-block attack chains:** Can governance execute a dangerous sequence in one tx? (e.g., updateQuorumBps(0) → replaceOracle → commitRoot)
 - [ ] **Timelock presence:** Which critical governance functions lack a timelock?
 
 ### 11. UUPS Proxy Safety

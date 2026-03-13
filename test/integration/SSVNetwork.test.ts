@@ -991,12 +991,12 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
-  describe("Function 'setUnstakeCooldownDuration()'", async function() {
+  describe("Function 'updateUnstakeCooldownDuration()'", async function() {
     it("Changes cooldown period and emits correct event", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(await network.setUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
+      await expect(await network.updateUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
         .to.emit(network, Events.COOLDOWN_DURATION_UPDATED)
         .withArgs(DEFAULT_UNSTAKE_COOLDOWN + 1n);
 
@@ -1007,7 +1007,7 @@ describe("SSVNetwork full integration tests", () => {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.connect(randomUser).setUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
+      await expect(network.connect(randomUser).updateUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
   });
@@ -1033,12 +1033,12 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
-  describe("Function 'setQuorumBps()'", async function() {
+  describe("Function 'updateQuorumBps()'", async function() {
     it("Changes quorum and emits correct event", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(await network.setQuorumBps(10000n))
+      await expect(await network.updateQuorumBps(10000n))
         .to.emit(network, Events.QUORUM_UPDATED)
         .withArgs(10000n);
 
@@ -1049,7 +1049,7 @@ describe("SSVNetwork full integration tests", () => {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.connect(randomUser).setQuorumBps(10000n))
+      await expect(network.connect(randomUser).updateQuorumBps(10000n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
   });
