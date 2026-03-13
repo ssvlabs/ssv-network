@@ -132,7 +132,7 @@ describe("SSVNetwork full integration tests", () => {
         0,
         connection.ethers.ZeroAddress,
         true,
-        false // isActive = false: new operators are ETH-only (snapshot.block == 0)
+        true
       ]);
     });
 
@@ -1575,13 +1575,13 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getClusterAssetType(clusterOwner, operatorIds))
         .to.be.equal(CLUSTER_VERSION_ETH);
 
-      // ssv legacy getters
+      // ssv legacy getters revert for ETH clusters
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-      expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
-        .to.be.equal(0);
-      expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
-        .to.be.equal(0);
+      await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+      await expect(views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("Registers a validator for a new ETH cluster using whitelisting contract", async function () {
@@ -2048,10 +2048,10 @@ describe("SSVNetwork full integration tests", () => {
 
         await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
           .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-        expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
-          .to.be.equal(0);
-        expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
-          .to.be.equal(0);
+        await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+          .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+        await expect(views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+          .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
       }
     });
 

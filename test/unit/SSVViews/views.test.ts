@@ -177,8 +177,10 @@ describe("SSVViews dedicated coverage", () => {
     expect(await views.getBalance(clusterOwner.address, operatorIds, cluster)).to.equal(cluster.balance);
     expect(await views.getBurnRate(clusterOwner.address, operatorIds, cluster)).to.be.greaterThan(0n);
 
-    expect(await views.getBalanceSSV(clusterOwner.address, operatorIds, cluster)).to.equal(0n);
-    expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, cluster)).to.equal(0n);
+    await expect(views.getBalanceSSV(clusterOwner.address, operatorIds, cluster))
+      .to.be.revertedWithCustomError(views, Errors.INCORRECT_CLUSTER_VERSION);
+    await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, cluster))
+      .to.be.revertedWithCustomError(views, Errors.INCORRECT_CLUSTER_VERSION);
   });
 
   it("getOperatorEarnings returns both ETH and SSV earnings when both snapshots are funded", async function () {
@@ -246,7 +248,46 @@ describe("SSVViews dedicated coverage", () => {
       5n * DEDUCTED_DIGITS
     );
 
-    expect(await viewsHarness.getBalance(clusterOwner.address, operatorIds, ssvCluster)).to.equal(0n);
-    expect(await viewsHarness.getBurnRate(clusterOwner.address, operatorIds, ssvCluster)).to.equal(0n);
+    await expect(viewsHarness.getBalance(clusterOwner.address, operatorIds, ssvCluster))
+      .to.be.revertedWithCustomError(viewsHarness, Errors.INCORRECT_CLUSTER_VERSION);
+    await expect(viewsHarness.getBurnRate(clusterOwner.address, operatorIds, ssvCluster))
+      .to.be.revertedWithCustomError(viewsHarness, Errors.INCORRECT_CLUSTER_VERSION);
+  });
+
+  it("getEffectiveBalance returns implicit 32 ETH for active SSV cluster with no explicit EB snapshot", async function () {
+    const { viewsHarness } = await networkHelpers.loadFixture(deployViewsHarnessFixture);
+
+    const operatorIds = [1n, 2n, 3n, 4n];
+    const ssvCluster = {
+      validatorCount: 1n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      active: true,
+      balance: 0n,
+    };
+
+    await viewsHarness.mockRegisterSSVCluster(clusterOwner.address, operatorIds, ssvCluster);
+
+    // No clusterEB set → falls back to validatorCount * VUNITS_PRECISION → 32 ETH per validator
+    expect(await viewsHarness.getEffectiveBalance(clusterOwner.address, operatorIds, ssvCluster)).to.equal(32);
+  });
+
+  it("getEffectiveBalance returns explicit EB for active SSV cluster when vUnits are set", async function () {
+    const { viewsHarness } = await networkHelpers.loadFixture(deployViewsHarnessFixture);
+
+    const operatorIds = [1n, 2n, 3n, 4n];
+    const ssvCluster = {
+      validatorCount: 1n,
+      networkFeeIndex: 0n,
+      index: 0n,
+      active: true,
+      balance: 0n,
+    };
+
+    await viewsHarness.mockRegisterSSVCluster(clusterOwner.address, operatorIds, ssvCluster);
+    // 64 ETH: vUnits = ceil(64 * 10_000 / 32) = 20_000
+    await (viewsHarness as any).mockSetClusterEB(clusterOwner.address, operatorIds, 20_000n);
+
+    expect(await viewsHarness.getEffectiveBalance(clusterOwner.address, operatorIds, ssvCluster)).to.equal(64);
   });
 });

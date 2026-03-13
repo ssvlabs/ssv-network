@@ -186,10 +186,18 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         StorageData storage s = SSVStorage.load();
         ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
-        OperatorLib.updateSnapshotsSt(operator, operatorId);
+        PackedETH currentBalanceETH = PACKED_ETH_ZERO;
+        PackedSSV currentBalanceSSV = PACKED_SSV_ZERO;
 
-        PackedETH currentBalanceETH = operator.ethSnapshot.balance;
-        PackedSSV currentBalanceSSV = operator.snapshot.balance;
+        if (operator.snapshot.block != 0) {
+            OperatorLib.updateSnapshotStSSV(operator);
+            currentBalanceSSV = operator.snapshot.balance;
+        }
+
+        if (operator.ethSnapshot.block != 0) {
+            OperatorLib.updateSnapshotSt(operator, operatorId);
+            currentBalanceETH = operator.ethSnapshot.balance;
+        }
 
         operator.ethSnapshot.block = 0;
         operator.ethSnapshot.balance = PACKED_ETH_ZERO;
