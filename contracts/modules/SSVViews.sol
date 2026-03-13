@@ -442,8 +442,7 @@ contract SSVViews is ISSVViews {
         Cluster memory cluster
     ) external view returns (uint32 effectiveBalance) {
         StorageData storage s = SSVStorage.load();
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
-        ClusterLib.validateClusterVersion(version, VERSION_ETH);
+        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         StorageEB storage seb = SSVStorageEB.load();

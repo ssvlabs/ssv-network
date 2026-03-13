@@ -5,6 +5,7 @@ import {SSVViews} from "../../modules/SSVViews.sol";
 import {ISSVNetworkCore} from "../../interfaces/ISSVNetworkCore.sol";
 import {SSVStorage, StorageData} from "../../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol} from "../../libraries/storage/SSVStorageProtocol.sol";
+import {SSVStorageEB} from "../../libraries/storage/SSVStorageEB.sol";
 import {PackedETHLib, PackedSSVLib} from "../../libraries/SSVPackedLib.sol";
 import "../../libraries/ClusterLib.sol";
 
@@ -125,5 +126,18 @@ contract SSVViewsHarness is SSVViews {
     ) external {
         bytes32 hashedCluster = keccak256(abi.encodePacked(clusterOwner, operatorIds));
         SSVStorage.load().clusters[hashedCluster] = cluster.hashClusterData();
+    }
+
+    /// @notice Seeds the EB snapshot vUnits for a cluster (ETH or SSV) in SSVStorageEB.
+    /// @param clusterOwner Cluster owner address.
+    /// @param operatorIds Operator ids composing the cluster.
+    /// @param vUnits vUnits value to store (0 = implicit EB fallback to validatorCount * VUNITS_PRECISION).
+    function mockSetClusterEB(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        uint64 vUnits
+    ) external {
+        bytes32 hashedCluster = keccak256(abi.encodePacked(clusterOwner, operatorIds));
+        SSVStorageEB.load().clusterEB[hashedCluster].vUnits = vUnits;
     }
 }
