@@ -11,7 +11,7 @@ import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {PackedETHLib, PackedSSVLib} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH, PackedSSV, DEDUCTED_DIGITS, BPS_DENOMINATOR} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETH, PackedSSV, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 
 contract OperatorUser {

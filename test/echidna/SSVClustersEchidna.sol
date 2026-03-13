@@ -13,7 +13,7 @@ import "../../contracts/libraries/ProtocolLib.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 import {PackedETHLib, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, BPS_DENOMINATOR} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract ClusterUser {
     ISSVClusters public clusters;
@@ -737,7 +737,7 @@ contract SSVClustersEchidna is SSVClusters {
 
         uint64 oldVUnits = snapshotBefore.vUnits;
         if (oldVUnits == 0) {
-            oldVUnits = uint64(clusterBefore.validatorCount) * VUNITS_PRECISION;
+            oldVUnits = uint64(clusterBefore.validatorCount) * BPS_DENOMINATOR;
         }
         uint64 newVUnits = ClusterLib.ebToVUnits(effectiveBalance);
 
@@ -836,8 +836,8 @@ contract SSVClustersEchidna is SSVClusters {
         uint128 units = vUnits;
         uint128 idxNet = networkFeeIndex - cluster.networkFeeIndex;
         uint128 idxOp = clusterIndex - cluster.index;
-        uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
-        uint128 operatorFeeUnits = (idxOp * units) / VUNITS_PRECISION;
+        uint128 networkFeeUnits = (idxNet * units) / BPS_DENOMINATOR;
+        uint128 operatorFeeUnits = (idxOp * units) / BPS_DENOMINATOR;
         return (uint256(networkFeeUnits) + uint256(operatorFeeUnits)) * ETH_DEDUCTED_DIGITS;
     }
 
