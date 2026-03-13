@@ -131,7 +131,7 @@ contract SSVViewsHarness is SSVViews {
     /// @notice Seeds the EB snapshot vUnits for a cluster (ETH or SSV) in SSVStorageEB.
     /// @param clusterOwner Cluster owner address.
     /// @param operatorIds Operator ids composing the cluster.
-    /// @param vUnits vUnits value to store (0 = implicit EB fallback to validatorCount * VUNITS_PRECISION).
+    /// @param vUnits vUnits value to store (0 = implicit EB fallback to validatorCount * BPS_DENOMINATOR).
     function mockSetClusterEB(
         address clusterOwner,
         uint64[] calldata operatorIds,

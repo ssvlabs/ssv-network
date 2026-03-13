@@ -2,18 +2,17 @@
 pragma solidity 0.8.24;
 
 import {ISSVOperators} from "../interfaces/ISSVOperators.sol";
-import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
-import "../libraries/OperatorLib.sol";
-import "../libraries/CoreLib.sol";
+import {OperatorLib} from "../libraries/OperatorLib.sol";
+import {CoreLib} from "../libraries/CoreLib.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
 contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
-    uint64 private constant PRECISION_FACTOR = 10_000;
     uint256 public immutable UPGRADE_TIMESTAMP;
 
     using Counters for Counters.Counter;
@@ -36,16 +35,16 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         if (fee != 0 && fee < PackedETHLib.unpack(sp.minimumOperatorEthFee)) {
-            revert ISSVNetworkCore.FeeTooLow();
+            revert FeeTooLow();
         }
         if (fee > PackedETHLib.unpack(sp.operatorMaxFee)) {
-            revert ISSVNetworkCore.FeeTooHigh();
+            revert FeeTooHigh();
         }
 
         StorageData storage s = SSVStorage.load();
 
         bytes32 hashedPk = keccak256(publicKey);
-        if (s.operatorsPKs[hashedPk] != 0) revert ISSVNetworkCore.OperatorAlreadyExists();
+        if (s.operatorsPKs[hashedPk] != 0) revert OperatorAlreadyExists();
 
         s.lastOperatorId.increment();
         id = uint64(s.lastOperatorId.current());
@@ -126,7 +125,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee.raw() * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease) + PRECISION_FACTOR - 1) / PRECISION_FACTOR;
+        uint64 maxAllowedFee = (operatorFee.raw() * (BPS_DENOMINATOR + sp.operatorMaxFeeIncrease) + BPS_DENOMINATOR - 1) / BPS_DENOMINATOR;
 
         if (shrunkFee.raw() > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 
@@ -298,7 +297,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
         operator.checkOwner();
 
         if (version == VERSION_ETH) {
-            if (operator.ethSnapshot.block == 0) revert ISSVNetworkCore.InsufficientBalance();
+            if (operator.ethSnapshot.block == 0) revert InsufficientBalance();
             
             PackedETH shrunkWithdrawn;
             PackedETH shrunkAmount = PackedETHLib.pack(amount);
@@ -318,7 +317,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
             _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(shrunkWithdrawn));
 
         } else if (version == VERSION_SSV) {
-            if (operator.snapshot.block == 0) revert ISSVNetworkCore.InsufficientBalance();
+            if (operator.snapshot.block == 0) revert InsufficientBalance();
 
             PackedSSV shrunkWithdrawn;
             PackedSSV shrunkAmount = PackedSSVLib.pack(amount);
@@ -338,7 +337,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
             _transferOperatorTokenBalanceUnsafe(operatorId, PackedSSVLib.unpack(shrunkWithdrawn));
 
         } else {
-            revert ISSVNetworkCore.IncorrectOperatorVersion(version);
+            revert IncorrectOperatorVersion(version);
         }
     }
 

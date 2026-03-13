@@ -4,14 +4,15 @@ pragma solidity 0.8.24;
 import {ISSVViews} from "../interfaces/ISSVViews.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
-import "../libraries/ClusterLib.sol";
-import "../libraries/OperatorLib.sol";
-import "../libraries/CoreLib.sol";
-import "../libraries/ProtocolLib.sol";
-import {PackedSSV, PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE} from "../libraries/SSVCoreTypes.sol";
+import {ClusterLib} from "../libraries/ClusterLib.sol";
+import {OperatorLib} from "../libraries/OperatorLib.sol";
+import {CoreLib} from "../libraries/CoreLib.sol";
+import {ProtocolLib} from "../libraries/ProtocolLib.sol";
+import {PackedSSV, PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE, PRECISION, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB} from "../libraries/storage/SSVStorageEB.sol";
 import {MAX_DELEGATION_SLOTS, SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/storage/SSVStorageStaking.sol";
 
 contract SSVViews is ISSVViews {
@@ -20,8 +21,6 @@ contract SSVViews is ISSVViews {
     using ProtocolLib for StorageProtocol;
     using PackedETHLib for PackedETH;
     using PackedSSVLib for PackedSSV;
-
-    uint256 private constant PRECISION = 1e18;
 
     address public immutable CSSV_ADDRESS;
 
@@ -45,7 +44,7 @@ contract SSVViews is ISSVViews {
      * @inheritdoc ISSVViews
      */
     function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
-        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
+        Operator storage operator = SSVStorage.load().operators[operatorId];
         if (operator.ethSnapshot.block != 0) {
             return PackedETHLib.unpack(operator.ethFee);
         } else if (PackedSSV.unwrap(operator.fee) != 0) {
@@ -84,7 +83,7 @@ contract SSVViews is ISSVViews {
         uint64 operatorId
     ) external view override returns (OperatorData memory op)
     {
-        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
+        Operator storage operator = SSVStorage.load().operators[operatorId];
 
         op.owner = operator.owner;
         if (operator.ethSnapshot.block != 0) {
@@ -106,7 +105,7 @@ contract SSVViews is ISSVViews {
         uint64 operatorId
     ) external view override returns (OperatorData memory op)
     {
-        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
+        Operator storage operator = SSVStorage.load().operators[operatorId];
 
         op.owner = operator.owner;
         op.fee = PackedSSVLib.unpack(operator.fee);
@@ -333,10 +332,10 @@ contract SSVViews is ISSVViews {
 
         uint64 vUnits = SSVStorageEB.load().clusterEB[hashedCluster].vUnits;
         if (vUnits == 0) {
-            vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            vUnits = uint64(cluster.validatorCount) * BPS_DENOMINATOR;
         }
 
-        return (PackedETHLib.unpack(networkFee.add(operatorsFee)) * uint256(vUnits)) / VUNITS_PRECISION;
+        return (PackedETHLib.unpack(networkFee.add(operatorsFee)) * uint256(vUnits)) / BPS_DENOMINATOR;
     }
 
     /**
@@ -449,7 +448,7 @@ contract SSVViews is ISSVViews {
         uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
 
         if (vUnits == 0) {
-            vUnits = cluster.validatorCount * VUNITS_PRECISION;
+            vUnits = cluster.validatorCount * BPS_DENOMINATOR;
         }
 
         return ClusterLib.vUnitsToEB(vUnits);

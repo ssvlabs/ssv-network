@@ -2,9 +2,9 @@
 pragma solidity 0.8.24;
 
 import {ISSVDAO} from "../interfaces/ISSVDAO.sol";
-import "../libraries/ProtocolLib.sol";
-import "../libraries/CoreLib.sol";
-import {PackedSSV, PackedETH} from "../libraries/SSVCoreTypes.sol";
+import {ProtocolLib} from "../libraries/ProtocolLib.sol";
+import {CoreLib} from "../libraries/CoreLib.sol";
+import {PackedSSV, PackedETH, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "../libraries/storage/SSVStorageEB.sol";
@@ -17,7 +17,6 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     using PackedSSVLib for PackedSSV;
 
     uint64 private constant MINIMAL_LIQUIDATION_THRESHOLD = 21_480;
-    uint256 private constant BPS_DENOMINATOR = 10_000;
     address public immutable CSSV_ADDRESS;
 
     constructor(address _cssv) {

@@ -2,19 +2,18 @@
 pragma solidity 0.8.24;
 
 import {ISSVValidators} from "../interfaces/ISSVValidators.sol";
-import "../libraries/ClusterLib.sol";
-import "../libraries/OperatorLib.sol";
-import "../libraries/ProtocolLib.sol";
-import "../libraries/CoreLib.sol";
-import "../libraries/ValidatorLib.sol";
-import {VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
+import {ClusterLib} from "../libraries/ClusterLib.sol";
+import {OperatorLib} from "../libraries/OperatorLib.sol";
+import {ProtocolLib} from "../libraries/ProtocolLib.sol";
+import {CoreLib} from "../libraries/CoreLib.sol";
+import {ValidatorLib} from "../libraries/ValidatorLib.sol";
+import {VERSION_ETH, VERSION_SSV, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
     SSVStorageEB,
     StorageEB,
-    ClusterEBSnapshot,
-    VUNITS_PRECISION
+    ClusterEBSnapshot
 } from "../libraries/storage/SSVStorageEB.sol";
 
 contract SSVValidators is ISSVValidators {
@@ -92,7 +91,7 @@ contract SSVValidators is ISSVValidators {
      */
     function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
         if (publicKeys.length == 0) {
-            revert ISSVNetworkCore.ValidatorDoesNotExist();
+            revert ValidatorDoesNotExist();
         }
         StorageData storage s = SSVStorage.load();
         bytes32 hashedOperatorIds = ValidatorLib.hashOperatorIds(operatorIds);
@@ -139,7 +138,7 @@ contract SSVValidators is ISSVValidators {
             ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
             if (ebSnapshot.vUnits > 0) {
                 // Cluster has explicit EB tracking - add baseline for new validators
-                ebSnapshot.vUnits += uint64(validatorsLength) * VUNITS_PRECISION;
+                ebSnapshot.vUnits += uint64(validatorsLength) * BPS_DENOMINATOR;
             }
             // operatorEthVUnits NOT updated: deviation doesn't change on registration
         }
@@ -161,7 +160,7 @@ contract SSVValidators is ISSVValidators {
         uint256 validatorsLength = publicKeys.length;
 
         if (validatorsLength == 0) {
-            revert ISSVNetworkCore.ValidatorDoesNotExist();
+            revert ValidatorDoesNotExist();
         }
         StorageData storage s = SSVStorage.load();
 
@@ -205,7 +204,7 @@ contract SSVValidators is ISSVValidators {
                 
                 if (ebSnapshot.vUnits > 0) {
                     // Cluster has explicit EB tracking - subtract baseline from snapshot
-                    uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
+                    uint64 deltaClusterVUnits = uint64(validatorsRemoved) * BPS_DENOMINATOR;
                     ebSnapshot.vUnits -= deltaClusterVUnits;
                     
                     // When cluster becomes empty, clean up any remaining deviation
@@ -250,7 +249,7 @@ contract SSVValidators is ISSVValidators {
             cluster.validatorCount -= validatorsRemoved;
             s.clusters[hashedCluster] = cluster.hashClusterData();
         } else {
-            revert ISSVNetworkCore.IncorrectClusterVersion();
+            revert IncorrectClusterVersion();
         }
 
         for (uint i; i < validatorsLength; ++i) {
@@ -267,10 +266,10 @@ contract SSVValidators is ISSVValidators {
         hashedValidator = keccak256(abi.encodePacked(publicKey, owner));
         bytes32 validatorData = s.validatorPKs[hashedValidator];
         if (validatorData == bytes32(0)) {
-            revert ISSVNetworkCore.ValidatorDoesNotExist();
+            revert ValidatorDoesNotExist();
         }
         if (!ValidatorLib.validateCorrectState(validatorData, hashedOperatorIds)) {
-            revert ISSVNetworkCore.IncorrectValidatorStateWithData(publicKey);
+            revert IncorrectValidatorStateWithData(publicKey);
         }
     }
 

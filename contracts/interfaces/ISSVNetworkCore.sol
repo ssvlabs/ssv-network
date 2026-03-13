@@ -195,9 +195,14 @@ interface ISSVNetworkCore {
     error TargetModuleDoesNotExistWithData(uint8 moduleId); // 0x208bb85d
 
     /**
-     * @dev Thrown when maximum value is exceeded
+     * @dev Thrown when maximum value is exceeded for the target type
      */
     error MaxValueExceeded(); // 0x91aa3017
+
+    /**
+     * @dev Thrown when precision is exceeded (e.g., division with remainder)
+     */
+    error MaxPrecisionExceeded(); // 0x24756546
 
     /**
      * @dev Thrown when the provided fee is too high

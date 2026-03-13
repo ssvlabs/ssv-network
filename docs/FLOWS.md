@@ -96,13 +96,13 @@ This invariant holds by construction across all ETH flows. If accounting is corr
    - `cluster.balance += msg.value`
    - `cluster.index = current cumulative operator ETH index`
    - `cluster.networkFeeIndex = current ETH network fee index`
-4. Update DAO: `ethDaoValidatorCount++`, `daoTotalEthVUnits += VUNITS_PRECISION` — baseline EB of 32 ETH per validator is always applied here for all ETH clusters
+4. Update DAO: `ethDaoValidatorCount++`, `daoTotalEthVUnits += BPS_DENOMINATOR` — baseline EB of 32 ETH per validator is always applied here for all ETH clusters
 5. If cluster has explicit EB (oracle has previously submitted an EB update): also update `ebSnapshot.vUnits` to include the new validators' baseline. Operator and DAO deviation vUnits are NOT updated — new validators start at exactly 32 ETH so their deviation is zero
 6. Store cluster hash in `ethClusters`
 7. Liquidation check: cluster must not be liquidatable after registration
    - Check uses **projected vUnits** (post-registration) not stale storage
-   - Explicit EB: `storedVUnits + validatorCountDelta * VUNITS_PRECISION`
-   - Implicit EB: `cluster.validatorCount * VUNITS_PRECISION`
+   - Explicit EB: `storedVUnits + validatorCountDelta * BPS_DENOMINATOR`
+   - Implicit EB: `cluster.validatorCount * BPS_DENOMINATOR`
 
 #### Events
 ```solidity
@@ -190,7 +190,7 @@ Same as 1.3 but removes multiple validators in one transaction. All validators m
 - `operator.ethValidatorCount == previous - N` for each operator (N = validators removed)
 - `ethDaoValidatorCount == previous - N`
 - `cluster.validatorCount == previous - N`
-- If cluster had explicit EB tracking (`ebSnapshot.vUnits > 0`): `ebSnapshot.vUnits -= N * VUNITS_PRECISION`
+- If cluster had explicit EB tracking (`ebSnapshot.vUnits > 0`): `ebSnapshot.vUnits -= N * BPS_DENOMINATOR`
 - If `cluster.validatorCount` reaches 0 and cluster is active: any remaining deviation vUnits are cleaned from `operatorEthVUnits` and DAO
 
 #### Additional Invariants vs 1.3 (legacy SSV cluster)
@@ -526,7 +526,7 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 
 1. Convert `effectiveBalance` to `newVUnits = ebToVUnits(effectiveBalance)`
 2. Compute `effectiveOldVUnits`:
-   - If `storedVUnits == 0`: `validatorCount * VUNITS_PRECISION`
+   - If `storedVUnits == 0`: `validatorCount * BPS_DENOMINATOR`
    - Else: `storedVUnits`
 3. If cluster active: settle operator and network fees using OLD vUnits
 4. If `newVUnits != effectiveOldVUnits` AND cluster active:
@@ -1114,7 +1114,7 @@ Where:
    - `cSSV.totalSupply()` is only equal to `stakingHeldSSV` when there are no pending unstake requests.
 
 3. **Validator count consistency**: `ethDaoValidatorCount == Σ(cluster.validatorCount)` across all active ETH clusters — note: `Σ(operator.ethValidatorCount)` is NOT equivalent because operators are shared across clusters and would double-count
-4. **vUnit consistency**: `daoTotalEthVUnits == ethDaoValidatorCount * VUNITS_PRECISION + Σ(cluster_deviations)`
+4. **vUnit consistency**: `daoTotalEthVUnits == ethDaoValidatorCount * BPS_DENOMINATOR + Σ(cluster_deviations)`
 5. **Cluster hash integrity**: Every cluster operation must end with `s.ethClusters[key] = cluster.hashClusterData()` matching the actual cluster state
 6. **cSSV supply**: `cSSV.totalSupply() == Σ(all staked SSV that has not been unstake-requested)`
 7. **Rewards conservation**: `accEthPerShare` only increases, never decreases

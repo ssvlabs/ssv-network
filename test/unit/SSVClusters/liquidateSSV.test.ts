@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -197,7 +197,7 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     );
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    await clusters.mockSetClusterVUnits(clusterId, 7n * VUNITS_PRECISION);
+    await clusters.mockSetClusterVUnits(clusterId, 7n * BPS_DENOMINATOR);
 
     const beforeClusterVUnits = await clusters.getClusterVUnits(clusterId);
     const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => clusters.getOperatorEthVUnits(id)));

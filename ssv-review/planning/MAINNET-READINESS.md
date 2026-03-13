@@ -95,7 +95,7 @@
 | QUALITY-2 | ~~Redundant `SSVStorage.load()` calls in view function loops~~ | Code Quality | P2 | ✅ Fixed |
 | QUALITY-3 | ~~`withdraw` in SSVClusters duplicates operator loop inline~~ | Code Quality | P2 | ✅ Fixed |
 | QUALITY-4 | ~~`_resetOperatorState` returns unused `Operator memory`~~ | Code Quality | P3 | ✅ Closed (cosmetic) |
-| QUALITY-5 | Remove duplicate `MaxValueExceeded` error declaration | Code Quality | P3 | 🧹 Cleanup PR candidate |
+| QUALITY-5 | ~~Remove duplicate `MaxValueExceeded` error declaration~~ | Code Quality | P3 | ✅ Fixed |
 | QUALITY-6 | Multiple fixture patterns across tests (E2E/unit/integration) | Code Quality | P1 | ⚠️ High Priority — standardize after PR #435 |
 | QUALITY-7 | Harness contracts vs. real contracts in tests | Code Quality | P2 | ⚠️ Medium Priority — migrate E2E to real contracts (PR #435) |
 | QUALITY-8 | Helper function duplication across test types | Code Quality | P3 | ℹ️ Low Priority — merge helpers after PR #435 |
@@ -800,7 +800,7 @@ The DIP-X states: "Staked SSV, represented by cSSV, retains full governance and 
 Replace the global `daoTotalEthVUnits` optimization in `updateClusterOperatorsOnReactivation` with per-operator `operatorEthVUnits` reads.
 
 **Context:**
-In `OperatorLib.sol:305`, `bool hasDeviation = sp.daoTotalEthVUnits != uint64(sp.ethDaoValidatorCount) * VUNITS_PRECISION` uses a global signal for per-operator decisions. While deviations are always non-negative (EB floor=32), this couples correctness to BUG-4's accounting accuracy. If `daoTotalEthVUnits` is ever incorrect (from BUG-4's double-subtraction), reactivation could skip reading actual per-operator deviation, leading to incorrect vUnit accounting.
+In `OperatorLib.sol:305`, `bool hasDeviation = sp.daoTotalEthVUnits != uint64(sp.ethDaoValidatorCount) * BPS_DENOMINATOR` uses a global signal for per-operator decisions. While deviations are always non-negative (EB floor=32), this couples correctness to BUG-4's accounting accuracy. If `daoTotalEthVUnits` is ever incorrect (from BUG-4's double-subtraction), reactivation could skip reading actual per-operator deviation, leading to incorrect vUnit accounting.
 
 **Acceptance Criteria:**
 - [ ] Reactivation always reads `seb.operatorEthVUnits[operatorId]` instead of relying on the global optimization
@@ -1200,7 +1200,7 @@ Add unit tests for validator registration and removal with operators that have n
 This is the #1 systemic test gap. The fee settlement mechanism (`updateClusterOperators` / `settleClusterBalance`) during register/remove has zero real coverage with actual fee deductions. If fee settlement is wrong, clusters are overcharged or undercharged on every register/remove. The EB-weighted fee model (`vUnits`) makes this even more critical.
 
 **Acceptance Criteria:**
-- [ ] Test: Register validator with 4 operators each charging different ETH fees → verify cluster balance deduction = `blocksDelta * sum(operatorFees) * vUnits / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS`
+- [ ] Test: Register validator with 4 operators each charging different ETH fees → verify cluster balance deduction = `blocksDelta * sum(operatorFees) * vUnits / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS`
 - [ ] Test: Register second validator after N blocks → verify fees from first validator settled correctly before adding second
 - [ ] Test: Remove validator with non-zero fees → verify operator earnings accumulated match expected
 - [ ] Test: Bulk register 10 validators with non-zero fees → verify total deduction
@@ -1216,7 +1216,7 @@ This is the #1 systemic test gap. The fee settlement mechanism (`updateClusterOp
    - Register validators
    - Advance blocks with `mine(N)`
    - Perform the operation (register/remove)
-   - Calculate expected fees independently: `blocksDelta * sum(PackedETH.unwrap(fee)) * vUnits / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS`
+   - Calculate expected fees independently: `blocksDelta * sum(PackedETH.unwrap(fee)) * vUnits / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS`
    - Assert cluster balance = initial deposit - expected fees
    - Assert operator earnings match expected accumulation
 6. Use `ethers.provider.getBalance` for ETH balance checks and the SSVViews contract for cluster/operator balance queries.
@@ -1245,7 +1245,7 @@ Add unit tests verifying that operators earn proportionally more when serving cl
 The vUnit model is the core economic change in v2.0.0. If operator earnings don't scale with EB, the entire incentive model is broken. No unit test currently verifies the operator earnings side of EB-weighted accounting.
 
 **Acceptance Criteria:**
-- [ ] Test: Operator serves two clusters, EB=32 and EB=64 → after N blocks, verify operator earnings = `(blocks * fee * 10000 + blocks * fee * 20000) / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS`
+- [ ] Test: Operator serves two clusters, EB=32 and EB=64 → after N blocks, verify operator earnings = `(blocks * fee * 10000 + blocks * fee * 20000) / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS`
 - [ ] Test: Operator fee change after EB update → verify earnings split correctly at boundary
 - [ ] Test: `withdrawOperatorEarnings` after EB-weighted accrual → verify exact ETH withdrawn matches expected
 
@@ -3113,12 +3113,12 @@ In `SSVOperators.sol:324`, `_resetOperatorState` returns `Operator memory` but t
 
 ---
 
-### [QUALITY-5] Remove duplicate `MaxValueExceeded` error declaration
+### [QUALITY-5] ~~Remove duplicate `MaxValueExceeded` error declaration~~
 - **Type:** Code Quality
 - **Priority:** P3
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** (complete)
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -3131,18 +3131,21 @@ The `MaxValueExceeded` error is declared in two places:
 
 This duplication results in the same error appearing twice in the generated ABI (`SSVNetwork.json:229-238`), which can cause confusion for tooling and integrations that expect unique error signatures.
 
+**Resolution:**
+Removed the duplicate `error MaxValueExceeded()` from `PackingLib` in `SSVPackedLib.sol`. Added `import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol"` and changed the revert to `revert ISSVNetworkCore.MaxValueExceeded()`. The canonical declaration remains in `ISSVNetworkCore.sol` where `ProtocolLib.sol` already references it. Both had identical selector `0x91aa3017`, so no ABI change. All 1188 tests pass.
+
 **Acceptance Criteria:**
-- [ ] Remove duplicate `MaxValueExceeded` declaration from one of the two files
-- [ ] Keep the declaration in the more appropriate location (likely `SSVPackedLib.sol` since it's a packed value validation error)
-- [ ] Verify the generated ABI no longer has duplicate entries
-- [ ] Ensure all existing tests still pass
-- [ ] Confirm no contracts rely on the specific error signature from the removed location
+- [x] Remove duplicate `MaxValueExceeded` declaration from `SSVPackedLib.sol`
+- [x] Keep the declaration in `ISSVNetworkCore.sol` (canonical location for all protocol errors)
+- [x] Verify the generated ABI no longer has duplicate entries
+- [x] Ensure all existing tests still pass
+- [x] Confirm no contracts rely on the specific error signature from the removed location
 
 #### Sub-items:
-- [ ] Sub-task 1: Determine which file should keep the `MaxValueExceeded` declaration
-- [ ] Sub-task 2: Remove the duplicate declaration
-- [ ] Sub-task 3: Regenerate ABI and verify no duplicates
-- [ ] Sub-task 4: Run full test suite to ensure no regressions
+- [x] Sub-task 1: Determine which file should keep the `MaxValueExceeded` declaration — `ISSVNetworkCore.sol`
+- [x] Sub-task 2: Remove the duplicate declaration from `SSVPackedLib.sol`, import interface, update revert
+- [x] Sub-task 3: Verify compilation and ABI
+- [x] Sub-task 4: Run full test suite to ensure no regressions
 
 ---
 

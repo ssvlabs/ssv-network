@@ -16,7 +16,7 @@ import {
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   ETH_DEDUCTED_DIGITS,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import {
@@ -187,7 +187,7 @@ describe("Cross-Cutting: Economics", () => {
 
       const expectedClusterBalance = deposit - clusterBurn;
 
-      const daoEarningsPacked = (blockDiff * networkFeePacked * vUnits) / VUNITS_PRECISION;
+      const daoEarningsPacked = (blockDiff * networkFeePacked * vUnits) / BPS_DENOMINATOR;
       const expectedDaoEarningsWei = daoEarningsPacked * ETH_DEDUCTED_DIGITS;
 
       expect(cluster.balance).to.equal(expectedClusterBalance);

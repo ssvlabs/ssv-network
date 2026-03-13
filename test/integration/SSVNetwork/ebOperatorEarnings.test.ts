@@ -13,7 +13,7 @@ import {
 import {
   MINIMAL_OPERATOR_ETH_FEE,
   ETH_DEDUCTED_DIGITS,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   STAKE_AMOUNT,
 } from '../../common/constants.ts';
 
@@ -102,7 +102,7 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
     await networkHelpers.mine(BLOCKS_TO_MINE);
     const earningsAfter = await views.getOperatorEarnings(operatorIds[0]);
 
-    const expectedDelta = BigInt(BLOCKS_TO_MINE) * packedFee * 20000n / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS;
+    const expectedDelta = BigInt(BLOCKS_TO_MINE) * packedFee * 20000n / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS;
     expect(expectedDelta).to.equal(BigInt(BLOCKS_TO_MINE) * MINIMAL_OPERATOR_ETH_FEE * 2n);
     expect(earningsAfter - earningsBefore).to.equal(expectedDelta);
 
@@ -146,7 +146,7 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
     await networkHelpers.mine(BLOCKS_TO_MINE);
     const earningsAfter = await views.getOperatorEarnings(operatorIds[0]);
 
-    const expectedDelta = BigInt(BLOCKS_TO_MINE) * packedFee * 30000n / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS;
+    const expectedDelta = BigInt(BLOCKS_TO_MINE) * packedFee * 30000n / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS;
     expect(expectedDelta).to.equal(BigInt(BLOCKS_TO_MINE) * MINIMAL_OPERATOR_ETH_FEE * 3n);
     expect(earningsAfter - earningsBefore).to.equal(expectedDelta);
 

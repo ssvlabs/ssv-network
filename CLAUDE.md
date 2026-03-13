@@ -83,8 +83,8 @@ Values not divisible by the precision factor revert with `MaxPrecisionExceeded`.
 
 ```
 vUnits = ceil(effectiveBalanceETH * 10_000 / 32)
-operatorFee = blockDiff * ethFee * effectiveVUnits / VUNITS_PRECISION
-networkFee = (networkFeeIndexDelta * effectiveVUnits) / VUNITS_PRECISION
+operatorFee = blockDiff * ethFee * effectiveVUnits / BPS_DENOMINATOR
+networkFee = (networkFeeIndexDelta * effectiveVUnits) / BPS_DENOMINATOR
 totalFees = (operatorFeeUnits + networkFeeUnits) * ETH_DEDUCTED_DIGITS
 cluster.balance -= totalFees
 ```
@@ -104,7 +104,7 @@ cluster.balance -= unpack(fees)
 ```
 liquidatable IF:
   balance < minimumLiquidationCollateral (0.00094 ETH)
-  OR balance < minimumBlocksBeforeLiquidation * (burnRate + networkFee) * vUnits / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS
+  OR balance < minimumBlocksBeforeLiquidation * (burnRate + networkFee) * vUnits / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS
 ```
 
 ### Staking Rewards (Accumulator Pattern)
@@ -229,7 +229,7 @@ test/
 ## Key Constants
 
 ```
-VUNITS_PRECISION = 10_000
+BPS_DENOMINATOR = 10_000
 MAX_EB_PER_VALIDATOR = 2048 ETH
 DEFAULT_EB_PER_VALIDATOR = 32 ETH
 ETH_DEDUCTED_DIGITS = 100_000
