@@ -11,7 +11,7 @@ import {
 import {
   DEDUCTED_DIGITS,
   ETH_DEDUCTED_DIGITS,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   MINIMAL_OPERATOR_ETH_FEE,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
@@ -189,8 +189,8 @@ describe("Full End-to-End — SSV Cluster Creation → Fee Accrual → Migration
 
     const vUnits = defaultVUnits(2n);
 
-    const opFeeUnits = (opIndexDelta * vUnits) / VUNITS_PRECISION;
-    const netFeeUnits = (ethNetFeeIndexDelta * vUnits) / VUNITS_PRECISION;
+    const opFeeUnits = (opIndexDelta * vUnits) / BPS_DENOMINATOR;
+    const netFeeUnits = (ethNetFeeIndexDelta * vUnits) / BPS_DENOMINATOR;
     const totalETHFees = (opFeeUnits + netFeeUnits) * ETH_DEDUCTED_DIGITS;
 
     const expectedBalanceAfterWithdraw = ethDeposit - totalETHFees - withdrawAmount;

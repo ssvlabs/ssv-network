@@ -10,8 +10,7 @@ import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH, PackedSSV} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETH, PackedSSV, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract DAOUser {
     ISSVDAO public dao;
@@ -103,7 +102,7 @@ contract SSVDAOEchidna is SSVDAO {
         _mockSetOracle(2, address(oracle2));
         _mockSetOracle(3, address(oracle3));
 
-        _mockSetQuorumBps(7500);
+        _mockupdateQuorumBps(7500);
         _checkpointNetworkFeeIndices();
     }
 
@@ -168,12 +167,12 @@ contract SSVDAOEchidna is SSVDAO {
 
     function action_set_quorum(uint16 quorum) external trackFeeIndexMonotonicity {
         uint16 value = uint16(uint256(quorum) % (MAX_QUORUM_BPS + 1));
-        try this.setQuorumBps(value) {} catch {}
+        try this.updateQuorumBps(value) {} catch {}
     }
 
     function action_set_cooldown(uint64 duration) external trackFeeIndexMonotonicity {
         uint64 value = duration;
-        try this.setUnstakeCooldownDuration(value) {} catch {}
+        try this.updateUnstakeCooldownDuration(value) {} catch {}
     }
 
     function action_replace_oracle(uint8 oracleIdSeed, uint8 newOracleSeed) external trackFeeIndexMonotonicity {
@@ -497,7 +496,7 @@ contract SSVDAOEchidna is SSVDAO {
         }
     }
 
-    function _mockSetQuorumBps(uint16 quorum) internal {
+    function _mockupdateQuorumBps(uint16 quorum) internal {
         SSVStorageStaking.load().quorumBps = quorum;
     }
 }

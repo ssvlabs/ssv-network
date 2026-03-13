@@ -85,16 +85,16 @@ describe("SSVDAO governance access control (via SSVNetwork)", async () => {
       invoke: (network, nonOwner) => network.connect(nonOwner).updateMinimumOperatorEthFee(0n),
     },
     {
-      fnName: "setUnstakeCooldownDuration",
-      invoke: (network, nonOwner) => network.connect(nonOwner).setUnstakeCooldownDuration(0n),
+      fnName: "updateUnstakeCooldownDuration",
+      invoke: (network, nonOwner) => network.connect(nonOwner).updateUnstakeCooldownDuration(0n),
     },
     {
       fnName: "replaceOracle",
       invoke: (network, nonOwner) => network.connect(nonOwner).replaceOracle(1, nonOwner.address),
     },
     {
-      fnName: "setQuorumBps",
-      invoke: (network, nonOwner) => network.connect(nonOwner).setQuorumBps(0),
+      fnName: "updateQuorumBps",
+      invoke: (network, nonOwner) => network.connect(nonOwner).updateQuorumBps(0),
     },
     {
       fnName: "updateModule",

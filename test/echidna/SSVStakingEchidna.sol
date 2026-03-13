@@ -9,8 +9,7 @@ import "../../contracts/test/mocks/MockToken.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETH, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 interface IStakingHook {
     function onCSSVTransfer(address from, address to, uint256 amount) external;

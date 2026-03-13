@@ -10,7 +10,7 @@ import {ISSVViews} from "./ISSVViews.sol";
 import {SSVModules} from "../libraries/storage/SSVStorage.sol";
 import {MAX_DELEGATION_SLOTS} from "../libraries/storage/SSVStorageStaking.sol";
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title SSV Network Interface

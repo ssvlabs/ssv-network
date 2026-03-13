@@ -13,7 +13,8 @@ import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/st
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 import {PackedETH} from "../libraries/SSVCoreTypes.sol";
-import {PackedETHLib, ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
+import {PackedETHLib} from "../libraries/SSVPackedLib.sol";
+import {PRECISION, ETH_DEDUCTED_DIGITS} from "../libraries/SSVCoreTypes.sol";
 
 contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -21,7 +22,6 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     using PackedETHLib for PackedETH;
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
-    uint64 private constant PRECISION = 1e18;
     uint256 private constant MAX_PENDING_REQUESTS = 2000;
 
     address public immutable CSSV_ADDRESS;

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "./storage/SSVStorage.sol";
+import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
+import {SSVModules, SSVStorage} from "./storage/SSVStorage.sol";
 
 /**
  * @title SSV Core Library

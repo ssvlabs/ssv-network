@@ -35,7 +35,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     await dao.mockSetOracle(1, oracle1.address);
     await dao.mockSetOracle(2, oracle2.address);
     await dao.mockSetOracle(3, oracle3.address);
-    await dao.mockSetQuorumBps(7500);
+    await dao.mockupdateQuorumBps(7500);
 
     return { dao, cssv };
   };
@@ -47,7 +47,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     await dao.mockSetOracle(2, oracle2.address);
     await dao.mockSetOracle(3, oracle3.address);
     await dao.mockSetOracle(4, oracle4.address);
-    await dao.mockSetQuorumBps(7500);
+    await dao.mockupdateQuorumBps(7500);
 
     return { dao, cssv };
   };
@@ -168,7 +168,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const currentBlock = await connection.ethers.provider.getBlockNumber();
-    await dao.mockSetQuorumBps(5000); // 50 %
+    await dao.mockupdateQuorumBps(5000); // 50 %
 
     await dao.connect(oracle1).commitRoot(merkleRoot, currentBlock);
 
@@ -191,7 +191,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
     await cssv.mint(owner.address, totalSupply);
 
-    await dao.mockSetQuorumBps(100); // 1%
+    await dao.mockupdateQuorumBps(100); // 1%
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const blockNum = await connection.ethers.provider.getBlockNumber();
 
@@ -215,7 +215,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
     await cssv.mint(owner.address, totalSupply);
 
-    await dao.mockSetQuorumBps(5000); // 50 %
+    await dao.mockupdateQuorumBps(5000); // 50 %
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const blockNum = await connection.ethers.provider.getBlockNumber();
@@ -253,7 +253,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithFourOraclesFixture);
     await cssv.mint(owner.address, totalSupply);
 
-    await dao.mockSetQuorumBps(10000);
+    await dao.mockupdateQuorumBps(10000);
 
     const root = ethers.keccak256(ethers.toUtf8Bytes("100-quorum"));
     const blockNum = await connection.ethers.provider.getBlockNumber();
@@ -290,7 +290,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
     await cssv.mint(owner.address, totalSupply);
 
-    await dao.mockSetQuorumBps(1);
+    await dao.mockupdateQuorumBps(1);
 
     const root = ethers.keccak256(ethers.toUtf8Bytes("1-quorum"));
     const blockNum = await connection.ethers.provider.getBlockNumber();
@@ -390,7 +390,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
 
     // lower quorum to 50%
-    await dao.mockSetQuorumBps(5000);
+    await dao.mockupdateQuorumBps(5000);
 
     // Second vote -> commit
     const tx2 = await dao.connect(oracle2).commitRoot(root, blockNum);
@@ -405,7 +405,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     await cssv.mint(owner.address, totalSupply);
 
     // Start with 50% quorum
-    await dao.mockSetQuorumBps(5000);
+    await dao.mockupdateQuorumBps(5000);
 
     const root = ethers.keccak256(ethers.toUtf8Bytes("mid-quorum-raise"));
     const blockNum = await connection.ethers.provider.getBlockNumber();
@@ -420,7 +420,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
 
     // Raise quorum to 75%
-    await dao.mockSetQuorumBps(7500);
+    await dao.mockupdateQuorumBps(7500);
 
     const newThreshold = (totalSupply * 7500n) / 10000n;
 
@@ -442,7 +442,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
     await cssv.mint(owner.address, totalSupply);
 
-    await dao.mockSetQuorumBps(5000);
+    await dao.mockupdateQuorumBps(5000);
 
     const rootA = ethers.keccak256(ethers.toUtf8Bytes("rootA"));
     const rootB = ethers.keccak256(ethers.toUtf8Bytes("rootB"));

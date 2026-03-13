@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-uint32 constant VUNITS_PRECISION = 10_000;
-uint256 constant MAX_EB_PER_VALIDATOR = 2048 ether;
-uint256 constant DEFAULT_EB_PER_VALIDATOR = 32 ether;
-
 struct ClusterEBSnapshot {
     uint64 vUnits;
     uint64 lastRootBlockNum;

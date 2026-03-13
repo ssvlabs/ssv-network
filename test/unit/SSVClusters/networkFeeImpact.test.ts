@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
 
@@ -162,12 +162,12 @@ describe("Network fee update impact on active clusters", async () => {
     const totalBlocks = w1Block - registerBlock;
 
     const networkFeeIndexDelta = totalBlocks * fee;
-    const scaledUnits = (networkFeeIndexDelta * explicitVUnits) / VUNITS_PRECISION;
+    const scaledUnits = (networkFeeIndexDelta * explicitVUnits) / BPS_DENOMINATOR;
     const expectedBurn = scaledUnits * ETH_DEDUCTED_DIGITS;
     expect(actualBurn).to.equal(expectedBurn);
 
-    const defaultVUnits = VUNITS_PRECISION;
-    const defaultScaledUnits = (networkFeeIndexDelta * defaultVUnits) / VUNITS_PRECISION;
+    const defaultVUnits = BPS_DENOMINATOR;
+    const defaultScaledUnits = (networkFeeIndexDelta * defaultVUnits) / BPS_DENOMINATOR;
     const defaultBurn = defaultScaledUnits * ETH_DEDUCTED_DIGITS;
 
     expect(actualBurn).to.be.greaterThan(defaultBurn);

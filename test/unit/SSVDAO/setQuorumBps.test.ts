@@ -8,7 +8,7 @@ import { Events } from "../../common/events.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 import { Errors } from "../../common/errors.ts";
 
-describe("SSVDAO function `setQuorumBps()`", async () => {
+describe("SSVDAO function `updateQuorumBps()`", async () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
 
@@ -27,7 +27,7 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
 
     const newQuorum = 7500n;
 
-    const tx = await dao.setQuorumBps(newQuorum);
+    const tx = await dao.updateQuorumBps(newQuorum);
     const receipt = await tx.wait();
     await trackGasFromReceipt(receipt, [GasGroup.SET_QUORUM]);
 
@@ -41,7 +41,7 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
 
     const newQuorum = 6000n;
 
-    await dao.setQuorumBps(newQuorum);
+    await dao.updateQuorumBps(newQuorum);
 
     const storedQuorum = await dao.getQuorumBps();
     expect(storedQuorum).to.equal(newQuorum);
@@ -52,7 +52,7 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
 
     const maxQuorum = 10000n;
 
-    const tx = await dao.setQuorumBps(maxQuorum);
+    const tx = await dao.updateQuorumBps(maxQuorum);
 
     await expect(tx)
       .to.emit(dao, Events.QUORUM_UPDATED)
@@ -65,8 +65,8 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
   it("Can set quorum to 0%", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    await dao.setQuorumBps(5000n);
-    const tx = await dao.setQuorumBps(0n);
+    await dao.updateQuorumBps(5000n);
+    const tx = await dao.updateQuorumBps(0n);
 
     await expect(tx)
       .to.emit(dao, Events.QUORUM_UPDATED)
@@ -81,7 +81,7 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
 
     const invalidQuorum = 10001n;
 
-    await expect(dao.setQuorumBps(invalidQuorum))
+    await expect(dao.updateQuorumBps(invalidQuorum))
       .to.be.revertedWithCustomError(dao, Errors.INVALID_QUORUM);
   });
 
@@ -91,8 +91,8 @@ describe("SSVDAO function `setQuorumBps()`", async () => {
     const firstQuorum = 5000n;
     const secondQuorum = 8000n;
 
-    await dao.setQuorumBps(firstQuorum);
-    const tx = await dao.setQuorumBps(secondQuorum);
+    await dao.updateQuorumBps(firstQuorum);
+    const tx = await dao.updateQuorumBps(secondQuorum);
 
     await expect(tx)
       .to.emit(dao, Events.QUORUM_UPDATED)

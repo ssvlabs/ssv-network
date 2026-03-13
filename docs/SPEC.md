@@ -43,7 +43,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Internal accounting unit: `vUnits = ceil(effectiveBalanceETH * 10_000 / 32)`. 1 validator at 32 ETH = 10,000 vUnits → SPEC §2 "vUnit System"
 
 **Q: When does a cluster switch from implicit to explicit EB?**
-- On first successful `updateClusterBalance` call with a valid Merkle proof. Before that, `clusterEB.vUnits == 0` and the system uses `validatorCount * VUNITS_PRECISION` → SPEC §2 "Implicit vs Explicit EB"
+- On first successful `updateClusterBalance` call with a valid Merkle proof. Before that, `clusterEB.vUnits == 0` and the system uses `validatorCount * BPS_DENOMINATOR` → SPEC §2 "Implicit vs Explicit EB"
 
 **Q: Does EB affect SSV legacy cluster fee calculations?**
 - No. SSV clusters store the EB snapshot (for future migration) but fees continue using `validatorCount * fee`. EB only affects ETH cluster accounting → SPEC §2 "Implicit vs Explicit EB" note
@@ -55,7 +55,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Yes — `deposit` has no active-cluster check. Useful for funding a cluster in preparation for reactivation → FLOWS §1.7, SPEC §1 "Existing Clusters"
 
 **Q: What is the minimum ETH required to reactivate or migrate a cluster?**
-- `max(minimumLiquidationCollateral, burnRateThreshold)` where `burnRateThreshold = minimumBlocksBeforeLiquidation * totalBurnRate * vUnits / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS` → SPEC §1 "Minimum ETH Calculation"
+- `max(minimumLiquidationCollateral, burnRateThreshold)` where `burnRateThreshold = minimumBlocksBeforeLiquidation * totalBurnRate * vUnits / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS` → SPEC §1 "Minimum ETH Calculation"
 
 ---
 
@@ -238,7 +238,7 @@ The migrated cluster must have sufficient balance to avoid immediate liquidation
 Step 1: Compute vUnits (EB-normalized accounting units)
   vUnits = clusterEB[clusterId].vUnits
   if (vUnits == 0):
-    vUnits = validatorCount * VUNITS_PRECISION  // implicit EB (32 ETH/validator)
+    vUnits = validatorCount * BPS_DENOMINATOR  // implicit EB (32 ETH/validator)
 
 Step 2: Compute total burn rate (operator fees + network fee)
   operatorFeeSum = Σ(operator.ethFee) for all operators in cluster  // packed wei/block
@@ -246,7 +246,7 @@ Step 2: Compute total burn rate (operator fees + network fee)
   totalBurnRate = operatorFeeSum + networkFee  // packed wei/block
 
 Step 3: Compute burn-rate-based threshold (how much ETH consumed over liquidation period)
-  burnRateThresholdUnits = (minimumBlocksBeforeLiquidation * totalBurnRate * vUnits) / VUNITS_PRECISION
+  burnRateThresholdUnits = (minimumBlocksBeforeLiquidation * totalBurnRate * vUnits) / BPS_DENOMINATOR
   burnRateThreshold = burnRateThresholdUnits * ETH_DEDUCTED_DIGITS  // convert to wei
 
 Step 4: Take maximum of both thresholds
@@ -306,10 +306,10 @@ Fees are calculated based on a cluster's total effective balance rather than val
 vUnits are the internal accounting unit that normalizes effective balance:
 
 ```
-ETH → vUnits (ceiling): vUnits = ceil(effectiveBalanceETH * VUNITS_PRECISION / 32)
-vUnits → ETH (floor):   effectiveBalanceETH = floor(vUnits * 32 / VUNITS_PRECISION)
+ETH → vUnits (ceiling): vUnits = ceil(effectiveBalanceETH * BPS_DENOMINATOR / 32)
+vUnits → ETH (floor):   effectiveBalanceETH = floor(vUnits * 32 / BPS_DENOMINATOR)
 
-VUNITS_PRECISION = 10,000
+BPS_DENOMINATOR = 10,000
 ```
 
 Examples:
@@ -319,7 +319,7 @@ Examples:
 
 ### Implicit vs Explicit EB
 
-- **Implicit** (default): `clusterEB.vUnits == 0` → system uses `validatorCount * VUNITS_PRECISION`
+- **Implicit** (default): `clusterEB.vUnits == 0` → system uses `validatorCount * BPS_DENOMINATOR`
 - **Explicit**: Set after first `updateClusterBalance` call with oracle Merkle proof
 
 > **Note — EB tracking vs EB-based accounting:** While both ETH and SSV clusters can have their EB snapshot updated via `updateClusterBalance`, **only ETH clusters use EB for fee accounting**. SSV legacy clusters store the EB snapshot (for future migration) but continue to use validator-count-based fee calculations (`validatorCount * fee`). The EB snapshot does not affect SSV cluster balance deductions.
@@ -335,10 +335,10 @@ Examples:
 ### DAO vUnit Tracking
 
 ```
-daoTotalEthVUnits = ethDaoValidatorCount * VUNITS_PRECISION + Σ(cluster_deviations)
+daoTotalEthVUnits = ethDaoValidatorCount * BPS_DENOMINATOR + Σ(cluster_deviations)
 ```
 
-Where deviation = `cluster.vUnits - (cluster.validatorCount * VUNITS_PRECISION)` for clusters with explicit EB.
+Where deviation = `cluster.vUnits - (cluster.validatorCount * BPS_DENOMINATOR)` for clusters with explicit EB.
 
 ### Operator vUnit Deviation Cleanup on Liquidation
 
@@ -845,8 +845,8 @@ function updateMaximumOperatorFee(uint256 maxFee) external               // only
 function updateMinimumOperatorEthFee(uint256 minFee) external            // onlyOwner
 function commitRoot(bytes32 merkleRoot, uint64 blockNum) external        // oracle only
 function replaceOracle(uint32 oracleId, address newOracle) external      // onlyOwner
-function setQuorumBps(uint16 quorum) external                            // onlyOwner
-function setUnstakeCooldownDuration(uint64 duration) external            // onlyOwner
+function updateQuorumBps(uint16 quorum) external                            // onlyOwner
+function updateUnstakeCooldownDuration(uint64 duration) external            // onlyOwner
 ```
 
 ### SSVStaking
@@ -876,7 +876,7 @@ function getVersion() external pure returns (string memory)           // "v2.0.0
 
 | Role | Who | Functions |
 |---|---|---|
-| **Owner** | Contract owner (Ownable2Step) | All `update*`, `withdraw*Network*`, `replaceOracle`, `setQuorumBps`, `setUnstakeCooldownDuration`, `updateModule`, `rescueERC20`, `_authorizeUpgrade` |
+| **Owner** | Contract owner (Ownable2Step) | All `update*`, `withdraw*Network*`, `replaceOracle`, `updateQuorumBps`, `updateUnstakeCooldownDuration`, `updateModule`, `rescueERC20`, `_authorizeUpgrade` |
 | **Operator Owner** | `msg.sender == operator.owner` | `removeOperator`, `declareOperatorFee`, `executeOperatorFee`, `cancelDeclaredOperatorFee`, `reduceOperatorFee`, `setOperators*`, `withdraw*OperatorEarnings*` |
 | **Cluster Owner** | `msg.sender == owner` in cluster key | `reactivate`, `withdraw`, `migrateClusterToETH`, `registerValidator`, `bulkRegisterValidator`, `removeValidator`, `bulkRemoveValidator`, `exitValidator`, `bulkExitValidator` |
 | **Oracle** | `oracleIdOf[msg.sender] != 0` | `commitRoot` |
@@ -913,8 +913,8 @@ operator.ethSnapshot.index += (block.number - ethSnapshot.block) * PackedETH.unw
 ### ETH Operator Earnings (with EB)
 
 ```
-effectiveVUnits = seb.operatorEthVUnits[operatorId] + operator.ethValidatorCount * VUNITS_PRECISION
-operator.ethSnapshot.balance += (blockDiff * ethFee * effectiveVUnits) / VUNITS_PRECISION
+effectiveVUnits = seb.operatorEthVUnits[operatorId] + operator.ethValidatorCount * BPS_DENOMINATOR
+operator.ethSnapshot.balance += (blockDiff * ethFee * effectiveVUnits) / BPS_DENOMINATOR
 ```
 
 ### ETH Cluster Balance Update
@@ -924,8 +924,8 @@ clusterVUnits = (seb.clusterEB[id].vUnits == 0) ? validatorCount * 10_000 : seb.
 
 idxOp = clusterIndex - cluster.index
 idxNet = currentNetworkFeeIndex - cluster.networkFeeIndex
-networkFeeUnits = (idxNet * clusterVUnits) / VUNITS_PRECISION
-operatorFeeUnits = (idxOp * clusterVUnits) / VUNITS_PRECISION
+networkFeeUnits = (idxNet * clusterVUnits) / BPS_DENOMINATOR
+operatorFeeUnits = (idxOp * clusterVUnits) / BPS_DENOMINATOR
 totalFees = (networkFeeUnits + operatorFeeUnits) * ETH_DEDUCTED_DIGITS
 
 cluster.balance = max(0, cluster.balance - totalFees)
@@ -949,7 +949,7 @@ cluster.balance = max(0, cluster.balance - unpack(usage))
 ```
 burnRate = Σ PackedETH.unwrap(operator.ethFee) for all operators in cluster
 networkFee = PackedETH.unwrap(sp.ethNetworkFee)
-thresholdUnits = (minimumBlocksBeforeLiquidation * (burnRate + networkFee) * vUnits) / VUNITS_PRECISION
+thresholdUnits = (minimumBlocksBeforeLiquidation * (burnRate + networkFee) * vUnits) / BPS_DENOMINATOR
 
 liquidatable = (balance < unpack(minimumLiquidationCollateral))
             || (balance < thresholdUnits * ETH_DEDUCTED_DIGITS)
@@ -1023,10 +1023,10 @@ ethDaoValidatorCount == Σ(cluster.validatorCount) across all active ETH cluster
 ### 4. vUnit Consistency
 
 ```
-daoTotalEthVUnits == ethDaoValidatorCount * VUNITS_PRECISION + Σ(cluster_deviations)
+daoTotalEthVUnits == ethDaoValidatorCount * BPS_DENOMINATOR + Σ(cluster_deviations)
 ```
 
-Where `cluster_deviations = clusterEB.vUnits - validatorCount * VUNITS_PRECISION` for clusters with explicit EB.
+Where `cluster_deviations = clusterEB.vUnits - validatorCount * BPS_DENOMINATOR` for clusters with explicit EB.
 
 ### 5. Cluster Hash Integrity
 
@@ -1106,7 +1106,7 @@ SSV validator count + ETH validator count equals total across both cluster types
 
 | Parameter | Initial Value | Update Function |
 |---|---|---|
-| `cooldownDuration` | 604,800 seconds (7 days) | `setUnstakeCooldownDuration(uint64)` |
+| `cooldownDuration` | 604,800 seconds (7 days) | `updateUnstakeCooldownDuration(uint64)` |
 
 **Note on units:** `cooldownDuration` is measured in **seconds** (timestamp-based, via `block.timestamp`), not blocks. The value 604,800 = 7 days in seconds. See `SSVStaking.sol:88`: `uint64(block.timestamp + s.cooldownDuration)`.
 
@@ -1114,7 +1114,7 @@ SSV validator count + ETH validator count equals total across both cluster types
 
 | Parameter | Initial Value | Update Function |
 |---|---|---|
-| `quorumBps` | 7,500 (75%) | `setQuorumBps(uint16)` |
+| `quorumBps` | 7,500 (75%) | `updateQuorumBps(uint16)` |
 | `minBlocksBetweenUpdates` | 0 blocks | `updateMinBlocksBetweenUpdates(uint32)` |
 | Oracle set | 4 oracles | `replaceOracle(uint32, address)` |
 
@@ -1217,7 +1217,7 @@ SSV validator count + ETH validator count equals total across both cluster types
 
 ```solidity
 // Precision
-uint32 constant VUNITS_PRECISION = 10_000;
+uint32 constant BPS_DENOMINATOR = 10_000;
 uint256 constant ETH_DEDUCTED_DIGITS = 100_000;
 uint256 constant DEDUCTED_DIGITS = 10_000_000;
 
