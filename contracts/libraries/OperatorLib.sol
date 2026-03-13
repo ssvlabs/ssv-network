@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../interfaces/ISSVNetworkCore.sol";
+import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {StorageData} from "./storage/SSVStorage.sol";
 import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
-import {PackedETH, PackedSSV, DEFAULT_OPERATOR_ETH_FEE, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../libraries/SSVCoreTypes.sol";
+import {PackedETH, PackedSSV, DEFAULT_OPERATOR_ETH_FEE, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VUNITS_PRECISION} from "../libraries/SSVCoreTypes.sol";
 import {PackedETHLib, PackedSSVLib} from "../libraries/SSVPackedLib.sol";
-import "./storage/SSVStorageEB.sol";
-
-import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
+import {StorageEB, SSVStorageEB} from "./storage/SSVStorageEB.sol";
+import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import {ISSVOperators} from "../interfaces/ISSVOperators.sol";
 
 /**

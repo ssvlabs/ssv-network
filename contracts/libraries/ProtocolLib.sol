@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../interfaces/ISSVNetworkCore.sol";
-import {PackedSSV, PackedETH} from "../libraries/SSVCoreTypes.sol";
+import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
+import {PackedSSV, PackedETH, VUNITS_PRECISION} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
-import {VUNITS_PRECISION} from "./storage/SSVStorageEB.sol";
+import {SSVStorageEB} from "./storage/SSVStorageEB.sol";
 
 /**
  * @title SSV Protocol Library

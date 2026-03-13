@@ -2,21 +2,18 @@
 pragma solidity 0.8.24;
 
 import {ISSVClusters} from "../interfaces/ISSVClusters.sol";
-import "../libraries/ClusterLib.sol";
-import "../libraries/OperatorLib.sol";
-import "../libraries/ProtocolLib.sol";
-import "../libraries/CoreLib.sol";
-import "../libraries/ValidatorLib.sol";
-import {PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
-import {ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
+import {ClusterLib} from "../libraries/ClusterLib.sol";
+import {OperatorLib} from "../libraries/OperatorLib.sol";
+import {ProtocolLib} from "../libraries/ProtocolLib.sol";
+import {CoreLib} from "../libraries/CoreLib.sol";
+import {ValidatorLib} from "../libraries/ValidatorLib.sol";
+import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, ETH_DEDUCTED_DIGITS, DEFAULT_EB_PER_VALIDATOR, MAX_EB_PER_VALIDATOR, VUNITS_PRECISION} from "../libraries/SSVCoreTypes.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
     SSVStorageEB,
     StorageEB,
-    ClusterEBSnapshot,
-    VUNITS_PRECISION,
-    MAX_EB_PER_VALIDATOR
+    ClusterEBSnapshot
 } from "../libraries/storage/SSVStorageEB.sol";
 
 
@@ -299,7 +296,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
                 sp.minimumLiquidationCollateral
             )
         ) {
-            revert ISSVNetworkCore.InsufficientBalance();
+            revert InsufficientBalance();
         }
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
