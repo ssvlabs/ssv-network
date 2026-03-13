@@ -5,6 +5,7 @@ import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { MAXIMUM_OPERATORS_FEE, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
@@ -71,5 +72,18 @@ describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
 
     const storedMaxFee = await dao.getOperatorMaxFee();
     expect(storedMaxFee * ETH_DEDUCTED_DIGITS).to.equal(secondMaxFee);
+  });
+
+  it("Reverts when the new maximum fee is below the configured minimum fee", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const currentMaxFee = MAXIMUM_OPERATORS_FEE;
+    const currentMinFee = 10_000_000_000n;
+
+    await dao.updateMaximumOperatorFee(currentMaxFee);
+    await dao.updateMinimumOperatorEthFee(currentMinFee);
+
+    await expect(dao.updateMaximumOperatorFee(currentMinFee - ETH_DEDUCTED_DIGITS))
+      .to.be.revertedWithCustomError(dao, Errors.INVALID_OPERATOR_FEE_RANGE);
   });
 });

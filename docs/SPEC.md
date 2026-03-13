@@ -845,8 +845,8 @@ function updateMaximumOperatorFee(uint256 maxFee) external               // only
 function updateMinimumOperatorEthFee(uint256 minFee) external            // onlyOwner
 function commitRoot(bytes32 merkleRoot, uint64 blockNum) external        // oracle only
 function replaceOracle(uint32 oracleId, address newOracle) external      // onlyOwner
-function setQuorumBps(uint16 quorum) external                            // onlyOwner
-function setUnstakeCooldownDuration(uint64 duration) external            // onlyOwner
+function updateQuorumBps(uint16 quorum) external                            // onlyOwner
+function updateUnstakeCooldownDuration(uint64 duration) external            // onlyOwner
 ```
 
 ### SSVStaking
@@ -876,7 +876,7 @@ function getVersion() external pure returns (string memory)           // "v2.0.0
 
 | Role | Who | Functions |
 |---|---|---|
-| **Owner** | Contract owner (Ownable2Step) | All `update*`, `withdraw*Network*`, `replaceOracle`, `setQuorumBps`, `setUnstakeCooldownDuration`, `updateModule`, `rescueERC20`, `_authorizeUpgrade` |
+| **Owner** | Contract owner (Ownable2Step) | All `update*`, `withdraw*Network*`, `replaceOracle`, `updateQuorumBps`, `updateUnstakeCooldownDuration`, `updateModule`, `rescueERC20`, `_authorizeUpgrade` |
 | **Operator Owner** | `msg.sender == operator.owner` | `removeOperator`, `declareOperatorFee`, `executeOperatorFee`, `cancelDeclaredOperatorFee`, `reduceOperatorFee`, `setOperators*`, `withdraw*OperatorEarnings*` |
 | **Cluster Owner** | `msg.sender == owner` in cluster key | `reactivate`, `withdraw`, `migrateClusterToETH`, `registerValidator`, `bulkRegisterValidator`, `removeValidator`, `bulkRemoveValidator`, `exitValidator`, `bulkExitValidator` |
 | **Oracle** | `oracleIdOf[msg.sender] != 0` | `commitRoot` |
@@ -1106,7 +1106,7 @@ SSV validator count + ETH validator count equals total across both cluster types
 
 | Parameter | Initial Value | Update Function |
 |---|---|---|
-| `cooldownDuration` | 604,800 seconds (7 days) | `setUnstakeCooldownDuration(uint64)` |
+| `cooldownDuration` | 604,800 seconds (7 days) | `updateUnstakeCooldownDuration(uint64)` |
 
 **Note on units:** `cooldownDuration` is measured in **seconds** (timestamp-based, via `block.timestamp`), not blocks. The value 604,800 = 7 days in seconds. See `SSVStaking.sol:88`: `uint64(block.timestamp + s.cooldownDuration)`.
 
@@ -1114,7 +1114,7 @@ SSV validator count + ETH validator count equals total across both cluster types
 
 | Parameter | Initial Value | Update Function |
 |---|---|---|
-| `quorumBps` | 7,500 (75%) | `setQuorumBps(uint16)` |
+| `quorumBps` | 7,500 (75%) | `updateQuorumBps(uint16)` |
 | `minBlocksBetweenUpdates` | 0 blocks | `updateMinBlocksBetweenUpdates(uint32)` |
 | Oracle set | 4 oracles | `replaceOracle(uint32, address)` |
 

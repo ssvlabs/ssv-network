@@ -72,6 +72,10 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
      * @inheritdoc ISSVDAO
      */
     function updateOperatorFeeIncreaseLimit(uint64 percentage) external override {
+        if (percentage > BPS_DENOMINATOR) {
+            revert InvalidOperatorFeeIncreaseLimit();
+        }
+
         SSVStorageProtocol.load().operatorMaxFeeIncrease = percentage;
         emit OperatorFeeIncreaseLimitUpdated(percentage);
     }
@@ -136,7 +140,12 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
      * @inheritdoc ISSVDAO
      */
     function updateMaximumOperatorFee(uint256 maxFee) external override {
-        SSVStorageProtocol.load().operatorMaxFee = PackedETHLib.pack(maxFee);
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (maxFee < PackedETHLib.unpack(sp.minimumOperatorEthFee)) {
+            revert InvalidOperatorFeeRange();
+        }
+
+        sp.operatorMaxFee = PackedETHLib.pack(maxFee);
         emit OperatorMaximumFeeUpdated(maxFee);
     }
 
@@ -145,7 +154,12 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
      * @inheritdoc ISSVDAO
      */
     function updateMinimumOperatorEthFee(uint256 minFee) external override {
-        SSVStorageProtocol.load().minimumOperatorEthFee = PackedETHLib.pack(minFee);
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (minFee > PackedETHLib.unpack(sp.operatorMaxFee)) {
+            revert InvalidOperatorFeeRange();
+        }
+
+        sp.minimumOperatorEthFee = PackedETHLib.pack(minFee);
         emit MinimumOperatorEthFeeUpdated(minFee);
     }
 
@@ -236,7 +250,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     /**
      * @inheritdoc ISSVDAO
      */
-    function setQuorumBps(uint16 quorum) external override {
+    function updateQuorumBps(uint16 quorum) external override {
         if (quorum > BPS_DENOMINATOR) {
             revert InvalidQuorum();
         }
@@ -247,7 +261,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
     /**
      * @inheritdoc ISSVDAO
      */
-    function setUnstakeCooldownDuration(uint64 duration) external override {
+    function updateUnstakeCooldownDuration(uint64 duration) external override {
         SSVStorageStaking.load().cooldownDuration = duration;
         emit CooldownDurationUpdated(duration);
     }

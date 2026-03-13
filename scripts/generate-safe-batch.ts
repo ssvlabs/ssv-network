@@ -107,8 +107,8 @@ async function main() {
     "function updateOperatorFeeIncreaseLimit(uint64 percentage)",
     "function updateMaximumOperatorFee(uint64 maxFee)",
     "function updateMinimumOperatorEthFee(uint256 minFee)",
-    "function setQuorumBps(uint16 quorumBps)",
-    "function setUnstakeCooldownDuration(uint64 blocks)",
+    "function updateQuorumBps(uint16 quorumBps)",
+    "function updateUnstakeCooldownDuration(uint64 blocks)",
     "function replaceOracle(uint32 oracleId, address oracleAddress)",
   ]);
 
@@ -245,14 +245,14 @@ async function main() {
     transactions.push({
       to: ssvNetworkProxy,
       value: "0",
-      data: ssvNetworkIface.encodeFunctionData("setQuorumBps", [quorumBps]),
+      data: ssvNetworkIface.encodeFunctionData("updateQuorumBps", [quorumBps]),
     });
   }
   if (params.unstakeCooldownDuration !== undefined) {
     transactions.push({
       to: ssvNetworkProxy,
       value: "0",
-      data: ssvNetworkIface.encodeFunctionData("setUnstakeCooldownDuration", [params.unstakeCooldownDuration]),
+      data: ssvNetworkIface.encodeFunctionData("updateUnstakeCooldownDuration", [params.unstakeCooldownDuration]),
     });
   }
 

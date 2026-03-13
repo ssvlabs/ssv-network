@@ -27,10 +27,10 @@
 | BUG-14b | ~~`reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators~~ | Critical Bug Fix | P1 | ✅ Fixed (ensureETHDefaults marker pattern) |
 | BUG-15 | ~~`withdrawAllVersionOperatorEarnings` initializes ETH snapshot for legacy SSV-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-16 | ~~SSVNetworkViews enforce cluster version checks and unify isActive logic~~ | Critical Bug Fix | P1 | ✅ Fixed |
-| SEC-1 | ~~`setQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
+| SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
-| SEC-4 | ~~`setUnstakeCooldownDuration` allows zero cooldown~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only, no accounting risk) |
+| SEC-4 | ~~`updateUnstakeCooldownDuration` allows zero cooldown~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only, no accounting risk) |
 | SEC-5 | ~~`totalStaked` changes between oracle votes (front-running)~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (impractical) |
 | SEC-6 | ~~Add `nonReentrant` to `migrateClusterToETH`~~ | Security Hardening | P2 | ✅ Closed (no callback risk) |
 | SEC-7 | ~~Add `nonReentrant` to `onCSSVTransfer`~~ | Security Hardening | P2 | ✅ Closed (trusted cSSV contract) |
@@ -373,7 +373,7 @@ The `DEFAULT_OPERATOR_ETH_FEE` constant is set to `1,770,000,000` wei (1.77 gwei
 **Resolution:** Implementation correctly uses `block.timestamp` (seconds). The deployment config (`deployments/hoodi-prod/config.json`) already has `cooldownDuration: 604800` (7 days in seconds). The DIP spec wording saying "blocks" was imprecise — team confirmed (Yurii) it's seconds. The spreadsheet value `50120` was a blocks-equivalent reference, not the actual config value.
 
 **Requirement:**
-The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" with initial value "50120 (7 days)" and setter `setUnstakeCooldownDuration(uint64 blocks)`. However, the implementation uses `block.timestamp` (seconds-based), not `block.number`. This creates a critical configuration risk: if `cooldownDuration` is initialized to 50120 thinking it's blocks, the actual cooldown would be ~13.9 hours instead of 7 days.
+The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" with initial value "50120 (7 days)" and setter `updateUnstakeCooldownDuration(uint64 blocks)`. However, the implementation uses `block.timestamp` (seconds-based), not `block.number`. This creates a critical configuration risk: if `cooldownDuration` is initialized to 50120 thinking it's blocks, the actual cooldown would be ~13.9 hours instead of 7 days.
 
 **Context:**
 `SSVStaking.sol:88`: `uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration)`. The `UnstakeRequest` struct field is named `unlockTime` (timestamp-like), and `SSVStaking.sol:232` checks `requests[i].unlockTime <= block.timestamp`. Using `block.timestamp` is actually more reliable for user-facing cooldowns (block times can vary), so the implementation choice is reasonable — but the DIP/spec and the initial value must align. If using seconds, the correct 7-day value is 604,800, not 50,120.
@@ -382,17 +382,17 @@ The DIP-X governance table explicitly states `cooldownDuration` is "in blocks" w
 - [ ] Either: DIP-X updated to say "in seconds" and initial value changed to `604800` (7 days in seconds)
 - [ ] Or: implementation changed to use `block.number` instead of `block.timestamp` to match DIP
 - [ ] The upgrade initializer sets the correct value for whichever unit is chosen
-- [ ] `setUnstakeCooldownDuration` parameter is documented with correct units
+- [ ] `updateUnstakeCooldownDuration` parameter is documented with correct units
 - [ ] Existing tests verified to use the correct unit
 
 **Agent Instructions:**
 1. Read `contracts/modules/SSVStaking.sol`, focus on `requestUnstake` (line 66) and `calculateTotalUnfrozenBalance` (line 226).
-2. Read `contracts/modules/SSVDAO.sol`, focus on `setUnstakeCooldownDuration` (line 245).
+2. Read `contracts/modules/SSVDAO.sol`, focus on `updateUnstakeCooldownDuration` (line 245).
 3. Read `contracts/upgrades/stage/hoodi/SSVNetworkSSVStakingUpgrade.sol` for the initial value set during upgrade.
 4. Recommended fix (simpler): Keep `block.timestamp` usage (it's better UX), but:
    a. Update the DIP-X governance table to say "in seconds" instead of "in blocks"
    b. Ensure the upgrade initializer sets `cooldownDuration = 604800` (7 days in seconds)
-   c. Update `setUnstakeCooldownDuration` parameter name from `blocks` to `duration` in the interface
+   c. Update `updateUnstakeCooldownDuration` parameter name from `blocks` to `duration` in the interface
 5. Check deployment configs (`deployments/hoodi-prod/config.json`, `deployments/hoodi-stage/config.json`) for the cooldown value and verify it matches the chosen unit.
 6. Run `npm run test:unit`.
 
@@ -441,7 +441,7 @@ In `OperatorLib.sol:68-69` (also lines 93-94, 326-327), `PackedETH.wrap(uint64(d
 
 ## Security Hardening
 
-### [SEC-1] `setQuorumBps(0)` allows zero-threshold oracle commits
+### [SEC-1] `updateQuorumBps(0)` allows zero-threshold oracle commits
 - **Type:** Security Hardening
 - **Priority:** P2 (downgraded from P0)
 - **Status:** ✅ Mitigated (owner-only)
@@ -450,28 +450,28 @@ In `OperatorLib.sol:68-69` (also lines 93-94, 326-327), `PackedETH.wrap(uint64(d
 - **Github Link:** N/A
 
 **Requirement:**
-Add a minimum quorum validation to `setQuorumBps`. A quorum of 0 allows a single oracle vote to commit any root.
+Add a minimum quorum validation to `updateQuorumBps`. A quorum of 0 allows a single oracle vote to commit any root.
 
 **Context:**
 `SSVDAO.sol:234-239`: The function only checks `quorum > BPS_DENOMINATOR` (max bound). Setting `quorumBps = 0` makes the threshold in `commitRoot` (line 186) equal to 0, meaning any single oracle can unilaterally commit roots. Combined with SEC-2 (quorum defaults to 0 after upgrade), this is an immediate post-upgrade vulnerability.
 
-**Mitigation:** Downgraded to P2. `setQuorumBps` is owner-only (DAO multisig). A compromised or negligent owner can already upgrade the entire contract, so zero-quorum via the setter is not an independent attack vector. The critical path (SEC-2: quorum defaulting to 0 after upgrade) is already fixed in PR #431 by validating quorumBps in the initializer.
+**Mitigation:** Downgraded to P2. `updateQuorumBps` is owner-only (DAO multisig). A compromised or negligent owner can already upgrade the entire contract, so zero-quorum via the setter is not an independent attack vector. The critical path (SEC-2: quorum defaulting to 0 after upgrade) is already fixed in PR #431 by validating quorumBps in the initializer.
 
 **Acceptance Criteria:**
-- [ ] `setQuorumBps(0)` reverts with `InvalidQuorum()`
+- [ ] `updateQuorumBps(0)` reverts with `InvalidQuorum()`
 - [ ] A reasonable minimum is enforced (e.g., `quorum >= 2500` for 25%, or at minimum `quorum > 0`)
-- [ ] Existing tests for `setQuorumBps` updated to reflect new validation
-- [ ] New test: call `setQuorumBps(0)` → expect revert
+- [ ] Existing tests for `updateQuorumBps` updated to reflect new validation
+- [ ] New test: call `updateQuorumBps(0)` → expect revert
 
 **Agent Instructions:**
-1. Read `contracts/modules/SSVDAO.sol`, focus on `setQuorumBps` (line 234).
+1. Read `contracts/modules/SSVDAO.sol`, focus on `updateQuorumBps` (line 234).
 2. Add `if (quorum == 0) revert InvalidQuorum();` before the existing check. Consider also adding a minimum like `if (quorum < 2500)` for stronger safety.
-3. Read `test/unit/SSVDAO/setQuorumBps.test.ts` for existing test patterns.
-4. Add a test case for `setQuorumBps(0)` expecting `InvalidQuorum` revert.
+3. Read `test/unit/SSVDAO/updateQuorumBps.test.ts` for existing test patterns.
+4. Add a test case for `updateQuorumBps(0)` expecting `InvalidQuorum` revert.
 5. Run `npm run test:unit`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Add minimum quorum validation to `setQuorumBps`
+- [ ] Sub-task 1: Add minimum quorum validation to `updateQuorumBps`
 - [ ] Sub-task 2: Update/add unit tests for quorum boundary
 - [ ] Sub-task 3: Run full test suite
 
@@ -489,7 +489,7 @@ Add a minimum quorum validation to `setQuorumBps`. A quorum of 0 allows a single
 Set `quorumBps` during the upgrade initializer (`reinitializer(3)`) to prevent a window where any oracle can unilaterally commit roots.
 
 **Context:**
-`SSVNetworkSSVStakingUpgrade.sol` (line 8) initialized `cooldownDuration` and `defaultOracleIds` but NOT `quorumBps`. After upgrade, `quorumBps` was 0 in storage until the DAO manually called `setQuorumBps()`. During this window, combined with SEC-1, a single oracle could commit arbitrary Merkle roots. Now fixed — see Resolution below.
+`SSVNetworkSSVStakingUpgrade.sol` (line 8) initialized `cooldownDuration` and `defaultOracleIds` but NOT `quorumBps`. After upgrade, `quorumBps` was 0 in storage until the DAO manually called `updateQuorumBps()`. During this window, combined with SEC-1, a single oracle could commit arbitrary Merkle roots. Now fixed — see Resolution below.
 
 **Resolution:**
 `initializeSSVStaking` now accepts `quorumBps` as a third parameter (`uint16`) and validates `if (quorumBps == 0 || quorumBps > 10_000) revert InvalidQuorum()` before writing to storage. Both `upgrade.ts` and `generate-safe-batch.ts` pass `quorumBps` from the deployment config. This closes the initialization window entirely.
@@ -549,7 +549,7 @@ Set `quorumBps` during the upgrade initializer (`reinitializer(3)`) to prevent a
 
 ---
 
-### [SEC-4] ~~`setUnstakeCooldownDuration` allows zero cooldown~~
+### [SEC-4] ~~`updateUnstakeCooldownDuration` allows zero cooldown~~
 - **Type:** Security Hardening
 - **Priority:** ~~P1~~ P2 (downgraded)
 - **Status:** ✅ Mitigated (owner-only, no accounting risk)
@@ -557,21 +557,21 @@ Set `quorumBps` during the upgrade initializer (`reinitializer(3)`) to prevent a
 - **Timeline:** N/A
 - **Github Link:** N/A
 
-**Resolution:** `setUnstakeCooldownDuration` is owner-only (DAO multisig). Zero cooldown allows instant unstaking but causes no accounting issues — `requestUnstake` still goes through `_syncFees`, `_settleWithBalance`, cSSV burn, and proper reward settlement. The "stake/vote/unstake" attack described below isn't viable because oracle voting is based on oracle addresses (not staking), and staking weight only affects quorum threshold which is DAO-controlled. Same owner-trust argument as SEC-1/SEC-3.
+**Resolution:** `updateUnstakeCooldownDuration` is owner-only (DAO multisig). Zero cooldown allows instant unstaking but causes no accounting issues — `requestUnstake` still goes through `_syncFees`, `_settleWithBalance`, cSSV burn, and proper reward settlement. The "stake/vote/unstake" attack described below isn't viable because oracle voting is based on oracle addresses (not staking), and staking weight only affects quorum threshold which is DAO-controlled. Same owner-trust argument as SEC-1/SEC-3.
 
 **Original context (for reference):**
 `SSVDAO.sol:245-248`: No minimum check. Zero cooldown allows stake/vote/unstake in one block, defeating the economic security mechanism. An attacker could stake, earn oracle voting rights, manipulate a vote, and immediately unstake.
 
 **Acceptance Criteria:**
-- [ ] `setUnstakeCooldownDuration(0)` reverts
+- [ ] `updateUnstakeCooldownDuration(0)` reverts
 - [ ] A reasonable minimum is enforced (e.g., 1 day = 86400 seconds)
 - [ ] Existing tests updated
 
 **Agent Instructions:**
-1. Read `contracts/modules/SSVDAO.sol`, focus on `setUnstakeCooldownDuration` (line 245).
+1. Read `contracts/modules/SSVDAO.sol`, focus on `updateUnstakeCooldownDuration` (line 245).
 2. Add `if (duration == 0) revert InvalidCooldownDuration();` (define new error in `ISSVNetworkCore.sol` if needed, or reuse an existing generic error).
 3. Consider adding a minimum like `if (duration < 86400) revert ...;` for 1-day minimum.
-4. Update `test/unit/SSVDAO/setUnstakeCooldownDuration.test.ts`.
+4. Update `test/unit/SSVDAO/updateUnstakeCooldownDuration.test.ts`.
 5. Run `npm run test:unit`.
 
 #### Sub-items:
@@ -1045,7 +1045,7 @@ Add input validation guardrails (non-zero, min/max bounds) to all DAO-governed s
 **Context:**
 `SSVDAO.sol` contains 12 setter functions. Only 2 have any input validation today:
 - `updateLiquidationThresholdPeriod` / `updateLiquidationThresholdPeriodSSV`: enforce `>= MINIMAL_LIQUIDATION_THRESHOLD` (21,480 blocks)
-- `setQuorumBps`: enforces `<= BPS_DENOMINATOR` (10,000) — but allows 0 (see SEC-1)
+- `updateQuorumBps`: enforces `<= BPS_DENOMINATOR` (10,000) — but allows 0 (see SEC-1)
 
 All other setters accept any value, including 0 and extreme values that could break protocol invariants.
 
@@ -1064,8 +1064,8 @@ All other setters accept any value, including 0 and extreme values that could br
 | 9 | `updateMinimumLiquidationCollateralSSV` | `amount` (SSV) | None | `amount > 0 && amount <= TBD_MAX_MIN_COLLATERAL_SSV` | Same as above for SSV |
 | 10 | `updateMaximumOperatorFee` | `maxFee` (wei) | None | `maxFee > 0 && maxFee >= sp.minimumOperatorEthFee` | `0` blocks all operator registrations; see also SEC-15 for cross-validation |
 | 11 | `updateMinimumOperatorEthFee` | `minFee` (wei) | None | `minFee <= sp.operatorMaxFee` | Extreme value blocks operator registrations; see also SEC-15 for cross-validation |
-| 12 | `setQuorumBps` | `quorum` | `<= 10,000` | Add min: `quorum >= TBD_MIN_QUORUM_BPS` | `0` allows single-oracle root commits; see SEC-1 |
-| 13 | `setUnstakeCooldownDuration` | `duration` | None | `duration >= TBD_MIN_COOLDOWN && duration <= TBD_MAX_COOLDOWN` | `0` allows instant unstaking (no cooldown); see SEC-4 |
+| 12 | `updateQuorumBps` | `quorum` | `<= 10,000` | Add min: `quorum >= TBD_MIN_QUORUM_BPS` | `0` allows single-oracle root commits; see SEC-1 |
+| 13 | `updateUnstakeCooldownDuration` | `duration` | None | `duration >= TBD_MIN_COOLDOWN && duration <= TBD_MAX_COOLDOWN` | `0` allows instant unstaking (no cooldown); see SEC-4 |
 
 **Note:** Items 10-11 overlap with SEC-15, and items 12-13 overlap with SEC-1/SEC-4. Those items can be closed as sub-items of this one, or this item can reference them as "already covered" — team's choice.
 
@@ -1383,7 +1383,7 @@ Only basic quorum tests exist. Missing: boundary conditions, weight manipulation
 1. Read `test/unit/SSVDAO/commitRoot.test.ts` for existing patterns.
 2. Read `contracts/modules/SSVDAO.sol`, focus on `commitRoot` (line 155) for the voting/quorum logic.
 3. Add tests for each scenario. For oracle replacement mid-vote, call `replaceOracle` between two `commitRoot` calls for the same block number.
-4. Use `setQuorumBps` to set boundary values before testing.
+4. Use `updateQuorumBps` to set boundary values before testing.
 5. Run `npm run test:unit`.
 
 #### Sub-items:
@@ -1939,7 +1939,7 @@ it("removed operator can withdraw frozen earnings", async () => {
 Test how changes to `cooldownDuration` affect pending unstake withdrawal requests.
 
 **Context:**
-`setUnstakeCooldownDuration` is tested for storage but not for impact on existing pending requests.
+`updateUnstakeCooldownDuration` is tested for storage but not for impact on existing pending requests.
 
 **Resolution:**
 Added direct coverage for cooldown-change behavior on existing pending unstake requests in staking unit tests:
@@ -2344,7 +2344,7 @@ In `test/unit/SSVStaking/onCSSVTransfer.test.ts`, only 2 tests exist. Missing sc
 Add non-owner revert tests for all DAO governance functions. Currently all SSVDAO test files only test happy path from owner.
 
 **Context:**
-All 11+ governance functions (`updateNetworkFee`, `updateLiquidationThresholdPeriod`, `replaceOracle`, `setQuorumBps`, `setUnstakeCooldownDuration`, `updateMaximumOperatorFee`, `updateMinimumOperatorEthFee`, etc.) are tested only from the owner account. No test verifies that non-owner calls are rejected.
+All 11+ governance functions (`updateNetworkFee`, `updateLiquidationThresholdPeriod`, `replaceOracle`, `updateQuorumBps`, `updateUnstakeCooldownDuration`, `updateMaximumOperatorFee`, `updateMinimumOperatorEthFee`, etc.) are tested only from the owner account. No test verifies that non-owner calls are rejected.
 
 **Acceptance Criteria:**
 - [x] Each governance function has a test calling from non-owner that expects revert
@@ -2358,7 +2358,7 @@ All 11+ governance functions (`updateNetworkFee`, `updateLiquidationThresholdPer
   - `updateLiquidationThresholdPeriod`, `updateLiquidationThresholdPeriodSSV`
   - `updateMinimumLiquidationCollateral`, `updateMinimumLiquidationCollateralSSV`
   - `updateMaximumOperatorFee`, `updateMinimumOperatorEthFee`
-  - `setUnstakeCooldownDuration`, `replaceOracle`, `setQuorumBps`
+  - `updateUnstakeCooldownDuration`, `replaceOracle`, `updateQuorumBps`
 - Verified non-owner calls revert with the legacy Ownable string on this branch (`Ownable: caller is not the owner`), rather than OZ's newer `OwnableUnauthorizedAccount` custom error.
 - Verified with `npx hardhat test test/unit/SSVDAO/accessControl.test.ts` and `npm run test:unit` (`428 passing`).
 
@@ -2781,7 +2781,7 @@ No mainnet deployment checklist exists. The upgrade involves UUPS proxy upgrades
    - Post-deployment verification queries (using SSVViews)
    - Rollback procedures
    - Emergency contacts / escalation paths (placeholder)
-5. Ensure the runbook explicitly states: "Call `setQuorumBps(7500)` immediately after upgrade" (see SEC-2).
+5. Ensure the runbook explicitly states: "Call `updateQuorumBps(7500)` immediately after upgrade" (see SEC-2).
 
 #### Sub-items:
 - [ ] Sub-task 1: Write pre-flight checks section

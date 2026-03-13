@@ -37,7 +37,7 @@ describe("SSV-2: commitRoot freezes cSSV supply on first vote", async () => {
     await dao.mockSetOracle(2, oracle2.address);
     await dao.mockSetOracle(3, oracle3.address);
     await dao.mockSetOracle(4, oracle4.address);
-    await dao.mockSetQuorumBps(7500);
+    await dao.mockupdateQuorumBps(7500);
     return { dao, cssv };
   };
 

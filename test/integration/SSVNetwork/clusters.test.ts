@@ -815,7 +815,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const liquidatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       expect(liquidatedCluster.active).to.equal(false);
 
-      await network.setQuorumBps(1000);
+      await network.updateQuorumBps(1000);
       await network.replaceOracle(1, operatorOwner.address);
       await network.updateMinBlocksBetweenUpdates(1);
 
