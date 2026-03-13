@@ -93,7 +93,7 @@ Use these to quickly locate the right section when resolving a BUG/TEST/FUZZ tas
 - Final SSV and ETH snapshots are settled and stored. Earnings remain withdrawable by the owner even after removal. `operator.owner` is preserved (non-zero) → FLOWS §4.2 State Mutations
 
 **Q: Can an ETH-only operator call `withdrawOperatorEarningsSSV`?**
-- Yes (no guard), but it is a no-op — SSV snapshot balance is zero. See SEC-18 → FLOWS §4.8
+- No — `_withdrawOperatorEarnings(VERSION_SSV)` reverts with `InsufficientBalance` if `operator.snapshot.block == 0`. Similarly, a legacy SSV-only operator calling `withdrawOperatorEarnings` / `withdrawAllOperatorEarnings` (VERSION_ETH) reverts with `InsufficientBalance` if `operator.ethSnapshot.block == 0`. These guards prevent snapshot state corruption and eliminate the SEC-18 no-op concern → FLOWS §4.7, §4.8
 
 **Q: What is `DEFAULT_OPERATOR_ETH_FEE` and when is it applied?**
 - 1,770,000,000 wei/block/validator. Applied automatically via `ensureETHDefaults` on first ETH interaction for legacy SSV operators (SSV fee > 0, ethSnapshot.block == 0). Also called by `declareOperatorFee` and `reduceOperatorFee` before fee changes. Operators with SSV fee = 0 get ETH fee = 0. See SPEC §1 "Operator Fee Transition" for complete behavior → SPEC §1 "Operator Fee Transition"

@@ -772,6 +772,7 @@ emit OperatorFeeDeclarationCancelled(owner, operatorId);
 
 #### Preconditions
 - Operator must exist
+- `operator.ethSnapshot.block != 0` (operator must be ETH-initialized; legacy SSV-only operators revert with `InsufficientBalance`)
 - `amount <= accumulated ETH earnings`
 
 #### State Mutations
@@ -788,6 +789,8 @@ emit OperatorWithdrawn(owner, operatorId, amount);
 - `operator.ethSnapshot.balance == previous_settled - amount`
 - `owner.balance == previous + amount`
 - `contract.balance == previous - amount`
+- `operator.ethSnapshot.block` unchanged (remains non-zero)
+- `operator.snapshot.block` unchanged (SSV state untouched)
 
 ---
 
@@ -795,10 +798,19 @@ emit OperatorWithdrawn(owner, operatorId, amount);
 
 Same as 4.7 but for SSV-denominated earnings. SSV token transferred instead of ETH.
 
+#### Preconditions
+- Operator must exist
+- `operator.snapshot.block != 0` (operator must be SSV-initialized; ETH-only operators revert with `InsufficientBalance`)
+- `amount <= accumulated SSV earnings`
+
 #### Events
 ```solidity
 emit OperatorWithdrawnSSV(owner, operatorId, amount);
 ```
+
+#### Postcondition Invariants
+- `operator.snapshot.balance == previous_settled - amount`
+- `operator.ethSnapshot.block` unchanged (ETH state untouched)
 
 ---
 
@@ -811,21 +823,25 @@ emit OperatorWithdrawnSSV(owner, operatorId, amount);
 - Operator must exist
 
 #### State Mutations
-1. Update both ETH and SSV snapshots (accumulate latest earnings for both)
-2. Deduct full ETH balance from `ethSnapshot.balance` (set to zero)
-3. Deduct full SSV balance from `snapshot.balance` (set to zero)
-4. Transfer full ETH earnings to operator owner (if non-zero)
-5. Transfer full SSV token earnings to operator owner (if non-zero)
+Each version branch is evaluated independently:
+- If `operator.snapshot.block != 0`: update SSV snapshot, capture and zero `snapshot.balance`
+- If `operator.ethSnapshot.block != 0`: update ETH snapshot, capture and zero `ethSnapshot.balance`
+- Transfer ETH earnings to operator owner (if captured amount non-zero)
+- Transfer SSV token earnings to operator owner (if captured amount non-zero)
+
+A legacy SSV-only operator (`snapshot.block != 0`, `ethSnapshot.block == 0`) runs only the SSV branch — `ethSnapshot.block` is **never written**, preserving the legacy state. An ETH-only operator runs only the ETH branch for the same reason.
 
 #### Events
 ```solidity
-emit OperatorWithdrawn(owner, operatorId, ethAmount);  // ETH portion
-emit OperatorWithdrawnSSV(owner, operatorId, ssvAmount);  // SSV portion
+emit OperatorWithdrawn(owner, operatorId, ethAmount);  // ETH portion, only if ethAmount > 0
+emit OperatorWithdrawnSSV(owner, operatorId, ssvAmount);  // SSV portion, only if ssvAmount > 0
 ```
 
 #### Postcondition Invariants
-- `operator.ethSnapshot.balance == 0`
-- `operator.snapshot.balance == 0`
+- `operator.ethSnapshot.balance == 0` (if ETH branch ran)
+- `operator.snapshot.balance == 0` (if SSV branch ran)
+- `operator.ethSnapshot.block` unchanged if `ethSnapshot.block` was `0` before call
+- `operator.snapshot.block` unchanged if `snapshot.block` was `0` before call
 - `owner.balance == previous + ethEarnings`
 - `owner.ssvBalance == previous + ssvEarnings`
 - `contract.balance == previous - ethEarnings`
