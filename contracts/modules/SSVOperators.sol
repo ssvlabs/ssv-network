@@ -89,6 +89,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
         _resetOperatorState(operator);
 
+        delete s.operatorFeeChangeRequests[operatorId];
         delete s.operatorsWhitelist[operatorId];
 
         if (PackedETHLib.raw(currentBalanceETH) > 0) {
