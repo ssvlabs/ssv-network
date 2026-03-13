@@ -77,6 +77,26 @@ describe("SSVOperators function `removeOperator()`", async () => {
     await operators.mockSetToken(await token.getAddress());
     await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
 
+    const operatorBefore = await operators.getOperator(1);
+    await operators.mockSetOperator(1, {
+      validatorCount: operatorBefore.validatorCount,
+      fee: 0n,
+      owner: operatorBefore.owner,
+      whitelisted: operatorBefore.whitelisted,
+      snapshot: {
+        block: operatorBefore.ethSnapshot.block,
+        index: 0n,
+        balance: 0n,
+      },
+      ethValidatorCount: operatorBefore.ethValidatorCount,
+      ethFee: operatorBefore.ethFee,
+      ethSnapshot: {
+        block: operatorBefore.ethSnapshot.block,
+        index: operatorBefore.ethSnapshot.index,
+        balance: operatorBefore.ethSnapshot.balance,
+      },
+    });
+
     // Set SSV balance (mock uses raw storage value, so 100 units)
     await operators.mockSetOperatorBalances(1, 0n, 100n);
     
@@ -88,6 +108,35 @@ describe("SSVOperators function `removeOperator()`", async () => {
     const after = await token.balanceOf(owner.address);
     
     expect(after).to.be.gt(before);
+  });
+
+  it("Removes a legacy SSV-only operator without initializing ETH state", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const token = await connection.ethers.deployContract("MockToken");
+    await token.waitForDeployment();
+
+    await operators.mockSetToken(await token.getAddress());
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.mockSetOperatorLegacySSV(1, 12n);
+    await operators.mockSetOperatorBalances(1, 0n, 100n);
+    await token.mint(await operators.getAddress(), ethers.parseEther("1000"));
+
+    const before = await operators.getOperator(1);
+    expect(before.snapshot.block).to.be.greaterThan(0n);
+    expect(before.ethSnapshot.block).to.equal(0n);
+    expect(before.ethFee).to.equal(0n);
+
+    const ownerBalanceBefore = await token.balanceOf(owner.address);
+    await operators.removeOperator(1);
+
+    const ownerBalanceAfter = await token.balanceOf(owner.address);
+    expect(ownerBalanceAfter).to.be.gt(ownerBalanceBefore);
+
+    const after = await operators.getOperator(1);
+    expect(after.snapshot.block).to.equal(0n);
+    expect(after.ethSnapshot.block).to.equal(0n);
+    expect(after.fee).to.equal(0n);
+    expect(after.ethFee).to.equal(0n);
   });
 
   it("Verifies operator state after removal (fees reset, owner persists)", async function () {
@@ -133,6 +182,41 @@ describe("SSVOperators function `removeOperator()`", async () => {
     expect(requestAfterRemoval.fee).to.equal(0n);
     expect(requestAfterRemoval.approvalBeginTime).to.equal(0n);
     expect(requestAfterRemoval.approvalEndTime).to.equal(0n);
+  });
+
+  it("Blocks executeOperatorFee with OperatorDoesNotExist after removal clears both snapshots", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const operatorId = 1n;
+    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.declareOperatorFee(operatorId, Number(newFee));
+    await operators.removeOperator(operatorId);
+
+    // Advance past the declare period so we'd be in the executable window
+    await networkHelpers.time.increase(Number(DECLARE_OPERATOR_FEE_PERIOD) + 1);
+
+    // checkOwner() sees snapshot.block == 0 && ethSnapshot.block == 0 → OperatorDoesNotExist
+    // (the cleared fee change request provides defense-in-depth, but checkOwner fires first)
+    await expect(
+      operators.executeOperatorFee(operatorId)
+    ).to.be.revertedWithCustomError(operators, Errors.OPERATOR_DOES_NOT_EXIST);
+  });
+
+  it("Blocks cancelDeclaredOperatorFee with OperatorDoesNotExist after removal clears both snapshots", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const operatorId = 1n;
+    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.declareOperatorFee(operatorId, Number(newFee));
+    await operators.removeOperator(operatorId);
+
+    // checkOwner() sees snapshot.block == 0 && ethSnapshot.block == 0 → OperatorDoesNotExist
+    // (the cleared fee change request provides defense-in-depth, but checkOwner fires first)
+    await expect(
+      operators.cancelDeclaredOperatorFee(operatorId)
+    ).to.be.revertedWithCustomError(operators, Errors.OPERATOR_DOES_NOT_EXIST);
   });
 
   it("Cannot register the same public key after removal", async function () {

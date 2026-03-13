@@ -84,11 +84,11 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
       expect(await views.getBalance(clusterOwner, operatorIds, cluster)).to.equal(DEFAULT_ETH_REGISTER_VALUE);
       expect(await views.getBurnRate(clusterOwner, operatorIds, cluster)).to.be.greaterThan(0n);
 
-      // SSV getters return 0 for ETH clusters
-      expect(await views.getBalanceSSV(clusterOwner, operatorIds, cluster)).to.equal(0n);
-      expect(await views.getBurnRateSSV(clusterOwner, operatorIds, cluster)).to.equal(0n);
-
-      // isLiquidatableSSV reverts for ETH clusters
+      // SSV getters revert for ETH clusters
+      await expect(views.getBalanceSSV(clusterOwner, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+      await expect(views.getBurnRateSSV(clusterOwner, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, cluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
     });
