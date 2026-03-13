@@ -813,7 +813,7 @@
         "type": "uint16"
       }
     ],
-    "name": "setQuorumBps",
+    "name": "updateQuorumBps",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -826,7 +826,7 @@
         "type": "uint64"
       }
     ],
-    "name": "setUnstakeCooldownDuration",
+    "name": "updateUnstakeCooldownDuration",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
