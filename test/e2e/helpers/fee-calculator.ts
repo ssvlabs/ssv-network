@@ -1,5 +1,5 @@
 import {
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
@@ -11,14 +11,14 @@ export function calcOperatorFeeAccrual(
   ethFee: bigint,
   effectiveVUnits: bigint,
 ): bigint {
-  return (blockDiff * ethFee * effectiveVUnits) / VUNITS_PRECISION;
+  return (blockDiff * ethFee * effectiveVUnits) / BPS_DENOMINATOR;
 }
 
 export function calcNetworkFeeAccrual(
   networkFeeIndexDelta: bigint,
   effectiveVUnits: bigint,
 ): bigint {
-  return ((networkFeeIndexDelta * effectiveVUnits) / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+  return ((networkFeeIndexDelta * effectiveVUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
 }
 
 export function calcClusterBurn(params: {
@@ -34,18 +34,18 @@ export function calcClusterBurn(params: {
 
   const networkFeeIndexDelta = blockDiff * networkFee;
 
-  const operatorFeeUnits = (operatorIndexDelta * effectiveVUnits) / VUNITS_PRECISION;
-  const networkFeeUnits = (networkFeeIndexDelta * effectiveVUnits) / VUNITS_PRECISION;
+  const operatorFeeUnits = (operatorIndexDelta * effectiveVUnits) / BPS_DENOMINATOR;
+  const networkFeeUnits = (networkFeeIndexDelta * effectiveVUnits) / BPS_DENOMINATOR;
 
   return (operatorFeeUnits + networkFeeUnits) * ETH_DEDUCTED_DIGITS;
 }
 
 export function calcVUnits(effectiveBalanceETH: bigint): bigint {
-  return (effectiveBalanceETH * VUNITS_PRECISION + DEFAULT_EB_PER_VALIDATOR - 1n) / DEFAULT_EB_PER_VALIDATOR;
+  return (effectiveBalanceETH * BPS_DENOMINATOR + DEFAULT_EB_PER_VALIDATOR - 1n) / DEFAULT_EB_PER_VALIDATOR;
 }
 
 export function defaultVUnits(validatorCount: bigint): bigint {
-  return validatorCount * VUNITS_PRECISION;
+  return validatorCount * BPS_DENOMINATOR;
 }
 
 export function calcLiquidationThreshold(params: {
@@ -59,7 +59,7 @@ export function calcLiquidationThreshold(params: {
 
   const burnRate = numOperators * ethFee;
   const thresholdUnits =
-    (minimumBlocksBeforeLiquidation * (burnRate + networkFee) * effectiveVUnits) / VUNITS_PRECISION;
+    (minimumBlocksBeforeLiquidation * (burnRate + networkFee) * effectiveVUnits) / BPS_DENOMINATOR;
 
   return thresholdUnits * ETH_DEDUCTED_DIGITS;
 }

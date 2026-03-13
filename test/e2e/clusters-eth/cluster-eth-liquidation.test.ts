@@ -11,7 +11,7 @@ import {
 } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS, DEFAULT_ETH_REGISTER_VALUE,
 } from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
@@ -152,7 +152,7 @@ describe("ETH Cluster Liquidation", () => {
       cluster = parseClusterFromEvent(clusters, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
 
       const newVUnits = 30_000n;
-      const baseline = 2n * VUNITS_PRECISION; // 20_000
+      const baseline = 2n * BPS_DENOMINATOR; // 20_000
       const deviation = newVUnits - baseline; // 10_000
 
       expect(await clusters.getClusterVUnits(clusterId)).to.equal(newVUnits);

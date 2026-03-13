@@ -557,7 +557,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
             uint64 vUnits = seb.clusterEB[clusterId].vUnits;
             if (vUnits == 0) {
-                vUnits = uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
+                vUnits = uint64(record.cluster.validatorCount) * BPS_DENOMINATOR;
             }
 
             expected += vUnits;
@@ -741,10 +741,10 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
                     uint64 blockDiffFee = uint64(diff) * PackedETH.unwrap(operator.ethFee);
                     // Deviation-only model: effectiveVUnits = baseline + storedDeviation
                     uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
-                    uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
+                    uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * BPS_DENOMINATOR);
                     operator.ethSnapshot.index += blockDiffFee;
                     if (effectiveVUnits != 0 && blockDiffFee != 0) {
-                        uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
+                        uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
                         operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
                     }
                     operator.ethSnapshot.block = currentBlock;
@@ -792,10 +792,10 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
                 uint64 blockDiffFee = uint64(blocks) * PackedETH.unwrap(operator.ethFee);
                 // Deviation-only model: effectiveVUnits = baseline + storedDeviation
                 uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
-                uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
+                uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * BPS_DENOMINATOR);
                 operator.ethSnapshot.index += blockDiffFee;
                 if (effectiveVUnits != 0 && blockDiffFee != 0) {
-                    uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
+                    uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
                     operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
                 }
                 operator.ethSnapshot.block = currentBlock;
@@ -816,7 +816,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
         if (sp.daoTotalEthVUnits != 0 && sp.ethNetworkFee.eq(PACKED_ETH_ZERO)) {
             uint128 earned = (uint128(blocks) * uint128(PackedETH.unwrap(sp.ethNetworkFee)) * uint128(sp.daoTotalEthVUnits)) /
-                VUNITS_PRECISION;
+                BPS_DENOMINATOR;
             sp.ethDaoBalance = sp.ethDaoBalance.add(PackedETH.wrap(uint64(earned)));
         }
 

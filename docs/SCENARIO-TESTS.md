@@ -19,7 +19,7 @@ Tests will be implemented in `test/e2e/` using Hardhat + ethers v6 + Chai.
 
 ### Key Constants Used Throughout
 ```
-VUNITS_PRECISION = 10_000
+BPS_DENOMINATOR = 10_000
 ETH_DEDUCTED_DIGITS = 100_000
 DEDUCTED_DIGITS = 10_000_000
 DEFAULT_OPERATOR_ETH_FEE = 1_770_000_000 wei → packed raw = 17_700
@@ -169,8 +169,8 @@ All originally documented discrepancies have been addressed. Tests can now be im
 
 3. **Validator Count**: `sp.ethDaoValidatorCount == Σ(cluster.validatorCount)` across all active ETH clusters
 
-4. **vUnit Consistency**: `sp.daoTotalEthVUnits == sp.ethDaoValidatorCount × VUNITS_PRECISION + Σ(cluster EB deviations)`
-   - Where deviation = `clusterEB.vUnits - validatorCount × VUNITS_PRECISION` for explicit EB clusters
+4. **vUnit Consistency**: `sp.daoTotalEthVUnits == sp.ethDaoValidatorCount × BPS_DENOMINATOR + Σ(cluster EB deviations)`
+   - Where deviation = `clusterEB.vUnits - validatorCount × BPS_DENOMINATOR` for explicit EB clusters
 
 5. **Cluster Hash Integrity**: `s.ethClusters[key] == keccak256(abi.encodePacked(validatorCount, networkFeeIndex, index, balance, active))`
 
@@ -471,7 +471,7 @@ Cluster balance after 100 blocks:
 
 #### Key Assertion
 - `newVUnits = ebToVUnits(64) = ceil(64 * 10_000 / 32) = 20_000`
-- `effectiveOldVUnits = 20_000` (implicit = validatorCount * VUNITS_PRECISION)
+- `effectiveOldVUnits = 20_000` (implicit = validatorCount * BPS_DENOMINATOR)
 - `newVUnits == effectiveOldVUnits` → NO deviation change
 - [ ] Cluster now has explicit EB, future updates use stored value as baseline
 
@@ -676,7 +676,7 @@ Assertions:
 - `cluster.balance = 10e18 - 900_000_000_000 = 9_999_999_100_000_000_000`
 
 **DAO ETH earnings (network fee portion):**
-- `networkTotalEarnings = ethDaoBalance + (blockDiff * networkFee * daoTotalEthVUnits) / VUNITS_PRECISION`
+- `networkTotalEarnings = ethDaoBalance + (blockDiff * networkFee * daoTotalEthVUnits) / BPS_DENOMINATOR`
 - `= 0 + (100 * 10_000 * 10_000) / 10_000 = 1_000_000` packed
 - `= 1_000_000 * 100_000 = 100_000_000_000 wei`
 

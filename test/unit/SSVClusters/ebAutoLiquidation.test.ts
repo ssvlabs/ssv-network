@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { ethers } from "ethers";
@@ -61,7 +61,7 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
     //
     // At EB=32 (baseline, vUnits=10000), the burn rate per block is:
     //   4 operators * packedOpFee + networkFee = 4 * 100_000 + 100_000 = 500_000 packed/block
-    //   Liquidation threshold = minBlocks * totalRate * vUnits / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS
+    //   Liquidation threshold = minBlocks * totalRate * vUnits / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS
     //                         = 100 * 500_000 * 10_000 / 10_000 * 100_000
     //                         = 5_000_000_000_000 wei (0.000005 ETH)
     //
@@ -106,7 +106,7 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
     // Verify cluster is active and vUnits are at baseline
     expect(clusterAfterEB32.active).to.equal(true);
     const vUnitsAfterEB32 = await clusters.getClusterVUnits(clusterId);
-    expect(vUnitsAfterEB32).to.equal(VUNITS_PRECISION); // 10000 = 1 validator at 32 ETH
+    expect(vUnitsAfterEB32).to.equal(BPS_DENOMINATOR); // 10000 = 1 validator at 32 ETH
 
     // Verify cluster is NOT liquidatable at baseline rate
     await expect(

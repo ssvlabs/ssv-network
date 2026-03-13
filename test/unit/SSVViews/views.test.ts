@@ -268,7 +268,7 @@ describe("SSVViews dedicated coverage", () => {
 
     await viewsHarness.mockRegisterSSVCluster(clusterOwner.address, operatorIds, ssvCluster);
 
-    // No clusterEB set → falls back to validatorCount * VUNITS_PRECISION → 32 ETH per validator
+    // No clusterEB set → falls back to validatorCount * BPS_DENOMINATOR → 32 ETH per validator
     expect(await viewsHarness.getEffectiveBalance(clusterOwner.address, operatorIds, ssvCluster)).to.equal(32);
   });
 

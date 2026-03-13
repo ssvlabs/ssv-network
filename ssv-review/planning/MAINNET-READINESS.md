@@ -800,7 +800,7 @@ The DIP-X states: "Staked SSV, represented by cSSV, retains full governance and 
 Replace the global `daoTotalEthVUnits` optimization in `updateClusterOperatorsOnReactivation` with per-operator `operatorEthVUnits` reads.
 
 **Context:**
-In `OperatorLib.sol:305`, `bool hasDeviation = sp.daoTotalEthVUnits != uint64(sp.ethDaoValidatorCount) * VUNITS_PRECISION` uses a global signal for per-operator decisions. While deviations are always non-negative (EB floor=32), this couples correctness to BUG-4's accounting accuracy. If `daoTotalEthVUnits` is ever incorrect (from BUG-4's double-subtraction), reactivation could skip reading actual per-operator deviation, leading to incorrect vUnit accounting.
+In `OperatorLib.sol:305`, `bool hasDeviation = sp.daoTotalEthVUnits != uint64(sp.ethDaoValidatorCount) * BPS_DENOMINATOR` uses a global signal for per-operator decisions. While deviations are always non-negative (EB floor=32), this couples correctness to BUG-4's accounting accuracy. If `daoTotalEthVUnits` is ever incorrect (from BUG-4's double-subtraction), reactivation could skip reading actual per-operator deviation, leading to incorrect vUnit accounting.
 
 **Acceptance Criteria:**
 - [ ] Reactivation always reads `seb.operatorEthVUnits[operatorId]` instead of relying on the global optimization
@@ -1200,7 +1200,7 @@ Add unit tests for validator registration and removal with operators that have n
 This is the #1 systemic test gap. The fee settlement mechanism (`updateClusterOperators` / `settleClusterBalance`) during register/remove has zero real coverage with actual fee deductions. If fee settlement is wrong, clusters are overcharged or undercharged on every register/remove. The EB-weighted fee model (`vUnits`) makes this even more critical.
 
 **Acceptance Criteria:**
-- [ ] Test: Register validator with 4 operators each charging different ETH fees → verify cluster balance deduction = `blocksDelta * sum(operatorFees) * vUnits / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS`
+- [ ] Test: Register validator with 4 operators each charging different ETH fees → verify cluster balance deduction = `blocksDelta * sum(operatorFees) * vUnits / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS`
 - [ ] Test: Register second validator after N blocks → verify fees from first validator settled correctly before adding second
 - [ ] Test: Remove validator with non-zero fees → verify operator earnings accumulated match expected
 - [ ] Test: Bulk register 10 validators with non-zero fees → verify total deduction
@@ -1216,7 +1216,7 @@ This is the #1 systemic test gap. The fee settlement mechanism (`updateClusterOp
    - Register validators
    - Advance blocks with `mine(N)`
    - Perform the operation (register/remove)
-   - Calculate expected fees independently: `blocksDelta * sum(PackedETH.unwrap(fee)) * vUnits / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS`
+   - Calculate expected fees independently: `blocksDelta * sum(PackedETH.unwrap(fee)) * vUnits / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS`
    - Assert cluster balance = initial deposit - expected fees
    - Assert operator earnings match expected accumulation
 6. Use `ethers.provider.getBalance` for ETH balance checks and the SSVViews contract for cluster/operator balance queries.
@@ -1245,7 +1245,7 @@ Add unit tests verifying that operators earn proportionally more when serving cl
 The vUnit model is the core economic change in v2.0.0. If operator earnings don't scale with EB, the entire incentive model is broken. No unit test currently verifies the operator earnings side of EB-weighted accounting.
 
 **Acceptance Criteria:**
-- [ ] Test: Operator serves two clusters, EB=32 and EB=64 → after N blocks, verify operator earnings = `(blocks * fee * 10000 + blocks * fee * 20000) / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS`
+- [ ] Test: Operator serves two clusters, EB=32 and EB=64 → after N blocks, verify operator earnings = `(blocks * fee * 10000 + blocks * fee * 20000) / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS`
 - [ ] Test: Operator fee change after EB update → verify earnings split correctly at boundary
 - [ ] Test: `withdrawOperatorEarnings` after EB-weighted accrual → verify exact ETH withdrawn matches expected
 

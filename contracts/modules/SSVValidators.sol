@@ -7,7 +7,7 @@ import {OperatorLib} from "../libraries/OperatorLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
 import {ValidatorLib} from "../libraries/ValidatorLib.sol";
-import {VERSION_ETH, VERSION_SSV, VUNITS_PRECISION} from "../libraries/SSVCoreTypes.sol";
+import {VERSION_ETH, VERSION_SSV, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
@@ -138,7 +138,7 @@ contract SSVValidators is ISSVValidators {
             ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[hashedCluster];
             if (ebSnapshot.vUnits > 0) {
                 // Cluster has explicit EB tracking - add baseline for new validators
-                ebSnapshot.vUnits += uint64(validatorsLength) * VUNITS_PRECISION;
+                ebSnapshot.vUnits += uint64(validatorsLength) * BPS_DENOMINATOR;
             }
             // operatorEthVUnits NOT updated: deviation doesn't change on registration
         }
@@ -204,7 +204,7 @@ contract SSVValidators is ISSVValidators {
                 
                 if (ebSnapshot.vUnits > 0) {
                     // Cluster has explicit EB tracking - subtract baseline from snapshot
-                    uint64 deltaClusterVUnits = uint64(validatorsRemoved) * VUNITS_PRECISION;
+                    uint64 deltaClusterVUnits = uint64(validatorsRemoved) * BPS_DENOMINATOR;
                     ebSnapshot.vUnits -= deltaClusterVUnits;
                     
                     // When cluster becomes empty, clean up any remaining deviation

@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture, ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, makePublicKeys, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -95,7 +95,7 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION); // baseline + deviation
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * BPS_DENOMINATOR); // baseline + deviation
     }
 
     const removeTx = await validators.connect(clusterOwner).bulkRemoveValidator(publicKeys, operatorIds, clusterAfterRegister);
@@ -127,7 +127,7 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
     const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    await validators.mockSetClusterVUnits(clusterId, 3n * VUNITS_PRECISION);
+    await validators.mockSetClusterVUnits(clusterId, 3n * BPS_DENOMINATOR);
 
     const removeTx = await validators.connect(clusterOwner).bulkRemoveValidator(
       [publicKeys[0], publicKeys[1]],
@@ -136,11 +136,11 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
     );
     await removeTx.wait();
 
-    expect(await validators.getClusterVUnits(clusterId)).to.equal(1n * VUNITS_PRECISION);
+    expect(await validators.getClusterVUnits(clusterId)).to.equal(1n * BPS_DENOMINATOR);
     for (const operatorId of operatorIds) {
       // Cluster has 1 validator (baseline = 10000), explicit snapshot = 10000, deviation = 0
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(1n * VUNITS_PRECISION); // baseline + deviation
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(1n * BPS_DENOMINATOR); // baseline + deviation
     }
   });
 
@@ -161,7 +161,7 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
     const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    await validators.mockSetClusterVUnits(clusterId, 2n * VUNITS_PRECISION);
+    await validators.mockSetClusterVUnits(clusterId, 2n * BPS_DENOMINATOR);
 
     const removeTx = await validators.connect(clusterOwner).bulkRemoveValidator(publicKeys, operatorIds, clusterAfterRegister);
     await removeTx.wait();

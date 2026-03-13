@@ -5,7 +5,7 @@ import { getTestConnection } from '../setup/connection.js';
 import { ssvValidatorsHarnessFixture } from '../setup/fixtures.js';
 import type { NetworkHelpersType } from '../common/types.js';
 import { createCluster, makePublicKey, parseClusterFromEvent } from '../common/helpers.js';
-import { DEFAULT_SHARES, ETH_DEDUCTED_DIGITS, VUNITS_PRECISION } from '../common/constants.js';
+import { DEFAULT_SHARES, ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from '../common/constants.js';
 import { Events } from '../common/events.js';
 import { Errors } from '../common/errors.js';
 import { ethers } from "ethers";
@@ -13,7 +13,7 @@ import { ethers } from "ethers";
 const OPERATOR_FEE = ETH_DEDUCTED_DIGITS;
 
 const MINIMUM_BLOCKS = 1000n;
-const START_V_UNITS = 2n * VUNITS_PRECISION;
+const START_V_UNITS = 2n * BPS_DENOMINATOR;
 
 describe("SSV-3: bulkRegisterValidator uses post-registration vUnits for liquidation check", async () => {
   let connection: NetworkConnection<"generic">;

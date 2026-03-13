@@ -8,7 +8,7 @@ import {ClusterLib} from "../libraries/ClusterLib.sol";
 import {OperatorLib} from "../libraries/OperatorLib.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
-import {PackedSSV, PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE, PRECISION, VUNITS_PRECISION} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSV, PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE, PRECISION, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
@@ -332,10 +332,10 @@ contract SSVViews is ISSVViews {
 
         uint64 vUnits = SSVStorageEB.load().clusterEB[hashedCluster].vUnits;
         if (vUnits == 0) {
-            vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            vUnits = uint64(cluster.validatorCount) * BPS_DENOMINATOR;
         }
 
-        return (PackedETHLib.unpack(networkFee.add(operatorsFee)) * uint256(vUnits)) / VUNITS_PRECISION;
+        return (PackedETHLib.unpack(networkFee.add(operatorsFee)) * uint256(vUnits)) / BPS_DENOMINATOR;
     }
 
     /**
@@ -448,7 +448,7 @@ contract SSVViews is ISSVViews {
         uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
 
         if (vUnits == 0) {
-            vUnits = cluster.validatorCount * VUNITS_PRECISION;
+            vUnits = cluster.validatorCount * BPS_DENOMINATOR;
         }
 
         return ClusterLib.vUnitsToEB(vUnits);

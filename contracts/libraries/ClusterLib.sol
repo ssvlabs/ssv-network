@@ -7,7 +7,7 @@ import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
 import {SSVStorageEB, StorageEB} from "./storage/SSVStorageEB.sol";
 import {OperatorLib} from "./OperatorLib.sol";
 import {ProtocolLib} from "./ProtocolLib.sol";
-import {PackedSSV, PackedETH, VERSION_SSV, VERSION_ETH, ETH_DEDUCTED_DIGITS, DEFAULT_EB_PER_VALIDATOR, VUNITS_PRECISION} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSV, PackedETH, VERSION_SSV, VERSION_ETH, ETH_DEDUCTED_DIGITS, DEFAULT_EB_PER_VALIDATOR, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 
 /**
@@ -78,7 +78,7 @@ library ClusterLib {
         uint64 vUnits = getVUnits(clusterId, cluster.validatorCount);
         uint128 units = vUnits;
         uint128 rate = burnRate + networkFee;
-        uint256 thresholdUnits = (uint256(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
+        uint256 thresholdUnits = (uint256(minimumBlocksBeforeLiquidation) * rate * units) / BPS_DENOMINATOR;
         uint256 liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
         return cluster.balance < liquidationThreshold;
     }
@@ -106,7 +106,7 @@ library ClusterLib {
 
         uint128 units = vUnits;
         uint128 rate = burnRate + networkFee;
-        uint256 thresholdUnits = (uint256(minimumBlocksBeforeLiquidation) * rate * units) / VUNITS_PRECISION;
+        uint256 thresholdUnits = (uint256(minimumBlocksBeforeLiquidation) * rate * units) / BPS_DENOMINATOR;
         uint256 liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
         return cluster.balance < liquidationThreshold;
     }
@@ -256,8 +256,8 @@ library ClusterLib {
             StorageEB storage seb = SSVStorageEB.load();
             uint64 storedVUnits = seb.clusterEB[hashedCluster].vUnits;
             uint64 projectedVUnits = storedVUnits > 0
-                ? storedVUnits + uint64(validatorCountDelta) * VUNITS_PRECISION
-                : uint64(cluster.validatorCount) * VUNITS_PRECISION;
+                ? storedVUnits + uint64(validatorCountDelta) * BPS_DENOMINATOR
+                : uint64(cluster.validatorCount) * BPS_DENOMINATOR;
 
             if (
                 isLiquidatableWithVUnits(
@@ -289,8 +289,8 @@ library ClusterLib {
         if (vUnits == 0) {
             // Before any EB is set for this cluster, approximate EB as 32 ETH per validator.
             // To preserve legacy accounting, we treat each validator as 1 logical vUnit (32 ETH),
-            // scaled by VUNITS_PRECISION for fixed-point arithmetic.
-            return uint64(validatorCount) * VUNITS_PRECISION;
+            // scaled by BPS_DENOMINATOR for fixed-point arithmetic.
+            return uint64(validatorCount) * BPS_DENOMINATOR;
         }
 
         return vUnits;
@@ -314,8 +314,8 @@ library ClusterLib {
         uint128 idxNet = currentNetworkFeeIndex - cluster.networkFeeIndex;
         uint128 idxOp = newIndex - cluster.index;
 
-        uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
-        uint128 usageUnits = (idxOp * units) / VUNITS_PRECISION + networkFeeUnits;
+        uint128 networkFeeUnits = (idxNet * units) / BPS_DENOMINATOR;
+        uint128 usageUnits = (idxOp * units) / BPS_DENOMINATOR + networkFeeUnits;
         uint256 usage = uint256(usageUnits) * ETH_DEDUCTED_DIGITS;
         cluster.balance = usage > cluster.balance ? 0 : cluster.balance - usage;
     }
@@ -364,7 +364,7 @@ library ClusterLib {
      * @return vUnits v units scaled by precision
      */
     function ebToVUnits(uint32 effectiveBalance) internal pure returns (uint64) {
-        uint256 vUnits = uint256(effectiveBalance) * VUNITS_PRECISION;
+        uint256 vUnits = uint256(effectiveBalance) * BPS_DENOMINATOR;
         uint256 vUnitsPerValidator = DEFAULT_EB_PER_VALIDATOR / 1 ether;
         
         return uint64(vUnits == 0 ? 0 : (vUnits - 1) / vUnitsPerValidator + 1);
@@ -376,6 +376,6 @@ library ClusterLib {
      * @return effectiveBalance Effective balance in ETH
      */
     function vUnitsToEB(uint64 vUnits) internal pure returns (uint32) {
-        return uint32((uint256(vUnits) * (DEFAULT_EB_PER_VALIDATOR / 1 ether)) / VUNITS_PRECISION);
+        return uint32((uint256(vUnits) * (DEFAULT_EB_PER_VALIDATOR / 1 ether)) / BPS_DENOMINATOR);
     }
 }

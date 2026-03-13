@@ -11,7 +11,6 @@ uint8 constant VERSION_SSV = 0;
 uint8 constant VERSION_ETH = 1;
 uint8 constant VERSION_UNDEFINED = type(uint8).max;
 
-uint32 constant VUNITS_PRECISION = 10_000;
 uint64 constant BPS_DENOMINATOR = 10_000;
 uint256 constant DEFAULT_OPERATOR_ETH_FEE = 1770_000_000;
 uint256 constant PRECISION = 1e18;

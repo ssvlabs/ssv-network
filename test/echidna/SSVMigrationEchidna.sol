@@ -175,7 +175,7 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         uint64 vUnits = ClusterLib.getVUnits(ssvClusterId, clusterBefore.validatorCount);
         uint256 thresholdUnits = (uint256(sp.minimumBlocksBeforeLiquidation) *
             uint256(burnRateETH + PackedETH.unwrap(sp.ethNetworkFee)) *
-            uint256(vUnits)) / VUNITS_PRECISION;
+            uint256(vUnits)) / BPS_DENOMINATOR;
         uint256 minRequired = thresholdUnits * ETH_DEDUCTED_DIGITS;
         uint256 collateral = PackedETHLib.unpack(sp.minimumLiquidationCollateral);
         if (collateral > minRequired) minRequired = collateral;
