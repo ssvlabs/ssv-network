@@ -95,6 +95,20 @@ contract SSVOperatorsHarness is SSVOperators {
         operator.ethSnapshot.balance = PACKED_ETH_ZERO;
     }
 
+    function mockSetOperatorEthOnly(uint64 operatorId, uint64 ethFee) external {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+        operator.fee = PackedSSV.wrap(0);
+        operator.snapshot.block = 0;
+        operator.snapshot.index = 0;
+        operator.snapshot.balance = PackedSSV.wrap(0);
+        operator.ethFee = PackedETH.wrap(ethFee);
+        operator.ethSnapshot.block = uint32(block.number);
+        operator.ethSnapshot.index = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+    }
+
     function getUpgradeTimestamp() external view returns (uint256) {
         return UPGRADE_TIMESTAMP;
     }

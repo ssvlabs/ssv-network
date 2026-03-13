@@ -10,7 +10,7 @@ import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {PackedETHLib, PackedSSVLib, DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
+import {PackedETHLib, PackedSSVLib, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
 import {PackedETH, PackedSSV} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 
@@ -113,6 +113,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
     bool private ethWithdrawTouchedSSV;
     bool private ssvWithdrawTouchedEth;
     bool private operatorRegisteredBelowMinFee;
+    bool private legacyOperatorInitializedEth;
+    bool private ethOnlyOperatorInitializedSsv;
 
     constructor() {
         token = new MockToken();
@@ -201,14 +203,17 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
 
-        PackedETH beforeFee = getOperator(operatorId).ethFee;
+        ISSVNetworkCore.Operator memory before = getOperator(operatorId);
+        PackedETH beforeFee = before.ethFee;
         OperatorUser owner = OperatorUser(payable(ownerAddr));
 
         try owner.declareFee(operatorId, _boundFee(feeSeed)) {
-            PackedETH afterFee = getOperator(operatorId).ethFee;
-            if (afterFee.neq(beforeFee)) {
+            ISSVNetworkCore.Operator memory afterOp = getOperator(operatorId);
+            PackedETH afterFee = afterOp.ethFee;
+            if (before.ethSnapshot.block != 0 && afterFee.neq(beforeFee)) {
                 declareChangedFee = true;
             }
+            _checkEthOnlyPreservesSsv(before, afterOp);
         } catch {}
     }
 
@@ -217,6 +222,7 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         if (operatorId == 0) return;
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
+        ISSVNetworkCore.Operator memory before = getOperator(operatorId);
 
         ISSVNetworkCore.OperatorFeeChangeRequest memory request = getOperatorFeeChangeRequest(operatorId);
         bool noRequest = request.approvalBeginTime == 0;
@@ -234,6 +240,7 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             if (feeTooHigh) {
                 invalidExecuteFeeSucceeded = true;
             }
+            _checkEthOnlyPreservesSsv(before, getOperator(operatorId));
         } catch {}
     }
 
@@ -252,26 +259,99 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         try owner.reduceFee(operatorId, newFee) {
             ISSVNetworkCore.Operator memory operatorAfter = getOperator(operatorId);
-            if (PackedETHLib.unpack(operatorAfter.ethFee) >= currentFee) {
-                invalidReduceSucceeded = true;
+            if (before.ethSnapshot.block != 0) {
+                if (PackedETHLib.unpack(operatorAfter.ethFee) >= currentFee) {
+                    invalidReduceSucceeded = true;
+                }
+                PackedETH minFee = SSVStorageProtocol.load().minimumOperatorEthFee;
+                if (operatorAfter.ethFee.neq(PACKED_ETH_ZERO) && operatorAfter.ethFee.lt(minFee)) {
+                    invalidReduceSucceeded = true;
+                }
+                if (getOperatorFeeChangeRequest(operatorId).approvalBeginTime != 0) {
+                    invalidReduceSucceeded = true;
+                }
             }
-            PackedETH minFee = SSVStorageProtocol.load().minimumOperatorEthFee;
-            if (operatorAfter.ethFee.neq(PACKED_ETH_ZERO) && operatorAfter.ethFee.lt(minFee)) {
-                invalidReduceSucceeded = true;
-            }
-            if (getOperatorFeeChangeRequest(operatorId).approvalBeginTime != 0) {
-                invalidReduceSucceeded = true;
-            }
+            _checkEthOnlyPreservesSsv(before, operatorAfter);
         } catch {}
     }
 
     function action_set_ssv_fee(uint256 idSeed, uint256 feeSeed) external {
         uint64 operatorId = _pickOperatorId(idSeed);
         if (operatorId == 0) return;
-        if (!_operatorExists(getOperator(operatorId))) return;
+        ISSVNetworkCore.Operator memory before = getOperator(operatorId);
+        if (!_operatorExists(before)) return;
 
         uint256 fee = _boundFeeSSV(feeSeed);
         SSVStorage.load().operators[operatorId].fee = PackedSSVLib.pack(fee);
+        _checkLegacyPreservesEth(before, getOperator(operatorId));
+    }
+
+    function action_seed_legacy_ssv(
+        uint256 idSeed,
+        uint256 feeSeed,
+        uint256 validatorSeed,
+        uint256 balanceSeed
+    ) external {
+        uint64 operatorId = _pickOperatorId(idSeed);
+        if (operatorId == 0) return;
+
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (operator.owner == address(0)) return;
+
+        uint64 feeUnits = uint64(feeSeed % uint256(MAX_SSV_MINT_UNITS)) + 1;
+        uint32 validatorCount = uint32(validatorSeed % 5);
+        uint64 balanceUnits = uint64(balanceSeed % (uint256(MAX_SSV_MINT_UNITS) + 1));
+
+        operator.fee = PackedSSV.wrap(feeUnits);
+        operator.snapshot.block = uint32(block.number);
+        operator.snapshot.index = 0;
+        operator.snapshot.balance = PackedSSV.wrap(balanceUnits);
+        operator.validatorCount = validatorCount;
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.index = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        operator.ethValidatorCount = 0;
+
+        if (balanceUnits > 0) {
+            token.mint(address(this), uint256(balanceUnits) * DEDUCTED_DIGITS);
+        }
+
+        _updateExpectedBalances(operatorId, PACKED_ETH_ZERO, operator.snapshot.balance);
+    }
+
+    function action_seed_eth_only(
+        uint256 idSeed,
+        uint256 feeSeed,
+        uint256 validatorSeed,
+        uint256 balanceSeed
+    ) external {
+        uint64 operatorId = _pickOperatorId(idSeed);
+        if (operatorId == 0) return;
+
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (operator.owner == address(0)) return;
+
+        uint256 feeWei = _boundFee(feeSeed);
+        uint64 seedBoundBalanceUnits = uint64(balanceSeed % (uint256(MAX_SSV_MINT_UNITS) + 1));
+        uint64 availableBalanceUnits = uint64(address(this).balance / ETH_DEDUCTED_DIGITS);
+        uint64 balanceUnits = seedBoundBalanceUnits < availableBalanceUnits ? seedBoundBalanceUnits : availableBalanceUnits;
+        uint32 ethValidatorCount = uint32(validatorSeed % 5);
+
+        operator.fee = PACKED_SSV_ZERO;
+        operator.snapshot.block = 0;
+        operator.snapshot.index = 0;
+        operator.snapshot.balance = PACKED_SSV_ZERO;
+        operator.validatorCount = 0;
+        operator.ethFee = PackedETHLib.pack(feeWei);
+        operator.ethSnapshot.block = uint32(block.number);
+        operator.ethSnapshot.index = 0;
+        operator.ethSnapshot.balance = PackedETH.wrap(balanceUnits);
+        operator.ethValidatorCount = ethValidatorCount;
+
+        _updateExpectedBalances(operatorId, operator.ethSnapshot.balance, PACKED_SSV_ZERO);
     }
 
     function action_assign_validators(uint256 idSeed, uint256 deltaSeed, bool eth) external {
@@ -282,18 +362,27 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         StorageData storage s = SSVStorage.load();
         ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
         if (!_operatorExists(operator)) return;
+        ISSVNetworkCore.Operator memory before = getOperator(operatorId);
 
         uint32 delta = uint32(deltaSeed % 64) + 1;
         if (eth) {
             if (operator.ethValidatorCount + delta > sp.validatorsPerOperatorLimit) return;
             operator.ethValidatorCount += delta;
+            _checkEthOnlyPreservesSsv(before, getOperator(operatorId));
         } else {
             if (operator.validatorCount + delta > sp.validatorsPerOperatorLimit) return;
             operator.validatorCount += delta;
+            _checkLegacyPreservesEth(before, getOperator(operatorId));
         }
     }
 
     function action_advance_time(uint256 seed) external {
+        uint256 count = operatorIds.length;
+        ISSVNetworkCore.Operator[] memory before = new ISSVNetworkCore.Operator[](count);
+        for (uint256 i; i < count; ++i) {
+            before[i] = getOperator(operatorIds[i]);
+        }
+
         uint32 blocks = uint32(seed % MAX_ADVANCE_BLOCKS) + 1;
         _fastForwardOperators(blocks);
 
@@ -302,6 +391,12 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         sp.networkFeeIndex += uint64(blocks) * PackedSSV.unwrap(sp.networkFee);
         sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
         sp.networkFeeIndexBlockNumber = uint32(block.number);
+
+        for (uint256 i; i < count; ++i) {
+            ISSVNetworkCore.Operator memory afterOp = getOperator(operatorIds[i]);
+            _checkLegacyPreservesEth(before[i], afterOp);
+            _checkEthOnlyPreservesSsv(before[i], afterOp);
+        }
     }
 
     function action_fee_change_latency(uint256 idSeed, uint256 feeSeed, uint256 blocksSeed) external {
@@ -363,7 +458,6 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         ISSVNetworkCore.Operator memory before = getOperator(operatorId);
         PackedETH balance = before.ethSnapshot.balance;
-        PackedSSV ssvBalanceBefore = before.snapshot.balance;
         if (balance.eq(PACKED_ETH_ZERO)) return;
 
         uint64 withdrawShrunk = _boundWithdrawAmount(PackedETH.unwrap(balance), amountSeed);
@@ -375,7 +469,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         OperatorUser owner = OperatorUser(payable(ownerAddr));
         try owner.withdraw(operatorId, withdrawAmount) {
-            PackedETH afterBalance = getOperator(operatorId).ethSnapshot.balance;
+            ISSVNetworkCore.Operator memory afterOp = getOperator(operatorId);
+            PackedETH afterBalance = afterOp.ethSnapshot.balance;
             if (afterBalance.neq(balance.sub(PackedETH.wrap(withdrawShrunk)))) {
                 withdrawConservationBroken = true;
             }
@@ -385,9 +480,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             if (address(this).balance != contractEthBefore - withdrawAmount) {
                 withdrawPayoutMismatch = true;
             }
-            if (getOperator(operatorId).snapshot.balance.neq(ssvBalanceBefore)) {
-                ethWithdrawTouchedSSV = true;
-            }
+            _checkUntouchedSsvSnapshot(before, afterOp);
+            _checkEthOnlyPreservesSsv(before, afterOp);
             _updateExpectedBalances(operatorId, afterBalance, expectedSsvBalance[operatorId]);
         } catch {}
     }
@@ -402,7 +496,6 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         ISSVNetworkCore.Operator memory before = getOperator(operatorId);
         PackedETH balance = before.ethSnapshot.balance;
-        PackedSSV ssvBalanceBefore = before.snapshot.balance;
         if (balance.eq(PACKED_ETH_ZERO)) return;
 
         uint256 withdrawAmount = PackedETHLib.unpack(balance);
@@ -413,7 +506,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         OperatorUser owner = OperatorUser(payable(ownerAddr));
         try owner.withdrawAll(operatorId) {
-            PackedETH afterBalance = getOperator(operatorId).ethSnapshot.balance;
+            ISSVNetworkCore.Operator memory afterOp = getOperator(operatorId);
+            PackedETH afterBalance = afterOp.ethSnapshot.balance;
             if (afterBalance.neq(PACKED_ETH_ZERO)) {
                 withdrawAllNotZero = true;
             }
@@ -423,10 +517,57 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             if (address(this).balance != contractEthBefore - withdrawAmount) {
                 withdrawPayoutMismatch = true;
             }
-            if (getOperator(operatorId).snapshot.balance.neq(ssvBalanceBefore)) {
-                ethWithdrawTouchedSSV = true;
-            }
+            _checkUntouchedSsvSnapshot(before, afterOp);
+            _checkEthOnlyPreservesSsv(before, afterOp);
             _updateExpectedBalances(operatorId, afterBalance, expectedSsvBalance[operatorId]);
+        } catch {}
+    }
+
+    function action_withdraw_all_version(uint256 idSeed) external {
+        uint64 operatorId = _pickOperatorId(idSeed);
+        if (operatorId == 0) return;
+        address ownerAddr = operatorOwner[operatorId];
+        if (ownerAddr == address(0)) return;
+
+        _syncToCurrentBlock(operatorId);
+
+        ISSVNetworkCore.Operator memory before = getOperator(operatorId);
+        if (!_operatorExists(before)) return;
+
+        uint256 ethAmount = PackedETHLib.unpack(before.ethSnapshot.balance);
+        uint256 ssvAmount = PackedSSVLib.unpack(before.snapshot.balance);
+        if (ethAmount > address(this).balance) return;
+        if (ssvAmount > token.balanceOf(address(this))) return;
+
+        uint256 ownerEthBefore = ownerAddr.balance;
+        uint256 ownerSsvBefore = token.balanceOf(ownerAddr);
+        uint256 contractEthBefore = address(this).balance;
+        uint256 contractSsvBefore = token.balanceOf(address(this));
+
+        OperatorUser owner = OperatorUser(payable(ownerAddr));
+        try owner.withdrawAllVersion(operatorId) {
+            ISSVNetworkCore.Operator memory afterOp = getOperator(operatorId);
+            if (before.ethSnapshot.block != 0 && afterOp.ethSnapshot.balance.neq(PACKED_ETH_ZERO)) {
+                withdrawAllNotZero = true;
+            }
+            if (before.snapshot.block != 0 && afterOp.snapshot.balance.neq(PACKED_SSV_ZERO)) {
+                withdrawAllNotZero = true;
+            }
+            if (ownerAddr.balance != ownerEthBefore + ethAmount) {
+                withdrawPayoutMismatch = true;
+            }
+            if (token.balanceOf(ownerAddr) != ownerSsvBefore + ssvAmount) {
+                withdrawPayoutMismatch = true;
+            }
+            if (address(this).balance != contractEthBefore - ethAmount) {
+                withdrawPayoutMismatch = true;
+            }
+            if (token.balanceOf(address(this)) != contractSsvBefore - ssvAmount) {
+                withdrawPayoutMismatch = true;
+            }
+            _checkLegacyPreservesEth(before, afterOp);
+            _checkEthOnlyPreservesSsv(before, afterOp);
+            _updateExpectedBalances(operatorId, afterOp.ethSnapshot.balance, afterOp.snapshot.balance);
         } catch {}
     }
 
@@ -460,7 +601,6 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         ISSVNetworkCore.Operator memory before = getOperator(operatorId);
         PackedSSV balance = before.snapshot.balance;
-        PackedETH ethBalanceBefore = before.ethSnapshot.balance;
         if (balance.eq(PACKED_SSV_ZERO)) return;
 
         uint64 withdrawShrunk = _boundWithdrawAmount(PackedSSV.unwrap(balance), amountSeed);
@@ -472,7 +612,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         OperatorUser owner = OperatorUser(payable(ownerAddr));
         try owner.withdrawSSV(operatorId, withdrawAmount) {
-            PackedSSV afterBalance = getOperator(operatorId).snapshot.balance;
+            ISSVNetworkCore.Operator memory afterOp = getOperator(operatorId);
+            PackedSSV afterBalance = afterOp.snapshot.balance;
             if (afterBalance.neq(balance.sub(PackedSSV.wrap(withdrawShrunk)))) {
                 withdrawConservationBroken = true;
             }
@@ -482,9 +623,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             if (token.balanceOf(address(this)) != contractBefore - withdrawAmount) {
                 withdrawPayoutMismatch = true;
             }
-            if (getOperator(operatorId).ethSnapshot.balance.neq(ethBalanceBefore)) {
-                ssvWithdrawTouchedEth = true;
-            }
+            _checkUntouchedEthSnapshot(before, afterOp);
+            _checkLegacyPreservesEth(before, afterOp);
             _updateExpectedBalances(operatorId, expectedEthBalance[operatorId], afterBalance);
         } catch {}
     }
@@ -499,7 +639,6 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         ISSVNetworkCore.Operator memory before = getOperator(operatorId);
         PackedSSV balance = before.snapshot.balance;
-        PackedETH ethBalanceBefore = before.ethSnapshot.balance;
         if (balance.eq(PACKED_SSV_ZERO)) return;
 
         uint256 withdrawAmount = PackedSSVLib.unpack(balance);
@@ -510,7 +649,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         OperatorUser owner = OperatorUser(payable(ownerAddr));
         try owner.withdrawAllSSV(operatorId) {
-            PackedSSV afterBalance = getOperator(operatorId).snapshot.balance;
+            ISSVNetworkCore.Operator memory afterOp = getOperator(operatorId);
+            PackedSSV afterBalance = afterOp.snapshot.balance;
             if (afterBalance.neq(PACKED_SSV_ZERO)) {
                 withdrawAllNotZero = true;
             }
@@ -520,9 +660,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             if (token.balanceOf(address(this)) != contractBefore - withdrawAmount) {
                 withdrawPayoutMismatch = true;
             }
-            if (getOperator(operatorId).ethSnapshot.balance.neq(ethBalanceBefore)) {
-                ssvWithdrawTouchedEth = true;
-            }
+            _checkUntouchedEthSnapshot(before, afterOp);
+            _checkLegacyPreservesEth(before, afterOp);
             _updateExpectedBalances(operatorId, expectedEthBalance[operatorId], afterBalance);
         } catch {}
     }
@@ -569,6 +708,7 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         OperatorUser owner = OperatorUser(payable(ownerAddr));
         try owner.remove(operatorId) {
+            ISSVNetworkCore.Operator memory afterOp = getOperator(operatorId);
             _checkRemovalState(operatorId, before);
             _checkPayouts(
                 ownerAddr,
@@ -579,6 +719,8 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
                 contractEthBefore,
                 contractSsvBefore
             );
+            _checkLegacyPreservesEth(before, afterOp);
+            _checkEthOnlyPreservesSsv(before, afterOp);
             _updateExpectedBalances(operatorId, PACKED_ETH_ZERO, PACKED_SSV_ZERO);
         } catch {}
     }
@@ -720,6 +862,14 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         return !ssvWithdrawTouchedEth;
     }
 
+    function echidna_legacy_operator_preserves_uninitialized_eth() external view returns (bool) {
+        return !legacyOperatorInitializedEth;
+    }
+
+    function echidna_eth_only_operator_preserves_uninitialized_ssv() external view returns (bool) {
+        return !ethOnlyOperatorInitializedSsv;
+    }
+
     function echidna_owner_only_actions() external view returns (bool) {
         return !unauthorizedActionSucceeded;
     }
@@ -807,6 +957,69 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
     function _operatorExists(ISSVNetworkCore.Operator memory operator) internal pure returns (bool) {
         return operator.snapshot.block != 0 || operator.ethSnapshot.block != 0;
+    }
+
+    function _isLegacySsvOnly(ISSVNetworkCore.Operator memory operator) internal pure returns (bool) {
+        return operator.snapshot.block != 0 && operator.ethSnapshot.block == 0;
+    }
+
+    function _isEthOnly(ISSVNetworkCore.Operator memory operator) internal pure returns (bool) {
+        return operator.ethSnapshot.block != 0 && operator.snapshot.block == 0;
+    }
+
+    function _checkUntouchedEthSnapshot(
+        ISSVNetworkCore.Operator memory before,
+        ISSVNetworkCore.Operator memory afterOp
+    ) internal {
+        if (
+            afterOp.ethSnapshot.balance.neq(before.ethSnapshot.balance) ||
+            afterOp.ethSnapshot.block != before.ethSnapshot.block ||
+            afterOp.ethSnapshot.index != before.ethSnapshot.index
+        ) {
+            ssvWithdrawTouchedEth = true;
+        }
+    }
+
+    function _checkUntouchedSsvSnapshot(
+        ISSVNetworkCore.Operator memory before,
+        ISSVNetworkCore.Operator memory afterOp
+    ) internal {
+        if (
+            afterOp.snapshot.balance.neq(before.snapshot.balance) ||
+            afterOp.snapshot.block != before.snapshot.block ||
+            afterOp.snapshot.index != before.snapshot.index
+        ) {
+            ethWithdrawTouchedSSV = true;
+        }
+    }
+
+    function _checkLegacyPreservesEth(
+        ISSVNetworkCore.Operator memory before,
+        ISSVNetworkCore.Operator memory afterOp
+    ) internal {
+        if (!_isLegacySsvOnly(before)) return;
+        if (
+            afterOp.ethSnapshot.block != 0 ||
+            afterOp.ethSnapshot.index != before.ethSnapshot.index ||
+            afterOp.ethSnapshot.balance.neq(before.ethSnapshot.balance) ||
+            afterOp.ethFee.neq(before.ethFee)
+        ) {
+            legacyOperatorInitializedEth = true;
+        }
+    }
+
+    function _checkEthOnlyPreservesSsv(
+        ISSVNetworkCore.Operator memory before,
+        ISSVNetworkCore.Operator memory afterOp
+    ) internal {
+        if (!_isEthOnly(before)) return;
+        if (
+            afterOp.snapshot.block != 0 ||
+            afterOp.snapshot.index != before.snapshot.index ||
+            afterOp.snapshot.balance.neq(before.snapshot.balance)
+        ) {
+            ethOnlyOperatorInitializedSsv = true;
+        }
     }
 
     function _boundFee(uint256 seed) internal view returns (uint256) {

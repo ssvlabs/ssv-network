@@ -27,6 +27,7 @@ echidna test/echidna/SSVEdgeCasesEchidna.sol --contract SSVEdgeCasesEchidna --co
 echidna test/echidna/SSVValidatorsEchidna.sol --contract SSVValidatorsEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVMigrationEchidna.sol --contract SSVMigrationEchidna --config test/echidna/echidna.yaml
 ```
 
 ## Files
@@ -35,13 +36,14 @@ echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/ec
 test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
-├── SSVOperatorsEchidna.sol           # Operators invariants (19 tests)
-├── SSVClustersEchidna.sol            # Clusters invariants (9 tests)
-├── SSVAccountingEchidna.sol          # System accounting invariants (4 tests)
+├── SSVOperatorsEchidna.sol           # Operators invariants (21 tests)
+├── SSVClustersEchidna.sol            # Clusters invariants (17 tests)
+├── SSVAccountingEchidna.sol          # System accounting invariants (5 tests)
 ├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (4 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
-├── SSVStakingEchidna.sol             # Staking invariants (12 tests)
-├── SSVDAOEchidna.sol                 # DAO invariants (13 tests)
+├── SSVStakingEchidna.sol             # Staking invariants (14 tests)
+├── SSVDAOEchidna.sol                 # DAO invariants (15 tests)
+├── SSVMigrationEchidna.sol           # Migration invariants (3 tests)
 ├── echidna.yaml
 ├── run-echidna.sh
 └── README.md
@@ -69,7 +71,7 @@ test/echidna/
 | `echidna_attacker_cannot_burn` | Unauthorized burn blocked |
 | `echidna_only_self_is_staking` | Single authorized address |
 
-## SSVOperatorsEchidna (19 Invariants)
+## SSVOperatorsEchidna (21 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -87,13 +89,15 @@ test/echidna/
 | `echidna_withdraw_conserves_balance` | Withdrawals conserve balances |
 | `echidna_earnings_monotonic` | Earnings never decrease without withdrawals |
 | `echidna_fee_change_latency` | Fee change applies only after execution |
-| `echidna_eth_withdraw_keeps_ssv` | ETH withdraws do not touch SSV earnings |
-| `echidna_ssv_withdraw_keeps_eth` | SSV withdraws do not touch ETH earnings |
+| `echidna_eth_withdraw_keeps_ssv` | ETH withdraws do not touch SSV snapshot state |
+| `echidna_ssv_withdraw_keeps_eth` | SSV withdraws do not touch ETH snapshot state |
+| `echidna_legacy_operator_preserves_uninitialized_eth` | Legacy SSV-only actions preserve `ethSnapshot.block == 0` |
+| `echidna_eth_only_operator_preserves_uninitialized_ssv` | ETH-only actions preserve `snapshot.block == 0` |
 | `echidna_owner_only_actions` | Owner-only access enforced |
 | `echidna_remove_cleans_state` | Removal zeroes operator state |
 | `echidna_remove_pays_out` | Removal pays out and reduces holdings |
 
-## SSVClustersEchidna (9 Invariants)
+## SSVClustersEchidna (17 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -106,8 +110,16 @@ test/echidna/
 | `echidna_liquidation_cleans_state` | Liquidation zeroes cluster and pays out |
 | `echidna_reactivate_requires_inactive` | Reactivation only from inactive |
 | `echidna_dust_liquidation_reachable` | Dust balances become liquidatable after burn |
+| `echidna_eb_update_requires_latest_root` | Non-latest EB roots are rejected |
+| `echidna_eb_snapshot_block_lte_current` | EB snapshots never point to a future block |
+| `echidna_eb_snapshot_root_monotonic` | Per-cluster EB root block numbers never decrease |
+| `echidna_eb_update_requires_root` | EB updates require a committed root |
+| `echidna_eb_update_frequency` | EB update cooldown is enforced |
+| `echidna_eb_update_staleness` | EB updates require strictly increasing root block numbers |
+| `echidna_fee_index_current_after_settle` | ETH settlement stores the current operator/network fee indices |
+| `echidna_fee_uses_old_vunits_on_eb_change` | EB changes settle elapsed fees using old vUnits |
 
-## SSVAccountingEchidna (4 Invariants)
+## SSVAccountingEchidna (5 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -115,6 +127,7 @@ test/echidna/
 | `echidna_ssv_conservation` | SSV conservation across clusters/operators/DAO |
 | `echidna_eth_solvency` | ETH solvency for all tracked balances |
 | `echidna_ssv_solvency` | SSV solvency for all tracked balances |
+| `echidna_vunits_deviation_consistent` | DAO/operator vUnits deviation bookkeeping stays consistent |
 
 ## SSVEdgeCasesEchidna (4 Invariants)
 
@@ -138,7 +151,7 @@ test/echidna/
 | `echidna_owner_only_remove` | Only owner can remove validators |
 | `echidna_owner_only_exit` | Only owner can exit validators |
 
-## SSVStakingEchidna (12 Invariants)
+## SSVStakingEchidna (14 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -153,9 +166,10 @@ test/echidna/
 | `echidna_pending_requests_bounded` | Withdrawal request count stays within bounds |
 | `echidna_user_index_leq_acc` | User index never exceeds global accumulator |
 | `echidna_accrued_within_pool` | Accrued rewards stay within pool balance |
-| `echidna_oracle_weights_match_supply` | Oracle weights sum equals cSSV supply |
+| `echidna_cssv_transfer_settles_both` | cSSV transfers settle sender and receiver to `accEthPerShare` |
+| `echidna_claim_payout_precision` | ETH reward payouts stay aligned to `ETH_DEDUCTED_DIGITS` |
 
-## SSVDAOEchidna (13 Invariants)
+## SSVDAOEchidna (15 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -164,6 +178,8 @@ test/echidna/
 | `echidna_liquidation_thresholds_valid` | Liquidation thresholds respect minimums |
 | `echidna_quorum_bps_valid` | Quorum stays within bounds |
 | `echidna_dao_balance_matches_expected` | DAO balance matches token holdings |
+| `echidna_dao_withdraw_debits_exact_and_resets_index` | Successful SSV DAO withdraws debit current earnings exactly and reset `daoIndexBlockNumber` |
+| `echidna_dao_index_block_lte_current` | DAO checkpoint blocks never exceed `block.number` |
 | `echidna_withdraw_limits_enforced` | Withdrawals cannot exceed balance |
 | `echidna_withdraw_conserves_balance` | Withdrawals conserve balances |
 | `echidna_commit_root_only_oracle` | Only oracles can commit roots |
@@ -173,23 +189,19 @@ test/echidna/
 | `echidna_committed_block_monotonic` | Latest committed block is monotonic |
 | `echidna_oracle_mapping_consistent` | Oracle ID mappings remain consistent |
 
+## SSVMigrationEchidna (3 Invariants)
+
+| Property | Description |
+|----------|-------------|
+| `echidna_migration_removed_refund_exact` | Removed-operator migration refunds match the full frozen SSV settlement |
+| `echidna_migration_removed_operator_not_eth_initialized` | Removed operators stay excluded from ETH initialization during migration |
+| `echidna_removed_operator_state_and_frozen_index_preserved` | Removed operators keep zeroed blocks while preserving frozen SSV index |
+
 ---
 
 ## Planned Invariants (Not Yet Implemented)
 
-Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the 73 existing invariants above. Only invariants that are **not already covered** are listed below. Grouped by priority.
-
-### Strengthen Existing (partial coverage → full)
-
-These existing invariants should be upgraded to catch more subtle bugs:
-
-| Existing Property | Upgrade | Ref |
-|---|---|---|
-| `echidna_network_fee_matches_expected` | Add explicit monotonicity: track `prevEthIndex` / `prevSsvIndex` in harness, assert never decreases | A8 |
-| `echidna_cssv_supply_matches_users` | Add per-operation delta: on stake `amount`, assert cSSV supply increased by exactly `amount` | A11 |
-| `echidna_user_index_leq_acc` | Strengthen to exact equality: after `_settle(user)`, assert `userIndex[user] == accEthPerShare` | A14 |
-| `echidna_pool_matches_dao_balance` | Add per-claim delta: on successful claim of `payout`, assert both `stakingEthPoolBalance` and `ethDaoBalance` decreased by exactly `payout` | A16 |
-| `echidna_accrued_within_pool` | Add cumulative tracking: wrap `claimEthRewards` to track `totalEthPaidOut`, assert `totalEthPaidOut <= totalEthCredited` | C2 |
+Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the 99 existing invariants above. Only invariants that are **not already covered** are listed below. Grouped by priority.
 
 ### High Priority — New Invariants
 
@@ -203,43 +215,11 @@ Directly testable with current harness patterns. High bug-catching value.
 | `echidna_commitment_weight_lte_supply` | Always | For each tracked `commitmentKey`, `rootCommitments[key] <= cSSV.totalSupply()` — catches quorum overflow | A5 |
 | `echidna_finalization_implies_quorum` | Conditional | At finalization time, accumulated weight >= `threshold(totalSupply, quorumBps)` — catches quorum bypass | B1 |
 
-#### DAO Accounting
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_dao_earnings_monotonic` | Always | `networkTotalEarnings()` (ETH) and `networkTotalEarningsSSV()` never decrease as `block.number` advances — catches settlement regression | A9 |
-| `echidna_dao_index_block_lte_current` | Always | `ethDaoIndexBlockNumber <= block.number` and `daoIndexBlockNumber <= block.number` — catches "time-travel" indices | A10 |
-
 #### Staking Rewards Precision
 
 | Planned Property | Type | Description | Ref |
 |---|---|---|---|
-| `echidna_cssv_transfer_settles_both` | Always | After `onCSSVTransfer(from, to, amount)`, both `userIndex[from]` and `userIndex[to]` equal `accEthPerShare` — catches reward smuggling via transfer | A15 |
-| `echidna_claim_payout_precision` | Always | Any successful claim `payout` satisfies `payout % ETH_DEDUCTED_DIGITS == 0` — catches precision bypass | A17 |
 | `echidna_no_free_rewards_on_transfer` | Candidate | cSSV transfer does not move already-accrued rewards from sender to receiver — catches reward smuggling (needs 2-actor before/after tracking) | C3 |
-
-#### EB Snapshot Safety
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_eb_snapshot_block_lte_current` | Always | `clusterEB[id].lastUpdateBlock <= block.number` — catches future-dated EB snapshots | A18 |
-| `echidna_eb_snapshot_root_monotonic` | Always | `clusterEB[id].lastRootBlockNum` never decreases per cluster — catches stale proof replay | A19 |
-
-#### EB Update Correctness
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_eb_update_requires_latest_root` | Conditional | `updateClusterBalance(blockNum, ...)` with non-latest committed root must always revert (SSV-17 latest-root-only rule) | SSV-17 |
-| `echidna_eb_update_requires_root` | Conditional | `updateClusterBalance(blockNum, ...)` succeeds only if `ebRoots[blockNum] != 0` | B3 |
-| `echidna_eb_update_frequency` | Conditional | Same cluster cannot update twice within `minBlocksBetweenUpdates` — second update reverts | B4 |
-| `echidna_eb_update_staleness` | Conditional | Successful update requires `blockNum > lastRootBlockNum` for that cluster | B5 |
-
-#### Fee Settlement Correctness
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_fee_index_current_after_settle` | Conditional | After ETH cluster fee settlement, stored fee indices equal protocol "current" indices | B9 |
-| `echidna_fee_uses_old_vunits_on_eb_change` | Conditional | When EB update changes vUnits, fees for elapsed period use old vUnits, not new | B11 |
 
 #### Liquidation Completeness
 
@@ -314,11 +294,21 @@ To make the above invariants exercisable, the following harness features are nee
 
 | Harness Feature | Required By | Description |
 |---|---|---|
-| **Prev-value tracking** | A8, A9, A18, A19 | Store `prevIndex`, `prevEarnings`, `prevBlock` in harness to assert monotonicity |
 | **Touched-key arrays** | A4, A5, B1 | Track `bytes32[] touchedCommitmentKeys` since mappings aren't iterable |
-| **Per-claim delta tracking** | A16, C2 | Wrap `claimEthRewards` to capture before/after pool balances |
-| **2-actor reward tracking** | A15, C3 | Track accrued rewards for both sender/receiver around cSSV transfers |
+| **2-actor reward tracking** | C3 | Track accrued rewards for both sender/receiver around cSSV transfers |
 | **Merkle tree builder** | B6, B7, B8 | Tiny in-harness Merkle builder for valid proof happy paths |
 | **Delta-block simulator** | X4, X5, X6 | Test-only function that applies fee accrual math with explicit `deltaBlocks` input |
 | **Per-cluster EB tracking** | C5, C6 | Arrays tracking baseline and deviation per cluster for global sum verification |
 | **Max-param configurator** | X4, X5, X6, X7 | Helpers to set operator fee = max, validators = max, EB = max bound |
+
+## Incident To Tests Checklist
+
+Every production bug fix should add or update all 5 artifacts below:
+
+| Artifact | Requirement |
+|---|---|
+| Entry point | Name the exact mutating function or action family that triggered the bug |
+| Seed state | Add an explicit harness/helper path that recreates the vulnerable state shape |
+| Semantic invariant | Add or strengthen an invariant that expresses the state transition rule, not a function allowlist |
+| Deterministic regression | Add a unit/integration regression that pins the concrete incident |
+| CI-visible path | Ensure at least one automated workflow executes the new regression or invariant on PRs |

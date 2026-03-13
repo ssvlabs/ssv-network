@@ -94,6 +94,47 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     expect(operatorAfter.ethSnapshot.balance).to.equal(0n);
   });
 
+  it("Does not initialize the SSV snapshot for an ETH-only operator", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+    await seedOperatorWithETHBalance(operators, 1, 5n);
+
+    const before = await operators.getOperator(1);
+    expect(before.ethSnapshot.block).to.be.greaterThan(0n);
+    expect(before.snapshot.block).to.equal(0n);
+
+    await operators.withdrawOperatorEarnings(1, 2n * ETH_DEDUCTED_DIGITS);
+
+    const after = await operators.getOperator(1);
+    expect(after.snapshot.block).to.equal(0n);
+    expect(after.snapshot.balance).to.equal(0n);
+  });
+
+  it("Does not initialize the SSV snapshot for an ETH-only operator on withdrawAll", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+    await seedOperatorWithETHBalance(operators, 1, 5n);
+
+    const before = await operators.getOperator(1);
+    expect(before.ethSnapshot.block).to.be.greaterThan(0n);
+    expect(before.snapshot.block).to.equal(0n);
+
+    await operators.withdrawAllOperatorEarnings(1);
+
+    const after = await operators.getOperator(1);
+    expect(after.ethSnapshot.balance).to.equal(0n);
+    expect(after.snapshot.block).to.equal(0n);
+    expect(after.snapshot.balance).to.equal(0n);
+  });
+
   it("Is reverted with 'InsufficientBalance' when withdrawing more than ETH snapshot balance", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
@@ -170,4 +211,3 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     expect(operatorAfter.ethSnapshot.balance).to.equal(0n);
   });
 });
-

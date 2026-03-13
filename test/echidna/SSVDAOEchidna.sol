@@ -70,11 +70,11 @@ contract SSVDAOEchidna is SSVDAO {
     bool private overWithdrawSucceeded;
     bool private withdrawMismatch;
     bool private feeIndexDecreased;
+    bool private daoWithdrawAccountingBroken;
 
     uint256 private prevEthFeeCurrentIndex;
     uint256 private prevSsvFeeCurrentIndex;
     bool private feeIndexTrackingInitialized;
-
     modifier trackFeeIndexMonotonicity() {
         _checkpointNetworkFeeIndices();
         _;
@@ -211,8 +211,10 @@ contract SSVDAOEchidna is SSVDAO {
         uint256 amount = uint256(amountUnits) * DEDUCTED_DIGITS;
         DAOUser caller = _withdrawUser(userSeed);
 
+        StorageProtocol storage sp = SSVStorageProtocol.load();
         uint256 beforeToken = token.balanceOf(address(this));
-        uint64 beforeDao = PackedSSV.unwrap(SSVStorageProtocol.load().daoBalance);
+        uint64 beforeDao = PackedSSV.unwrap(sp.daoBalance);
+        uint256 beforeCurrentEarnings = _currentSsvDaoEarnings(sp);
 
         try caller.withdraw(amount) {
             if (amountUnits > available) {
@@ -221,10 +223,11 @@ contract SSVDAOEchidna is SSVDAO {
             }
 
             uint256 afterToken = token.balanceOf(address(this));
-            uint64 afterDao = PackedSSV.unwrap(SSVStorageProtocol.load().daoBalance);
+            uint64 afterDao = PackedSSV.unwrap(sp.daoBalance);
 
             if (afterDao != beforeDao - amountUnits) withdrawMismatch = true;
             if (afterToken != beforeToken - amount) withdrawMismatch = true;
+            _checkDaoWithdrawAccounting(beforeCurrentEarnings, amountUnits);
         } catch {}
     }
 
@@ -302,6 +305,15 @@ contract SSVDAOEchidna is SSVDAO {
     function echidna_dao_balance_matches_expected() external view returns (bool) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         return token.balanceOf(address(this)) == uint256(PackedSSV.unwrap(sp.daoBalance)) * DEDUCTED_DIGITS;
+    }
+
+    function echidna_dao_withdraw_debits_exact_and_resets_index() external view returns (bool) {
+        return !daoWithdrawAccountingBroken;
+    }
+
+    function echidna_dao_index_block_lte_current() external view returns (bool) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        return sp.ethDaoIndexBlockNumber <= block.number && sp.daoIndexBlockNumber <= block.number;
     }
 
     function echidna_withdraw_limits_enforced() external view returns (bool) {
@@ -446,6 +458,31 @@ contract SSVDAOEchidna is SSVDAO {
 
         prevEthFeeCurrentIndex = ethCurrent;
         prevSsvFeeCurrentIndex = ssvCurrent;
+    }
+
+    function _currentSsvDaoEarnings(StorageProtocol storage sp) internal view returns (uint256) {
+        uint256 diff = block.number - sp.daoIndexBlockNumber;
+        return uint256(PackedSSV.unwrap(sp.daoBalance)) +
+            (diff * uint256(PackedSSV.unwrap(sp.networkFee)) * uint256(sp.daoValidatorCount));
+    }
+
+    function _checkDaoWithdrawAccounting(uint256 beforeCurrentEarnings, uint64 amountUnits) internal {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint256 afterCurrentEarnings = _currentSsvDaoEarnings(sp);
+
+        if (sp.daoIndexBlockNumber != block.number) {
+            daoWithdrawAccountingBroken = true;
+            return;
+        }
+
+        if (beforeCurrentEarnings < amountUnits) {
+            daoWithdrawAccountingBroken = true;
+            return;
+        }
+
+        if (afterCurrentEarnings != beforeCurrentEarnings - amountUnits) {
+            daoWithdrawAccountingBroken = true;
+        }
     }
 
     function _mockSetToken(address tokenAddress) internal {

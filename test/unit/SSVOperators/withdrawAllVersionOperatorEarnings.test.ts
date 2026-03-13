@@ -195,6 +195,26 @@ describe("SSVOperators function `withdrawAllVersionOperatorEarnings()`", async (
     expect(operatorAfter.ethFee).to.equal(0n);
   });
 
+  it("Does not initialize the SSV snapshot for an ETH-only operator", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.mockSetOperatorEthOnly(1, 1n);
+    await operators.mockSetOperatorBalances(1, 25n, 0n);
+    await networkHelpers.setBalance(await operators.getAddress(), connection.ethers.parseEther("1"));
+
+    const before = await operators.getOperator(1);
+    expect(before.ethSnapshot.block).to.be.greaterThan(0n);
+    expect(before.snapshot.block).to.equal(0n);
+
+    await operators.withdrawAllVersionOperatorEarnings(1);
+
+    const after = await operators.getOperator(1);
+    expect(after.ethSnapshot.balance).to.equal(0n);
+    expect(after.snapshot.block).to.equal(0n);
+    expect(after.snapshot.balance).to.equal(0n);
+  });
+
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to withdraw", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 

@@ -20,6 +20,8 @@ jobs:
           - SSVOperatorsEchidna
           - SSVAccountingEchidna
           - SSVEdgeCasesEchidna
+          - SSVDAOEchidna
+          - SSVStakingEchidna
 
     steps:
       - name: Checkout repository

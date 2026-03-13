@@ -119,6 +119,8 @@ contract SSVStakingEchidna is SSVStaking {
     bool private userIndexSettleMismatch;
     bool private claimDeltaMismatch;
     bool private payoutAccountingOverflow;
+    bool private transferSettleMismatch;
+    bool private claimPayoutPrecisionBroken;
 
     uint256 private expectedCssvSupply;
     uint256 private totalEthCreditedWei;
@@ -237,6 +239,9 @@ contract SSVStakingEchidna is SSVStaking {
             uint64 afterDao = PackedETH.unwrap(sp.ethDaoBalance);
             uint256 afterUserBalance = address(user).balance;
             uint256 payout = afterUserBalance - beforeUserBalance;
+            if (payout % ETH_DEDUCTED_DIGITS != 0) {
+                claimPayoutPrecisionBroken = true;
+            }
 
             if (afterPool > beforePool || afterDao > beforeDao) {
                 claimDeltaMismatch = true;
@@ -407,6 +412,14 @@ contract SSVStakingEchidna is SSVStaking {
         return accrued + totalEthPaidOutWei <= totalEthCreditedWei;
     }
 
+    function echidna_cssv_transfer_settles_both() external view returns (bool) {
+        return !transferSettleMismatch;
+    }
+
+    function echidna_claim_payout_precision() external view returns (bool) {
+        return !claimPayoutPrecisionBroken;
+    }
+
     function _boundShrunk(uint256 seed, uint64 maxValue) internal pure returns (uint64) {
         if (maxValue == 0) return 0;
         return uint64(seed % (uint256(maxValue) + 1));
@@ -473,6 +486,9 @@ contract SSVStakingEchidna is SSVStaking {
         _settle(to, s);
         _checkSettledWithStorage(s, from);
         _checkSettledWithStorage(s, to);
+        if (s.userIndex[from] != s.accEthPerShare || s.userIndex[to] != s.accEthPerShare) {
+            transferSettleMismatch = true;
+        }
     }
 
     function _mockSetEthDaoBalance(uint64 balance) internal {

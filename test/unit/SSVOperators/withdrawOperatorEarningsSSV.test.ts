@@ -103,6 +103,53 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
     expect(operatorAfter.snapshot.balance).to.equal(0n);
   });
 
+  it("Does not initialize the ETH snapshot for a legacy SSV-only operator", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+    await operators.mockSetOperatorLegacySSV(1, 12n);
+    await seedOperatorWithSSVBalance(operators, 1, 5n);
+
+    const before = await operators.getOperator(1);
+    expect(before.snapshot.block).to.be.greaterThan(0n);
+    expect(before.ethSnapshot.block).to.equal(0n);
+    expect(before.ethFee).to.equal(0n);
+
+    await operators.withdrawOperatorEarningsSSV(1, 2n * DEDUCTED_DIGITS);
+
+    const after = await operators.getOperator(1);
+    expect(after.ethSnapshot.block).to.equal(0n);
+    expect(after.ethSnapshot.balance).to.equal(0n);
+    expect(after.ethFee).to.equal(0n);
+  });
+
+  it("Does not initialize the ETH snapshot for a legacy SSV-only operator on withdrawAll", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+    await operators.mockSetOperatorLegacySSV(1, 12n);
+    await seedOperatorWithSSVBalance(operators, 1, 5n);
+
+    const before = await operators.getOperator(1);
+    expect(before.snapshot.block).to.be.greaterThan(0n);
+    expect(before.ethSnapshot.block).to.equal(0n);
+    expect(before.ethFee).to.equal(0n);
+
+    await operators.withdrawAllOperatorEarningsSSV(1);
+
+    const after = await operators.getOperator(1);
+    expect(after.snapshot.balance).to.equal(0n);
+    expect(after.ethSnapshot.block).to.equal(0n);
+    expect(after.ethSnapshot.balance).to.equal(0n);
+    expect(after.ethFee).to.equal(0n);
+  });
+
   it("Is reverted with 'InsufficientBalance' when withdrawing more than SSV snapshot balance", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 
