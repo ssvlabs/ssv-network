@@ -26,6 +26,7 @@
 | BUG-14 | ~~Removed operator SSV fees skipped during `migrateClusterToETH` fee settlement (double-payment)~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-14b | ~~`reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators~~ | Critical Bug Fix | P1 | ✅ Fixed (ensureETHDefaults marker pattern) |
 | BUG-15 | ~~`withdrawAllVersionOperatorEarnings` initializes ETH snapshot for legacy SSV-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
+| BUG-16 | ~~SSVNetworkViews enforce cluster version checks and unify isActive logic~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | SEC-1 | ~~`setQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
