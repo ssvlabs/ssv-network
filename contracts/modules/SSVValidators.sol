@@ -5,7 +5,6 @@ import {ISSVValidators} from "../interfaces/ISSVValidators.sol";
 import {ClusterLib} from "../libraries/ClusterLib.sol";
 import {OperatorLib} from "../libraries/OperatorLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
-import {CoreLib} from "../libraries/CoreLib.sol";
 import {ValidatorLib} from "../libraries/ValidatorLib.sol";
 import {VERSION_ETH, VERSION_SSV, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";

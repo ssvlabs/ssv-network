@@ -5,7 +5,6 @@ import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
 import {PackedSSV, PackedETH, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
-import {SSVStorageEB} from "./storage/SSVStorageEB.sol";
 
 /**
  * @title SSV Protocol Library

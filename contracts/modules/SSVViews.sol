@@ -8,7 +8,7 @@ import {ClusterLib} from "../libraries/ClusterLib.sol";
 import {OperatorLib} from "../libraries/OperatorLib.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
-import {PackedSSV, PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE, PRECISION, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE, PRECISION, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";

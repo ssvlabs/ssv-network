@@ -6,7 +6,6 @@ import {ClusterLib} from "../libraries/ClusterLib.sol";
 import {OperatorLib} from "../libraries/OperatorLib.sol";
 import {ProtocolLib} from "../libraries/ProtocolLib.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
-import {ValidatorLib} from "../libraries/ValidatorLib.sol";
 import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, ETH_DEDUCTED_DIGITS, DEFAULT_EB_PER_VALIDATOR, MAX_EB_PER_VALIDATOR, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
