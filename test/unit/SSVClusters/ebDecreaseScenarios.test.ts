@@ -4,7 +4,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, computeEBRoot, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { ethers } from "ethers";
@@ -52,10 +52,10 @@ describe("EB decrease scenarios", async () => {
     const blockEB64 = ebReceipt1!.blockNumber;
     const clusterAfterEB64 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedVUnits64 = ((64n * VUNITS_PRECISION) + 31n) / 32n;
+    const expectedVUnits64 = ((64n * BPS_DENOMINATOR) + 31n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits64);
 
-    const expectedDeviation64 = expectedVUnits64 - VUNITS_PRECISION;
+    const expectedDeviation64 = expectedVUnits64 - BPS_DENOMINATOR;
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation64);
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(expectedVUnits64);
@@ -73,18 +73,18 @@ describe("EB decrease scenarios", async () => {
     const blockEB32 = ebReceipt2!.blockNumber;
     const clusterAfterEB32 = parseClusterFromEvent(clusters, ebReceipt2, Events.CLUSTER_BALANCE_UPDATED);
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR);
     }
     const blocksDelta = BigInt(blockEB32 - blockEB64);
     const vUnits64 = 20000n;
     const ETH_DEDUCTED_DIGITS = 100_000n;
     const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
     const totalPackedFeeRate = 4n * packedOpFee;
-    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
 
     const feesDeducted = balanceAfterEB64 - clusterAfterEB32.balance;
     expect(feesDeducted).to.equal(expectedFees);
@@ -114,7 +114,7 @@ describe("EB decrease scenarios", async () => {
     const ebReceipt1 = await ebTx1.wait();
     const clusterAfter128 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.be.gt(VUNITS_PRECISION);
+    expect(await clusters.getClusterVUnits(clusterId)).to.be.gt(BPS_DENOMINATOR);
 
     const belowMinEB = 31;
     const root2 = computeEBRoot(clusterId, belowMinEB);
@@ -205,7 +205,7 @@ describe("EB decrease scenarios", async () => {
     const ebReceipt1 = await ebTx1.wait();
     const clusterAfterEB64 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedDeviation = 20000n - VUNITS_PRECISION;
+    const expectedDeviation = 20000n - BPS_DENOMINATOR;
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation);
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(20000n);
@@ -221,10 +221,10 @@ describe("EB decrease scenarios", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR);
     }
-    expect(await clusters.getDaoTotalEthVUnits()).to.equal(VUNITS_PRECISION);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(BPS_DENOMINATOR);
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
   });
 });

@@ -4,7 +4,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, computeEBRoot, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { ethers } from "ethers";
@@ -70,7 +70,7 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
     const clusterAfterEB32 = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
     expect(clusterAfterEB32.active).to.equal(true);
     const vUnitsAfterEB32 = await clusters.getClusterVUnits(clusterId);
-    expect(vUnitsAfterEB32).to.equal(VUNITS_PRECISION);
+    expect(vUnitsAfterEB32).to.equal(BPS_DENOMINATOR);
     await expect(
       clusters.connect(liquidator).liquidate(
         clusterOwner.address,

@@ -9,8 +9,8 @@ import {
   makePublicKey,
   getCurrentClusterState,
   setupTestContext,
-  generateMerkleForClusterEB,
 } from '../../common/helpers.ts';
+import { computeClusterId, generateMerkleForClusterEB, commitEBRoot } from '../../helpers/oracle.ts';
 import {
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
@@ -239,7 +239,7 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
         { clusterId, effectiveBalance: eb64 },
       ]);
 
-      await commitEBRoot(network, oracles, root, ebBlock);
+      await commitEBRoot(network, root, ebBlock, oracles);
 
       const cluster = await getCurrentClusterState(
         connection,
@@ -331,7 +331,7 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
         { clusterId: clusterId2, effectiveBalance: eb64 },
       ]);
 
-      await commitEBRoot(network, oracles, root, ebBlock);
+      await commitEBRoot(network, root, ebBlock, oracles);
 
       const cluster1 = await getCurrentClusterState(
         connection,

@@ -166,7 +166,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const currentBlock = await connection.ethers.provider.getBlockNumber();
-    await dao.mockSetQuorumBps(5000);
+    await dao.mockupdateQuorumBps(5000);
 
     await dao.connect(oracle1).commitRoot(merkleRoot, currentBlock);
 
@@ -189,7 +189,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
     await cssv.mint(owner.address, totalSupply);
 
-    await dao.mockSetQuorumBps(100);
+    await dao.mockupdateQuorumBps(100);
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const blockNum = await connection.ethers.provider.getBlockNumber();
 
@@ -213,7 +213,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
     await cssv.mint(owner.address, totalSupply);
 
-    await dao.mockSetQuorumBps(5000);
+    await dao.mockupdateQuorumBps(5000);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const blockNum = await connection.ethers.provider.getBlockNumber();

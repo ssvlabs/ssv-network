@@ -1,7 +1,7 @@
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import type { SSVNetwork, SSVNetworkViews } from '../../types/ethers-contracts/index.js';
 import type { Cluster, OperatorTuple } from '../common/types.ts';
-import { BPS_DENOMINATOR, DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_FEE_SSV, OPERATOR_FEE_PRECISION, VUNITS_PRECISION, } from '../common/constants.ts';
+import { BPS_DENOMINATOR, DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_FEE_SSV, OPERATOR_FEE_PRECISION, } from '../common/constants.ts';
 import { makePublicKey, makeOperatorKey } from './keys.ts';
 import { getCurrentClusterState } from './cluster.ts';
 import { setAccountBalance } from './blocks.ts';
@@ -78,8 +78,8 @@ export async function calculateInitialBurnRate(views: SSVNetworkViews, operatorI
     operatorsFee += BigInt(op[1].toString());
   }
   const networkFee: bigint = BigInt((await views.getNetworkFee()).toString());
-  const vUnits: bigint = BigInt(cluster.validatorCount.toString()) * VUNITS_PRECISION;
-  const units: bigint = vUnits / VUNITS_PRECISION;
+  const vUnits: bigint = BigInt(cluster.validatorCount.toString()) * BPS_DENOMINATOR;
+  const units: bigint = vUnits / BPS_DENOMINATOR;
   return (networkFee + operatorsFee) * units;
 }
 

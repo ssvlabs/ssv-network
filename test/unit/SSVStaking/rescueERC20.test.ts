@@ -6,6 +6,7 @@ import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { setupTestContext } from "../../common/helpers.ts";
+import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `rescueERC20()`", async () => {

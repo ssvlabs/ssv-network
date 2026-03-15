@@ -63,7 +63,7 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
       await expect(newNetwork.connect(clusterOwner).bulkRegisterValidator([makePublicKey(322)], operatorIds, [DEFAULT_SHARES], cluster)).to.be.revertedWithCustomError(newNetwork, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
-    it("'removeValidator()' is reverted with 'IncorrectClusterVersion' if trying to remove validators from a legacy cluster", async function () {
+    it("'removeValidator()' succeeds on legacy SSV clusters (BUG-12 fix)", async function () {
       const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
       await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
       await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
@@ -72,10 +72,11 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
       await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
       const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
-      await expect(newNetwork.connect(clusterOwner).removeValidator(makePublicKey(123), operatorIds, cluster)).to.be.revertedWithCustomError(newNetwork, Errors.INCORRECT_CLUSTER_VERSION);
+      const removeTx = await newNetwork.connect(clusterOwner).removeValidator(makePublicKey(123), operatorIds, cluster);
+      await removeTx.wait();
     });
 
-    it("'bulRemoveValidator()' is reverted with 'IncorrectClusterVersion' if trying to remove validators from a legacy cluster", async function () {
+    it("'bulkRemoveValidator()' succeeds on legacy SSV clusters (BUG-12 fix)", async function () {
       const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
       await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
       await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
@@ -84,7 +85,8 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
       await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
       const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
-      await expect(newNetwork.connect(clusterOwner).bulkRemoveValidator([makePublicKey(123)], operatorIds, cluster)).to.be.revertedWithCustomError(newNetwork, Errors.INCORRECT_CLUSTER_VERSION);
+      const bulkRemoveTx = await newNetwork.connect(clusterOwner).bulkRemoveValidator([makePublicKey(123)], operatorIds, cluster);
+      await bulkRemoveTx.wait();
     });
 
     it("'liquidate()' is reverted with 'IncorrectClusterVersion' if trying to liquidate legacy ssv cluster with an ETH-based function", async function () {
@@ -156,7 +158,7 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
       await expect(tx).to.emit(newNetwork, Events.CLUSTER_MIGRATED_TO_ETH);
       cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       expect(await newViews.getClusterAssetType(clusterOwner.address, operatorIds)).to.be.equal(CLUSTER_VERSION_ETH);
-      expect(await newViews.getBalanceSSV(clusterOwner.address, operatorIds, cluster)).to.be.equal(0);
+      await expect(newViews.getBalanceSSV(clusterOwner.address, operatorIds, cluster)).to.be.revertedWithCustomError(newViews, Errors.INCORRECT_CLUSTER_VERSION);
       expect(await newViews.getBalance(clusterOwner.address, operatorIds, cluster)).to.be.equal(SMALL_ETH_REGISTER_VALUE);
       expect(cluster.active).to.be.equal(true);
     });
@@ -178,7 +180,7 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
       await expect(tx).to.emit(newNetwork, Events.CLUSTER_REACTIVATED);
       cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       expect(await newViews.getClusterAssetType(clusterOwner.address, operatorIds)).to.be.equal(CLUSTER_VERSION_ETH);
-      expect(await newViews.getBalanceSSV(clusterOwner.address, operatorIds, cluster)).to.be.equal(0);
+      await expect(newViews.getBalanceSSV(clusterOwner.address, operatorIds, cluster)).to.be.revertedWithCustomError(newViews, Errors.INCORRECT_CLUSTER_VERSION);
       expect(await newViews.getBalance(clusterOwner.address, operatorIds, cluster)).to.be.equal(SMALL_ETH_REGISTER_VALUE);
       expect(cluster.active).to.be.equal(true);
     });
@@ -204,7 +206,7 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
         expect(opSSV.fee).to.be.equal(MINIMAL_OPERATOR_FEE_SSV);
         expect(opEth.fee).to.be.equal(MINIMAL_OPERATOR_ETH_FEE);
         expect(opSSV.isActive).to.be.equal(true);
-        expect(opEth.isActive).to.be.equal(false);
+        expect(opEth.isActive).to.be.equal(true);
       }
       await newNetwork.connect(clusterOwner).migrateClusterToETH(operatorIds, cluster, { value: SMALL_ETH_REGISTER_VALUE });
       expect(await newViews.getClusterAssetType(clusterOwner.address, operatorIds)).to.be.equal(CLUSTER_VERSION_ETH);

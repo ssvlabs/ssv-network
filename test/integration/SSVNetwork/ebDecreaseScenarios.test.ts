@@ -20,7 +20,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE,
   STAKE_AMOUNT,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";

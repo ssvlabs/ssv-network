@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { NetworkHelpersType } from "../../common/types.ts";
+import { ethers } from "ethers";
 import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {

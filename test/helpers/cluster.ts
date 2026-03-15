@@ -19,6 +19,16 @@ export function createCluster(overrides: Partial<Cluster> = {}): Cluster {
   };
 }
 
+export function createLegacySSVCluster(overrides: Partial<Cluster> = {}): Cluster {
+  return {
+    ...EMPTY_CLUSTER,
+    validatorCount: 1n,
+    active: true,
+    balance: 10_000_000_000_000_000_000n,
+    ...overrides,
+  };
+}
+
 export const clusterToTuple = (cluster: Cluster): ClusterTuple => [
   cluster.validatorCount,
   cluster.networkFeeIndex,

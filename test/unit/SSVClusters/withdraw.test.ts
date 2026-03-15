@@ -5,7 +5,7 @@ import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, computeEBRoot, createCluster, extractEventArgs, makePublicKey, parseClusterFromEvent, registerAndParseCluster } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, ETH_DEDUCTED_DIGITS, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -100,10 +100,10 @@ describe("SSVClusters function `withdraw()`", async () => {
     const withdrawReceipt = await withdrawTx.wait();
     const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
 
-    const units = clusterBeforeWithdraw.validatorCount * VUNITS_PRECISION;
+    const units = clusterBeforeWithdraw.validatorCount * BPS_DENOMINATOR;
     const idxOp = clusterAfterWithdraw.index - clusterBeforeWithdraw.index;
     const idxNet = maxUint64 - clusterBeforeWithdraw.networkFeeIndex;
-    const usageUnits = (idxOp * units) / VUNITS_PRECISION + (idxNet * units) / VUNITS_PRECISION;
+    const usageUnits = (idxOp * units) / BPS_DENOMINATOR + (idxNet * units) / BPS_DENOMINATOR;
     const wrappedUsageUnits = usageUnits & maxUint64;
     const overflowUnits = usageUnits >> 64n;
     const expectedUsageFromWrapped = wrappedUsageUnits + (overflowUnits << 64n);

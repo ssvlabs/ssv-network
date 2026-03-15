@@ -128,7 +128,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         0,
         connection.ethers.ZeroAddress,
         true,
-        false
+        true
       ]);
     });
 
@@ -1469,10 +1469,10 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       // ssv legacy getters
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-      await expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
-        .to.be.equal(0);
-      await expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
-        .to.be.equal(0);
+      await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+      await expect(views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("Registers a validator for a new ETH cluster using whitelisting contract", async function () {
@@ -1772,7 +1772,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
         .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
-        .withArgs(validatorKey);
+        .withArgs(validatorKey, clusterOwner.address);
     });
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
@@ -1952,10 +1952,10 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-      await expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
-        .to.be.equal(0);
-      await expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
-        .to.be.equal(0);
+      await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+      await expect(views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("Registers bulk of validators into an existing cluster with one whitelisting contract operator", async function() {
@@ -2083,7 +2083,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         keys, operatorIds, shares, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
         .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
-        .withArgs(keys[7]);
+        .withArgs(keys[7], clusterOwner.address);
     });
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
@@ -2309,7 +2309,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const incorrectValidator: string = validatorKey + "11";
 
       await expect(network.connect(clusterOwner).removeValidator(incorrectValidator, operatorIds, cluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
@@ -2322,7 +2322,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const updatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       await expect(network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, updatedCluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2361,8 +2361,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const incorrectValidator: string = validatorKey + "11";
 
       await expect(network.connect(clusterOwner).bulkRemoveValidator([incorrectValidator], operatorIds, cluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE)
-        .withArgs(incorrectValidator);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
@@ -2375,7 +2374,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const updatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       await expect(network.connect(clusterOwner).bulkRemoveValidator([validatorKey], operatorIds, updatedCluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 

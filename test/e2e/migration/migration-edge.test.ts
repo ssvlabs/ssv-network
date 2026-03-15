@@ -20,7 +20,7 @@ import {
   EMPTY_CLUSTER,
   TOKEN_REGISTER_AMOUNT,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
 } from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";

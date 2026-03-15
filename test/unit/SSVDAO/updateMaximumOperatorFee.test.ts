@@ -3,6 +3,7 @@ import type { NetworkConnection } from "hardhat/types/network";
 import { defaultDAOFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
+import { Errors } from "../../common/errors.ts";
 import { MAXIMUM_OPERATORS_FEE, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";

@@ -189,15 +189,15 @@ describe("SSV Cluster Legacy Operations", () => {
       ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
 
       // removeValidator is allowed on SSV clusters (BUG-12 fix)
-      const removeTx = await clusters.removeValidator(makePublicKey(1), operatorIds, ssvCluster);
+      const removeTx = await network.connect(clusterOwner).removeValidator(makePublicKey(1), operatorIds, cluster);
       const removeReceipt = await removeTx.wait();
-      const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+      const clusterAfterRemove = parseClusterFromEvent(network, removeReceipt, Events.VALIDATOR_REMOVED);
       expect(clusterAfterRemove.validatorCount).to.equal(0n);
       expect(clusterAfterRemove.active).to.equal(true);
 
       await expect(
-        clusters.liquidateSSV(clusterOwner.address, operatorIds, clusterAfterRemove),
-      ).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+        network.connect(clusterOwner).liquidateSSV(clusterOwner.address, operatorIds, clusterAfterRemove),
+      ).to.emit(network, Events.CLUSTER_LIQUIDATED);
     });
 
     it("migrateClusterToETH succeeds on SSV cluster", async function () {

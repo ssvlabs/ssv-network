@@ -4,7 +4,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, computeEBRoot, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
 
@@ -78,10 +78,10 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
       const earned = balanceAfter - balanceBefore;
 
       const blocksDelta = BigInt(blocksMined + 1);
-      const expected = packedFee * blocksDelta * 30000n / VUNITS_PRECISION;
+      const expected = packedFee * blocksDelta * 30000n / BPS_DENOMINATOR;
       expect(earned).to.equal(expected);
 
-      const flatBaseline = packedFee * blocksDelta * 20000n / VUNITS_PRECISION;
+      const flatBaseline = packedFee * blocksDelta * 20000n / BPS_DENOMINATOR;
     });
 
     it("earnings split correctly at fee change boundary with EB-weighted vUnits", async function () {
@@ -120,7 +120,7 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
       const [, snapshotBlock2, balancePhase1End] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
 
       const phase1Blocks = BigInt(snapshotBlock2) - BigInt(snapshotBlock1);
-      const expectedPhase1Delta = packedFee * phase1Blocks * 20000n / VUNITS_PRECISION;
+      const expectedPhase1Delta = packedFee * phase1Blocks * 20000n / BPS_DENOMINATOR;
       expect(balancePhase1End - balancePhase1Start).to.equal(expectedPhase1Delta);
 
       const NEW_OPERATOR_FEE = 5_000_000_000n;
@@ -139,7 +139,7 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
       const [, , balancePhase2End] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
 
       const phase2Blocks = BigInt(settledBlock3) - BigInt(snapshotBlock2);
-      const expectedPhase2Delta = newPackedFee * phase2Blocks * 20000n / VUNITS_PRECISION;
+      const expectedPhase2Delta = newPackedFee * phase2Blocks * 20000n / BPS_DENOMINATOR;
       expect(balancePhase2End - balancePhase1End).to.equal(expectedPhase2Delta);
     });
 
@@ -179,7 +179,7 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
       const harnessEthAfter = await connection.ethers.provider.getBalance(harnessAddress);
 
       const totalBlocksDelta = BigInt(withdrawalBlock) - BigInt(snapshotBlock1);
-      const newEarningsPacked = packedFee * totalBlocksDelta * 20000n / VUNITS_PRECISION;
+      const newEarningsPacked = packedFee * totalBlocksDelta * 20000n / BPS_DENOMINATOR;
       const expectedETH = (balanceAtSnapshot + newEarningsPacked) * ETH_DEDUCTED_DIGITS;
       expect(harnessEthBefore - harnessEthAfter).to.equal(expectedETH);
 
@@ -258,7 +258,7 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
       const [, , balanceAfter] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
 
       const blocksDelta = BigInt(removeBlock) - BigInt(snapshotBlock);
-      const expectedEarnings = packedFee * blocksDelta * maxVUnits / VUNITS_PRECISION;
+      const expectedEarnings = packedFee * blocksDelta * maxVUnits / BPS_DENOMINATOR;
 
       expect(balanceAfter - balanceBefore).to.equal(expectedEarnings);
       expect(balanceAfter - balanceBefore).to.equal(packedFee * blocksDelta * 64n);
@@ -309,7 +309,7 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
       const [, , balanceAfter] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
 
       const blocksDelta = BigInt(removeBlock) - BigInt(snapshotBlock);
-      const expectedEarnings = packedFee * blocksDelta * expectedVUnits / VUNITS_PRECISION;
+      const expectedEarnings = packedFee * blocksDelta * expectedVUnits / BPS_DENOMINATOR;
 
       expect(balanceAfter - balanceBefore).to.equal(expectedEarnings);
     });
@@ -348,7 +348,7 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
 
       const [, snapshotBlock2, balancePhase1End] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
       const phase1Blocks = BigInt(snapshotBlock2) - BigInt(snapshotBlock1);
-      const expectedPhase1 = packedFee * phase1Blocks * 20000n / VUNITS_PRECISION;
+      const expectedPhase1 = packedFee * phase1Blocks * 20000n / BPS_DENOMINATOR;
       expect(balancePhase1End - balancePhase1Start).to.equal(expectedPhase1);
 
       expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(10000n);
@@ -360,7 +360,7 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
 
       const [, , balanceFinal] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
       const phase2Blocks = BigInt(removeBlock) - BigInt(snapshotBlock2);
-      const expectedPhase2 = packedFee * phase2Blocks * 10000n / VUNITS_PRECISION;
+      const expectedPhase2 = packedFee * phase2Blocks * 10000n / BPS_DENOMINATOR;
       expect(balanceFinal - balancePhase1End).to.equal(expectedPhase2);
       expect(expectedPhase2).to.be.lessThan(expectedPhase1);
     });
@@ -413,7 +413,7 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
       const [, , balanceAfter] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
 
       const blocksDelta = BigInt(settleBlock) - BigInt(snapshotBlock);
-      const expectedEarnings = packedFee * blocksDelta * expectedTotalVUnits / VUNITS_PRECISION;
+      const expectedEarnings = packedFee * blocksDelta * expectedTotalVUnits / BPS_DENOMINATOR;
 
       expect(balanceAfter - balanceBefore).to.equal(expectedEarnings);
       expect(balanceAfter - balanceBefore).to.equal(packedFee * blocksDelta * 4n);
