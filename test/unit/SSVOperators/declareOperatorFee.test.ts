@@ -6,6 +6,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
+  DEFAULT_OPERATOR_ETH_FEE,
   ETH_DEDUCTED_DIGITS,
   MINIMAL_OPERATOR_ETH_FEE,
 } from '../../common/constants.ts';

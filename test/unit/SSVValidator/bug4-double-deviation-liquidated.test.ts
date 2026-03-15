@@ -4,7 +4,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, createCluster, makePublicKey, parseClusterFromEvent, computeEBRoot, computeClusterId } from "../../common/helpers.ts";
-import { DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
 const OPERATOR_FEE = 10_000_000_000n;
@@ -60,8 +60,8 @@ describe("BUG-4: Double deviation cleanup on liquidated cluster validator remova
     );
     const clusterAfterEB = parseClusterFromEvent(clusters, await ebTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 31n) / 32n;
-    const baselineVUnits = 3n * VUNITS_PRECISION;
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 31n) / 32n;
+    const baselineVUnits = 3n * BPS_DENOMINATOR;
     const deviation = expectedVUnits - baselineVUnits;
 
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
@@ -80,7 +80,7 @@ describe("BUG-4: Double deviation cleanup on liquidated cluster validator remova
     expect(clusterAfterLiq.active).to.equal(false);
     expect(clusterAfterLiq.balance).to.equal(0n);
     expect(clusterAfterLiq.validatorCount).to.equal(3n);
-    const vUnitsAt2048 = (2048n * VUNITS_PRECISION + 31n) / 32n;
+    const vUnitsAt2048 = (2048n * BPS_DENOMINATOR + 31n) / 32n;
     const deviationAt2048 = vUnitsAt2048 - baselineVUnits;
     const opVUnitsAfterLiq = await clusters.getOperatorEthVUnits(operatorIds[0]);
     const daoVUnitsAfterLiq = await clusters.getDaoTotalEthVUnits();
@@ -170,8 +170,8 @@ describe("BUG-4: Double deviation cleanup on liquidated cluster validator remova
     );
     const clusterAfterEB = parseClusterFromEvent(clusters, await ebTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedVUnits = (96n * VUNITS_PRECISION + 31n) / 32n;
-    const deviation = expectedVUnits - VUNITS_PRECISION;
+    const expectedVUnits = (96n * BPS_DENOMINATOR + 31n) / 32n;
+    const deviation = expectedVUnits - BPS_DENOMINATOR;
 
     expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviation);
     const removeTx = await clusters.connect(clusterOwner).removeValidator(pk1, operatorIds, clusterAfterEB);

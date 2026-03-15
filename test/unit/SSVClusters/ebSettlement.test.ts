@@ -4,7 +4,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, computeEBRoot, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
 const OPERATOR_FEE = 10_000_000_000n;
@@ -53,7 +53,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
     const ebReceipt = await ebTx.wait();
     const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_BALANCE_UPDATED);
     const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-    const expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
+    const expectedVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + 31n) / 32n;
     expect(clusterVUnits).to.equal(expectedVUnits);
     const balanceBeforeMine = clusterAfterEB.balance;
     const blockBeforeMine = await connection.ethers.provider.getBlockNumber();
@@ -72,7 +72,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
     const balanceAfterReg = clusterAfterReg.balance;
     const feeDeducted = balanceBeforeMine - balanceAfterReg;
     const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
-    const vUnitsMultiplier = expectedVUnits / VUNITS_PRECISION;
+    const vUnitsMultiplier = expectedVUnits / BPS_DENOMINATOR;
     const expectedEBFee = 4n * packedOpFee * BigInt(blocksMined + 1) * vUnitsMultiplier * ETH_DEDUCTED_DIGITS;
     const flatUsageExpanded = 4n * packedOpFee * BigInt(blocksMined + 1) * 1n * ETH_DEDUCTED_DIGITS;
     expect(feeDeducted).to.be.gt(0n, "Fee should have been deducted");
@@ -127,7 +127,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
     const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_BALANCE_UPDATED);
 
     const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-    const expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
+    const expectedVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + 31n) / 32n;
     expect(clusterVUnits).to.equal(expectedVUnits);
 
     const balanceBeforeMine = clusterAfterEB.balance;
@@ -146,7 +146,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
     const feeDeducted = balanceBeforeMine - clusterAfterRemove.balance;
     expect(feeDeducted).to.be.gt(0n, "Fee should have been deducted on removal");
     const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
-    const vUnitsMultiplier = expectedVUnits / VUNITS_PRECISION;
+    const vUnitsMultiplier = expectedVUnits / BPS_DENOMINATOR;
     const expectedEBFee = 4n * packedOpFee * BigInt(blocksMined + 1) * vUnitsMultiplier * ETH_DEDUCTED_DIGITS;
     const flatUsageExpanded = 4n * packedOpFee * BigInt(blocksMined + 1) * 2n * ETH_DEDUCTED_DIGITS;
     expect(feeDeducted).to.be.approximately(
@@ -231,7 +231,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
       const ebReceipt = await ebTx.wait();
       const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_BALANCE_UPDATED);
       const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-      const expectedVUnits = 1n * VUNITS_PRECISION;
+      const expectedVUnits = 1n * BPS_DENOMINATOR;
       expect(clusterVUnits).to.equal(expectedVUnits);
 
       const balanceBeforeMine = clusterAfterEB.balance;
@@ -287,7 +287,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
       const ebReceipt = await ebTx.wait();
       const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_BALANCE_UPDATED);
       const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-      const expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
+      const expectedVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + 31n) / 32n;
       expect(clusterVUnits).to.equal(expectedVUnits);
 
       const balanceBeforeMine = clusterAfterEB.balance;
@@ -305,7 +305,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
       const feeDeducted = balanceBeforeMine - cluster2.balance;
       const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
-      const vUnitsMultiplier = expectedVUnits / VUNITS_PRECISION;
+      const vUnitsMultiplier = expectedVUnits / BPS_DENOMINATOR;
       
       expect(feeDeducted).to.be.gt(0n, "High EB should still deduct fees");
       const baselineFee = 4n * packedOpFee * 11n * 1n * ETH_DEDUCTED_DIGITS;

@@ -5,7 +5,7 @@ import { getClustersHarnessFixture } from "../../setup/fixtures.ts";
 import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -152,7 +152,7 @@ describe("SSVClusters function `liquidate()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR);
     }
 
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
@@ -205,12 +205,12 @@ describe("SSVClusters function `liquidate()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * BPS_DENOMINATOR);
     }
 
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
-    const explicitVUnits = 5n * VUNITS_PRECISION;
-    const baseline = 3n * VUNITS_PRECISION;
+    const explicitVUnits = 5n * BPS_DENOMINATOR;
+    const baseline = 3n * BPS_DENOMINATOR;
     const deviation = explicitVUnits - baseline;
     await clusters.mockSetClusterVUnits(clusterId, explicitVUnits);
     await clusters.mockSetDaoTotalEthVUnits(explicitVUnits);

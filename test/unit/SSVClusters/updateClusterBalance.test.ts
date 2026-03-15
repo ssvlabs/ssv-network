@@ -4,8 +4,9 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { ssvClustersHarnessFixture, getClustersHarnessFixture } from "../../setup/fixtures.ts";
 import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { setupTestContext, computeClusterId, computeEBRoot, createCluster, extractEventArgs, makePublicKey, parseClusterFromEvent, registerAndParseCluster } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { setupTestContext, createCluster, extractEventArgs, makePublicKey, parseClusterFromEvent, registerAndParseCluster } from "../../common/helpers.ts";
+import { computeClusterId, computeEBRoot } from "../../helpers/oracle.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { ethers } from "ethers";
@@ -54,16 +55,16 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const cluster = await registerCluster(clusters, operatorIds);
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const cluster = await registerAndParseCluster(clusters, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
     const staleBlockNum = 1;
     const latestBlockNum = 2;
     const staleEffectiveBalance = 32;
     const latestEffectiveBalance = 33;
 
-    await clusters.mockSetEBRoot(staleBlockNum, getEBRoot(clusterId, staleEffectiveBalance));
-    await clusters.mockSetEBRoot(latestBlockNum, getEBRoot(clusterId, latestEffectiveBalance));
+    await clusters.mockSetEBRoot(staleBlockNum, computeEBRoot(clusterId, staleEffectiveBalance));
+    await clusters.mockSetEBRoot(latestBlockNum, computeEBRoot(clusterId, latestEffectiveBalance));
 
     await expect(clusters.updateClusterBalance(
       staleBlockNum,
@@ -91,7 +92,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR);
     }
 
     const tx = await clusters.updateClusterBalance(
@@ -116,10 +117,10 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(clusterAfter.active).to.equal(true);
     expect(clusterAfter.validatorCount).to.equal(cluster.validatorCount);
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR);
     }
   });
 
@@ -137,7 +138,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     await clusters.mockSetEBRoot(blockNum, root);
 
     const vUnitsPerValidator = 32n;
-    const newVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + vUnitsPerValidator - 1n) / vUnitsPerValidator;
+    const newVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + vUnitsPerValidator - 1n) / vUnitsPerValidator;
 
     const tx = await clusters.updateClusterBalance(
       blockNum,
@@ -154,7 +155,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
 
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(newVUnits);
     for (const operatorId of operatorIds) {
-      const deviation = newVUnits - VUNITS_PRECISION;
+      const deviation = newVUnits - BPS_DENOMINATOR;
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(deviation);
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(newVUnits);
     }
@@ -375,12 +376,12 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const cluster = await registerCluster(clusters, operatorIds);
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const cluster = await registerAndParseCluster(clusters, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const effectiveBalance = 32;
 
     await clusters.mockSetMinBlocksBetweenUpdates(5);
-    await clusters.mockSetEBRoot(1, getEBRoot(clusterId, effectiveBalance));
+    await clusters.mockSetEBRoot(1, computeEBRoot(clusterId, effectiveBalance));
 
     const tx1 = await clusters.updateClusterBalance(
       1,
@@ -393,7 +394,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const receipt1 = await tx1.wait();
     const clusterAfter1 = parseClusterFromEvent(clusters, receipt1, Events.CLUSTER_BALANCE_UPDATED);
 
-    await clusters.mockSetEBRoot(2, getEBRoot(clusterId, effectiveBalance));
+    await clusters.mockSetEBRoot(2, computeEBRoot(clusterId, effectiveBalance));
 
     await expect(clusters.updateClusterBalance(
       2,
@@ -409,12 +410,12 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const cluster = await registerCluster(clusters, operatorIds);
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const cluster = await registerAndParseCluster(clusters, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const effectiveBalance = 32;
 
     await clusters.mockSetMinBlocksBetweenUpdates(3);
-    await clusters.mockSetEBRoot(1, getEBRoot(clusterId, effectiveBalance));
+    await clusters.mockSetEBRoot(1, computeEBRoot(clusterId, effectiveBalance));
 
     const tx1 = await clusters.updateClusterBalance(
       1,
@@ -429,7 +430,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
 
     await networkHelpers.mine(3);
 
-    await clusters.mockSetEBRoot(2, getEBRoot(clusterId, effectiveBalance));
+    await clusters.mockSetEBRoot(2, computeEBRoot(clusterId, effectiveBalance));
 
     const tx2 = await clusters.updateClusterBalance(
       2,
@@ -442,7 +443,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const receipt2 = await tx2.wait();
 
     await expect(tx2).to.emit(clusters, Events.CLUSTER_BALANCE_UPDATED);
-    const eventArgs = getClusterBalanceUpdatedEventArgs(clusters, receipt2);
+    const eventArgs = extractEventArgs(clusters, receipt2, Events.CLUSTER_BALANCE_UPDATED);
     expect(eventArgs.blockNum).to.equal(2n);
     expect(eventArgs.effectiveBalance).to.equal(effectiveBalance);
   });
@@ -481,7 +482,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
       []
     )).wait();
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
     }
@@ -528,7 +529,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(clusterAfter.active).to.equal(false);
     expect(clusterAfter.balance).to.equal(0n);
 
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
 
     expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(operatorVUnitsBefore);
@@ -584,7 +585,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const clusterAfterUpdate = parseClusterFromEvent(clusters, receipt2, Events.CLUSTER_BALANCE_UPDATED);
     expect(clusterAfterUpdate.active).to.equal(false);
     expect(clusterAfterUpdate.balance).to.equal(0n);
-    const expectedVUnits2 = (BigInt(effectiveBalance2) * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const expectedVUnits2 = (BigInt(effectiveBalance2) * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits2);
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
@@ -686,7 +687,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(clusterAfter.active).to.equal(false);
     expect(clusterAfter.balance).to.equal(0n);
     expect(clusterAfter.validatorCount).to.equal(2n);
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
@@ -746,7 +747,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const clusterAfterDecrease = parseClusterFromEvent(clusters, receipt2, Events.CLUSTER_BALANCE_UPDATED);
     expect(clusterAfterDecrease.active).to.equal(false);
     expect(clusterAfterDecrease.balance).to.equal(0n);
-    const expectedVUnits2 = (BigInt(effectiveBalance2) * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const expectedVUnits2 = (BigInt(effectiveBalance2) * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits2);
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
@@ -784,7 +785,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const clusterAfter = parseClusterFromEvent(clusters, receipt, Events.CLUSTER_BALANCE_UPDATED);
     expect(clusterAfter.active).to.equal(false);
     expect(clusterAfter.balance).to.equal(0n);
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
@@ -847,7 +848,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const ebReceipt1 = await ebTx1.wait();
     const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedVUnits = (64n * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const expectedVUnits = (64n * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
 
     const removeTx = await clusters.removeValidator(makePublicKey(1), operatorIds, clusterAfterEB);
@@ -900,8 +901,8 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
 
     await clusters.updateClusterBalance(blockNum, clusterOwner.address, operatorIds, cluster, effectiveBalance, []);
 
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n;
-    const expectedDeviation = expectedVUnits - VUNITS_PRECISION;
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 32n - 1n) / 32n;
+    const expectedDeviation = expectedVUnits - BPS_DENOMINATOR;
 
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
     expect(await clusters.getDaoTotalEthVUnits()).to.equal(expectedVUnits);

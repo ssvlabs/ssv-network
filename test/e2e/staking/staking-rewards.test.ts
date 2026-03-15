@@ -8,9 +8,9 @@ import {
   makePublicKey,
   whitelistAddresses,
   getCurrentClusterState,
-  generateMerkleForClusterEB,
   setupTestContext,
 } from "../../common/helpers.ts";
+import { generateMerkleForClusterEB } from "../../helpers/oracle.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,

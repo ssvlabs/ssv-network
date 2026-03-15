@@ -5,7 +5,7 @@ import { getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
 import { defaultValidatorsFixture } from '../../helpers/fixture-presets.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import { setupTestContext, createCluster, makePublicKey, makePublicKeys, parseClusterFromEvent, computeClusterId } from '../../common/helpers.ts';
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from '../../common/constants.ts';
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import { Errors } from '../../common/errors.ts';
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -83,7 +83,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION);
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * BPS_DENOMINATOR);
     }
 
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
@@ -105,7 +105,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
     const existingCluster = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
 
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
-    const startVUnits = 5n * VUNITS_PRECISION;
+    const startVUnits = 5n * BPS_DENOMINATOR;
     await validators.mockSetClusterVUnits(clusterId, startVUnits);
 
     const publicKeys = [makePublicKey(1), makePublicKey(2)];
@@ -120,10 +120,10 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
     );
     await tx.wait();
 
-    expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + 2n * VUNITS_PRECISION);
+    expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + 2n * BPS_DENOMINATOR);
     for (const operatorId of operatorIds) {
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n);
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION);
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * BPS_DENOMINATOR);
     }
   });
 

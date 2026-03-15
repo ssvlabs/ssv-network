@@ -71,6 +71,7 @@ describe("SSVOperators reentrancy guard", async () => {
 
     const operatorId = await attacker.operatorId();
     await token.mint(await operators.getAddress(), connection.ethers.parseEther("100"));
+    await operators.mockSetOperatorLegacySSV(Number(operatorId), 1n);
     await operators.mockSetOperatorBalances(Number(operatorId), 0, 5n);
     const withdrawAmount = 2n * DEDUCTED_DIGITS;
     const reenterAmount = 1n * DEDUCTED_DIGITS;

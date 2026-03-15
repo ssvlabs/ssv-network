@@ -4,7 +4,8 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { defaultDAOFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
-import { MINIMAL_OPERATOR_ETH_FEE, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { Errors } from "../../common/errors.ts";
+import { MINIMAL_OPERATOR_ETH_FEE, ETH_DEDUCTED_DIGITS, MAXIMUM_OPERATORS_FEE } from "../../common/constants.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 
 describe("SSVDAO function `updateMinimumOperatorEthFee()`", async () => {

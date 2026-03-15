@@ -330,7 +330,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
     await cssv.mint(owner.address, totalSupply);
 
-    await dao.mockupdateQuorumBps(5000); // 50 %
+    await dao.mockupdateQuorumBps(5000);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("test"));
     const blockNum = await connection.ethers.provider.getBlockNumber();

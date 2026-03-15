@@ -4,7 +4,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { defaultValidatorsFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, createCluster, makePublicKey, computeClusterId } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -62,7 +62,7 @@ describe("SSVClusters function `exitValidator()`", async () => {
     );
 
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
-    await validators.mockSetClusterVUnits(clusterId, 7n * VUNITS_PRECISION);
+    await validators.mockSetClusterVUnits(clusterId, 7n * BPS_DENOMINATOR);
 
     const beforeClusterVUnits = await validators.getClusterVUnits(clusterId);
     const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => validators.getOperatorEthVUnits(id)));

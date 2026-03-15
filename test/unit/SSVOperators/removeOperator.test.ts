@@ -5,7 +5,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
-import { MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
+import { DECLARE_OPERATOR_FEE_PERIOD, DEFAULT_OPERATOR_ETH_FEE, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD, MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGas, trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -68,13 +68,14 @@ describe("SSVOperators function `removeOperator()`", async () => {
     
     await operators.mockSetToken(await token.getAddress());
     await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.mockSetOperatorLegacySSV(1, 1n);
     await operators.mockSetOperatorBalances(1, 0n, 100n);
     await token.mint(await operators.getAddress(), ethers.parseEther("1000"));
 
     const before = await token.balanceOf(owner.address);
     await operators.removeOperator(1);
     const after = await token.balanceOf(owner.address);
-    
+
     expect(after).to.be.gt(before);
   });
 
