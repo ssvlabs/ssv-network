@@ -1,5 +1,5 @@
 export { makePublicKey, makePublicKeys, makeOperatorKey, makeArrayOfKeysAndShares, } from "./keys.ts";
-export { getHarnessName, createCluster, createLegacySSVCluster, clusterToTuple, extractEventArgs, parseClusterFromEvent, getCurrentClusterState, addValidatorsToCluster, registerAndParseCluster, } from "./cluster.ts";
+export { getHarnessName, createCluster, createLegacySSVCluster, clusterToTuple, extractEventArgs, parseClusterFromEvent, getCurrentClusterState, addValidatorsToCluster, registerAndParseCluster, registerAndLiquidate, } from "./cluster.ts";
 export { registerOperators, registerOperatorsSSV, whitelistAddresses, getOperatorFeeBounds, getValidOperatorFeeIncrease, getFeeAboveIncreaseLimit, calculateInitialBurnRate, registerDefaultCluster, registerDefaultClusters, seedOperatorWithETHBalance, } from "./operator.ts";
 export { computeClusterId, computeEBRoot, setupOracles, commitEBRoot, generateMerkleForClusterEB, buildEBMerkleForDefaultClusters, updateClusterBalancesForDefaultClusters, mockEBAndUpdate, } from "./oracle.ts";
 export { calcOperatorFeeAccrual, calcNetworkFeeAccrual, calcClusterBurn, calcVUnits, defaultVUnits, calcLiquidationThreshold, calcAccEthPerShareDelta, calcStakingReward, calcSSVClusterFees, setupMockProtocol, } from "./fee.ts";
@@ -10,6 +10,7 @@ export { mineBlocks, getBlockNumber, mineToBlock, getTxBlock, setAccountBalance,
 export type { TrackedCluster } from "./invariants.ts";
 export { checkETHConservation, checkValidatorCountConsistency, checkCSSVSupplyConsistency, checkAccumulatorMonotonicity, checkOracleBlockMonotonicity, assertOperatorVUnits, } from "./invariants.ts";
 export { approveAndStake } from "./staking.ts";
+export { setupLegacyClusterAndUpgrade } from "./migration.ts";
 export { defaultOperatorsFixture, defaultClustersFixture, defaultValidatorsFixture, defaultDAOFixture, defaultStakingFixture } from "./fixture-presets.ts";
 export type { TestContext } from "./context.ts";
 export { setupTestContext } from "./context.ts";

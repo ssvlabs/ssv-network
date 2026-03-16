@@ -4,7 +4,7 @@ import { ssvNetworkFullPreUpgradeFixture, upgradeToStakingVersion } from '../set
 import type { NetworkHelpersType, OperatorSSV } from '../common/types.ts';
 import { CLUSTER_VERSION_ETH, CLUSTER_VERSION_SSV, DEFAULT_ETH_REGISTER_VALUE, DEFAULT_OPERATOR_ETH_FEE, DEFAULT_SHARES, EMPTY_CLUSTER, MAXIMUM_OPERATORS_FEE, MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_FEE_SSV, MINIMUM_BLOCKS_BEFORE_LIQUIDATION, MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE, OPERATOR_MAX_FEE_INCREASE, SMALL_ETH_REGISTER_VALUE, TOKEN_REGISTER_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT, } from '../common/constants.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
-import { getCurrentClusterState, makePublicKey, registerOperators, registerOperatorsSSV, setupTestContext, whitelistAddresses, } from '../helpers/index.js';
+import { getCurrentClusterState, makePublicKey, registerOperators, registerOperatorsSSV, setupLegacyClusterAndUpgrade, setupTestContext, whitelistAddresses, } from '../helpers/index.js';
 import type { ISSVViewsTypes } from '../../types/ethers-contracts/contracts/SSVNetworkViews.js';
 import { Errors } from '../common/errors.js';
 import { Events } from '../common/events.js';
@@ -23,6 +23,11 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
     return ssvNetworkFullPreUpgradeFixture(connection);
   };
 
+  const loadLegacyCluster = () =>
+    setupLegacyClusterAndUpgrade(connection, operatorOwner, clusterOwner, () =>
+      networkHelpers.loadFixture(deployFullSSVNetworkFixture),
+    );
+
   describe("Legacy setup configuration", async function () {
     it("Configures SSVNetwork and SSVNetworkViews correctly", async function () {
       const { network, views } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
@@ -40,114 +45,51 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
 
   describe("Restrictions for legacy ssv clusters", async function () {
     it("'registerValidator()' is reverted with 'IncorrectClusterVersion' if trying to register validators to a legacy cluster", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-      const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
+      const { newNetwork, operatorIds, cluster } = await loadLegacyCluster();
       await expect(newNetwork.connect(clusterOwner).registerValidator(makePublicKey(322), operatorIds, DEFAULT_SHARES, cluster)).to.be.revertedWithCustomError(newNetwork, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("'bulkRegisterValidator()' is reverted with 'IncorrectClusterVersion' if trying to register validators to a legacy cluster", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-      const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
+      const { newNetwork, operatorIds, cluster } = await loadLegacyCluster();
       await expect(newNetwork.connect(clusterOwner).bulkRegisterValidator([makePublicKey(322)], operatorIds, [DEFAULT_SHARES], cluster)).to.be.revertedWithCustomError(newNetwork, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("'removeValidator()' succeeds on legacy SSV clusters (BUG-12 fix)", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-      const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
+      const { newNetwork, operatorIds, cluster } = await loadLegacyCluster();
       const removeTx = await newNetwork.connect(clusterOwner).removeValidator(makePublicKey(123), operatorIds, cluster);
       await removeTx.wait();
     });
 
     it("'bulkRemoveValidator()' succeeds on legacy SSV clusters (BUG-12 fix)", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-      const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
+      const { newNetwork, operatorIds, cluster } = await loadLegacyCluster();
       const bulkRemoveTx = await newNetwork.connect(clusterOwner).bulkRemoveValidator([makePublicKey(123)], operatorIds, cluster);
       await bulkRemoveTx.wait();
     });
 
     it("'liquidate()' is reverted with 'IncorrectClusterVersion' if trying to liquidate legacy ssv cluster with an ETH-based function", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-      const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
+      const { newNetwork, operatorIds, cluster } = await loadLegacyCluster();
       await expect(newNetwork.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster)).to.be.revertedWithCustomError(newNetwork, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("'reactivate()' is reverted with 'IncorrectClusterVersion' if trying to reactivate a legacy ssv cluster", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-      const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
+      const { newNetwork, operatorIds, cluster } = await loadLegacyCluster();
       await expect(newNetwork.connect(clusterOwner).reactivate(operatorIds, cluster)).to.be.revertedWithCustomError(newNetwork, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("withdraw() is reverted with 'IncorrectClusterVersion' is trying to withdraw from a legacy ssv cluster", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-      const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
+      const { newNetwork, operatorIds, cluster } = await loadLegacyCluster();
       await expect(newNetwork.connect(clusterOwner).withdraw(operatorIds, TOKEN_REGISTER_AMOUNT, cluster)).to.be.revertedWithCustomError(newNetwork, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("deposit() is reverted with 'IncorrectClusterVersion' is trying to deposit to a legacy ssv cluster", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-      const { newNetwork, } = await upgradeToStakingVersion(connection, network, views);
+      const { newNetwork, operatorIds, cluster } = await loadLegacyCluster();
       await expect(newNetwork.connect(clusterOwner).deposit(clusterOwner.address, operatorIds, cluster, { value: SMALL_ETH_REGISTER_VALUE })).to.be.revertedWithCustomError(newNetwork, Errors.INCORRECT_CLUSTER_VERSION);
     });
   });
 
   describe("Function 'migrateClusterToETH'", async function () {
     it("Executes as expected and emits correct event", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const { newNetwork, newViews } = await upgradeToStakingVersion(connection, network, views);
-      let cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      const { network, newNetwork, newViews, ssvToken, operatorIds, cluster } = await loadLegacyCluster();
       const clusterBalance = await newViews.getBalanceSSV(clusterOwner.address, operatorIds, cluster);
       const burnRateSSV = await newViews.getBurnRateSSV(clusterOwner.address, operatorIds, cluster);
       const expectedClusterBalance = clusterBalance - burnRateSSV;
@@ -156,11 +98,11 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
       await expect(tx)
         .to.changeTokenBalances(connection.ethers, ssvToken, [newNetwork, clusterOwner], [-expectedClusterBalance, expectedClusterBalance]);
       await expect(tx).to.emit(newNetwork, Events.CLUSTER_MIGRATED_TO_ETH);
-      cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      const clusterAfter = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       expect(await newViews.getClusterAssetType(clusterOwner.address, operatorIds)).to.be.equal(CLUSTER_VERSION_ETH);
-      await expect(newViews.getBalanceSSV(clusterOwner.address, operatorIds, cluster)).to.be.revertedWithCustomError(newViews, Errors.INCORRECT_CLUSTER_VERSION);
-      expect(await newViews.getBalance(clusterOwner.address, operatorIds, cluster)).to.be.equal(SMALL_ETH_REGISTER_VALUE);
-      expect(cluster.active).to.be.equal(true);
+      await expect(newViews.getBalanceSSV(clusterOwner.address, operatorIds, clusterAfter)).to.be.revertedWithCustomError(newViews, Errors.INCORRECT_CLUSTER_VERSION);
+      expect(await newViews.getBalance(clusterOwner.address, operatorIds, clusterAfter)).to.be.equal(SMALL_ETH_REGISTER_VALUE);
+      expect(clusterAfter.active).to.be.equal(true);
     });
 
     it("Migrates a liquidated cluster, emits correct events and reactivates cluster", async function () {
@@ -188,14 +130,7 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
 
   describe("Legacy operators migration", async function () {
     it("Migrates operators to the eth version after migration of operator's cluster", async function () {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-      await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
-      await ssvToken.connect(clusterOwner).approve(await network.getAddress(), TOKEN_REGISTER_AMOUNT);
-      const operatorIds = await registerOperatorsSSV(network, operatorOwner, 4);
-      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-      await network.connect(clusterOwner).registerValidator(makePublicKey(123), operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER);
-      const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-      const { newNetwork, newViews } = await upgradeToStakingVersion(connection, network, views);
+      const { newNetwork, newViews, operatorIds, cluster } = await loadLegacyCluster();
       expect(await newNetwork.getVersion()).to.be.equal("v2.0.0");
       expect(await newViews.getClusterAssetType(clusterOwner.address, operatorIds)).to.be.equal(CLUSTER_VERSION_SSV);
       for (let i = 0; i < operatorIds.length; i++) {
