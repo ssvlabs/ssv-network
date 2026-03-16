@@ -159,10 +159,33 @@ export async function getCurrentClusterState(connection: NetworkConnection<"gene
   };
 }
 
-export async function registerAndParseCluster(clusters: any, operatorIds: bigint[], pubkeyIndex = 1): Promise<Cluster> {
-  const tx = await clusters.registerValidator(makePublicKey(pubkeyIndex), operatorIds, DEFAULT_SHARES, createCluster(), { value: DEFAULT_ETH_REGISTER_VALUE });
+export async function registerAndParseCluster(
+  clusters: any,
+  operatorIds: bigint[],
+  pubkeyIndex = 1,
+  depositValue = DEFAULT_ETH_REGISTER_VALUE,
+): Promise<Cluster> {
+  const tx = await clusters.registerValidator(
+    makePublicKey(pubkeyIndex), operatorIds, DEFAULT_SHARES, createCluster(),
+    { value: depositValue },
+  );
   const receipt = await tx.wait();
   return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+}
+
+export async function registerAndLiquidate(
+  clusters: any,
+  ownerAddress: string,
+  operatorIds: bigint[],
+  pubkeyIndex = 1,
+): Promise<{ clusterAfterRegister: Cluster; clusterAfterLiquidation: Cluster }> {
+  const clusterAfterRegister = await registerAndParseCluster(clusters, operatorIds, pubkeyIndex);
+  const liquidateTx = await clusters.liquidate(ownerAddress, operatorIds, clusterAfterRegister);
+  const liquidateReceipt = await liquidateTx.wait();
+  const clusterAfterLiquidation = parseClusterFromEvent(
+    clusters, liquidateReceipt, Events.CLUSTER_LIQUIDATED,
+  );
+  return { clusterAfterRegister, clusterAfterLiquidation };
 }
 
 export async function addValidatorsToCluster(connection: any, network: SSVNetwork, keys: string[], shares: string[], clusterOwner: HardhatEthersSigner, operatorIds: number[], cluster: Cluster): Promise<Cluster> {

@@ -247,15 +247,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const registerTx1 = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: DEFAULT_ETH_REGISTER_VALUE }
-    );
-    const receipt1 = await registerTx1.wait();
-    const clusterAfter1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+    const clusterAfter1 = await registerAndParseCluster(clusters, operatorIds);
 
     const registerTx2 = await clusters.registerValidator(
       makePublicKey(2),
@@ -301,15 +293,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const registerTx1 = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: DEFAULT_ETH_REGISTER_VALUE }
-    );
-    const receipt1 = await registerTx1.wait();
-    const clusterAfter1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+    const clusterAfter1 = await registerAndParseCluster(clusters, operatorIds);
 
     const registerTx2 = await clusters.registerValidator(
       makePublicKey(2),
@@ -597,15 +581,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const registerTx1 = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: DEFAULT_ETH_REGISTER_VALUE }
-    );
-    const receipt1 = await registerTx1.wait();
-    const clusterAfter1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+    const clusterAfter1 = await registerAndParseCluster(clusters, operatorIds);
 
     const registerTx2 = await clusters.registerValidator(
       makePublicKey(2),
@@ -641,15 +617,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
   it("Multi-validator liquidated cluster: EB update preserves per-validator vUnit accounting", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
-    const registerTx1 = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: DEFAULT_ETH_REGISTER_VALUE }
-    );
-    const receipt1 = await registerTx1.wait();
-    const clusterAfter1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+    const clusterAfter1 = await registerAndParseCluster(clusters, operatorIds);
 
     const registerTx2 = await clusters.registerValidator(
       makePublicKey(2),

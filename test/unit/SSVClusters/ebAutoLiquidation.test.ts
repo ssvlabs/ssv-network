@@ -3,7 +3,7 @@ import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { setupTestContext, computeClusterId, computeEBRoot, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
+import { setupTestContext, computeClusterId, computeEBRoot, createCluster, makePublicKey, parseClusterFromEvent, registerAndParseCluster } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -38,17 +38,8 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
     const minBlocksBeforeLiq = 100n;
     await clusters.mockMinimumBlocksBeforeLiquidation(minBlocksBeforeLiq);
     await clusters.mockMinimumLiquidationCollateral(0n);
-    const depositValue = ethers.parseEther("0.0001");
 
-    const regTx = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: depositValue }
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("0.0001"));
 
     expect(clusterAfterReg.active).to.equal(true);
     expect(clusterAfterReg.balance).to.be.gt(0n);
@@ -103,16 +94,7 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
     await clusters.mockEthNetworkFee(100_000n);
     await clusters.mockMinimumBlocksBeforeLiquidation(100n);
     await clusters.mockMinimumLiquidationCollateral(0n);
-    const depositValue = ethers.parseEther("1");
-    const regTx = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: depositValue }
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("1"));
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const root1 = computeEBRoot(clusterId, 32);
     await clusters.mockSetEBRoot(1, root1);
@@ -141,16 +123,7 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
     await clusters.mockEthNetworkFee(100_000n);
     await clusters.mockMinimumBlocksBeforeLiquidation(100n);
     await clusters.mockMinimumLiquidationCollateral(0n);
-    const depositValue = ethers.parseEther("0.0001");
-    const regTx = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: depositValue }
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("0.0001"));
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const root1 = computeEBRoot(clusterId, 32);
     await clusters.mockSetEBRoot(1, root1);

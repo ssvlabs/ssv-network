@@ -3,7 +3,7 @@ import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { setupTestContext, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
+import { setupTestContext, createCluster, makePublicKey, parseClusterFromEvent, registerAndParseCluster } from "../../common/helpers.ts";
 import { DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS, MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { mockEBAndUpdate } from "../../helpers/oracle.ts";
@@ -38,12 +38,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   it("Fee increase with EB=64 cluster → burn rate doubles", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
 
-    const depositValue = ethers.parseEther("100");
-    const regTx = await clusters.registerValidator(
-      makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: depositValue },
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("100"));
 
     const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 64, 1);
     const expectedVUnits = (64n * BPS_DENOMINATOR + 31n) / 32n;
@@ -102,12 +97,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   it("Fee reduction with EB=128 cluster → savings reflected", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithDoubledFee);
 
-    const depositValue = ethers.parseEther("100");
-    const regTx = await clusters.registerValidator(
-      makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: depositValue },
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("100"));
 
     const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 128, 1);
     const expectedVUnits = (128n * BPS_DENOMINATOR + 31n) / 32n;
@@ -166,12 +156,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   it("Fee change boundary accounting — total burn = sum of both rate periods", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
 
-    const depositValue = ethers.parseEther("100");
-    const regTx = await clusters.registerValidator(
-      makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(), { value: depositValue },
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("100"));
 
     const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 96, 1);
     const expectedVUnits = (96n * BPS_DENOMINATOR + 31n) / 32n;
@@ -267,11 +252,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   it("Fee change with removed operators skips removed entries and settles active operators", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
 
-    const regTx = await clusters.registerValidator(
-      makePublicKey(3), operatorIds, DEFAULT_SHARES, createCluster(), { value: ethers.parseEther("60") },
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 3, ethers.parseEther("60"));
 
     const { cluster: clusterAfterEB } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 64, 1);
 
@@ -300,11 +281,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     await clusters.mockMinimumBlocksBeforeLiquidation(1n);
     await clusters.mockMinimumLiquidationCollateral(0n);
 
-    const regTx = await clusters.registerValidator(
-      makePublicKey(4), operatorIds, DEFAULT_SHARES, createCluster(), { value: 5_000_000_000_000n },
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 4, 5_000_000_000_000n);
 
     const { cluster: clusterAfterEB } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 2048, 1);
     await clusters.mockExecuteAllOperatorFees(operatorIds, TRIPLED_FEE);
@@ -321,11 +298,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   it("Multiple fee changes in quick succession preserve exact accounting", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
 
-    const regTx = await clusters.registerValidator(
-      makePublicKey(5), operatorIds, DEFAULT_SHARES, createCluster(), { value: ethers.parseEther("80") },
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 5, ethers.parseEther("80"));
     const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 96, 1);
     const vUnits = 30_000n;
 
@@ -374,11 +347,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   it("Fee change with max EB (2048 ETH/validator) uses capped vUnits in settlement", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
 
-    const regTx = await clusters.registerValidator(
-      makePublicKey(6), operatorIds, DEFAULT_SHARES, createCluster(), { value: ethers.parseEther("120") },
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 6, ethers.parseEther("120"));
     const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 2048, 1);
 
     const maxVUnits = 640_000n;
@@ -422,11 +391,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   it("Operator fee change with network fee accounting → both fees correctly deducted", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
 
-    const regTx = await clusters.registerValidator(
-      makePublicKey(10), operatorIds, DEFAULT_SHARES, createCluster(), { value: ethers.parseEther("100") },
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 10, ethers.parseEther("100"));
 
     const { cluster: clusterAfterEB, block: ebBlock } = await mockEBAndUpdate(clusters, clusterOwner.address, operatorIds, clusterAfterReg, 64, 1);
     const vUnits = 20_000n;
@@ -469,11 +434,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   it("EB update between fee change execution updates vUnits for earnings calculation", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
 
-    const regTx = await clusters.registerValidator(
-      makePublicKey(11), operatorIds, DEFAULT_SHARES, createCluster(), { value: ethers.parseEther("100") },
-    );
-    const regReceipt = await regTx.wait();
-    const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+    const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds, 11, ethers.parseEther("100"));
 
     await networkHelpers.mine(50);
 
@@ -512,11 +473,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithInitialFee);
 
     const depositValue = ethers.parseEther("50");
-    const reg1Tx = await clusters.registerValidator(
-      makePublicKey(20), operatorIds, DEFAULT_SHARES, createCluster(), { value: depositValue },
-    );
-    const reg1Receipt = await reg1Tx.wait();
-    let cluster = parseClusterFromEvent(clusters, reg1Receipt, Events.VALIDATOR_ADDED);
+    let cluster = await registerAndParseCluster(clusters, operatorIds, 20, depositValue);
 
     for (let i = 1; i < 4; i++) {
       const regTx = await clusters.registerValidator(

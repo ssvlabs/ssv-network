@@ -3,7 +3,7 @@ import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { setupTestContext, computeClusterId, computeEBRoot, createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
+import { setupTestContext, computeClusterId, computeEBRoot, createCluster, makePublicKey, parseClusterFromEvent, registerAndParseCluster } from "../../common/helpers.ts";
 import { DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
@@ -26,16 +26,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
   it("Registration settles fees using EB-weighted vUnits, not flat validatorCount", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
-    const depositValue = ethers.parseEther("100");
-    const regTx1 = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: depositValue }
-    );
-    const receipt1 = await regTx1.wait();
-    const cluster1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+    const cluster1 = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("100"));
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const ebBlockNum = 1;
     const effectiveBalance = 1000;
@@ -89,16 +80,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
   it("Removal settles fees using EB-weighted vUnits", async function () {
     const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
-    const depositValue = ethers.parseEther("100");
-    const regTx1 = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: depositValue }
-    );
-    const receipt1 = await regTx1.wait();
-    const cluster1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+    const cluster1 = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("100"));
 
     const regTx2 = await clusters.registerValidator(
       makePublicKey(2),
@@ -163,16 +145,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
   describe("Edge Cases for EB Settlement", async () => {
     it("Uses baseline vUnits when EB = 0 (no EB set)", async function () {
       const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
-      const depositValue = ethers.parseEther("100");
-      const regTx = await clusters.registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        createCluster(),
-        { value: depositValue }
-      );
-      const receipt = await regTx.wait();
-      const cluster1 = parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+      const cluster1 = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("100"));
 
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
       const clusterVUnits = await clusters.getClusterVUnits(clusterId);
@@ -204,16 +177,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
     it("Handles EB exactly at baseline (32 ETH)", async function () {
       const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
-      const depositValue = ethers.parseEther("100");
-      const regTx1 = await clusters.registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        createCluster(),
-        { value: depositValue }
-      );
-      const receipt1 = await regTx1.wait();
-      const cluster1 = parseClusterFromEvent(clusters, receipt1, Events.VALIDATOR_ADDED);
+      const cluster1 = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("100"));
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
       const ebBlockNum = 1;
       const effectiveBalance = 32;
@@ -260,16 +224,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
     it("Handles very high EB values (stress test)", async function () {
       const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersWithFee);
-      const depositValue = ethers.parseEther("1000");
-      const regTx = await clusters.registerValidator(
-        makePublicKey(1),
-        operatorIds,
-        DEFAULT_SHARES,
-        createCluster(),
-        { value: depositValue }
-      );
-      const receipt = await regTx.wait();
-      const cluster1 = parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
+      const cluster1 = await registerAndParseCluster(clusters, operatorIds, 1, ethers.parseEther("1000"));
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
       const ebBlockNum = 1;
       const effectiveBalance = 1000;
