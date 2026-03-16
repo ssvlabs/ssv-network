@@ -95,7 +95,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
       .to.be.revertedWithCustomError(dao, Errors.FUTURE_BLOCK_NUMBER);
   });
 
-  it("Is reverted with 'OracleHasZeroWeight' if the oracle`s weight is zero", async function() {
+  it("Is reverted with 'ZeroCSSVSupply' when no cSSV supply exists", async function() {
     const { dao } =
       await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
 
@@ -103,7 +103,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const currentBlock = await connection.ethers.provider.getBlockNumber();
 
     await expect(dao.connect(oracle1).commitRoot(merkleRoot, currentBlock))
-      .to.be.revertedWithCustomError(dao, Errors.ORACLE_HAS_ZERO_WEIGHT);
+      .to.be.revertedWithCustomError(dao, Errors.ZERO_CSSV_SUPPLY);
   });
 
   it("Is reverted with 'AlreadyVoted' when oracle tries to vote twice", async function () {
@@ -355,7 +355,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     expect(weight2).to.equal(oracleWeight * 2n);
   });
 
-  it("Is reverted with 'OracleHasZeroWeight' when totalSupply is below the oracle count", async function () {
+  it("Is reverted with 'InsufficientCSSVSupply' when totalSupply is below the oracle count", async function () {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithFourOraclesFixture);
     await cssv.mint(owner.address, 3n);
 
@@ -363,7 +363,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const currentBlock = await connection.ethers.provider.getBlockNumber();
 
     await expect(dao.connect(oracle1).commitRoot(merkleRoot, currentBlock))
-      .to.be.revertedWithCustomError(dao, Errors.ORACLE_HAS_ZERO_WEIGHT);
+      .to.be.revertedWithCustomError(dao, Errors.INSUFFICIENT_CSSV_SUPPLY);
   });
 
   it("Requires all 4 oracle votes when quorumBps is 10000 (100%)", async function () {

@@ -192,10 +192,10 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         uint256 totalStaked = seb.roundFrozenSupply[commitmentKey];
         if (totalStaked == 0) {
             uint256 rawSupply = ICSSVToken(CSSV_ADDRESS).totalSupply();
-            if (rawSupply == 0) revert OracleHasZeroWeight();
+            if (rawSupply == 0) revert ZeroCSSVSupply();
 
             totalStaked = rawSupply - (rawSupply % oracleCount);
-            if (totalStaked == 0) revert OracleHasZeroWeight();
+            if (totalStaked == 0) revert InsufficientCSSVSupply();
             seb.roundFrozenSupply[commitmentKey] = totalStaked;
         }
 

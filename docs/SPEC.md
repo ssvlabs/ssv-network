@@ -460,7 +460,7 @@ Effective Balance Oracles track validator balances on the beacon chain and commi
 
 1. Oracle calls `commitRoot(merkleRoot, blockNum)`
 2. Contract validates: `blockNum > latestCommittedBlock` (monotonic), `blockNum <= block.number` (not future)
-3. On the first vote of a round, reads raw `cSSV.totalSupply()`, truncates it to `frozenVotingSupply = rawSupply - (rawSupply % 4)`, and stores that truncated value in `roundFrozenSupply`; reverts with `OracleHasZeroWeight` if either raw supply or truncated voting supply is zero
+3. On the first vote of a round, reads raw `cSSV.totalSupply()`, truncates it to `frozenVotingSupply = rawSupply - (rawSupply % 4)`, and stores that truncated value in `roundFrozenSupply`; reverts with `ZeroCSSVSupply` if raw supply is zero and with `InsufficientCSSVSupply` if the truncated voting supply is zero
 4. Each oracle has equal weight: `weight = frozenVotingSupply / 4`
 5. Accumulated weight tracked per `commitmentKey = keccak256(blockNum, merkleRoot)`
 6. When `accumulatedWeight >= (frozenVotingSupply * quorumBps) / 10_000`:
@@ -1193,7 +1193,8 @@ SSV validator count + ETH validator count equals total across both cluster types
 - `EBBelowMinimum` — effective balance below minimum
 - `EBExceedsMaximum` — effective balance above maximum
 - `OracleAlreadyAssigned` — oracle address already in use
-- `OracleHasZeroWeight` — cSSV totalSupply is zero (no oracle weight)
+- `ZeroCSSVSupply` — cSSV totalSupply is zero
+- `InsufficientCSSVSupply` — cSSV totalSupply exists but truncates below one oracle weight
 - `InvalidQuorum` — quorum value out of valid range
 
 ### Staking Errors

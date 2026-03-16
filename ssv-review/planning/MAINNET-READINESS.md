@@ -3584,10 +3584,10 @@ Keep the `token weight` model, but normalize the frozen supply once on the first
 ```solidity
 uint256 oracleCount = s.defaultOracleIds.length;
 uint256 rawSupply = ICSSVToken(CSSV_ADDRESS).totalSupply();
-if (rawSupply == 0) revert OracleHasZeroWeight();
+if (rawSupply == 0) revert ZeroCSSVSupply();
 
 uint256 totalStaked = rawSupply - (rawSupply % oracleCount);
-if (totalStaked == 0) revert OracleHasZeroWeight();
+if (totalStaked == 0) revert InsufficientCSSVSupply();
 
 seb.roundFrozenSupply[commitmentKey] = totalStaked;
 
@@ -3610,7 +3610,8 @@ It also removes the truncation mismatch by ensuring both `weight` and `threshold
 - [ ] With 4 oracles and `quorumBps = 8000`, 3 votes do not commit and the fourth vote does
 - [ ] `roundFrozenSupply` stores the truncated frozen voting supply and still fixes inter-vote supply drift
 - [ ] No storage layout changes are introduced
-- [ ] Rounds with `totalSupply < oracleCount` revert with `OracleHasZeroWeight`
+- [ ] Rounds with `totalSupply == 0` revert with `ZeroCSSVSupply`
+- [ ] Rounds with `0 < totalSupply < oracleCount` revert with `InsufficientCSSVSupply`
 - [ ] Existing quorum behavior for low thresholds (for example `quorumBps = 1`) remains intact
 - [ ] Unit test coverage includes truncation regression cases for 75%, 80%, and 100% quorum
 

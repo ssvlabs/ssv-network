@@ -473,7 +473,7 @@ if (isLiquidated) emit ClusterReactivated(owner, operatorIds, cluster);
 - `oracleIdOf[msg.sender] != 0`
 - `blockNum > latestCommittedBlock` (strictly monotonic)
 - `blockNum <= block.number` (not future)
-- Raw `cSSV.totalSupply() > 0` and its truncated voting supply is also non-zero
+- Raw `cSSV.totalSupply() > 0` and its truncated voting supply is also non-zero; otherwise revert with `ZeroCSSVSupply` or `InsufficientCSSVSupply`
 - Oracle has not already voted for this `(blockNum, merkleRoot)` pair
 
 #### State Mutations
