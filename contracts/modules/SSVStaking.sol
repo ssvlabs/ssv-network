@@ -187,6 +187,11 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         sp.ethDaoBalance = current;
         sp.ethDaoIndexBlockNumber = uint32(block.number);
 
+        uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
+        if (totalStaked == 0) {
+            s.accEthPerShareRemainder = 0;
+        }
+
         PackedETH previous = s.stakingEthPoolBalance;
         if (current.lte(previous)) {
             s.stakingEthPoolBalance = current;
@@ -195,11 +200,6 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
 
         PackedETH packedNewFees = current.sub(previous);
         uint256 newFeesWei;
-
-        uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
-        if (totalStaked == 0) {
-            s.accEthPerShareRemainder = 0;
-        }
         if (totalStaked != 0) {
             newFeesWei = PackedETHLib.unpack(packedNewFees);
             uint256 scaledFees = s.accEthPerShareRemainder + newFeesWei * PRECISION;
