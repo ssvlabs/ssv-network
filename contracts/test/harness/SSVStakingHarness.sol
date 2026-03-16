@@ -99,6 +99,10 @@ contract SSVStakingHarness is SSVStaking {
         return SSVStorageStaking.load().accEthPerShare;
     }
 
+    function getAccEthPerShareRemainder() external view returns (uint256) {
+        return SSVStorageStaking.load().accEthPerShareRemainder;
+    }
+
     function getStakingEthPoolBalance() external view returns (uint64) {
         return PackedETH.unwrap(SSVStorageStaking.load().stakingEthPoolBalance);
     }

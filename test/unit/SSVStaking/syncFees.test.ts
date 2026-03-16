@@ -8,6 +8,8 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { STAKE_AMOUNT, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
+const PRECISION = 1_000_000_000_000_000_000n;
+
 describe("SSVStaking function `syncFees()`", async () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
@@ -332,9 +334,81 @@ describe("SSVStaking function `syncFees()`", async () => {
 
     const accAfter = await staking.getAccEthPerShare();
 
-    const PRECISION = 1_000_000_000_000_000_000n;
     const expectedDelta = (1n * ETH_DEDUCTED_DIGITS * PRECISION) / STAKE_AMOUNT;
     expect(accAfter - accBefore).to.equal(expectedDelta);
+  });
+
+  it("Carries sub-threshold accumulator remainder across syncs until it becomes claimable (BUG-18)", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const largeStakeAmount = 100_001n * PRECISION;
+
+    await ssvToken.approve(await staking.getAddress(), largeStakeAmount);
+    await staking.stake(largeStakeAmount);
+
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(1n);
+    await staking.syncFees();
+
+    expect(await staking.getAccEthPerShare()).to.equal(0n);
+    expect(await staking.getAccEthPerShareRemainder()).to.equal(
+      ETH_DEDUCTED_DIGITS * PRECISION
+    );
+
+    await staking.mockSetEthDaoBalance(2n);
+    await staking.syncFees();
+
+    expect(await staking.getAccEthPerShare()).to.equal(1n);
+
+    const expectedRemainder =
+      (2n * ETH_DEDUCTED_DIGITS * PRECISION) % largeStakeAmount;
+    expect(await staking.getAccEthPerShareRemainder()).to.equal(expectedRemainder);
+
+    await staking.requestUnstake(1n);
+
+    expect(await staking.getUserAccrued(staker.address)).to.equal(100_001n);
+  });
+
+  it("Clears carried remainder when total staked returns to zero to prevent retroactive accrual", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const largeStakeAmount = 100_001n * PRECISION;
+
+    await ssvToken.approve(await staking.getAddress(), largeStakeAmount);
+    await staking.stake(largeStakeAmount);
+
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(1n);
+    await staking.syncFees();
+
+    expect(await staking.getAccEthPerShareRemainder()).to.equal(
+      ETH_DEDUCTED_DIGITS * PRECISION
+    );
+
+    await staking.requestUnstake(largeStakeAmount);
+    expect(await cssvToken.totalSupply()).to.equal(0n);
+
+    await staking.syncFees();
+
+    expect(await staking.getAccEthPerShare()).to.equal(0n);
+    expect(await staking.getAccEthPerShareRemainder()).to.equal(0n);
+
+    await ssvToken.approve(await staking.getAddress(), largeStakeAmount);
+    await staking.stake(largeStakeAmount);
+
+    await staking.mockSetEthDaoBalance(2n);
+    await staking.syncFees();
+
+    expect(await staking.getAccEthPerShare()).to.equal(0n);
+    expect(await staking.getAccEthPerShareRemainder()).to.equal(
+      ETH_DEDUCTED_DIGITS * PRECISION
+    );
+
+    await staking.requestUnstake(1n);
+
+    expect(await staking.getUserAccrued(staker.address)).to.equal(0n);
   });
 
   it("Calling syncFees twice in the same block does not double-count fees", async function () {

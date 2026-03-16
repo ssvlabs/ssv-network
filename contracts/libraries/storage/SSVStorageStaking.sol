@@ -35,6 +35,8 @@ struct StorageStaking {
     uint16 quorumBps;
     /// @notice The mapping of address to their unstake requests
     mapping(address => UnstakeRequest[]) withdrawalRequests;
+    /// @notice Scaled remainder carried between syncs to avoid losing sub-share fees
+    uint256 accEthPerShareRemainder;
 }
 
 library SSVStorageStaking {
