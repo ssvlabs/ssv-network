@@ -62,18 +62,24 @@ describe("SSVDAO function `updateQuorumBps()`", async () => {
     expect(storedQuorum).to.equal(maxQuorum);
   });
 
-  it("Can set quorum to 0%", async function () {
+  it("Is reverted when quorum is 0", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
-    await dao.updateQuorumBps(5000n);
-    const tx = await dao.updateQuorumBps(0n);
+    await expect(dao.updateQuorumBps(0n))
+      .to.be.revertedWithCustomError(dao, Errors.INVALID_QUORUM);
+  });
+
+  it("Can set quorum to 1 bps (minimum)", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const tx = await dao.updateQuorumBps(1n);
 
     await expect(tx)
       .to.emit(dao, Events.QUORUM_UPDATED)
-      .withArgs(0n);
+      .withArgs(1n);
 
     const storedQuorum = await dao.getQuorumBps();
-    expect(storedQuorum).to.equal(0n);
+    expect(storedQuorum).to.equal(1n);
   });
 
   it("Is reverted when quorum exceeds 10000 bps", async function () {

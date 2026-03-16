@@ -231,6 +231,25 @@ describe("SSVOperators function `removeOperator()`", async () => {
     ).to.be.revertedWithCustomError(operators, Errors.OPERATOR_ALREADY_EXISTS);
   });
 
+  it("Clears operatorEthVUnits when removing an operator", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+
+    await operators.mockSetOperatorEthVUnits(1, 5000n);
+    expect(await operators.getOperatorEthVUnits(1)).to.equal(5000n);
+
+    const operatorsAddress = await operators.getAddress();
+    await connection.ethers.provider.send("hardhat_setBalance", [
+      operatorsAddress,
+      `0x${ethers.parseEther("1").toString(16)}`,
+    ]);
+
+    await operators.removeOperator(1);
+
+    expect(await operators.getOperatorEthVUnits(1)).to.equal(0n);
+  });
+
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to remove operator", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 

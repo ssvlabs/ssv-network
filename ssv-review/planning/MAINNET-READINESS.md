@@ -51,7 +51,7 @@
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
 | SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
 | SEC-19 | ~~`minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled~~ | Security Hardening | P1 | ✅ Fixed |
-| SEC-20 | Oracle Quorum Can Be Set to Zero | Security Hardening | P2 | S |
+| SEC-20 | ~~Oracle Quorum Can Be Set to Zero~~ | Security Hardening | P2 | ✅ Fixed |
 | TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
 | TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | S✅ Closed (PR #445) |
@@ -105,7 +105,7 @@
 | QUALITY-7 | Harness contracts vs. real contracts in tests | Code Quality | P2 | ⚠️ Medium Priority — migrate E2E to real contracts (PR #435) |
 | QUALITY-8 | Helper function duplication across test types | Code Quality | P3 | ℹ️ Low Priority — merge helpers after PR #435 |
 | QUALITY-9 | ~~`removeOperator` should clear fee change requests~~ | Code Quality | P2 | ✅ Closed (cleanup added + unit test) |
-| QUALITY-10 | `removeOperator` does not clear `operatorEthVUnits` — orphaned deviation | Code Quality | P1 | S |
+| QUALITY-10 | ~~`removeOperator` does not clear `operatorEthVUnits` — orphaned deviation~~ | Code Quality | P1 | ✅ Fixed |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
@@ -1372,31 +1372,21 @@ The threat model (`docs/audit/07-trust-boundaries-integrations.md`) explicitly l
 
 ---
 
-### [SEC-20] Oracle Quorum Can Be Set to Zero
+### [SEC-20] ~~Oracle Quorum Can Be Set to Zero~~
+- **Type:** Security Hardening
+- **Priority:** P2
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-16
+- **Github Link:** (empty)
 
-**File:** `contracts/modules/SSVDAO.sol` L252-L258
-**Severity:** Medium
+**Resolution:**
+`updateQuorumBps` now rejects zero quorum: `if (quorum == 0 || quorum > BPS_DENOMINATOR) revert InvalidQuorum()`. This prevents the owner from accidentally disabling the multi-oracle quorum threshold. Updated unit tests to expect revert on `updateQuorumBps(0)` and added a test for the minimum valid quorum of 1 bps.
 
-**Description:** The `updateQuorumBps` function allows the owner to set `quorumBps` to 0. When quorum is zero, the threshold calculation in `commitRoot` produces `threshold = (totalStaked * 0) / BPS_DENOMINATOR = 0`. Since `accumulatedWeight >= 0` is always true, a single oracle vote commits any root immediately, bypassing the multi-oracle security model. A compromised oracle could commit a fraudulent Merkle root containing arbitrary effective balances, enabling exploitation of the EB-based fee system.
-
-**Code:**
-```solidity
-function updateQuorumBps(uint16 quorum) external override {
-    if (quorum > BPS_DENOMINATOR) {
-        revert InvalidQuorum();
-    }
-    // Missing: if (quorum == 0) revert InvalidQuorum();
-    SSVStorageStaking.load().quorumBps = quorum;
-    emit QuorumUpdated(quorum);
-}
-```
-
-**Recommendation:** Add a minimum quorum check. A reasonable minimum is `BPS_DENOMINATOR / s.defaultOracleIds.length + 1` to ensure at least 2 oracle votes are required:
-```solidity
-if (quorum == 0 || quorum > BPS_DENOMINATOR) {
-    revert InvalidQuorum();
-}
-```
+**Acceptance Criteria:**
+- [x] `updateQuorumBps(0)` reverts with `InvalidQuorum()`
+- [x] `updateQuorumBps(1)` succeeds (minimum valid quorum)
+- [x] Existing tests for `updateQuorumBps` updated to reflect new validation
 ---
 
 ## Unit Test Completeness
@@ -3963,38 +3953,24 @@ Added a unit test in `test/unit/SSVOperators/removeOperator.test.ts` that:
 
 --- 
 
-### [QUALITY-10] `removeOperator` does not clear `operatorEthVUnits` — orphaned deviation
+### [QUALITY-10] ~~`removeOperator` does not clear `operatorEthVUnits` — orphaned deviation~~
+- **Type:** Code Quality
+- **Priority:** P1
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-16
+- **Github Link:** (empty)
 
-**Severity:** LOW
-**Function:** `SSVOperators._resetOperatorState()` at [`SSVOperators.sol:344-355`](contracts/modules/SSVOperators.sol#L344-L355)
-**Invariant:** For removed operators (`ethSnapshot.block == 0`), `operatorEthVUnits[id]` should be `0`
+**Resolution:**
+`removeOperator` now deletes `SSVStorageEB.load().operatorEthVUnits[operatorId]` alongside the existing `_resetOperatorState` call, ensuring no orphaned deviation remains for removed operators.
 
-**Before Execution:**
-```
-operator.ethValidatorCount = 5
-operatorEthVUnits[42]      = 3000  (deviation from 2 explicit-EB clusters)
-ethSnapshot.block           = 19000000
-```
+Added a unit test in `test/unit/SSVOperators/removeOperator.test.ts` that:
+- Registers an operator and sets `operatorEthVUnits` to a non-zero value via harness
+- Removes the operator
+- Verifies `operatorEthVUnits` is cleared to 0
 
-**After `removeOperator(42)`:**
-```
-operator.ethValidatorCount = 0     ← reset by _resetOperatorState
-operatorEthVUnits[42]      = 3000  ← NOT cleared!
-ethSnapshot.block           = 0     ← reset
-```
-
-**Root Cause:**
-`_resetOperatorState()` resets `ethValidatorCount`, `ethSnapshot`, `ethFee`, etc., but does not access `SSVStorageEB` to clear `operatorEthVUnits[operatorId]`.
-
-**Impact:**
-- **No functional impact** — since `ethSnapshot.block == 0`, `updateSnapshotSt()` is skipped for removed operators, so the orphaned deviation never affects earnings calculations
-- The deviation IS correctly cleaned up when clusters using the removed operator are subsequently liquidated or have validators removed (via `_executeLiquidation` or `_bulkRemoveValidator`)
-- However, off-chain analytics reading `operatorEthVUnits` would see stale values for removed operators
-
-**Recommendation:**
-Add cleanup to `removeOperator`:
-```solidity
-SSVStorageEB.load().operatorEthVUnits[operatorId] = 0;
-```
+**Acceptance Criteria:**
+- [x] `removeOperator` clears `operatorEthVUnits[operatorId]`
+- [x] Unit test covers removal with non-zero `operatorEthVUnits`
 
 ---
