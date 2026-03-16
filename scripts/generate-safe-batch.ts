@@ -106,7 +106,7 @@ async function main() {
     "function updateDeclareOperatorFeePeriod(uint64 blocks)",
     "function updateExecuteOperatorFeePeriod(uint64 blocks)",
     "function updateOperatorFeeIncreaseLimit(uint64 percentage)",
-    "function updateMaximumOperatorFee(uint64 maxFee)",
+    "function updateMaximumOperatorFee(uint256 maxFee)",
     "function updateMinimumOperatorEthFee(uint256 minFee)",
     "function updateQuorumBps(uint16 quorumBps)",
     "function updateUnstakeCooldownDuration(uint64 blocks)",
