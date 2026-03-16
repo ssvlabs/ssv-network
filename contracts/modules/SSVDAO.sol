@@ -250,7 +250,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
      * @inheritdoc ISSVDAO
      */
     function updateQuorumBps(uint16 quorum) external override {
-        if (quorum > BPS_DENOMINATOR) {
+        if (quorum == 0 || quorum > BPS_DENOMINATOR) {
             revert InvalidQuorum();
         }
         SSVStorageStaking.load().quorumBps = quorum;

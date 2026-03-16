@@ -8,6 +8,7 @@ import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {OperatorLib} from "../libraries/OperatorLib.sol";
 import {CoreLib} from "../libraries/CoreLib.sol";
+import {SSVStorageEB, StorageEB} from "../libraries/storage/SSVStorageEB.sol";
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
@@ -70,6 +71,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
     function removeOperator(uint64 operatorId) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
         Operator storage operator = s.operators[operatorId];
+        StorageEB storage seb = SSVStorageEB.load();
 
         operator.checkOwner();
 
@@ -88,6 +90,7 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
 
         _resetOperatorState(operator);
 
+        delete seb.operatorEthVUnits[operatorId];
         delete s.operatorFeeChangeRequests[operatorId];
         delete s.operatorsWhitelist[operatorId];
 
