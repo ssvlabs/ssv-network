@@ -473,21 +473,24 @@ if (isLiquidated) emit ClusterReactivated(owner, operatorIds, cluster);
 - `oracleIdOf[msg.sender] != 0`
 - `blockNum > latestCommittedBlock` (strictly monotonic)
 - `blockNum <= block.number` (not future)
-- `cSSV.totalSupply() > 0` (staking is active)
+- Raw `cSSV.totalSupply() > 0` and its truncated voting supply is also non-zero; otherwise revert with `ZeroCSSVSupply` or `InsufficientCSSVSupply`
 - Oracle has not already voted for this `(blockNum, merkleRoot)` pair
 
 #### State Mutations
 
 1. Mark oracle as voted: `hasVoted[commitmentKey][oracleId] = true`
-2. Compute weight: `weight = totalCSSVSupply / defaultOracleIds.length`
-3. Accumulate: `rootCommitments[commitmentKey] += weight`
-4. Compute threshold: `threshold = (totalCSSVSupply * quorumBps) / 10_000`
-5. **If quorum reached** (`accumulatedWeight >= threshold`):
+2. On the first vote only, read raw `cSSV.totalSupply()`, truncate it to `frozenVotingSupply = rawSupply - (rawSupply % defaultOracleIds.length)`, and store that truncated value in `roundFrozenSupply[commitmentKey]`
+3. Compute weight from stored voting supply: `weight = roundFrozenSupply[commitmentKey] / defaultOracleIds.length`
+4. Accumulate: `rootCommitments[commitmentKey] += weight`
+5. Compute threshold from the same stored voting supply: `threshold = (roundFrozenSupply[commitmentKey] * quorumBps) / 10_000`
+6. **If quorum reached** (`accumulatedWeight >= threshold`):
    - Store root: `ebRoots[blockNum] = merkleRoot`
    - Update: `latestCommittedBlock = blockNum`
    - Cleanup: `delete rootCommitments[commitmentKey]`
    - **Note:** `hasVoted` mappings are intentionally NOT deleted to prevent re-voting on the same key
-6. **If quorum not reached**: no root storage, no cleanup — see SPEC §4 "Failed Quorum Behavior" for full persistence rules
+7. **If quorum not reached**: no root storage, no cleanup — see SPEC §4 "Failed Quorum Behavior" for full persistence rules
+
+The truncated remainder (`rawSupply % defaultOracleIds.length`) is treated as non-voting dust for the round. `roundFrozenSupply` therefore represents frozen voting supply, not the exact raw total supply snapshot.
 
 #### Events
 ```solidity

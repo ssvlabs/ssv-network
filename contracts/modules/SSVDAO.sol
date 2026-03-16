@@ -188,15 +188,18 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
         if (seb.hasVoted[commitmentKey][oracleId]) revert AlreadyVoted();
         seb.hasVoted[commitmentKey][oracleId] = true;
 
-        // Freeze supply on the first vote to prevent supply manipulation between votes.
+        uint256 oracleCount = s.defaultOracleIds.length;
         uint256 totalStaked = seb.roundFrozenSupply[commitmentKey];
         if (totalStaked == 0) {
-            totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
-            if (totalStaked == 0) revert OracleHasZeroWeight();
+            uint256 rawSupply = ICSSVToken(CSSV_ADDRESS).totalSupply();
+            if (rawSupply == 0) revert ZeroCSSVSupply();
+
+            totalStaked = rawSupply - (rawSupply % oracleCount);
+            if (totalStaked == 0) revert InsufficientCSSVSupply();
             seb.roundFrozenSupply[commitmentKey] = totalStaked;
         }
 
-        uint256 weight = totalStaked / s.defaultOracleIds.length;
+        uint256 weight = totalStaked / oracleCount;
         seb.rootCommitments[commitmentKey] += weight;
 
         uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];

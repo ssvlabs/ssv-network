@@ -3579,46 +3579,54 @@ This is distinct from the already-mitigated front-running issue tracked in SEC-5
 - A minimal regression test now demonstrates the issue in `test/unit/SSVDAO/commitRoot.test.ts`: with `totalSupply = 1_000_000_002` and `quorumBps = 7500`, the third oracle vote should commit under intended 3-of-4 semantics, but does not.
 
 **Proposed Fix:**
-Do not add new storage. Keep `roundFrozenSupply` and `rootCommitments` unchanged, and compute the quorum threshold in oracle-vote space instead of raw token space:
+Keep the `token weight` model, but normalize the frozen supply once on the first vote of the round and store the truncated voting supply in `roundFrozenSupply`:
 
 ```solidity
 uint256 oracleCount = s.defaultOracleIds.length;
+uint256 rawSupply = ICSSVToken(CSSV_ADDRESS).totalSupply();
+if (rawSupply == 0) revert ZeroCSSVSupply();
+
+uint256 totalStaked = rawSupply - (rawSupply % oracleCount);
+if (totalStaked == 0) revert InsufficientCSSVSupply();
+
+seb.roundFrozenSupply[commitmentKey] = totalStaked;
+
 uint256 weight = totalStaked / oracleCount;
-
 seb.rootCommitments[commitmentKey] += weight;
-uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];
-
-uint256 votesNeeded = (oracleCount * s.quorumBps + BPS_DENOMINATOR - 1) / BPS_DENOMINATOR;
-uint256 threshold = votesNeeded * weight;
+uint256 threshold = (totalStaked * s.quorumBps) / BPS_DENOMINATOR;
 ```
 
 This preserves:
-- frozen per-round supply
-- current storage layout
-- current `WeightedRootProposed` event shape
+- `token weight`-based quorum math
+- current storage layout and event shape
+- frozen per-round vote math using one stored value for all later votes
 - current behavior where quorum updates between votes affect the next vote
 
-It also restores the intended semantics:
-- 75% quorum with 4 oracles requires 3 votes
-- 100% quorum with 4 oracles requires 4 votes
+It also removes the truncation mismatch by ensuring both `weight` and `threshold` use the same stored voting supply, while treating `rawSupply % oracleCount` as non-voting dust.
 
 **Acceptance Criteria:**
 - [ ] With 4 oracles and `quorumBps = 7500`, the third vote commits even when frozen supply is not divisible by 4
 - [ ] With 4 oracles and `quorumBps = 10000`, the fourth vote commits even when frozen supply is not divisible by 4
-- [ ] `roundFrozenSupply` logic remains unchanged and still fixes inter-vote supply drift
+- [ ] With 4 oracles and `quorumBps = 8000`, 3 votes do not commit and the fourth vote does
+- [ ] `roundFrozenSupply` stores the truncated frozen voting supply and still fixes inter-vote supply drift
 - [ ] No storage layout changes are introduced
+- [ ] Rounds with `totalSupply == 0` revert with `ZeroCSSVSupply`
+- [ ] Rounds with `0 < totalSupply < oracleCount` revert with `InsufficientCSSVSupply`
 - [ ] Existing quorum behavior for low thresholds (for example `quorumBps = 1`) remains intact
-- [ ] Unit test coverage includes at least one truncation regression case
+- [ ] Unit test coverage includes truncation regression cases for 75%, 80%, and 100% quorum
 
 **Agent Instructions:**
 1. Read `contracts/modules/SSVDAO.sol`, focusing on `commitRoot`.
-2. Keep the existing frozen-supply logic (`roundFrozenSupply`) exactly as-is.
-3. Do not add a new storage mapping such as `rootVotes`.
-4. Change quorum threshold computation to use `ceil(oracleCount * quorumBps / 10_000)` votes, then compare in the same truncated weight domain already used by `rootCommitments`.
+2. Keep the current storage layout and do not add a new storage mapping such as `rootVotes`.
+3. On the first vote of a round, read raw `cSSV.totalSupply()`, truncate it by `defaultOracleIds.length`, and store that truncated value in `roundFrozenSupply`.
+4. Compute both `weight` and `threshold` from the stored truncated supply.
 5. Update or extend unit tests in `test/unit/SSVDAO/commitRoot.test.ts` to cover:
    - 75% quorum with non-divisible frozen supply
    - 100% quorum with non-divisible frozen supply
-6. Update `docs/SPEC.md` and `docs/FLOWS.md` to describe vote-based quorum thresholding over equal oracle slots while still noting that supply is frozen per round.
+   - 80% quorum with non-divisible frozen supply
+   - `totalSupply < oracleCount`
+   - truncated value persisted in `roundFrozenSupply`
+6. Update `docs/SPEC.md` and `docs/FLOWS.md` to describe truncated frozen voting supply in token-weight space while still noting that supply is frozen per round.
 
 #### Sub-items:
 - [x] Add failing regression test demonstrating unreachable 3-of-4 quorum with non-divisible supply

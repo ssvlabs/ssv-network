@@ -65,7 +65,8 @@ export const Errors = {
   TOKEN_TRANSFER_FAILED: "TokenTransferFailed",
   ETH_TRANSFER_FAILED: "ETHTransferFailed",
   LEGACY_OPERATOR_FEE_DECLARATION_INVALID: "LegacyOperatorFeeDeclarationInvalid",
-  ORACLE_HAS_ZERO_WEIGHT: "OracleHasZeroWeight",
+  ZERO_CSSV_SUPPLY: "ZeroCSSVSupply",
+  INSUFFICIENT_CSSV_SUPPLY: "InsufficientCSSVSupply",
   MAX_VALUE_EXCEEDED: "MaxValueExceeded",
   MAX_PRECISION_EXCEEDED: "MaxPrecisionExceeded",
 } as const;
