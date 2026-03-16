@@ -187,6 +187,27 @@ describe("SSVDAO function `commitRoot()`", async () => {
     expect(latestBlock).to.equal(currentBlock);
   });
 
+  it("Commits on the third vote at 75% quorum even when totalSupply is not divisible by 4", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
+    const truncatingSupply = 1_000_000_002n;
+    await cssv.mint(owner.address, truncatingSupply);
+
+    const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("truncation-regression"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+
+    await dao.connect(oracle1).commitRoot(merkleRoot, blockNum);
+    await dao.connect(oracle2).commitRoot(merkleRoot, blockNum);
+
+    const tx = await dao.connect(oracle3).commitRoot(merkleRoot, blockNum);
+
+    await expect(tx)
+      .to.emit(dao, Events.ROOT_COMMITTED)
+      .withArgs(merkleRoot, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(merkleRoot);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+  });
+
   it("Commits root on the first vote when accumulated weight meets the quorum threshold", async function () {
     const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
     await cssv.mint(owner.address, totalSupply);

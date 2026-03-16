@@ -1,7 +1,7 @@
 # SSV Network v2.0.0 — Mainnet Readiness Checklist
 
 **Generated:** 2026-02-17
-**Updated:** 2026-03-12
+**Updated:** 2026-03-16
 **Sources:** Verified bug report, verified test coverage gap analysis, verified scripts & ops audit, DIP-X vs implementation review reports (ETH Payments, Effective Balance, SSV Staking)
 **Branch:** `ssv-staking` (base for all feature branches)
 
@@ -27,6 +27,7 @@
 | BUG-14b | ~~`reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators~~ | Critical Bug Fix | P1 | ✅ Fixed (ensureETHDefaults marker pattern) |
 | BUG-15 | ~~`withdrawAllVersionOperatorEarnings` initializes ETH snapshot for legacy SSV-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-16 | ~~SSVNetworkViews enforce cluster version checks and unify isActive logic~~ | Critical Bug Fix | P1 | ✅ Fixed |
+| BUG-17 | `commitRoot` quorum can become unreachable due to truncation in per-oracle weight math | Critical Bug Fix | P0 | S |
 | SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -3549,6 +3550,82 @@ The bug was that the combined `updateSnapshots` helper ignored version separatio
 - [x] Remove obsolete `OperatorLib.updateSnapshots`
 - [x] Add unit test for legacy SSV-only withdrawal behavior
 - [ ] Run broader suite if needed
+
+---
+
+### [BUG-17] `commitRoot` quorum can become unreachable due to truncation in per-oracle weight math
+- **Type:** Critical Bug Fix
+- **Priority:** P0
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** Before mainnet launch
+- **Github Link:** (empty)
+
+**Requirement:**
+Fix `commitRoot` so that the configured oracle quorum remains reachable even when the frozen cSSV supply for a voting round is not divisible by the oracle count.
+
+**Context:**
+`commitRoot` freezes `cSSV.totalSupply()` on the first vote of a `(blockNum, merkleRoot)` round to prevent inter-vote supply drift. That mitigation is correct and must remain in place. However, the function then computes:
+- `weight = totalStaked / defaultOracleIds.length`
+- `threshold = (totalStaked * quorumBps) / 10_000`
+
+This mixes two separately-truncated quantities. With 4 oracle slots and 75% quorum, if the frozen supply is `4q + 2` or `4q + 3`, three votes accumulate only `3q` weight while the threshold becomes `3q + 1`, so 3-of-4 consensus is mathematically unreachable. At 100% quorum, even 4 votes fail whenever the frozen supply is not divisible by 4.
+
+This is distinct from the already-mitigated front-running issue tracked in SEC-5. Freezing supply removes the moving-target quorum problem between votes; it does not remove truncation mismatch inside the fixed round arithmetic.
+
+**Vulnerability Details:**
+- The bug is present in `contracts/modules/SSVDAO.sol` where vote weight and threshold are derived from the same frozen supply but rounded in different ways.
+- The current specs mirror the same arithmetic, so documentation does not currently protect against the edge case.
+- A minimal regression test now demonstrates the issue in `test/unit/SSVDAO/commitRoot.test.ts`: with `totalSupply = 1_000_000_002` and `quorumBps = 7500`, the third oracle vote should commit under intended 3-of-4 semantics, but does not.
+
+**Proposed Fix:**
+Do not add new storage. Keep `roundFrozenSupply` and `rootCommitments` unchanged, and compute the quorum threshold in oracle-vote space instead of raw token space:
+
+```solidity
+uint256 oracleCount = s.defaultOracleIds.length;
+uint256 weight = totalStaked / oracleCount;
+
+seb.rootCommitments[commitmentKey] += weight;
+uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];
+
+uint256 votesNeeded = (oracleCount * s.quorumBps + BPS_DENOMINATOR - 1) / BPS_DENOMINATOR;
+uint256 threshold = votesNeeded * weight;
+```
+
+This preserves:
+- frozen per-round supply
+- current storage layout
+- current `WeightedRootProposed` event shape
+- current behavior where quorum updates between votes affect the next vote
+
+It also restores the intended semantics:
+- 75% quorum with 4 oracles requires 3 votes
+- 100% quorum with 4 oracles requires 4 votes
+
+**Acceptance Criteria:**
+- [ ] With 4 oracles and `quorumBps = 7500`, the third vote commits even when frozen supply is not divisible by 4
+- [ ] With 4 oracles and `quorumBps = 10000`, the fourth vote commits even when frozen supply is not divisible by 4
+- [ ] `roundFrozenSupply` logic remains unchanged and still fixes inter-vote supply drift
+- [ ] No storage layout changes are introduced
+- [ ] Existing quorum behavior for low thresholds (for example `quorumBps = 1`) remains intact
+- [ ] Unit test coverage includes at least one truncation regression case
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVDAO.sol`, focusing on `commitRoot`.
+2. Keep the existing frozen-supply logic (`roundFrozenSupply`) exactly as-is.
+3. Do not add a new storage mapping such as `rootVotes`.
+4. Change quorum threshold computation to use `ceil(oracleCount * quorumBps / 10_000)` votes, then compare in the same truncated weight domain already used by `rootCommitments`.
+5. Update or extend unit tests in `test/unit/SSVDAO/commitRoot.test.ts` to cover:
+   - 75% quorum with non-divisible frozen supply
+   - 100% quorum with non-divisible frozen supply
+6. Update `docs/SPEC.md` and `docs/FLOWS.md` to describe vote-based quorum thresholding over equal oracle slots while still noting that supply is frozen per round.
+
+#### Sub-items:
+- [x] Add failing regression test demonstrating unreachable 3-of-4 quorum with non-divisible supply
+- [ ] Patch `commitRoot` threshold math without storage-layout changes
+- [ ] Add regression test for 100% quorum with non-divisible supply
+- [ ] Update SPEC/FLOWS to reflect corrected quorum calculation
+- [ ] Run targeted DAO/oracle tests and verify no regressions
 
 ---
 
