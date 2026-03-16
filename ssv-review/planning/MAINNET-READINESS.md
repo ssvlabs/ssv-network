@@ -27,7 +27,10 @@
 | BUG-14b | ~~`reduceOperatorFee` / `declareOperatorFee` overwrite explicit zero ETH fees for legacy SSV operators~~ | Critical Bug Fix | P1 | ✅ Fixed (ensureETHDefaults marker pattern) |
 | BUG-15 | ~~`withdrawAllVersionOperatorEarnings` initializes ETH snapshot for legacy SSV-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-16 | ~~SSVNetworkViews enforce cluster version checks and unify isActive logic~~ | Critical Bug Fix | P1 | ✅ Fixed |
-| BUG-17 | `commitRoot` quorum can become unreachable due to truncation in per-oracle weight math | Critical Bug Fix | P0 | S |
+| BUG-17 | ~~`commitRoot` quorum can become unreachable due to truncation in per-oracle weight math~~ | Critical Bug Fix | P0 | ✅ Fixed |
+| BUG-18 | Staking Rewards Accumulator Precision Loss | High Bug Fix | P1 | S |
+| BUG-19 | Aggregate vs per-cluster rounding causes conservation law violation | Medium Bug Fix | P1 | S |
+| BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | S |
 | SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -48,6 +51,7 @@
 | SEC-17 | DAO governance functions lack input guardrails (min/max/non-zero) | Security Hardening | P1 | M |
 | SEC-18 | ETH-only operators can call `withdrawOperatorEarningsSSV` (no-op but wastes gas) | Security Hardening | P3 | S |
 | SEC-19 | ~~`minBlocksBetweenUpdates` never initialized — EB update rate limit silently disabled~~ | Security Hardening | P1 | ✅ Fixed |
+| SEC-20 | Oracle Quorum Can Be Set to Zero | Security Hardening | P2 | S |
 | TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
 | TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | S✅ Closed (PR #445) |
@@ -101,6 +105,7 @@
 | QUALITY-7 | Harness contracts vs. real contracts in tests | Code Quality | P2 | ⚠️ Medium Priority — migrate E2E to real contracts (PR #435) |
 | QUALITY-8 | Helper function duplication across test types | Code Quality | P3 | ℹ️ Low Priority — merge helpers after PR #435 |
 | QUALITY-9 | ~~`removeOperator` should clear fee change requests~~ | Code Quality | P2 | ✅ Closed (cleanup added + unit test) |
+| QUALITY-10 | `removeOperator` does not clear `operatorEthVUnits` — orphaned deviation | Code Quality | P1 | S |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
@@ -437,6 +442,189 @@ In `OperatorLib.sol:68-69` (also lines 93-94, 326-327), `PackedETH.wrap(uint64(d
 - [ ] Sub-task 1: Replace `uint64(delta)` with SafeCast at all three locations in OperatorLib.sol
 - [ ] Sub-task 2: Add unit test for operator earnings overflow scenario
 - [ ] Sub-task 3: Run full test suite
+
+---
+
+### [BUG-17] `commitRoot` quorum can become unreachable due to truncation in per-oracle weight math
+- **Type:** Critical Bug Fix
+- **Priority:** P0
+- **Status:** Open
+- **Owner:** (unassigned)
+- **Timeline:** Before mainnet launch
+- **Github Link:** (empty)
+
+**Requirement:**
+Fix `commitRoot` so that the configured oracle quorum remains reachable even when the frozen cSSV supply for a voting round is not divisible by the oracle count.
+
+**Context:**
+`commitRoot` freezes `cSSV.totalSupply()` on the first vote of a `(blockNum, merkleRoot)` round to prevent inter-vote supply drift. That mitigation is correct and must remain in place. However, the function then computes:
+- `weight = totalStaked / defaultOracleIds.length`
+- `threshold = (totalStaked * quorumBps) / 10_000`
+
+This mixes two separately-truncated quantities. With 4 oracle slots and 75% quorum, if the frozen supply is `4q + 2` or `4q + 3`, three votes accumulate only `3q` weight while the threshold becomes `3q + 1`, so 3-of-4 consensus is mathematically unreachable. At 100% quorum, even 4 votes fail whenever the frozen supply is not divisible by 4.
+
+This is distinct from the already-mitigated front-running issue tracked in SEC-5. Freezing supply removes the moving-target quorum problem between votes; it does not remove truncation mismatch inside the fixed round arithmetic.
+
+**Vulnerability Details:**
+- The bug is present in `contracts/modules/SSVDAO.sol` where vote weight and threshold are derived from the same frozen supply but rounded in different ways.
+- The current specs mirror the same arithmetic, so documentation does not currently protect against the edge case.
+- A minimal regression test now demonstrates the issue in `test/unit/SSVDAO/commitRoot.test.ts`: with `totalSupply = 1_000_000_002` and `quorumBps = 7500`, the third oracle vote should commit under intended 3-of-4 semantics, but does not.
+
+**Proposed Fix:**
+Do not add new storage. Keep `roundFrozenSupply` and `rootCommitments` unchanged, and compute the quorum threshold in oracle-vote space instead of raw token space:
+
+```solidity
+uint256 oracleCount = s.defaultOracleIds.length;
+uint256 weight = totalStaked / oracleCount;
+
+seb.rootCommitments[commitmentKey] += weight;
+uint256 accumulatedWeight = seb.rootCommitments[commitmentKey];
+
+uint256 votesNeeded = (oracleCount * s.quorumBps + BPS_DENOMINATOR - 1) / BPS_DENOMINATOR;
+uint256 threshold = votesNeeded * weight;
+```
+
+This preserves:
+- frozen per-round supply
+- current storage layout
+- current `WeightedRootProposed` event shape
+- current behavior where quorum updates between votes affect the next vote
+
+It also restores the intended semantics:
+- 75% quorum with 4 oracles requires 3 votes
+- 100% quorum with 4 oracles requires 4 votes
+
+**Acceptance Criteria:**
+- [ ] With 4 oracles and `quorumBps = 7500`, the third vote commits even when frozen supply is not divisible by 4
+- [ ] With 4 oracles and `quorumBps = 10000`, the fourth vote commits even when frozen supply is not divisible by 4
+- [ ] `roundFrozenSupply` logic remains unchanged and still fixes inter-vote supply drift
+- [ ] No storage layout changes are introduced
+- [ ] Existing quorum behavior for low thresholds (for example `quorumBps = 1`) remains intact
+- [ ] Unit test coverage includes at least one truncation regression case
+
+**Agent Instructions:**
+1. Read `contracts/modules/SSVDAO.sol`, focusing on `commitRoot`.
+2. Keep the existing frozen-supply logic (`roundFrozenSupply`) exactly as-is.
+3. Do not add a new storage mapping such as `rootVotes`.
+4. Change quorum threshold computation to use `ceil(oracleCount * quorumBps / 10_000)` votes, then compare in the same truncated weight domain already used by `rootCommitments`.
+5. Update or extend unit tests in `test/unit/SSVDAO/commitRoot.test.ts` to cover:
+   - 75% quorum with non-divisible frozen supply
+   - 100% quorum with non-divisible frozen supply
+6. Update `docs/SPEC.md` and `docs/FLOWS.md` to describe vote-based quorum thresholding over equal oracle slots while still noting that supply is frozen per round.
+
+#### Sub-items:
+- [x] Add failing regression test demonstrating unreachable 3-of-4 quorum with non-divisible supply
+- [ ] Patch `commitRoot` threshold math without storage-layout changes
+- [ ] Add regression test for 100% quorum with non-divisible supply
+- [ ] Update SPEC/FLOWS to reflect corrected quorum calculation
+- [ ] Run targeted DAO/oracle tests and verify no regressions
+
+---
+
+### [BUG-18] Staking Rewards Accumulator Precision Loss
+
+**File:** `contracts/modules/SSVStaking.sol` L202
+**Severity:** Low
+
+**Description:** The `accEthPerShare` accumulator increment can round to zero when `newFeesWei * PRECISION < totalStaked`. Those fees are absorbed into `stakingEthPoolBalance` but never distributed to stakers. With the minimum packed fee increment of 100,000 wei (`ETH_DEDUCTED_DIGITS`) and PRECISION of 1e18, any `totalStaked > 1e23` (100,000 SSV tokens at 18 decimals) causes the smallest fee increment to round to zero.
+
+**Code:**
+```solidity
+s.accEthPerShare += uint128((newFeesWei * PRECISION) / totalStaked);
+// When newFeesWei * 1e18 < totalStaked, this adds 0
+```
+
+**Recommendation:** This is inherent to the accumulator pattern. The dust loss per sync is bounded by `totalStaked / PRECISION` wei (~0.0001 ETH for 100k SSV staked). For production parameters this is negligible, but consider documenting this as a known limitation. Alternatively, accumulate un-distributed remainders:
+```solidity
+uint256 scaledFees = newFeesWei * PRECISION;
+uint256 distributed = (scaledFees / totalStaked) * totalStaked;
+s.accEthPerShare += uint128(scaledFees / totalStaked);
+s.undistributedDust += scaledFees - distributed; // carry forward
+```
+
+---
+
+### [BUG-19] Aggregate vs per-cluster rounding causes conservation law violation
+
+**Severity:** MEDIUM
+**Functions:** `OperatorLib.updateSnapshotSt()` at [`OperatorLib.sol:52-72`](contracts/libraries/OperatorLib.sol#L52-L72), `ProtocolLib.networkTotalEarnings()` at [`ProtocolLib.sol:84-90`](contracts/libraries/ProtocolLib.sol#L84-L90), `ClusterLib.updateBalanceWithEB()` at [`ClusterLib.sol:306-321`](contracts/libraries/ClusterLib.sol#L306-L321)
+**Invariant:** `Σ(operator_earnings) + DAO_earnings == Σ(cluster_fees_paid)` (ETH Conservation)
+
+**Mechanism:**
+
+Each cluster pays fees proportional to its own `vUnits`:
+```solidity
+// Per-cluster payment (ClusterLib.updateBalanceWithEB)
+networkFeeUnits = (idxNet * units_cluster) / BPS_DENOMINATOR;  // floor division
+operatorFeeUnits = (idxOp * units_cluster) / BPS_DENOMINATOR;  // floor division
+```
+
+But operators earn proportional to their **aggregate** `effectiveVUnits` across ALL clusters:
+```solidity
+// Per-operator earnings (OperatorLib.updateSnapshotSt)
+delta = (blockDiffEthFee * effectiveVUnits_total) / BPS_DENOMINATOR;  // floor division
+```
+
+And the DAO earns proportional to aggregate `daoTotalEthVUnits`:
+```solidity
+// DAO earnings (ProtocolLib.networkTotalEarnings)
+earningsUnits = (idx * ethNetworkFee * daoTotalEthVUnits) / BPS_DENOMINATOR;
+```
+
+Due to the mathematical property `floor(a×x/n) + floor(a×y/n) ≤ floor(a×(x+y)/n)`:
+
+```
+Σ(cluster_i_payment) ≤ operator_aggregate_earnings
+Σ(cluster_i_network_fee) ≤ DAO_aggregate_earnings
+```
+
+**Impact:**
+
+Operators and the DAO **virtually earn slightly more** than clusters collectively pay. This creates a slow insolvency drift where the sum of all claimable balances (operator earnings + DAO rewards) exceeds the ETH actually deposited by cluster owners.
+
+**Bounded magnitude:**
+- Per settlement: at most `(numClusters - 1) × ETH_DEDUCTED_DIGITS` wei = `(N-1) × 100,000 wei`
+- Per year (2.5M blocks): with 1,000 clusters = ~0.00025 ETH/year
+
+**Recommendation:**
+This is a known DeFi pattern and the drift is negligible in practice. For completeness, consider documenting this as an accepted known issue. No code change required unless operating at extreme scale (>100K clusters sustained for years).
+
+---
+
+### [BUG-20]: Dust permanently trapped on reward claim with zero cSSV balance
+
+CHECK AGAINST THE SOLUTION FOR [SEC-16b]
+
+**Severity:** LOW
+**Function:** `SSVStaking.claimEthRewards()` at [`SSVStaking.sol:109-139`](contracts/modules/SSVStaking.sol#L109-L139)
+**Invariant:** `Σ(user.accrued) + Σ(claimed) = total distributed via accEthPerShare`
+
+**Mechanism:**
+
+```solidity
+uint256 payout = claimable - (claimable % ETH_DEDUCTED_DIGITS);
+// ...
+uint256 remainder = claimable - payout;
+s.accrued[msg.sender] = (remainder != 0 && userBalance == 0) ? 0 : remainder;
+//                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//                       Dust zeroed without returning to pool
+```
+
+When a user has zero cSSV and a sub-precision remainder (`< ETH_DEDUCTED_DIGITS = 100,000 wei`), the remainder is deleted from `accrued` but NOT returned to `stakingEthPoolBalance` or `ethDaoBalance`. The dust remains in both virtual accounting variables and in the contract's actual ETH balance, permanently locked.
+
+**Impact:**
+- Maximum dust per user: 99,999 wei (~0.0000001 ETH)
+- Cumulative impact over thousands of users: could reach a few cents to a few dollars total
+- The contract slowly accumulates a tiny amount of unclaimable ETH
+
+**Recommendation:**
+Accept as known behavior (trivial magnitude) or return dust to the pool:
+```solidity
+if (remainder != 0 && userBalance == 0) {
+    s.accrued[msg.sender] = 0;
+    // Optionally: redistribute dust back to pool for other stakers
+}
+```
 
 ---
 
@@ -1182,6 +1370,33 @@ The threat model (`docs/audit/07-trust-boundaries-integrations.md`) explicitly l
 - [ ] Sub-task 3: Unit tests for rate-limit enforcement
 - [ ] Sub-task 4: Update SPEC.md and FLOWS.md
 
+---
+
+### [SEC-20] Oracle Quorum Can Be Set to Zero
+
+**File:** `contracts/modules/SSVDAO.sol` L252-L258
+**Severity:** Medium
+
+**Description:** The `updateQuorumBps` function allows the owner to set `quorumBps` to 0. When quorum is zero, the threshold calculation in `commitRoot` produces `threshold = (totalStaked * 0) / BPS_DENOMINATOR = 0`. Since `accumulatedWeight >= 0` is always true, a single oracle vote commits any root immediately, bypassing the multi-oracle security model. A compromised oracle could commit a fraudulent Merkle root containing arbitrary effective balances, enabling exploitation of the EB-based fee system.
+
+**Code:**
+```solidity
+function updateQuorumBps(uint16 quorum) external override {
+    if (quorum > BPS_DENOMINATOR) {
+        revert InvalidQuorum();
+    }
+    // Missing: if (quorum == 0) revert InvalidQuorum();
+    SSVStorageStaking.load().quorumBps = quorum;
+    emit QuorumUpdated(quorum);
+}
+```
+
+**Recommendation:** Add a minimum quorum check. A reasonable minimum is `BPS_DENOMINATOR / s.defaultOracleIds.length + 1` to ensure at least 2 oracle votes are required:
+```solidity
+if (quorum == 0 || quorum > BPS_DENOMINATOR) {
+    revert InvalidQuorum();
+}
+```
 ---
 
 ## Unit Test Completeness
@@ -3827,10 +4042,43 @@ Added a unit test in `test/unit/SSVOperators/removeOperator.test.ts` that:
 - verifies `fee`, `approvalBeginTime`, and `approvalEndTime` are all exactly `0`
 
 **Acceptance Criteria:**
-<<<<<<< HEAD
 - [x] `removeOperator` clears `operatorFeeChangeRequests[operatorId]`
 - [x] Unit test covers removal with an active fee change request
-=======
-- [ ] `removeOperator` clears `operatorFeeChangeRequests[operatorId]`
-- [ ] Unit test covers removal with an active fee change request
->>>>>>> ssv-staking
+
+--- 
+
+### [QUALITY-10] `removeOperator` does not clear `operatorEthVUnits` — orphaned deviation
+
+**Severity:** LOW
+**Function:** `SSVOperators._resetOperatorState()` at [`SSVOperators.sol:344-355`](contracts/modules/SSVOperators.sol#L344-L355)
+**Invariant:** For removed operators (`ethSnapshot.block == 0`), `operatorEthVUnits[id]` should be `0`
+
+**Before Execution:**
+```
+operator.ethValidatorCount = 5
+operatorEthVUnits[42]      = 3000  (deviation from 2 explicit-EB clusters)
+ethSnapshot.block           = 19000000
+```
+
+**After `removeOperator(42)`:**
+```
+operator.ethValidatorCount = 0     ← reset by _resetOperatorState
+operatorEthVUnits[42]      = 3000  ← NOT cleared!
+ethSnapshot.block           = 0     ← reset
+```
+
+**Root Cause:**
+`_resetOperatorState()` resets `ethValidatorCount`, `ethSnapshot`, `ethFee`, etc., but does not access `SSVStorageEB` to clear `operatorEthVUnits[operatorId]`.
+
+**Impact:**
+- **No functional impact** — since `ethSnapshot.block == 0`, `updateSnapshotSt()` is skipped for removed operators, so the orphaned deviation never affects earnings calculations
+- The deviation IS correctly cleaned up when clusters using the removed operator are subsequently liquidated or have validators removed (via `_executeLiquidation` or `_bulkRemoveValidator`)
+- However, off-chain analytics reading `operatorEthVUnits` would see stale values for removed operators
+
+**Recommendation:**
+Add cleanup to `removeOperator`:
+```solidity
+SSVStorageEB.load().operatorEthVUnits[operatorId] = 0;
+```
+
+---
