@@ -176,6 +176,12 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const receipt = await tx.wait();
     await trackGasFromReceipt(receipt, [GasGroup.COMMIT_ROOT]);
 
+    const threshold = (totalSupply * 5000n) / 10000n;
+    const weight = totalSupply / numberOfOracles;
+
+    await expect(tx)
+      .to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(merkleRoot, currentBlock, weight * 2n, threshold, 2, oracle2.address);
     await expect(tx)
       .to.emit(dao, Events.ROOT_COMMITTED)
       .withArgs(merkleRoot, currentBlock);
@@ -196,11 +202,16 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const blockNum = await connection.ethers.provider.getBlockNumber();
 
     const commitmentKey = getCommitmentKey(blockNum, merkleRoot);
+    const threshold = (totalSupply * 100n) / 10000n;
+    const weight = totalSupply / numberOfOracles;
 
     const tx = await dao.connect(oracle1).commitRoot(merkleRoot, blockNum);
     const receipt = await tx.wait();
     await trackGasFromReceipt(receipt, [GasGroup.COMMIT_ROOT]);
 
+    await expect(tx)
+      .to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(merkleRoot, blockNum, weight, threshold, 1, oracle1.address);
     await expect(tx)
       .to.emit(dao, Events.ROOT_COMMITTED)
       .withArgs(merkleRoot, blockNum);
@@ -279,6 +290,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
     expect(await dao.getLatestCommittedBlock()).to.equal(0n);
 
     const tx4 = await dao.connect(oracle4).commitRoot(root, blockNum);
+    await expect(tx4).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 4n, threshold, 4, oracle4.address);
     await expect(tx4).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
 
     expect(await dao.getEBRoot(blockNum)).to.equal(root);
@@ -296,7 +309,12 @@ describe("SSVDAO function `commitRoot()`", async () => {
     const blockNum = await connection.ethers.provider.getBlockNumber();
     const commitmentKey = getCommitmentKey(blockNum, root);
 
+    const weight = totalSupply / numberOfOracles;
+    const threshold = (totalSupply * 1n) / 10000n;
+
     const tx = await dao.connect(oracle1).commitRoot(root, blockNum);
+    await expect(tx).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight, threshold, 1, oracle1.address);
     await expect(tx).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
 
     expect(await dao.getEBRoot(blockNum)).to.equal(root);
@@ -330,7 +348,11 @@ describe("SSVDAO function `commitRoot()`", async () => {
       .to.be.revertedWithCustomError(dao, Errors.ALREADY_VOTED);
 
     await dao.connect(oracle2).commitRoot(root, blockNum);
+    const threshold = (totalSupply * 7500n) / 10000n;
+
     const finalTx = await dao.connect(oracle3).commitRoot(root, blockNum);
+    await expect(finalTx).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 3n, threshold, 3, oracle3.address);
     await expect(finalTx).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
 
     expect(await dao.getEBRoot(blockNum)).to.equal(root);
@@ -369,6 +391,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
 
     await dao.connect(oracle2).commitRoot(root2, blockNum2);
     const finalTx2 = await dao.connect(oracle3).commitRoot(root2, blockNum2);
+    await expect(finalTx2).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root2, blockNum2, weight * 3n, threshold, 3, oracle3.address);
     await expect(finalTx2).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root2, blockNum2);
     expect(await dao.getEBRoot(blockNum2)).to.equal(root2);
   });
@@ -393,7 +417,10 @@ describe("SSVDAO function `commitRoot()`", async () => {
     await dao.mockupdateQuorumBps(5000);
 
     // Second vote -> commit
+    const newThreshold = (totalSupply * 5000n) / 10000n;
     const tx2 = await dao.connect(oracle2).commitRoot(root, blockNum);
+    await expect(tx2).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 2n, newThreshold, 2, oracle2.address);
     await expect(tx2).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
 
     expect(await dao.getEBRoot(blockNum)).to.equal(root);
@@ -432,6 +459,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
 
     // Third vote -> now commit (75% reached)
     const tx3 = await dao.connect(oracle3).commitRoot(root, blockNum);
+    await expect(tx3).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 3n, newThreshold, 3, oracle3.address);
     await expect(tx3).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
 
     expect(await dao.getEBRoot(blockNum)).to.equal(root);
@@ -462,6 +491,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
     expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
 
     const txA3 = await dao.connect(oracle3).commitRoot(rootA, blockNum);
+    await expect(txA3).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(rootA, blockNum, weight * 2n, threshold, 3, oracle3.address);
     await expect(txA3).to.emit(dao, Events.ROOT_COMMITTED).withArgs(rootA, blockNum);
 
     expect(await dao.getEBRoot(blockNum)).to.equal(rootA);
