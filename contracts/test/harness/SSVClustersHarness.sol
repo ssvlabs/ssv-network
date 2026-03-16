@@ -60,6 +60,10 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         sp.validatorsPerOperatorLimit = limit;
     }
 
+    function mockSetOperatorMaxFee(uint256 maxFee) external {
+        SSVStorageProtocol.load().operatorMaxFee = PackedETHLib.pack(maxFee);
+    }
+
     function mockCurrentNetworkFeeIndex(uint64 index) external {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethNetworkFeeIndex = index;

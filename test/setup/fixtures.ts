@@ -39,6 +39,7 @@ export async function ssvClustersHarnessFixture(
   await clusters.waitForDeployment();
 
   await clusters.mockValidatorsPerOperatorLimit(3000);
+  await clusters.mockSetOperatorMaxFee(Number(MAXIMUM_OPERATORS_FEE));
 
   const [owner] = await connection.ethers.getSigners();
 
@@ -86,6 +87,7 @@ export async function ssvValidatorsHarnessFixture(
   await validators.waitForDeployment();
 
   await validators.mockValidatorsPerOperatorLimit(3000);
+  await validators.mockSetOperatorMaxFee(Number(MAXIMUM_OPERATORS_FEE));
 
   const [owner] = await connection.ethers.getSigners();
 
