@@ -21,6 +21,8 @@ describe("SSVDAO function `commitRoot()`", async () => {
   let nonOracle: HardhatEthersSigner;
 
   const totalSupply = ethers.parseEther("1000");
+  const truncatingSupply = 1_000_000_002n;
+  const truncatedSupply = 1_000_000_000n;
   const numberOfOracles = 4n;
 
   before(async function () {
@@ -188,8 +190,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
   });
 
   it("Commits on the third vote at 75% quorum even when totalSupply is not divisible by 4", async function () {
-    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithOraclesFixture);
-    const truncatingSupply = 1_000_000_002n;
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithFourOraclesFixture);
     await cssv.mint(owner.address, truncatingSupply);
 
     const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("truncation-regression"));
@@ -206,6 +207,90 @@ describe("SSVDAO function `commitRoot()`", async () => {
 
     expect(await dao.getEBRoot(blockNum)).to.equal(merkleRoot);
     expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+  });
+
+  it("Stores truncated frozen supply and emits quorum based on the stored voting supply", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithFourOraclesFixture);
+    await cssv.mint(owner.address, truncatingSupply);
+
+    const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("truncated-storage"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+    const commitmentKey = getCommitmentKey(blockNum, merkleRoot);
+
+    const tx = await dao.connect(oracle1).commitRoot(merkleRoot, blockNum);
+
+    await expect(tx)
+      .to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(merkleRoot, blockNum, truncatedSupply / numberOfOracles, (truncatedSupply * 7500n) / 10000n, 1, oracle1.address);
+
+    expect(await dao.getRoundFrozenSupply(commitmentKey)).to.equal(truncatedSupply);
+    expect(await dao.getRootCommitmentWeight(commitmentKey)).to.equal(truncatedSupply / numberOfOracles);
+  });
+
+  it("Requires all 4 oracle votes at 100% quorum even when totalSupply is not divisible by 4", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithFourOraclesFixture);
+    await cssv.mint(owner.address, truncatingSupply);
+
+    await dao.mockupdateQuorumBps(10000);
+
+    const root = ethers.keccak256(ethers.toUtf8Bytes("100-quorum-truncation"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+    const commitmentKey = getCommitmentKey(blockNum, root);
+
+    const weight = truncatedSupply / numberOfOracles;
+    const threshold = truncatedSupply;
+
+    const tx1 = await dao.connect(oracle1).commitRoot(root, blockNum);
+    await expect(tx1).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight, threshold, 1, oracle1.address);
+    expect(await dao.getRoundFrozenSupply(commitmentKey)).to.equal(truncatedSupply);
+
+    const tx2 = await dao.connect(oracle2).commitRoot(root, blockNum);
+    await expect(tx2).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 2n, threshold, 2, oracle2.address);
+
+    const tx3 = await dao.connect(oracle3).commitRoot(root, blockNum);
+    await expect(tx3).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 3n, threshold, 3, oracle3.address);
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+
+    const tx4 = await dao.connect(oracle4).commitRoot(root, blockNum);
+    await expect(tx4).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(root);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+    expect(await dao.getRootCommitmentWeight(commitmentKey)).to.equal(0n);
+  });
+
+  it("Does not commit on the third vote at 80% quorum when totalSupply is not divisible by 4", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithFourOraclesFixture);
+    await cssv.mint(owner.address, truncatingSupply);
+
+    await dao.mockupdateQuorumBps(8000);
+
+    const root = ethers.keccak256(ethers.toUtf8Bytes("80-quorum-truncation"));
+    const blockNum = await connection.ethers.provider.getBlockNumber();
+    const commitmentKey = getCommitmentKey(blockNum, root);
+
+    const weight = truncatedSupply / numberOfOracles;
+    const threshold = (truncatedSupply * 8000n) / 10000n;
+
+    await dao.connect(oracle1).commitRoot(root, blockNum);
+    await dao.connect(oracle2).commitRoot(root, blockNum);
+
+    const tx3 = await dao.connect(oracle3).commitRoot(root, blockNum);
+    await expect(tx3).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
+      .withArgs(root, blockNum, weight * 3n, threshold, 3, oracle3.address);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
+    expect(await dao.getRoundFrozenSupply(commitmentKey)).to.equal(truncatedSupply);
+
+    const tx4 = await dao.connect(oracle4).commitRoot(root, blockNum);
+    await expect(tx4).to.emit(dao, Events.ROOT_COMMITTED).withArgs(root, blockNum);
+
+    expect(await dao.getEBRoot(blockNum)).to.equal(root);
+    expect(await dao.getLatestCommittedBlock()).to.equal(blockNum);
+    expect(await dao.getRootCommitmentWeight(commitmentKey)).to.equal(0n);
   });
 
   it("Commits root on the first vote when accumulated weight meets the quorum threshold", async function () {
@@ -268,6 +353,17 @@ describe("SSVDAO function `commitRoot()`", async () => {
 
     const weight2 = await dao.getRootCommitmentWeight(commitmentKey);
     expect(weight2).to.equal(oracleWeight * 2n);
+  });
+
+  it("Is reverted with 'OracleHasZeroWeight' when totalSupply is below the oracle count", async function () {
+    const { dao, cssv } = await networkHelpers.loadFixture(deployDAOWithFourOraclesFixture);
+    await cssv.mint(owner.address, 3n);
+
+    const merkleRoot = ethers.keccak256(ethers.toUtf8Bytes("below-oracle-count"));
+    const currentBlock = await connection.ethers.provider.getBlockNumber();
+
+    await expect(dao.connect(oracle1).commitRoot(merkleRoot, currentBlock))
+      .to.be.revertedWithCustomError(dao, Errors.ORACLE_HAS_ZERO_WEIGHT);
   });
 
   it("Requires all 4 oracle votes when quorumBps is 10000 (100%)", async function () {

@@ -460,15 +460,17 @@ Effective Balance Oracles track validator balances on the beacon chain and commi
 
 1. Oracle calls `commitRoot(merkleRoot, blockNum)`
 2. Contract validates: `blockNum > latestCommittedBlock` (monotonic), `blockNum <= block.number` (not future)
-3. Requires `cSSV.totalSupply() > 0` (reverts with `OracleHasZeroWeight` otherwise)
-4. Each oracle has equal weight: `weight = totalCSSVSupply / 4`
+3. On the first vote of a round, reads raw `cSSV.totalSupply()`, truncates it to `frozenVotingSupply = rawSupply - (rawSupply % 4)`, and stores that truncated value in `roundFrozenSupply`; reverts with `OracleHasZeroWeight` if either raw supply or truncated voting supply is zero
+4. Each oracle has equal weight: `weight = frozenVotingSupply / 4`
 5. Accumulated weight tracked per `commitmentKey = keccak256(blockNum, merkleRoot)`
-6. When `accumulatedWeight >= (totalCSSVSupply * quorumBps) / 10_000`:
+6. When `accumulatedWeight >= (frozenVotingSupply * quorumBps) / 10_000`:
    - Root is committed: `ebRoots[blockNum] = merkleRoot`
    - `latestCommittedBlock = blockNum`
    - Cleanup: `delete rootCommitments[commitmentKey]`
    - Emits `RootCommitted`
 7. Below quorum: emits `WeightedRootProposed`
+
+`roundFrozenSupply` therefore stores the truncated frozen voting supply for the round, not the exact raw `cSSV.totalSupply()` observed on the first vote. The remainder `rawSupply % 4` is treated as non-voting dust and does not participate in either accumulated vote weight or quorum threshold math.
 
 **Failed Quorum Behavior:**
 - If a proposal fails to reach quorum (e.g., only 2 of 4 oracles vote), the `hasVoted[commitmentKey][oracleId]` mappings and `rootCommitments[commitmentKey]` persist indefinitely
