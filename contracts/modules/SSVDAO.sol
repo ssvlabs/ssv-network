@@ -203,6 +203,8 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
 
         uint256 threshold = (totalStaked * s.quorumBps) / BPS_DENOMINATOR;
 
+        emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold, oracleId, msg.sender);
+
         if (accumulatedWeight >= threshold) {
             seb.ebRoots[blockNum] = merkleRoot;
             seb.latestCommittedBlock = blockNum;
@@ -212,10 +214,7 @@ contract SSVDAO is ISSVDAO, SSVReentrancyGuard {
             // Do not delete hasVoted to prevent re-voting if same key is somehow reused
 
             emit RootCommitted(merkleRoot, blockNum);
-            return;
         }
-
-        emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, threshold, oracleId, msg.sender);
     }
 
     /**

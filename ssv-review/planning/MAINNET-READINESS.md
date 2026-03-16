@@ -106,6 +106,7 @@
 | QUALITY-8 | Helper function duplication across test types | Code Quality | P3 | ℹ️ Low Priority — merge helpers after PR #435 |
 | QUALITY-9 | ~~`removeOperator` should clear fee change requests~~ | Code Quality | P2 | ✅ Closed (cleanup added + unit test) |
 | QUALITY-10 | ~~`removeOperator` does not clear `operatorEthVUnits` — orphaned deviation~~ | Code Quality | P1 | ✅ Fixed |
+| QUALITY-11 | ~~`commitRoot` skips `WeightedRootProposed` on quorum-reaching vote~~ | Code Quality | P2 | ✅ Fixed |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
@@ -3972,5 +3973,30 @@ Added a unit test in `test/unit/SSVOperators/removeOperator.test.ts` that:
 **Acceptance Criteria:**
 - [x] `removeOperator` clears `operatorEthVUnits[operatorId]`
 - [x] Unit test covers removal with non-zero `operatorEthVUnits`
+
+---
+
+### [QUALITY-11] ~~`commitRoot` skips `WeightedRootProposed` on quorum-reaching vote~~
+- **Type:** Code Quality
+- **Priority:** P2
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-16
+- **Github Link:** (empty)
+
+**Problem:**
+When the final oracle vote reached quorum in `commitRoot`, the function emitted `RootCommitted` and returned early, skipping the `WeightedRootProposed` event. Off-chain consumers (oracle client, monitoring) that track per-vote weight progression would miss the final vote's weight data.
+
+**Resolution:**
+Moved `emit WeightedRootProposed(...)` before the quorum threshold check in `SSVDAO.sol`, so every vote — including the one that triggers consensus — emits `WeightedRootProposed`. The quorum-reaching vote now emits both `WeightedRootProposed` and `RootCommitted`.
+
+Updated all tests that assert on quorum-reaching transactions:
+- `test/unit/SSVDAO/commitRoot.test.ts` — 9 tests updated to expect both events
+- `test/e2e/effective-balance/oracle-commits.test.ts` — 2 tests updated (lines 97 and 141 changed from `not.emit` to `emit`)
+
+**Acceptance Criteria:**
+- [x] Every `commitRoot` call emits `WeightedRootProposed`, including the quorum-reaching vote
+- [x] Quorum-reaching vote emits both `WeightedRootProposed` and `RootCommitted`
+- [x] All unit and E2E tests pass with updated assertions
 
 ---
