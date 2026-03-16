@@ -197,6 +197,20 @@ describe("SSVViews dedicated coverage", () => {
     expect(await viewsHarness.getOperatorEarningsSSV(operatorId)).to.equal(ssvEarnings);
   });
 
+  it("legacy operator views cap the implied ETH fee at the current DAO max fee", async function () {
+    const { viewsHarness } = await networkHelpers.loadFixture(deployViewsHarnessFixture);
+
+    const operatorId = 1n;
+    await viewsHarness.mockSetOperatorMaxFee(0n);
+    await viewsHarness.mockSetLegacyOperator(operatorId, operatorOwner.address, DEDUCTED_DIGITS, 1);
+
+    expect(await viewsHarness.getOperatorFee(operatorId)).to.equal(0n);
+
+    const operatorView = await viewsHarness.getOperatorById(operatorId);
+    expect(operatorView.fee).to.equal(0n);
+    expect(operatorView.isActive).to.equal(true);
+  });
+
   it("SSV-only clusters return positive SSV balance/burn rate while ETH getters return zero", async function () {
     const { viewsHarness } = await networkHelpers.loadFixture(deployViewsHarnessFixture);
 

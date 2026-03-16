@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {StorageData} from "./storage/SSVStorage.sol";
-import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
+import {SSVStorageProtocol, StorageProtocol} from "./storage/SSVStorageProtocol.sol";
 import {PackedETH, PackedSSV, DEFAULT_OPERATOR_ETH_FEE, PACKED_ETH_ZERO, PACKED_SSV_ZERO, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedETHLib, PackedSSVLib} from "../libraries/SSVPackedLib.sol";
 import {StorageEB, SSVStorageEB} from "./storage/SSVStorageEB.sol";
@@ -100,8 +100,10 @@ library OperatorLib {
      * @notice Returns default ETH fee for operators
      * @return Default ETH fee
      */
-    function defaultOperatorEthFee() internal pure returns (PackedETH) {
-        return PackedETHLib.pack(DEFAULT_OPERATOR_ETH_FEE);
+    function defaultOperatorEthFee() internal view returns (PackedETH) {
+        PackedETH defaultFee = PackedETHLib.pack(DEFAULT_OPERATOR_ETH_FEE);
+        PackedETH maxFee = SSVStorageProtocol.load().operatorMaxFee;
+        return defaultFee.min(maxFee);
     }
 
     /**
@@ -125,8 +127,14 @@ library OperatorLib {
             operator.ethSnapshot.balance = PACKED_ETH_ZERO;
 
             if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
-                operator.ethFee = defaultOperatorEthFee();
-                emit ISSVOperators.OperatorFeeExecuted(operator.owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE);
+                PackedETH initialEthFee = defaultOperatorEthFee();
+                operator.ethFee = initialEthFee;
+                emit ISSVOperators.OperatorFeeExecuted(
+                    operator.owner,
+                    operatorId,
+                    block.number,
+                    PackedETHLib.unpack(initialEthFee)
+                );
             }
         }
         // we don't want to revert here because this will block the migration flow
