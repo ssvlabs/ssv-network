@@ -107,6 +107,7 @@
 | QUALITY-9 | ~~`removeOperator` should clear fee change requests~~ | Code Quality | P2 | ✅ Closed (cleanup added + unit test) |
 | QUALITY-10 | ~~`removeOperator` does not clear `operatorEthVUnits` — orphaned deviation~~ | Code Quality | P1 | ✅ Fixed |
 | QUALITY-11 | ~~`commitRoot` skips `WeightedRootProposed` on quorum-reaching vote~~ | Code Quality | P2 | ✅ Fixed |
+| QUALITY-12 | ~~Unsafe `uint128 → uint64` casts in operator/DAO earnings accumulation~~ | Code Quality | P2 | ✅ Fixed |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
@@ -3998,5 +3999,34 @@ Updated all tests that assert on quorum-reaching transactions:
 - [x] Every `commitRoot` call emits `WeightedRootProposed`, including the quorum-reaching vote
 - [x] Quorum-reaching vote emits both `WeightedRootProposed` and `RootCommitted`
 - [x] All unit and E2E tests pass with updated assertions
+
+---
+
+### [QUALITY-12] ~~Unsafe `uint128 → uint64` casts in operator/DAO earnings accumulation~~
+- **Type:** Code Quality
+- **Priority:** P2
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-17
+- **Github Link:** (empty)
+
+**Problem:**
+Operator earnings deltas and DAO earnings are computed as `uint128` but silently truncated to `uint64` via `PackedETH.wrap(uint64(delta))` in three locations in `OperatorLib.sol` (lines 69, 94, 307) and one in `ProtocolLib.sol` (line 89). If `delta` exceeds `type(uint64).max`, earnings silently vanish with no revert. While not reachable under current realistic parameters, the absence of a bounds check means pathological conditions (snapshot not updated for decades, extreme fee/validator values) would cause permanent fund loss.
+
+**Resolution:**
+Added a lightweight `_safeUint64(uint128)` free function in `SSVCoreTypes.sol` with a custom `SafeCastOverflow` error — avoids importing OpenZeppelin's SafeCast to save gas and contract size. Replaced all 4 unsafe `uint64(delta)` / `uint64(earningsUnits)` casts with `_safeUint64(delta)` / `_safeUint64(earningsUnits)`.
+
+Files changed:
+- `contracts/libraries/SSVCoreTypes.sol` — Added `_safeUint64` helper and `SafeCastOverflow` error
+- `contracts/libraries/OperatorLib.sol` — 3 casts replaced (lines 69, 94, 307)
+- `contracts/libraries/ProtocolLib.sol` — 1 cast replaced (line 89)
+- `contracts/test/harness/PackedLibHarness.sol` — Harness wrapper for testing
+- `test/unit/packedLib.test.ts` — 6 new tests (zero, in-range, boundary, overflow scenarios)
+
+**Acceptance Criteria:**
+- [x] All `uint128 → uint64` casts in state-modifying earnings functions use `_safeUint64`
+- [x] Overflow reverts with `SafeCastOverflow` instead of silent truncation
+- [x] 6 unit tests verify correct behavior at zero, in-range, boundary, and overflow values
+- [x] All 1209 existing tests pass with zero regressions
 
 ---

@@ -5,7 +5,7 @@ import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {StorageData} from "./storage/SSVStorage.sol";
 import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
-import {PackedETH, PackedSSV, DEFAULT_OPERATOR_ETH_FEE, PACKED_ETH_ZERO, PACKED_SSV_ZERO, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
+import {PackedETH, PackedSSV, DEFAULT_OPERATOR_ETH_FEE, PACKED_ETH_ZERO, PACKED_SSV_ZERO, BPS_DENOMINATOR, _safeUint64} from "../libraries/SSVCoreTypes.sol";
 import {PackedETHLib, PackedSSVLib} from "../libraries/SSVPackedLib.sol";
 import {StorageEB, SSVStorageEB} from "./storage/SSVStorageEB.sol";
 import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
@@ -66,7 +66,7 @@ library OperatorLib {
         operator.ethSnapshot.index += blockDiffEthFee;
         if (effectiveVUnits != 0 && blockDiffEthFee != 0) {
             uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
-            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
+            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(_safeUint64(delta)));
         }
         operator.ethSnapshot.block = currentBlock;
     }
@@ -91,7 +91,7 @@ library OperatorLib {
         operator.ethSnapshot.index += blockDiffEthFee;
         if (effectiveVUnits != 0 && blockDiffEthFee != 0) {
             uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
-            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
+            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(_safeUint64(delta)));
         }
         operator.ethSnapshot.block = currentBlock;
     }
@@ -304,7 +304,7 @@ library OperatorLib {
 
                     if (effectiveVUnits != 0) {
                         uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
-                        operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
+                        operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(_safeUint64(delta)));
                     }
                 }
                 operator.ethSnapshot.block = currentBlock;
