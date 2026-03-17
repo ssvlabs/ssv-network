@@ -315,9 +315,14 @@ interface ISSVNetworkCore {
     error EBBelowMinimum(); // 0x9fecdce5
 
     /**
-     * @dev Thrown when oracle has zero weight due to zero staked SSV
+     * @dev Thrown when no cSSV supply exists for root voting
      */
-    error OracleHasZeroWeight(); // 0xf2b58fb9
+    error ZeroCSSVSupply();
+
+    /**
+     * @dev Thrown when cSSV supply exists but truncates to zero oracle weight
+     */
+    error InsufficientCSSVSupply();
 
     /**
      * @dev Thrown when the caller is not cSSV token

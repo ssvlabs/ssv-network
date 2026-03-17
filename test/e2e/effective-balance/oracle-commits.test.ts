@@ -282,7 +282,7 @@ describe("Oracle Commits", () => {
 
         await expect(
           network.connect(oracle1).commitRoot(rootA, 1),
-        ).to.be.revertedWithCustomError(network, Errors.ORACLE_HAS_ZERO_WEIGHT);
+        ).to.be.revertedWithCustomError(network, Errors.ZERO_CSSV_SUPPLY);
       });
     });
 

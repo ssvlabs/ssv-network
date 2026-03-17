@@ -1309,7 +1309,7 @@ This affects the conservation law: after a withdraw, stored operator balances ar
 When a staker calls `claimEthRewards`, both `sp.ethDaoBalance` and `s.stakingEthPoolBalance` are decremented. If multiple stakers claim in sequence, each claim's `_syncFees` re-settles the DAO earnings. The `current <= previous` path (DISC-ES-2) handles the case where a claim reduces `ethDaoBalance` below `stakingEthPoolBalance`.
 
 ### Finding 7: No partition tested the oracle-staking coupling
-ES-5c noted that `cSSV.totalSupply() == 0` blocks oracle commits (`OracleHasZeroWeight`). This means: no staking → no EB updates → no explicit vUnit tracking. This coupling was identified but no cross-cutting scenario tests the full chain: stake → oracle commit → EB update → staking rewards increase.
+ES-5c noted that `cSSV.totalSupply() == 0` blocks oracle commits (`ZeroCSSVSupply`). This means: no staking → no EB updates → no explicit vUnit tracking. This coupling was identified but no cross-cutting scenario tests the full chain: stake → oracle commit → EB update → staking rewards increase.
 
 ---
 
