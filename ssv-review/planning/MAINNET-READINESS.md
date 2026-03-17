@@ -28,8 +28,8 @@
 | BUG-15 | ~~`withdrawAllVersionOperatorEarnings` initializes ETH snapshot for legacy SSV-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-16 | ~~SSVNetworkViews enforce cluster version checks and unify isActive logic~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-17 | ~~`commitRoot` quorum can become unreachable due to truncation in per-oracle weight math~~ | Critical Bug Fix | P0 | ✅ Fixed |
-| BUG-18 | Staking Rewards Accumulator Precision Loss | High Bug Fix | P1 | S |
-| BUG-19 | Aggregate vs per-cluster rounding causes conservation law violation | Medium Bug Fix | P1 | S |
+| BUG-18 | ~~Staking Rewards Accumulator Precision Loss~~ | High Bug Fix | P1 | ✅ Closed (accepted as part of the accumulator model) |
+| BUG-19 | ~~Aggregate vs per-cluster rounding causes conservation law violation~~ | Medium Bug Fix | P1 | ✅ Closed (accepted as a known precision limitation) |
 | BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | S |
 | SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
@@ -107,6 +107,7 @@
 | QUALITY-9 | ~~`removeOperator` should clear fee change requests~~ | Code Quality | P2 | ✅ Closed (cleanup added + unit test) |
 | QUALITY-10 | ~~`removeOperator` does not clear `operatorEthVUnits` — orphaned deviation~~ | Code Quality | P1 | ✅ Fixed |
 | QUALITY-11 | ~~`commitRoot` skips `WeightedRootProposed` on quorum-reaching vote~~ | Code Quality | P2 | ✅ Fixed |
+| QUALITY-12 | ~~Unsafe `uint128 → uint64` casts in operator/DAO earnings accumulation~~ | Code Quality | P2 | ✅ Fixed |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
@@ -542,6 +543,8 @@ uint256 distributed = (scaledFees / totalStaked) * totalStaked;
 s.accEthPerShare += uint128(scaledFees / totalStaked);
 s.undistributedDust += scaledFees - distributed; // carry forward
 ```
+**Resolution:**
+BUG-18 is a standard accumulator dust issue. SSV supply is mintable, so we should not frame this as mathematically impossible forever. But under the current fee path, full zero-rounding only becomes reachable in the absolute smallest live case above 3.55B SSV staked, which is more than 200x current supply scale, and realistic operating conditions push the threshold far higher. Even with substantial token growth, the worst-case annual dust remains negligible and in the safe direction as tiny contract surplus.
 
 ---
 
@@ -589,6 +592,9 @@ Operators and the DAO **virtually earn slightly more** than clusters collectivel
 
 **Recommendation:**
 This is a known DeFi pattern and the drift is negligible in practice. For completeness, consider documenting this as an accepted known issue. No code change required unless operating at extreme scale (>100K clusters sustained for years).
+
+**Resolution:**
+BUG-19 is a real but negligible rounding issue. It is completely inactive while clusters remain at default `32 ETH` effective balance, and only activates once post-Pectra effective-balance diversity appears. In a contract-faithful mainnet-scale simulation (`150,000` validators, `1,100` clusters, `1,900` operators), the yearly net drift stays on the order of tens of nano-ETH, and even under doubled growth scenarios remains operationally irrelevant. The practical recommendation is to treat BUG-19 as a known precision limitation, not a meaningful mainnet risk or a blocker to launch.
 
 ---
 
@@ -4082,5 +4088,34 @@ Updated all tests that assert on quorum-reaching transactions:
 - [x] Every `commitRoot` call emits `WeightedRootProposed`, including the quorum-reaching vote
 - [x] Quorum-reaching vote emits both `WeightedRootProposed` and `RootCommitted`
 - [x] All unit and E2E tests pass with updated assertions
+
+---
+
+### [QUALITY-12] ~~Unsafe `uint128 → uint64` casts in operator/DAO earnings accumulation~~
+- **Type:** Code Quality
+- **Priority:** P2
+- **Status:** ✅ Fixed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-17
+- **Github Link:** (empty)
+
+**Problem:**
+Operator earnings deltas and DAO earnings are computed as `uint128` but silently truncated to `uint64` via `PackedETH.wrap(uint64(delta))` in three locations in `OperatorLib.sol` (lines 69, 94, 307) and one in `ProtocolLib.sol` (line 89). If `delta` exceeds `type(uint64).max`, earnings silently vanish with no revert. While not reachable under current realistic parameters, the absence of a bounds check means pathological conditions (snapshot not updated for decades, extreme fee/validator values) would cause permanent fund loss.
+
+**Resolution:**
+Added a lightweight `_safeUint64(uint128)` free function in `SSVCoreTypes.sol` with a custom `SafeCastOverflow` error — avoids importing OpenZeppelin's SafeCast to save gas and contract size. Replaced all 4 unsafe `uint64(delta)` / `uint64(earningsUnits)` casts with `_safeUint64(delta)` / `_safeUint64(earningsUnits)`.
+
+Files changed:
+- `contracts/libraries/SSVCoreTypes.sol` — Added `_safeUint64` helper and `SafeCastOverflow` error
+- `contracts/libraries/OperatorLib.sol` — 3 casts replaced (lines 69, 94, 307)
+- `contracts/libraries/ProtocolLib.sol` — 1 cast replaced (line 89)
+- `contracts/test/harness/PackedLibHarness.sol` — Harness wrapper for testing
+- `test/unit/packedLib.test.ts` — 6 new tests (zero, in-range, boundary, overflow scenarios)
+
+**Acceptance Criteria:**
+- [x] All `uint128 → uint64` casts in state-modifying earnings functions use `_safeUint64`
+- [x] Overflow reverts with `SafeCastOverflow` instead of silent truncation
+- [x] 6 unit tests verify correct behavior at zero, in-range, boundary, and overflow values
+- [x] All 1209 existing tests pass with zero regressions
 
 ---

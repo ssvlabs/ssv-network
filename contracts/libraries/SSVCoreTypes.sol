@@ -21,3 +21,10 @@ uint256 constant ETH_DEDUCTED_DIGITS = 100_000;
 uint256 constant DEFAULT_EB_PER_VALIDATOR = 32 ether;
 uint256 constant MAX_EB_PER_VALIDATOR = 2048 ether;
 
+error SafeCastOverflow();
+
+function _safeUint64(uint128 value) pure returns (uint64) {
+    if (value > type(uint64).max) revert SafeCastOverflow();
+    return uint64(value);
+}
+

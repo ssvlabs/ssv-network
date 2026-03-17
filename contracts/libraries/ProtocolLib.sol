@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
-import {PackedSSV, PackedETH, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSV, PackedETH, BPS_DENOMINATOR, _safeUint64} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
 
@@ -86,7 +86,7 @@ library ProtocolLib {
         uint128 idx = uint64(block.number) - sp.ethDaoIndexBlockNumber;
 
         uint128 earningsUnits = (idx * PackedETH.unwrap(sp.ethNetworkFee) * units) / BPS_DENOMINATOR;
-        return sp.ethDaoBalance.add(PackedETH.wrap(uint64(earningsUnits)));
+        return sp.ethDaoBalance.add(PackedETH.wrap(_safeUint64(earningsUnits)));
     }
 
     /**
