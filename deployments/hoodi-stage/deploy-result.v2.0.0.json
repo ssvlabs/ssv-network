@@ -2,23 +2,23 @@
   "deployer": "0xC564AF154621Ee8D0589758d535511aEc8f67b40",
   "chainId": "560048",
   "network": "hoodi",
-  "deployedAt": "2026-03-13T13:23:14.623Z",
-  "blockNumber": 2409767,
+  "deployedAt": "2026-03-17T10:15:01.803Z",
+  "blockNumber": 2434222,
   "implementations": {
-    "SSVNetworkSSVStakingUpgrade": "0x8f5b078D4E10E7DAd0d22A2f7d18f20b8ee84D90",
-    "SSVNetworkViews": "0xEf73C138914AaBd9894F111544Af1D96a1b6Bf10"
+    "SSVNetworkSSVStakingUpgrade": "0x6749B3Ade59FbA80f4e5c4066A993181843E1c00",
+    "SSVNetworkViews": "0x4c6f92E6d13748a83E96dF2AA5D3839a9Ed2b607"
   },
   "cssvToken": {
     "address": "0x6455a0d83FeB099182Fb6D024B9Ae0c2E26C0859",
     "deployed": false
   },
   "modules": {
-    "SSVOperators": "0x61B51E81f293C0cec6347eb414A212aeF988CF33",
-    "SSVClusters": "0xE6f2E7C4ebf4439B78F3837607bECD2eA9dC194c",
-    "SSVDAO": "0x78c93937C2100675d138fd973571c648EE3714df",
-    "SSVViews": "0x41e076FaA5bb4Dab542Ba67Acd4aDDb9b395C962",
-    "SSVOperatorsWhitelist": "0xD563c66d5B42d1e002f786fF7e87233E8e60aB71",
-    "SSVStaking": "0xFb86248d70279Ecb433A9Ddc772768aB5f88eDD8",
-    "SSVValidators": "0x16cDE4542Fd02dD5310Ecdb3f4576E8388Ed0CdD"
+    "SSVOperators": "0xD239f43d942F30F415F6e47fDE0603cdC60Ee7C8",
+    "SSVClusters": "0x17A9af72A7583C3f72f047d16430cA3E225981f0",
+    "SSVDAO": "0x824e169e138B3B91977e040F80547Fce3779db97",
+    "SSVViews": "0xae12ceCA94a14aAC6c15A473FAAD9Cb75B2be53A",
+    "SSVOperatorsWhitelist": "0x5734A479F463e3DddDBB8fFC2C82253d41777BbC",
+    "SSVStaking": "0x99f2B313BD913d6E11E91BA7B3c5B51c4E486bE5",
+    "SSVValidators": "0xc6E3Bb5984C7d8a90C3EB8624DdF135eAcF49142"
   }
 }
