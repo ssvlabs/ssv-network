@@ -28,8 +28,8 @@
 | BUG-15 | ~~`withdrawAllVersionOperatorEarnings` initializes ETH snapshot for legacy SSV-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-16 | ~~SSVNetworkViews enforce cluster version checks and unify isActive logic~~ | Critical Bug Fix | P1 | ✅ Fixed |
 | BUG-17 | `commitRoot` quorum can become unreachable due to truncation in per-oracle weight math | Critical Bug Fix | P0 | S |
-| BUG-18 | Staking Rewards Accumulator Precision Loss | High Bug Fix | P1 | S |
-| BUG-19 | Aggregate vs per-cluster rounding causes conservation law violation | Medium Bug Fix | P1 | S |
+| BUG-18 | ~~Staking Rewards Accumulator Precision Loss~~ | High Bug Fix | P1 | ✅ Closed (accepted as part of the accumulator model) |
+| BUG-19 | ~~Aggregate vs per-cluster rounding causes conservation law violation~~ | Medium Bug Fix | P1 | ✅ Closed (accepted as a known precision limitation) |
 | BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | S |
 | SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
@@ -543,6 +543,8 @@ uint256 distributed = (scaledFees / totalStaked) * totalStaked;
 s.accEthPerShare += uint128(scaledFees / totalStaked);
 s.undistributedDust += scaledFees - distributed; // carry forward
 ```
+**Resolution:**
+BUG-18 is a standard accumulator dust issue. SSV supply is mintable, so we should not frame this as mathematically impossible forever. But under the current fee path, full zero-rounding only becomes reachable in the absolute smallest live case above 3.55B SSV staked, which is more than 200x current supply scale, and realistic operating conditions push the threshold far higher. Even with substantial token growth, the worst-case annual dust remains negligible and in the safe direction as tiny contract surplus.
 
 ---
 
@@ -590,6 +592,9 @@ Operators and the DAO **virtually earn slightly more** than clusters collectivel
 
 **Recommendation:**
 This is a known DeFi pattern and the drift is negligible in practice. For completeness, consider documenting this as an accepted known issue. No code change required unless operating at extreme scale (>100K clusters sustained for years).
+
+**Resolution:**
+BUG-19 is a real but negligible rounding issue. It is completely inactive while clusters remain at default `32 ETH` effective balance, and only activates once post-Pectra effective-balance diversity appears. In a contract-faithful mainnet-scale simulation (`150,000` validators, `1,100` clusters, `1,900` operators), the yearly net drift stays on the order of tens of nano-ETH, and even under doubled growth scenarios remains operationally irrelevant. The practical recommendation is to treat BUG-19 as a known precision limitation, not a meaningful mainnet risk or a blocker to launch.
 
 ---
 
