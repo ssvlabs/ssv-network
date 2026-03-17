@@ -19,7 +19,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE,
   ETH_DEDUCTED_DIGITS,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
 } from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
@@ -616,7 +616,7 @@ describe("Validator Edge Cases", () => {
       const daoBlockDiff = viewBlock - regBlock;
       const packedNetworkFee = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
       const vUnits = defaultVUnits(1n);
-      const daoEarningsUnits = (daoBlockDiff * packedNetworkFee * vUnits) / VUNITS_PRECISION;
+      const daoEarningsUnits = (daoBlockDiff * packedNetworkFee * vUnits) / BPS_DENOMINATOR;
       const expectedDaoEarnings = daoEarningsUnits * ETH_DEDUCTED_DIGITS;
 
       const daoEarnings = await views.getNetworkEarnings();

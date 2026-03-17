@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture, ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, DEDUCTED_DIGITS, EMPTY_CLUSTER, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, DEDUCTED_DIGITS, EMPTY_CLUSTER, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -109,7 +109,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR); // baseline + deviation
     }
 
     const removeTx = await validators.connect(clusterOwner).removeValidator(publicKey, operatorIds, clusterAfterRegister);
@@ -630,11 +630,11 @@ describe("SSVClusters function `removeValidator()`", async () => {
 
     // EB update to 160 ETH for 2 validators (80 ETH each)
     // vUnits = ceil(160 * 10000 / 32) = 50000
-    const expectedUpdatedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 31n) / 32n;
+    const expectedUpdatedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 31n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits);
     
     // baseline = 2 validators * 10000 = 20000, deviation = 50000 - 20000 = 30000
-    const baselineBeforeRemove = 2n * VUNITS_PRECISION;
+    const baselineBeforeRemove = 2n * BPS_DENOMINATOR;
     const deviationAfterUpdate = expectedUpdatedVUnits - baselineBeforeRemove;
     expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviationAfterUpdate); // deviation only
     expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(expectedUpdatedVUnits); // baseline + deviation
@@ -644,13 +644,13 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
 
     expect(clusterAfterRemove.validatorCount).to.equal(1n);
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits - VUNITS_PRECISION);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits - BPS_DENOMINATOR);
     
     // After removing 1 validator: baseline = 1 * 10000 = 10000
     // Cluster vUnits = 50000 - 10000 = 40000
     // deviation = 40000 - 10000 = 30000 (unchanged)
-    const baselineAfterRemove = 1n * VUNITS_PRECISION;
-    const expectedClusterVUnitsAfterRemove = expectedUpdatedVUnits - VUNITS_PRECISION;
+    const baselineAfterRemove = 1n * BPS_DENOMINATOR;
+    const expectedClusterVUnitsAfterRemove = expectedUpdatedVUnits - BPS_DENOMINATOR;
     expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviationAfterUpdate); // deviation unchanged
     expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(baselineAfterRemove + deviationAfterUpdate);
   });
@@ -688,7 +688,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const updateReceipt = await updateTx.wait();
     const clusterAfterUpdate = parseClusterFromEvent(clusters, updateReceipt, "ClusterBalanceUpdated");
 
-    const expectedUpdatedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 31n) / 32n;
+    const expectedUpdatedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 31n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits);
 
     const removeTx = await clusters.connect(clusterOwner).removeValidator(publicKey, operatorIds, clusterAfterUpdate);

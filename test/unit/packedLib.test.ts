@@ -412,4 +412,44 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
       expect(unpacked).to.equal(fee);
     });
   });
+
+  // ============ _safeUint64 ============
+
+  describe("_safeUint64", () => {
+    const MAX_UINT64 = (1n << 64n) - 1n;
+
+    it("passes through zero", async function () {
+      expect(await harness.safeUint64(0n)).to.equal(0n);
+    });
+
+    it("passes through value within uint64 range", async function () {
+      expect(await harness.safeUint64(42n)).to.equal(42n);
+    });
+
+    it("passes through max uint64", async function () {
+      expect(await harness.safeUint64(MAX_UINT64)).to.equal(MAX_UINT64);
+    });
+
+    it("reverts on max uint64 + 1", async function () {
+      await expect(harness.safeUint64(MAX_UINT64 + 1n))
+        .to.be.revertedWithCustomError(harness, "SafeCastOverflow");
+    });
+
+    it("reverts on max uint128", async function () {
+      const MAX_UINT128 = (1n << 128n) - 1n;
+      await expect(harness.safeUint64(MAX_UINT128))
+        .to.be.revertedWithCustomError(harness, "SafeCastOverflow");
+    });
+
+    it("reverts on realistic overflow scenario (operator earnings delta)", async function () {
+      // Simulates: (blockDiffEthFee * effectiveVUnits) / BPS_DENOMINATOR
+      // where both inputs are large uint64 values
+      const blockDiffEthFee = MAX_UINT64;
+      const effectiveVUnits = MAX_UINT64;
+      const delta = (blockDiffEthFee * effectiveVUnits) / 10_000n;
+      // delta ≈ 3.39e34, far exceeds uint64 max ≈ 1.84e19
+      await expect(harness.safeUint64(delta))
+        .to.be.revertedWithCustomError(harness, "SafeCastOverflow");
+    });
+  });
 });

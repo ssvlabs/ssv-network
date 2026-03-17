@@ -195,9 +195,14 @@ interface ISSVNetworkCore {
     error TargetModuleDoesNotExistWithData(uint8 moduleId); // 0x208bb85d
 
     /**
-     * @dev Thrown when maximum value is exceeded
+     * @dev Thrown when maximum value is exceeded for the target type
      */
     error MaxValueExceeded(); // 0x91aa3017
+
+    /**
+     * @dev Thrown when precision is exceeded (e.g., division with remainder)
+     */
+    error MaxPrecisionExceeded(); // 0x24756546
 
     /**
      * @dev Thrown when the provided fee is too high
@@ -310,9 +315,14 @@ interface ISSVNetworkCore {
     error EBBelowMinimum(); // 0x9fecdce5
 
     /**
-     * @dev Thrown when oracle has zero weight due to zero staked SSV
+     * @dev Thrown when no cSSV supply exists for root voting
      */
-    error OracleHasZeroWeight(); // 0xf2b58fb9
+    error ZeroCSSVSupply();
+
+    /**
+     * @dev Thrown when cSSV supply exists but truncates to zero oracle weight
+     */
+    error InsufficientCSSVSupply();
 
     /**
      * @dev Thrown when the caller is not cSSV token
@@ -328,6 +338,16 @@ interface ISSVNetworkCore {
      * @dev Thrown when trying to configure a quorum higher than 100%
      */
     error InvalidQuorum(); // 0xd1735779
+
+    /**
+     * @dev Thrown when trying to configure operator fee increase limit above 100%
+     */
+    error InvalidOperatorFeeIncreaseLimit(); // 0x602d89dd
+
+    /**
+     * @dev Thrown when trying to configure inconsistent operator fee bounds
+     */
+    error InvalidOperatorFeeRange(); // 0x44b0758c
 
     /**
      * @dev Thrown when amount is zero

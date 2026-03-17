@@ -188,6 +188,16 @@
   },
   {
     "inputs": [],
+    "name": "InvalidOperatorFeeIncreaseLimit",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidOperatorFeeRange",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidOperatorIdsLength",
     "type": "error"
   },
@@ -235,6 +245,11 @@
   {
     "inputs": [],
     "name": "LegacyOperatorFeeDeclarationInvalid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxPrecisionExceeded",
     "type": "error"
   },
   {

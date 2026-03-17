@@ -4,7 +4,7 @@ import { getTestConnection } from '../../setup/connection.ts';
 import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import { makePublicKey, makePublicKeys, createCluster, parseClusterFromEvent } from '../../common/helpers.ts';
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_OPERATOR_ETH_FEE, DEFAULT_SHARES, EMPTY_CLUSTER, ETH_DEDUCTED_DIGITS, VUNITS_PRECISION } from '../../common/constants.ts';
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_OPERATOR_ETH_FEE, DEFAULT_SHARES, EMPTY_CLUSTER, ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.ts';
@@ -172,7 +172,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR); // baseline + deviation
     }
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
@@ -206,7 +206,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
     expect(await validators.getClusterVUnits(clusterId)).to.equal(0n);
     for (const operatorId of operatorIds) {
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION); // baseline + deviation
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * BPS_DENOMINATOR); // baseline + deviation
     }
   });
 
@@ -225,7 +225,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
     const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    const startVUnits = 3n * VUNITS_PRECISION;
+    const startVUnits = 3n * BPS_DENOMINATOR;
     await validators.mockSetClusterVUnits(clusterId, startVUnits);
 
     const tx = await validators.registerValidator(
@@ -237,13 +237,13 @@ describe("SSVClusters function `registerValidator()`", async () => {
     );
     await tx.wait();
 
-    expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + VUNITS_PRECISION);
+    expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + BPS_DENOMINATOR);
     for (const operatorId of operatorIds) {
       // Cluster has 2 validators (baseline = 20000), explicit snapshot = 40000
       // But operatorEthVUnits is only updated by EB updates, not registration
       // The deviation in clusterEB.vUnits is implicit until an EB update syncs it
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only (not updated on registration)
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION); // baseline only
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * BPS_DENOMINATOR); // baseline only
     }
   });
 
