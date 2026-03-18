@@ -82,6 +82,11 @@ generate-safe-batch env="mainnet":
 verify-upgrade env:
     npx tsx scripts/upgrade.ts --env {{env}} --verify-only
 
+# Verify post-upgrade config (same args pattern as `upgrade`)
+verify-post-upgrade-config env network="":
+    npx hardhat compile --force
+    npx tsx scripts/verify-post-upgrade-config.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
+
 # === One-off Utilities ===
 
 # Deploy a specific module contract (e.g., SSVOperators, SSVClusters)
