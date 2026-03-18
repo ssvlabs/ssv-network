@@ -41,7 +41,6 @@ This playbook is aligned with the repository deployment flow in `deployments/REA
 - Import the generated batch into SAFE Transaction Builder.
 - Review every target address and parameter (DIP proposal).
 - Sign and execute the batch on Ethereum mainnet.
-- Submit the initial `approve` and `stake` transaction(s) after the upgrade.
 
 ## Source of Truth
 
@@ -77,15 +76,15 @@ Before deployment, populate `deployments/mainnet/config.json` with the intended 
     "minimumLiquidationCollateralEth": "644852000000000",
     "liquidationThresholdPeriod": "21480",
     "minBlocksBetweenUpdates": "0",
-    "operatorFeeIncreaseLimit": "1000",
-    "declareOperatorFeePeriod": "604800",
-    "executeOperatorFeePeriod": "604800"
+    "minimumLiquidationCollateralSSV": "673652000000000000",
+    "minimumBlocksBeforeLiquidationSSV": "50120"
   },
+  "initialStakeAmount": "100000000000000000000",
   "oracles": {
-    "1": "<TBD>",
-    "2": "<TBD>",
-    "3": "<TBD>",
-    "4": "<TBD>"
+    "1": "0xc61f7bd9ee5a3d011caf47aa0e5411f720593920",
+    "2": "0xc07332e05cec1c4896555a6d10361233fdf14422",
+    "3": "0x28bEa5B242362974d5DDb8f17a1E0e525446960B",
+    "4": "0x3A98EE5f80268Ed91F8A5880d93468b76a9F3bB4"
   }
 }
 ```
@@ -110,11 +109,12 @@ Complete all of the following before touching mainnet:
    - `SSVNetworkViews`
    - `CSSVToken`
    - All module implementations
-6. Estimate the gas cost of the full SAFE batch before mainnet execution:
+6. Confirm the SAFE holds at least `initialStakeAmount` in SSV tokens (currently 100 SSV). The batch includes an `approve` + `stake` pair that transfers SSV from the SAFE to the SSVNetwork proxy.
+7. Estimate the gas cost of the full SAFE batch before mainnet execution:
    - Simulate the complete batch against a mainnet fork (`just upgrade-fork mainnet`) or via Tenderly.
-   - The batch contains roughly 24 transactions (1 `upgradeToAndCall`, 7 `updateModule`, 1 `upgradeTo`, ~11 parameter setters, ~4 `replaceOracle`). At typical mainnet gas prices the total is in the 4–6M gas range. Confirm the SAFE has enough ETH to cover execution at current gas prices.
+   - The batch contains roughly 27 transactions (1 `upgradeToAndCall`, 7 `updateModule`, 1 `upgradeTo`, ~10 parameter setters, 1 `updateQuorumBps`, ~4 `replaceOracle`, 1 `approve`, 1 `stake`). At typical mainnet gas prices the total is in the 4–6M gas range. Confirm the SAFE has enough ETH to cover execution at current gas prices.
    - If Tenderly is available, import `multisig-batch.json` and run a simulation before delivery to the committee.
-7. Dry-run the same flow on a fork or staging environment before mainnet execution.
+8. Dry-run the same flow on a fork or staging environment before mainnet execution.
 
 ## Step 1: Deploy Implementations on Mainnet
 
@@ -235,6 +235,8 @@ SSVNetwork.updateMinimumOperatorEthFee(...)
 SSVNetwork.updateMinimumLiquidationCollateral(...)
 SSVNetwork.updateLiquidationThresholdPeriod(...)
 SSVNetwork.updateMinBlocksBetweenUpdates(...)
+SSVNetwork.updateMinimumLiquidationCollateralSSV(...)
+SSVNetwork.updateLiquidationThresholdPeriodSSV(...)
 ```
 
 If additional optional fields are present in config, the batch generator will also include their corresponding setters.
@@ -246,6 +248,17 @@ For each oracle entry in `config.json`, the batch includes:
 ```solidity
 SSVNetwork.replaceOracle(<oracleId>, <oracleAddress>)
 ```
+
+### 6. Initial SSV stake
+
+If `initialStakeAmount` is set in `config.json`, the batch includes the ERC-20 approval and stake call:
+
+```solidity
+SSVToken.approve(SSVNetwork, <initialStakeAmount>)
+SSVNetwork.stake(<initialStakeAmount>)
+```
+
+This seeds the staking module so that `totalStaked > 0`, which is required for oracle quorum to function.
 
 ## Step 4: SAFE Committee Review and Execution
 
@@ -273,23 +286,8 @@ Recommended review checklist:
 
   Verify this independently for `SSVNetworkSSVStakingUpgrade`, `SSVNetworkViews`, `CSSVToken`, and all seven module implementations before signing.
 
-## Step 5: Initial Stake After Upgrade
-After the SAFE batch is executed, the first stake should be performed from the multisig account as part of the upgrade completion process.
-
-This requires two additional transactions:
-
-```solidity
-SSVToken.approve(SSVNetwork, <amount>)
-SSVNetwork.stake(<amount>)
-```
-
-Operational guidance:
-
-- Approve the minimum practical amount, for example `1 SSV`.
-- Execute the stake from the SAFE that owns the protocol.
-- Treat this as the first live post-upgrade smoke test.
-
-Important: the current `just generate-safe-batch mainnet` flow does not generate the ERC-20 `approve` or `stake` transactions. These must be added separately in SAFE after the owner batch is executed.
+## Step 5: Verify Initial Stake
+The initial SSV stake is included in the SAFE batch when `initialStakeAmount` is set in `config.json`. No separate transactions are needed.
 
 ## Step 6: Post-Execution Verification
 
@@ -309,9 +307,7 @@ Verification should confirm:
 
 Manual completion checks should then confirm:
 
-- the SAFE submitted the `approve` transaction successfully
-- the SAFE submitted the `stake` transaction successfully
-- the first post-upgrade stake is visible on-chain
+- the initial stake is visible on-chain (included in the batch when `initialStakeAmount` is set)
 
 Note: `minBlocksBetweenUpdates` is configured during the upgrade flow, but it is not exposed through `SSVViews`, so `just verify-upgrade mainnet` cannot assert it directly.
 
@@ -361,5 +357,3 @@ SAFE committee:
 2. Review
 3. Sign
 4. Execute
-5. Submit `approve`
-6. Submit `stake`

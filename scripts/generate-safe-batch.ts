@@ -10,6 +10,7 @@ import {
   resolveDefaultOracleIds,
   resolveProtocolParams,
   resolveCooldownDuration,
+  parseUint,
   requireAddress,
   resolveConfigPath,
   resolveDeployResultPath,
@@ -103,6 +104,7 @@ async function main() {
     "function updateMinBlocksBetweenUpdates(uint32 blocks)",
     "function updateMinimumLiquidationCollateral(uint256 amount)",
     "function updateMinimumLiquidationCollateralSSV(uint256 amount)",
+    "function updateLiquidationThresholdPeriodSSV(uint64 blocks)",
     "function updateDeclareOperatorFeePeriod(uint64 blocks)",
     "function updateExecuteOperatorFeePeriod(uint64 blocks)",
     "function updateOperatorFeeIncreaseLimit(uint64 percentage)",
@@ -214,6 +216,15 @@ async function main() {
       ]),
     });
   }
+  if (params.minimumBlocksBeforeLiquidationSSV !== undefined) {
+    transactions.push({
+      to: ssvNetworkProxy,
+      value: "0",
+      data: ssvNetworkIface.encodeFunctionData("updateLiquidationThresholdPeriodSSV", [
+        params.minimumBlocksBeforeLiquidationSSV,
+      ]),
+    });
+  }
   if (params.declareOperatorFeePeriod !== undefined) {
     transactions.push({
       to: ssvNetworkProxy,
@@ -270,6 +281,28 @@ async function main() {
       to: ssvNetworkProxy,
       value: "0",
       data: ssvNetworkIface.encodeFunctionData("replaceOracle", [id, address]),
+    });
+  }
+
+  // ── 6. Initial SSV stake (approve + stake) ──
+  const initialStakeAmount = parseUint(config.initialStakeAmount, "initialStakeAmount");
+  if (initialStakeAmount !== undefined && initialStakeAmount > 0n) {
+    const ssvTokenAddr = requireAddress(config.ssvToken, "ssvToken");
+    const erc20Iface = new Interface([
+      "function approve(address spender, uint256 amount)",
+    ]);
+    const stakingIface = new Interface([
+      "function stake(uint256 amount)",
+    ]);
+    transactions.push({
+      to: ssvTokenAddr,
+      value: "0",
+      data: erc20Iface.encodeFunctionData("approve", [ssvNetworkProxy, initialStakeAmount]),
+    });
+    transactions.push({
+      to: ssvNetworkProxy,
+      value: "0",
+      data: stakingIface.encodeFunctionData("stake", [initialStakeAmount]),
     });
   }
 
