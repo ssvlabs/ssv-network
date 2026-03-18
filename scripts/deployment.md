@@ -39,6 +39,14 @@ just upgrade hoodi-stage
 
 Requires the deployer private key to match the on-chain owner.
 
+### Generate deployment attestation
+
+```bash
+just generate-attestation mainnet
+```
+
+Generates `deployments/mainnet/deployment-attestation.json` with bytecode hashes, deployer info, constructor args, and config snapshot for committee review.
+
 ### Generate SAFE multi-sig batch
 
 ```bash

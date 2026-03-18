@@ -78,6 +78,10 @@ upgrade env network="":
 generate-safe-batch env="mainnet":
     npx tsx scripts/generate-safe-batch.ts --env {{env}}
 
+# Generate deployment attestation (bytecode hashes + config summary for committee review)
+generate-attestation env="mainnet" network="":
+    npx tsx scripts/generate-deployment-attestation.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
+
 # Verify on-chain state (backward-compatible alias)
 verify-upgrade env network="":
     npx hardhat compile --force

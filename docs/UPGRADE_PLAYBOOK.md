@@ -147,21 +147,32 @@ The script writes the results to:
 - `deployments/mainnet/deploy-result.json`
 - `deployments/mainnet/deploy-result.v2.0.0.json` as the versioned artifact for this release
 
-SSV Labs should capture and share:
+SSV Labs then generates the deployment attestation:
+
+```bash
+just generate-attestation mainnet
+```
+
+This reads `deploy-result.json` and `config.json`, fetches the runtime bytecode of every deployed contract on-chain, and writes:
+
+- `deployments/mainnet/deployment-attestation.json`
+
+The attestation includes:
 
 - deployment timestamp
 - deployer address
 - chain ID
-- every newly deployed contract address and parameters used on deployment (if any)
+- every newly deployed contract address and constructor parameters used on deployment (if any)
 - the **bytecode hash** (`keccak256` of the deployed runtime bytecode) for each implementation and module, so the committee can independently verify they are pointing the proxies at the correct compiled artifacts
+- the full protocol parameters and oracle addresses from `config.json`
 
-To compute the bytecode hash of a deployed contract:
+To independently verify a bytecode hash for any deployed contract:
 
 ```bash
 cast keccak $(cast code <address> --rpc-url $MAINNET_RPC_URL)
 ```
 
-The expected values should be derived from the locally compiled artifacts in `artifacts/build-info/` or by running the same command against the staging deployment. Include the full table of address → bytecode hash in the delivery to the committee.
+The expected values should be derived from the locally compiled artifacts in `artifacts/build-info/` or by running the same command against the staging deployment. Include the full attestation JSON in the delivery to the committee.
 
 ## Step 2: Generate the SAFE Batch
 
@@ -319,6 +330,7 @@ Archive the following for auditability:
 
 - final `deployments/mainnet/config.json`
 - final `deployments/mainnet/deploy-result.json`
+- final `deployments/mainnet/deployment-attestation.json`
 - final `deployments/mainnet/multisig-batch.json`
 - SAFE transaction hash(es)
 - deployment transaction hash(es)
@@ -349,6 +361,7 @@ SSV Labs:
 
 ```bash
 just deploy mainnet
+just generate-attestation mainnet
 just generate-safe-batch mainnet
 just verify-upgrade mainnet
 ```
