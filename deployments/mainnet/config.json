@@ -7,13 +7,10 @@
   "ssvNetworkViews": "0xafE830B6Ee262ba11cce5F32fDCd760FFE6a66e4",
   "ssvToken": "0x9D65fF81a3c488d585bBfb0Bfe3c7707c7917f54",
   "cooldownDuration": 604800,
-  "upgradeTimestamp": 2219200,
+  "upgradeTimestamp": 24684128,
   "quorumBps": 7500,
   "defaultOracleIds": [1, 2, 3, 4],
   "protocolParams": {
-    "networkFeeEth": "3550900000",
-    "maxOperatorEthFee": "5326300000",
-    "minOperatorEthFee": "1065200000",
     "minimumLiquidationCollateralEth": "940000000000000",
     "liquidationThresholdPeriod": "35800",
     "minBlocksBetweenUpdates": "0"
