@@ -79,7 +79,7 @@ Before deployment, populate `deployments/mainnet/config.json` with the intended 
     "minimumLiquidationCollateralSSV": "673652000000000000",
     "minimumBlocksBeforeLiquidationSSV": "50120"
   },
-  "initialStakeAmount": "100000000000000000000",
+  "initialStakeAmount": "1000000000000000000",
   "oracles": {
     "1": "0xc61f7bd9ee5a3d011caf47aa0e5411f720593920",
     "2": "0xc07332e05cec1c4896555a6d10361233fdf14422",
@@ -109,7 +109,7 @@ Complete all of the following before touching mainnet:
    - `SSVNetworkViews`
    - `CSSVToken`
    - All module implementations
-6. Confirm the SAFE holds at least `initialStakeAmount` in SSV tokens (currently 100 SSV). The batch includes an `approve` + `stake` pair that transfers SSV from the SAFE to the SSVNetwork proxy.
+6. Confirm the SAFE holds at least `initialStakeAmount` in SSV tokens (currently 1 SSV). The batch includes an `approve` + `stake` pair that transfers SSV from the SAFE to the SSVNetwork proxy.
 7. Estimate the gas cost of the full SAFE batch before mainnet execution:
    - Simulate the complete batch against a mainnet fork (`just upgrade-fork mainnet`) or via Tenderly.
    - The batch contains roughly 27 transactions (1 `upgradeToAndCall`, 7 `updateModule`, 1 `upgradeTo`, ~10 parameter setters, 1 `updateQuorumBps`, ~4 `replaceOracle`, 1 `approve`, 1 `stake`). At typical mainnet gas prices the total is in the 4–6M gas range. Confirm the SAFE has enough ETH to cover execution at current gas prices.
