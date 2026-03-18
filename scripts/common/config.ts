@@ -58,6 +58,7 @@ export type UpgradeConfig = {
   minimumLiquidationCollateralSSV?: string | number;
   validatorsPerOperatorLimit?: string | number;
   unstakeCooldownDuration?: string | number;
+  initialStakeAmount?: string | number;
 };
 
 export type ProtocolParams = {

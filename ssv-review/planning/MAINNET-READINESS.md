@@ -112,6 +112,7 @@
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
+| OPS-4 | Multisig batch tx method untested in sequential stage/prod/mainnet pipeline | Operational Readiness | P1 | Open |
 | FUZZ-1 | ~~Strengthen 5 partially-covered echidna invariants~~ | Echidna Invariant Suite | P1 | ✅ Done |
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
@@ -3078,6 +3079,30 @@ Update `.env.example` with v2.0.0 parameter names and values.
 - [ ] Sub-task 1: Update existing params
 - [ ] Sub-task 2: Add ETH-specific params
 - [ ] Sub-task 3: Add inline comments
+
+---
+
+### [OPS-4] Multisig batch transaction method untested in sequential stage/prod/mainnet pipeline
+- **Type:** Operational Readiness
+- **Priority:** P1
+- **Status:** Open
+- **Owner:** (Gabriel / Andrew)
+- **Timeline:** (empty)
+- **Github Link:** (empty)
+
+**Context:**
+On stage and prod, an EOA address owns the SSV Network contract — every upgrade was executed by sending transactions one by one. On mainnet, the plan is to upgrade contracts via multisig batch transactions following these steps:
+1. Update `config.json` + `.env`
+2. Deploy contracts
+3. Create batch-txs JSON file
+4. Execute the batch transactions with the DAO's multisig address
+
+This means a different method is being applied for stage/prod compared to mainnet. The batch transaction method was tested and approved by Gabriel, but it cannot be tested with exactly all the flows. It has not passed the test of time and breaks the rule of sequential exact upgrades on stage -> prod -> mainnet.
+
+**Acceptance Criteria:**
+- [ ] Batch transactions are exactly the same transactions sent on stage/prod
+- [ ] Jest commands for building the batch transactions JSON cannot be altered
+- [ ] Manual review confirms this meets the correct procedure for upgrading the SSV Network contracts
 
 ---
 

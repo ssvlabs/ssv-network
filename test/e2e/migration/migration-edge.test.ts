@@ -442,7 +442,7 @@ describe("Migration Edge Cases", () => {
       const threshold = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: 100n,
         numOperators: 4n,
-        ethFee: 17_700n,
+        ethFee: 17_788n,
         networkFee: 5_000n,
         effectiveVUnits: defaultVUnits(2n),
       });
@@ -478,7 +478,7 @@ describe("Migration Edge Cases", () => {
       const threshold = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: 100n,
         numOperators: 4n,
-        ethFee: 17_700n,
+        ethFee: 17_788n,
         networkFee: 5_000n,
         effectiveVUnits: defaultVUnits(2n),
       });
