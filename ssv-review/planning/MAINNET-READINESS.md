@@ -12,7 +12,7 @@
 | ID | Task | Type | Priority | Effort |
 |----|------|------|----------|--------|
 | BUG-1 | ~~`ensureETHDefaults` overwritten by stale memory copy~~ | Critical Bug Fix | P0 | ✅ Fixed |
-| BUG-2 | ~~`_resetOperatorState` doesn't clear `operator.owner`~~ | ~~Critical Bug Fix~~ Won't Fix | ~~P0~~ | By design |
+| BUG-2 | ~~`_resetOperatorState` doesn't clear `operator.owner`~~ | ~~Critical Bug Fix~~ Won't Fix | ~~P0~~ | ✅ By design |
 | BUG-3 | ~~`ensureETHDefaults` resurrects removed operators~~ | Critical Bug Fix | P0 | ✅ Mitigated |
 | BUG-4 | ~~Double deviation cleanup on liquidated cluster validator removal~~ | Critical Bug Fix | P0 | ✅ Fixed ([PR #429](https://github.com/ssvlabs/ssv-network/pull/429)) |
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
@@ -30,7 +30,7 @@
 | BUG-17 | ~~`commitRoot` quorum can become unreachable due to truncation in per-oracle weight math~~ | Critical Bug Fix | P0 | ✅ Fixed |
 | BUG-18 | ~~Staking Rewards Accumulator Precision Loss~~ | High Bug Fix | P1 | ✅ Closed (accepted as part of the accumulator model) |
 | BUG-19 | ~~Aggregate vs per-cluster rounding causes conservation law violation~~ | Medium Bug Fix | P1 | ✅ Closed (accepted as a known precision limitation) |
-| BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | S |
+| BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | ✅ Closed (Fixed on SEC-16b) |
 | SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -54,7 +54,7 @@
 | SEC-20 | ~~Oracle Quorum Can Be Set to Zero~~ | Security Hardening | P2 | ✅ Fixed |
 | TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
-| TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | S✅ Closed (PR #445) |
+| TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | ✅ Closed (PR #445) |
 | TEST-4 | ~~`updateClusterBalance` on liquidated clusters~~ | Unit Test Completeness | P0 | ✅ Closed (PR #447 + enhanced with 3 edge cases) |
 | TEST-5 | ~~Oracle quorum edge cases~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #449) |
 | TEST-6 | ~~EB decrease scenarios~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #451) |
@@ -117,6 +117,17 @@
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
 | FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
 | FUZZ-5 | ETH contract balance accounting invariant: `address(this).balance == Σ cluster.balance + Σ operator.ethEarnings + ethDaoBalance + stakingEthPoolBalance` | Echidna Invariant Suite | P1 | M |
+| MAINNET-READINESS-1 | Mainnet playbook ready and send to m-sig | Mainnet Readiness | P0 | M |
+| MAINNET-READINESS-2 | Full mainnet -> staking upgrade flow | Mainnet Readiness | P0 | M |
+| MAINNET-READINESS-3 | Deep testing on staking | Mainnet Readiness | P0 | M |
+| MAINNET-READINESS-4 | Audit complete | Mainnet Readiness | P2 | M |
+| MAINNET-READINESS-5 | Cssv token outside of the ssv protocol | Mainnet Readiness | P1 | M |
+| MAINNET-READINESS-6 | PR merging (Marco) | Mainnet Readiness | P1 | M |
+
+
+
+
+
 
 ---
 
@@ -599,9 +610,7 @@ BUG-19 is a real but negligible rounding issue. It is completely inactive while 
 
 ---
 
-### [BUG-20]: Dust permanently trapped on reward claim with zero cSSV balance
-
-CHECK AGAINST THE SOLUTION FOR [SEC-16b]
+### [BUG-20]: ~~Dust permanently trapped on reward claim with zero cSSV balance~~
 
 **Severity:** LOW
 **Function:** `SSVStaking.claimEthRewards()` at [`SSVStaking.sol:109-139`](contracts/modules/SSVStaking.sol#L109-L139)
@@ -633,6 +642,8 @@ if (remainder != 0 && userBalance == 0) {
     // Optionally: redistribute dust back to pool for other stakers
 }
 ```
+
+**Resolution:** ✅ Closed — The SEC-16b fix covers this exact code path. Maximum dust per user (99,999 wei) is accepted as negligible. Cross-referenced in CONSOLIDATED-AUDIT-FINDINGS CA-17.
 
 ---
 
@@ -4118,5 +4129,149 @@ Files changed:
 - [x] Overflow reverts with `SafeCastOverflow` instead of silent truncation
 - [x] 6 unit tests verify correct behavior at zero, in-range, boundary, and overflow values
 - [x] All 1209 existing tests pass with zero regressions
+
+---
+
+## Mainnet Readiness
+
+### [MAINNET-READINESS-1] Mainnet playbook ready and sent to m-sig
+- **Type:** Mainnet Readiness
+- **Priority:** P0
+- **Status:** In Progress
+- **Owner:** Marco
+- **Related:** OPS-1, PR [#523](https://github.com/ssvlabs/ssv-network/pull/523)
+
+**Description:**
+Finalize and deliver the mainnet upgrade playbook to the multisig. This involves incorporating the latest protocol parameters (network fee, liquidation collateral, liquidation threshold, oracle set, cooldown duration, quorum BPS) that will be used for the mainnet deployment into the upgrade scripts. Once the scripts are ready, Yurii will validate them locally. After the mainnet contracts are fully populated on Hoodi testnet, the upgrade should be executed following the playbook strictly, using a SAFE wallet on Hoodi to validate the end-to-end flow before mainnet.
+
+**Actions:**
+- [ ] Incorporate final mainnet protocol parameters into upgrade scripts (based on DIP-X proposed values)
+- [ ] Yurii to validate scripts locally against Hoodi state
+- [ ] Execute full upgrade flow on Hoodi using a SAFE wallet, following the playbook step-by-step
+- [ ] Deliver signed-off playbook to the multisig
+
+**Acceptance Criteria:**
+- [ ] All protocol parameters in scripts match the DIP-X approved governance values
+- [ ] Hoodi upgrade completes without errors via SAFE wallet
+- [ ] Playbook document sent and acknowledged by m-sig signers
+
+---
+
+### [MAINNET-READINESS-2] Full mainnet → staking upgrade flow validated on Hoodi
+- **Type:** Mainnet Readiness
+- **Priority:** P0
+- **Status:** Blocked (waiting on MAINNET-READINESS-1)
+- **Owner:** Marco
+
+**Description:**
+Validate the complete end-to-end upgrade flow from the current mainnet state v1.2.0 to v2.0.0 (SSV Staking) on the Hoodi testnet. This task is blocked until the mainnet contracts are fully populated on Hoodi (i.e., MAINNET-READINESS-1 is complete and the Hoodi environment reflects a realistic mainnet state). The validation must cover the full upgrade sequence: deploying new module implementations, running the reinitializer, verifying post-upgrade state consistency, and confirming all cluster/operator/staking flows work correctly.
+
+**Actions:**
+- [ ] Wait for Hoodi environment to be populated with mainnet-like contract state (dependency: MAINNET-READINESS-1)
+- [ ] Deploy all v2.0.0 module implementations to Hoodi
+- [ ] Execute `reinitializer(3)` upgrade via SAFE wallet following the playbook
+- [ ] Verify post-upgrade state: operator ETH fees, cluster balances, staking module initialization
+- [ ] Smoke-test key flows: validator registration, cluster deposit/withdraw, staking/unstaking, oracle EB update
+
+**Acceptance Criteria:**
+- [ ] Full upgrade completes without revert on Hoodi
+- [ ] Post-upgrade state matches expected initial values (network fee, liquidation params, oracle set)
+- [ ] All core user flows succeed on Hoodi post-upgrade
+- [ ] No unexpected state drift detected between pre- and post-upgrade snapshots
+
+---
+
+### [MAINNET-READINESS-3] Deep testing on staking module
+- **Type:** Mainnet Readiness
+- **Priority:** P0
+- **Status:** In Progress
+- **Owner:** Andrew
+- **Collaborators:** Venimir, Yurii
+- **Related:** Gabriel to share list of new staking test cases
+
+**Description:**
+Expand the staking module test coverage with a deep, targeted test pass focused on the SSV Staking and cSSV token flows. Gabriel will provide a list of specific scenarios to cover. The test suite should cover the full staking lifecycle — stake, requestUnstake, claimUnstake, claimEthRewards — as well as edge cases around the accumulator math, cSSV transfer reward settlement hooks, concurrent multi-user reward accumulation, and the unstake cooldown mechanism.
+
+**Actions:**
+- [ ] Gabriel to share the list of new staking test scenarios
+- [ ] Contracts team implement new tests if needed
+- [ ] Venimir and Yurii to review and validate test coverage
+- [ ] Run full test suite and confirm no regressions
+
+**Acceptance Criteria:**
+- [ ] All scenarios from Gabriel's list are covered by tests
+- [ ] Accumulator math (`accEthPerShare`, `userIndex`) verified with multi-user scenarios
+- [ ] `onCSSVTransfer` hook reward settlement tested for stake, unstake, and direct cSSV transfers
+- [ ] All tests pass with no regressions
+
+---
+
+### [MAINNET-READINESS-4] External audit complete
+- **Type:** Mainnet Readiness
+- **Priority:** P2
+- **Status:** In Progress (awaiting final report)
+- **Owner:** Marco
+- **Note:** Ping Massimo — some partners require the audit report for their internal security evaluations.
+
+**Description:**
+Receive and review the final audit report from QuantStamp covering the v2.0.0 SSV Staking release. The audit is a dependency for several ecosystem partners who need it for their own internal security sign-off processes before integrating with the new staking module. Once the report is received, any critical or high findings must be addressed before mainnet deployment. Marco to coordinate with Massimo on report delivery timeline and partner communication.
+
+**Actions:**
+- [ ] Follow up with Massimo on QuantStamp report delivery ETA
+- [ ] Share draft/final report with partners who requested it for internal security evaluations
+- [ ] Triage all findings and create tracking items for any critical/high severity issues
+- [ ] Confirm all critical/high findings are resolved before mainnet go/no-go decision
+
+**Acceptance Criteria:**
+- [ ] Final QuantStamp audit report received
+- [ ] All critical and high severity findings resolved or formally accepted with justification
+- [ ] Report shared with requesting ecosystem partners
+- [ ] Go/no-go sign-off includes audit clearance confirmation
+
+---
+
+### [MAINNET-READINESS-5] cSSV token behavior outside the SSV protocol
+- **Type:** Mainnet Readiness
+- **Priority:** P1
+- **Status:** In Progress
+- **Owner:** Andrew (implementation), Gabriel (execution)
+
+**Description:**
+Validate cSSV token behavior in contexts outside the core SSV protocol — primarily ERC-20 standard compliance and the reward settlement hook when cSSV is transferred between arbitrary addresses. The `onCSSVTransfer` hook in `SSVStaking.sol` must correctly settle pending ETH rewards for both sender and receiver on every transfer. Tests should cover direct transfers (wallet-to-wallet), transfers via ERC-20 `approve`/`transferFrom`, integration with external contracts (e.g., DEX/AMM mock), and edge cases like transferring to/from the zero address and self-transfers.
+
+**Actions:**
+- [ ] Andrew to define test scope for cSSV token external behavior
+- [ ] Gabriel to execute the test suite
+- [ ] Cover: direct transfer reward settlement, approve/transferFrom, zero-address edge cases, self-transfer
+- [ ] Cover: cSSV used in a mock external contract (e.g., staking aggregator) — verify reward hooks fire correctly
+
+**Acceptance Criteria:**
+- [ ] `onCSSVTransfer` settles rewards correctly for sender and receiver on every ERC-20 transfer
+- [ ] ERC-20 standard compliance verified (transfer, transferFrom, approve, allowance)
+- [ ] No reward leakage or double-claim possible via transfer manipulation
+- [ ] All tests pass
+
+---
+
+### [MAINNET-READINESS-6] Merge all pending testing-related PRs
+- **Type:** Mainnet Readiness
+- **Priority:** P1
+- **Status:** In Progress
+- **Owner:** Marco
+
+**Description:**
+Consolidate the repository state by merging all outstanding testing-related pull requests into the `ssv-staking` branch. This is a prerequisite for accurate final coverage reporting and ensures that the mainnet go/no-go decision is based on a clean, up-to-date codebase. Marco to identify all open testing PRs, verify they are ready to merge (CI passing, reviewed), and merge them in dependency order.
+
+**Actions:**
+- [ ] Enumerate all open PRs with testing changes targeting `ssv-staking`
+- [ ] Verify CI passes and reviews are complete for each PR
+- [ ] Merge in dependency order (no conflicts)
+- [ ] Confirm final test run passes on the merged branch
+
+**Acceptance Criteria:**
+- [ ] All pending testing PRs merged into `ssv-staking`
+- [ ] No merge conflicts remaining
+- [ ] Full test suite passes on the consolidated branch
+- [ ] Coverage report reflects all merged test additions
 
 ---
