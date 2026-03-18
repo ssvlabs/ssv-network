@@ -12,7 +12,7 @@ uint8 constant VERSION_ETH = 1;
 uint8 constant VERSION_UNDEFINED = type(uint8).max;
 
 uint64 constant BPS_DENOMINATOR = 10_000;
-uint256 constant DEFAULT_OPERATOR_ETH_FEE = 1770_000_000;
+uint256 constant DEFAULT_OPERATOR_ETH_FEE = 1778_800_000;
 uint256 constant PRECISION = 1e18;
 
 uint256 constant DEDUCTED_DIGITS = 10_000_000;
