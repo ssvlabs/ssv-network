@@ -55,8 +55,10 @@ export type UpgradeConfig = {
   minBlocksBetweenUpdates?: string | number;
   minimumLiquidationCollateralEth?: string | number;
   minimumLiquidationCollateralSSV?: string | number;
+  minimumBlocksBeforeLiquidationSSV?: string | number;
   validatorsPerOperatorLimit?: string | number;
   unstakeCooldownDuration?: string | number;
+  initialStakeAmount?: string | number;
 };
 
 export type ProtocolParams = {
@@ -68,6 +70,7 @@ export type ProtocolParams = {
   declareOperatorFeePeriod?: string | number;
   executeOperatorFeePeriod?: string | number;
   liquidationThresholdPeriod?: string | number;
+  minimumBlocksBeforeLiquidationSSV?: string | number;
   minBlocksBetweenUpdates?: string | number;
   minimumLiquidationCollateralEth?: string | number;
   minimumLiquidationCollateralSSV?: string | number;
@@ -85,6 +88,7 @@ export type ResolvedProtocolParams = {
   declareOperatorFeePeriod?: bigint;
   executeOperatorFeePeriod?: bigint;
   liquidationThresholdPeriod?: bigint;
+  minimumBlocksBeforeLiquidationSSV?: bigint;
   minBlocksBetweenUpdates?: bigint;
   minimumLiquidationCollateralEth?: bigint;
   minimumLiquidationCollateralSSV?: bigint;
@@ -361,6 +365,10 @@ export function resolveProtocolParams(config: UpgradeConfig): ResolvedProtocolPa
     minimumLiquidationCollateralSSV: parseUint(
       pp.minimumLiquidationCollateralSSV ?? config.minimumLiquidationCollateralSSV,
       "minimumLiquidationCollateralSSV"
+    ),
+    minimumBlocksBeforeLiquidationSSV: parseUint(
+      pp.minimumBlocksBeforeLiquidationSSV ?? config.minimumBlocksBeforeLiquidationSSV,
+      "minimumBlocksBeforeLiquidationSSV"
     ),
     validatorsPerOperatorLimit: parseUint(
       pp.validatorsPerOperatorLimit ?? config.validatorsPerOperatorLimit,
