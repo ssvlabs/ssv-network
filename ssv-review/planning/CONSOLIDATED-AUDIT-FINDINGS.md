@@ -11,15 +11,15 @@
 
 | ID | Description | Type | Severity | Resolution |
 |----|-------------|------|----------|------------|
-| CA-01 | Silent uint64 truncation in `networkTotalEarnings` DAO earnings | Arithmetic Safety | Medium-High | Open |
+| CA-01 | Silent uint64 truncation in `networkTotalEarnings` DAO earnings | Arithmetic Safety | Medium-High | Already fixed (ref MAINNET-READINESS QUALITY-12) |
 | CA-02 | Fees permanently lost when `totalStaked == 0` in `_syncFees` | Staking Rewards | Medium | Open (ref BUG-6 — mitigated by deployment sequencing) |
-| CA-03 | Aggregate vs per-cluster rounding conservation law violation | Arithmetic Safety | Medium | Open (ref BUG-19 — accepted known behavior) |
-| CA-04 | Unsafe uint128 to uint64 cast in operator earnings accumulation | Arithmetic Safety | Medium | Open (ref BUG-9 — closed as not realistic) |
+| CA-03 | Aggregate vs per-cluster rounding conservation law violation | Arithmetic Safety | Medium | Closed (ref BUG-19 — accepted known behavior) |
+| CA-04 | Unsafe uint128 to uint64 cast in operator earnings accumulation | Arithmetic Safety | Medium | Already fixed (ref MAINNET-READINESS QUALITY-12) |
 | CA-05 | uint64 overflow in `blockDiffEthFee` operator snapshot DoS | Arithmetic Safety | Medium | Open |
 | CA-06 | Oracle quorum can be set to zero | Oracle Security | Medium | Already fixed (ref MAINNET-READINESS SEC-20) |
 | CA-07 | Oracle weight assumes all delegation slots active | Oracle Security | Medium | Open |
 | CA-08 | `migrateClusterToETH` missing `nonReentrant` modifier | Reentrancy | Medium | Already closed (ref MAINNET-READINESS SEC-6) |
-| CA-09 | `accEthPerShare` precision loss at scale | Staking Rewards | Medium | Open (ref BUG-18) |
+| CA-09 | `accEthPerShare` precision loss at scale | Staking Rewards | Medium | Closed (ref BUG-18 — accepted as part of accumulator model) |
 | CA-10 | Staking reward dilution via flash loan | Flash Loan | Medium | Mitigated by design (settlement ordering + 7-day cooldown) |
 | CA-11 | `withdrawUnlocked` gas scales with pending request count | DoS / Griefing | Medium | Open (self-DoS only, capped at 2000) |
 | CA-12 | External whitelisting contract can DoS validator registration | DoS / Griefing | Medium | Open (operator self-DoS only) |
@@ -70,7 +70,7 @@
 **Severity:** Medium-High
 **Type:** Arithmetic Safety
 **Location:** `contracts/libraries/ProtocolLib.sol:84-90`
-**Resolution:** Open
+**Resolution:** Already fixed (ref MAINNET-READINESS QUALITY-12)
 
 **Source:** STATE-INVARIANT-REPORT.md (SIV-01)
 **Cross-references:** z_input_arithmetic_safety_scan.md (Finding 2), z_behavioral_state.md (F-3), z_staking_audit_report.md (Finding #2)
@@ -97,6 +97,8 @@ return sp.ethDaoBalance.add(PackedETH.wrap(uint64(earningsUnits)));
 **Practical reachability:** With current proposed parameters (`fee_packed ~ 35,509`, `daoTotalEthVUnits ~ 1e9`, `blockDelta ~ 2.5e6`), `earningsUnits ~ 8.87e15` — fits in `uint64`. Overflow requires either extreme governance-set fee values or decades without DAO earnings settlement.
 
 **Recommendation:** Apply `SafeCast.toUint64(earningsUnits)` to revert on overflow, or add an upper bound in `updateNetworkFee()`.
+
+**Fix (QUALITY-12):** A lightweight `_safeUint64(uint128)` helper was added to `SSVCoreTypes.sol` with a custom `SafeCastOverflow` error. The unsafe cast in `ProtocolLib.sol:89` was replaced with `_safeUint64(earningsUnits)`.
 
 ---
 
@@ -138,7 +140,7 @@ s.stakingEthPoolBalance = current;  // Advanced regardless!
 **Severity:** Medium
 **Type:** Arithmetic Safety
 **Location:** `contracts/libraries/OperatorLib.sol:52-72`, `contracts/libraries/ProtocolLib.sol:84-90`, `contracts/libraries/ClusterLib.sol:306-321`
-**Resolution:** Open (ref MAINNET-READINESS BUG-19 — accepted known behavior)
+**Resolution:** Closed (ref MAINNET-READINESS BUG-19 — accepted known behavior)
 
 **Source:** STATE-INVARIANT-REPORT.md (SIV-02)
 
@@ -157,7 +159,7 @@ Each cluster pays fees proportional to its own `vUnits` (floor division), but op
 **Severity:** Medium
 **Type:** Arithmetic Safety
 **Location:** `contracts/libraries/OperatorLib.sol:68-69, 93-94, 306-307`
-**Resolution:** Open (ref MAINNET-READINESS BUG-9 — closed as not realistic)
+**Resolution:** Already fixed (ref MAINNET-READINESS QUALITY-12)
 
 **Source:** z_input_arithmetic_safety_scan.md (Finding 1)
 **Cross-references:** z_scv-scan.md (SCV-05)
@@ -174,6 +176,8 @@ operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(u
 **Practical reachability:** With realistic parameters (50,400 blocks/week, packed fee ~35,500, 2,000 validators at max EB): `delta ~ 2.29e14` — fits in `uint64`. Overflow requires pathological conditions (decades without snapshot updates or extreme fee values).
 
 **Recommendation:** Use `SafeCast.toUint64(delta)` to fail loudly on overflow instead of silently truncating.
+
+**Fix (QUALITY-12):** The `_safeUint64(uint128)` helper added to `SSVCoreTypes.sol` replaced all 3 unsafe casts in `OperatorLib.sol` (lines 69, 94, 307). Overflow now reverts with `SafeCastOverflow`.
 
 ---
 
@@ -262,7 +266,7 @@ The oracle weight calculation divides `totalStaked` by `s.defaultOracleIds.lengt
 **Severity:** Medium
 **Type:** Staking Rewards
 **Location:** `contracts/modules/SSVStaking.sol:202`
-**Resolution:** Open (ref MAINNET-READINESS BUG-18)
+**Resolution:** Closed (ref MAINNET-READINESS BUG-18 — accepted as part of accumulator model)
 
 **Source:** z_staking_audit_report.md (Finding #1)
 **Cross-references:** z_scv-scan.md (SCV-04), z_input_arithmetic_safety_scan.md (Finding 9)
@@ -417,7 +421,7 @@ No check that `merkleRoot != bytes32(0)`. A zero root committed by quorum would 
 **Severity:** Low
 **Type:** Staking Rewards
 **Location:** `contracts/modules/SSVStaking.sol:109-139`
-**Resolution:** Already fixed (ref MAINNET-READINESS SEC-16b)
+**Resolution:** Already fixed (ref MAINNET-READINESS SEC-16b, BUG-20)
 
 **Source:** STATE-INVARIANT-REPORT.md (SIV-05)
 **Cross-references:** z_staking_audit_report.md (Finding #4b)
@@ -772,10 +776,10 @@ This table maps each consolidated finding back to its source report(s) for trace
 
 | Severity | Total | Open | Already Fixed/Closed | Mitigated by Design |
 |----------|-------|------|---------------------|-------------------|
-| Medium-High | 1 | 1 | 0 | 0 |
-| Medium | 12 | 8 | 2 | 2 |
+| Medium-High | 1 | 0 | 1 | 0 |
+| Medium | 12 | 5 | 5 | 2 |
 | Low | 15 | 8 | 4 | 1 |
 | Info | 15 | 6 | 0 | 0 |
-| **Total** | **43** | **23** | **6** | **3** |
+| **Total** | **43** | **19** | **10** | **3** |
 
-**Unique actionable findings (Open, Medium or above):** 9
+**Unique actionable findings (Open, Medium or above):** 5

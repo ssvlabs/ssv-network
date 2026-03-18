@@ -12,7 +12,7 @@
 | ID | Task | Type | Priority | Effort |
 |----|------|------|----------|--------|
 | BUG-1 | ~~`ensureETHDefaults` overwritten by stale memory copy~~ | Critical Bug Fix | P0 | ✅ Fixed |
-| BUG-2 | ~~`_resetOperatorState` doesn't clear `operator.owner`~~ | ~~Critical Bug Fix~~ Won't Fix | ~~P0~~ | By design |
+| BUG-2 | ~~`_resetOperatorState` doesn't clear `operator.owner`~~ | ~~Critical Bug Fix~~ Won't Fix | ~~P0~~ | ✅ By design |
 | BUG-3 | ~~`ensureETHDefaults` resurrects removed operators~~ | Critical Bug Fix | P0 | ✅ Mitigated |
 | BUG-4 | ~~Double deviation cleanup on liquidated cluster validator removal~~ | Critical Bug Fix | P0 | ✅ Fixed ([PR #429](https://github.com/ssvlabs/ssv-network/pull/429)) |
 | BUG-5 | ~~`_liquidateAfterEBUpdateIfNeeded` condition too strict for ETH-only operators~~ | Critical Bug Fix | P1 | ✅ Fixed |
@@ -30,7 +30,7 @@
 | BUG-17 | ~~`commitRoot` quorum can become unreachable due to truncation in per-oracle weight math~~ | Critical Bug Fix | P0 | ✅ Fixed |
 | BUG-18 | ~~Staking Rewards Accumulator Precision Loss~~ | High Bug Fix | P1 | ✅ Closed (accepted as part of the accumulator model) |
 | BUG-19 | ~~Aggregate vs per-cluster rounding causes conservation law violation~~ | Medium Bug Fix | P1 | ✅ Closed (accepted as a known precision limitation) |
-| BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | S |
+| BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | ✅ Closed (Fixed on SEC-16b) |
 | SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -54,7 +54,7 @@
 | SEC-20 | ~~Oracle Quorum Can Be Set to Zero~~ | Security Hardening | P2 | ✅ Fixed |
 | TEST-1 | ~~Validator register/remove with non-zero operator fees~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #443) |
 | TEST-2 | ~~EB-weighted operator earnings accumulation~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #444) |
-| TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | S✅ Closed (PR #445) |
+| TEST-3 | ~~Balance delta assertions in liquidation paths~~ | Unit Test Completeness | P0 | ✅ Closed (PR #445) |
 | TEST-4 | ~~`updateClusterBalance` on liquidated clusters~~ | Unit Test Completeness | P0 | ✅ Closed (PR #447 + enhanced with 3 edge cases) |
 | TEST-5 | ~~Oracle quorum edge cases~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #449) |
 | TEST-6 | ~~EB decrease scenarios~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #451) |
@@ -598,9 +598,7 @@ BUG-19 is a real but negligible rounding issue. It is completely inactive while 
 
 ---
 
-### [BUG-20]: Dust permanently trapped on reward claim with zero cSSV balance
-
-CHECK AGAINST THE SOLUTION FOR [SEC-16b]
+### [BUG-20]: ~~Dust permanently trapped on reward claim with zero cSSV balance~~
 
 **Severity:** LOW
 **Function:** `SSVStaking.claimEthRewards()` at [`SSVStaking.sol:109-139`](contracts/modules/SSVStaking.sol#L109-L139)
@@ -632,6 +630,8 @@ if (remainder != 0 && userBalance == 0) {
     // Optionally: redistribute dust back to pool for other stakers
 }
 ```
+
+**Resolution:** ✅ Closed — The SEC-16b fix covers this exact code path. Maximum dust per user (99,999 wei) is accepted as negligible. Cross-referenced in CONSOLIDATED-AUDIT-FINDINGS CA-17.
 
 ---
 
