@@ -47,8 +47,8 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
       expect(await harness.getVersionUndefined()).to.equal(255n);
     });
 
-    it("DEFAULT_OPERATOR_ETH_FEE is 1770_000_000", async function () {
-      expect(await harness.getDefaultOperatorEthFee()).to.equal(1770_000_000n);
+    it("DEFAULT_OPERATOR_ETH_FEE is 1778_800_000", async function () {
+      expect(await harness.getDefaultOperatorEthFee()).to.equal(1778_800_000n);
     });
 
     it("DEDUCTED_DIGITS is 10_000_000", async function () {

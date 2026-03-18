@@ -50,7 +50,7 @@ describe("Operator Lifecycle", function () {
         await networkHelpers.loadFixture(deployFixture);
 
       const pubkey = makeOperatorKey(1);
-      const fee = 1_770_000_000n; // DEFAULT_OPERATOR_ETH_FEE
+      const fee = 1_778_800_000n; // DEFAULT_OPERATOR_ETH_FEE
 
       const tx = await network
         .connect(operatorOwner)
