@@ -11,14 +11,20 @@
   "quorumBps": 7500,
   "defaultOracleIds": [1, 2, 3, 4],
   "protocolParams": {
-    "minimumLiquidationCollateralEth": "940000000000000",
-    "liquidationThresholdPeriod": "35800",
-    "minBlocksBetweenUpdates": "0"
+    "networkFeeEth": "3557600000",
+    "maxOperatorEthFee": "5336500000",
+    "minOperatorEthFee": "10000000",
+    "minimumLiquidationCollateralEth": "644852000000000",
+    "liquidationThresholdPeriod": "21480",
+    "minBlocksBetweenUpdates": "0",
+    "minimumLiquidationCollateralSSV": "673652000000000000",
+    "minimumBlocksBeforeLiquidationSSV": "50120"
   },
+  "initialStakeAmount": "100000000000000000000",
   "oracles": {
-    "1": "",
-    "2": "",
-    "3": "",
-    "4": ""
+    "1": "0xc61f7bd9ee5a3d011caf47aa0e5411f720593920",
+    "2": "0xc07332e05cec1c4896555a6d10361233fdf14422",
+    "3": "0x28bEa5B242362974d5DDb8f17a1E0e525446960B",
+    "4": "0x3A98EE5f80268Ed91F8A5880d93468b76a9F3bB4"
   }
 }
