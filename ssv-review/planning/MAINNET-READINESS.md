@@ -96,6 +96,7 @@
 | DEPLOY-5 | ~~Document `operatorMinFee` governance parameter in DIP-X~~ | Deployment & Scripts | P2 | ✅ Fixed |
 | DEPLOY-6 | ~~DIP-X unstaking description doesn't match implementation~~ | Deployment & Scripts | P2 | ✅ Closed (already correct in SPEC.md and FLOWS.md) |
 | DEPLOY-7 | ~~Deploy scripts import from test files~~ | Deployment & Scripts | P2 | ✅ Fixed — `upgrade.ts` and `deploy-fresh.ts` import from `scripts/common/config.ts`, no test file imports |
+| DEPLOY-8 | ~~Dedicated verification script~~ | Deployment & Scripts | P2 | ✅ Done — New verify-upgrade recipe |
 | QUALITY-1 | ~~`operatorFeeChangeRequests` not cleared on operator removal~~ | Code Quality | P2 | ✅ Closed (dead storage, off-chain sees OperatorRemoved) |
 | QUALITY-2 | ~~Redundant `SSVStorage.load()` calls in view function loops~~ | Code Quality | P2 | ✅ Fixed |
 | QUALITY-3 | ~~`withdraw` in SSVClusters duplicates operator loop inline~~ | Code Quality | P2 | ✅ Fixed |

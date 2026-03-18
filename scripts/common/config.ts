@@ -52,6 +52,7 @@ export type UpgradeConfig = {
   declareOperatorFeePeriod?: string | number;
   executeOperatorFeePeriod?: string | number;
   liquidationThresholdPeriod?: string | number;
+  liquidationThresholdPeriodSSV?: string | number;
   minBlocksBetweenUpdates?: string | number;
   minimumLiquidationCollateralEth?: string | number;
   minimumLiquidationCollateralSSV?: string | number;
@@ -68,6 +69,7 @@ export type ProtocolParams = {
   declareOperatorFeePeriod?: string | number;
   executeOperatorFeePeriod?: string | number;
   liquidationThresholdPeriod?: string | number;
+  liquidationThresholdPeriodSSV?: string | number;
   minBlocksBetweenUpdates?: string | number;
   minimumLiquidationCollateralEth?: string | number;
   minimumLiquidationCollateralSSV?: string | number;
@@ -85,6 +87,7 @@ export type ResolvedProtocolParams = {
   declareOperatorFeePeriod?: bigint;
   executeOperatorFeePeriod?: bigint;
   liquidationThresholdPeriod?: bigint;
+  liquidationThresholdPeriodSSV?: bigint;
   minBlocksBetweenUpdates?: bigint;
   minimumLiquidationCollateralEth?: bigint;
   minimumLiquidationCollateralSSV?: bigint;
@@ -349,6 +352,10 @@ export function resolveProtocolParams(config: UpgradeConfig): ResolvedProtocolPa
     liquidationThresholdPeriod: parseUint(
       pp.liquidationThresholdPeriod ?? config.liquidationThresholdPeriod,
       "liquidationThresholdPeriod"
+    ),
+    liquidationThresholdPeriodSSV: parseUint(
+      pp.liquidationThresholdPeriodSSV ?? config.liquidationThresholdPeriodSSV,
+      "liquidationThresholdPeriodSSV"
     ),
     minBlocksBetweenUpdates: parseUint(
       pp.minBlocksBetweenUpdates ?? config.minBlocksBetweenUpdates,

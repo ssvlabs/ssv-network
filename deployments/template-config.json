@@ -11,6 +11,7 @@
   "defaultOracleIds": [1, 2, 3, 4],
   "cssvToken": "",
   "protocolParams": {
+    "liquidationThresholdPeriodSSV": "100380",
     "minBlocksBetweenUpdates": "7200"
   },
   "oracles": {}
