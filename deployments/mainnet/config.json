@@ -20,7 +20,7 @@
     "minimumLiquidationCollateralSSV": "673652000000000000",
     "minimumBlocksBeforeLiquidationSSV": "50120"
   },
-  "initialStakeAmount": "100000000000000000000",
+  "initialStakeAmount": "1000000000000000000",
   "oracles": {
     "1": "0xc61f7bd9ee5a3d011caf47aa0e5411f720593920",
     "2": "0xc07332e05cec1c4896555a6d10361233fdf14422",
