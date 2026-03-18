@@ -281,6 +281,9 @@ async function main() {
   if (params.liquidationThresholdPeriod !== undefined) {
     await (await networkOwner.updateLiquidationThresholdPeriod(params.liquidationThresholdPeriod)).wait();
   }
+  if (params.liquidationThresholdPeriodSSV !== undefined) {
+    await (await networkOwner.updateLiquidationThresholdPeriodSSV(params.liquidationThresholdPeriodSSV)).wait();
+  }
   if (minBlocksBetweenUpdates !== undefined) {
     await (await networkOwner.updateMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
   }
@@ -339,6 +342,7 @@ async function main() {
       declareOperatorFeePeriod: onChainValues.declareOperatorFeePeriod,
       executeOperatorFeePeriod: onChainValues.executeOperatorFeePeriod,
       liquidationThresholdPeriod: onChainValues.liquidationThresholdPeriod,
+      liquidationThresholdPeriodSSV: onChainValues.liquidationThresholdPeriodSSV,
       ...(params.minBlocksBetweenUpdates !== undefined
         ? { minBlocksBetweenUpdates: bigintToJsonNumberOrString(params.minBlocksBetweenUpdates) }
         : {}),
