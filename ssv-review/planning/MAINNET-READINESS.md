@@ -116,7 +116,6 @@
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
 | FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
 | FUZZ-5 | ETH contract balance accounting invariant: `address(this).balance == Σ cluster.balance + Σ operator.ethEarnings + ethDaoBalance + stakingEthPoolBalance` | Echidna Invariant Suite | P1 | M |
-
 | MAINNET-READINESS-1 | Mainnet playbook ready and send to m-sig | Mainnet Readiness | P0 | M |
 | MAINNET-READINESS-2 | Full mainnet -> staking upgrade flow | Mainnet Readiness | P0 | M |
 | MAINNET-READINESS-3 | Deep testing on staking | Mainnet Readiness | P0 | M |
