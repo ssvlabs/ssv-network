@@ -216,15 +216,6 @@ async function main() {
       ]),
     });
   }
-  if (params.minimumBlocksBeforeLiquidationSSV !== undefined) {
-    transactions.push({
-      to: ssvNetworkProxy,
-      value: "0",
-      data: ssvNetworkIface.encodeFunctionData("updateLiquidationThresholdPeriodSSV", [
-        params.minimumBlocksBeforeLiquidationSSV,
-      ]),
-    });
-  }
   if (params.declareOperatorFeePeriod !== undefined) {
     transactions.push({
       to: ssvNetworkProxy,

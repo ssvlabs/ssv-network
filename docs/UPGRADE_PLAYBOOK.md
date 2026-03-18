@@ -79,7 +79,7 @@ Before deployment, populate `deployments/mainnet/config.json` with the intended 
     "liquidationThresholdPeriod": "21480",
     "minBlocksBetweenUpdates": "0",
     "minimumLiquidationCollateralSSV": "673652000000000000",
-    "minimumBlocksBeforeLiquidationSSV": "50120"
+    "liquidationThresholdPeriodSSV": "50120"
   },
   "initialStakeAmount": "1000000000000000000",
   "oracles": {
