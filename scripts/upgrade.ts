@@ -25,7 +25,7 @@ import {
   updateLatestSymlink,
   loadDeployResult,
 } from "./common/config.ts";
-import { verifyPostUpgradeState, readOnChainValues } from "./common/verify.ts";
+import { readOnChainValues } from "./common/verify.ts";
 import {
   getSignerForAddress,
   canImpersonateOnNetwork,
@@ -38,7 +38,6 @@ async function main() {
   // Legacy: --config flag for direct path (backward compat)
   const envFlag = parseOptionalArg("env");
   const configFlag = parseOptionalArg("config");
-  const verifyOnly = parseOptionalBooleanArg("verify-only", false);
   const forkFlag = parseOptionalBooleanArg("fork", false);
   const useGetImpersonatedSigner = parseOptionalBooleanArg("use-get-impersonated-signer", true);
 
@@ -142,22 +141,6 @@ async function main() {
   const viewsOwnerAddressLower = viewsOwnerAddr.toLowerCase();
   const targetRpcUrl = resolveRpcUrl(effectiveNetwork);
   const canImpersonate = forkFlag || canImpersonateOnNetwork(effectiveNetwork, targetRpcUrl);
-
-  // ── Verify-only mode ──
-  if (verifyOnly) {
-    console.log("Running verification only (--verify-only)");
-    const views = viewsProxy.connect(deployerSigner);
-    await verifyPostUpgradeState({
-      views,
-      params,
-      cooldownDuration,
-      defaultOracleIds,
-      quorumBps,
-      oracles,
-    });
-    console.log("Verification complete");
-    return;
-  }
 
   // ── Resolve signers ──
   let ownerSigner = deployerSigner;
@@ -288,7 +271,7 @@ async function main() {
   }
 
   // ── Apply protocol parameters ──
-  console.log("[6/6] Applying configuration and verifying");
+  console.log("[6/6] Applying configuration");
   if (params.networkFeeEth !== undefined) {
     await (await networkOwner.updateNetworkFee(params.networkFeeEth)).wait();
   }
@@ -331,16 +314,6 @@ async function main() {
   for (const { id, address } of oracles) {
     await (await networkOwner.replaceOracle(id, address)).wait();
   }
-
-  // ── Verify ──
-  await verifyPostUpgradeState({
-    views,
-    params,
-    cooldownDuration,
-    defaultOracleIds,
-    quorumBps,
-    oracles,
-  });
 
   // ── Write result JSON ──
   const onChainValues = await readOnChainValues(views);

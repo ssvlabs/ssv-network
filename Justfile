@@ -78,9 +78,10 @@ upgrade env network="":
 generate-safe-batch env="mainnet":
     npx tsx scripts/generate-safe-batch.ts --env {{env}}
 
-# Verify on-chain state
-verify-upgrade env:
-    npx tsx scripts/upgrade.ts --env {{env}} --verify-only
+# Verify on-chain state (backward-compatible alias)
+verify-upgrade env network="":
+    npx hardhat compile --force
+    npx tsx scripts/verify-post-upgrade-config.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
 
 # Verify post-upgrade config (same args pattern as `upgrade`)
 verify-post-upgrade-config env network="":
