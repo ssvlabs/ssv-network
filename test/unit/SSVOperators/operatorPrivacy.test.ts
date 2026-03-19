@@ -1,13 +1,10 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
+import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
-  MAXIMUM_OPERATORS_FEE,
-  MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
+  MINIMAL_OPERATOR_ETH_FEE,
 } from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
@@ -18,11 +15,10 @@ describe("SSVOperators privacy helpers", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
-  const deployOperatorsFixture = async () =>
-    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
+  const deployOperatorsFixture = async () => defaultOperatorsFixture(connection);
 
   it("Updates privacy status via unchecked helpers", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
@@ -55,14 +51,10 @@ describe("SSVOperators privacy helpers", async () => {
 
   it("Updates privacy status for a batch of operators", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
-
-    // Register 2 more operators
     await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
     await operators.registerOperator(makeOperatorKey(2), Number(MINIMAL_OPERATOR_ETH_FEE), false);
 
     const ids = [1n, 2n];
-
-    // Set batch to private
     await expect(operators.setOperatorsPrivateUnchecked(ids))
       .to.emit(operators, Events.OPERATOR_PRIVACY_STATUS_UPDATED)
       .withArgs(ids, true);
@@ -71,8 +63,6 @@ describe("SSVOperators privacy helpers", async () => {
     const op2 = await operators.getOperator(2);
     expect(op1.whitelisted).to.be.true;
     expect(op2.whitelisted).to.be.true;
-
-    // Set batch to public
     await expect(operators.setOperatorsPublicUnchecked(ids))
       .to.emit(operators, Events.OPERATOR_PRIVACY_STATUS_UPDATED)
       .withArgs(ids, false);
@@ -86,11 +76,7 @@ describe("SSVOperators privacy helpers", async () => {
     const [owner, other] = await connection.ethers.getSigners();
 
     await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
-    
-    // Register operator 2 by another user
     await operators.connect(other).registerOperator(makeOperatorKey(2), Number(MINIMAL_OPERATOR_ETH_FEE), false);
-
-    // Try to update both (owner owns 1 but not 2)
     await expect(operators.setOperatorsPrivateUnchecked([1n, 2n]))
       .to.be.revertedWithCustomError(operators, Errors.CALLER_NOT_OWNER);
   });

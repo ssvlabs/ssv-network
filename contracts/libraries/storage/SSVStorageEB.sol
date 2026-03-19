@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-uint32 constant VUNITS_PRECISION = 10_000;
-uint256 constant MAX_EB_PER_VALIDATOR = 2048 ether;
-uint256 constant DEFAULT_EB_PER_VALIDATOR = 32 ether;
-
 struct ClusterEBSnapshot {
     uint64 vUnits;
     uint64 lastRootBlockNum;
@@ -26,6 +22,8 @@ struct StorageEB {
     mapping(bytes32 => uint256) rootCommitments;
     /// @notice Tracks if an oracle ID has voted for a specific commitment key
     mapping(bytes32 => mapping(uint32 => bool)) hasVoted;
+    /// @notice Frozen voting supply (truncated to oracle-count divisibility) at the first vote of each commitment round
+    mapping(bytes32 => uint256) roundFrozenSupply;
 }
 
 library SSVStorageEB {

@@ -85,6 +85,7 @@ contract SSVClustersEchidna is SSVClusters {
     bool private liquidatePayoutMismatch;
     bool private reactivateWhileActiveSucceeded;
     bool private dustLiquidationFailed;
+    bool private staleEbUpdateSucceeded;
 
     constructor() {
         ISSVClusters self = ISSVClusters(address(this));
@@ -194,7 +195,7 @@ contract SSVClustersEchidna is SSVClusters {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64 vUnits = ClusterLib.getVUnits(clusterId, record.cluster.validatorCount);
 
-        uint128 perBlockUnits = (uint128(burnRate + PackedETH.unwrap(sp.ethNetworkFee)) * uint128(vUnits)) / VUNITS_PRECISION;
+        uint128 perBlockUnits = (uint128(burnRate + PackedETH.unwrap(sp.ethNetworkFee)) * uint128(vUnits)) / BPS_DENOMINATOR;
         uint256 perBlock = PackedETHLib.unpack(PackedETH.wrap(uint64(perBlockUnits)));
         if (perBlock == 0) return;
 
@@ -373,6 +374,42 @@ contract SSVClustersEchidna is SSVClusters {
         } catch {}
     }
 
+    function action_update_cluster_balance_non_latest_root(uint256 seed) external {
+        bytes32 clusterId = _pickClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = clusters[clusterId];
+        if (!record.exists) return;
+
+        StorageEB storage seb = SSVStorageEB.load();
+
+        uint64 lastRoot = seb.clusterEB[clusterId].lastRootBlockNum;
+        uint64 staleBlockNum = lastRoot + 1;
+        uint64 latestBlockNum = staleBlockNum + 1;
+        if (latestBlockNum > uint64(block.number)) return;
+
+        uint32 effectiveBalance = _boundEffectiveBalance(seed >> 8, record.cluster.validatorCount);
+        bytes32 leaf = _ebLeaf(clusterId, effectiveBalance);
+
+        seb.ebRoots[staleBlockNum] = leaf;
+        seb.ebRoots[latestBlockNum] = leaf;
+        seb.latestCommittedBlock = latestBlockNum;
+
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        ISSVNetworkCore.Cluster memory cluster = record.cluster;
+
+        try this.updateClusterBalance(
+            staleBlockNum,
+            record.owner,
+            operatorIds,
+            cluster,
+            effectiveBalance,
+            new bytes32[](0)
+        ) {
+            staleEbUpdateSucceeded = true;
+        } catch {}
+    }
+
     function echidna_cluster_hash_consistent() external view returns (bool) {
         StorageData storage s = SSVStorage.load();
         uint256 count = clusterIds.length;
@@ -434,6 +471,10 @@ contract SSVClustersEchidna is SSVClusters {
 
     function echidna_dust_liquidation_reachable() external view returns (bool) {
         return !dustLiquidationFailed;
+    }
+
+    function echidna_eb_update_requires_latest_root() external view returns (bool) {
+        return !staleEbUpdateSucceeded;
     }
 
     function _initProtocolDefaults() internal {
@@ -562,11 +603,11 @@ contract SSVClustersEchidna is SSVClusters {
             uint64 blockDiffFee = uint64(blocks) * PackedETH.unwrap(operator.ethFee);
             // Deviation-only model: effectiveVUnits = baseline + storedDeviation
             uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
-            uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
+            uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * BPS_DENOMINATOR);
 
             operator.ethSnapshot.index += blockDiffFee;
             if (effectiveVUnits != 0 && blockDiffFee != 0) {
-                uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
+                uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
                 operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
             }
             operator.ethSnapshot.block = currentBlock;
@@ -590,5 +631,19 @@ contract SSVClustersEchidna is SSVClusters {
         } else {
             totalExpectedBalance = 0;
         }
+    }
+
+    function _boundEffectiveBalance(uint256 seed, uint32 validatorCount) internal pure returns (uint32) {
+        if (validatorCount == 0) return 0;
+
+        uint32 minEb = validatorCount * 32;
+        uint32 maxEb = validatorCount * 2048;
+        uint32 range = maxEb - minEb + 1;
+
+        return minEb + uint32(seed % range);
+    }
+
+    function _ebLeaf(bytes32 clusterId, uint32 effectiveBalance) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(keccak256(abi.encode(clusterId, effectiveBalance))));
     }
 }

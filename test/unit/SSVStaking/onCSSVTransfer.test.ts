@@ -1,9 +1,9 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
 
 const PRECISION = 10n ** 18n;
@@ -18,11 +18,10 @@ describe("SSVStaking function `onCSSVTransfer()`", async () => {
   let thirdUser: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [staker, receiver, thirdUser] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [staker, receiver, thirdUser] } = await setupTestContext());
   });
 
-  const deployStakingFixture = async () => ssvStakingHarnessFixture(connection);
+  const deployStakingFixture = async () => defaultStakingFixture(connection);
 
   async function impersonate(address: string) {
     await connection.ethers.provider.send("hardhat_impersonateAccount", [address]);
@@ -65,8 +64,6 @@ describe("SSVStaking function `onCSSVTransfer()`", async () => {
 
     const cssvAddress = await cssvToken.getAddress();
     const cssvSigner = await impersonate(cssvAddress);
-
-    // Prevent _syncFees from changing accEthPerShare during the call.
     await staking.mockSetDaoTotalEthVUnits(0n);
     await staking.mockSetEthNetworkFee(0n);
 
@@ -150,8 +147,8 @@ describe("SSVStaking function `onCSSVTransfer()`", async () => {
     const accruedA = await staking.getUserAccrued(staker.address);
     const accruedB = await staking.getUserAccrued(receiver.address);
 
-    expect(accruedA).to.equal(amountA * 5n); // 2x first period + 3x second period
-    expect(accruedB).to.equal(amountB * 3n); // only second period
+    expect(accruedA).to.equal(amountA * 5n);
+    expect(accruedB).to.equal(amountB * 3n);
   });
 
   it("Settles A->B transfer rewards and applies higher future rate to receiver balance", async function () {
@@ -193,14 +190,14 @@ describe("SSVStaking function `onCSSVTransfer()`", async () => {
     await freezeSync(staking);
     const cssvSigner = await impersonate(await cssvToken.getAddress());
     await staking.mockSetAccEthPerShare(2n * PRECISION);
-    await simulateCssvTransfer(staking, cssvToken, cssvSigner, staker, receiver.address, transferAB); // settles A and B at 2x
+    await simulateCssvTransfer(staking, cssvToken, cssvSigner, staker, receiver.address, transferAB);
 
     await staking.mockSetAccEthPerShare(5n * PRECISION);
-    await simulateCssvTransfer(staking, cssvToken, cssvSigner, receiver, thirdUser.address, transferBC); // settles B and C at 5x
+    await simulateCssvTransfer(staking, cssvToken, cssvSigner, receiver, thirdUser.address, transferBC);
 
     await staking.mockSetAccEthPerShare(9n * PRECISION);
-    await staking.connect(cssvSigner).onCSSVTransfer(staker.address, receiver.address, 0n); // settle A, B at 9x
-    await staking.connect(cssvSigner).onCSSVTransfer(thirdUser.address, staker.address, 0n); // settle C at 9x
+    await staking.connect(cssvSigner).onCSSVTransfer(staker.address, receiver.address, 0n);
+    await staking.connect(cssvSigner).onCSSVTransfer(thirdUser.address, staker.address, 0n);
 
     const accruedA = await staking.getUserAccrued(staker.address);
     const accruedB = await staking.getUserAccrued(receiver.address);

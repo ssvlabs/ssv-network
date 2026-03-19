@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import {PackedSSV, PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VERSION_SSV, VERSION_ETH, VERSION_UNDEFINED, DEFAULT_OPERATOR_ETH_FEE} from "../../libraries/SSVCoreTypes.sol";
-import {PackedSSVLib, PackedETHLib, PackingLib, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../libraries/SSVPackedLib.sol";
+import {PackedSSV, PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VERSION_SSV, VERSION_ETH, VERSION_UNDEFINED, DEFAULT_OPERATOR_ETH_FEE, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS, _safeUint64} from "../../libraries/SSVCoreTypes.sol";
+import {PackedSSVLib, PackedETHLib, PackingLib} from "../../libraries/SSVPackedLib.sol";
 
 contract PackedLibHarness {
     using PackedSSVLib for PackedSSV;
@@ -124,5 +124,11 @@ contract PackedLibHarness {
 
     function ssvSub(uint64 a, uint64 b) external pure returns (uint64) {
         return PackedSSV.unwrap(PackedSSV.wrap(a).sub(PackedSSV.wrap(b)));
+    }
+
+    // ============ _safeUint64 ============
+
+    function safeUint64(uint128 value) external pure returns (uint64) {
+        return _safeUint64(value);
     }
 }

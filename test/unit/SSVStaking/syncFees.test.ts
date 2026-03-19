@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { STAKE_AMOUNT, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
@@ -15,11 +15,10 @@ describe("SSVStaking function `syncFees()`", async () => {
   let staker: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [staker] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [staker] } = await setupTestContext());
   });
 
-  const deployStakingFixture = async () => ssvStakingHarnessFixture(connection);
+  const deployStakingFixture = async () => defaultStakingFixture(connection);
 
   it("Updates staking pool balance and emits FeesSynced event", async function () {
     const { staking, ssvToken } =
@@ -39,10 +38,6 @@ describe("SSVStaking function `syncFees()`", async () => {
       staking.syncFees(),
       [GasGroup.SYNC_FEES]
     );
-
-    // newFeesWei = newFees * 1e7 = 1e16
-    // totalStaked = 10 ETH = 10e18
-    // accDelta = (1e16 * 1e18) / 10e18 = 1e16 / 10 = 1e15
     await expect(tx).to.emit(staking, Events.FEES_SYNCED).withArgs(newFees * ETH_DEDUCTED_DIGITS, 10_000_000_000_000n);
 
     const poolBalance = await staking.getStakingEthPoolBalance();
@@ -71,9 +66,6 @@ describe("SSVStaking function `syncFees()`", async () => {
     );
 
     const accAfter = await staking.getAccEthPerShare();
-    
-    // Calculation: newFeesWei = newFees * 1e7 = 1e16
-    // accDelta = (1e16 * 1e18) / STAKE_AMOUNT (10 * 1e18) = 1e16 / 10 = 1e15
     const expectedDelta = (newFees * ETH_DEDUCTED_DIGITS * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
     expect(accAfter - accBefore).to.equal(expectedDelta);
   });
@@ -84,27 +76,20 @@ describe("SSVStaking function `syncFees()`", async () => {
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
-
-    // Initial sync to set baseline
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(0n);
     await staking.syncFees();
 
     const accBefore = await staking.getAccEthPerShare();
     const poolBalanceBefore = await staking.getStakingEthPoolBalance();
-
-    // Setup network parameters for accrual
-    const vUnits = 10_000n; // 1 validator * 10000 precision
-    const fee = 500n; // 500 wei per block per validator
+    const vUnits = 10_000n;
+    const fee = 500n;
     await staking.mockSetDaoTotalEthVUnits(vUnits);
     await staking.mockSetEthNetworkFee(fee);
-    // Reset index block to current
     const setDaoTx = await staking.mockSetEthDaoBalance(0n); 
     const setDaoReceipt = await setDaoTx.wait();
-
-    // Mine blocks
     const blocksToMine = 10;
-    await connection.ethers.provider.send("hardhat_mine", ["0xA"]); // 10 blocks
+    await connection.ethers.provider.send("hardhat_mine", ["0xA"]);
 
     const receipt = await trackGas(
       staking.syncFees(),
@@ -112,16 +97,10 @@ describe("SSVStaking function `syncFees()`", async () => {
     );
     
     const blocksElapsed = BigInt(receipt.blockNumber - setDaoReceipt!.blockNumber);
-    // earnings = (blocks * fee * vUnits) / VUNITS_PRECISION
-    // vUnits = 10000, PRECISION = 10000 -> factor is 1
-    // fee = 500
-    // earnings = blocks * 500
     const expectedEarnings = blocksElapsed * fee;
-    const expectedEarningsWei = expectedEarnings * ETH_DEDUCTED_DIGITS; // expand
+    const expectedEarningsWei = expectedEarnings * ETH_DEDUCTED_DIGITS;
 
     const accAfter = await staking.getAccEthPerShare();
-    
-    // delta = (earningsWei * 1e18) / STAKE_AMOUNT
     const expectedDelta = (expectedEarningsWei * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
     expect(accAfter - accBefore).to.equal(expectedDelta);
 
@@ -168,8 +147,6 @@ describe("SSVStaking function `syncFees()`", async () => {
 
     const highBalance = 2_000_000_000n;
     const lowBalance = 1_000_000_000n;
-
-    // Set pool balance higher than DAO balance (simulating inconsistency or deflation)
     await staking.mockSetStakingEthPoolBalance(highBalance);
     await staking.mockSetEthDaoBalance(lowBalance);
 
@@ -181,8 +158,6 @@ describe("SSVStaking function `syncFees()`", async () => {
 
     const accAfter = await staking.getAccEthPerShare();
     expect(accAfter).to.equal(accBefore);
-
-    // Should update pool balance to current (low)
     const poolBalance = await staking.getStakingEthPoolBalance();
     expect(poolBalance).to.equal(lowBalance);
   });

@@ -19,6 +19,7 @@ Each env directory contains:
   deploy-result.v2.0.0.json      # Versioned output of `just deploy`
   upgrade-result.json            # Symlink → upgrade-result.<version>.json (latest)
   upgrade-result.v2.0.0.json     # Versioned output of `just upgrade`
+  deployment-attestation.json    # Bytecode hashes + config for committee review
   multisig-batch.json            # SAFE Transaction Builder JSON (mainnet)
 ```
 
@@ -34,8 +35,9 @@ just upgrade-test-fork hoodi-stage   # upgrade on fork, then run tests
 # Live upgrade (hoodi-stage / hoodi-prod)
 just upgrade hoodi-stage
 
-# Mainnet: deploy impls first, then generate SAFE batch
+# Mainnet: deploy impls first, generate attestation, then SAFE batch
 just deploy mainnet
+just generate-attestation mainnet    # -> mainnet/deployment-attestation.json
 just generate-safe-batch mainnet     # -> mainnet/multisig-batch.json
 # Import into SAFE Transaction Builder, review, sign
 
@@ -102,7 +104,8 @@ This prevents running the wrong config against the wrong proxy.
 | `deploy.ts` | `just deploy <env>` | Deploy impls + modules (no proxy upgrade) |
 | `upgrade.ts` | `just upgrade <env>` | Upgrade proxy + attach modules + apply params |
 | `upgrade.ts --fork` | `just upgrade-fork <env>` | Same, on local Anvil fork |
-| `upgrade.ts --verify-only` | `just verify-upgrade <env>` | Read on-chain state, no writes |
+| `verify-post-upgrade-config.ts` | `just verify-upgrade <env>` or `just verify-post-upgrade-config <env>` | Read on-chain state, no writes |
+| `generate-deployment-attestation.ts` | `just generate-attestation <env>` | Bytecode hashes + config attestation for committee |
 | `generate-safe-batch.ts` | `just generate-safe-batch <env>` | Encode SAFE multisig batch |
 | `deploy-fresh.ts` | `just deploy-fresh <env>` | Full greenfield deployment |
 | `run-forked-tests.ts` | `just test-fork <env>` | Integration tests against fork |

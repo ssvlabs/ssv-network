@@ -21,7 +21,7 @@ just build                     # Compile contracts (force recompile)
 just test                      # Run all tests
 just test-unit                 # Run unit tests only (test/unit/)
 just test-integration          # Run integration tests only (test/integration/)
-just test-forked               # Run fork tests (requires MAINNET_ETH_NODE_URL in .env)
+just test-forked               # Run fork tests (requires MAINNET_RPC_URL in .env)
 just coverage                  # Generate coverage report + HTML output
 ```
 
@@ -83,8 +83,8 @@ Values not divisible by the precision factor revert with `MaxPrecisionExceeded`.
 
 ```
 vUnits = ceil(effectiveBalanceETH * 10_000 / 32)
-operatorFee = blockDiff * ethFee * effectiveVUnits / VUNITS_PRECISION
-networkFee = (networkFeeIndexDelta * effectiveVUnits) / VUNITS_PRECISION
+operatorFee = blockDiff * ethFee * effectiveVUnits / BPS_DENOMINATOR
+networkFee = (networkFeeIndexDelta * effectiveVUnits) / BPS_DENOMINATOR
 totalFees = (operatorFeeUnits + networkFeeUnits) * ETH_DEDUCTED_DIGITS
 cluster.balance -= totalFees
 ```
@@ -104,7 +104,7 @@ cluster.balance -= unpack(fees)
 ```
 liquidatable IF:
   balance < minimumLiquidationCollateral (0.00094 ETH)
-  OR balance < minimumBlocksBeforeLiquidation * (burnRate + networkFee) * vUnits / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS
+  OR balance < minimumBlocksBeforeLiquidation * (burnRate + networkFee) * vUnits / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS
 ```
 
 ### Staking Rewards (Accumulator Pattern)
@@ -124,8 +124,8 @@ Rewards settle on: stake, requestUnstake, claimEthRewards, cSSV transfer (via on
 | minimumLiquidationCollateral | 0.00094 ETH | `updateMinimumLiquidationCollateral(uint256)` |
 | minimumBlocksBeforeLiquidation | 50190 (~7 days) | `updateLiquidationThresholdPeriod(uint64)` |
 | defaultOperatorETHFee | 0.000000001775400000 ETH/block (~0.00464 ETH/year) | Hardcoded in contract |
-| cooldownDuration | 604,800 seconds (7 days) | `setUnstakeCooldownDuration(uint64)` |
-| quorumBps | 7500 (75%) | `setQuorumBps(uint16)` |
+| cooldownDuration | 604,800 seconds (7 days) | `updateUnstakeCooldownDuration(uint64)` |
+| quorumBps | 7500 (75%) | `updateQuorumBps(uint16)` |
 | Oracle set | 4 oracles, 3-of-4 threshold | `replaceOracle(uint32, address)` |
 
 ## Security Rules — MUST Follow
@@ -229,7 +229,7 @@ test/
 ## Key Constants
 
 ```
-VUNITS_PRECISION = 10_000
+BPS_DENOMINATOR = 10_000
 MAX_EB_PER_VALIDATOR = 2048 ETH
 DEFAULT_EB_PER_VALIDATOR = 32 ETH
 ETH_DEDUCTED_DIGITS = 100_000

@@ -128,7 +128,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         0,
         connection.ethers.ZeroAddress,
         true,
-        false
+        true
       ]);
     });
 
@@ -934,6 +934,14 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
+
+    it("Reverts when new maximum fee is below the configured minimum fee", async function() {
+      const { network, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
+
+      await expect(network.connect(daoSigner).updateMaximumOperatorFee(MINIMAL_OPERATOR_ETH_FEE - OPERATOR_FEE_PRECISION))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_RANGE);
+    });
   });
 
   describe("Function 'reduceOperatorFee()'", async function(){
@@ -1210,15 +1218,15 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const tx = await network.connect(daoSigner)
-        .updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n);
+        .updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_FEE_INCREASE_LIMIT]);
 
       await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_INCREASE_LIMIT_UPDATED)
-        .withArgs(OPERATOR_MAX_FEE_INCREASE + 1n);
+        .withArgs(OPERATOR_MAX_FEE_INCREASE);
 
-      await expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE + 1n);
+      await expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE);
     });
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
@@ -1227,6 +1235,14 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+
+    it("Reverts when fee increase limit exceeds 100%", async function() {
+      const { network, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
+
+      await expect(network.connect(daoSigner).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_INCREASE_LIMIT);
     });
   });
 
@@ -1453,10 +1469,10 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       // ssv legacy getters
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-      await expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
-        .to.be.equal(0);
-      await expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
-        .to.be.equal(0);
+      await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+      await expect(views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("Registers a validator for a new ETH cluster using whitelisting contract", async function () {
@@ -1725,7 +1741,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if the public key is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if the public key is already registered", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const validatorKey = makePublicKey(1);
@@ -1755,8 +1771,8 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(network.connect(clusterOwner).registerValidator(
         validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
-        .withArgs(validatorKey);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
+        .withArgs(validatorKey, clusterOwner.address);
     });
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
@@ -1936,10 +1952,10 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-      await expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
-        .to.be.equal(0);
-      await expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
-        .to.be.equal(0);
+      await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+      await expect(views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("Registers bulk of validators into an existing cluster with one whitelisting contract operator", async function() {
@@ -2036,7 +2052,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if one of public keys is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if one of public keys is already registered", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
@@ -2066,8 +2082,8 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(network.connect(clusterOwner).bulkRegisterValidator(
         keys, operatorIds, shares, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
-        .withArgs(keys[7]);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
+        .withArgs(keys[7], clusterOwner.address);
     });
 
     it("Is reverted with 'IncorrectClusterState' for the new cluster is the cluster data is not consisting from zeroes", async function() {
@@ -2293,7 +2309,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const incorrectValidator: string = validatorKey + "11";
 
       await expect(network.connect(clusterOwner).removeValidator(incorrectValidator, operatorIds, cluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
@@ -2306,7 +2322,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const updatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       await expect(network.connect(clusterOwner).removeValidator(validatorKey, operatorIds, updatedCluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2345,8 +2361,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const incorrectValidator: string = validatorKey + "11";
 
       await expect(network.connect(clusterOwner).bulkRemoveValidator([incorrectValidator], operatorIds, cluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE)
-        .withArgs(incorrectValidator);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
 
     it("Is reveted with 'ValidatorDoesNotExist' if validator is already removed", async function() {
@@ -2359,7 +2374,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const updatedCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
 
       await expect(network.connect(clusterOwner).bulkRemoveValidator([validatorKey], operatorIds, updatedCluster))
-        .to.be.revertedWithCustomError(network, Errors.INCORRECT_VALIDATOR_STATE);
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_DOES_NOT_EXIST);
     });
   });
 
@@ -2391,12 +2406,12 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
-    it("Is reverted with 'ZeroAmount' is caller is trying to stake 0 SSV", async function(){
+    it("Is reverted with 'StakeTooLow' is caller is trying to stake 0 SSV", async function(){
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.stake(0))
-        .to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+        .to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
   });
 
@@ -2466,7 +2481,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(requests[1].unlockTime).to.be.equal(BigInt(secondBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN);
     });
 
-    it("Is reverted with 'MaxRequestsAmountReached' if more than 10 pending requests", async function() {
+    it("Is reverted with 'MaxRequestsAmountReached' if more than 2000 pending requests", async function() {
       const { network, ssvToken, daoSigner } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
@@ -2474,9 +2489,9 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await ssvToken.connect(daoSigner).mint(randomUser.address, STAKE_AMOUNT);
       await network.connect(randomUser).stake(STAKE_AMOUNT);
 
-      const smallAmount = STAKE_AMOUNT / 11n;
+      const smallAmount = STAKE_AMOUNT / 2001n;
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 2000; i++) {
         await network.connect(randomUser).requestUnstake(smallAmount);
       }
 

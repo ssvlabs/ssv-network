@@ -4,8 +4,9 @@
   "liquidationThresholdPeriod": "35800",
   "minOperatorEthFee": "1065200000",
   "maxOperatorEthFee": "5326300000",
-  "defaultOperatorEthFee": "1770000000",
+  "defaultOperatorEthFee": "1778800000",
   "quorumBps": 7500,
   "cooldownDuration": 604800,
+  "minBlocksBetweenUpdates": 0,
   "defaultOracleIds": [1, 2, 3, 4]
 }

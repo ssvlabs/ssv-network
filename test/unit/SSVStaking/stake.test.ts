@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
@@ -17,11 +17,10 @@ describe("SSVStaking function `stake()`", async () => {
   let other: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [staker, other] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [staker, other] } = await setupTestContext());
   });
 
-  const deployStakingFixture = async () => ssvStakingHarnessFixture(connection);
+  const deployStakingFixture = async () => defaultStakingFixture(connection);
 
   it("Stakes SSV tokens, mints cSSV and emits Staked event", async function () {
     const { staking, ssvToken, cssvToken } =
@@ -77,7 +76,7 @@ describe("SSVStaking function `stake()`", async () => {
     const { staking, ssvToken } =
       await networkHelpers.loadFixture(deployStakingFixture);
 
-    const minAmount = 1_000_000_000n; // MINIMAL_STAKING_AMOUNT
+    const minAmount = 1_000_000_000n;
     await ssvToken.approve(await staking.getAddress(), minAmount);
 
     await expect(staking.stake(minAmount))
@@ -85,13 +84,13 @@ describe("SSVStaking function `stake()`", async () => {
       .withArgs(staker.address, minAmount);
   });
 
-  it("Is reverted with 'ZeroAmount' when staking zero amount", async function () {
+  it("Is reverted with 'StakeTooLow' when staking zero amount", async function () {
     const { staking } =
       await networkHelpers.loadFixture(deployStakingFixture);
 
     await expect(staking.stake(0n)).to.be.revertedWithCustomError(
       staking,
-      Errors.ZERO_AMOUNT
+      Errors.STAKE_TOO_LOW
     );
   });
 

@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -9,14 +8,15 @@ import {
   makePublicKey,
   whitelistAddresses,
   getCurrentClusterState,
-  generateMerkleForClusterEB,
+  setupTestContext,
 } from "../../common/helpers.ts";
+import { generateMerkleForClusterEB } from "../../helpers/oracle.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   NETWORK_FEE,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import {
@@ -27,7 +27,7 @@ import {
   calcStakingReward,
   calcVUnits,
   defaultVUnits,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 import { Events } from "../../common/events.ts";
 
 const PRECISION = 10n ** 18n;
@@ -45,9 +45,7 @@ describe("E2E Staking Rewards", () => {
   let stakerB: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [deployer, operatorOwner, clusterOwner, stakerA, stakerB] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [deployer, operatorOwner, clusterOwner, stakerA, stakerB] } = await setupTestContext());
     provider = connection.ethers.provider;
   });
 
@@ -118,14 +116,14 @@ describe("E2E Staking Rewards", () => {
         : 0n;
 
       const allSigners = await connection.ethers.getSigners();
-      const oracles = allSigners.slice(10, 14); // Use different signers as oracles
+      const oracles = allSigners.slice(10, 14);
 
       for (let i = 0; i < 4; i++) {
         await network.replaceOracle(i + 1, oracles[i].address);
       }
 
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
-      const ebValue = 64; // 64 ETH → vUnits = 20_000 (double the implicit 10_000)
+      const ebValue = 64;
 
       const ebBlock = await getBlockNumber(provider);
       const { root, proofs } = generateMerkleForClusterEB(connection, [
@@ -241,9 +239,9 @@ describe("E2E Staking Rewards", () => {
         : 0n;
 
       const phase1Blocks = BigInt(sync1Block - phase1StartBlock);
-      const phase1VUnits = defaultVUnits(2n); // 2 validators → 20_000
+      const phase1VUnits = defaultVUnits(2n);
       const phase1ExpectedFees =
-        ((PACKED_NETWORK_FEE * phase1VUnits) / VUNITS_PRECISION) *
+        ((PACKED_NETWORK_FEE * phase1VUnits) / BPS_DENOMINATOR) *
         phase1Blocks *
         ETH_DEDUCTED_DIGITS;
       expect(newFeesPhase1).to.equal(phase1ExpectedFees);
@@ -275,9 +273,9 @@ describe("E2E Staking Rewards", () => {
         : 0n;
 
       const phase2Blocks = BigInt(sync2Block - phase2StartBlock);
-      const phase2VUnits = defaultVUnits(1n); // 1 validator → 10_000
+      const phase2VUnits = defaultVUnits(1n);
       const phase2ExpectedFees =
-        ((PACKED_NETWORK_FEE * phase2VUnits) / VUNITS_PRECISION) *
+        ((PACKED_NETWORK_FEE * phase2VUnits) / BPS_DENOMINATOR) *
         phase2Blocks *
         ETH_DEDUCTED_DIGITS;
       expect(newFeesPhase2).to.equal(phase2ExpectedFees);
@@ -390,7 +388,7 @@ describe("E2E Staking Rewards", () => {
       const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const oneBlockFeesWei = earningsPerBlockPacked * ETH_DEDUCTED_DIGITS;
       const oneBlockAccDelta = calcAccEthPerShareDelta(oneBlockFeesWei, totalStaked);
@@ -483,7 +481,7 @@ describe("E2E Staking Rewards", () => {
 
       const postStakeBlocks = BigInt(claimBlock - stakeBlock);
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const expectedFeesPacked = earningsPerBlockPacked * postStakeBlocks;
       const expectedFeesWei = expectedFeesPacked * ETH_DEDUCTED_DIGITS;
 
@@ -555,7 +553,7 @@ describe("E2E Staking Rewards", () => {
       }
 
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
-      const ebValue = 96; // 96 ETH → vUnits = 30_000
+      const ebValue = 96;
       const ebBlock = await getBlockNumber(provider);
 
       const { root, proofs } = generateMerkleForClusterEB(connection, [
@@ -612,8 +610,8 @@ describe("E2E Staking Rewards", () => {
       expect(totalReward).to.equal(expectedPayout);
       expect(totalReward % ETH_DEDUCTED_DIGITS).to.equal(0n);
 
-      const phase1Rate = (PACKED_NETWORK_FEE * defaultVUnits(2n)) / VUNITS_PRECISION;
-      const phase2Rate = (PACKED_NETWORK_FEE * calcVUnits(96n)) / VUNITS_PRECISION;
+      const phase1Rate = (PACKED_NETWORK_FEE * defaultVUnits(2n)) / BPS_DENOMINATOR;
+      const phase2Rate = (PACKED_NETWORK_FEE * calcVUnits(96n)) / BPS_DENOMINATOR;
       expect(phase2Rate).to.be.greaterThan(phase1Rate);
     });
   });
