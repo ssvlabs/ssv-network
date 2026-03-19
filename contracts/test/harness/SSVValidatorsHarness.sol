@@ -129,7 +129,7 @@ contract SSVValidatorsHarness is SSVValidators {
     function getEffectiveOperatorVUnits(uint64 operatorId) external view returns (uint64) {
         StorageData storage s = SSVStorage.load();
         StorageEB storage seb = SSVStorageEB.load();
-        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * VUNITS_PRECISION;
+        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * BPS_DENOMINATOR;
         uint64 deviation = seb.operatorEthVUnits[operatorId];
         return baseline + deviation;
     }

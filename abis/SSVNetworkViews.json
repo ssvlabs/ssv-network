@@ -193,6 +193,21 @@
   },
   {
     "inputs": [],
+    "name": "InsufficientCSSVSupply",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidOperatorFeeIncreaseLimit",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidOperatorFeeRange",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidOperatorIdsLength",
     "type": "error"
   },
@@ -240,6 +255,11 @@
   {
     "inputs": [],
     "name": "LegacyOperatorFeeDeclarationInvalid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxPrecisionExceeded",
     "type": "error"
   },
   {
@@ -305,11 +325,6 @@
   {
     "inputs": [],
     "name": "OracleAlreadyAssigned",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "OracleHasZeroWeight",
     "type": "error"
   },
   {
@@ -433,6 +448,11 @@
   {
     "inputs": [],
     "name": "ZeroAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroCSSVSupply",
     "type": "error"
   },
   {

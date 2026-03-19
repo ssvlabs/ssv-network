@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../setup/connection.ts";
 import type { NetworkHelpersType } from "../common/types.ts";
+import { setupTestContext } from "../common/helpers.ts";
 import { ETH_DEDUCTED_DIGITS, DEDUCTED_DIGITS } from "../common/constants.ts";
 import { Errors } from "../common/errors.ts";
 
@@ -11,7 +11,7 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
   let harness: any;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -23,8 +23,6 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
   beforeEach(async function () {
     ({ harness } = await networkHelpers.loadFixture(deployFixture));
   });
-
-  // ============ SSVCoreTypes Constants ============
 
   describe("SSVCoreTypes constants", () => {
     it("PACKED_ETH_ZERO is 0", async function () {
@@ -47,8 +45,8 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
       expect(await harness.getVersionUndefined()).to.equal(255n);
     });
 
-    it("DEFAULT_OPERATOR_ETH_FEE is 1770_000_000", async function () {
-      expect(await harness.getDefaultOperatorEthFee()).to.equal(1770_000_000n);
+    it("DEFAULT_OPERATOR_ETH_FEE is 1778_800_000", async function () {
+      expect(await harness.getDefaultOperatorEthFee()).to.equal(1778_800_000n);
     });
 
     it("DEDUCTED_DIGITS is 10_000_000", async function () {
@@ -60,12 +58,10 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
     });
   });
 
-  // ============ PackedETHLib ============
-
   describe("PackedETHLib", () => {
     describe("pack / unpack", () => {
       it("Packs a valid ETH value", async function () {
-        const value = 1_000_000n; // 1_000_000 wei, divisible by 100_000
+        const value = 1_000_000n;
         const packed = await harness.ethPack(value);
         expect(packed).to.equal(value / ETH_DEDUCTED_DIGITS);
       });
@@ -78,7 +74,7 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
       });
 
       it("Pack then unpack is identity for aligned values", async function () {
-        const value = 123_456_700_000n; // divisible by 100_000
+        const value = 123_456_700_000n;
         const packed = await harness.ethPack(value);
         const unpacked = await harness.ethUnpack(packed);
         expect(unpacked).to.equal(value);
@@ -230,12 +226,10 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
     });
   });
 
-  // ============ PackedSSVLib ============
-
   describe("PackedSSVLib", () => {
     describe("pack / unpack", () => {
       it("Packs a valid SSV value", async function () {
-        const value = 10_000_000n; // divisible by 10_000_000
+        const value = 10_000_000n;
         const packed = await harness.ssvPack(value);
         expect(packed).to.equal(value / DEDUCTED_DIGITS);
       });
@@ -248,7 +242,7 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
       });
 
       it("Pack then unpack is identity for aligned values", async function () {
-        const value = 1_234_560_000_000n; // divisible by 10_000_000
+        const value = 1_234_560_000_000n;
         const packed = await harness.ssvPack(value);
         const unpacked = await harness.ssvUnpack(packed);
         expect(unpacked).to.equal(value);
@@ -374,27 +368,18 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
     });
   });
 
-  // ============ Cross-type verification ============
-
   describe("ETH vs SSV scaling factor differences", () => {
     it("Same wei value produces different packed values for ETH vs SSV", async function () {
-      // A value divisible by both scaling factors
-      const value = 100_000_000_000_000n; // 10^14
+      const value = 100_000_000_000_000n;
       const ethPacked = await harness.ethPack(value);
       const ssvPacked = await harness.ssvPack(value);
-
-      // ETH: 10^14 / 10^5 = 10^9
       expect(ethPacked).to.equal(1_000_000_000n);
-      // SSV: 10^14 / 10^7 = 10^7
       expect(ssvPacked).to.equal(10_000_000n);
-
-      // ETH has higher precision (smaller scale factor) -> larger packed value
       expect(ethPacked).to.be.greaterThan(ssvPacked);
     });
 
     it("ETH allows finer granularity than SSV", async function () {
-      // 100_000 is divisible by ETH_DEDUCTED_DIGITS but not by DEDUCTED_DIGITS
-      const fineValue = ETH_DEDUCTED_DIGITS; // 100_000
+      const fineValue = ETH_DEDUCTED_DIGITS;
       const ethPacked = await harness.ethPack(fineValue);
       expect(ethPacked).to.equal(1n);
 
@@ -404,12 +389,51 @@ describe("SSVPackedLib and SSVCoreTypes", async () => {
 
     it("DEFAULT_OPERATOR_ETH_FEE is packable as ETH", async function () {
       const fee = await harness.getDefaultOperatorEthFee();
-      // 1770_000_000 % 100_000 == 0
       const packed = await harness.ethPack(fee);
       expect(packed).to.equal(fee / ETH_DEDUCTED_DIGITS);
 
       const unpacked = await harness.ethUnpack(packed);
       expect(unpacked).to.equal(fee);
+    });
+  });
+
+  // ============ _safeUint64 ============
+
+  describe("_safeUint64", () => {
+    const MAX_UINT64 = (1n << 64n) - 1n;
+
+    it("passes through zero", async function () {
+      expect(await harness.safeUint64(0n)).to.equal(0n);
+    });
+
+    it("passes through value within uint64 range", async function () {
+      expect(await harness.safeUint64(42n)).to.equal(42n);
+    });
+
+    it("passes through max uint64", async function () {
+      expect(await harness.safeUint64(MAX_UINT64)).to.equal(MAX_UINT64);
+    });
+
+    it("reverts on max uint64 + 1", async function () {
+      await expect(harness.safeUint64(MAX_UINT64 + 1n))
+        .to.be.revertedWithCustomError(harness, "SafeCastOverflow");
+    });
+
+    it("reverts on max uint128", async function () {
+      const MAX_UINT128 = (1n << 128n) - 1n;
+      await expect(harness.safeUint64(MAX_UINT128))
+        .to.be.revertedWithCustomError(harness, "SafeCastOverflow");
+    });
+
+    it("reverts on realistic overflow scenario (operator earnings delta)", async function () {
+      // Simulates: (blockDiffEthFee * effectiveVUnits) / BPS_DENOMINATOR
+      // where both inputs are large uint64 values
+      const blockDiffEthFee = MAX_UINT64;
+      const effectiveVUnits = MAX_UINT64;
+      const delta = (blockDiffEthFee * effectiveVUnits) / 10_000n;
+      // delta ≈ 3.39e34, far exceeds uint64 max ≈ 1.84e19
+      await expect(harness.safeUint64(delta))
+        .to.be.revertedWithCustomError(harness, "SafeCastOverflow");
     });
   });
 });

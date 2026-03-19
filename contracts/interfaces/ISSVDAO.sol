@@ -212,7 +212,7 @@ interface ISSVDAO is ISSVNetworkCore {
      * @notice Sets the unstake cooldown duration
      * @param duration The new duration in seconds
      */
-    function setUnstakeCooldownDuration(uint64 duration) external;
+    function updateUnstakeCooldownDuration(uint64 duration) external;
 
     /**
      * @notice Sets the minimum block interval between EB updates for the same cluster
@@ -231,5 +231,5 @@ interface ISSVDAO is ISSVNetworkCore {
      * @notice Sets the quorum BPS
      * @param quorum The new quorum value
      */
-    function setQuorumBps(uint16 quorum) external;
+    function updateQuorumBps(uint16 quorum) external;
 }

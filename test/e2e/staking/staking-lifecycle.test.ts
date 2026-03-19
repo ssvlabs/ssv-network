@@ -1,20 +1,20 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
   registerOperators,
   makePublicKey,
   whitelistAddresses,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   NETWORK_FEE,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   DEFAULT_UNSTAKE_COOLDOWN,
 } from "../../common/constants.ts";
@@ -25,7 +25,7 @@ import {
   calcAccEthPerShareDelta,
   calcStakingReward,
   defaultVUnits,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 
@@ -44,9 +44,7 @@ describe("E2E Staking Lifecycle", () => {
   let stakerB: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [deployer, operatorOwner, clusterOwner, stakerA, stakerB] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [deployer, operatorOwner, clusterOwner, stakerA, stakerB] } = await setupTestContext());
     provider = connection.ethers.provider;
   });
 
@@ -74,7 +72,7 @@ describe("E2E Staking Lifecycle", () => {
 
       await mineBlocks(provider, 50);
 
-      const stakeAmount = 10n * PRECISION; // 10e18 SSV
+      const stakeAmount = 10n * PRECISION;
       await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
       await ssvToken
         .connect(stakerA)
@@ -99,7 +97,7 @@ describe("E2E Staking Lifecycle", () => {
       const vUnits = defaultVUnits(1n);
       const blockDiff = BigInt(claimBlock - stakeBlock);
 
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalEarningsPacked = earningsPerBlockPacked * blockDiff;
       const totalEarningsWei = totalEarningsPacked * ETH_DEDUCTED_DIGITS;
 
@@ -151,7 +149,7 @@ describe("E2E Staking Lifecycle", () => {
 
       const blockDiff = BigInt(claimBlock - stakeBlock);
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalEarningsPacked = earningsPerBlockPacked * blockDiff;
       const totalEarningsWei = totalEarningsPacked * ETH_DEDUCTED_DIGITS;
 
@@ -220,7 +218,7 @@ describe("E2E Staking Lifecycle", () => {
       const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const phase1Blocks = BigInt(stakeBlockB - stakeBlockA);
       const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;
@@ -305,7 +303,7 @@ describe("E2E Staking Lifecycle", () => {
       const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalSupply = amountA + amountB;
 
       const phase1Blocks = BigInt(stakeBlockB - stakeBlockA);
@@ -436,7 +434,7 @@ describe("E2E Staking Lifecycle", () => {
       const rewardClaimed = BigInt(balAfter) - balBefore + gasUsed;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const blockDiff = BigInt(unstakeBlock - stakeBlock);
       const totalFeesWei = earningsPerBlockPacked * blockDiff * ETH_DEDUCTED_DIGITS;
       const accDelta = calcAccEthPerShareDelta(totalFeesWei, stakeAmount);
@@ -491,7 +489,7 @@ describe("E2E Staking Lifecycle", () => {
       const totalReward = BigInt(balAfter) - balBefore + gasUsed;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const phase1Blocks = BigInt(unstakeBlock - stakeBlock);
       const phase1FeesPacked = earningsPerBlockPacked * phase1Blocks;

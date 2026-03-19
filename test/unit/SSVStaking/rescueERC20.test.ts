@@ -1,11 +1,12 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
+import { setupTestContext } from "../../common/helpers.ts";
+import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `rescueERC20()`", async () => {
@@ -16,12 +17,11 @@ describe("SSVStaking function `rescueERC20()`", async () => {
   let recipient: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [owner, recipient] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner, recipient] } = await setupTestContext());
   });
 
   const deployWithExtraToken = async () => {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
 
     const randomToken = await connection.ethers.deployContract("MockToken");
     await randomToken.waitForDeployment();

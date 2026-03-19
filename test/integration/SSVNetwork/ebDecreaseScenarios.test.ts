@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -11,6 +10,9 @@ import {
   createCluster,
   getCurrentClusterState,
   parseClusterFromEvent,
+  computeEBRoot,
+  computeClusterId,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
@@ -18,7 +20,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE,
   STAKE_AMOUNT,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
@@ -42,26 +44,10 @@ describe("TEST-6 Integration: EB decrease via oracle commitRoot pipeline", () =>
   let oracle4: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [deployer, operatorOwner, clusterOwner, oracle1, oracle2, oracle3, oracle4] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [deployer, operatorOwner, clusterOwner, oracle1, oracle2, oracle3, oracle4] } = await setupTestContext());
   });
 
   const deployFixture = async () => ssvNetworkFullFixture(connection);
-
-  const getClusterId = (ownerAddress: string, operatorIds: number[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds.map(BigInt)])
-    );
-  };
-
-  const getEBRoot = (clusterId: string, effectiveBalance: number): string => {
-    const coder = ethers.AbiCoder.defaultAbiCoder();
-    const innerHash = ethers.keccak256(
-      coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance])
-    );
-    return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
-  };
 
   const setupOracles = async (network: any, ssvToken: any) => {
     await network.replaceOracle(1, oracle1.address);
@@ -96,17 +82,15 @@ describe("TEST-6 Integration: EB decrease via oracle commitRoot pipeline", () =>
       connection, network, clusterOwner.address, operatorIds
     );
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
-    await setupOracles(network, ssvToken); // +7 blocks from registration
+    await setupOracles(network, ssvToken);
 
-    await networkHelpers.mine(5); // +5 blocks
+    await networkHelpers.mine(5);
     const ebBlockNum = (await connection.ethers.provider.getBlockNumber()) - 1;
 
-    const root64 = getEBRoot(clusterId, 64);
-    const commitReceipt = await commitEBRoot(network, root64, ebBlockNum); // +3 blocks
-
-    // updateClusterBalance: +1 block = 16 total blocks since registration
+    const root64 = computeEBRoot(clusterId, 64);
+    const commitReceipt = await commitEBRoot(network, root64, ebBlockNum);
     const updateTx = await network.updateClusterBalance(
       ebBlockNum,
       clusterOwner.address,
@@ -123,8 +107,6 @@ describe("TEST-6 Integration: EB decrease via oracle commitRoot pipeline", () =>
 
     expect(clusterAfterUpdate.active).to.equal(true);
     expect(clusterAfterUpdate.validatorCount).to.equal(1n);
-
-    // 16 blocks × FEE_PER_BLOCK_BASELINE (fees settled at 32 ETH rate before EB is applied)
     const expectedFeesPaid = 16n * FEE_PER_BLOCK_BASELINE;
     expect(clusterAfterUpdate.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - expectedFeesPaid);
   });
@@ -144,15 +126,15 @@ describe("TEST-6 Integration: EB decrease via oracle commitRoot pipeline", () =>
       connection, network, clusterOwner.address, operatorIds
     );
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
-    await setupOracles(network, ssvToken); // +7 blocks from registration
+    await setupOracles(network, ssvToken);
 
-    await networkHelpers.mine(5); // +5 blocks
+    await networkHelpers.mine(5);
     const block1 = (await connection.ethers.provider.getBlockNumber()) - 1;
-    const root64 = getEBRoot(clusterId, 64);
+    const root64 = computeEBRoot(clusterId, 64);
 
-    await commitEBRoot(network, root64, block1); // +3 blocks
+    await commitEBRoot(network, root64, block1);
 
     const update1Tx = await network.updateClusterBalance(
       block1, clusterOwner.address, operatorIds, clusterAfterReg, 64, [],
@@ -164,18 +146,14 @@ describe("TEST-6 Integration: EB decrease via oracle commitRoot pipeline", () =>
 
     expect(clusterAt64.active).to.equal(true);
     expect(clusterAt64.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - 16n * FEE_PER_BLOCK_BASELINE);
-
-    // vUnits implicitly verified through fee calculation: 64 ETH = 20,000 vUnits
     const vUnits64 = 20_000n;
 
-    await networkHelpers.mine(10); // +10 blocks
+    await networkHelpers.mine(10);
 
     const block2 = (await connection.ethers.provider.getBlockNumber()) - 1;
-    const root32 = getEBRoot(clusterId, 32);
+    const root32 = computeEBRoot(clusterId, 32);
 
-    await commitEBRoot(network, root32, block2); // +3 blocks
-
-    // +1 block = 14 total blocks since update1, fees at 64 ETH rate
+    await commitEBRoot(network, root32, block2);
     const update2Tx = await network.updateClusterBalance(
       block2, clusterOwner.address, operatorIds, clusterAt64, 32, [],
     );
@@ -185,15 +163,11 @@ describe("TEST-6 Integration: EB decrease via oracle commitRoot pipeline", () =>
 
     expect(clusterAt32.active).to.equal(true);
     expect(clusterAt32.validatorCount).to.equal(1n);
-
-    // Calculate exact expected fees using SPEC.md formula:
-    // fees = ((blocksDelta * (sum(packedOperatorFees) + packedNetworkFee) * vUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS
-    // During the 64 ETH period, fees are charged at 20,000 vUnits
     const blocksDelta = BigInt(blockUpdate2 - blockUpdate1);
     const packedOpFee = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
     const packedNetworkFee = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
     const totalPackedFeeRate = (4n * packedOpFee + packedNetworkFee);
-    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
 
     expect(clusterAt32.balance).to.equal(clusterAt64.balance - expectedFees);
   });

@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../setup/connection.ts";
 import {
   ssvClustersHarnessFixture,
   ssvDAOHarnessFixture,
@@ -11,7 +10,7 @@ import {
   ssvStakingHarnessFixture,
 } from "../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../common/types.ts";
-import { makePublicKey, makeOperatorKey, parseClusterFromEvent } from "../common/helpers.ts";
+import { makePublicKey, makeOperatorKey, parseClusterFromEvent, setupTestContext } from "../common/helpers.ts";
 import {
   DEFAULT_SHARES,
   ETH_DEDUCTED_DIGITS,
@@ -37,7 +36,7 @@ import { ethers } from "ethers";
  * | liquidationThresholdPeriod     | 35,800 blocks (~5 days)            | 35,800            |
  * | minOperatorEthFee              | 1,065,200,000 wei/block            | 1,065,200,000     |
  * | maxOperatorEthFee              | 5,326,300,000 wei/block            | 5,326,300,000     |
- * | defaultOperatorEthFee          | 1,770,000,000 wei/block            | 1,770,000,000     |
+ * | defaultOperatorEthFee          | 1,778,800,000 wei/block            | 1,778,800,000     |
  * | quorumBps                      | 75%                                | 7,500             |
  * | cooldownDuration               | 604,800 seconds (7 days)           | 604,800           |
  * | minBlocksBetweenUpdates        | 0 blocks                           | 0.                |
@@ -88,7 +87,7 @@ describe("Mainnet Governance Config Validation", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   describe("Config file (deployments/params-candidate.json)", () => {
@@ -260,12 +259,12 @@ describe("Mainnet Governance Config Validation", async () => {
       const { clusters, operatorIds } = await networkHelpers.loadFixture(deployClustersFixture);
       const [owner, liquidator] = await connection.ethers.getSigners();
 
-      // Per-operator packed fee = 1,770,000,000 / 100,000 = 17,700
-      // Total operator fee (packed, per validator) = 4 × 17,700 = 70,800
+      // Per-operator packed fee = 1,778,800,000 / 100,000 = 17,788
+      // Total operator fee (packed, per validator) = 4 × 17,788 = 71,152
       // Network fee (packed) = 3,550,900,000 / 100,000 = 35,509
-      // Burn rate per validator per block (packed) = 70,800 + 35,509 = 106,309
+      // Burn rate per validator per block (packed) = 71,152 + 35,509 = 106,661
       //
-      // Liquidation threshold (wei) = 35,800 × 106,309 × 100,000 = 380,586,220,000,000
+      // Liquidation threshold (wei) = 35,800 × 106,661 × 100,000 = 381,846,380,000,000
       // minimumLiquidationCollateral = 940,000,000,000,000 > threshold
       // → the collateral floor dominates
 
@@ -276,11 +275,11 @@ describe("Mainnet Governance Config Validation", async () => {
       const thresholdPacked = CONFIG.liquidationThresholdPeriod * burnRatePacked;
       const thresholdWei = thresholdPacked * ETH_DEDUCTED_DIGITS;
 
-      expect(perOperatorPacked).to.equal(17_700n);
-      expect(totalOperatorFeePacked).to.equal(70_800n);
+      expect(perOperatorPacked).to.equal(17_788n);
+      expect(totalOperatorFeePacked).to.equal(71_152n);
       expect(networkFeePacked).to.equal(35_509n);
-      expect(burnRatePacked).to.equal(106_309n);
-      expect(thresholdWei).to.equal(380_586_220_000_000n);
+      expect(burnRatePacked).to.equal(106_661n);
+      expect(thresholdWei).to.equal(381_846_380_000_000n);
 
       expect(CONFIG.minimumLiquidationCollateralEth).to.be.greaterThan(thresholdWei);
 
@@ -331,7 +330,7 @@ describe("Mainnet Governance Config Validation", async () => {
       );
     };
 
-    it("defaultOperatorEthFee (1,770,000,000) is within [minOperatorEthFee, maxOperatorEthFee]", async function () {
+    it("defaultOperatorEthFee (1,778,800,000) is within [minOperatorEthFee, maxOperatorEthFee]", async function () {
       expect(CONFIG.defaultOperatorEthFee).to.be.greaterThanOrEqual(CONFIG.minOperatorEthFee);
       expect(CONFIG.defaultOperatorEthFee).to.be.lessThanOrEqual(CONFIG.maxOperatorEthFee);
     });
@@ -397,12 +396,12 @@ describe("Mainnet Governance Config Validation", async () => {
         // Total burn for N_BLOCKS (wei) = perValidatorBurnRate × validatorCount × N_BLOCKS × ETH_DEDUCTED_DIGITS
         const expectedBurnWei = perValidatorBurnRate * validatorCount * N_BLOCKS * ETH_DEDUCTED_DIGITS;
 
-        //   1 validator:  106,309 × 1  × 1,000 × 100,000 =  10,630,900,000,000 wei
-        //   4 validators: 106,309 × 4  × 1,000 × 100,000 =  42,523,600,000,000 wei
-        //   13 validators:106,309 × 13 × 1,000 × 100,000 = 138,201,700,000,000 wei
-        if (validatorCount === 1n) expect(expectedBurnWei).to.equal(10_630_900_000_000n);
-        if (validatorCount === 4n) expect(expectedBurnWei).to.equal(42_523_600_000_000n);
-        if (validatorCount === 13n) expect(expectedBurnWei).to.equal(138_201_700_000_000n);
+        //   1 validator:  106,661 × 1  × 1,000 × 100,000 =  10,666,100,000,000 wei
+        //   4 validators: 106,661 × 4  × 1,000 × 100,000 =  42,664,400,000,000 wei
+        //   13 validators:106,661 × 13 × 1,000 × 100,000 = 138,659,300,000,000 wei
+        if (validatorCount === 1n) expect(expectedBurnWei).to.equal(10_666_100_000_000n);
+        if (validatorCount === 4n) expect(expectedBurnWei).to.equal(42_664_400_000_000n);
+        if (validatorCount === 13n) expect(expectedBurnWei).to.equal(138_659_300_000_000n);
       }
     });
 
@@ -520,7 +519,7 @@ describe("Mainnet Governance Config Validation", async () => {
       await dao.mockSetOracle(2, oracle2.address);
       await dao.mockSetOracle(3, oracle3.address);
       await dao.mockSetOracle(4, oracle4.address);
-      await dao.mockSetQuorumBps(Number(CONFIG.quorumBps));
+      await dao.mockupdateQuorumBps(Number(CONFIG.quorumBps));
 
       await cssv.mint(owner.address, totalSupply);
 
@@ -623,14 +622,14 @@ describe("Mainnet Governance Config Validation", async () => {
     it("Fee indices remain within uint64 bounds after 1 year (~2,628,000 blocks)", async function () {
       const ONE_YEAR_BLOCKS = 2_628_000n;
       const networkFeePacked = CONFIG.networkFeeEth / ETH_DEDUCTED_DIGITS; // 35,509
-      const perOperatorPacked = CONFIG.defaultOperatorEthFee / ETH_DEDUCTED_DIGITS; // 17,700
+      const perOperatorPacked = CONFIG.defaultOperatorEthFee / ETH_DEDUCTED_DIGITS; // 17,788
 
       const operatorIndexDelta = perOperatorPacked * ONE_YEAR_BLOCKS;
       const networkFeeIndexDelta = networkFeePacked * ONE_YEAR_BLOCKS;
       const maxUint64 = (1n << 64n) - 1n;
 
-      // 17,700 × 2,628,000 = 46,515,600,000
-      expect(operatorIndexDelta).to.equal(46_515_600_000n);
+      // 17,788 × 2,628,000 = 46,746,864,000
+      expect(operatorIndexDelta).to.equal(46_746_864_000n);
       // 35,509 × 2,628,000 = 93,317,652,000
       expect(networkFeeIndexDelta).to.equal(93_317_652_000n);
       expect(operatorIndexDelta).to.be.lessThan(maxUint64);
@@ -639,11 +638,11 @@ describe("Mainnet Governance Config Validation", async () => {
       const totalBurnPacked = (perOperatorPacked * 4n + networkFeePacked) * ONE_YEAR_BLOCKS;
       const totalBurnWei = totalBurnPacked * ETH_DEDUCTED_DIGITS;
 
-      // (1,770,000,000 / 100,000 × 4 + 3,550,900,000 / 100,000) × 2,628,000 × 100,000
-      // = (17,700 × 4 + 35,509) × 2,628,000 × 100,000
-      // = 106,309 × 2,628,000 × 100,000
-      // = 27,938,005,200,000,000
-      expect(totalBurnWei).to.equal(27_938_005_200_000_000n);
+      // (1,778,800,000 / 100,000 × 4 + 3,550,900,000 / 100,000) × 2,628,000 × 100,000
+      // = (17,788 × 4 + 35,509) × 2,628,000 × 100,000
+      // = 106,661 × 2,628,000 × 100,000
+      // = 28,030,510,800,000,000
+      expect(totalBurnWei).to.equal(28_030_510_800_000_000n);
 
       const { clusters, operatorIds } = await ssvClustersHarnessFixture(connection, 4, 0n);
 

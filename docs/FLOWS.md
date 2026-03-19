@@ -96,13 +96,13 @@ This invariant holds by construction across all ETH flows. If accounting is corr
    - `cluster.balance += msg.value`
    - `cluster.index = current cumulative operator ETH index`
    - `cluster.networkFeeIndex = current ETH network fee index`
-4. Update DAO: `ethDaoValidatorCount++`, `daoTotalEthVUnits += VUNITS_PRECISION` — baseline EB of 32 ETH per validator is always applied here for all ETH clusters
+4. Update DAO: `ethDaoValidatorCount++`, `daoTotalEthVUnits += BPS_DENOMINATOR` — baseline EB of 32 ETH per validator is always applied here for all ETH clusters
 5. If cluster has explicit EB (oracle has previously submitted an EB update): also update `ebSnapshot.vUnits` to include the new validators' baseline. Operator and DAO deviation vUnits are NOT updated — new validators start at exactly 32 ETH so their deviation is zero
 6. Store cluster hash in `ethClusters`
 7. Liquidation check: cluster must not be liquidatable after registration
    - Check uses **projected vUnits** (post-registration) not stale storage
-   - Explicit EB: `storedVUnits + validatorCountDelta * VUNITS_PRECISION`
-   - Implicit EB: `cluster.validatorCount * VUNITS_PRECISION`
+   - Explicit EB: `storedVUnits + validatorCountDelta * BPS_DENOMINATOR`
+   - Implicit EB: `cluster.validatorCount * BPS_DENOMINATOR`
 
 #### Events
 ```solidity
@@ -190,7 +190,7 @@ Same as 1.3 but removes multiple validators in one transaction. All validators m
 - `operator.ethValidatorCount == previous - N` for each operator (N = validators removed)
 - `ethDaoValidatorCount == previous - N`
 - `cluster.validatorCount == previous - N`
-- If cluster had explicit EB tracking (`ebSnapshot.vUnits > 0`): `ebSnapshot.vUnits -= N * VUNITS_PRECISION`
+- If cluster had explicit EB tracking (`ebSnapshot.vUnits > 0`): `ebSnapshot.vUnits -= N * BPS_DENOMINATOR`
 - If `cluster.validatorCount` reaches 0 and cluster is active: any remaining deviation vUnits are cleaned from `operatorEthVUnits` and DAO
 
 #### Additional Invariants vs 1.3 (legacy SSV cluster)
@@ -473,21 +473,24 @@ if (isLiquidated) emit ClusterReactivated(owner, operatorIds, cluster);
 - `oracleIdOf[msg.sender] != 0`
 - `blockNum > latestCommittedBlock` (strictly monotonic)
 - `blockNum <= block.number` (not future)
-- `cSSV.totalSupply() > 0` (staking is active)
+- Raw `cSSV.totalSupply() > 0` and its truncated voting supply is also non-zero; otherwise revert with `ZeroCSSVSupply` or `InsufficientCSSVSupply`
 - Oracle has not already voted for this `(blockNum, merkleRoot)` pair
 
 #### State Mutations
 
 1. Mark oracle as voted: `hasVoted[commitmentKey][oracleId] = true`
-2. Compute weight: `weight = totalCSSVSupply / defaultOracleIds.length`
-3. Accumulate: `rootCommitments[commitmentKey] += weight`
-4. Compute threshold: `threshold = (totalCSSVSupply * quorumBps) / 10_000`
-5. **If quorum reached** (`accumulatedWeight >= threshold`):
+2. On the first vote only, read raw `cSSV.totalSupply()`, truncate it to `frozenVotingSupply = rawSupply - (rawSupply % defaultOracleIds.length)`, and store that truncated value in `roundFrozenSupply[commitmentKey]`
+3. Compute weight from stored voting supply: `weight = roundFrozenSupply[commitmentKey] / defaultOracleIds.length`
+4. Accumulate: `rootCommitments[commitmentKey] += weight`
+5. Compute threshold from the same stored voting supply: `threshold = (roundFrozenSupply[commitmentKey] * quorumBps) / 10_000`
+6. **If quorum reached** (`accumulatedWeight >= threshold`):
    - Store root: `ebRoots[blockNum] = merkleRoot`
    - Update: `latestCommittedBlock = blockNum`
    - Cleanup: `delete rootCommitments[commitmentKey]`
    - **Note:** `hasVoted` mappings are intentionally NOT deleted to prevent re-voting on the same key
-6. **If quorum not reached**: no root storage, no cleanup — see SPEC §4 "Failed Quorum Behavior" for full persistence rules
+7. **If quorum not reached**: no root storage, no cleanup — see SPEC §4 "Failed Quorum Behavior" for full persistence rules
+
+The truncated remainder (`rawSupply % defaultOracleIds.length`) is treated as non-voting dust for the round. `roundFrozenSupply` therefore represents frozen voting supply, not the exact raw total supply snapshot.
 
 #### Events
 ```solidity
@@ -526,7 +529,7 @@ emit WeightedRootProposed(merkleRoot, blockNum, accumulatedWeight, quorum, oracl
 
 1. Convert `effectiveBalance` to `newVUnits = ebToVUnits(effectiveBalance)`
 2. Compute `effectiveOldVUnits`:
-   - If `storedVUnits == 0`: `validatorCount * VUNITS_PRECISION`
+   - If `storedVUnits == 0`: `validatorCount * BPS_DENOMINATOR`
    - Else: `storedVUnits`
 3. If cluster active: settle operator and network fees using OLD vUnits
 4. If `newVUnits != effectiveOldVUnits` AND cluster active:
@@ -772,6 +775,7 @@ emit OperatorFeeDeclarationCancelled(owner, operatorId);
 
 #### Preconditions
 - Operator must exist
+- `operator.ethSnapshot.block != 0` (operator must be ETH-initialized; legacy SSV-only operators revert with `InsufficientBalance`)
 - `amount <= accumulated ETH earnings`
 
 #### State Mutations
@@ -788,6 +792,8 @@ emit OperatorWithdrawn(owner, operatorId, amount);
 - `operator.ethSnapshot.balance == previous_settled - amount`
 - `owner.balance == previous + amount`
 - `contract.balance == previous - amount`
+- `operator.ethSnapshot.block` unchanged (remains non-zero)
+- `operator.snapshot.block` unchanged (SSV state untouched)
 
 ---
 
@@ -795,10 +801,19 @@ emit OperatorWithdrawn(owner, operatorId, amount);
 
 Same as 4.7 but for SSV-denominated earnings. SSV token transferred instead of ETH.
 
+#### Preconditions
+- Operator must exist
+- `operator.snapshot.block != 0` (operator must be SSV-initialized; ETH-only operators revert with `InsufficientBalance`)
+- `amount <= accumulated SSV earnings`
+
 #### Events
 ```solidity
 emit OperatorWithdrawnSSV(owner, operatorId, amount);
 ```
+
+#### Postcondition Invariants
+- `operator.snapshot.balance == previous_settled - amount`
+- `operator.ethSnapshot.block` unchanged (ETH state untouched)
 
 ---
 
@@ -811,21 +826,25 @@ emit OperatorWithdrawnSSV(owner, operatorId, amount);
 - Operator must exist
 
 #### State Mutations
-1. Update both ETH and SSV snapshots (accumulate latest earnings for both)
-2. Deduct full ETH balance from `ethSnapshot.balance` (set to zero)
-3. Deduct full SSV balance from `snapshot.balance` (set to zero)
-4. Transfer full ETH earnings to operator owner (if non-zero)
-5. Transfer full SSV token earnings to operator owner (if non-zero)
+Each version branch is evaluated independently:
+- If `operator.snapshot.block != 0`: update SSV snapshot, capture and zero `snapshot.balance`
+- If `operator.ethSnapshot.block != 0`: update ETH snapshot, capture and zero `ethSnapshot.balance`
+- Transfer ETH earnings to operator owner (if captured amount non-zero)
+- Transfer SSV token earnings to operator owner (if captured amount non-zero)
+
+A legacy SSV-only operator (`snapshot.block != 0`, `ethSnapshot.block == 0`) runs only the SSV branch — `ethSnapshot.block` is **never written**, preserving the legacy state. An ETH-only operator runs only the ETH branch for the same reason.
 
 #### Events
 ```solidity
-emit OperatorWithdrawn(owner, operatorId, ethAmount);  // ETH portion
-emit OperatorWithdrawnSSV(owner, operatorId, ssvAmount);  // SSV portion
+emit OperatorWithdrawn(owner, operatorId, ethAmount);  // ETH portion, only if ethAmount > 0
+emit OperatorWithdrawnSSV(owner, operatorId, ssvAmount);  // SSV portion, only if ssvAmount > 0
 ```
 
 #### Postcondition Invariants
-- `operator.ethSnapshot.balance == 0`
-- `operator.snapshot.balance == 0`
+- `operator.ethSnapshot.balance == 0` (if ETH branch ran)
+- `operator.snapshot.balance == 0` (if SSV branch ran)
+- `operator.ethSnapshot.block` unchanged if `ethSnapshot.block` was `0` before call
+- `operator.snapshot.block` unchanged if `snapshot.block` was `0` before call
 - `owner.balance == previous + ethEarnings`
 - `owner.ssvBalance == previous + ssvEarnings`
 - `contract.balance == previous - ethEarnings`
@@ -1098,7 +1117,7 @@ Where:
    - `cSSV.totalSupply()` is only equal to `stakingHeldSSV` when there are no pending unstake requests.
 
 3. **Validator count consistency**: `ethDaoValidatorCount == Σ(cluster.validatorCount)` across all active ETH clusters — note: `Σ(operator.ethValidatorCount)` is NOT equivalent because operators are shared across clusters and would double-count
-4. **vUnit consistency**: `daoTotalEthVUnits == ethDaoValidatorCount * VUNITS_PRECISION + Σ(cluster_deviations)`
+4. **vUnit consistency**: `daoTotalEthVUnits == ethDaoValidatorCount * BPS_DENOMINATOR + Σ(cluster_deviations)`
 5. **Cluster hash integrity**: Every cluster operation must end with `s.ethClusters[key] = cluster.hashClusterData()` matching the actual cluster state
 6. **cSSV supply**: `cSSV.totalSupply() == Σ(all staked SSV that has not been unstake-requested)`
 7. **Rewards conservation**: `accEthPerShare` only increases, never decreases

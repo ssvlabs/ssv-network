@@ -17,7 +17,7 @@ import {
   EMPTY_CLUSTER,
   MINIMAL_OPERATOR_ETH_FEE,
   STAKE_AMOUNT,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
@@ -235,7 +235,7 @@ describe("ITEST-1 Integration: commitRoot -> updateClusterBalance E2E", () => {
 
     const feeRatePerBlockAtDefaultVUnits = (4n * MINIMAL_OPERATOR_ETH_FEE) + (await views.getNetworkFee());
     const expectedBalanceDeltaA = blocksDelta * feeRatePerBlockAtDefaultVUnits;
-    const expectedBalanceDeltaB = (blocksDelta * feeRatePerBlockAtDefaultVUnits * 20_000n) / VUNITS_PRECISION;
+    const expectedBalanceDeltaB = (blocksDelta * feeRatePerBlockAtDefaultVUnits * 20_000n) / BPS_DENOMINATOR;
 
     expect(balanceABefore - balanceAAfter).to.equal(expectedBalanceDeltaA);
     expect(balanceBBefore - balanceBAfter).to.equal(expectedBalanceDeltaB);

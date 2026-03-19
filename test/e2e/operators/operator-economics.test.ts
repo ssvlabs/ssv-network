@@ -1,10 +1,9 @@
 import { expect } from 'chai';
 import type { NetworkConnection } from 'hardhat/types/network';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
-import { getTestConnection } from '../../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
-import { getCurrentClusterState, makeOperatorKey, makePublicKey, whitelistAddresses } from '../../common/helpers.ts';
+import { getCurrentClusterState, makeOperatorKey, makePublicKey, whitelistAddresses, setupTestContext } from '../../common/helpers.ts';
 import {
   DECLARE_OPERATOR_FEE_PERIOD,
   DEFAULT_ETH_REGISTER_VALUE,
@@ -13,7 +12,7 @@ import {
   ETH_DEDUCTED_DIGITS,
   MINIMAL_OPERATOR_ETH_FEE,
 } from '../../common/constants.ts';
-import { calcOperatorFeeAccrual, defaultVUnits, getBlockNumber, getTxBlock, mineBlocks } from '../helpers/index.ts';
+import { calcOperatorFeeAccrual, defaultVUnits, getBlockNumber, getTxBlock, mineBlocks } from '../../helpers/index.ts';
 import { Events } from '../../common/events.ts';
 import { Errors } from '../../common/errors.ts';
 import { ethers } from 'ethers';
@@ -26,11 +25,7 @@ describe("Operator Economics", function () {
   let clusterOwnerB: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    const signers = await connection.ethers.getSigners();
-    operatorOwner = signers[0];
-    clusterOwnerA = signers[1];
-    clusterOwnerB = signers[2];
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwnerA, clusterOwnerB] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -227,7 +222,7 @@ describe("Operator Economics", function () {
       const provider = connection.ethers.provider;
 
       const fee = MINIMAL_OPERATOR_ETH_FEE;
-      const packedFee = fee / ETH_DEDUCTED_DIGITS; // 17_700
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
 
       const operatorIds = await registerOps(network, 4, fee);
 
@@ -343,7 +338,7 @@ describe("Operator Economics", function () {
       const provider = connection.ethers.provider;
 
       const fee = MINIMAL_OPERATOR_ETH_FEE;
-      const packedFee = fee / ETH_DEDUCTED_DIGITS; // 17_700
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
 
       const operatorIds = await registerOps(network, 4, fee);
 
@@ -457,7 +452,7 @@ describe("Operator Economics", function () {
         BigInt(operatorIds[0]),
       );
       expect(opAfterRemoval.isActive).to.equal(false);
-      expect(opAfterRemoval.owner).to.equal(operatorOwner.address); // owner preserved
+      expect(opAfterRemoval.owner).to.equal(operatorOwner.address);
 
       await expect(
         network.connect(operatorOwner).removeOperator(BigInt(operatorIds[0])),

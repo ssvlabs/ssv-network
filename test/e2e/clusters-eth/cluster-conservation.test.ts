@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -10,6 +9,7 @@ import {
   whitelistAddresses,
   getCurrentClusterState,
   addValidatorsToCluster,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
@@ -20,7 +20,7 @@ import {
   mineBlocks,
   snapshotContractBalance,
   checkETHConservation,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 import { ethers } from "ethers";
 
 describe("Conservation Law — Multi-Cluster ETH Balance Tracking", () => {
@@ -33,9 +33,7 @@ describe("Conservation Law — Multi-Cluster ETH Balance Tracking", () => {
   let clusterOwnerC: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwnerA, clusterOwnerB, clusterOwnerC] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwnerA, clusterOwnerB, clusterOwnerC] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -106,16 +104,8 @@ describe("Conservation Law — Multi-Cluster ETH Balance Tracking", () => {
     );
 
     let contractBalance = await snapshotContractBalance(provider, networkAddress);
-    // The contract received:
-    //   depositA (5 ETH) + addValidatorsToCluster for A (DEFAULT_ETH_REGISTER_VALUE = 10 ETH)
-    //   + depositB (3 ETH)
-    //   + depositC (8 ETH) + addValidatorsToCluster for C (DEFAULT_ETH_REGISTER_VALUE = 10 ETH)
-    // Total = 5 + 10 + 3 + 8 + 10 = 36 ETH
     const expectedContractBalance = depositA + DEFAULT_ETH_REGISTER_VALUE + depositB + depositC + DEFAULT_ETH_REGISTER_VALUE;
     expect(contractBalance).to.equal(expectedContractBalance);
-
-    // Verify conservation: contract.ETH >= sum of stored cluster balances
-    // (operator earnings and DAO earnings are zero at this point since no settlement happened)
     const clusterABalance = BigInt(clusterA.balance);
     const clusterBBalance = BigInt(clusterB.balance);
     const clusterCBalance = BigInt(clusterC.balance);
@@ -123,8 +113,8 @@ describe("Conservation Law — Multi-Cluster ETH Balance Tracking", () => {
       networkAddress,
       provider,
       [clusterABalance, clusterBBalance, clusterCBalance],
-      [], // no operator earnings yet
-      0n, // no DAO ETH earnings
+      [],
+      0n,
     );
 
     await mineBlocks(provider, 1000);
@@ -184,8 +174,6 @@ describe("Conservation Law — Multi-Cluster ETH Balance Tracking", () => {
     }
 
     const daoEarnings = await views.getNetworkEarnings();
-
-    // INV-1: contract.ETH >= Σ(current cluster balances) + Σ(operator earnings) + DAO earnings
     await checkETHConservation(
       networkAddress,
       provider,

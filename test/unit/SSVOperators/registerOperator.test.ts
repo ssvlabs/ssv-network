@@ -2,10 +2,9 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import { MAXIMUM_OPERATORS_FEE, MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -19,9 +18,7 @@ describe("SSVOperators function `registerOperator()`", async () => {
   let owner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [owner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner] } = await setupTestContext());
   });
 
   const deployOperatorsFixture = async () => ssvOperatorsHarnessFixture(connection);
@@ -133,7 +130,7 @@ describe("SSVOperators function `registerOperator()`", async () => {
 
     await expect(operators.registerOperator(
       makeOperatorKey(1),
-      1n, // not divisible by ETH_DEDUCTED_DIGITS (100_000)
+      1n,
       false
     )).to.be.revertedWithCustomError(operators, Errors.MAX_PRECISION_EXCEEDED);
   });

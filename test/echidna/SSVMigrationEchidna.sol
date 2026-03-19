@@ -16,8 +16,8 @@ import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-import {PackedETHLib, PackedSSVLib, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETHLib, PackedSSVLib} from "../../contracts/libraries/SSVPackedLib.sol";
+import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract MigrationClusterUser {
     ISSVClusters public clusters;
@@ -175,7 +175,7 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         uint64 vUnits = ClusterLib.getVUnits(ssvClusterId, clusterBefore.validatorCount);
         uint256 thresholdUnits = (uint256(sp.minimumBlocksBeforeLiquidation) *
             uint256(burnRateETH + PackedETH.unwrap(sp.ethNetworkFee)) *
-            uint256(vUnits)) / VUNITS_PRECISION;
+            uint256(vUnits)) / BPS_DENOMINATOR;
         uint256 minRequired = thresholdUnits * ETH_DEDUCTED_DIGITS;
         uint256 collateral = PackedETHLib.unpack(sp.minimumLiquidationCollateral);
         if (collateral > minRequired) minRequired = collateral;
