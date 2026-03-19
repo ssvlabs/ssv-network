@@ -2175,6 +2175,14 @@ Added direct coverage for cooldown-change behavior on existing pending unstake r
 
 This matches the `test(staking): cover cooldown updates on pending unstake requests` change and validates that `unlockTime` is fixed at request creation.
 
+**Resolution:**
+Added direct coverage in `test/unit/SSVStaking/withdrawUnlocked.test.ts` under `describe("Cooldown duration changes and existing pending requests")`:
+- `Does not unlock an existing request earlier when cooldown is reduced after request creation`
+- `Keeps original unlock time for existing request when cooldown is increased after request creation`
+
+Both tests create a pending unstake request first, then update cooldown via the staking harness (`mockSetCooldownDuration`) to simulate DAO-config changes. They verify previously stored `unlockTime` remains unchanged and withdrawal eligibility still follows the original request timestamp.
+Validation run: `npx hardhat test test/unit/SSVStaking/withdrawUnlocked.test.ts` (13 passing).
+
 **Acceptance Criteria:**
 - [x] Test: User requests unstake, DAO reduces cooldown → can user withdraw earlier?
 - [x] Test: User requests unstake, DAO increases cooldown → does user's original unlock time hold?

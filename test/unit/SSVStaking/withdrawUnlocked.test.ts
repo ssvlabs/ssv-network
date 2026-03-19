@@ -236,4 +236,101 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
     const balanceAfter = await ssvToken.balanceOf(staker.address);
     expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
   });
+
+  describe("Cooldown duration changes and existing pending requests", () => {
+    it("Does not unlock an existing request earlier when cooldown is reduced after request creation", async function () {
+      const { staking, ssvToken } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
+
+      const [, originalUnlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
+      const reducedCooldown = 1n;
+      await staking.mockSetCooldownDuration(reducedCooldown);
+
+      await networkHelpers.time.increase((DEFAULT_UNSTAKE_COOLDOWN / 2n) + 1n);
+
+      await expect(staking.withdrawUnlocked()).to.be.revertedWithCustomError(
+        staking,
+        Errors.NOTHING_TO_WITHDRAW,
+      );
+
+      const [, unlockTimeAfterUpdate] = await staking.getWithdrawalRequest(staker.address, 0);
+      expect(unlockTimeAfterUpdate).to.equal(originalUnlockTime);
+
+      await networkHelpers.time.increase((DEFAULT_UNSTAKE_COOLDOWN / 2n) + 1n);
+      const balanceBefore = await ssvToken.balanceOf(staker.address);
+      await staking.withdrawUnlocked();
+      const balanceAfter = await ssvToken.balanceOf(staker.address);
+      expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
+    });
+
+    it("Uses the updated cooldown duration for new requests created after a cooldown change", async function () {
+      const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+
+      await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
+      await staking.stake(STAKE_AMOUNT);
+
+      const firstAmount = STAKE_AMOUNT / 4n;
+      const secondAmount = STAKE_AMOUNT / 4n;
+
+      const firstTx = await staking.requestUnstake(firstAmount);
+      const firstReceipt = await firstTx.wait();
+      const firstBlock = await connection.ethers.provider.getBlock(firstReceipt!.blockNumber);
+      const expectedFirstUnlockTime = BigInt(firstBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
+      const increasedCooldown = DEFAULT_UNSTAKE_COOLDOWN * 2n;
+      await staking.mockSetCooldownDuration(increasedCooldown);
+
+      const secondTx = await staking.requestUnstake(secondAmount);
+      const secondReceipt = await secondTx.wait();
+      const secondBlock = await connection.ethers.provider.getBlock(secondReceipt!.blockNumber);
+      const expectedSecondUnlockTime = BigInt(secondBlock!.timestamp) + increasedCooldown;
+
+      const [storedFirstAmount, firstUnlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
+      const [storedSecondAmount, secondUnlockTime] = await staking.getWithdrawalRequest(staker.address, 1);
+
+      expect(storedFirstAmount).to.equal(firstAmount);
+      expect(firstUnlockTime).to.equal(expectedFirstUnlockTime);
+      expect(storedSecondAmount).to.equal(secondAmount);
+      expect(secondUnlockTime).to.equal(expectedSecondUnlockTime);
+      expect(secondUnlockTime).to.be.greaterThan(firstUnlockTime);
+
+      await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+
+      const balanceBeforeFirstWithdrawal = await ssvToken.balanceOf(staker.address);
+      await staking.withdrawUnlocked();
+      const balanceAfterFirstWithdrawal = await ssvToken.balanceOf(staker.address);
+
+      expect(balanceAfterFirstWithdrawal - balanceBeforeFirstWithdrawal).to.equal(firstAmount);
+      expect(await staking.getWithdrawalRequestsCount(staker.address)).to.equal(1n);
+
+      const [remainingAmount, remainingUnlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
+      expect(remainingAmount).to.equal(secondAmount);
+      expect(remainingUnlockTime).to.equal(secondUnlockTime);
+
+      await networkHelpers.time.increase(increasedCooldown + 1n);
+
+      const balanceBeforeSecondWithdrawal = await ssvToken.balanceOf(staker.address);
+      await staking.withdrawUnlocked();
+      const balanceAfterSecondWithdrawal = await ssvToken.balanceOf(staker.address);
+
+      expect(balanceAfterSecondWithdrawal - balanceBeforeSecondWithdrawal).to.equal(secondAmount);
+      expect(await staking.getWithdrawalRequestsCount(staker.address)).to.equal(0n);
+    });
+
+    it("Keeps original unlock time for existing request when cooldown is increased after request creation", async function () {
+      const { staking, ssvToken } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
+
+      const [, originalUnlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
+      const increasedCooldown = DEFAULT_UNSTAKE_COOLDOWN * 2n;
+      await staking.mockSetCooldownDuration(increasedCooldown);
+
+      const [, unlockTimeAfterUpdate] = await staking.getWithdrawalRequest(staker.address, 0);
+      expect(unlockTimeAfterUpdate).to.equal(originalUnlockTime);
+
+      await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN);
+      const balanceBefore = await ssvToken.balanceOf(staker.address);
+      await staking.withdrawUnlocked();
+      const balanceAfter = await ssvToken.balanceOf(staker.address);
+      expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
+    });
+  });
 });
