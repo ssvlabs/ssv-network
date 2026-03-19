@@ -137,6 +137,126 @@ describe("E2E Staking Transfers", () => {
       expect(rewardA).to.be.greaterThan(rewardB);
     });
 
+    it("Stake-transfer-stake cycle preserves reward boundaries across all phases", async function () {
+      const { network, ssvToken, cssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+      ]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const initialStake = 10n * PRECISION;
+      const transferAmount = 5n * PRECISION;
+      const restakeAmount = 5n * PRECISION;
+      const phase2Supply = initialStake;
+      const phase3Supply = initialStake + restakeAmount;
+
+      await ssvToken
+        .connect(deployer)
+        .transfer(stakerA.address, initialStake + restakeAmount);
+      await ssvToken
+        .connect(stakerA)
+        .approve(await network.getAddress(), initialStake + restakeAmount);
+
+      const stakeBlock = await getTxBlock(
+        await network.connect(stakerA).stake(initialStake),
+      );
+
+      await mineBlocks(provider, 50);
+
+      const transferBlock = await getTxBlock(
+        await cssvToken.connect(stakerA).transfer(stakerB.address, transferAmount),
+      );
+
+      expect(await cssvToken.balanceOf(stakerA.address)).to.equal(
+        initialStake - transferAmount,
+      );
+      expect(await cssvToken.balanceOf(stakerB.address)).to.equal(
+        transferAmount,
+      );
+
+      await mineBlocks(provider, 50);
+
+      const restakeBlock = await getTxBlock(
+        await network.connect(stakerA).stake(restakeAmount),
+      );
+
+      expect(await cssvToken.balanceOf(stakerA.address)).to.equal(initialStake);
+
+      await mineBlocks(provider, 50);
+
+      const balBeforeA = await provider.getBalance(stakerA.address);
+      const balBeforeB = await provider.getBalance(stakerB.address);
+
+      let claimTxA: any;
+      let claimTxB: any;
+
+      await provider.send("evm_setAutomine", [false]);
+      try {
+        claimTxA = await network.connect(stakerA).claimEthRewards();
+        claimTxB = await network.connect(stakerB).claimEthRewards();
+        await provider.send("evm_mine", []);
+      } finally {
+        await provider.send("evm_setAutomine", [true]);
+      }
+
+      const claimReceiptA = await claimTxA.wait();
+      const claimReceiptB = await claimTxB.wait();
+      const claimBlock = claimReceiptA!.blockNumber;
+
+      expect(claimReceiptB!.blockNumber).to.equal(claimBlock);
+
+      const gasA = claimReceiptA!.gasUsed * claimReceiptA!.gasPrice;
+      const gasB = claimReceiptB!.gasUsed * claimReceiptB!.gasPrice;
+
+      const balAfterA = await provider.getBalance(stakerA.address);
+      const balAfterB = await provider.getBalance(stakerB.address);
+
+      const rewardA = BigInt(balAfterA) - balBeforeA + gasA;
+      const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
+
+      const vUnits = defaultVUnits(1n);
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
+
+      const phase1Blocks = BigInt(transferBlock - stakeBlock);
+      const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;
+      const acc1 = calcAccEthPerShareDelta(phase1FeesWei, initialStake);
+
+      const phase2Blocks = BigInt(restakeBlock - transferBlock);
+      const phase2FeesWei = earningsPerBlockPacked * phase2Blocks * ETH_DEDUCTED_DIGITS;
+      const acc2 = calcAccEthPerShareDelta(phase2FeesWei, phase2Supply);
+
+      const phase3Blocks = BigInt(claimBlock - restakeBlock);
+      const phase3FeesWei = earningsPerBlockPacked * phase3Blocks * ETH_DEDUCTED_DIGITS;
+      const acc3 = calcAccEthPerShareDelta(phase3FeesWei, phase3Supply);
+
+      const expectedRewardA =
+        calcStakingReward(initialStake, acc1, 0n) +
+        calcStakingReward(initialStake - transferAmount, acc2, 0n) +
+        calcStakingReward(initialStake, acc3, 0n);
+      const expectedRewardB =
+        calcStakingReward(transferAmount, acc2, 0n) +
+        calcStakingReward(transferAmount, acc3, 0n);
+
+      const expectedPayoutA =
+        expectedRewardA - (expectedRewardA % ETH_DEDUCTED_DIGITS);
+      const expectedPayoutB =
+        expectedRewardB - (expectedRewardB % ETH_DEDUCTED_DIGITS);
+
+      expect(rewardA).to.equal(expectedPayoutA);
+      expect(rewardB).to.equal(expectedPayoutB);
+      expect(rewardA).to.be.greaterThan(rewardB);
+    });
+
     it("Receiver B's userIndex is set to accEthPerShare at transfer time", async function () {
       const { network, ssvToken, cssvToken } =
         await networkHelpers.loadFixture(deployFixture);

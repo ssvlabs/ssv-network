@@ -13,8 +13,8 @@ Generated: 2026-03-18
 | 5 | Stake by multiple users | Covered | integration/staking.ts:474, e2e/lifecycle.ts:168 |
 | 6 | Rewards start accruing after stake | Covered | e2e/lifecycle.ts:58, e2e/rewards.ts:1101 |
 | 7 | Second stake settles pending rewards | Covered | unit/stake.ts:153 |
-| 8 | SyncFees called during stake | Covered | unit/syncFees.ts (implicitly), e2e/transfers.ts:187 |
-| 9 | RewardsSettled event emitted | Covered | e2e/transfers.ts:319 (during transfer triggers settle) |
+| 8 | SyncFees called during stake | Covered | unit/syncFees.ts (implicitly), e2e/transfers.ts:305 |
+| 9 | RewardsSettled event emitted | Covered | e2e/transfers.ts:437 (during transfer triggers settle) |
 | 10 | Staked event emitted | Covered | unit/stake.ts:42 |
 | 11 | Stake zero reverts | Covered | unit/stake.ts:88, integration/staking.ts:681, e2e/edge-cases.ts:319 |
 | 12 | Stake below minimum reverts | Covered | unit/stake.ts:98, integration/staking.ts:686, e2e/edge-cases.ts:328 |
@@ -30,11 +30,11 @@ Generated: 2026-03-18
 | # | Test Case | Status | Covered By |
 |---|-----------|--------|------------|
 | 1 | Rewards start from stake block | Covered | e2e/lifecycle.ts:58, e2e/rewards.ts:1101 |
-| 2 | Rewards start from cSSV transfer receive | Covered | e2e/transfers.ts:142 (receiver index set at transfer time) |
+| 2 | Rewards start from cSSV transfer receive | Covered | e2e/transfers.ts:260 (receiver index set at transfer time) |
 | 3 | Rewards stop on requestUnstake (full) | Covered | e2e/lifecycle.ts:395 |
 | 4 | Rewards stop on requestUnstake (partial) | Covered | e2e/lifecycle.ts:449 |
-| 5 | Rewards stop on cSSV transfer (full) | Covered | e2e/transfers.ts:55 |
-| 6 | Rewards stop on cSSV transfer (partial) | Covered | e2e/transfers.ts:55 |
+| 5 | Rewards stop on cSSV transfer (full) | Covered | e2e/transfers.ts:53 |
+| 6 | Rewards stop on cSSV transfer (partial) | Covered | e2e/transfers.ts:53 |
 | 7 | Rewards with 1 wei cSSV | Covered | unit/onCSSVTransfer.ts:181 |
 | 8 | Single staker gets all rewards | Covered | e2e/rewards.ts:1101, e2e/lifecycle.ts:58 |
 | 9 | Two equal stakers split 50/50 | Covered | integration/staking.ts:401 |
@@ -52,9 +52,9 @@ Generated: 2026-03-18
 | 21 | Second stake preserves prior rewards | Covered | unit/stake.ts:153 |
 | 22 | Stake after partial unstake | Covered | unit/stake.ts:202 |
 | 23 | Late staker doesn't get early rewards | Covered | e2e/lifecycle.ts:249 |
-| 24 | Transfer then claim — sender keeps pre-transfer rewards | Covered | e2e/transfers.ts:55 |
-| 25 | Stake-transfer-stake cycle | NOT COVERED | |
-| 26 | Self-transfer doesn't double rewards | Partially | e2e/transfers.ts:252 (verifies self-transfer doesn't trigger hook, but doesn't check reward rate) |
+| 24 | Transfer then claim — sender keeps pre-transfer rewards | Covered | e2e/transfers.ts:53 |
+| 25 | Stake-transfer-stake cycle | Covered | e2e/transfers.ts:140 |
+| 26 | Self-transfer doesn't double rewards | Partially | e2e/transfers.ts:370 (verifies self-transfer doesn't trigger hook, but doesn't check reward rate) |
 
 ## 3. Claim Rewards — `claimEthRewards()` (17 test cases)
 
@@ -62,7 +62,7 @@ Generated: 2026-03-18
 |---|-----------|--------|------------|
 | 1 | Basic claim | Covered | unit/claimEthRewards.ts:44, e2e/lifecycle.ts:58 |
 | 2 | Claim multiple times | Covered | unit/claimEthRewards.ts:270, e2e/edge-cases.ts:162 |
-| 3 | Claim after cSSV transfer (sender) | Covered | e2e/transfers.ts:55 |
+| 3 | Claim after cSSV transfer (sender) | Covered | e2e/transfers.ts:53 |
 | 4 | Claim after partial unstake | Covered | e2e/edge-cases.ts:457 |
 | 5 | Multiple claims from multiple users | Covered | unit/claimEthRewards.ts:332, e2e/lifecycle.ts:168 |
 | 6 | Claim with no rewards reverts | Covered | unit/claimEthRewards.ts:151, integration/staking.ts:758 |
@@ -74,7 +74,7 @@ Generated: 2026-03-18
 | 12 | Dust preserved when cSSV balance > 0 | Covered | unit/claimEthRewards.ts:127, 414 |
 | 13 | Exact precision amount | Covered | unit/claimEthRewards.ts:590 |
 | 14 | FeesSynced emitted | Covered | unit/claimEthRewards.ts:195 |
-| 15 | RewardsSettled emitted | Covered | e2e/transfers.ts:319 |
+| 15 | RewardsSettled emitted | Covered | e2e/transfers.ts:437 |
 | 16 | RewardsClaimed emitted with payout | Covered | unit/claimEthRewards.ts:67 |
 | 17 | RewardsClaimed emitted with zero on dust forfeit | Covered | unit/claimEthRewards.ts:384, 407 |
 
@@ -137,10 +137,10 @@ Generated: 2026-03-18
 | 2 | Anyone can call | Covered | e2e/edge-cases.ts:423 |
 | 3 | Sync after long period | Covered | unit/syncFees.ts:81 (natural accrual) |
 | 4 | Multiple syncs with fees between | Covered | unit/syncFees.ts:234 |
-| 5 | stake() triggers sync | Covered | unit/syncFees.ts (via events), e2e/transfers.ts:187 |
+| 5 | stake() triggers sync | Covered | unit/syncFees.ts (via events), e2e/transfers.ts:305 |
 | 6 | requestUnstake() triggers sync | Covered | unit/requestUnstake.ts:211 |
 | 7 | claimEthRewards() triggers sync | Covered | unit/claimEthRewards.ts:195 |
-| 8 | cSSV transfer triggers sync | Covered | e2e/transfers.ts:319 |
+| 8 | cSSV transfer triggers sync | Covered | e2e/transfers.ts:437 |
 | 9 | FeesSynced with correct values | Covered | unit/syncFees.ts:46 |
 
 ## 7. Multisig Accounts (15 test cases)
@@ -167,20 +167,19 @@ Generated: 2026-03-18
 
 | Section | Total | Covered | Partially | Not Covered |
 |---------|-------|---------|-----------|-------------|
-| 1. Staking | 18 | 17 | 0 | 1 |
+| 1. Staking | 18 | 18 | 0 | 0 |
 | 2. Earning Rewards | 26 | 25 | 1 | 0 |
 | 3. Claim Rewards | 17 | 17 | 0 | 0 |
 | 4. Request Unstake | 25 | 18 | 1 | 6 |
 | 5. Withdraw Unlocked | 16 | 14 | 0 | 2 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
 | 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **100** | **2** | **24** |
+| **Total** | **126** | **101** | **2** | **23** |
 
-**Overall: ~79% covered, ~2% partially covered, ~19% not covered**
+**Overall: ~80% covered, ~2% partially covered, ~18% not covered**
 
 ## Key Gaps
 
 1. **Multisig tests (15)** — Entirely missing. No tests verify staking operations work from contract wallets.
 2. **Cooldown duration change tests (5)** — No tests verify cooldown changes affect new vs existing unstake requests (4.14-4.18).
-3. **Stake-transfer-stake cycle (2.25)** — Not tested.
-4. **Self-transfer reward-rate check (2.26)** — Existing coverage confirms the transfer hook is skipped, but not that self-transfer cannot amplify rewards.
+3. **Self-transfer reward-rate check (2.26)** — Existing coverage confirms the transfer hook is skipped, but not that self-transfer cannot amplify rewards.
