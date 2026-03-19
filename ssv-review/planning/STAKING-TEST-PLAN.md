@@ -60,7 +60,7 @@ Generated: 2026-03-18
 
 | # | Test Case | Status | Covered By |
 |---|-----------|--------|------------|
-| 1 | Basic claim | Covered | unit/claimEthRewards.ts:44, e2e/lifecycle.ts:58 |
+| 1 | Basic claim | Covered | test/unit/SSVStaking/claimEthRewards.test.ts:44, test/e2e/staking/staking-lifecycle.test.ts:56 |
 | 2 | Claim multiple times | Covered | unit/claimEthRewards.ts:270, e2e/edge-cases.ts:162 |
 | 3 | Claim after cSSV transfer (sender) | Covered | e2e/transfers.ts:55 |
 | 4 | Claim after partial unstake | Covered | e2e/edge-cases.ts:457 |

@@ -11,7 +11,7 @@ Notes:
 
 | ID | Section | Task | Status |
 |---:|---|---|---|
-| 1 | Claim Rewards | Basic claim | Todo |
+| 1 | Claim Rewards | ~~Basic claim~~ | Done |
 | 2 | Claim Rewards | Claim multiple times | Todo |
 | 3 | Claim Rewards | Claim after cSSV transfer (sender) | Todo |
 | 4 | Claim Rewards | Claim after partial unstake | Todo |
