@@ -1024,4 +1024,17 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     function _mockSetToken(address tokenAddress) internal {
         SSVStorage.load().token = IERC20(tokenAddress);
     }
+    function _boundEffectiveBalance(uint256 seed, uint32 validatorCount) internal pure returns (uint32) {
+        if (validatorCount == 0) return 0;
+
+        uint32 minEb = validatorCount * 32;
+        uint32 maxEb = validatorCount * 2048;
+        uint32 range = maxEb - minEb + 1;
+
+        return minEb + uint32(seed % range);
+    }
+
+    function _ebLeaf(bytes32 clusterId, uint32 effectiveBalance) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(keccak256(abi.encode(clusterId, effectiveBalance))));
+    }
 }

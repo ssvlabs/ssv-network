@@ -26,6 +26,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "CallerNotOwner",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -39,6 +44,11 @@
       }
     ],
     "name": "CallerNotOwnerWithData",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CallerNotWhitelisted",
     "type": "error"
   },
   {
@@ -100,6 +110,17 @@
         "type": "uint64"
       }
     ],
+    "name": "ExceedValidatorLimit",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "operatorId",
+        "type": "uint64"
+      }
+    ],
     "name": "ExceedValidatorLimitWithData",
     "type": "error"
   },
@@ -150,6 +171,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "IncorrectValidatorState",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "bytes",
@@ -167,12 +193,12 @@
   },
   {
     "inputs": [],
-    "name": "InvalidContractAddress",
+    "name": "InvalidOperatorIdsLength",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "InvalidOperatorIdsLength",
+    "name": "InvalidOracleId",
     "type": "error"
   },
   {
@@ -228,17 +254,17 @@
   },
   {
     "inputs": [],
+    "name": "MustUseLatestRoot",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NewBlockPeriodIsBelowMinimum",
     "type": "error"
   },
   {
     "inputs": [],
     "name": "NoFeeDeclared",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotAuthorized",
     "type": "error"
   },
   {
@@ -303,6 +329,11 @@
   },
   {
     "inputs": [],
+    "name": "SameOracleAddressNotAllowed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "StakeTooLow",
     "type": "error"
   },
@@ -314,6 +345,11 @@
   {
     "inputs": [],
     "name": "StaleUpdate",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TargetModuleDoesNotExist",
     "type": "error"
   },
   {
@@ -348,6 +384,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "ValidatorAlreadyExists",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "bytes",
@@ -356,6 +397,22 @@
       }
     ],
     "name": "ValidatorAlreadyExistsWithData",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "ValidatorAlreadyRegistered",
     "type": "error"
   },
   {
