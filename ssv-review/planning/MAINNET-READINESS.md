@@ -3153,7 +3153,7 @@ Completed in the Echidna harnesses:
 - `test/echidna/SSVDAOEchidna.sol`: strengthened network-fee invariants with explicit monotonicity bookkeeping (`prevEthFeeCurrentIndex`, `prevSsvFeeCurrentIndex`) and mutation-time checkpoints.
 - `test/echidna/SSVStakingEchidna.sol`: added per-operation cSSV mint/burn delta checks, post-settle exact `userIndex == accEthPerShare` checks, per-claim pool/DAO delta validation, and cumulative ETH credited/paid-out tracking for payout safety.
 
-Validation run:
+Validation run at the time FUZZ-2 landed:
 - `echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml` (12/12 passing)
 - `echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml` (13/13 passing)
 
@@ -3196,7 +3196,7 @@ Implemented high-priority coverage in the existing harnesses:
 - `test/echidna/SSVClustersEchidna.sol`: added EB snapshot/update/fee/liquidation invariants (`echidna_eb_snapshot_block_lte_current`, `echidna_eb_snapshot_root_monotonic`, `echidna_eb_update_requires_root`, `echidna_eb_update_frequency`, `echidna_eb_update_staleness`, `echidna_fee_index_current_after_settle`, `echidna_fee_uses_old_vunits_on_eb_change`, `echidna_liquidation_clears_eb_snapshot`) and update actions with valid/invalid proof-root scenarios.
 - `B14` ("liquidation pays exact balance") remains covered by the pre-existing `echidna_liquidation_cleans_state` payout checks.
 
-Validation run:
+Validation run at the time FUZZ-2 landed:
 - `echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml` (15/15 passing)
 - `echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml` (18/18 passing)
 - `echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --config test/echidna/echidna.yaml` (17/17 passing)

@@ -75,6 +75,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     using ClusterLib for ISSVNetworkCore.Cluster;
     using Counters for Counters.Counter;
     using PackedETHLib for PackedETH;
+    using ProtocolLib for StorageProtocol;
 
     uint8 private constant MAX_CLUSTERS = 6;
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
@@ -149,6 +150,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         _initProtocolDefaults();
         _initOperators();
+        _seedInitialActiveClusters();
     }
 
     receive() external payable {}
@@ -507,7 +509,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         }
 
         bytes32 root = _singleLeafRoot(clusterId, effectiveBalance);
-        seb.ebRoots[blockNum] = root;
+        _setCommittedRoot(seb, blockNum, root);
         bytes32[] memory proof = new bytes32[](0);
 
         ISSVNetworkCore.Cluster memory beforeCluster = record.cluster;
@@ -616,7 +618,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         uint64 blockNum = minBlockNum + uint64((seed >> 8) % (uint64(block.number) - minBlockNum + 1));
         uint32 effectiveBalance = record.cluster.validatorCount * uint32(DEFAULT_EB_PER_VALIDATOR / 1 ether);
 
-        delete seb.ebRoots[blockNum];
+        _setCommittedRoot(seb, blockNum, bytes32(0));
         bytes32[] memory proof = new bytes32[](0);
         try attacker.updateClusterBalance(
             blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof
@@ -641,13 +643,13 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         bytes32 firstRoot = _singleLeafRoot(clusterId, effectiveBalance);
         bytes32 secondRoot = _singleLeafRoot(clusterId, effectiveBalance + 1);
-        seb.ebRoots[firstBlock] = firstRoot;
-        seb.ebRoots[secondBlock] = secondRoot;
 
         bytes32[] memory proof = new bytes32[](0);
+        _setCommittedRoot(seb, firstBlock, firstRoot);
         try attacker.updateClusterBalance(
             firstBlock, record.owner, operatorIds, record.cluster, effectiveBalance, proof
         ) {
+            _setCommittedRoot(seb, secondBlock, secondRoot);
             try attacker.updateClusterBalance(
                     secondBlock, record.owner, operatorIds, record.cluster, effectiveBalance + 1, proof
                 ) {
@@ -671,7 +673,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         bytes32 root = _singleLeafRoot(clusterId, effectiveBalance);
         bytes32[] memory proof = new bytes32[](0);
 
-        seb.ebRoots[blockNum] = root;
+        _setCommittedRoot(seb, blockNum, root);
         try attacker.updateClusterBalance(
             blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof
         ) {
@@ -821,6 +823,44 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         op3 = _createOperator(s, address(opOwner3), bytes32(uint256(0x3)));
     }
 
+    function _seedInitialActiveClusters() internal {
+        _createInitialCluster(address(owner1), 0, 1, true);
+        _createInitialCluster(address(owner2), 1, 2, true);
+    }
+
+    function _createInitialCluster(address owner, uint8 operatorsKey, uint32 validatorCount, bool active) internal {
+        uint64[] memory operatorIds = _operatorIdsForKey(operatorsKey);
+        bytes32 clusterId = keccak256(abi.encodePacked(owner, operatorIds));
+        if (clusters[clusterId].exists) return;
+
+        uint64 clusterIndex = 0;
+        uint64 networkFeeIndex = 0;
+        if (active) {
+            StorageData storage s = SSVStorage.load();
+            StorageProtocol storage sp = SSVStorageProtocol.load();
+            clusterIndex = _currentClusterIndex(operatorIds);
+            networkFeeIndex = ProtocolLib.currentNetworkFeeIndex(sp);
+
+            uint256 count = operatorIds.length;
+            for (uint256 i; i < count; ++i) {
+                s.operators[operatorIds[i]].ethValidatorCount += validatorCount;
+            }
+            sp.updateDAO(true, validatorCount);
+        }
+
+        ISSVNetworkCore.Cluster memory cluster = ISSVNetworkCore.Cluster({
+            validatorCount: validatorCount,
+            networkFeeIndex: networkFeeIndex,
+            index: clusterIndex,
+            active: active,
+            balance: 0
+        });
+
+        SSVStorage.load().ethClusters[clusterId] = cluster.hashClusterData();
+        clusters[clusterId] = ClusterRecord({cluster: cluster, owner: owner, operatorsKey: operatorsKey, exists: true});
+        clusterIds.push(clusterId);
+    }
+
     function _createOperator(StorageData storage s, address owner, bytes32 pk) internal returns (uint64) {
         s.lastOperatorId.increment();
         uint64 id = uint64(s.lastOperatorId.current());
@@ -943,6 +983,11 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         return keccak256(abi.encodePacked(keccak256(abi.encode(clusterId, effectiveBalance))));
     }
 
+    function _setCommittedRoot(StorageEB storage seb, uint64 blockNum, bytes32 root) internal {
+        seb.ebRoots[blockNum] = root;
+        seb.latestCommittedBlock = blockNum;
+    }
+
     function _settleCluster(bytes32 clusterId, ClusterRecord storage record, uint64[] memory operatorIds)
         internal
         returns (uint256 burned)
@@ -1033,7 +1078,4 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         return minEb + uint32(seed % range);
     }
 
-    function _ebLeaf(bytes32 clusterId, uint32 effectiveBalance) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(keccak256(abi.encode(clusterId, effectiveBalance))));
-    }
 }

@@ -39,12 +39,12 @@ test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
 ├── SSVOperatorsEchidna.sol           # Operators invariants (20 tests)
-├── SSVClustersEchidna.sol            # Clusters invariants (9 tests)
-├── SSVAccountingEchidna.sol          # System accounting invariants (4 tests)
-├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (4 tests)
+├── SSVClustersEchidna.sol            # Clusters invariants (18 tests)
+├── SSVAccountingEchidna.sol          # System accounting invariants (8 tests)
+├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (7 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
-├── SSVStakingEchidna.sol             # Staking invariants (12 tests)
-├── SSVDAOEchidna.sol                 # DAO invariants (17 tests)
+├── SSVStakingEchidna.sol             # Staking invariants (15 tests)
+├── SSVDAOEchidna.sol                 # DAO invariants (23 tests)
 ├── SSVEBProofEchidna.sol             # EB proof invariants (3 tests) [FUZZ-3 B6/B7/B8]
 ├── SSVOperatorFeeGovEchidna.sol      # Operator fee governance (1 test) [FUZZ-3 B19]
 ├── SSVLegacyClustersEchidna.sol      # Legacy SSV cluster liquidation (1 test) [FUZZ-3 B15]
@@ -173,6 +173,7 @@ This harness also instantiates staking claimants and operator owners so `echidna
 | `echidna_invalid_unstake_reverts` | Invalid unstake requests are rejected |
 | `echidna_invalid_withdraw_reverts` | Withdraw with no unlocked balance is rejected |
 | `echidna_cssv_supply_matches_users` | cSSV supply matches tracked user balances |
+| `echidna_cssv_supply_lte_ssv_backing` | cSSV supply never exceeds SSV backing |
 | `echidna_ssv_balance_matches_staked_plus_pending` | Contract SSV balance equals staked plus pending |
 | `echidna_pool_matches_dao_balance` | ETH pool balance matches DAO balance |
 | `echidna_pending_requests_bounded` | Withdrawal request count stays within bounds |
@@ -182,7 +183,7 @@ This harness also instantiates staking claimants and operator owners so `echidna
 | `echidna_claim_payout_precision` | Claimed ETH payout always respects packing precision |
 | `echidna_no_free_rewards_on_transfer` | Transfers cannot move already-accrued rewards between users |
 
-## SSVDAOEchidna (18 Invariants)
+## SSVDAOEchidna (23 Invariants)
 
 | Property | Description |
 |----------|-------------|
