@@ -39,7 +39,7 @@ Generated: 2026-03-18
 | 8 | Single staker gets all rewards | Covered | e2e/rewards.ts:290, e2e/lifecycle.ts:58 |
 | 9 | Two equal stakers split 50/50 | Covered | integration/staking.ts:401 |
 | 10 | Two unequal stakers proportional | Covered | e2e/lifecycle.ts:168, e2e/rewards.ts:344 |
-| 11 | Three stakers, one unstakes mid-period | NOT COVERED | |
+| 11 | Three stakers, one unstakes mid-period | Covered | e2e/lifecycle.ts:246 |
 | 12 | Reward math matches formula | Covered | e2e/rewards.ts:290 (exact formula verification) |
 | 13 | Rewards increase after fee raise | NOT COVERED | (EB update tested, but updateNetworkFee not) |
 | 14 | Rewards decrease after fee reduction | NOT COVERED | |
@@ -168,15 +168,15 @@ Generated: 2026-03-18
 | Section | Total | Covered | Partially | Not Covered |
 |---------|-------|---------|-----------|-------------|
 | 1. Staking | 18 | 17 | 0 | 1 |
-| 2. Earning Rewards | 26 | 16 | 1 | 9 |
+| 2. Earning Rewards | 26 | 17 | 1 | 8 |
 | 3. Claim Rewards | 17 | 17 | 0 | 0 |
 | 4. Request Unstake | 25 | 18 | 1 | 6 |
 | 5. Withdraw Unlocked | 16 | 14 | 0 | 2 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
 | 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **91** | **2** | **33** |
+| **Total** | **126** | **92** | **2** | **32** |
 
-**Overall: ~72% covered, ~2% partially covered, ~26% not covered**
+**Overall: ~73% covered, ~2% partially covered, ~25% not covered**
 
 ## Key Gaps
 
