@@ -162,6 +162,97 @@ describe("E2E Staking Rewards", () => {
     });
   });
 
+  describe("Network Fee decrease staking Rewards", () => {
+    it("Staking rewards decrease after updateNetworkFee lowers the ETH network fee", async function () {
+      const { network, views, ssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+      ]);
+
+      const stakeAmount = 10n * PRECISION;
+      await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
+      await ssvToken
+        .connect(stakerA)
+        .approve(await network.getAddress(), stakeAmount);
+      await network.connect(stakerA).stake(stakeAmount);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const initialNetworkFee = await views.getNetworkFee();
+      const raisedNetworkFee = initialNetworkFee * 2n;
+      const vUnits = defaultVUnits(1n);
+
+      await network.connect(stakerA).syncFees();
+      await network.updateNetworkFee(raisedNetworkFee);
+      await network.connect(stakerA).syncFees();
+
+      const phase1StartBlock = await getBlockNumber(provider);
+      await mineBlocks(provider, 100);
+
+      const syncTx1 = await network.connect(stakerA).syncFees();
+      const syncBlock1 = await getTxBlock(syncTx1);
+      const syncReceipt1 = await syncTx1.wait();
+      const fees1Log = syncReceipt1!.logs.find((log: any) => {
+        try {
+          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
+        } catch {
+          return false;
+        }
+      });
+      const newFeesPhase1 = fees1Log
+        ? BigInt(network.interface.parseLog(fees1Log)!.args[0])
+        : 0n;
+
+      const phase1Blocks = BigInt(syncBlock1 - phase1StartBlock);
+      const raisedPackedFee = raisedNetworkFee / ETH_DEDUCTED_DIGITS;
+      const phase1ExpectedFees =
+        ((raisedPackedFee * vUnits) / BPS_DENOMINATOR) *
+        phase1Blocks *
+        ETH_DEDUCTED_DIGITS;
+      expect(newFeesPhase1).to.equal(phase1ExpectedFees);
+
+      await network.updateNetworkFee(initialNetworkFee);
+
+      // Settle the pre-update window so phase 2 starts at the reduced fee only.
+      await network.connect(stakerA).syncFees();
+
+      const phase2StartBlock = await getBlockNumber(provider);
+      await mineBlocks(provider, 100);
+
+      const syncTx2 = await network.connect(stakerA).syncFees();
+      const syncBlock2 = await getTxBlock(syncTx2);
+      const syncReceipt2 = await syncTx2.wait();
+      const fees2Log = syncReceipt2!.logs.find((log: any) => {
+        try {
+          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
+        } catch {
+          return false;
+        }
+      });
+      const newFeesPhase2 = fees2Log
+        ? BigInt(network.interface.parseLog(fees2Log)!.args[0])
+        : 0n;
+
+      const phase2Blocks = BigInt(syncBlock2 - phase2StartBlock);
+      const initialPackedFee = initialNetworkFee / ETH_DEDUCTED_DIGITS;
+      const phase2ExpectedFees =
+        ((initialPackedFee * vUnits) / BPS_DENOMINATOR) *
+        phase2Blocks *
+        ETH_DEDUCTED_DIGITS;
+      expect(newFeesPhase2).to.equal(phase2ExpectedFees);
+      expect(newFeesPhase2).to.be.lessThan(newFeesPhase1);
+    });
+  });
+
   describe("EB Increase → Higher Network Fees → More Staking Rewards", () => {
     it("Staking rewards double after EB update doubles vUnits", async function () {
       const { network, views, ssvToken, cssvToken } =

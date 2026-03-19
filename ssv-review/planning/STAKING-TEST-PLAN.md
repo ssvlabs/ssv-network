@@ -11,7 +11,7 @@ Generated: 2026-03-18
 | 3 | Stake large amount (full balance) | Covered | unit/stake.ts:26 (stakes STAKE_AMOUNT) |
 | 4 | Multiple stakes | Covered | unit/stake.ts:131 |
 | 5 | Stake by multiple users | Covered | integration/staking.ts:474, e2e/lifecycle.ts:168 |
-| 6 | Rewards start accruing after stake | Covered | e2e/lifecycle.ts:58, e2e/rewards.ts:290 |
+| 6 | Rewards start accruing after stake | Covered | e2e/lifecycle.ts:58, e2e/rewards.ts:467 |
 | 7 | Second stake settles pending rewards | Covered | unit/stake.ts:153 |
 | 8 | SyncFees called during stake | Covered | unit/syncFees.ts (implicitly), e2e/transfers.ts:187 |
 | 9 | RewardsSettled event emitted | Covered | e2e/transfers.ts:319 (during transfer triggers settle) |
@@ -21,7 +21,7 @@ Generated: 2026-03-18
 | 13 | Stake without approval reverts | Covered | unit/stake.ts:120 |
 | 14 | Stake more than balance reverts | Covered | unit/stake.ts:121 |
 | 15 | Insufficient allowance reverts | Covered | unit/stake.ts:111 |
-| 16 | Fees accrued but totalStaked was 0 | Covered | e2e/lifecycle.ts:114, e2e/rewards.ts:445 |
+| 16 | Fees accrued but totalStaked was 0 | Covered | e2e/lifecycle.ts:114, e2e/rewards.ts:622 |
 | 17 | Stake exactly 1 above minimum | Covered | unit/stake.ts:87 |
 | 18 | Reentrancy on stake | Covered | unit/reentrancy.ts (for claimEthRewards; stake uses nonReentrant too) |
 
@@ -29,22 +29,22 @@ Generated: 2026-03-18
 
 | # | Test Case | Status | Covered By |
 |---|-----------|--------|------------|
-| 1 | Rewards start from stake block | Covered | e2e/lifecycle.ts:58, e2e/rewards.ts:290 |
+| 1 | Rewards start from stake block | Covered | e2e/lifecycle.ts:58, e2e/rewards.ts:467 |
 | 2 | Rewards start from cSSV transfer receive | Covered | e2e/transfers.ts:142 (receiver index set at transfer time) |
 | 3 | Rewards stop on requestUnstake (full) | Covered | e2e/lifecycle.ts:395 |
 | 4 | Rewards stop on requestUnstake (partial) | Covered | e2e/lifecycle.ts:449 |
 | 5 | Rewards stop on cSSV transfer (full) | Covered | e2e/transfers.ts:55 |
 | 6 | Rewards stop on cSSV transfer (partial) | Covered | e2e/transfers.ts:55 |
 | 7 | Rewards with 1 wei cSSV | Covered | unit/onCSSVTransfer.ts:181 |
-| 8 | Single staker gets all rewards | Covered | e2e/rewards.ts:290, e2e/lifecycle.ts:58 |
+| 8 | Single staker gets all rewards | Covered | e2e/rewards.ts:467, e2e/lifecycle.ts:58 |
 | 9 | Two equal stakers split 50/50 | Covered | integration/staking.ts:401 |
-| 10 | Two unequal stakers proportional | Covered | e2e/lifecycle.ts:168, e2e/rewards.ts:344 |
+| 10 | Two unequal stakers proportional | Covered | e2e/lifecycle.ts:168, e2e/rewards.ts:521 |
 | 11 | Three stakers, one unstakes mid-period | Covered | e2e/lifecycle.ts:246 |
-| 12 | Reward math matches formula | Covered | e2e/rewards.ts:290 (exact formula verification) |
+| 12 | Reward math matches formula | Covered | e2e/rewards.ts:467 (exact formula verification) |
 | 13 | Rewards increase after fee raise | Covered | e2e/rewards.ts:78 |
-| 14 | Rewards decrease after fee reduction | NOT COVERED | |
+| 14 | Rewards decrease after fee reduction | Covered | e2e/rewards.ts:166 |
 | 15 | Rewards stop after fee set to zero | NOT COVERED | |
-| 16 | Rewards increase after EB update | Covered | e2e/rewards.ts:80, integration/staking.ts:272 |
+| 16 | Rewards increase after EB update | Covered | e2e/rewards.ts:257, integration/staking.ts:272 |
 | 17 | Multiple fee changes across staking period | NOT COVERED | |
 | 18 | Rewards unaffected by cooldown increase | NOT COVERED | |
 | 19 | Rewards unaffected by cooldown decrease | NOT COVERED | |
@@ -168,20 +168,20 @@ Generated: 2026-03-18
 | Section | Total | Covered | Partially | Not Covered |
 |---------|-------|---------|-----------|-------------|
 | 1. Staking | 18 | 17 | 0 | 1 |
-| 2. Earning Rewards | 26 | 18 | 1 | 7 |
+| 2. Earning Rewards | 26 | 19 | 1 | 6 |
 | 3. Claim Rewards | 17 | 17 | 0 | 0 |
 | 4. Request Unstake | 25 | 18 | 1 | 6 |
 | 5. Withdraw Unlocked | 16 | 14 | 0 | 2 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
 | 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **93** | **2** | **31** |
+| **Total** | **126** | **94** | **2** | **30** |
 
-**Overall: ~74% covered, ~2% partially covered, ~25% not covered**
+**Overall: ~75% covered, ~2% partially covered, ~24% not covered**
 
 ## Key Gaps
 
 1. **Multisig tests (15)** — Entirely missing. No tests verify staking operations work from contract wallets.
-2. **Network fee change tests (5)** — `updateNetworkFee` impact on rewards is not tested (2.13-2.15, 2.17).
+2. **Network fee change tests (3)** — Fee shutdown and multi-change reward flows are still not tested (2.15, 2.17).
 3. **Cooldown duration change tests (7)** — No tests verify cooldown changes affect new vs existing unstake requests (4.14-4.18, 2.18-2.20).
 4. **Stake-transfer-stake cycle (2.25)** — Not tested.
-5. **Three stakers with mid-period unstake (2.11)** — Missing.
+5. **Self-transfer reward-rate check (2.26)** — Existing coverage confirms the transfer hook is skipped, but not that self-transfer cannot amplify rewards.
