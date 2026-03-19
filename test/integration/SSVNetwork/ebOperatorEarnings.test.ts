@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from '../../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
@@ -9,11 +8,13 @@ import {
   registerDefaultCluster,
   registerDefaultClusters,
   generateMerkleForClusterEB,
+  computeClusterId,
+  setupTestContext,
 } from '../../common/helpers.ts';
 import {
   MINIMAL_OPERATOR_ETH_FEE,
   ETH_DEDUCTED_DIGITS,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   STAKE_AMOUNT,
 } from '../../common/constants.ts';
 
@@ -26,8 +27,7 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
   let clusterOwner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner] } = await setupTestContext());
   });
 
   const deployFullSSVNetworkFixture = async () => ssvNetworkFullFixture(connection);
@@ -58,15 +58,6 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
     }
   };
 
-  const getClusterId = (ownerAddress: string, operatorIds: number[]): string => {
-    return connection.ethers.keccak256(
-      connection.ethers.solidityPacked(
-        ["address", "uint64[]"],
-        [ownerAddress, operatorIds.map(BigInt)]
-      )
-    );
-  };
-
   const toClusterArg = (cluster: any) => ({
     validatorCount: Number(cluster.validatorCount),
     networkFeeIndex: cluster.networkFeeIndex,
@@ -85,7 +76,7 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
       connection, network, views, operatorOwner, clusterOwner
     );
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const { root, proofs } = generateMerkleForClusterEB(connection, [
       { clusterId, effectiveBalance: 64 },
     ]);
@@ -102,7 +93,7 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
     await networkHelpers.mine(BLOCKS_TO_MINE);
     const earningsAfter = await views.getOperatorEarnings(operatorIds[0]);
 
-    const expectedDelta = BigInt(BLOCKS_TO_MINE) * packedFee * 20000n / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS;
+    const expectedDelta = BigInt(BLOCKS_TO_MINE) * packedFee * 20000n / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS;
     expect(expectedDelta).to.equal(BigInt(BLOCKS_TO_MINE) * MINIMAL_OPERATOR_ETH_FEE * 2n);
     expect(earningsAfter - earningsBefore).to.equal(expectedDelta);
 
@@ -119,8 +110,8 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
     const registered = await registerDefaultClusters(connection, network, operatorIds, operatorOwner, 2);
     const [clusterInfo1, clusterInfo2] = registered.clusters;
 
-    const clusterId1 = getClusterId(clusterInfo1.owner.address, operatorIds);
-    const clusterId2 = getClusterId(clusterInfo2.owner.address, operatorIds);
+    const clusterId1 = computeClusterId(clusterInfo1.owner.address, operatorIds);
+    const clusterId2 = computeClusterId(clusterInfo2.owner.address, operatorIds);
     const { root, proofs } = generateMerkleForClusterEB(connection, [
       { clusterId: clusterId1, effectiveBalance: 32 },
       { clusterId: clusterId2, effectiveBalance: 64 },
@@ -138,15 +129,12 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
       blockNum, clusterInfo2.owner.address, operatorIds.map(BigInt),
       toClusterArg(clusterInfo2.cluster), 64, proofs[clusterId2]
     );
-
-    //   ethValidatorCount = 2, operatorEthVUnits = 10000 (from cluster2 only)
-    //   effectiveVUnits = 2×10000 (baseline) + 10000 (deviation) = 30000
     const earningsBefore = await views.getOperatorEarnings(operatorIds[0]);
 
     await networkHelpers.mine(BLOCKS_TO_MINE);
     const earningsAfter = await views.getOperatorEarnings(operatorIds[0]);
 
-    const expectedDelta = BigInt(BLOCKS_TO_MINE) * packedFee * 30000n / VUNITS_PRECISION * ETH_DEDUCTED_DIGITS;
+    const expectedDelta = BigInt(BLOCKS_TO_MINE) * packedFee * 30000n / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS;
     expect(expectedDelta).to.equal(BigInt(BLOCKS_TO_MINE) * MINIMAL_OPERATOR_ETH_FEE * 3n);
     expect(earningsAfter - earningsBefore).to.equal(expectedDelta);
 
@@ -162,7 +150,7 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
       connection, network, views, operatorOwner, clusterOwner
     );
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const { root, proofs } = generateMerkleForClusterEB(connection, [
       { clusterId, effectiveBalance: 64 },
     ]);

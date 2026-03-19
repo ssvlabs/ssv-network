@@ -385,7 +385,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function setUnstakeCooldownDuration(uint64 duration) external onlyOwner {
+    function updateUnstakeCooldownDuration(uint64 duration) external onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
@@ -397,7 +397,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function setQuorumBps(uint16 quorum) external override onlyOwner {
+    function updateQuorumBps(uint16 quorum) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 

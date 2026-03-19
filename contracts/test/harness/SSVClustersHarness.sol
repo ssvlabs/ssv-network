@@ -141,7 +141,7 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     function getEffectiveOperatorVUnits(uint64 operatorId) external view returns (uint64) {
         StorageData storage s = SSVStorage.load();
         StorageEB storage seb = SSVStorageEB.load();
-        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * VUNITS_PRECISION;
+        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * BPS_DENOMINATOR;
         uint64 deviation = seb.operatorEthVUnits[operatorId];
         return baseline + deviation;
     }
@@ -186,10 +186,18 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         StorageData storage s = SSVStorage.load();
         ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
-        OperatorLib.updateSnapshotsSt(operator, operatorId);
+        PackedETH currentBalanceETH = PACKED_ETH_ZERO;
+        PackedSSV currentBalanceSSV = PACKED_SSV_ZERO;
 
-        PackedETH currentBalanceETH = operator.ethSnapshot.balance;
-        PackedSSV currentBalanceSSV = operator.snapshot.balance;
+        if (operator.snapshot.block != 0) {
+            OperatorLib.updateSnapshotStSSV(operator);
+            currentBalanceSSV = operator.snapshot.balance;
+        }
+
+        if (operator.ethSnapshot.block != 0) {
+            OperatorLib.updateSnapshotSt(operator, operatorId);
+            currentBalanceETH = operator.ethSnapshot.balance;
+        }
 
         operator.ethSnapshot.block = 0;
         operator.ethSnapshot.balance = PACKED_ETH_ZERO;
@@ -329,6 +337,19 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         operator.ethSnapshot.block = 0;
         operator.ethSnapshot.index = 0;
         operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+    }
+
+    function mockSetOperatorFeeChangeRequest(
+        uint64 operatorId,
+        uint64 fee,
+        uint64 approvalBeginTime,
+        uint64 approvalEndTime
+    ) external {
+        SSVStorage.load().operatorFeeChangeRequests[operatorId] = ISSVNetworkCore.OperatorFeeChangeRequest(
+            fee,
+            approvalBeginTime,
+            approvalEndTime
+        );
     }
 
     function mockSetToken(address token) external {

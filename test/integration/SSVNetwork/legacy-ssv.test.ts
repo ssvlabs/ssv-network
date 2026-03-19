@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -9,6 +8,7 @@ import {
   makePublicKey,
   registerOperators,
   whitelistAddresses,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   CLUSTER_VERSION_ETH,
@@ -45,17 +45,12 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
   let randomUser: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner, randomUser] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner, randomUser] } = await setupTestContext());
   });
 
   const deployFullSSVNetworkFixture = async () => {
     return ssvNetworkFullFixture(connection);
   };
-
-  // ============================================
-  // SECTION 1: SSV vs ETH Cluster Differentiation
-  // ============================================
   describe("SSV vs ETH Cluster Differentiation", function () {
     it("ETH cluster has correct version and zero SSV balance/burn rate", async function () {
       const { network, views } =
@@ -78,19 +73,16 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         clusterOwner.address,
         operatorIds
       );
-
-      // Verify ETH cluster properties
       expect(await views.getClusterAssetType(clusterOwner, operatorIds)).to.equal(CLUSTER_VERSION_ETH);
       expect(await views.getBalance(clusterOwner, operatorIds, cluster)).to.equal(DEFAULT_ETH_REGISTER_VALUE);
       expect(await views.getBurnRate(clusterOwner, operatorIds, cluster)).to.be.greaterThan(0n);
-
-      // SSV getters return 0 for ETH clusters
-      expect(await views.getBalanceSSV(clusterOwner, operatorIds, cluster)).to.equal(0n);
-      expect(await views.getBurnRateSSV(clusterOwner, operatorIds, cluster)).to.equal(0n);
-
-      // isLiquidatableSSV reverts for ETH clusters
+      await expect(views.getBalanceSSV(clusterOwner, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+      await expect(views.getBurnRateSSV(clusterOwner, operatorIds, cluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, cluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+
     });
 
     it("Operator registered via ETH cluster has ETH fee but zero SSV fee", async function () {
@@ -100,18 +92,12 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
       const operatorKey = makeOperatorKey(1);
       const operatorId = await network.registerOperator.staticCall(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
       await network.registerOperator(operatorKey, MINIMAL_OPERATOR_ETH_FEE, true);
-
-      // ETH fee is set, SSV fee is 0 (not initialized for SSV)
       expect(await views.getOperatorFee(operatorId)).to.equal(MINIMAL_OPERATOR_ETH_FEE);
       expect(await views.getOperatorFeeSSV(operatorId)).to.equal(0n);
-
-      // getOperatorById returns ETH details
       const opDetails = await views.getOperatorById(operatorId);
-      expect(opDetails[1]).to.equal(MINIMAL_OPERATOR_ETH_FEE); // ethFee
-
-      // getOperatorByIdSSV returns SSV details (all zeros for new operator)
+      expect(opDetails[1]).to.equal(MINIMAL_OPERATOR_ETH_FEE);
       const opDetailsSSV = await views.getOperatorByIdSSV(operatorId);
-      expect(opDetailsSSV[1]).to.equal(0n); // ssvFee
+      expect(opDetailsSSV[1]).to.equal(0n);
     });
 
     it("ETH cluster operators have zero SSV earnings", async function () {
@@ -128,23 +114,13 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
-
-      // Mine blocks to accrue fees
       await connection.networkHelpers.mine(100);
-
-      // ETH earnings should be positive
       const ethEarnings = await views.getOperatorEarnings(operatorIds[0]);
       expect(ethEarnings).to.be.greaterThan(0n);
-
-      // SSV earnings should be 0 (no SSV cluster)
       const ssvEarnings = await views.getOperatorEarningsSSV(operatorIds[0]);
       expect(ssvEarnings).to.equal(0n);
     });
   });
-
-  // ============================================
-  // SECTION 2: Network Fee Earnings - SSV vs ETH Independence
-  // ============================================
   describe("Network Fee Earnings - SSV vs ETH Independence", function () {
     it("Initial network earnings are zero for both SSV and ETH", async function () {
       const { views } =
@@ -179,16 +155,11 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
-
-      // Mine blocks to accrue network fees
       await connection.networkHelpers.mine(100);
 
       const ethEarningsAfter = await views.getNetworkEarnings();
       const ssvEarningsAfter = await views.getNetworkEarningsSSV();
-
-      // ETH earnings increased
       expect(ethEarningsAfter).to.be.greaterThan(ethEarningsBefore);
-      // SSV earnings unchanged (no SSV clusters)
       expect(ssvEarningsAfter).to.equal(ssvEarningsBefore);
     });
 
@@ -207,7 +178,6 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         .withArgs(initialSSVFee, newSSVFee);
 
       expect(await views.getNetworkFeeSSV()).to.equal(newSSVFee);
-      // ETH fee unchanged
       expect(await views.getNetworkFee()).to.equal(initialETHFee);
     });
 
@@ -226,14 +196,9 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         .withArgs(initialETHFee, newETHFee);
 
       expect(await views.getNetworkFee()).to.equal(newETHFee);
-      // SSV fee unchanged
       expect(await views.getNetworkFeeSSV()).to.equal(initialSSVFee);
     });
   });
-
-  // ============================================
-  // SECTION 3: SSV-Specific DAO Functions
-  // ============================================
   describe("SSV-Specific DAO Functions", function () {
     it("withdrawNetworkSSVEarnings requires owner permission", async function () {
       const { network } =
@@ -259,17 +224,10 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
 
       const ssvCollateral = await views.getMinimumLiquidationCollateralSSV();
       const ethCollateral = await views.getMinimumLiquidationCollateral();
-
-      // SSV collateral may be 0 if not configured for legacy clusters
-      // ETH collateral should be configured
       expect(ssvCollateral).to.be.greaterThanOrEqual(0n);
       expect(ethCollateral).to.be.greaterThan(0n);
     });
   });
-
-  // ============================================
-  // SECTION 4: SSV Operator Earnings Functions
-  // ============================================
   describe("SSV Operator Earnings Functions", function () {
     it("withdrawOperatorEarningsSSV reverts with InsufficientBalance when no SSV earnings", async function () {
       const { network } =
@@ -277,8 +235,6 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-
-      // Create ETH cluster (not SSV)
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
@@ -288,8 +244,6 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
       );
 
       await connection.networkHelpers.mine(100);
-
-      // SSV earnings should be 0, use precision-safe amount (10_000_000n is the shrink factor)
       const precisionSafeAmount = 10_000_000n;
       await expect(network.connect(operatorOwner).withdrawOperatorEarningsSSV(operatorIds[0], precisionSafeAmount))
         .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
@@ -300,8 +254,6 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
-
-      // No cluster registered, so no earnings
       await expect(network.connect(operatorOwner).withdrawAllOperatorEarningsSSV(operatorIds[0]))
         .to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
     });
@@ -316,10 +268,6 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         .to.be.revertedWithCustomError(network, Errors.CALLER_NOT_OWNER);
     });
   });
-
-  // ============================================
-  // SECTION 5: Liquidation Version Checks
-  // ============================================
   describe("Liquidation Version Checks", function () {
     it("liquidateSSV reverts for ETH clusters with IncorrectClusterVersion", async function () {
       const { network } =
@@ -327,8 +275,6 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-
-      // Create ETH cluster
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
@@ -343,8 +289,6 @@ describe("SSVNetwork Integration - Legacy SSV Accounting", () => {
         clusterOwner.address,
         operatorIds
       );
-
-      // liquidateSSV should revert for ETH clusters
       await expect(network.liquidateSSV(clusterOwner.address, operatorIds, cluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
     });

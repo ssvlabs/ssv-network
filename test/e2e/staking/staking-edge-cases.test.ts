@@ -1,13 +1,13 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
   registerOperators,
   makePublicKey,
   whitelistAddresses,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
@@ -16,7 +16,7 @@ import {
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   NETWORK_FEE,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   DEFAULT_UNSTAKE_COOLDOWN,
 } from "../../common/constants.ts";
@@ -26,7 +26,7 @@ import {
   calcAccEthPerShareDelta,
   calcStakingReward,
   defaultVUnits,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 const PRECISION = 10n ** 18n;
 const PACKED_NETWORK_FEE = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
@@ -45,9 +45,7 @@ describe("E2E Staking Edge Cases", () => {
   let stakerB: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [deployer, operatorOwner, clusterOwner, stakerA, stakerB] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [deployer, operatorOwner, clusterOwner, stakerA, stakerB] } = await setupTestContext());
     provider = connection.ethers.provider;
   });
 
@@ -97,7 +95,7 @@ describe("E2E Staking Edge Cases", () => {
 
       const postStakeBlocks = BigInt(claimBlock - stakeBlock);
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const expectedFeesPacked = earningsPerBlockPacked * postStakeBlocks;
       const expectedFeesWei = expectedFeesPacked * ETH_DEDUCTED_DIGITS;
 
@@ -188,7 +186,7 @@ describe("E2E Staking Edge Cases", () => {
       let totalClaimed = 0n;
       let lastClaimBlock = stakeBlock;
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       let cumulativeAcc = 0n;
 
       for (let i = 0; i < 3; i++) {
@@ -402,7 +400,7 @@ describe("E2E Staking Edge Cases", () => {
       const accEthPerShare = BigInt(parsed!.args[1]);
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const blockDiff = BigInt(syncBlock - stakeBlock);
       const expectedFeesWei = earningsPerBlockPacked * blockDiff * ETH_DEDUCTED_DIGITS;
       const expectedAcc = calcAccEthPerShareDelta(expectedFeesWei, stakeAmount);
@@ -500,7 +498,7 @@ describe("E2E Staking Edge Cases", () => {
       const reward = BigInt(balAfter) - balBefore + gasUsed;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const phase1Blocks = BigInt(unstakeBlock - stakeBlock);
       const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;

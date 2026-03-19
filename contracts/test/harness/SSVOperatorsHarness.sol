@@ -9,6 +9,7 @@ import {ISSVOperators} from "../../interfaces/ISSVOperators.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PackedETH, PackedSSV, PACKED_ETH_ZERO} from "../../libraries/SSVCoreTypes.sol";
 import {PackedETHLib} from "../../libraries/SSVPackedLib.sol";
+import {SSVStorageEB} from "../../libraries/storage/SSVStorageEB.sol";
 
 contract SSVOperatorsHarness is SSVOperators {
 
@@ -97,5 +98,13 @@ contract SSVOperatorsHarness is SSVOperators {
 
     function getUpgradeTimestamp() external view returns (uint256) {
         return UPGRADE_TIMESTAMP;
+    }
+
+    function getOperatorEthVUnits(uint64 operatorId) external view returns (uint64) {
+        return SSVStorageEB.load().operatorEthVUnits[operatorId];
+    }
+
+    function mockSetOperatorEthVUnits(uint64 operatorId, uint64 vUnits) external {
+        SSVStorageEB.load().operatorEthVUnits[operatorId] = vUnits;
     }
 }

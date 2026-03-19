@@ -120,6 +120,50 @@ describe("SSVClusters legacy SSV accounting", async () => {
     expect(expectedFees % DEDUCTED_DIGITS).to.equal(0n);
   });
 
+  it("removeValidator settles legacy SSV fees identically when a pending ETH fee change request exists", async function () {
+    const operatorFeeRaw = 2_000n;
+    const { clusters, operatorIds, networkFeeIndexBlock } =
+      await networkHelpers.loadFixture(deployOperatorFeeFixture);
+
+    const [publicKey1, publicKey2] = makePublicKeys(2, 21);
+    const cluster = createLegacySSVCluster({ validatorCount: 2n });
+
+    await clusters.mockRegisterSSVValidator(publicKey1, operatorIds, clusterOwner.address, cluster);
+    await clusters.mockRegisterSSVValidator(publicKey2, operatorIds, clusterOwner.address, cluster);
+
+    // Inject a pending ETH fee change request on each operator (declared, within approval window)
+    const now = BigInt(await networkHelpers.time.latest());
+    for (const operatorId of operatorIds) {
+      await clusters.mockSetOperatorFeeChangeRequest(
+        operatorId,
+        99_999n, // large pending ETH fee — must NOT affect SSV settlement
+        now + 1n, // approvalBeginTime (in the future, so pending)
+        now + 86400n, // approvalEndTime
+      );
+    }
+
+    const snapshots = await captureSnapshots(clusters, operatorIds);
+
+    await networkHelpers.mine(30);
+
+    const removeTx = await clusters.connect(clusterOwner).removeValidator(publicKey1, operatorIds, cluster);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+    const removeBlock = BigInt(removeReceipt!.blockNumber);
+
+    // Expected values use only the SSV fee — identical formula to the operator-fee-only test
+    const expectedClusterIndex = calculateClusterIndex(snapshots, removeBlock, operatorFeeRaw);
+    const expectedNetworkFeeIndex = calculateNetworkFeeIndex(removeBlock, networkFeeIndexBlock, 0n);
+    const expectedFees = calculateSettledFees(cluster, expectedClusterIndex, expectedNetworkFeeIndex);
+
+    expect(clusterAfterRemove.validatorCount).to.equal(1n);
+    expect(clusterAfterRemove.index).to.equal(expectedClusterIndex);
+    expect(clusterAfterRemove.networkFeeIndex).to.equal(expectedNetworkFeeIndex);
+    expect(clusterAfterRemove.balance).to.equal(cluster.balance - expectedFees);
+    // The pending ETH fee (99_999) had zero effect — fees match the SSV-only formula exactly
+    expect(expectedFees).to.equal(expectedClusterIndex * BigInt(cluster.validatorCount) * DEDUCTED_DIGITS);
+  });
+
   it("bulkRemoveValidator settles legacy SSV network fees on active clusters", async function () {
     const networkFeeRaw = 75n;
     const { clusters, operatorIds, networkFeeIndexBlock } =

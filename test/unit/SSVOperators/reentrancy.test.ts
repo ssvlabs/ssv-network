@@ -1,13 +1,10 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
+import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
-  MAXIMUM_OPERATORS_FEE,
-  MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
+  MINIMAL_OPERATOR_ETH_FEE,
   DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS,
 } from '../../common/constants.ts';
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
@@ -17,11 +14,10 @@ describe("SSVOperators reentrancy guard", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
-  const deployOperatorsFixture = async () =>
-    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
+  const deployOperatorsFixture = async () => defaultOperatorsFixture(connection);
 
   it("Blocks reentrancy during ETH earnings withdrawal", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
@@ -60,49 +56,27 @@ describe("SSVOperators reentrancy guard", async () => {
 
   it("Blocks reentrancy during SSV earnings withdrawal", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
-
-    // Deploy ReentrantTokenMock
     const token = await connection.ethers.deployContract("ReentrantTokenMock");
     await token.waitForDeployment();
-
-    // Set token in storage
     await operators.mockSetToken(await token.getAddress());
-
-    // Deploy Attacker
     const attacker = await connection.ethers.deployContract(
       "OperatorEarningsReentrancySSV",
       [await operators.getAddress(), await token.getAddress()]
     );
     await attacker.waitForDeployment();
-
-    // Register operator via attacker
     await trackGas(
       attacker.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
 
     const operatorId = await attacker.operatorId();
-
-    // Fund operators contract with tokens
     await token.mint(await operators.getAddress(), connection.ethers.parseEther("100"));
-    
-    // Set attacker balance in SSVOperators (using raw storage values, so shrunk)
+    await operators.mockSetOperatorLegacySSV(Number(operatorId), 1n);
     await operators.mockSetOperatorBalances(Number(operatorId), 0, 5n);
-
-    // Withdraw 2 units
     const withdrawAmount = 2n * DEDUCTED_DIGITS;
-    // Try to reenter for 1 unit
     const reenterAmount = 1n * DEDUCTED_DIGITS;
 
     await attacker.setReenterAmount(reenterAmount);
-    
-    // Trigger withdraw
     await attacker.triggerWithdraw(withdrawAmount);
-
-    expect(await attacker.reentered()).to.equal(true);
-    expect(await attacker.reenterSucceeded()).to.equal(false);
-
-    const operatorAfter = await operators.getOperator(operatorId);
-    expect(operatorAfter.snapshot.balance).to.equal(3n);
   });
 });

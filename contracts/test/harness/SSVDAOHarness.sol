@@ -101,7 +101,7 @@ contract SSVDAOHarness is SSVDAO {
         }
     }
 
-    function mockSetQuorumBps(uint16 quorum) external {
+    function mockupdateQuorumBps(uint16 quorum) external {
         StorageStaking storage s = SSVStorageStaking.load();
         s.quorumBps = quorum;
     }

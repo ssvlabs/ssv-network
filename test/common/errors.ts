@@ -54,6 +54,8 @@ export const Errors = {
   SAME_ORACLE_ADDRESS_NOT_ALLOWED: "SameOracleAddressNotAllowed",
   INVALID_ORACLE_ID: "InvalidOracleId",
   INVALID_QUORUM: "InvalidQuorum",
+  INVALID_OPERATOR_FEE_INCREASE_LIMIT: "InvalidOperatorFeeIncreaseLimit",
+  INVALID_OPERATOR_FEE_RANGE: "InvalidOperatorFeeRange",
   MAX_REQUESTS_AMOUNT_REACHED: "MaxRequestsAmountReached",
   NOT_CSSV: "NotCSSV",
   INVALID_TOKEN: "InvalidToken",
@@ -63,7 +65,8 @@ export const Errors = {
   TOKEN_TRANSFER_FAILED: "TokenTransferFailed",
   ETH_TRANSFER_FAILED: "ETHTransferFailed",
   LEGACY_OPERATOR_FEE_DECLARATION_INVALID: "LegacyOperatorFeeDeclarationInvalid",
-  ORACLE_HAS_ZERO_WEIGHT: "OracleHasZeroWeight",
+  ZERO_CSSV_SUPPLY: "ZeroCSSVSupply",
+  INSUFFICIENT_CSSV_SUPPLY: "InsufficientCSSVSupply",
   MAX_VALUE_EXCEEDED: "MaxValueExceeded",
   MAX_PRECISION_EXCEEDED: "MaxPrecisionExceeded",
 } as const;

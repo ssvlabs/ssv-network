@@ -17,6 +17,15 @@ export interface Operator {
   isActive: boolean;
 }
 
+export interface OperatorSSV {
+  owner: string;
+  fee: bigint;
+  validatorCount: bigint;
+  whitelistedAddress: string;
+  isPrivate: boolean;
+  isActive: boolean;
+}
+
 export interface UnstakeRequest {
   amount: bigint;
   unlockTime: bigint;

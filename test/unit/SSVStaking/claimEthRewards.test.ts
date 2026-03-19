@@ -1,8 +1,9 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
+import { setupTestContext } from "../../common/helpers.ts";
+import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
@@ -16,12 +17,11 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   let staker: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [staker] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [staker] } = await setupTestContext());
   });
 
   const stakeAndAccrueRewards = async () => {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await trackGas(
       staking.stake(STAKE_AMOUNT),
@@ -46,12 +46,8 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   
     const accruedAmount = connection.ethers.parseEther("0.1");
     await staking.mockSetUserAccrued(staker.address, accruedAmount);
-    
-    // Calculate packed payout value
     const expectedPayout = accruedAmount - (accruedAmount % ETH_DEDUCTED_DIGITS);
     const expectedPayoutShrunk = expectedPayout / ETH_DEDUCTED_DIGITS;
-    
-    // Set packed balances (add buffer to ensure sufficiency)
     await staking.mockSetStakingEthPoolBalance(expectedPayoutShrunk + 1_000_000n);
     await staking.mockSetEthDaoBalance(expectedPayoutShrunk + 1_000_000n);
   
@@ -67,13 +63,9 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     await expect(tx)
       .to.emit(staking, Events.REWARDS_CLAIMED)
       .withArgs(staker.address, expectedPayout);
-  
-    // Verify ETH received (accounting for gas)
     const ethBalanceAfter = await connection.ethers.provider.getBalance(staker.address);
     const gasUsed = BigInt(tx.gasUsed) * BigInt(tx.gasPrice);
     expect(ethBalanceAfter + gasUsed - ethBalanceBefore).to.equal(expectedPayout);
-  
-    // Verify pool balances decreased by packed payout amount
     const poolBalanceAfter = await staking.getStakingEthPoolBalance();
     const daoBalanceAfter = await staking.getEthDaoBalance();
     expect(poolBalanceBefore - poolBalanceAfter).to.equal(expectedPayoutShrunk);
@@ -82,8 +74,6 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
 
   it("Keeps remainder in accrued when user still holds cSSV (precision handling)", async function () {
     const { staking } = await networkHelpers.loadFixture(stakeAndAccrueRewards);
-
-    // Use an amount with a remainder when divided by DEDUCTED_DIGITS (1e7)
     const accruedAmount = 123_456_789n;
     await staking.mockSetUserAccrued(staker.address, accruedAmount);
     await staking.mockSetStakingEthPoolBalance(100_000_000_000n);
@@ -149,7 +139,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Is reverted with 'NothingToClaim' when there are no rewards", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
@@ -161,7 +151,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Is reverted with 'NothingToClaim' when accrued amount is too small to payout", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
@@ -193,7 +183,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Syncs fees before claiming", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
     
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await trackGas(
@@ -206,21 +196,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
       to: stakingAddress,
       value: connection.ethers.parseEther("1"),
     });
-    
-    // _syncFees detects new fees when networkTotalEarnings() > stakingEthPoolBalance.
-    // It then updates accEthPerShare, and _settle adds pending to accrued.
-    // The total claimable = accrued + pending from settlement.
-    // ethDaoBalance must cover the full packed claimable.
-    //
-    // With newFees packed units and STAKE_AMOUNT staked cSSV:
-    //   newFeesWei = newFees * ETH_DEDUCTED_DIGITS
-    //   accDelta = (newFeesWei * PRECISION) / STAKE_AMOUNT
-    //   pending = (STAKE_AMOUNT * accDelta) / PRECISION = newFeesWei
-    // So pending ≈ newFeesWei, and claimable = accrued + newFeesWei.
-    // packedClaimable = claimable / ETH_DEDUCTED_DIGITS ≈ accrued/ETH_DEDUCTED_DIGITS + newFees
-    // ethDaoBalance (packed) must be >= packedClaimable.
-    // Since ethDaoBalance = newFees, we need accrued = 0 so claimable = newFeesWei only.
-    const newFees = 1_000n; // small packed value
+    const newFees = 1_000n;
     await staking.mockSetUserAccrued(staker.address, 0n);
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(newFees);
@@ -238,11 +214,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   
     const accruedBefore = connection.ethers.parseEther("0.1");
     await staking.mockSetUserAccrued(staker.address, accruedBefore);
-    
-    // Calculate packed value from accrued
     const packedPayout = accruedBefore / ETH_DEDUCTED_DIGITS;
-    
-    // Set packed balances (add buffer to ensure sufficiency)
     await staking.mockSetStakingEthPoolBalance(packedPayout + 1n);
     await staking.mockSetEthDaoBalance(packedPayout + 1n);
   
@@ -257,7 +229,6 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
 
     const accruedAmount = connection.ethers.parseEther("0.1");
     await staking.mockSetUserAccrued(staker.address, accruedAmount);
-    // stakingEthPoolBalance is sufficient, but ethDaoBalance is not
     await staking.mockSetStakingEthPoolBalance(100_000_000_000n);
     await staking.mockSetEthDaoBalance(1n);
 
@@ -268,7 +239,7 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Allows multiple claims as rewards continue to accrue", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
@@ -278,29 +249,23 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
       to: stakingAddress,
       value: connection.ethers.parseEther("10"),
     });
-
-    // First claim
-    const firstAccrued = 100_000_000n; // 0.1 shrunk units = 1e9 wei
+    const firstAccrued = 100_000_000n;
     await staking.mockSetUserAccrued(staker.address, firstAccrued * ETH_DEDUCTED_DIGITS);
     await staking.mockSetStakingEthPoolBalance(firstAccrued);
     await staking.mockSetEthDaoBalance(firstAccrued);
 
     const tx1 = await staking.claimEthRewards();
     await expect(tx1).to.emit(staking, Events.REWARDS_CLAIMED);
-
-    // Accrue more rewards
     const secondAccrued = 200_000_000n;
     await staking.mockSetUserAccrued(staker.address, secondAccrued * ETH_DEDUCTED_DIGITS);
     await staking.mockSetStakingEthPoolBalance(secondAccrued);
     await staking.mockSetEthDaoBalance(secondAccrued);
-
-    // Second claim
     const tx2 = await staking.claimEthRewards();
     await expect(tx2).to.emit(staking, Events.REWARDS_CLAIMED);
   });
 
   it("Settles pending rewards before claiming", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
 
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
@@ -310,17 +275,11 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
       to: stakingAddress,
       value: connection.ethers.parseEther("10"),
     });
-
-    // Set up fees that will accrue rewards when synced
     const newFees = 1_000_000_000n;
     await staking.mockSetStakingEthPoolBalance(0n);
     await staking.mockSetEthDaoBalance(newFees);
 
     const userIndexBefore = await staking.getUserIndex(staker.address);
-
-    // Claim should sync fees and settle, accruing rewards
-    // Even with 0 pre-existing accrued, the sync+settle should accrue new rewards
-    // Then the claim will process those rewards
     const tx = await staking.claimEthRewards();
 
     await expect(tx).to.emit(staking, Events.REWARDS_CLAIMED);
@@ -330,10 +289,8 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
   });
 
   it("Does not affect other users' accrued balances", async function () {
-    const { staking, ssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken } = await defaultStakingFixture(connection);
     const [, otherUser] = await connection.ethers.getSigners();
-
-    // Both users stake
     await ssvToken.approve(await staking.getAddress(), STAKE_AMOUNT);
     await staking.stake(STAKE_AMOUNT);
 
@@ -346,19 +303,13 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
       to: stakingAddress,
       value: connection.ethers.parseEther("10"),
     });
-
-    // Set up accrued balances for both
     const stakerAccrued = 100_000_000_000n;
     const otherAccrued = 200_000_000_000n;
     await staking.mockSetUserAccrued(staker.address, stakerAccrued);
     await staking.mockSetUserAccrued(otherUser.address, otherAccrued);
     await staking.mockSetStakingEthPoolBalance(50_000_000_000n);
     await staking.mockSetEthDaoBalance(50_000_000_000n);
-
-    // First user claims
     await staking.claimEthRewards();
-
-    // Other user's accrued balance should be unchanged
     const otherAccruedAfter = await staking.getUserAccrued(otherUser.address);
     expect(otherAccruedAfter).to.equal(otherAccrued);
   });
