@@ -34,4 +34,5 @@ ssv-review/*
 !ssv-review/planning
 ssv-review/planning/*
 !ssv-review/planning/MAINNET-READINESS.md
+!ssv-review/planning/STAKING-TEST-PROGRESS.md
 !ssv-review/planning/verified
