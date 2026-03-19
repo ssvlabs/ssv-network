@@ -2,17 +2,24 @@
 pragma solidity 0.8.24;
 
 import "../../contracts/modules/SSVClusters.sol";
+import "../../contracts/modules/SSVOperators.sol";
+import "../../contracts/modules/SSVStaking.sol";
 import "../../contracts/interfaces/ISSVClusters.sol";
+import "../../contracts/interfaces/ISSVOperators.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
 import "../../contracts/libraries/storage/SSVStorage.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/storage/SSVStorageEB.sol";
+import "../../contracts/libraries/storage/SSVStorageStaking.sol";
 import "../../contracts/libraries/ClusterLib.sol";
 import "../../contracts/libraries/OperatorLib.sol";
 import "../../contracts/libraries/ProtocolLib.sol";
+import "../../contracts/test/mocks/MockToken.sol";
+import "./SSVStakingEchidna.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-import {PackedETHLib, PackedSSVLib} from "../../contracts/libraries/SSVPackedLib.sol";
+import {PackedETHLib, PackedSSVLib, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
 import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract ClusterUser {
@@ -24,26 +31,17 @@ contract ClusterUser {
 
     receive() external payable {}
 
-    function withdraw(
-        uint64[] calldata operatorIds,
-        uint256 amount,
-        ISSVNetworkCore.Cluster memory cluster
-    ) external {
+    function withdraw(uint64[] calldata operatorIds, uint256 amount, ISSVNetworkCore.Cluster memory cluster) external {
         clusters.withdraw(operatorIds, amount, cluster);
     }
 
-    function liquidate(
-        address clusterOwner,
-        uint64[] calldata operatorIds,
-        ISSVNetworkCore.Cluster memory cluster
-    ) external {
+    function liquidate(address clusterOwner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster)
+        external
+    {
         clusters.liquidate(clusterOwner, operatorIds, cluster);
     }
 
-    function reactivate(
-        uint64[] calldata operatorIds,
-        ISSVNetworkCore.Cluster memory cluster
-    ) external payable {
+    function reactivate(uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external payable {
         clusters.reactivate{value: msg.value}(operatorIds, cluster);
     }
 
@@ -59,21 +57,46 @@ contract ClusterUser {
     }
 }
 
-contract SSVClustersEchidna is SSVClusters {
+contract OperatorUser {
+    ISSVOperators public operators;
+
+    constructor(ISSVOperators operators_) {
+        operators = operators_;
+    }
+
+    receive() external payable {}
+
+    function withdraw(uint64 operatorId, uint256 amount) external {
+        operators.withdrawOperatorEarnings(operatorId, amount);
+    }
+}
+
+contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(new CSSVTokenMock(address(this)))) {
     using ClusterLib for ISSVNetworkCore.Cluster;
     using Counters for Counters.Counter;
     using PackedETHLib for PackedETH;
 
     uint8 private constant MAX_CLUSTERS = 6;
+    uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
+    uint256 private constant MAX_STAKE = 1_000_000 ether;
     PackedETH private constant DEFAULT_OPERATOR_ETH_FEE = PackedETH.wrap(1);
     PackedETH private constant DEFAULT_NETWORK_ETH_FEE = PackedETH.wrap(1);
     uint64 private constant MIN_BLOCKS_BEFORE_LIQUIDATION = 2;
     uint32 private constant MAX_ADVANCE_BLOCKS = 8;
     uint32 private constant MIN_BLOCKS_BETWEEN_UPDATES = 2;
+    uint32 private constant SOLVENCY_BLOCK_WINDOW = 1_000_000;
+
+    MockToken private token;
+    CSSVTokenMock private cssv;
 
     ClusterUser private owner1;
     ClusterUser private owner2;
     ClusterUser private attacker;
+    OperatorUser private opOwner1;
+    OperatorUser private opOwner2;
+    OperatorUser private opOwner3;
+    StakingUser private staker1;
+    StakingUser private staker2;
 
     uint64 private op1;
     uint64 private op2;
@@ -107,10 +130,22 @@ contract SSVClustersEchidna is SSVClusters {
     bool private ebSnapshotFutureBlock;
 
     constructor() {
-        ISSVClusters self = ISSVClusters(address(this));
-        owner1 = new ClusterUser(self);
-        owner2 = new ClusterUser(self);
-        attacker = new ClusterUser(self);
+        token = new MockToken();
+        cssv = CSSVTokenMock(CSSV_ADDRESS);
+        _mockSetToken(address(token));
+
+        ISSVClusters clustersSelf = ISSVClusters(address(this));
+        ISSVOperators operatorsSelf = ISSVOperators(address(this));
+        IStaking stakingSelf = IStaking(address(this));
+
+        owner1 = new ClusterUser(clustersSelf);
+        owner2 = new ClusterUser(clustersSelf);
+        attacker = new ClusterUser(clustersSelf);
+        opOwner1 = new OperatorUser(operatorsSelf);
+        opOwner2 = new OperatorUser(operatorsSelf);
+        opOwner3 = new OperatorUser(operatorsSelf);
+        staker1 = new StakingUser(stakingSelf, IERC20(address(token)), IERC20(address(cssv)));
+        staker2 = new StakingUser(stakingSelf, IERC20(address(token)), IERC20(address(cssv)));
 
         _initProtocolDefaults();
         _initOperators();
@@ -137,21 +172,12 @@ contract SSVClustersEchidna is SSVClusters {
         uint256 balance = 0;
 
         ISSVNetworkCore.Cluster memory cluster = ISSVNetworkCore.Cluster({
-            validatorCount: validatorCount,
-            networkFeeIndex: 0,
-            index: 0,
-            active: active,
-            balance: balance
+            validatorCount: validatorCount, networkFeeIndex: 0, index: 0, active: active, balance: balance
         });
 
         SSVStorage.load().ethClusters[clusterId] = cluster.hashClusterData();
 
-        clusters[clusterId] = ClusterRecord({
-            cluster: cluster,
-            owner: owner,
-            operatorsKey: operatorsKey,
-            exists: true
-        });
+        clusters[clusterId] = ClusterRecord({cluster: cluster, owner: owner, operatorsKey: operatorsKey, exists: true});
         clusterIds.push(clusterId);
         totalExpectedBalance += balance;
     }
@@ -214,7 +240,8 @@ contract SSVClustersEchidna is SSVClusters {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64 vUnits = ClusterLib.getVUnits(clusterId, record.cluster.validatorCount);
 
-        uint128 perBlockUnits = (uint128(burnRate + PackedETH.unwrap(sp.ethNetworkFee)) * uint128(vUnits)) / VUNITS_PRECISION;
+        uint128 perBlockUnits =
+            (uint128(burnRate + PackedETH.unwrap(sp.ethNetworkFee)) * uint128(vUnits)) / VUNITS_PRECISION;
         uint256 perBlock = PackedETHLib.unpack(PackedETH.wrap(uint64(perBlockUnits)));
         if (perBlock == 0) return;
 
@@ -227,13 +254,14 @@ contract SSVClustersEchidna is SSVClusters {
 
         SSVStorage.load().ethClusters[clusterId] = record.cluster.hashClusterData();
 
-        bool liquidatable = record.cluster.isLiquidatableWithEB(
-            clusterId,
-            burnRate,
-            PackedETH.unwrap(sp.ethNetworkFee),
-            sp.minimumBlocksBeforeLiquidation,
-            sp.minimumLiquidationCollateral
-        );
+        bool liquidatable = record.cluster
+            .isLiquidatableWithEB(
+                clusterId,
+                burnRate,
+                PackedETH.unwrap(sp.ethNetworkFee),
+                sp.minimumBlocksBeforeLiquidation,
+                sp.minimumLiquidationCollateral
+            );
 
         if (record.cluster.balance < perBlock && !liquidatable) {
             dustLiquidationFailed = true;
@@ -241,10 +269,52 @@ contract SSVClustersEchidna is SSVClusters {
         }
 
         if (liquidatable) {
-            try attacker.liquidate(record.owner, operatorIds, record.cluster) {} catch {
+            try attacker.liquidate(record.owner, operatorIds, record.cluster) {}
+            catch {
                 dustLiquidationFailed = true;
             }
         }
+    }
+
+    function action_stake(uint256 seed, uint8 userSeed) external {
+        StakingUser user = _staker(userSeed);
+        uint256 amount = (seed % MAX_STAKE) + MINIMAL_STAKING_AMOUNT;
+
+        if (seed % 8 == 0) {
+            amount = 0;
+        } else if (seed % 8 == 1) {
+            amount = MINIMAL_STAKING_AMOUNT - 1;
+        }
+
+        token.mint(address(user), amount);
+        try user.approve(amount) {} catch {}
+        try user.stake(amount) {} catch {}
+    }
+
+    function action_claim_rewards(uint8 userSeed) external {
+        StakingUser user = _staker(userSeed);
+        address userAddr = address(user);
+
+        if (cssv.balanceOf(userAddr) == 0 && SSVStorageStaking.load().accrued[userAddr] == 0) return;
+
+        try user.claim() {} catch {}
+    }
+
+    function action_withdraw_operator_eth(uint256 seed) external {
+        uint64 operatorId = _pickOperatorId(seed);
+        if (operatorId == 0) return;
+
+        ISSVNetworkCore.Operator memory operator = SSVStorage.load().operators[operatorId];
+        if (operator.ethSnapshot.block == 0) return;
+
+        OperatorLib.updateSnapshot(operator, operatorId);
+        PackedETH balance = operator.ethSnapshot.balance;
+        if (balance.eq(PACKED_ETH_ZERO)) return;
+
+        uint256 amount = PackedETHLib.unpack(PackedETH.wrap(uint64(seed % PackedETH.unwrap(balance)) + 1));
+        if (amount > address(this).balance) return;
+
+        try _operatorOwnerUser(operatorId).withdraw(operatorId, amount) {} catch {}
     }
 
     function action_withdraw(uint256 seed) external {
@@ -383,6 +453,26 @@ contract SSVClustersEchidna is SSVClusters {
 
         uint256 available = _availableBalance();
         uint256 amount = _boundAmount(seed >> 8, available);
+        if (amount == 0) return;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        uint256 burnRate = 0;
+        for (uint256 i; i < operatorIds.length; ++i) {
+            burnRate += PackedETH.unwrap(s.operators[operatorIds[i]].ethFee);
+        }
+
+        uint256 minPerBlock = (burnRate + PackedETH.unwrap(sp.ethNetworkFee)) * uint256(record.cluster.validatorCount)
+            * ETH_DEDUCTED_DIGITS;
+        uint256 minRequired = minPerBlock * SOLVENCY_BLOCK_WINDOW;
+        if (minRequired == 0) {
+            minRequired = ETH_DEDUCTED_DIGITS;
+        }
+        if (amount < minRequired) {
+            amount = minRequired;
+        }
+        if (amount > available) return;
 
         try owner.reactivate{value: amount}(operatorIds, cluster) {
             record.cluster.active = true;
@@ -444,8 +534,8 @@ contract SSVClustersEchidna is SSVClusters {
         expectedCluster.balance = expectedCluster.balance >= totalFeesOld ? expectedCluster.balance - totalFeesOld : 0;
 
         uint64 burnRate = _burnRate(operatorIds);
-        bool shouldLiquidate = expectedCluster.validatorCount != 0 &&
-            expectedCluster.isLiquidatableWithEB(
+        bool shouldLiquidate = expectedCluster.validatorCount != 0
+            && expectedCluster.isLiquidatableWithEB(
                 clusterId,
                 burnRate,
                 PackedETH.unwrap(sp.ethNetworkFee),
@@ -473,7 +563,8 @@ contract SSVClustersEchidna is SSVClusters {
             if (!shouldLiquidate && newVUnits != oldVUnits) {
                 uint128 operatorFeeUnitsNew = (idxOp * uint128(newVUnits)) / VUNITS_PRECISION;
                 uint128 networkFeeUnitsNew = (idxNet * uint128(newVUnits)) / VUNITS_PRECISION;
-                uint256 totalFeesNew = (uint256(operatorFeeUnitsNew) + uint256(networkFeeUnitsNew)) * ETH_DEDUCTED_DIGITS;
+                uint256 totalFeesNew =
+                    (uint256(operatorFeeUnitsNew) + uint256(networkFeeUnitsNew)) * ETH_DEDUCTED_DIGITS;
                 if (totalFeesNew != totalFeesOld) {
                     ISSVNetworkCore.Cluster memory altCluster = beforeCluster;
                     altCluster.index = clusterIndex;
@@ -528,7 +619,9 @@ contract SSVClustersEchidna is SSVClusters {
 
         delete seb.ebRoots[blockNum];
         bytes32[] memory proof = new bytes32[](0);
-        try attacker.updateClusterBalance(blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof) {
+        try attacker.updateClusterBalance(
+            blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof
+        ) {
             ebUpdateWithoutRootSucceeded = true;
         } catch {}
     }
@@ -553,8 +646,12 @@ contract SSVClustersEchidna is SSVClusters {
         seb.ebRoots[secondBlock] = secondRoot;
 
         bytes32[] memory proof = new bytes32[](0);
-        try attacker.updateClusterBalance(firstBlock, record.owner, operatorIds, record.cluster, effectiveBalance, proof) {
-            try attacker.updateClusterBalance(secondBlock, record.owner, operatorIds, record.cluster, effectiveBalance + 1, proof) {
+        try attacker.updateClusterBalance(
+            firstBlock, record.owner, operatorIds, record.cluster, effectiveBalance, proof
+        ) {
+            try attacker.updateClusterBalance(
+                    secondBlock, record.owner, operatorIds, record.cluster, effectiveBalance + 1, proof
+                ) {
                 ebUpdateFrequencyBypassed = true;
             } catch {}
         } catch {}
@@ -576,10 +673,14 @@ contract SSVClustersEchidna is SSVClusters {
         bytes32[] memory proof = new bytes32[](0);
 
         seb.ebRoots[blockNum] = root;
-        try attacker.updateClusterBalance(blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof) {
+        try attacker.updateClusterBalance(
+            blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof
+        ) {
             // Isolate stale-check behavior in second call.
             seb.clusterEB[clusterId].lastUpdateBlock = 0;
-            try attacker.updateClusterBalance(blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof) {
+            try attacker.updateClusterBalance(
+                blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof
+            ) {
                 ebUpdateStalenessBypassed = true;
             } catch {}
         } catch {}
@@ -622,6 +723,19 @@ contract SSVClustersEchidna is SSVClusters {
             sum += record.cluster.balance;
         }
         return sum == totalExpectedBalance;
+    }
+
+    function echidna_eth_balance_accounting() external view returns (bool) {
+        (uint256 liabilities, bool ok) = _addNoOverflow(totalExpectedBalance, _sumTrackedOperatorEthEarnings());
+        if (!ok) return false;
+
+        (liabilities, ok) = _addNoOverflow(liabilities, _daoEthBalance());
+        if (!ok) return false;
+
+        (liabilities, ok) = _addNoOverflow(liabilities, _stakingEthPoolBalance());
+        if (!ok) return false;
+
+        return address(this).balance >= liabilities;
     }
 
     function echidna_withdraw_limit_enforced() external view returns (bool) {
@@ -703,9 +817,9 @@ contract SSVClustersEchidna is SSVClusters {
     function _initOperators() internal {
         StorageData storage s = SSVStorage.load();
 
-        op1 = _createOperator(s, address(owner1), bytes32(uint256(0x1)));
-        op2 = _createOperator(s, address(owner2), bytes32(uint256(0x2)));
-        op3 = _createOperator(s, address(this), bytes32(uint256(0x3)));
+        op1 = _createOperator(s, address(opOwner1), bytes32(uint256(0x1)));
+        op2 = _createOperator(s, address(opOwner2), bytes32(uint256(0x2)));
+        op3 = _createOperator(s, address(opOwner3), bytes32(uint256(0x3)));
     }
 
     function _createOperator(StorageData storage s, address owner, bytes32 pk) internal returns (uint64) {
@@ -724,6 +838,13 @@ contract SSVClustersEchidna is SSVClusters {
         });
         s.operatorsPKs[keccak256(abi.encodePacked(pk))] = id;
         return id;
+    }
+
+    function _pickOperatorId(uint256 seed) internal view returns (uint64) {
+        uint256 key = seed % 3;
+        if (key == 0) return op1;
+        if (key == 1) return op2;
+        return op3;
     }
 
     function _operatorIdsForKey(uint8 key) internal view returns (uint64[] memory) {
@@ -765,15 +886,53 @@ contract SSVClustersEchidna is SSVClusters {
         return bytes32(0);
     }
 
+    function _staker(uint8 seed) internal view returns (StakingUser) {
+        if (seed % 2 == 0) return staker1;
+        return staker2;
+    }
+
     function _ownerUser(address owner) internal view returns (ClusterUser) {
         if (owner == address(owner1)) return owner1;
         if (owner == address(owner2)) return owner2;
         return attacker;
     }
 
+    function _operatorOwnerUser(uint64 operatorId) internal view returns (OperatorUser) {
+        if (operatorId == op1) return opOwner1;
+        if (operatorId == op2) return opOwner2;
+        return opOwner3;
+    }
+
     function _availableBalance() internal view returns (uint256) {
         if (address(this).balance <= totalExpectedBalance) return 0;
         return address(this).balance - totalExpectedBalance;
+    }
+
+    function _sumTrackedOperatorEthEarnings() internal view returns (uint256) {
+        StorageData storage s = SSVStorage.load();
+        uint256 sum = 0;
+
+        uint64[3] memory ids = [op1, op2, op3];
+        for (uint256 i; i < ids.length; ++i) {
+            sum += PackedETHLib.unpack(s.operators[ids[i]].ethSnapshot.balance);
+        }
+
+        return sum;
+    }
+
+    function _daoEthBalance() internal view returns (uint256) {
+        return PackedETHLib.unpack(SSVStorageProtocol.load().ethDaoBalance);
+    }
+
+    function _stakingEthPoolBalance() internal view returns (uint256) {
+        return PackedETHLib.unpack(SSVStorageStaking.load().stakingEthPoolBalance);
+    }
+
+    function _addNoOverflow(uint256 a, uint256 b) internal pure returns (uint256 sum, bool ok) {
+        unchecked {
+            sum = a + b;
+        }
+        ok = sum >= a;
     }
 
     function _boundAmount(uint256 seed, uint256 maxValue) internal pure returns (uint256) {
@@ -785,11 +944,10 @@ contract SSVClustersEchidna is SSVClusters {
         return keccak256(abi.encodePacked(keccak256(abi.encode(clusterId, effectiveBalance))));
     }
 
-    function _settleCluster(
-        bytes32 clusterId,
-        ClusterRecord storage record,
-        uint64[] memory operatorIds
-    ) internal returns (uint256 burned) {
+    function _settleCluster(bytes32 clusterId, ClusterRecord storage record, uint64[] memory operatorIds)
+        internal
+        returns (uint256 burned)
+    {
         uint256 beforeBalance = record.cluster.balance;
         ISSVNetworkCore.Cluster memory cluster = record.cluster;
 
@@ -863,6 +1021,9 @@ contract SSVClustersEchidna is SSVClusters {
         }
     }
 
+    function _mockSetToken(address tokenAddress) internal {
+        SSVStorage.load().token = IERC20(tokenAddress);
+    }
     function _boundEffectiveBalance(uint256 seed, uint32 validatorCount) internal pure returns (uint32) {
         if (validatorCount == 0) return 0;
 
