@@ -178,6 +178,33 @@ describe("SSVStaking function `onCSSVTransfer()`", async () => {
     expect(accruedB).to.equal(expectedB);
   });
 
+  it("Accrues future rewards for a receiver holding exactly 1 wei cSSV", async function () {
+    const { staking, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployStakingFixture);
+
+    const amountA = MIN_STAKE;
+    const transferAmount = 1n;
+
+    await stakeFor(staking, ssvToken, staker, amountA);
+
+    await freezeSync(staking);
+    const cssvSigner = await impersonate(await cssvToken.getAddress());
+
+    await staking.mockSetAccEthPerShare(2n * PRECISION);
+    await simulateCssvTransfer(staking, cssvToken, cssvSigner, staker, receiver.address, transferAmount);
+
+    expect(await cssvToken.balanceOf(receiver.address)).to.equal(transferAmount);
+    expect(await staking.getUserAccrued(receiver.address)).to.equal(0n);
+
+    await staking.mockSetAccEthPerShare(3n * PRECISION);
+    await staking.connect(cssvSigner).onCSSVTransfer(staker.address, receiver.address, 0n);
+
+    const accruedA = await staking.getUserAccrued(staker.address);
+    const accruedB = await staking.getUserAccrued(receiver.address);
+
+    expect(accruedA).to.equal((amountA * 2n) + (amountA - transferAmount));
+    expect(accruedB).to.equal(1n);
+  });
+
   it("Handles sequential transfer chain A->B->C with correct per-period reward accumulation", async function () {
     const { staking, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployStakingFixture);
 

@@ -35,7 +35,7 @@ Generated: 2026-03-18
 | 4 | Rewards stop on requestUnstake (partial) | Covered | e2e/lifecycle.ts:449 |
 | 5 | Rewards stop on cSSV transfer (full) | Covered | e2e/transfers.ts:55 |
 | 6 | Rewards stop on cSSV transfer (partial) | Covered | e2e/transfers.ts:55 |
-| 7 | Rewards with 1 wei cSSV | NOT COVERED | |
+| 7 | Rewards with 1 wei cSSV | Covered | unit/onCSSVTransfer.ts:181 |
 | 8 | Single staker gets all rewards | Covered | e2e/rewards.ts:290, e2e/lifecycle.ts:58 |
 | 9 | Two equal stakers split 50/50 | Partially | integration/staking.ts:474 (verifies equal stake) |
 | 10 | Two unequal stakers proportional | Covered | e2e/lifecycle.ts:168, e2e/rewards.ts:344 |
@@ -168,15 +168,15 @@ Generated: 2026-03-18
 | Section | Total | Covered | Partially | Not Covered |
 |---------|-------|---------|-----------|-------------|
 | 1. Staking | 18 | 17 | 0 | 1 |
-| 2. Earning Rewards | 26 | 14 | 2 | 10 |
+| 2. Earning Rewards | 26 | 15 | 2 | 9 |
 | 3. Claim Rewards | 17 | 17 | 0 | 0 |
 | 4. Request Unstake | 25 | 18 | 1 | 6 |
 | 5. Withdraw Unlocked | 16 | 14 | 0 | 2 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
 | 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **88** | **3** | **35** |
+| **Total** | **126** | **90** | **3** | **33** |
 
-**Overall: ~70% covered, ~2% partially covered, ~28% not covered**
+**Overall: ~71% covered, ~2% partially covered, ~26% not covered**
 
 ## Key Gaps
 
