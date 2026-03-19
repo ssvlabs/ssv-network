@@ -150,7 +150,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         _initProtocolDefaults();
         _initOperators();
-        _seedInitialActiveClusters();
     }
 
     receive() external payable {}
@@ -172,9 +171,34 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         uint32 validatorCount = uint32((seed >> 16) % 8) + 1;
         bool active = false;
         uint256 balance = 0;
+        uint64 clusterIndex = 0;
+        uint64 networkFeeIndex = 0;
+
+        uint256 available = _availableBalance();
+        if (available != 0) {
+            uint256 minRequired = _minimumActiveClusterBalance(operatorIds, validatorCount);
+            if (minRequired != 0 && minRequired <= available) {
+                active = true;
+                balance = minRequired;
+                clusterIndex = _currentClusterIndex(operatorIds);
+                networkFeeIndex = ProtocolLib.currentNetworkFeeIndex(SSVStorageProtocol.load());
+
+                StorageData storage s = SSVStorage.load();
+                StorageProtocol storage sp = SSVStorageProtocol.load();
+                uint256 count = operatorIds.length;
+                for (uint256 i; i < count; ++i) {
+                    s.operators[operatorIds[i]].ethValidatorCount += validatorCount;
+                }
+                sp.updateDAO(true, validatorCount);
+            }
+        }
 
         ISSVNetworkCore.Cluster memory cluster = ISSVNetworkCore.Cluster({
-            validatorCount: validatorCount, networkFeeIndex: 0, index: 0, active: active, balance: balance
+            validatorCount: validatorCount,
+            networkFeeIndex: networkFeeIndex,
+            index: clusterIndex,
+            active: active,
+            balance: balance
         });
 
         SSVStorage.load().ethClusters[clusterId] = cluster.hashClusterData();
@@ -270,8 +294,21 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         }
 
         if (liquidatable) {
-            try attacker.liquidate(record.owner, operatorIds, record.cluster) {}
-            catch {
+            if (record.cluster.balance == 0) return;
+            if (record.cluster.balance > address(this).balance) return;
+            try attacker.liquidate(record.owner, operatorIds, record.cluster) {
+                uint256 payout = record.cluster.balance;
+                _decreaseExpected(payout);
+
+                record.cluster.active = false;
+                record.cluster.balance = 0;
+                record.cluster.index = 0;
+                record.cluster.networkFeeIndex = 0;
+
+                if (SSVStorageEB.load().clusterEB[clusterId].vUnits != 0) {
+                    liquidationDidNotClearEbSnapshot = true;
+                }
+            } catch {
                 dustLiquidationFailed = true;
             }
         }
@@ -715,7 +752,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     }
 
     function echidna_cluster_balance_accounting() external view returns (bool) {
-        if (address(this).balance < totalExpectedBalance) return false;
         uint256 sum = 0;
         uint256 count = clusterIds.length;
         for (uint256 i; i < count; ++i) {
@@ -727,13 +763,16 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     }
 
     function echidna_eth_balance_accounting() external view returns (bool) {
-        (uint256 liabilities, bool ok) = _addNoOverflow(totalExpectedBalance, _sumTrackedOperatorEthEarnings());
+        (uint256 liabilities, bool ok) = _addNoOverflow(_sumProjectedClusterBalances(), _sumTrackedOperatorEthEarnings());
         if (!ok) return false;
 
-        (liabilities, ok) = _addNoOverflow(liabilities, _daoEthBalance());
-        if (!ok) return false;
+        uint256 protocolEthLiability = _daoEthBalance();
+        uint256 stakingPoolLiability = _stakingEthPoolBalance();
+        if (stakingPoolLiability > protocolEthLiability) {
+            protocolEthLiability = stakingPoolLiability;
+        }
 
-        (liabilities, ok) = _addNoOverflow(liabilities, _stakingEthPoolBalance());
+        (liabilities, ok) = _addNoOverflow(liabilities, protocolEthLiability);
         if (!ok) return false;
 
         return address(this).balance >= liabilities;
@@ -823,44 +862,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         op3 = _createOperator(s, address(opOwner3), bytes32(uint256(0x3)));
     }
 
-    function _seedInitialActiveClusters() internal {
-        _createInitialCluster(address(owner1), 0, 1, true);
-        _createInitialCluster(address(owner2), 1, 2, true);
-    }
-
-    function _createInitialCluster(address owner, uint8 operatorsKey, uint32 validatorCount, bool active) internal {
-        uint64[] memory operatorIds = _operatorIdsForKey(operatorsKey);
-        bytes32 clusterId = keccak256(abi.encodePacked(owner, operatorIds));
-        if (clusters[clusterId].exists) return;
-
-        uint64 clusterIndex = 0;
-        uint64 networkFeeIndex = 0;
-        if (active) {
-            StorageData storage s = SSVStorage.load();
-            StorageProtocol storage sp = SSVStorageProtocol.load();
-            clusterIndex = _currentClusterIndex(operatorIds);
-            networkFeeIndex = ProtocolLib.currentNetworkFeeIndex(sp);
-
-            uint256 count = operatorIds.length;
-            for (uint256 i; i < count; ++i) {
-                s.operators[operatorIds[i]].ethValidatorCount += validatorCount;
-            }
-            sp.updateDAO(true, validatorCount);
-        }
-
-        ISSVNetworkCore.Cluster memory cluster = ISSVNetworkCore.Cluster({
-            validatorCount: validatorCount,
-            networkFeeIndex: networkFeeIndex,
-            index: clusterIndex,
-            active: active,
-            balance: 0
-        });
-
-        SSVStorage.load().ethClusters[clusterId] = cluster.hashClusterData();
-        clusters[clusterId] = ClusterRecord({cluster: cluster, owner: owner, operatorsKey: operatorsKey, exists: true});
-        clusterIds.push(clusterId);
-    }
-
     function _createOperator(StorageData storage s, address owner, bytes32 pk) internal returns (uint64) {
         s.lastOperatorId.increment();
         uint64 id = uint64(s.lastOperatorId.current());
@@ -947,6 +948,15 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         return address(this).balance - totalExpectedBalance;
     }
 
+    function _minimumActiveClusterBalance(uint64[] memory operatorIds, uint32 validatorCount) internal view returns (uint256) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint256 burnRate = _burnRate(operatorIds);
+        uint256 minPerBlock =
+            (burnRate + PackedETH.unwrap(sp.ethNetworkFee)) * uint256(validatorCount) * ETH_DEDUCTED_DIGITS;
+        uint256 minRequired = minPerBlock * SOLVENCY_BLOCK_WINDOW;
+        return minRequired == 0 ? ETH_DEDUCTED_DIGITS : minRequired;
+    }
+
     function _sumTrackedOperatorEthEarnings() internal view returns (uint256) {
         StorageData storage s = SSVStorage.load();
         uint256 sum = 0;
@@ -957,6 +967,32 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         }
 
         return sum;
+    }
+
+    function _sumProjectedClusterBalances() internal view returns (uint256 sum) {
+        uint256 count = clusterIds.length;
+        for (uint256 i; i < count; ++i) {
+            bytes32 clusterId = clusterIds[i];
+            ClusterRecord storage record = clusters[clusterId];
+            if (!record.exists) continue;
+            sum += _projectedClusterBalance(clusterId, record);
+        }
+    }
+
+    function _projectedClusterBalance(bytes32 clusterId, ClusterRecord storage record) internal view returns (uint256) {
+        ISSVNetworkCore.Cluster memory cluster = record.cluster;
+        if (!cluster.active) return cluster.balance;
+
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        uint64 clusterIndex = _currentClusterIndex(operatorIds);
+        uint64 networkFeeIndex = ProtocolLib.currentNetworkFeeIndex(SSVStorageProtocol.load());
+
+        if (clusterIndex < cluster.index || networkFeeIndex < cluster.networkFeeIndex) {
+            return cluster.balance;
+        }
+
+        cluster.updateBalanceWithEB(clusterId, clusterIndex, networkFeeIndex);
+        return cluster.balance;
     }
 
     function _daoEthBalance() internal view returns (uint256) {
