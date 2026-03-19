@@ -109,6 +109,7 @@
 | QUALITY-10 | ~~`removeOperator` does not clear `operatorEthVUnits` — orphaned deviation~~ | Code Quality | P1 | ✅ Fixed |
 | QUALITY-11 | ~~`commitRoot` skips `WeightedRootProposed` on quorum-reaching vote~~ | Code Quality | P2 | ✅ Fixed |
 | QUALITY-12 | ~~Unsafe `uint128 → uint64` casts in operator/DAO earnings accumulation~~ | Code Quality | P2 | ✅ Fixed |
+| QUALITY-13 | ~~Refactor tests, fixtures, helpers and migrate e2e tests to full fixtures~~ | Code Quality | P2 | ✅ Done |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
