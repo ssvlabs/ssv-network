@@ -18,7 +18,7 @@ test-unit:
 test-integration:
     NO_GAS_ENFORCE=true npx hardhat test $(find test/integration -maxdepth 1 -name "*.test.ts" | xargs)
 
-# Run fork tests against mainnet state (requires MAINNET_ETH_NODE_URL in .env)
+# Run fork tests against mainnet state (requires MAINNET_RPC_URL in .env)
 test-forked:
     NO_GAS_ENFORCE=true RUN_FORK=true npx hardhat test $(find test/forked -name "*.test.ts" | xargs)
 

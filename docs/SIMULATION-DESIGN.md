@@ -241,7 +241,7 @@ hardhat_forked: {
 ```
 
 The fork approach:
-1. Start Anvil: `anvil --fork-url "$MAINNET_ETH_NODE_URL" --port 8545`
+1. Start Anvil: `anvil --fork-url "$MAINNET_RPC_URL" --port 8545`
 2. Run tests with `npx hardhat test --network hardhat_forked`
 3. Optionally pin block with `FORK_BLOCK_NUMBER=<N>`
 

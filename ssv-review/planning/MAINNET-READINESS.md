@@ -113,7 +113,7 @@
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
 | OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
-| OPS-4 | Multisig batch tx method untested in sequential stage/prod/mainnet pipeline | Operational Readiness | P1 | Open |
+| OPS-4 | ~~Multisig batch tx method untested in sequential stage/prod/mainnet pipeline~~ | Operational Readiness | P1 | ✅ Done |
 | FUZZ-1 | ~~Strengthen 5 partially-covered echidna invariants~~ | Echidna Invariant Suite | P1 | ✅ Done |
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
 | FUZZ-3 | ~~Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV)~~ | Echidna Invariant Suite | P2 | ✅ Done |
@@ -3051,25 +3051,30 @@ The UUPS proxy pattern allows module replacement. If a bug is found in a deploye
 
 ---
 
-### [OPS-3] Update `.env.example` for v2.0.0
+### [OPS-3] ~~Update `.env.example` for v2.0.0~~
 - **Type:** Operational Readiness
 - **Priority:** P2
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Closed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-12
 - **Github Link:** (empty)
 
 **Requirement:**
 Update `.env.example` with v2.0.0 parameter names and values.
 
-**Context:**
-`.env.example` still contains v1 values: `MINIMUM_BLOCKS_BEFORE_LIQUIDATION=100800`, `MINIMUM_LIQUIDATION_COLLATERAL=200000000` (SSV-denominated), `OPERATOR_MAX_FEE_INCREASE=3`, `QUORUM_BPS=6700`. Missing all ETH-specific params.
+**Resolution:**
+Updated `.env.example` to reflect the current v2.0.0 workflow:
+- added the actual runtime env vars used by Hardhat and deployment scripts (`MAINNET_RPC_URL`, per-network RPC URLs, private keys, token overrides, `ETHERSCAN_KEY`)
+- added fork/test overrides used by the fork runner and test helpers (`FORK_*`, `DEFAULT_ORACLE_IDS`, gas/test toggles)
+- added a commented v2.0.0 protocol reference block with current ETH-era defaults (`NETWORK_FEE_ETH`, `MIN_OPERATOR_ETH_FEE`, `MAX_OPERATOR_ETH_FEE`, `DEFAULT_OPERATOR_ETH_FEE`, liquidation/cooldown/quorum values)
+
+The file now makes the split explicit: deploy/upgrade source of truth is `deployments/<env>/config.json`, while `.env` only carries runtime secrets and optional overrides.
 
 **Acceptance Criteria:**
-- [ ] All v1-only params removed or updated
-- [ ] ETH-specific params added: `NETWORK_FEE_ETH`, `MIN_OPERATOR_ETH_FEE`, `MAX_OPERATOR_ETH_FEE`, `DEFAULT_OPERATOR_ETH_FEE`
-- [ ] Values match DIP-X spec defaults
-- [ ] Comments explain each parameter
+- [x] All v1-only params removed or updated
+- [x] ETH-specific params added: `NETWORK_FEE_ETH`, `MIN_OPERATOR_ETH_FEE`, `MAX_OPERATOR_ETH_FEE`, `DEFAULT_OPERATOR_ETH_FEE`
+- [x] Values match DIP-X spec defaults
+- [x] Comments explain each parameter
 
 **Agent Instructions:**
 1. Read `.env.example`.
@@ -3077,9 +3082,9 @@ Update `.env.example` with v2.0.0 parameter names and values.
 3. Update the file with v2.0.0 parameters and inline comments.
 
 #### Sub-items:
-- [ ] Sub-task 1: Update existing params
-- [ ] Sub-task 2: Add ETH-specific params
-- [ ] Sub-task 3: Add inline comments
+- [x] Sub-task 1: Update existing params
+- [x] Sub-task 2: Add ETH-specific params
+- [x] Sub-task 3: Add inline comments
 
 ---
 
