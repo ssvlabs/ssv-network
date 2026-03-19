@@ -18,6 +18,7 @@ export type ForkConfigFile = {
     declareOperatorFeePeriod?: string | number;
     executeOperatorFeePeriod?: string | number;
     liquidationThresholdPeriod?: string | number;
+    liquidationThresholdPeriodSSV?: string | number;
     minimumLiquidationCollateralEth?: string | number;
     minimumLiquidationCollateralSSV?: string | number;
     validatorsPerOperatorLimit?: string | number;
@@ -32,6 +33,7 @@ export type ForkConfigFile = {
   declareOperatorFeePeriod?: string | number;
   executeOperatorFeePeriod?: string | number;
   liquidationThresholdPeriod?: string | number;
+  liquidationThresholdPeriodSSV?: string | number;
   minimumLiquidationCollateralEth?: string | number;
   minimumLiquidationCollateralSSV?: string | number;
   validatorsPerOperatorLimit?: string | number;

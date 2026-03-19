@@ -123,7 +123,7 @@ contract SSVEdgeCasesEchidna is SSVClusters {
             if (burnRate == 0) return;
 
             uint64 vUnits = ClusterLib.getVUnits(clusterId, record.cluster.validatorCount);
-            uint128 perBlockUnits = (uint128(burnRate + PackedETH.unwrap(sp.ethNetworkFee)) * uint128(vUnits)) / VUNITS_PRECISION;
+            uint128 perBlockUnits = (uint128(burnRate + PackedETH.unwrap(sp.ethNetworkFee)) * uint128(vUnits)) / BPS_DENOMINATOR;
             uint256 perBlock = PackedETHLib.unpack(PackedETH.wrap(uint64(perBlockUnits)));
             if (perBlock == 0) return;
 
@@ -206,7 +206,7 @@ contract SSVEdgeCasesEchidna is SSVClusters {
         }
 
         StorageEB storage seb = SSVStorageEB.load();
-        uint64 baseline = uint64(record.cluster.validatorCount) * VUNITS_PRECISION;
+        uint64 baseline = uint64(record.cluster.validatorCount) * BPS_DENOMINATOR;
         if (baseline == 0) return;
         
         // Deviation-only model: set up a valid scenario with POSITIVE deviation
@@ -531,11 +531,11 @@ contract SSVEdgeCasesEchidna is SSVClusters {
         
         // Deviation-only model: effectiveVUnits = baseline + storedDeviation
         uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
-        uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
+        uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * BPS_DENOMINATOR);
 
         operator.ethSnapshot.index += blockDiffFee;
         if (effectiveVUnits != 0 && blockDiffFee != 0) {
-            uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
+            uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
             operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
         }
         operator.ethSnapshot.block = currentBlock;

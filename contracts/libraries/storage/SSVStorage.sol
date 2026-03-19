@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../../interfaces/ISSVNetworkCore.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ISSVNetworkCore} from "../../interfaces/ISSVNetworkCore.sol";
+import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 enum SSVModules {
     SSV_OPERATORS,

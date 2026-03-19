@@ -9,8 +9,7 @@ import "../../contracts/test/mocks/MockToken.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETH, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 interface IStakingHook {
     function onCSSVTransfer(address from, address to, uint256 amount) external;
@@ -98,7 +97,8 @@ contract SSVStakingEchidna is SSVStaking {
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint256 private constant MAX_STAKE = 1_000_000 ether;
-    uint256 private constant MAX_PENDING_REQUESTS = 10;
+    // Mirror SSVStaking.MAX_PENDING_REQUESTS to avoid harness-only false negatives.
+    uint256 private constant MAX_PENDING_REQUESTS = 2000;
 
     MockToken private token;
     CSSVTokenMock private cssv;
@@ -114,6 +114,14 @@ contract SSVStakingEchidna is SSVStaking {
     bool private invalidStakeSucceeded;
     bool private invalidUnstakeSucceeded;
     bool private invalidWithdrawSucceeded;
+    bool private cssvSupplyDeltaMismatch;
+    bool private userIndexSettleMismatch;
+    bool private claimDeltaMismatch;
+    bool private payoutAccountingOverflow;
+
+    uint256 private expectedCssvSupply;
+    uint256 private totalEthCreditedWei;
+    uint256 private totalEthPaidOutWei;
 
     constructor() SSVStaking(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
@@ -128,11 +136,14 @@ contract SSVStakingEchidna is SSVStaking {
         user4 = new StakingUser(self, IERC20(address(token)), IERC20(address(cssv)));
 
         _mockSetDefaultOracleIds();
+        expectedCssvSupply = cssv.totalSupply();
     }
 
     function action_stake(uint256 seed, uint8 userSeed) external {
         StakingUser user = _user(userSeed);
         uint256 amount = _boundAmount(seed);
+        uint64 beforePool = PackedETH.unwrap(SSVStorageStaking.load().stakingEthPoolBalance);
+        uint256 beforeSupply = cssv.totalSupply();
 
         if (seed % 10 == 0) {
             amount = 0;
@@ -146,13 +157,28 @@ contract SSVStakingEchidna is SSVStaking {
         bool invalid = amount == 0 || amount < MINIMAL_STAKING_AMOUNT;
         try user.stake(amount) {
             if (invalid) invalidStakeSucceeded = true;
+            if (!invalid) {
+                uint256 afterSupply = cssv.totalSupply();
+                if (afterSupply != beforeSupply + amount) {
+                    cssvSupplyDeltaMismatch = true;
+                }
+                if (expectedCssvSupply > type(uint256).max - amount) {
+                    payoutAccountingOverflow = true;
+                } else {
+                    expectedCssvSupply += amount;
+                }
+                _checkSettledUser(address(user));
+            }
         } catch {}
+        _trackPoolCredit(beforePool, PackedETH.unwrap(SSVStorageStaking.load().stakingEthPoolBalance));
     }
 
     function action_request_unstake(uint256 seed, uint8 userSeed) external {
         StorageStaking storage s = SSVStorageStaking.load();
         StakingUser user = _user(userSeed);
         address userAddr = address(user);
+        uint64 beforePool = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint256 beforeSupply = cssv.totalSupply();
 
         uint256 balance = cssv.balanceOf(userAddr);
         uint256 amount;
@@ -171,7 +197,20 @@ contract SSVStakingEchidna is SSVStaking {
 
         try user.requestUnstake(amount) {
             if (invalid) invalidUnstakeSucceeded = true;
+            if (!invalid) {
+                uint256 afterSupply = cssv.totalSupply();
+                if (beforeSupply < amount || afterSupply != beforeSupply - amount) {
+                    cssvSupplyDeltaMismatch = true;
+                }
+                if (expectedCssvSupply < amount) {
+                    cssvSupplyDeltaMismatch = true;
+                } else {
+                    expectedCssvSupply -= amount;
+                }
+                _checkSettledUser(userAddr);
+            }
         } catch {}
+        _trackPoolCredit(beforePool, PackedETH.unwrap(SSVStorageStaking.load().stakingEthPoolBalance));
     }
 
     function action_withdraw_unlocked(uint8 userSeed) external {
@@ -186,20 +225,45 @@ contract SSVStakingEchidna is SSVStaking {
     }
 
     function action_claim_rewards(uint8 userSeed) external {
+        StorageStaking storage s = SSVStorageStaking.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
         StakingUser user = _user(userSeed);
-        try user.claim() {} catch {}
+        uint64 beforePool = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint64 beforeDao = PackedETH.unwrap(sp.ethDaoBalance);
+        uint256 beforeUserBalance = address(user).balance;
+        try user.claim() {
+            uint64 afterPool = PackedETH.unwrap(s.stakingEthPoolBalance);
+            uint64 afterDao = PackedETH.unwrap(sp.ethDaoBalance);
+            uint256 afterUserBalance = address(user).balance;
+            uint256 payout = afterUserBalance - beforeUserBalance;
+
+            if (afterPool > beforePool || afterDao > beforeDao) {
+                claimDeltaMismatch = true;
+            } else {
+                uint256 poolDeltaWei = uint256(beforePool - afterPool) * ETH_DEDUCTED_DIGITS;
+                uint256 daoDeltaWei = uint256(beforeDao - afterDao) * ETH_DEDUCTED_DIGITS;
+                if (poolDeltaWei != payout || daoDeltaWei != payout) {
+                    claimDeltaMismatch = true;
+                }
+            }
+
+            _addPaidOut(payout);
+            _checkSettledUser(address(user));
+        } catch {}
     }
 
     function action_transfer_cssv(uint256 seed, uint8 fromSeed, uint8 toSeed) external {
         StakingUser fromUser = _user(fromSeed);
         StakingUser toUser = _user(toSeed);
         if (address(fromUser) == address(toUser)) return;
+        uint64 beforePool = PackedETH.unwrap(SSVStorageStaking.load().stakingEthPoolBalance);
 
         uint256 balance = cssv.balanceOf(address(fromUser));
         if (balance == 0) return;
 
         uint256 amount = (seed % balance) + 1;
         try fromUser.transferCSSV(address(toUser), amount) {} catch {}
+        _trackPoolCredit(beforePool, PackedETH.unwrap(SSVStorageStaking.load().stakingEthPoolBalance));
     }
 
     function action_sync_fees_with_increase(uint256 seed) external {
@@ -214,6 +278,7 @@ contract SSVStakingEchidna is SSVStaking {
 
         uint64 oldDao = PackedETH.unwrap(sp.ethDaoBalance);
         uint32 oldIndex = sp.ethDaoIndexBlockNumber;
+        uint64 beforePool = PackedETH.unwrap(s.stakingEthPoolBalance);
 
         sp.ethDaoBalance = PackedETH.wrap(current);
         sp.ethDaoIndexBlockNumber = uint32(block.number);
@@ -227,6 +292,7 @@ contract SSVStakingEchidna is SSVStaking {
             sp.ethDaoBalance = PackedETH.wrap(oldDao);
             sp.ethDaoIndexBlockNumber = oldIndex;
         }
+        _trackPoolCredit(beforePool, PackedETH.unwrap(s.stakingEthPoolBalance));
     }
 
     function action_sync_fees_with_decrease(uint256 seed) external {
@@ -240,6 +306,7 @@ contract SSVStakingEchidna is SSVStaking {
 
         uint64 oldDao = PackedETH.unwrap(sp.ethDaoBalance);
         uint32 oldIndex = sp.ethDaoIndexBlockNumber;
+        uint64 beforePool = PackedETH.unwrap(s.stakingEthPoolBalance);
 
         s.stakingEthPoolBalance = PackedETH.wrap(previous);
         _mockSetEthDaoBalance(current);
@@ -255,6 +322,7 @@ contract SSVStakingEchidna is SSVStaking {
             sp.ethDaoBalance = PackedETH.wrap(oldDao);
             sp.ethDaoIndexBlockNumber = oldIndex;
         }
+        _trackPoolCredit(beforePool, PackedETH.unwrap(s.stakingEthPoolBalance));
     }
 
     function echidna_sync_fees_handles_decrease() external view returns (bool) {
@@ -284,7 +352,11 @@ contract SSVStakingEchidna is SSVStaking {
             cssv.balanceOf(address(user2)) +
             cssv.balanceOf(address(user3)) +
             cssv.balanceOf(address(user4));
-        return supply == sumBalances;
+        return !cssvSupplyDeltaMismatch && supply == sumBalances && supply == expectedCssvSupply;
+    }
+
+    function echidna_cssv_supply_lte_ssv_backing() external view returns (bool) {
+        return cssv.totalSupply() <= token.balanceOf(address(this));
     }
 
     function echidna_ssv_balance_matches_staked_plus_pending() external view returns (bool) {
@@ -297,7 +369,7 @@ contract SSVStakingEchidna is SSVStaking {
 
     function echidna_pool_matches_dao_balance() external view returns (bool) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        return SSVStorageStaking.load().stakingEthPoolBalance.eq(sp.ethDaoBalance);
+        return !claimDeltaMismatch && SSVStorageStaking.load().stakingEthPoolBalance.eq(sp.ethDaoBalance);
     }
 
     function echidna_pending_requests_bounded() external view returns (bool) {
@@ -310,6 +382,7 @@ contract SSVStakingEchidna is SSVStaking {
     }
 
     function echidna_user_index_leq_acc() external view returns (bool) {
+        if (userIndexSettleMismatch) return false;
         StorageStaking storage s = SSVStorageStaking.load();
         uint256 acc = s.accEthPerShare;
         if (s.userIndex[address(user1)] > acc) return false;
@@ -320,14 +393,17 @@ contract SSVStakingEchidna is SSVStaking {
     }
 
     function echidna_accrued_within_pool() external view returns (bool) {
-        if (sawDecrease) return true;
+        if (payoutAccountingOverflow || claimDeltaMismatch) return false;
         StorageStaking storage s = SSVStorageStaking.load();
-        uint256 accrued = s.accrued[address(user1)] +
-            s.accrued[address(user2)] +
-            s.accrued[address(user3)] +
-            s.accrued[address(user4)];
+        uint256 accrued = _roundedDownToPayoutPrecision(s.accrued[address(user1)]) +
+            _roundedDownToPayoutPrecision(s.accrued[address(user2)]) +
+            _roundedDownToPayoutPrecision(s.accrued[address(user3)]) +
+            _roundedDownToPayoutPrecision(s.accrued[address(user4)]);
         uint256 poolWei = uint256(PackedETH.unwrap(SSVStorageProtocol.load().ethDaoBalance)) * ETH_DEDUCTED_DIGITS;
-        return accrued <= poolWei;
+        if (totalEthPaidOutWei > totalEthCreditedWei) return false;
+        if (accrued <= poolWei) return true;
+        if (accrued > type(uint256).max - totalEthPaidOutWei) return false;
+        return accrued + totalEthPaidOutWei <= totalEthCreditedWei;
     }
 
     function _boundShrunk(uint256 seed, uint64 maxValue) internal pure returns (uint64) {
@@ -387,17 +463,56 @@ contract SSVStakingEchidna is SSVStaking {
     }
 
     // Override to add access control check (simulating SSVNetwork.sol behavior)
-    function onCSSVTransfer(address from, address to, uint256 amount) external override {
+    function onCSSVTransfer(address from, address to, uint256) external override {
+        if (msg.sender != CSSV_ADDRESS) revert NotCSSV();
         StorageStaking storage s = SSVStorageStaking.load();
 
         _syncFees(s);
         _settle(from, s);
         _settle(to, s);
+        _checkSettledWithStorage(s, from);
+        _checkSettledWithStorage(s, to);
     }
 
     function _mockSetEthDaoBalance(uint64 balance) internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethDaoBalance = PackedETH.wrap(balance);
         sp.ethDaoIndexBlockNumber = uint32(block.number);
+    }
+
+    function _roundedDownToPayoutPrecision(uint256 amount) internal pure returns (uint256) {
+        return amount - (amount % ETH_DEDUCTED_DIGITS);
+    }
+
+    function _checkSettledUser(address user) internal {
+        _checkSettledWithStorage(SSVStorageStaking.load(), user);
+    }
+
+    function _checkSettledWithStorage(StorageStaking storage s, address user) internal {
+        if (s.userIndex[user] != s.accEthPerShare) {
+            userIndexSettleMismatch = true;
+        }
+    }
+
+    function _trackPoolCredit(uint64 beforePoolUnits, uint64 afterPoolUnits) internal {
+        if (afterPoolUnits <= beforePoolUnits) return;
+        uint256 deltaWei = uint256(afterPoolUnits - beforePoolUnits) * ETH_DEDUCTED_DIGITS;
+        _addCredited(deltaWei);
+    }
+
+    function _addCredited(uint256 amountWei) internal {
+        if (totalEthCreditedWei > type(uint256).max - amountWei) {
+            payoutAccountingOverflow = true;
+            return;
+        }
+        totalEthCreditedWei += amountWei;
+    }
+
+    function _addPaidOut(uint256 amountWei) internal {
+        if (totalEthPaidOutWei > type(uint256).max - amountWei) {
+            payoutAccountingOverflow = true;
+            return;
+        }
+        totalEthPaidOutWei += amountWei;
     }
 }

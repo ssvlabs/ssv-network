@@ -10,8 +10,8 @@ import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {PackedETHLib, PackedSSVLib, DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH, PackedSSV} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETHLib, PackedSSVLib} from "../../contracts/libraries/SSVPackedLib.sol";
+import {PackedETH, PackedSSV, DEDUCTED_DIGITS, BPS_DENOMINATOR} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 
 contract OperatorUser {
@@ -878,11 +878,11 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
             // Deviation-only model: effectiveVUnits = baseline + storedDeviation
             uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
-            uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
+            uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * BPS_DENOMINATOR);
 
             operator.ethSnapshot.index += blockDiffFee;
             if (effectiveVUnits != 0 && blockDiffFee != 0) {
-                uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
+                uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
                 operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
             }
             operator.ethSnapshot.block = currentBlock;
@@ -912,11 +912,11 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
             uint64 blockDiffFee = uint64(blocks) * PackedETH.unwrap(operator.ethFee);
             // Deviation-only model: effectiveVUnits = baseline + storedDeviation
             uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
-            uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * VUNITS_PRECISION);
+            uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * BPS_DENOMINATOR);
 
             operator.ethSnapshot.index += blockDiffFee;
             if (effectiveVUnits != 0 && blockDiffFee != 0) {
-                uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
+                uint128 delta = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
                 operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
             }
             operator.ethSnapshot.block = currentBlock;

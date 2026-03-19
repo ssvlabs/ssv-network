@@ -6,7 +6,7 @@ import {
   OPERATOR_FEE_PRECISION,
   MINIMAL_OPERATOR_ETH_FEE,
   SSV_MODULE_CONTRACTS,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
 } from './constants.ts';
 import type { NetworkConnection } from 'hardhat/types/network';
 import type { Cluster, ClusterTuple, OperatorTuple, SSVModules } from './types.ts';
@@ -152,9 +152,9 @@ export async function calculateInitialBurnRate(
 
   const networkFee: bigint = BigInt((await views.getNetworkFee()).toString());
 
-  const vUnits: bigint = BigInt(cluster.validatorCount.toString()) * VUNITS_PRECISION;
+  const vUnits: bigint = BigInt(cluster.validatorCount.toString()) * BPS_DENOMINATOR;
 
-  const units: bigint = vUnits / VUNITS_PRECISION;
+  const units: bigint = vUnits / BPS_DENOMINATOR;
 
   return (networkFee + operatorsFee) * units;
 }
@@ -212,7 +212,7 @@ export async function addValidatorsToCluster(
 ): Promise<Cluster> {
   await connection.ethers.provider.send("hardhat_setBalance", [
     clusterOwner.address,
-    "0x" + (DEFAULT_ETH_REGISTER_VALUE + 10n ** 18n).toString(16),
+    "0x" + (1000n * 10n ** 18n).toString(16),
   ]);
 
   await network.connect(clusterOwner).bulkRegisterValidator(

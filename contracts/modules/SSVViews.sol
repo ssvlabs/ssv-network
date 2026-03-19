@@ -4,14 +4,15 @@ pragma solidity 0.8.24;
 import {ISSVViews} from "../interfaces/ISSVViews.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
-import "../libraries/ClusterLib.sol";
-import "../libraries/OperatorLib.sol";
-import "../libraries/CoreLib.sol";
-import "../libraries/ProtocolLib.sol";
-import {PackedSSV, PackedETH, PACKED_ETH_ZERO, PACKED_SSV_ZERO, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE} from "../libraries/SSVCoreTypes.sol";
+import {ClusterLib} from "../libraries/ClusterLib.sol";
+import {OperatorLib} from "../libraries/OperatorLib.sol";
+import {CoreLib} from "../libraries/CoreLib.sol";
+import {ProtocolLib} from "../libraries/ProtocolLib.sol";
+import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, DEFAULT_OPERATOR_ETH_FEE, PRECISION, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
+import {SSVStorageEB, StorageEB} from "../libraries/storage/SSVStorageEB.sol";
 import {MAX_DELEGATION_SLOTS, SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/storage/SSVStorageStaking.sol";
 
 contract SSVViews is ISSVViews {
@@ -20,8 +21,6 @@ contract SSVViews is ISSVViews {
     using ProtocolLib for StorageProtocol;
     using PackedETHLib for PackedETH;
     using PackedSSVLib for PackedSSV;
-
-    uint256 private constant PRECISION = 1e18;
 
     address public immutable CSSV_ADDRESS;
 
@@ -45,7 +44,7 @@ contract SSVViews is ISSVViews {
      * @inheritdoc ISSVViews
      */
     function getOperatorFee(uint64 operatorId) external view override returns (uint256) {
-        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
+        Operator storage operator = SSVStorage.load().operators[operatorId];
         if (operator.ethSnapshot.block != 0) {
             return PackedETHLib.unpack(operator.ethFee);
         } else if (PackedSSV.unwrap(operator.fee) != 0) {
@@ -84,7 +83,7 @@ contract SSVViews is ISSVViews {
         uint64 operatorId
     ) external view override returns (OperatorData memory op)
     {
-        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
+        Operator storage operator = SSVStorage.load().operators[operatorId];
 
         op.owner = operator.owner;
         if (operator.ethSnapshot.block != 0) {
@@ -96,7 +95,7 @@ contract SSVViews is ISSVViews {
         op.validatorCount = operator.ethValidatorCount;
         op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
         op.isPrivate = operator.whitelisted;
-        op.isActive = operator.ethSnapshot.block != 0;
+        op.isActive = operator.ethSnapshot.block != 0 || operator.snapshot.block != 0;
     }
 
     /**
@@ -106,14 +105,14 @@ contract SSVViews is ISSVViews {
         uint64 operatorId
     ) external view override returns (OperatorData memory op)
     {
-        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[operatorId];
+        Operator storage operator = SSVStorage.load().operators[operatorId];
 
         op.owner = operator.owner;
         op.fee = PackedSSVLib.unpack(operator.fee);
         op.validatorCount = operator.validatorCount;
         op.whitelistedAddress = SSVStorage.load().operatorsWhitelist[operatorId];
         op.isPrivate = operator.whitelisted;
-        op.isActive = operator.snapshot.block != 0;
+        op.isActive = operator.ethSnapshot.block != 0 || operator.snapshot.block != 0;
     }
 
     /**
@@ -225,7 +224,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, VERSION_ETH);
 
         if (!cluster.active) {
@@ -236,7 +236,7 @@ contract SSVViews is ISSVViews {
         uint64 burnRate;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             clusterIndex += operator.ethSnapshot.index + (uint64(block.number) - operator.ethSnapshot.block) * PackedETH.unwrap(operator.ethFee);
             burnRate += PackedETH.unwrap(operator.ethFee);
         }
@@ -262,7 +262,8 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (bool) {
-        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         ClusterLib.validateClusterVersion(version, VERSION_SSV);
 
         if (!cluster.active) {
@@ -273,7 +274,7 @@ contract SSVViews is ISSVViews {
         uint64 burnRate;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * PackedSSV.unwrap(operator.fee);
             burnRate += PackedSSV.unwrap(operator.fee);
         }
@@ -310,16 +311,18 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(
+        StorageData storage s = SSVStorage.load();
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(
             clusterOwner,
             operatorIds,
-            SSVStorage.load()
+            s
         );
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
 
         PackedETH operatorsFee;
         uint256 len = operatorIds.length;
         for (uint256 i; i < len; ++i) {
-            Operator memory op = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory op = s.operators[operatorIds[i]];
             if (op.owner != address(0)) {
                 operatorsFee = operatorsFee.add(op.ethFee);
             }
@@ -329,10 +332,10 @@ contract SSVViews is ISSVViews {
 
         uint64 vUnits = SSVStorageEB.load().clusterEB[hashedCluster].vUnits;
         if (vUnits == 0) {
-            vUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            vUnits = uint64(cluster.validatorCount) * BPS_DENOMINATOR;
         }
 
-        return (PackedETHLib.unpack(networkFee.add(operatorsFee)) * uint256(vUnits)) / VUNITS_PRECISION;
+        return (PackedETHLib.unpack(networkFee.add(operatorsFee)) * uint256(vUnits)) / BPS_DENOMINATOR;
     }
 
     /**
@@ -343,16 +346,14 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256) {
-        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
-
-        if (version != VERSION_SSV) {
-            return 0;
-        }
+        StorageData storage s = SSVStorage.load();
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, VERSION_SSV);
 
         PackedSSV aggregateFee;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             if (operator.owner != address(0)) {
                 aggregateFee = aggregateFee.add(operator.fee);
             }
@@ -390,16 +391,15 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256 balance) {
-        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
-        if (version != VERSION_ETH) {
-            return 0;
-        }
+        StorageData storage s = SSVStorage.load();
+        (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, VERSION_ETH);
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             clusterIndex += operator.ethSnapshot.index + (uint64(block.number) - operator.ethSnapshot.block) * PackedETH.unwrap(operator.ethFee);
         }
 
@@ -416,16 +416,15 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view override returns (uint256 balance) {
-        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
-        if (version != VERSION_SSV) {
-            return 0;
-        }
+        StorageData storage s = SSVStorage.load();
+        (, uint8 version) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
+        ClusterLib.validateClusterVersion(version, VERSION_SSV);
         cluster.validateClusterIsNotLiquidated();
 
         uint64 clusterIndex;
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
-            Operator memory operator = SSVStorage.load().operators[operatorIds[i]];
+            Operator memory operator = s.operators[operatorIds[i]];
             clusterIndex += operator.snapshot.index + (uint64(block.number) - operator.snapshot.block) * PackedSSV.unwrap(operator.fee);
         }
 
@@ -441,14 +440,15 @@ contract SSVViews is ISSVViews {
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view returns (uint32 effectiveBalance) {
-        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(clusterOwner, operatorIds, SSVStorage.load());
+        StorageData storage s = SSVStorage.load();
+        (bytes32 hashedCluster, ) = cluster.validateHashedCluster(clusterOwner, operatorIds, s);
         cluster.validateClusterIsNotLiquidated();
 
         StorageEB storage seb = SSVStorageEB.load();
         uint64 vUnits = seb.clusterEB[hashedCluster].vUnits;
 
         if (vUnits == 0) {
-            vUnits = cluster.validatorCount * VUNITS_PRECISION;
+            vUnits = cluster.validatorCount * BPS_DENOMINATOR;
         }
 
         return ClusterLib.vUnitsToEB(vUnits);
@@ -531,9 +531,10 @@ contract SSVViews is ISSVViews {
      * @inheritdoc ISSVViews
      */
     function getOperatorFeePeriods() external view override returns (OperatorFeePeriodsData memory) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
         return OperatorFeePeriodsData(
-            SSVStorageProtocol.load().declareOperatorFeePeriod,
-            SSVStorageProtocol.load().executeOperatorFeePeriod
+            sp.declareOperatorFeePeriod,
+            sp.executeOperatorFeePeriod
         );
     }
 

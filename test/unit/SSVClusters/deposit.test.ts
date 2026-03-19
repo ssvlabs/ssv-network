@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
@@ -47,6 +47,9 @@ describe("SSVClusters function `deposit()`", async () => {
     return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
   };
 
+  const getContractEthBalance = async (clusters: any) =>
+    connection.ethers.provider.getBalance(await clusters.getAddress());
+
   it("Deposits into an existing cluster, updates balance and emits correct event", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
@@ -54,6 +57,7 @@ describe("SSVClusters function `deposit()`", async () => {
     const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
 
     const depositAmount = 1n;
+    const contractBalanceBeforeDeposit = await getContractEthBalance(clusters);
 
     const depositReceipt = await trackGas(
       clusters.deposit(
@@ -65,9 +69,11 @@ describe("SSVClusters function `deposit()`", async () => {
       [GasGroup.DEPOSIT]
     );
     const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+    const contractBalanceAfterDeposit = await getContractEthBalance(clusters);
 
     expect(depositReceipt.eventsByName[Events.CLUSTER_DEPOSITED]).to.have.lengthOf(1);
     expect(clusterAfterDeposit.balance).to.equal(clusterBeforeDeposit.balance + depositAmount);
+    expect(contractBalanceAfterDeposit - contractBalanceBeforeDeposit).to.equal(depositAmount);
   });
 
   it("Does not change operatorEthVUnits or stored cluster EB snapshot when depositing", async function () {
@@ -77,7 +83,7 @@ describe("SSVClusters function `deposit()`", async () => {
     const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    await clusters.mockSetClusterVUnits(clusterId, 7n * VUNITS_PRECISION);
+    await clusters.mockSetClusterVUnits(clusterId, 7n * BPS_DENOMINATOR);
 
     const beforeClusterVUnits = await clusters.getClusterVUnits(clusterId);
     const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => clusters.getOperatorEthVUnits(id)));
@@ -110,6 +116,8 @@ describe("SSVClusters function `deposit()`", async () => {
     const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
 
     const depositAmount = 2n;
+    const contractBalanceBeforeDeposit = await getContractEthBalance(clusters);
+
     const depositReceipt = await trackGas(
       clusters.connect(otherAccount).deposit(
         clusterOwner.address,
@@ -120,9 +128,56 @@ describe("SSVClusters function `deposit()`", async () => {
       [GasGroup.DEPOSIT]
     );
     const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+    const contractBalanceAfterDeposit = await getContractEthBalance(clusters);
 
     expect(depositReceipt.eventsByName[Events.CLUSTER_DEPOSITED]).to.have.lengthOf(1);
     expect(clusterAfterDeposit.balance).to.equal(clusterBeforeDeposit.balance + depositAmount);
+    expect(contractBalanceAfterDeposit - contractBalanceBeforeDeposit).to.equal(depositAmount);
+  });
+
+  it("Accumulates contract ETH balance by the sum of multiple deposits", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(0n);
+    await clusters.mockCurrentNetworkFeeIndex(0n);
+    for (const operatorId of operatorIds) {
+      await clusters.mockSetOperatorFee(operatorId, 0n);
+    }
+
+    const clusterBeforeDeposits = await registerCluster(clusters, operatorIds);
+    const contractBalanceBeforeDeposits = await getContractEthBalance(clusters);
+
+    const deposit1 = ethers.parseEther("0.01");
+    const depositReceipt1 = await trackGas(
+      clusters.deposit(
+        clusterOwner.address,
+        operatorIds,
+        clusterBeforeDeposits,
+        { value: deposit1 }
+      ),
+      [GasGroup.DEPOSIT]
+    );
+    const clusterAfterDeposit1 = parseClusterFromEvent(clusters, depositReceipt1, Events.CLUSTER_DEPOSITED);
+    const contractBalanceAfterDeposit1 = await getContractEthBalance(clusters);
+
+    const deposit2 = ethers.parseEther("0.02");
+    const depositReceipt2 = await trackGas(
+      clusters.connect(otherAccount).deposit(
+        clusterOwner.address,
+        operatorIds,
+        clusterAfterDeposit1,
+        { value: deposit2 }
+      ),
+      [GasGroup.DEPOSIT]
+    );
+    const clusterAfterDeposit2 = parseClusterFromEvent(clusters, depositReceipt2, Events.CLUSTER_DEPOSITED);
+    const contractBalanceAfterDeposit2 = await getContractEthBalance(clusters);
+
+    expect(contractBalanceAfterDeposit1 - contractBalanceBeforeDeposits).to.equal(deposit1);
+    expect(contractBalanceAfterDeposit2 - contractBalanceAfterDeposit1).to.equal(deposit2);
+    expect(contractBalanceAfterDeposit2 - contractBalanceBeforeDeposits).to.equal(deposit1 + deposit2);
+    expect(clusterAfterDeposit2.balance).to.equal(clusterBeforeDeposits.balance + deposit1 + deposit2);
   });
 
   it("Is reverted with 'IncorrectClusterState' when provided cluster data is stale or mismatched", async function () {
@@ -154,5 +209,54 @@ describe("SSVClusters function `deposit()`", async () => {
       createCluster(),
       { value: 1n }
     )).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_DOES_NOT_EXIST);
+  });
+
+  it("Deposit into zero-validator cluster accrues no fees over elapsed blocks", async function () {
+    const deployWithFee = async () => ssvClustersHarnessFixture(connection, 4, 10_000_000_000n);
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployWithFee);
+
+    const publicKey = makePublicKey(1);
+    const registerTx = await clusters.registerValidator(
+      publicKey, operatorIds, DEFAULT_SHARES, createCluster(), { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const removeTx = await clusters.removeValidator(publicKey, operatorIds, clusterAfterRegister);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    const balanceAtRemoval = clusterAfterRemove.balance;
+
+    await networkHelpers.mine(100);
+
+    const depositAmount = ethers.parseEther("0.5");
+    const depositTx = await clusters.deposit(
+      clusterOwner.address, operatorIds, clusterAfterRemove, { value: depositAmount }
+    );
+    const depositReceipt = await depositTx.wait();
+    const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
+
+    expect(clusterAfterDeposit.balance).to.equal(balanceAtRemoval + depositAmount);
+  });
+
+  it("Does not change contract balance when deposit reverts", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const clusterBeforeDeposit = await registerCluster(clusters, operatorIds);
+
+    const mismatchedCluster = {
+      ...clusterBeforeDeposit,
+      balance: clusterBeforeDeposit.balance + 1n,
+    };
+    const contractBalanceBefore = await getContractEthBalance(clusters);
+
+    await expect(
+      clusters.deposit(clusterOwner.address, operatorIds, mismatchedCluster, { value: 1n })
+    ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_STATE);
+
+    const contractBalanceAfter = await getContractEthBalance(clusters);
+    expect(contractBalanceAfter).to.equal(contractBalanceBefore);
   });
 });

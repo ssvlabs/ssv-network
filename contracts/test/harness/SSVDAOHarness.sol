@@ -101,7 +101,7 @@ contract SSVDAOHarness is SSVDAO {
         }
     }
 
-    function mockSetQuorumBps(uint16 quorum) external {
+    function mockupdateQuorumBps(uint16 quorum) external {
         StorageStaking storage s = SSVStorageStaking.load();
         s.quorumBps = quorum;
     }
@@ -119,6 +119,10 @@ contract SSVDAOHarness is SSVDAO {
     function mockSetEBRoot(uint64 blockNum, bytes32 root) external {
         StorageEB storage seb = SSVStorageEB.load();
         seb.ebRoots[blockNum] = root;
+    }
+
+    function mockSetMinBlocksBetweenUpdates(uint32 blocks) external {
+        SSVStorageEB.load().minBlocksBetweenUpdates = blocks;
     }
 
     function mockSetToken(address token) external {
@@ -193,6 +197,10 @@ contract SSVDAOHarness is SSVDAO {
         return SSVStorageEB.load().ebRoots[blockNum];
     }
 
+    function getMinBlocksBetweenUpdates() external view returns (uint32) {
+        return SSVStorageEB.load().minBlocksBetweenUpdates;
+    }
+
     function getOracleAddress(uint32 oracleId) external view returns (address) {
         return SSVStorageStaking.load().oracles[oracleId];
     }
@@ -207,5 +215,9 @@ contract SSVDAOHarness is SSVDAO {
 
     function hasOracleVoted(bytes32 commitmentKey, uint32 oracleId) external view returns (bool) {
         return SSVStorageEB.load().hasVoted[commitmentKey][oracleId];
+    }
+
+    function getRoundFrozenSupply(bytes32 commitmentKey) external view returns (uint256) {
+        return SSVStorageEB.load().roundFrozenSupply[commitmentKey];
     }
 }

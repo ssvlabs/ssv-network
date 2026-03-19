@@ -934,6 +934,14 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
+
+    it("Reverts when new maximum fee is below the configured minimum fee", async function() {
+      const { network, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
+
+      await expect(network.connect(daoSigner).updateMaximumOperatorFee(MINIMAL_OPERATOR_ETH_FEE - OPERATOR_FEE_PRECISION))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_RANGE);
+    });
   });
 
   describe("Function 'reduceOperatorFee()'", async function(){
@@ -1210,15 +1218,15 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       const tx = await network.connect(daoSigner)
-        .updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n);
+        .updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_FEE_INCREASE_LIMIT]);
 
       await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_INCREASE_LIMIT_UPDATED)
-        .withArgs(OPERATOR_MAX_FEE_INCREASE + 1n);
+        .withArgs(OPERATOR_MAX_FEE_INCREASE);
 
-      await expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE + 1n);
+      await expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE);
     });
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
@@ -1227,6 +1235,14 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
 
       await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+
+    it("Reverts when fee increase limit exceeds 100%", async function() {
+      const { network, daoSigner } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
+
+      await expect(network.connect(daoSigner).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_INCREASE_LIMIT);
     });
   });
 
@@ -1725,7 +1741,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if the public key is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if the public key is already registered", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const validatorKey = makePublicKey(1);
@@ -1755,7 +1771,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(network.connect(clusterOwner).registerValidator(
         validatorKey, operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
         .withArgs(validatorKey);
     });
 
@@ -2036,7 +2052,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .to.be.revertedWithCustomError(network, Errors.INVALID_PUBLIC_KEYS_LENGTH);
     });
 
-    it("Is reverted with 'ValidatorAlreadyExistsWithData' if one of public keys is already registered", async function() {
+    it("Is reverted with 'ValidatorAlreadyRegistered' if one of public keys is already registered", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
       const {keys, shares} = makeArrayOfKeysAndShares(1, 10);
@@ -2066,7 +2082,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(network.connect(clusterOwner).bulkRegisterValidator(
         keys, operatorIds, shares, EMPTY_CLUSTER, { value: requiredDeposit }
       ))
-        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA)
+        .to.be.revertedWithCustomError(network, Errors.VALIDATOR_ALREADY_REGISTERED)
         .withArgs(keys[7]);
     });
 
@@ -2391,12 +2407,12 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
-    it("Is reverted with 'ZeroAmount' is caller is trying to stake 0 SSV", async function(){
+    it("Is reverted with 'StakeTooLow' is caller is trying to stake 0 SSV", async function(){
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
       await expect(network.stake(0))
-        .to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+        .to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
   });
 

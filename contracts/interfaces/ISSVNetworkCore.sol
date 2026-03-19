@@ -180,11 +180,6 @@ interface ISSVNetworkCore {
     error FeeIncreaseNotAllowed(); // 0x410a2b6c
 
     /**
-     * @dev Thrown when caller is not authorized to perform the action
-     */
-    error NotAuthorized(); // 0xea8e4eb5
-
-    /**
      * @dev Thrown when operators list is not unique and has duplicates
      */
     error OperatorsListNotUnique(); // 0xa5a1ff5d
@@ -200,9 +195,14 @@ interface ISSVNetworkCore {
     error TargetModuleDoesNotExistWithData(uint8 moduleId); // 0x208bb85d
 
     /**
-     * @dev Thrown when maximum value is exceeded
+     * @dev Thrown when maximum value is exceeded for the target type
      */
     error MaxValueExceeded(); // 0x91aa3017
+
+    /**
+     * @dev Thrown when precision is exceeded (e.g., division with remainder)
+     */
+    error MaxPrecisionExceeded(); // 0x24756546
 
     /**
      * @dev Thrown when the provided fee is too high
@@ -222,17 +222,12 @@ interface ISSVNetworkCore {
     /**
      * @dev Thrown when trying to register a validator that is already registered
      */
-    error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
+    error ValidatorAlreadyRegistered(bytes publicKey, address owner); // 0x75106a26
 
     /**
      * @dev Thrown when public keys list is empty
      */
     error EmptyPublicKeysList(); // 0xdf83e679
-
-    /**
-     * @dev Thrown when contract address is invalid
-     */
-    error InvalidContractAddress(); // 0xa710429d
 
     /**
      * @dev Thrown when address is a whitelisting contract
@@ -300,6 +295,11 @@ interface ISSVNetworkCore {
     error StaleUpdate(); // 0x666a2814
 
     /**
+     * @dev Thrown when eb update does not use latest committed root block
+     */
+    error MustUseLatestRoot();
+
+    /**
      * @dev Thrown when the merkle proof is invalid
      */
     error InvalidProof(); // 0x09bde339
@@ -315,9 +315,14 @@ interface ISSVNetworkCore {
     error EBBelowMinimum(); // 0x9fecdce5
 
     /**
-     * @dev Thrown when oracle has zero weight due to zero staked SSV
+     * @dev Thrown when no cSSV supply exists for root voting
      */
-    error OracleHasZeroWeight(); // 0xf2b58fb9
+    error ZeroCSSVSupply();
+
+    /**
+     * @dev Thrown when cSSV supply exists but truncates to zero oracle weight
+     */
+    error InsufficientCSSVSupply();
 
     /**
      * @dev Thrown when the caller is not cSSV token
@@ -333,6 +338,16 @@ interface ISSVNetworkCore {
      * @dev Thrown when trying to configure a quorum higher than 100%
      */
     error InvalidQuorum(); // 0xd1735779
+
+    /**
+     * @dev Thrown when trying to configure operator fee increase limit above 100%
+     */
+    error InvalidOperatorFeeIncreaseLimit(); // 0x602d89dd
+
+    /**
+     * @dev Thrown when trying to configure inconsistent operator fee bounds
+     */
+    error InvalidOperatorFeeRange(); // 0x44b0758c
 
     /**
      * @dev Thrown when amount is zero
@@ -380,8 +395,28 @@ interface ISSVNetworkCore {
     error OracleAlreadyAssigned(); // 0xa97938cb
 
     /**
+     * @dev Thrown when attempting to replace an oracle with the same address
+     */
+    error SameOracleAddressNotAllowed(); // 0xe991f7e9
+
+    /**
+     * @dev Thrown when oracleId exceeds the maximum allowed oracle slots
+     */
+    error InvalidOracleId();
+
+    /**
      * @dev Thrown when the maximum unstake requests amount reached
      */
     error MaxRequestsAmountReached(); // 0xee0e82ff
+
+
+    // legacy errors
+    error ValidatorAlreadyExists(); // 0x8d09a73e
+    error ValidatorAlreadyExistsWithData(bytes publicKey); // 0x388e7999
+    error IncorrectValidatorState(); // 0x2feda3c1
+    error ExceedValidatorLimit(uint64 operatorId); // 0x6df5ab76
+    error CallerNotOwner(); // 0x5cd83192
+    error TargetModuleDoesNotExist(); // 0x8f9195fb
+    error CallerNotWhitelisted(); // 0x8c6e5d71
 
 }

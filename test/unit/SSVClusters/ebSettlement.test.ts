@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
 
@@ -75,7 +75,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
     // Verify vUnits are set
     const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-    const expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
+    const expectedVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + 31n) / 32n;
     expect(clusterVUnits).to.equal(expectedVUnits);
 
     // Record balance before advancing blocks
@@ -104,7 +104,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
     // Calculate expected fees precisely
     const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
-    const vUnitsMultiplier = expectedVUnits / VUNITS_PRECISION; // 31.25x for 1000 ETH
+    const vUnitsMultiplier = expectedVUnits / BPS_DENOMINATOR; // 31.25x for 1000 ETH
     
     // EB-weighted fee calculation: operators * packedOpFee * blocks * vUnitsMultiplier * ETH_DEDUCTED_DIGITS
     const expectedEBFee = 4n * packedOpFee * BigInt(blocksMined + 1) * vUnitsMultiplier * ETH_DEDUCTED_DIGITS;
@@ -171,7 +171,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
     const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_BALANCE_UPDATED);
 
     const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-    const expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
+    const expectedVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + 31n) / 32n;
     expect(clusterVUnits).to.equal(expectedVUnits);
 
     const balanceBeforeMine = clusterAfterEB.balance;
@@ -196,7 +196,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
     // Calculate expected fees precisely
     const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
-    const vUnitsMultiplier = expectedVUnits / VUNITS_PRECISION; // 15.625x for 500 ETH
+    const vUnitsMultiplier = expectedVUnits / BPS_DENOMINATOR; // 15.625x for 500 ETH
     
     // EB-weighted fee calculation: operators * packedOpFee * blocks * vUnitsMultiplier * ETH_DEDUCTED_DIGITS
     const expectedEBFee = 4n * packedOpFee * BigInt(blocksMined + 1) * vUnitsMultiplier * ETH_DEDUCTED_DIGITS;
@@ -304,7 +304,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
       // Verify vUnits equal baseline
       const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-      const expectedVUnits = 1n * VUNITS_PRECISION; // Should equal baseline
+      const expectedVUnits = 1n * BPS_DENOMINATOR; // Should equal baseline
       expect(clusterVUnits).to.equal(expectedVUnits);
 
       const balanceBeforeMine = clusterAfterEB.balance;
@@ -370,7 +370,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
 
       // Verify vUnits calculation
       const clusterVUnits = await clusters.getClusterVUnits(clusterId);
-      const expectedVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + 31n) / 32n;
+      const expectedVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + 31n) / 32n;
       expect(clusterVUnits).to.equal(expectedVUnits);
 
       const balanceBeforeMine = clusterAfterEB.balance;
@@ -392,7 +392,7 @@ describe("EB-aware fee settlement on registration and removal", async () => {
       
       // Should be high due to 31.25x multiplier
       const packedOpFee = OPERATOR_FEE / ETH_DEDUCTED_DIGITS;
-      const vUnitsMultiplier = expectedVUnits / VUNITS_PRECISION; // ~31.25x
+      const vUnitsMultiplier = expectedVUnits / BPS_DENOMINATOR; // ~31.25x
       
       expect(feeDeducted).to.be.gt(0n, "High EB should still deduct fees");
       

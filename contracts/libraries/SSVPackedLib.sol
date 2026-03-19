@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import {PackedSSV, PackedETH} from "./SSVCoreTypes.sol";
-
-uint256 constant DEDUCTED_DIGITS = 10_000_000;
-uint256 constant ETH_DEDUCTED_DIGITS = 100_000;
+import {PackedSSV, PackedETH, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "./SSVCoreTypes.sol";
+import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
 
 library PackingLib {
-    error MaxValueExceeded();
-    error MaxPrecisionExceeded();
 
     function _pack(uint256 value, uint256 scale) internal pure returns (uint64) {
-        if (value > uint256(type(uint64).max) * scale) revert MaxValueExceeded();
-        if (value % scale != 0) revert MaxPrecisionExceeded();
+        if (value > uint256(type(uint64).max) * scale) revert ISSVNetworkCore.MaxValueExceeded();
+        if (value % scale != 0) revert ISSVNetworkCore.MaxPrecisionExceeded();
 
         return uint64(value / scale);
     }
