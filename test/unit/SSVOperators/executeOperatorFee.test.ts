@@ -1,14 +1,13 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
+import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
   DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
-  MINIMAL_OPERATOR_ETH_FEE,
-  OPERATOR_MAX_FEE_INCREASE,
+  MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
 } from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -19,13 +18,11 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
-  const deployOperatorsFixture = async () =>
-    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
-  const deployOperatorsWithDelay = async () =>
-    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
+  const deployOperatorsFixture = async () => defaultOperatorsFixture(connection);
+  const deployOperatorsWithDelay = async () => defaultOperatorsFixture(connection);
 
   it("Executes declared fee and emits event", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
@@ -79,8 +76,6 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
       operators,
       Errors.APPROVAL_NOT_WITHIN_TIMEFRAME
     );
-
-    // Move beyond approval window
     await networkHelpers.time.increase(250);
 
     await expect(operators.executeOperatorFee(1)).to.be.revertedWithCustomError(
@@ -124,12 +119,10 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
   it("Is reverted with 'FeeTooHigh' if DAO lowers max fee below declared amount before execution", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE);
-    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n; // 2x minimal
+    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
 
     await operators.registerOperator(makeOperatorKey(1), initialFee, false);
     await operators.declareOperatorFee(1, newFee);
-
-    // DAO lowers max fee to MINIMAL_OPERATOR_ETH_FEE
     await operators.mockSetOperatorMaxFee(Number(MINIMAL_OPERATOR_ETH_FEE));
 
     await networkHelpers.mine(DECLARE_OPERATOR_FEE_PERIOD + 1n);

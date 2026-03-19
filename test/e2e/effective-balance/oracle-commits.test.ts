@@ -1,9 +1,9 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
 import {
@@ -12,7 +12,7 @@ import {
 import {
   mineBlocks,
   getBlockNumber,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 describe("Oracle Commits", () => {
   let connection: NetworkConnection<"generic">;
@@ -26,9 +26,7 @@ describe("Oracle Commits", () => {
   let nonOracle: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    const signers = await connection.ethers.getSigners();
-    [oracle1, oracle2, oracle3, oracle4, staker, nonOracle] = signers;
+    ({ connection, networkHelpers, signers: [oracle1, oracle2, oracle3, oracle4, staker, nonOracle] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -93,8 +91,8 @@ describe("Oracle Commits", () => {
       await expect(tx2).to.not.emit(network, Events.ROOT_COMMITTED);
 
       const tx3 = await network.connect(oracle3).commitRoot(rootA, blockNum);
+      await expect(tx3).to.emit(network, Events.WEIGHTED_ROOT_PROPOSED);
       await expect(tx3).to.emit(network, Events.ROOT_COMMITTED).withArgs(rootA, blockNum);
-      await expect(tx3).to.not.emit(network, Events.WEIGHTED_ROOT_PROPOSED);
     });
 
     it("Prevents Oracle4 from voting for same block after quorum (StaleBlockNumber)", async function () {
@@ -141,6 +139,7 @@ describe("Oracle Commits", () => {
       await expect(tx3).to.not.emit(network, Events.ROOT_COMMITTED);
 
       const tx4 = await network.connect(oracle4).commitRoot(rootA, blockNum);
+      await expect(tx4).to.emit(network, Events.WEIGHTED_ROOT_PROPOSED);
       await expect(tx4).to.emit(network, Events.ROOT_COMMITTED).withArgs(rootA, blockNum);
     });
   });
@@ -281,7 +280,7 @@ describe("Oracle Commits", () => {
 
         await expect(
           network.connect(oracle1).commitRoot(rootA, 1),
-        ).to.be.revertedWithCustomError(network, Errors.ORACLE_HAS_ZERO_WEIGHT);
+        ).to.be.revertedWithCustomError(network, Errors.ZERO_CSSV_SUPPLY);
       });
     });
 

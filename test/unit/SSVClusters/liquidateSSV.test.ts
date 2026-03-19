@@ -1,11 +1,11 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { getClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, VUNITS_PRECISION } from "../../common/constants.ts";
+import { setupTestContext, computeClusterId, createCluster, makePublicKey } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -32,9 +32,7 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
   let deployClustersWith13Operators!: ReturnType<typeof getClustersHarnessFixture>;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [clusterOwner, otherAccount] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, otherAccount] } = await setupTestContext());
 
     deployClustersWith7Operators = getClustersHarnessFixture(connection, 7);
     deployClustersWith10Operators = getClustersHarnessFixture(connection, 10);
@@ -59,14 +57,9 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     return { ...fixture, mockToken };
   };
 
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
-  };
 
   const deploySSVClustersFixture = async () => {
-    const fixture = await ssvClustersHarnessFixture(connection);
+    const fixture = await defaultClustersFixture(connection);
     return setupSSVClustersFixture(fixture);
   };
 
@@ -186,8 +179,6 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
   it("Does not change operatorEthVUnits or stored cluster EB snapshot when liquidating an SSV cluster", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersFixture);
-
-    // Seed operatorEthVUnits via an ETH registration on a DIFFERENT cluster id (different owner).
     await clusters.connect(otherAccount).registerValidator(
       makePublicKey(999),
       operatorIds,
@@ -196,8 +187,8 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    await clusters.mockSetClusterVUnits(clusterId, 7n * VUNITS_PRECISION);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    await clusters.mockSetClusterVUnits(clusterId, 7n * BPS_DENOMINATOR);
 
     const beforeClusterVUnits = await clusters.getClusterVUnits(clusterId);
     const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => clusters.getOperatorEthVUnits(id)));

@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { Cluster, NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -10,6 +9,7 @@ import {
   whitelistAddresses,
   getCurrentClusterState,
   generateMerkleForClusterEB,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
@@ -21,7 +21,7 @@ import {
   mineBlocks,
   getBlockNumber,
   calcVUnits,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 import { Events } from "../../common/events.ts";
 
 async function getClusterFromEBUpdateTx(network: any, tx: any): Promise<Cluster> {
@@ -44,7 +44,7 @@ describe("Operator vUnit Tracking", () => {
   let connection: NetworkConnection<"generic">;
 
   before(async function () {
-    ({ connection } = await getTestConnection());
+    ({ connection } = await setupTestContext());
   });
 
   async function commitRootWithQuorum(

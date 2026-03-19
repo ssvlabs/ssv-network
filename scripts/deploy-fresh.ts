@@ -14,6 +14,7 @@ type LocalConfig = {
   ssvToken?: string;
   protocolParams?: {
     liquidationThresholdPeriod?: string | number;
+    liquidationThresholdPeriodSSV?: string | number;
     minBlocksBetweenUpdates?: string | number;
     minimumLiquidationCollateralEth?: string | number;
     validatorsPerOperatorLimit?: string | number;
@@ -154,6 +155,10 @@ async function main() {
   }
 
   const minBlocksBetweenUpdates = parseUint(pp.minBlocksBetweenUpdates, "minBlocksBetweenUpdates");
+  const liquidationThresholdPeriodSSV = parseUint(pp.liquidationThresholdPeriodSSV, "liquidationThresholdPeriodSSV");
+  if (liquidationThresholdPeriodSSV !== undefined) {
+    await (await networkWithSigner.updateLiquidationThresholdPeriodSSV(liquidationThresholdPeriodSSV)).wait();
+  }
   if (minBlocksBetweenUpdates !== undefined) {
     await (await networkWithSigner.updateMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
   }

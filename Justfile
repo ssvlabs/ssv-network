@@ -20,7 +20,7 @@ test-integration:
 
 # Run fork tests against mainnet state (requires MAINNET_ETH_NODE_URL in .env)
 test-forked:
-    NO_GAS_ENFORCE=true RUN_FORK=true npx hardhat test $(find test/test-forked -name "*.test.ts" | xargs)
+    NO_GAS_ENFORCE=true RUN_FORK=true npx hardhat test $(find test/forked -name "*.test.ts" | xargs)
 
 # Run tests with coverage report, then generate HTML report
 coverage:
@@ -78,9 +78,14 @@ upgrade env network="":
 generate-safe-batch env="mainnet":
     npx tsx scripts/generate-safe-batch.ts --env {{env}}
 
-# Verify on-chain state
-verify-upgrade env:
-    npx tsx scripts/upgrade.ts --env {{env}} --verify-only
+# Generate deployment attestation (bytecode hashes + config summary for committee review)
+generate-attestation env="mainnet" network="":
+    npx tsx scripts/generate-deployment-attestation.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
+
+# Verify on-chain state (backward-compatible alias)
+verify-upgrade env network="":
+    npx hardhat compile --force
+    npx tsx scripts/verify-post-upgrade-config.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
 
 # === One-off Utilities ===
 

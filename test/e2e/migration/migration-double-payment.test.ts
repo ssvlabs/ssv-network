@@ -13,7 +13,7 @@ import {
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
-import { mineBlocks } from "../helpers/index.ts";
+import { mineBlocks } from "../../helpers/blocks.ts";
 
 const HIGH_SSV_FEE_RAW = 1_000n;
 const MEDIUM_SSV_FEE_RAW = 500n;
