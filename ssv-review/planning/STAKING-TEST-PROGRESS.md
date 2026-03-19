@@ -8,7 +8,7 @@ Source plan:
 Notes:
 - IDs are local-only for this tracking sheet.
 - This tracker was seeded from scenarios marked `NOT COVERED` or `Partially` in the source plan and keeps completed rows for local history.
-- Based on the current source plan, the remaining open backlog is `31` tasks total: `29` `NOT COVERED` and `2` `Partially`.
+- Based on the current source plan, the remaining open backlog is `30` tasks total: `28` `NOT COVERED` and `2` `Partially`.
 - `Plan Ref` uses `<section>.<case>` from `STAKING-TEST-PLAN.md`.
 
 | ID | Plan Ref | Section | Task | Plan Status | Local Status |
@@ -21,7 +21,7 @@ Notes:
 | 6 | 2.13 | Earning Rewards | ~~Rewards increase after fee raise~~ | Covered | Done |
 | 7 | 2.14 | Earning Rewards | ~~Rewards decrease after fee reduction~~ | Covered | Done |
 | 8 | 2.15 | Earning Rewards | ~~Rewards stop after fee set to zero~~ | Covered | Done |
-| 9 | 2.17 | Earning Rewards | Multiple fee changes across staking period | NOT COVERED | Todo |
+| 9 | 2.17 | Earning Rewards | ~~Multiple fee changes across staking period~~ | Covered | Done |
 | 10 | 2.18 | Earning Rewards | Rewards unaffected by cooldown increase | NOT COVERED | Todo |
 | 11 | 2.19 | Earning Rewards | Rewards unaffected by cooldown decrease | NOT COVERED | Todo |
 | 12 | 2.20 | Earning Rewards | Rewards accrue normally after cooldown change and unstake | NOT COVERED | Todo |
