@@ -1,6 +1,6 @@
 # Staking Test Progress
 
-Local tracking sheet for Venimir's `MR-3` staking test backlog.
+Local tracking sheet for `MR-3` staking test slice.
 
 Source plan:
 - `ssv-review/planning/STAKING-TEST-PLAN.md`
