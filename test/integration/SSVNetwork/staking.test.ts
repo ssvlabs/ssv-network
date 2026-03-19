@@ -408,6 +408,24 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await network.connect(staker2).stake(STAKE_AMOUNT);
       expect(await views.stakedBalanceOf(staker.address)).to.equal(STAKE_AMOUNT);
       expect(await views.stakedBalanceOf(staker2.address)).to.equal(STAKE_AMOUNT);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(101),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      await connection.networkHelpers.mine(100n);
+
+      const claimableA = await views.previewClaimableEth(staker.address);
+      const claimableB = await views.previewClaimableEth(staker2.address);
+
+      expect(claimableA).to.be.greaterThan(0n);
+      expect(claimableA).to.equal(claimableB);
     });
   });
 

@@ -8,7 +8,7 @@ Source plan:
 Notes:
 - IDs are local-only for this tracking sheet.
 - This tracker was seeded from scenarios marked `NOT COVERED` or `Partially` in the source plan and keeps completed rows for local history.
-- Based on the current source plan, the remaining open backlog is `36` tasks total: `33` `NOT COVERED` and `3` `Partially`.
+- Based on the current source plan, the remaining open backlog is `35` tasks total: `33` `NOT COVERED` and `2` `Partially`.
 - `Plan Ref` uses `<section>.<case>` from `STAKING-TEST-PLAN.md`.
 
 | ID | Plan Ref | Section | Task | Plan Status | Local Status |
@@ -16,7 +16,7 @@ Notes:
 | 1 | 1.13 | Staking | ~~Stake without approval reverts~~ | Covered | Done |
 | 2 | 1.17 | Staking | ~~Stake exactly 1 above minimum~~ | Covered | Done |
 | 3 | 2.7 | Earning Rewards | ~~Rewards with 1 wei cSSV~~ | Covered | Done |
-| 4 | 2.9 | Earning Rewards | Two equal stakers split 50/50 | Partially | Todo |
+| 4 | 2.9 | Earning Rewards | ~~Two equal stakers split 50/50~~ | Covered | Done |
 | 5 | 2.11 | Earning Rewards | Three stakers, one unstakes mid-period | NOT COVERED | Todo |
 | 6 | 2.13 | Earning Rewards | Rewards increase after fee raise | NOT COVERED | Todo |
 | 7 | 2.14 | Earning Rewards | Rewards decrease after fee reduction | NOT COVERED | Todo |
