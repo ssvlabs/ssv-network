@@ -1,10 +1,9 @@
 import { expect } from 'chai';
 import type { NetworkConnection } from 'hardhat/types/network';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
-import { getTestConnection } from '../../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
-import { getCurrentClusterState, makeOperatorKey, makePublicKey, whitelistAddresses } from '../../common/helpers.ts';
+import { getCurrentClusterState, makeOperatorKey, makePublicKey, whitelistAddresses, setupTestContext } from '../../common/helpers.ts';
 import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
@@ -20,7 +19,7 @@ import {
   getBlockNumber,
   getTxBlock,
   mineBlocks,
-} from '../helpers/index.ts';
+} from '../../helpers/index.ts';
 import { ethers } from 'ethers';
 import { Errors } from '../../common/errors.ts';
 import { Events } from '../../common/events.ts';
@@ -32,9 +31,7 @@ describe("Validator Lifecycle", function () {
   let clusterOwner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -66,8 +63,8 @@ describe("Validator Lifecycle", function () {
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const fee = MINIMAL_OPERATOR_ETH_FEE; // 1_770_000_000
-      const packedFee = fee / ETH_DEDUCTED_DIGITS; // 17_700
+      const fee = MINIMAL_OPERATOR_ETH_FEE;
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
 
       const operatorIds = await registerOps(network, 4, fee);
 
@@ -169,7 +166,7 @@ describe("Validator Lifecycle", function () {
       const provider = connection.ethers.provider;
 
       const fee = MINIMAL_OPERATOR_ETH_FEE;
-      const packedFee = fee / ETH_DEDUCTED_DIGITS; // 17_700
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
 
       const operatorIds = await registerOps(network, 4, fee);
 
@@ -262,7 +259,7 @@ describe("Validator Lifecycle", function () {
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const customFee = 5_000_000_000n; // 5 gwei
+      const customFee = 5_000_000_000n;
       const operatorIds = await registerOps(network, 4, customFee, true);
 
       for (const opId of operatorIds) {
@@ -447,7 +444,7 @@ describe("Validator Lifecycle", function () {
         network.connect(clusterOwner).bulkRegisterValidator(
           [makePublicKey(1), makePublicKey(2)],
           operatorIds,
-          [DEFAULT_SHARES], // mismatched
+          [DEFAULT_SHARES],
           EMPTY_CLUSTER,
           { value: DEFAULT_ETH_REGISTER_VALUE },
         ),
@@ -467,7 +464,7 @@ describe("Validator Lifecycle", function () {
 
       await expect(
         network.connect(clusterOwner).bulkRegisterValidator(
-          [makePublicKey(1), makePublicKey(1)], // duplicate
+          [makePublicKey(1), makePublicKey(1)],
           operatorIds,
           [DEFAULT_SHARES, DEFAULT_SHARES],
           EMPTY_CLUSTER,
@@ -475,7 +472,7 @@ describe("Validator Lifecycle", function () {
         ),
       ).to.be.revertedWithCustomError(
         network,
-        Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA,
+        Errors.VALIDATOR_ALREADY_REGISTERED,
       );
     });
   });
@@ -487,7 +484,7 @@ describe("Validator Lifecycle", function () {
       const provider = connection.ethers.provider;
 
       const fee = MINIMAL_OPERATOR_ETH_FEE;
-      const packedFee = fee / ETH_DEDUCTED_DIGITS; // 17_700
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
 
       const operatorIds = await registerOps(network, 4, fee);
 
@@ -586,7 +583,7 @@ describe("Validator Lifecycle", function () {
       await remove2Tx.wait();
     });
 
-    it("Remove non-existent validator reverts", async () => {
+    it("Remove non-existent validator reverts with ValidatorDoesNotExist", async () => {
       const { network } = await networkHelpers.loadFixture(deployFixture);
 
       const operatorIds = await registerOps(network, 4, MINIMAL_OPERATOR_ETH_FEE);
@@ -617,7 +614,7 @@ describe("Validator Lifecycle", function () {
           .removeValidator(makePublicKey(999), operatorIds, cluster),
       ).to.be.revertedWithCustomError(
         network,
-        Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA,
+        Errors.VALIDATOR_DOES_NOT_EXIST,
       );
     });
   });
@@ -711,8 +708,8 @@ describe("Validator Lifecycle", function () {
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const fee = 2_000_000_000n; // 2 gwei
-      const packedFee = fee / ETH_DEDUCTED_DIGITS; // 20_000
+      const fee = 2_000_000_000n;
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
       const packedNetworkFee = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
 
       const operatorIds = await registerOps(network, 4, fee);
@@ -815,7 +812,7 @@ describe("Validator Lifecycle", function () {
       const earningsAfterWithdraw = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      expect(earningsAfterWithdraw).to.equal(0n); // 0 validators → 0 accrual
+      expect(earningsAfterWithdraw).to.equal(0n);
 
       const networkEarnings = await views.getNetworkEarnings();
       let totalOpEarnings = 0n;
@@ -841,8 +838,8 @@ describe("Validator Lifecycle", function () {
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const fee = 2_000_000_000n; // 2 gwei
-      const packedFee = fee / ETH_DEDUCTED_DIGITS; // 20_000
+      const fee = 2_000_000_000n;
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
       const packedNetworkFee = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
 
       const operatorIds = await registerOps(network, 4, fee);
@@ -869,7 +866,7 @@ describe("Validator Lifecycle", function () {
       const currentBlock = BigInt(await getBlockNumber(provider));
       const blockDiff = currentBlock - regBlock;
 
-      const vUnits = defaultVUnits(1n); // 10_000
+      const vUnits = defaultVUnits(1n);
       const expectedAccrualPacked = calcOperatorFeeAccrual(
         blockDiff,
         packedFee,

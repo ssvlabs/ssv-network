@@ -25,7 +25,7 @@ import {
   updateLatestSymlink,
   loadDeployResult,
 } from "./common/config.ts";
-import { verifyPostUpgradeState, readOnChainValues } from "./common/verify.ts";
+import { readOnChainValues } from "./common/verify.ts";
 import {
   getSignerForAddress,
   canImpersonateOnNetwork,
@@ -38,7 +38,6 @@ async function main() {
   // Legacy: --config flag for direct path (backward compat)
   const envFlag = parseOptionalArg("env");
   const configFlag = parseOptionalArg("config");
-  const verifyOnly = parseOptionalBooleanArg("verify-only", false);
   const forkFlag = parseOptionalBooleanArg("fork", false);
   const useGetImpersonatedSigner = parseOptionalBooleanArg("use-get-impersonated-signer", true);
 
@@ -142,22 +141,6 @@ async function main() {
   const viewsOwnerAddressLower = viewsOwnerAddr.toLowerCase();
   const targetRpcUrl = resolveRpcUrl(effectiveNetwork);
   const canImpersonate = forkFlag || canImpersonateOnNetwork(effectiveNetwork, targetRpcUrl);
-
-  // ── Verify-only mode ──
-  if (verifyOnly) {
-    console.log("Running verification only (--verify-only)");
-    const views = viewsProxy.connect(deployerSigner);
-    await verifyPostUpgradeState({
-      views,
-      params,
-      cooldownDuration,
-      defaultOracleIds,
-      quorumBps,
-      oracles,
-    });
-    console.log("Verification complete");
-    return;
-  }
 
   // ── Resolve signers ──
   let ownerSigner = deployerSigner;
@@ -265,6 +248,7 @@ async function main() {
 
   // ── Upgrade proxies ──
   console.log("[4/6] Upgrading network proxy and views proxy");
+  const minBlocksBetweenUpdates = params.minBlocksBetweenUpdates;
   if (config.skipInitializer) {
     console.log("  skipInitializer=true: using upgradeTo (no initializer call)");
     await (await networkOwner.upgradeTo(stakingUpgradeImplAddr)).wait();
@@ -287,7 +271,7 @@ async function main() {
   }
 
   // ── Apply protocol parameters ──
-  console.log("[6/6] Applying configuration and verifying");
+  console.log("[6/6] Applying configuration");
   if (params.networkFeeEth !== undefined) {
     await (await networkOwner.updateNetworkFee(params.networkFeeEth)).wait();
   }
@@ -296,6 +280,12 @@ async function main() {
   }
   if (params.liquidationThresholdPeriod !== undefined) {
     await (await networkOwner.updateLiquidationThresholdPeriod(params.liquidationThresholdPeriod)).wait();
+  }
+  if (params.liquidationThresholdPeriodSSV !== undefined) {
+    await (await networkOwner.updateLiquidationThresholdPeriodSSV(params.liquidationThresholdPeriodSSV)).wait();
+  }
+  if (minBlocksBetweenUpdates !== undefined) {
+    await (await networkOwner.updateMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
   }
   if (params.minimumLiquidationCollateralEth !== undefined) {
     await (await networkOwner.updateMinimumLiquidationCollateral(params.minimumLiquidationCollateralEth)).wait();
@@ -319,24 +309,14 @@ async function main() {
     await (await networkOwner.updateMinimumOperatorEthFee(params.minOperatorEthFee)).wait();
   }
   if (quorumBps !== undefined) {
-    await (await networkOwner.setQuorumBps(quorumBps)).wait();
+    await (await networkOwner.updateQuorumBps(quorumBps)).wait();
   }
   if (params.unstakeCooldownDuration !== undefined) {
-    await (await networkOwner.setUnstakeCooldownDuration(params.unstakeCooldownDuration)).wait();
+    await (await networkOwner.updateUnstakeCooldownDuration(params.unstakeCooldownDuration)).wait();
   }
   for (const { id, address } of oracles) {
     await (await networkOwner.replaceOracle(id, address)).wait();
   }
-
-  // ── Verify ──
-  await verifyPostUpgradeState({
-    views,
-    params,
-    cooldownDuration,
-    defaultOracleIds,
-    quorumBps,
-    oracles,
-  });
 
   // ── Write result JSON ──
   const onChainValues = await readOnChainValues(views);
@@ -362,6 +342,10 @@ async function main() {
       declareOperatorFeePeriod: onChainValues.declareOperatorFeePeriod,
       executeOperatorFeePeriod: onChainValues.executeOperatorFeePeriod,
       liquidationThresholdPeriod: onChainValues.liquidationThresholdPeriod,
+      liquidationThresholdPeriodSSV: onChainValues.liquidationThresholdPeriodSSV,
+      ...(params.minBlocksBetweenUpdates !== undefined
+        ? { minBlocksBetweenUpdates: bigintToJsonNumberOrString(params.minBlocksBetweenUpdates) }
+        : {}),
       minimumLiquidationCollateralEth: onChainValues.minimumLiquidationCollateralEth,
       minimumLiquidationCollateralSSV: onChainValues.minimumLiquidationCollateralSSV,
       validatorsPerOperatorLimit: onChainValues.validatorsPerOperatorLimit,

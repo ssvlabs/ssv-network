@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from '../../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import { STAKE_AMOUNT } from '../../common/constants.ts';
@@ -8,6 +7,7 @@ import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.js';
 import { ethers } from 'ethers';
+import { setupTestContext } from '../../common/helpers.ts';
 
 describe("SSVNetwork Integration - DAO Oracle Quorum", () => {
   let connection: NetworkConnection<"generic">;
@@ -19,8 +19,8 @@ describe("SSVNetwork Integration - DAO Oracle Quorum", () => {
   const numberOfOracles = 4n;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    const signers = await connection.ethers.getSigners();
+    let signers: HardhatEthersSigner[];
+    ({ connection, networkHelpers, signers } = await setupTestContext());
     staker = signers[2];
     oracles = signers.slice(10, 14);
   });
@@ -45,7 +45,7 @@ describe("SSVNetwork Integration - DAO Oracle Quorum", () => {
       const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
       const { weight } = await setupOraclesAndStake(network, ssvToken);
 
-      await network.setQuorumBps(10000);
+      await network.updateQuorumBps(10000);
       expect(await views.getQuorumBps()).to.equal(10000n);
 
       const root = ethers.keccak256(ethers.toUtf8Bytes("100pct-quorum"));
@@ -78,7 +78,7 @@ describe("SSVNetwork Integration - DAO Oracle Quorum", () => {
       const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
       await setupOraclesAndStake(network, ssvToken);
 
-      await network.setQuorumBps(1);
+      await network.updateQuorumBps(1);
       expect(await views.getQuorumBps()).to.equal(1n);
 
       const root = ethers.keccak256(ethers.toUtf8Bytes("1bps-quorum"));
@@ -171,7 +171,7 @@ describe("SSVNetwork Integration - DAO Oracle Quorum", () => {
         .withArgs(root, blockNum, weight, initialThreshold, 1, oracles[0].address);
       expect(await views.getCommittedRoot(blockNum)).to.equal(ethers.ZeroHash);
 
-      await network.setQuorumBps(5000);
+      await network.updateQuorumBps(5000);
       expect(await views.getQuorumBps()).to.equal(5000n);
 
       const tx2 = await network.connect(oracles[1]).commitRoot(root, blockNum);
@@ -185,7 +185,7 @@ describe("SSVNetwork Integration - DAO Oracle Quorum", () => {
       const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
       const { weight } = await setupOraclesAndStake(network, ssvToken);
 
-      await network.setQuorumBps(5000); // 50%
+      await network.updateQuorumBps(5000); // 50%
 
       const rootA = ethers.keccak256(ethers.toUtf8Bytes("rootA"));
       const rootB = ethers.keccak256(ethers.toUtf8Bytes("rootB"));

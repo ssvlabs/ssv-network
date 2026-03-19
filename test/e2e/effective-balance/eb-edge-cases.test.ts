@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { Cluster } from "../../common/types.ts";
 import {
@@ -10,6 +9,7 @@ import {
   whitelistAddresses,
   getCurrentClusterState,
   generateMerkleForClusterEB,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
@@ -22,7 +22,7 @@ import {
 import {
   mineBlocks,
   getBlockNumber,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 import { ethers as ethersLib } from "ethers";
 
 async function getClusterFromEBUpdateTx(network: any, tx: any): Promise<Cluster> {
@@ -138,7 +138,7 @@ describe("EB Edge Cases", () => {
   let connection: NetworkConnection<"generic">;
 
   before(async function () {
-    ({ connection } = await getTestConnection());
+    ({ connection } = await setupTestContext());
   });
 
   describe("EB Limits Enforcement", () => {
@@ -366,7 +366,7 @@ describe("EB Edge Cases", () => {
       ).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
     });
 
-    it("Reverts when using a root block <= lastRootBlockNum (StaleUpdate)", async function () {
+    it("Reverts with MustUseLatestRoot when a newer root has already been committed", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -391,6 +391,26 @@ describe("EB Edge Cases", () => {
         network.updateClusterBalance(
           rootBlockNum1, clusterOwner.address, operatorIds, clusterAfterFirst, 64, oldProofs[clusterId],
         ),
+      ).to.be.revertedWithCustomError(network, Errors.MUST_USE_LATEST_ROOT);
+    });
+
+    it("Reverts with StaleUpdate when replaying the latest root after a successful update", async function () {
+      const ctx = await setupCluster(connection);
+      const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
+
+      const { cluster: clusterAfterFirst, rootBlockNum: rootBlockNum1 } = await performEBUpdate(
+        connection, network, oracles, provider, clusterOwner, operatorIds,
+        cluster, clusterId, 64,
+      );
+
+      const { proofs } = generateMerkleForClusterEB(connection, [
+        { clusterId, effectiveBalance: 64 },
+      ]);
+
+      await expect(
+        network.updateClusterBalance(
+          rootBlockNum1, clusterOwner.address, operatorIds, clusterAfterFirst, 64, proofs[clusterId],
+        ),
       ).to.be.revertedWithCustomError(network, Errors.STALE_UPDATE);
     });
 
@@ -412,7 +432,7 @@ describe("EB Edge Cases", () => {
       ).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
     });
 
-    it("Reverts when rootBlockNum < lastRootBlockNum after two updates", async function () {
+    it("Reverts with MustUseLatestRoot when trying to use an older root after two updates", async function () {
       const ctx = await setupCluster(connection);
       const { network, provider, oracles, clusterOwner, operatorIds, cluster, clusterId } = ctx;
 
@@ -435,7 +455,7 @@ describe("EB Edge Cases", () => {
         network.updateClusterBalance(
           rootBlockNum1, clusterOwner.address, operatorIds, clusterAfterSecond, 64, proofs[clusterId],
         ),
-      ).to.be.revertedWithCustomError(network, Errors.STALE_UPDATE);
+      ).to.be.revertedWithCustomError(network, Errors.MUST_USE_LATEST_ROOT);
     });
 
     it("RootNotFound: reverts when no root committed for blockNum", async function () {

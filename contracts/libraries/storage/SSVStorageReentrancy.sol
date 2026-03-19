@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 /// @title SSV Reentrancy Guard Storage
 /// @notice Represents the storage layout for reentrancy protection in the SSV Network
 struct StorageReentrancy {
-    /// @notice The current reentrancy status (0 = non-entered, 1 = entered)
+    /// @notice The current reentrancy status (1 = non-entered, 2 = entered)
     uint256 status;
 }
 

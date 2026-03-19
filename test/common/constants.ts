@@ -20,16 +20,14 @@ export const SSV_MODULE_CONTRACTS: Record<SSVModules, string> = {
   [SSVModules.SSVStaking]: "SSVStaking",
   [SSVModules.SSVValidators]: "SSVValidators",
 };
-
-// todo make and object to simplify imports in other files (Constants.NAME_OF_VALUE...)
 export const DEFAULT_SHARES = "0x1234";
 export const DEFAULT_ETH_REGISTER_VALUE: bigint = ethers.parseEther("10");
 export const SMALL_ETH_REGISTER_VALUE: bigint = ethers.parseEther("1");
 export const DEFAULT_ETH_EB_PER_VALIDATOR: bigint = 32n;
 export const CLUSTER_VERSION_SSV = 0n;
 export const CLUSTER_VERSION_ETH = 1n;
-export const MINIMAL_OPERATOR_ETH_FEE = envBigInt("FORK_MIN_OPERATOR_ETH_FEE", 1770_000_000n);
-export const VUNITS_PRECISION: bigint = 10_000n;
+export const MINIMAL_OPERATOR_ETH_FEE = envBigInt("FORK_MIN_OPERATOR_ETH_FEE", 1778_800_000n);
+export const DEFAULT_OPERATOR_ETH_FEE = 1_778_800_000n;
 export const MAXIMUM_OPERATORS_FEE = envBigInt("FORK_MAX_OPERATOR_ETH_FEE", 76528650000000n);
 export const NETWORK_FEE_ETH = envBigInt("FORK_NETWORK_FEE_ETH", 3000000000n);
 export const NETWORK_FEE = envBigInt("FORK_NETWORK_FEE_SSV", 382640000000n);
@@ -51,3 +49,9 @@ export const DEDUCTED_DIGITS = 10_000_000n;
 export const ETH_DEDUCTED_DIGITS = 100_000n;
 export const OPERATOR_FEE_PRECISION = ETH_DEDUCTED_DIGITS;
 export const BPS_DENOMINATOR = PRECISION_FACTOR;
+export const QUORUM_BPS = envBigInt("FORK_QUORUM_BPS", 7500n);
+export const TOKEN_REGISTER_AMOUNT = ethers.parseEther("100");
+export const MINIMAL_OPERATOR_FEE_SSV = 1000000000n;
+export const OP_ETH_FEE_RAW = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+export const DEFAULT_NETWORK_FEE_RAW = 5_000n;
+export const DEFAULT_NETWORK_FEE_UNPACKED = DEFAULT_NETWORK_FEE_RAW * ETH_DEDUCTED_DIGITS;

@@ -1,6 +1,6 @@
 import { expect } from "chai";
+import { anyValue } from "@nomicfoundation/hardhat-ethers-chai-matchers/withArgs";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from '../../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType, UnstakeRequest } from '../../common/types.ts';
 import {
@@ -8,7 +8,9 @@ import {
   whitelistAddresses,
   makePublicKey,
   getCurrentClusterState,
+  setupTestContext,
 } from '../../common/helpers.ts';
+import { computeClusterId, generateMerkleForClusterEB, commitEBRoot } from '../../helpers/oracle.ts';
 import {
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
@@ -48,17 +50,12 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
   let staker2: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner, staker, staker2] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner, staker, staker2] } = await setupTestContext());
   });
 
   const deployFullSSVNetworkFixture = async () => {
     return ssvNetworkFullFixture(connection);
   };
-
-  // ============================================================================
-  // SECTION 1: Balance Delta Assertions for Token Movements
-  // ============================================================================
 
   describe("Balance Delta Assertions - Token Movements", async function() {
 
@@ -80,16 +77,10 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       const contractSsvAfter = await ssvToken.balanceOf(await network.getAddress());
       const cssvSupplyAfter = await cssvToken.totalSupply();
       const stakerCssvAfter = await cssvToken.balanceOf(staker.address);
-
-      // SSV moved from staker to contract
       expect(stakerSsvBefore - stakerSsvAfter).to.equal(STAKE_AMOUNT);
       expect(contractSsvAfter - contractSsvBefore).to.equal(STAKE_AMOUNT);
-
-      // cSSV minted 1:1 to staker
       expect(cssvSupplyAfter - cssvSupplyBefore).to.equal(STAKE_AMOUNT);
       expect(stakerCssvAfter - stakerCssvBefore).to.equal(STAKE_AMOUNT);
-
-      // Views reflect correct state
       expect(await views.stakedBalanceOf(staker.address)).to.equal(STAKE_AMOUNT);
     });
 
@@ -111,15 +102,9 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       const cssvSupplyAfter = await cssvToken.totalSupply();
       const stakerCssvAfter = await cssvToken.balanceOf(staker.address);
       const stakedAfter = await views.stakedBalanceOf(staker.address);
-
-      // cSSV burned
       expect(cssvSupplyBefore - cssvSupplyAfter).to.equal(unstakeAmount);
       expect(stakerCssvBefore - stakerCssvAfter).to.equal(unstakeAmount);
-
-      // Staked balance decreased
       expect(stakedBefore - stakedAfter).to.equal(unstakeAmount);
-
-      // Pending unstake recorded with correct unlock time
       const requests: UnstakeRequest[] = await views.pendingUnstake(staker.address);
       expect(requests[0].amount).to.equal(unstakeAmount);
       expect(requests[0].unlockTime).to.equal(BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN);
@@ -132,8 +117,6 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
       await network.connect(staker).requestUnstake(STAKE_AMOUNT);
-
-      // Wait for cooldown
       await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
       await networkHelpers.mine();
 
@@ -145,34 +128,22 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
 
       const stakerSsvAfter = await ssvToken.balanceOf(staker.address);
       const contractSsvAfter = await ssvToken.balanceOf(await network.getAddress());
-
-      // SSV returned to staker
       expect(stakerSsvAfter - stakerSsvBefore).to.equal(STAKE_AMOUNT);
       expect(contractSsvBefore - contractSsvAfter).to.equal(STAKE_AMOUNT);
-
-      // Pending unstake cleared
       const requests: UnstakeRequest[] = await views.pendingUnstake(staker.address);
       expect(requests.length).to.equal(0);
     });
   });
 
-  // ============================================================================
-  // SECTION 2: Reward Accrual from Cluster ETH Inflow
-  // ============================================================================
-
   describe("Reward Accrual from Cluster ETH Inflow", async function() {
 
     it("Network fees from validator registration flow to staking rewards pool", async function() {
       const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      // First, stake SSV to become eligible for rewards
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
 
       const networkEarningsBefore = await views.getNetworkEarnings();
-
-      // Register a validator (source of ETH inflow)
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
@@ -183,32 +154,22 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
-
-      // Mine blocks to accrue network fees
       await connection.networkHelpers.mine(100n);
 
       const networkEarningsAfter = await views.getNetworkEarnings();
-
-      // Network fees should have accrued from validator operation
       expect(networkEarningsAfter).to.be.greaterThan(networkEarningsBefore);
-
-      // Expected: 100 blocks * NETWORK_FEE per block
       const expectedNetworkEarnings = 100n * NETWORK_FEE;
       expect(networkEarningsAfter - networkEarningsBefore).to.equal(expectedNetworkEarnings);
     });
 
     it("Multiple cluster deposits increase reward pool proportionally", async function() {
       const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      // Stake first
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
 
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
-
-      // First validator registration
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
@@ -218,14 +179,10 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       );
 
       const networkEarningsAfter1 = await views.getNetworkEarnings();
-
-      // Mine blocks
       await connection.networkHelpers.mine(50n);
 
       const networkEarningsAfter50Blocks = await views.getNetworkEarnings();
       const earningsFrom1Validator = networkEarningsAfter50Blocks - networkEarningsAfter1;
-
-      // Add second validator (double the burn rate)
       let cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       await network.connect(clusterOwner).registerValidator(
         makePublicKey(2),
@@ -236,71 +193,241 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       );
 
       const networkEarningsAfter2Validators = await views.getNetworkEarnings();
-
-      // Mine same number of blocks
       await connection.networkHelpers.mine(50n);
 
       const networkEarningsAfter2Val50Blocks = await views.getNetworkEarnings();
       const earningsFrom2Validators = networkEarningsAfter2Val50Blocks - networkEarningsAfter2Validators;
-
-      // Earnings should double with 2 validators
       expect(earningsFrom2Validators).to.equal(earningsFrom1Validator * 2n);
     });
-  });
 
-  // ============================================================================
-  // SECTION 3: Staking Rewards Distribution
-  // ============================================================================
+    it('EB=64 cluster contributes exactly 2x network-fee rewards vs EB=32', async function () {
+      const { network, views, ssvToken } = await networkHelpers.loadFixture(
+        deployFullSSVNetworkFixture,
+      );
 
-  describe("Staking Rewards Distribution", async function() {
-    it("Multiple stakers share rewards proportionally", async function() {
-      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      // Staker 1 stakes first
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
 
-      // Staker 2 stakes same amount
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(11),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const blocksPerPhase = 100n;
+      const before32 = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(blocksPerPhase);
+      const after32 = await views.getNetworkEarnings();
+      const eb32Delta = after32 - before32;
+
+      const allSigners = await connection.ethers.getSigners();
+      const oracles = allSigners.slice(10, 14);
+      for (let i = 0; i < 4; i++) {
+        await network.replaceOracle(i + 1, oracles[i].address);
+      }
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+      const eb64 = 64;
+      const ebBlock = Number(await connection.ethers.provider.getBlockNumber());
+      const { root, proofs } = generateMerkleForClusterEB(connection, [
+        { clusterId, effectiveBalance: eb64 },
+      ]);
+
+      await commitEBRoot(network, root, ebBlock, oracles);
+
+      const cluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds,
+      );
+
+      await network.updateClusterBalance(
+        ebBlock,
+        clusterOwner.address,
+        operatorIds.map((id) => BigInt(id)),
+        {
+          validatorCount: Number(cluster.validatorCount),
+          networkFeeIndex: BigInt(cluster.networkFeeIndex),
+          index: BigInt(cluster.index),
+          active: cluster.active,
+          balance: BigInt(cluster.balance),
+        },
+        eb64,
+        proofs[clusterId],
+      );
+
+      const before64 = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(blocksPerPhase);
+      const after64 = await views.getNetworkEarnings();
+      const eb64Delta = after64 - before64;
+
+      expect(eb64Delta).to.equal(eb32Delta * 2n);
+    });
+
+    it('Multiple clusters with different EBs accrue cumulative EB-weighted staking fees', async function () {
+      const { network, views, ssvToken } = await networkHelpers.loadFixture(
+        deployFullSSVNetworkFixture,
+      );
+
+      await ssvToken.mint(staker.address, STAKE_AMOUNT);
+      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(staker).stake(STAKE_AMOUNT);
+
+      const clusterOwner2 = staker2;
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+        clusterOwner2.address,
+      ]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(21),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+      await network.connect(clusterOwner2).registerValidator(
+        makePublicKey(22),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const blocks = 120n;
+      await network.connect(staker).syncFees();
+      const phaseAStart = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(blocks);
+      const phaseAEnd = await views.getNetworkEarnings();
+      const phaseASyncTx = await network.connect(staker).syncFees();
+      const phaseAReceipt = await phaseASyncTx.wait();
+      const phaseAViewDelta = phaseAEnd - phaseAStart;
+      const phaseAFees: bigint = phaseAReceipt!.logs
+        .map((log) => network.interface.parseLog(log))
+        .find((e) => e?.name === Events.FEES_SYNCED)!.args.newFeesWei;
+      await expect(phaseASyncTx).to.emit(network, Events.FEES_SYNCED).withArgs(phaseAFees, anyValue);
+
+      const allSigners = await connection.ethers.getSigners();
+      const oracles = allSigners.slice(10, 14);
+      for (let i = 0; i < 4; i++) {
+        await network.replaceOracle(i + 1, oracles[i].address);
+      }
+
+      const clusterId1 = computeClusterId(clusterOwner.address, operatorIds);
+      const clusterId2 = computeClusterId(clusterOwner2.address, operatorIds);
+      const eb32 = 32;
+      const eb64 = 64;
+      const ebBlock = Number(await connection.ethers.provider.getBlockNumber());
+      const { root, proofs } = generateMerkleForClusterEB(connection, [
+        { clusterId: clusterId1, effectiveBalance: eb32 },
+        { clusterId: clusterId2, effectiveBalance: eb64 },
+      ]);
+
+      await commitEBRoot(network, root, ebBlock, oracles);
+
+      const cluster1 = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds,
+      );
+      await network.updateClusterBalance(
+        ebBlock,
+        clusterOwner.address,
+        operatorIds.map((id) => BigInt(id)),
+        {
+          validatorCount: Number(cluster1.validatorCount),
+          networkFeeIndex: BigInt(cluster1.networkFeeIndex),
+          index: BigInt(cluster1.index),
+          active: cluster1.active,
+          balance: BigInt(cluster1.balance),
+        },
+        eb32,
+        proofs[clusterId1],
+      );
+
+      const cluster2 = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner2.address,
+        operatorIds,
+      );
+      await network.connect(clusterOwner2).updateClusterBalance(
+        ebBlock,
+        clusterOwner2.address,
+        operatorIds.map((id) => BigInt(id)),
+        {
+          validatorCount: Number(cluster2.validatorCount),
+          networkFeeIndex: BigInt(cluster2.networkFeeIndex),
+          index: BigInt(cluster2.index),
+          active: cluster2.active,
+          balance: BigInt(cluster2.balance),
+        },
+        eb64,
+        proofs[clusterId2],
+      );
+
+      // Settle transition-period fees (replaceOracle + commitRoot + updateClusterBalance blocks)
+      // so phase B window starts at a clean checkpoint with only 30k vUnits active.
+      await network.connect(staker).syncFees();
+
+      const phaseBStart = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(blocks);
+      const phaseBEnd = await views.getNetworkEarnings();
+      const phaseBSyncTx = await network.connect(staker).syncFees();
+      const phaseBReceipt = await phaseBSyncTx.wait();
+      const phaseBViewDelta = phaseBEnd - phaseBStart;
+      const phaseBFees: bigint = phaseBReceipt!.logs
+        .map((log) => network.interface.parseLog(log))
+        .find((e) => e?.name === Events.FEES_SYNCED)!.args.newFeesWei;
+      await expect(phaseBSyncTx).to.emit(network, Events.FEES_SYNCED).withArgs(phaseBFees, anyValue);
+
+      // Two implicit 32-EB clusters (20k vUnits total) should become 32+64 EB (30k vUnits):
+      // fee rate scales from 2x to 3x, so over equal blocks the fee deltas scale 3:2.
+      expect(phaseBViewDelta * 2n).to.equal(phaseAViewDelta * 3n);
+      expect(phaseBFees * 2n).to.equal(phaseAFees * 3n)
+    });
+  });
+
+  describe("Staking Rewards Distribution", async function() {
+    it("Multiple stakers share rewards proportionally", async function() {
+      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+      await ssvToken.mint(staker.address, STAKE_AMOUNT);
+      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(staker).stake(STAKE_AMOUNT);
       await ssvToken.mint(staker2.address, STAKE_AMOUNT);
       await ssvToken.connect(staker2).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker2).stake(STAKE_AMOUNT);
-
-      // Both should have equal staked balance
       expect(await views.stakedBalanceOf(staker.address)).to.equal(STAKE_AMOUNT);
       expect(await views.stakedBalanceOf(staker2.address)).to.equal(STAKE_AMOUNT);
     });
   });
 
-  // ============================================================================
-  // SECTION 4: Invariant Checks
-  // ============================================================================
-
   describe("Invariant Checks - Staking Consistency", async function() {
 
     it("Invariant: cSSV totalSupply always equals total staked across all users", async function() {
       const { network, views, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      // Initial state
       expect(await cssvToken.totalSupply()).to.equal(0n);
       expect(await views.totalStaked()).to.equal(0n);
-
-      // Staker 1 stakes
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
 
       expect(await cssvToken.totalSupply()).to.equal(await views.totalStaked());
-
-      // Staker 2 stakes
       await ssvToken.mint(staker2.address, STAKE_AMOUNT * 2n);
       await ssvToken.connect(staker2).approve(await network.getAddress(), STAKE_AMOUNT * 2n);
       await network.connect(staker2).stake(STAKE_AMOUNT * 2n);
 
       expect(await cssvToken.totalSupply()).to.equal(await views.totalStaked());
       expect(await cssvToken.totalSupply()).to.equal(STAKE_AMOUNT * 3n);
-
-      // Staker 1 requests partial unstake (burns cSSV)
       await network.connect(staker).requestUnstake(STAKE_AMOUNT / 2n);
 
       expect(await cssvToken.totalSupply()).to.equal(await views.totalStaked());
@@ -309,8 +436,6 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
 
     it("Invariant: Sum of individual staked balances equals totalStaked", async function() {
       const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      // Stake different amounts
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
@@ -349,24 +474,16 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
     });
   });
 
-  // ============================================================================
-  // SECTION 5: Combined Scenarios - Full Staking Lifecycle
-  // ============================================================================
-
   describe("Combined Scenarios - Full Staking Lifecycle", async function() {
 
     it("Full lifecycle: stake → cluster activity → unstake → withdraw", async function() {
       const { network, views, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
-
-      // STEP 1: Stake SSV tokens
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
 
       expect(await views.stakedBalanceOf(staker.address)).to.equal(STAKE_AMOUNT);
       expect(await cssvToken.balanceOf(staker.address)).to.equal(STAKE_AMOUNT);
-
-      // STEP 2: Generate network activity (cluster deposits → network fees)
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
@@ -377,33 +494,21 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE }
       );
-
-      // Mine blocks to accrue network fees
       await connection.networkHelpers.mine(200n);
-
-      // Verify network earnings accrued
       const networkEarnings = await views.getNetworkEarnings();
       expect(networkEarnings).to.be.greaterThan(0n);
-
-      // STEP 3: Request unstake (partial)
       const unstakeAmount = STAKE_AMOUNT / 2n;
       await network.connect(staker).requestUnstake(unstakeAmount);
 
       expect(await views.stakedBalanceOf(staker.address)).to.equal(STAKE_AMOUNT - unstakeAmount);
       expect(await cssvToken.balanceOf(staker.address)).to.equal(STAKE_AMOUNT - unstakeAmount);
-
-      // STEP 4: Wait for cooldown
       await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
       await networkHelpers.mine();
-
-      // STEP 5: Withdraw unlocked SSV
       const stakerSsvBefore = await ssvToken.balanceOf(staker.address);
       await network.connect(staker).withdrawUnlocked();
       const stakerSsvAfter = await ssvToken.balanceOf(staker.address);
 
       expect(stakerSsvAfter - stakerSsvBefore).to.equal(unstakeAmount);
-
-      // STEP 6: Remaining stake still active
       expect(await views.stakedBalanceOf(staker.address)).to.equal(STAKE_AMOUNT - unstakeAmount);
     });
 
@@ -414,31 +519,23 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
-
-      // Request 3 partial unstakes
       const amount1 = STAKE_AMOUNT / 4n;
       const amount2 = STAKE_AMOUNT / 4n;
       const amount3 = STAKE_AMOUNT / 4n;
 
       await network.connect(staker).requestUnstake(amount1);
-      await networkHelpers.time.increase(100n); // Small delay between requests
+      await networkHelpers.time.increase(100n);
       await network.connect(staker).requestUnstake(amount2);
       await networkHelpers.time.increase(100n);
       await network.connect(staker).requestUnstake(amount3);
-
-      // Verify 3 pending requests (order preserved)
       const requests: UnstakeRequest[] = await views.pendingUnstake(staker.address);
 
       expect(requests.length).to.equal(3);
       expect(requests[0].amount).to.equal(amount1);
       expect(requests[1].amount).to.equal(amount2);
       expect(requests[2].amount).to.equal(amount3);
-
-      // Wait for all cooldowns to pass
       await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
       await networkHelpers.mine();
-
-      // Withdraw all at once
       const stakerSsvBefore = await ssvToken.balanceOf(staker.address);
       await network.connect(staker).withdrawUnlocked();
       const stakerSsvAfter = await ssvToken.balanceOf(staker.address);
@@ -446,23 +543,17 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       expect(stakerSsvAfter - stakerSsvBefore).to.equal(
         amount1 + amount2 + amount3
       );
-
-      // All requests cleared
       const requestsAfter: UnstakeRequest[] = await views.pendingUnstake(staker.address);
       expect(requestsAfter.length).to.equal(0);
     });
   });
-
-  // ============================================================================
-  // SECTION 6: Edge Cases and Error Conditions
-  // ============================================================================
 
   describe("Edge Cases and Error Conditions", async function() {
 
     it("Cannot stake zero amount", async function() {
       const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.stake(0)).to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+      await expect(network.stake(0)).to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
     it("Cannot stake below minimum stake amount", async function() {
@@ -502,8 +593,6 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
       await network.connect(staker).requestUnstake(STAKE_AMOUNT);
-
-      // Don't wait for cooldown
       await expect(
         network.connect(staker).withdrawUnlocked()
       ).to.be.revertedWithCustomError(network, Errors.NOTHING_TO_WITHDRAW);
@@ -524,14 +613,10 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
 
-      const smallAmount = STAKE_AMOUNT / 20000n; // Small enough for 10+ requests
-
-      // Create 10 requests
+      const smallAmount = STAKE_AMOUNT / 20000n;
       for (let i = 0; i < 2000; i++) {
         await network.connect(staker).requestUnstake(smallAmount);
       }
-
-      // 11th request should fail
       await expect(
         network.connect(staker).requestUnstake(smallAmount)
       ).to.be.revertedWithCustomError(network, Errors.MAX_REQUESTS_AMOUNT_REACHED);
@@ -543,8 +628,6 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await ssvToken.mint(staker.address, STAKE_AMOUNT);
       await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
       await network.connect(staker).stake(STAKE_AMOUNT);
-
-      // No network activity, no rewards
       await expect(
         network.connect(staker).claimEthRewards()
       ).to.be.revertedWithCustomError(network, Errors.NOTHING_TO_CLAIM);

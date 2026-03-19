@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -9,6 +8,7 @@ import {
   makePublicKey,
   makeOperatorKey,
   whitelistAddresses,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
@@ -27,9 +27,7 @@ describe("Operator Reverts", () => {
   let otherAccount: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner, otherAccount] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner, otherAccount] } = await setupTestContext());
   });
 
   const deployFixture = async () => {

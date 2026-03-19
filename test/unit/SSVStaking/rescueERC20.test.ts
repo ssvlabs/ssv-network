@@ -1,11 +1,12 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
+import { setupTestContext } from "../../common/helpers.ts";
+import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `rescueERC20()`", async () => {
@@ -16,12 +17,11 @@ describe("SSVStaking function `rescueERC20()`", async () => {
   let recipient: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [owner, recipient] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner, recipient] } = await setupTestContext());
   });
 
   const deployWithExtraToken = async () => {
-    const { staking, ssvToken, cssvToken } = await ssvStakingHarnessFixture(connection);
+    const { staking, ssvToken, cssvToken } = await defaultStakingFixture(connection);
 
     const randomToken = await connection.ethers.deployContract("MockToken");
     await randomToken.waitForDeployment();
@@ -32,6 +32,20 @@ describe("SSVStaking function `rescueERC20()`", async () => {
     await randomToken.transfer(await staking.getAddress(), rescueAmount);
 
     return { staking, ssvToken, cssvToken, randomToken, rescueAmount };
+  };
+
+  const deployWithNonStandardToken = async () => {
+    const { staking } = await ssvStakingHarnessFixture(connection);
+
+    const nonStandardToken = await connection.ethers.deployContract("NonStandardERC20Mock");
+    await nonStandardToken.waitForDeployment();
+
+    await nonStandardToken.mint(owner.address, connection.ethers.parseEther("1000"));
+
+    const rescueAmount = connection.ethers.parseEther("100");
+    await nonStandardToken.transfer(await staking.getAddress(), rescueAmount);
+
+    return { staking, nonStandardToken, rescueAmount };
   };
 
   it("Rescues accidentally sent ERC20 tokens and emits ERC20Rescued event", async function () {
@@ -69,6 +83,24 @@ describe("SSVStaking function `rescueERC20()`", async () => {
 
     const balanceAfter = await randomToken.balanceOf(recipient.address);
     expect(balanceAfter - balanceBefore).to.equal(rescueAmount);
+  });
+
+  it("Rescues non-standard ERC20 tokens that do not return a value", async function () {
+    const { staking, nonStandardToken, rescueAmount } =
+      await networkHelpers.loadFixture(deployWithNonStandardToken);
+
+    const tokenAddress = await nonStandardToken.getAddress();
+
+    await expect(
+      trackGas(
+        staking.rescueERC20(tokenAddress, recipient.address, rescueAmount),
+        [GasGroup.RESCUE_ERC20]
+      )
+    )
+      .to.emit(staking, Events.ERC20_RESCUED)
+      .withArgs(tokenAddress, recipient.address, rescueAmount);
+
+    expect(await nonStandardToken.balanceOf(recipient.address)).to.equal(rescueAmount);
   });
 
   it("Is reverted with 'ZeroAddress' when token address is zero", async function () {
