@@ -1,12 +1,11 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvValidatorsHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultValidatorsFixture } from "../../helpers/fixture-presets.ts";
 import { deployHarnessModule } from "../../setup/deploy.ts";
 import { SSVModules } from "../../common/types.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makePublicKey, makePublicKeys, makeOperatorKey, createCluster, parseClusterFromEvent } from "../../common/helpers.ts";
+import { setupTestContext, makePublicKey, makePublicKeys, makeOperatorKey, createCluster, parseClusterFromEvent } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
   ETH_DEDUCTED_DIGITS,
@@ -22,11 +21,11 @@ describe("Validator register/remove with non-zero ETH operator fees", async () =
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   const deployValidatorsWithFee = async () => {
-    return ssvValidatorsHarnessFixture(connection, 4, OPERATOR_FEE);
+    return defaultValidatorsFixture(connection, 4, OPERATOR_FEE);
   };
 
   const deployValidatorsWithDifferentFees = async () => {
@@ -77,8 +76,6 @@ describe("Validator register/remove with non-zero ETH operator fees", async () =
     const cluster2 = parseClusterFromEvent(validators, receipt2, Events.VALIDATOR_ADDED);
 
     const feeDeducted = cluster1.balance - cluster2.balance;
-
-    // fee = sum(packedFees) * blocksDelta * validatorCount(1 baseline) * ETH_DEDUCTED_DIGITS
     const sumPackedFees = DIFFERENT_FEES.reduce((acc, fee) => acc + fee / ETH_DEDUCTED_DIGITS, 0n);
     const blocksDelta = BigInt(blocksMined + 1);
     const expected = sumPackedFees * blocksDelta * 1n * ETH_DEDUCTED_DIGITS;

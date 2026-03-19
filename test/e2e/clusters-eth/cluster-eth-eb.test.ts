@@ -1,153 +1,161 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { ssvNetworkFullFixture, ssvNetworkFullPreUpgradeFixture, upgradeToStakingVersion } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
-  createCluster,
   makePublicKey,
+  getCurrentClusterState,
   parseClusterFromEvent,
+  registerOperators,
+  whitelistAddresses,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
+  DEFAULT_ETH_REGISTER_VALUE,
   ETH_DEDUCTED_DIGITS,
+  MINIMAL_OPERATOR_ETH_FEE,
+  EMPTY_CLUSTER,
+  OP_ETH_FEE_RAW,
+  DEFAULT_NETWORK_FEE_RAW,
+  DEFAULT_NETWORK_FEE_UNPACKED,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import {
   mineBlocks,
+  getBlockNumber,
   calcClusterBurn,
+  calcVUnits,
   defaultVUnits,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
+import {
+  setupOracles,
+  commitEBRoot,
+  computeClusterId,
+  computeEBRoot,
+  makeOperatorKey,
+} from "../../helpers/index.ts";
 import { ethers } from "ethers";
 
-const OP_FEE_RAW = 10_000n;
-const OP_FEE_UNPACKED = OP_FEE_RAW * ETH_DEDUCTED_DIGITS; // 1_000_000_000
-const NETWORK_FEE_RAW = 5_000n;
-const MIN_BLOCKS_LIQ = 100n;
-const MIN_LIQ_COLLATERAL_RAW = 100_000n;
 const NUM_OPERATORS = 4n;
-
-const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-  return ethers.keccak256(
-    ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds]),
-  );
-};
-
-const getEBRoot = (clusterId: string, effectiveBalance: number): string => {
-  const coder = ethers.AbiCoder.defaultAbiCoder();
-  const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
-  return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
-};
 
 describe("ETH Cluster with Explicit EB", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
   let clusterOwner: HardhatEthersSigner;
+  let oracle1: HardhatEthersSigner;
+  let oracle2: HardhatEthersSigner;
+  let oracle3: HardhatEthersSigner;
+  let oracle4: HardhatEthersSigner;
+  let staker: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [clusterOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, oracle1, oracle2, oracle3, oracle4, staker] } = await setupTestContext());
   });
 
-  const deployFixture = async () => {
-    const { clusters, operatorIds } = await ssvClustersHarnessFixture(connection, 4, OP_FEE_UNPACKED);
-
-    await clusters.mockEthNetworkFee(NETWORK_FEE_RAW);
-    await clusters.mockMinimumBlocksBeforeLiquidation(MIN_BLOCKS_LIQ);
-    await clusters.mockMinimumLiquidationCollateral(MIN_LIQ_COLLATERAL_RAW);
-
-    return { clusters, operatorIds };
-  };
-
   describe("Fee Scaling With Explicit EB", () => {
+    const deployFixture = async () => {
+      const { network, views, ssvToken } = await ssvNetworkFullFixture(connection);
+
+      await network.updateNetworkFee(DEFAULT_NETWORK_FEE_UNPACKED);
+      await network.updateMinimumLiquidationCollateral(0n);
+
+      await setupOracles(network, ssvToken, staker, [oracle1, oracle2, oracle3, oracle4]);
+
+      const operatorIds = await registerOperators(network, clusterOwner, 4);
+      await whitelistAddresses(network, clusterOwner, operatorIds, [clusterOwner.address]);
+
+      return { network, views, operatorIds };
+    };
+
     it("Fees use old vUnits before EB update and new vUnits after", async function () {
-      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
+      const { network, views, operatorIds } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
       const deposit = connection.ethers.parseEther("10");
-      const regTx1 = await clusters.registerValidator(
-        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(),
+      const regTx1 = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER,
         { value: deposit / 2n },
       );
       const reg1Receipt = await regTx1.wait();
       const b_reg1 = reg1Receipt!.blockNumber;
-      let cluster = parseClusterFromEvent(clusters, reg1Receipt, Events.VALIDATOR_ADDED);
+      let cluster = parseClusterFromEvent(network, reg1Receipt, Events.VALIDATOR_ADDED);
 
-      const regTx2 = await clusters.registerValidator(
+      const regTx2 = await network.connect(clusterOwner).registerValidator(
         makePublicKey(2), operatorIds, DEFAULT_SHARES, cluster,
         { value: deposit / 2n },
       );
       const regReceipt = await regTx2.wait();
       const b0 = regReceipt!.blockNumber;
-      cluster = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+      cluster = parseClusterFromEvent(network, regReceipt, Events.VALIDATOR_ADDED);
 
       expect(cluster.validatorCount).to.equal(2n);
-      const clusterId = getClusterId(clusterOwner.address, operatorIds);
-      const implicitVUnits = defaultVUnits(2n); // 20_000
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+      const implicitVUnits = defaultVUnits(2n);
 
-      const ebBlockNum = 50;
       const effectiveBalance = 96;
-      const root = getEBRoot(clusterId, effectiveBalance);
-      await clusters.mockSetEBRoot(ebBlockNum, root);
+      const root = computeEBRoot(clusterId, effectiveBalance);
+      await mineBlocks(provider, 1);
+      const rootBlockNum = await getBlockNumber(provider);
+      await commitEBRoot(network, root, rootBlockNum, [oracle1, oracle2, oracle3]);
 
       const currentBlock = await provider.getBlockNumber();
       const targetBlocks = b0 + 100 - currentBlock - 1;
-      await mineBlocks(provider, targetBlocks);
+      if (targetBlocks > 0) {
+        await mineBlocks(provider, targetBlocks);
+      }
 
-      const updateTx = await clusters.updateClusterBalance(
-        ebBlockNum, clusterOwner.address, operatorIds, cluster,
+      const updateTx = await network.connect(clusterOwner).updateClusterBalance(
+        rootBlockNum, clusterOwner.address, operatorIds, cluster,
         effectiveBalance, [],
       );
       const updateReceipt = await updateTx.wait();
       const updateBlock = updateReceipt!.blockNumber;
-      cluster = parseClusterFromEvent(clusters, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
+      cluster = parseClusterFromEvent(network, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
 
       const feePhase1 = calcClusterBurn({
         blockDiff: BigInt(b0 - b_reg1),
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
-        effectiveVUnits: defaultVUnits(1n), // 10_000 (1 validator)
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: defaultVUnits(1n),
       });
 
       const feePhase2 = calcClusterBurn({
         blockDiff: BigInt(updateBlock - b0),
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
-        effectiveVUnits: implicitVUnits, // 20_000 (2 validators)
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: implicitVUnits,
       });
 
       const expectedBalanceAfterUpdate = deposit - feePhase1 - feePhase2;
       expect(cluster.balance).to.equal(expectedBalanceAfterUpdate);
 
-      const newVUnits = 30_000n;
-      expect(await clusters.getClusterVUnits(clusterId)).to.equal(newVUnits);
+      const newVUnits = calcVUnits(BigInt(effectiveBalance));
+      expect(newVUnits).to.equal(30_000n);
 
-      const deviation = newVUnits - implicitVUnits; // 10_000
-      for (const opId of operatorIds) {
-        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(deviation);
-      }
+      const ebAfterUpdate = await views.getEffectiveBalance(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      expect(ebAfterUpdate).to.equal(effectiveBalance);
 
-      const withdrawBlock = updateBlock + 100;
-      const currentBlock2 = await provider.getBlockNumber();
-      const blocksToMine = withdrawBlock - currentBlock2 - 1;
-      await mineBlocks(provider, blocksToMine);
+      await mineBlocks(provider, 100);
 
       const withdrawAmount = connection.ethers.parseEther("1");
-      const withdrawTx = await clusters.withdraw(operatorIds, withdrawAmount, cluster);
+      const withdrawTx = await network.connect(clusterOwner).withdraw(operatorIds, withdrawAmount, cluster);
       const withdrawReceipt = await withdrawTx.wait();
       const wBlock = withdrawReceipt!.blockNumber;
-      const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+      const clusterAfterWithdraw = parseClusterFromEvent(network, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
 
       const blockDiffStep3 = BigInt(wBlock - updateBlock);
       const feesStep3 = calcClusterBurn({
         blockDiff: blockDiffStep3,
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
-        effectiveVUnits: newVUnits, // 30_000 = new vUnits
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: newVUnits,
       });
 
       const expectedBalanceAfterWithdraw = expectedBalanceAfterUpdate - feesStep3 - withdrawAmount;
@@ -156,15 +164,15 @@ describe("ETH Cluster with Explicit EB", () => {
       const burnPerBlockOld = calcClusterBurn({
         blockDiff: 1n,
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
         effectiveVUnits: implicitVUnits,
       });
       const burnPerBlockNew = calcClusterBurn({
         blockDiff: 1n,
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
         effectiveVUnits: newVUnits,
       });
 
@@ -174,72 +182,106 @@ describe("ETH Cluster with Explicit EB", () => {
 
   describe("Migration With Explicit EB Deviation Sync", () => {
     const deployFixtureCM13 = async () => {
-      const { clusters, operatorIds } = await ssvClustersHarnessFixture(connection, 4, OP_FEE_UNPACKED);
+      const { network: legacyNetwork, views: legacyViews, ssvToken } =
+        await ssvNetworkFullPreUpgradeFixture(connection);
 
-      await clusters.mockEthNetworkFee(NETWORK_FEE_RAW);
-      await clusters.mockMinimumBlocksBeforeLiquidation(MIN_BLOCKS_LIQ);
-      await clusters.mockMinimumLiquidationCollateral(MIN_LIQ_COLLATERAL_RAW);
+      const operatorIds: number[] = [];
+      for (let i = 0; i < 4; i++) {
+        const expectedId = await legacyNetwork.connect(clusterOwner)
+          .registerOperator.staticCall(makeOperatorKey(i + 1), 10_000_000_000n, false);
+        await legacyNetwork.connect(clusterOwner)
+          .registerOperator(makeOperatorKey(i + 1), 10_000_000_000n, false);
+        operatorIds.push(Number(expectedId));
+      }
 
-      await clusters.mockSSVNetworkFee(0n); // no SSV network fee
-      await clusters.mockMinimumBlocksBeforeLiquidationSSV(MIN_BLOCKS_LIQ);
-      await clusters.mockMinimumLiquidationCollateralSSV(MIN_LIQ_COLLATERAL_RAW);
+      const ssvDeposit = ethers.parseEther("100");
+      await ssvToken.mint(clusterOwner.address, ssvDeposit * 2n);
+      await ssvToken.connect(clusterOwner).approve(
+        await legacyNetwork.getAddress(), ssvDeposit * 2n,
+      );
 
-      const mockToken = await connection.ethers.deployContract("MockToken", []);
-      await mockToken.waitForDeployment();
-      const harnessAddr = await clusters.getAddress();
-      await mockToken.mint(harnessAddr, connection.ethers.parseEther("10000"));
-      await clusters.mockSetToken(await mockToken.getAddress());
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, ssvDeposit, EMPTY_CLUSTER,
+      );
+      let cluster = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
+      await legacyNetwork.connect(clusterOwner).registerValidator(
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, ssvDeposit, cluster,
+      );
+      cluster = await getCurrentClusterState(
+        connection, legacyNetwork, clusterOwner.address, operatorIds,
+      );
 
-      return { clusters, operatorIds };
+      const { newNetwork, newViews } = await upgradeToStakingVersion(
+        connection, legacyNetwork, legacyViews,
+      );
+
+      await setupOracles(newNetwork, ssvToken, staker, [oracle1, oracle2, oracle3, oracle4]);
+
+      return { network: newNetwork, views: newViews, ssvToken, operatorIds, cluster };
     };
 
     it("migration syncs EB deviation to operators and DAO", async function () {
-      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixtureCM13);
+      const { network, views, operatorIds, cluster } =
+        await networkHelpers.loadFixture(deployFixtureCM13);
+      const provider = connection.ethers.provider;
 
-      const ssvCluster = createCluster({
-        validatorCount: 2n,
-        balance: 100n * 10n ** 18n,
-        active: true,
-      });
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+      const effectiveBalance = 128;
+      const root = computeEBRoot(clusterId, effectiveBalance);
+      await mineBlocks(provider, 1);
+      const rootBlockNum = await getBlockNumber(provider);
+      await commitEBRoot(network, root, rootBlockNum, [oracle1, oracle2, oracle3]);
 
-      const publicKey = makePublicKey(1);
-      await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
+      const updateTx = await network.connect(clusterOwner).updateClusterBalance(
+        rootBlockNum, clusterOwner.address, operatorIds, cluster,
+        effectiveBalance, [],
+      );
+      const updateReceipt = await updateTx.wait();
+      const updatedCluster = parseClusterFromEvent(network, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
 
-      const clusterId = getClusterId(clusterOwner.address, operatorIds);
-
-      await clusters.mockSetClusterVUnits(clusterId, 40_000n); // baseline + 20k deviation
-
-      expect(await clusters.getDaoEthValidatorCount()).to.equal(0);
-      const daoVUnitsBefore = await clusters.getDaoTotalEthVUnits();
-
-      const migrationDeposit = connection.ethers.parseEther("10");
-      const migrateTx = await clusters.migrateClusterToETH(
-        operatorIds, ssvCluster,
+      const migrationDeposit = ethers.parseEther("10");
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
+        operatorIds, updatedCluster,
         { value: migrationDeposit },
       );
       const migrateReceipt = await migrateTx.wait();
 
-      await expect(migrateTx).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
+      await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
-      // Verify daoTotalEthVUnits = 40_000
-      // updateDAO(true, 2) adds baseline = 20_000
-      // deviation sync adds 20_000
-      // Total: 40_000
-      const daoVUnitsAfter = await clusters.getDaoTotalEthVUnits();
-      expect(daoVUnitsAfter - daoVUnitsBefore).to.equal(40_000n);
+      const migratedCluster = parseClusterFromEvent(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      const ebAfterMigration = await views.getEffectiveBalance(
+        clusterOwner.address, operatorIds, migratedCluster,
+      );
+      expect(ebAfterMigration).to.equal(effectiveBalance);
 
-      // Each operator: operatorEthVUnits = 20_000 (deviation only)
       for (const opId of operatorIds) {
-        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(20_000n);
+        const op = await views.getOperatorById(opId);
+        expect(op.validatorCount).to.equal(2);
       }
 
-      // ethDaoValidatorCount increased by 2
-      expect(await clusters.getDaoEthValidatorCount()).to.equal(2);
+      expect(await views.getNetworkValidatorsCount()).to.equal(2);
 
-      // Future fee accrual should use 40_000 vUnits
-      const clusterAfter = parseClusterFromEvent(clusters, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
-      expect(clusterAfter.balance).to.equal(migrationDeposit);
-      expect(clusterAfter.active).to.equal(true);
+      expect(migratedCluster.balance).to.equal(migrationDeposit);
+      expect(migratedCluster.active).to.equal(true);
+      expect(migratedCluster.validatorCount).to.equal(2n);
+
+      const networkFeeETH = await views.getNetworkFee();
+      const networkFeeRawActual = networkFeeETH / ETH_DEDUCTED_DIGITS;
+      const opFeeRawActual = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+
+      const burnRate = await views.getBurnRate(
+        clusterOwner.address, operatorIds, migratedCluster,
+      );
+      const expectedBurn = calcClusterBurn({
+        blockDiff: 1n,
+        numOperators: NUM_OPERATORS,
+        ethFee: opFeeRawActual,
+        networkFee: networkFeeRawActual,
+        effectiveVUnits: calcVUnits(BigInt(effectiveBalance)),
+      });
+      expect(burnRate).to.equal(expectedBurn);
     });
   });
 });

@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -9,6 +8,7 @@ import {
   makePublicKey,
   whitelistAddresses,
   getCurrentClusterState,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
@@ -24,7 +24,7 @@ import {
   getTxBlock,
   calcOperatorFeeAccrual,
   defaultVUnits,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 
@@ -35,9 +35,7 @@ describe("Operator Lifecycle", function () {
   let clusterOwner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -87,7 +85,7 @@ describe("Operator Lifecycle", function () {
         .registerOperator(pubkey, 0n, false);
 
       const opData = await views.getOperatorById(1n);
-      expect(opData.fee).to.equal(0n); // zero fee
+      expect(opData.fee).to.equal(0n);
       expect(opData.isPrivate).to.equal(false);
 
       await expect(
@@ -172,7 +170,7 @@ describe("Operator Lifecycle", function () {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
 
-      const fee = MINIMAL_OPERATOR_ETH_FEE; // 1_770_000_000
+      const fee = MINIMAL_OPERATOR_ETH_FEE;
       await network
         .connect(operatorOwner)
         .registerOperator(makeOperatorKey(1), fee, false);
@@ -201,7 +199,7 @@ describe("Operator Lifecycle", function () {
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const initialFee = MINIMAL_OPERATOR_ETH_FEE; // 1_770_000_000
+      const initialFee = MINIMAL_OPERATOR_ETH_FEE;
       await network
         .connect(operatorOwner)
         .registerOperator(makeOperatorKey(1), initialFee, false);
@@ -364,8 +362,8 @@ describe("Operator Lifecycle", function () {
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const initialFee = 2_000_000_000n; // 2 gwei
-      const packedInitialFee = initialFee / ETH_DEDUCTED_DIGITS; // 20_000
+      const initialFee = 2_000_000_000n;
+      const packedInitialFee = initialFee / ETH_DEDUCTED_DIGITS;
 
       await network
         .connect(operatorOwner)
@@ -393,7 +391,7 @@ describe("Operator Lifecycle", function () {
 
       await mineBlocks(provider, 100);
 
-      const reducedFee = MINIMAL_OPERATOR_ETH_FEE; // 1_770_000_000
+      const reducedFee = MINIMAL_OPERATOR_ETH_FEE;
       const reduceTx = await network
         .connect(operatorOwner)
         .reduceOperatorFee(1n, reducedFee);
@@ -492,10 +490,8 @@ describe("Operator Lifecycle", function () {
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const fee = MINIMAL_OPERATOR_ETH_FEE; // 1_770_000_000
-      const packedFee = fee / ETH_DEDUCTED_DIGITS; // 17_700
-
-      // Register 4 operators
+      const fee = MINIMAL_OPERATOR_ETH_FEE;
+      const packedFee = fee / ETH_DEDUCTED_DIGITS;
       for (let i = 1; i <= 4; i++) {
         await network
           .connect(operatorOwner)

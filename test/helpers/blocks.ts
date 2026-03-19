@@ -17,3 +17,7 @@ export async function getTxBlock(tx: any): Promise<number> {
   const receipt = await tx.wait();
   return receipt.blockNumber;
 }
+
+export async function setAccountBalance(provider: any, address: string, amount: bigint): Promise<void> {
+  await provider.send("hardhat_setBalance", [address, "0x" + amount.toString(16)]);
+}

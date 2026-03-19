@@ -7,6 +7,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "moduleResolution": "node16",
+    "resolveJsonModule": true,
     "outDir": "dist",
     "allowImportingTsExtensions": true,
     "noEmit": true

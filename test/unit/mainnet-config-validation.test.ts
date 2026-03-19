@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../setup/connection.ts";
 import {
   ssvClustersHarnessFixture,
   ssvDAOHarnessFixture,
@@ -11,7 +10,7 @@ import {
   ssvStakingHarnessFixture,
 } from "../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../common/types.ts";
-import { makePublicKey, makeOperatorKey, parseClusterFromEvent } from "../common/helpers.ts";
+import { makePublicKey, makeOperatorKey, parseClusterFromEvent, setupTestContext } from "../common/helpers.ts";
 import {
   DEFAULT_SHARES,
   ETH_DEDUCTED_DIGITS,
@@ -88,7 +87,7 @@ describe("Mainnet Governance Config Validation", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   describe("Config file (deployments/params-candidate.json)", () => {

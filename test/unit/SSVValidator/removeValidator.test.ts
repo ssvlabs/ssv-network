@@ -1,15 +1,17 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvClustersHarnessFixture, ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
+import { ethers } from "ethers";
+import { ssvClustersHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultValidatorsFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, DEDUCTED_DIGITS, EMPTY_CLUSTER, BPS_DENOMINATOR } from "../../common/constants.ts";
+import { setupTestContext, createCluster, makePublicKey, parseClusterFromEvent, computeClusterId } from "../../common/helpers.ts";
+import { createLegacySSVCluster } from "../../helpers/cluster.ts";
+import { DEDUCTED_DIGITS, DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
-import { ethers } from "ethers";
+import { computeEBRoot } from "../../helpers/oracle.ts";
 
 describe("SSVClusters function `removeValidator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -21,9 +23,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
   let deployClustersWith13Operators!: ReturnType<typeof getValidatorsHarnessFixture>;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [clusterOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner] } = await setupTestContext());
 
     deployClustersWith7Operators = getValidatorsHarnessFixture(connection, 7);
     deployClustersWith10Operators = getValidatorsHarnessFixture(connection, 10);
@@ -31,26 +31,12 @@ describe("SSVClusters function `removeValidator()`", async () => {
   });
 
   const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
-    return ssvValidatorsHarnessFixture(connection);
+    return defaultValidatorsFixture(connection);
   };
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
     return ssvClustersHarnessFixture(connection);
   };
-
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
-  };
-
-  const createLegacySSVCluster = (overrides: Partial<typeof EMPTY_CLUSTER> = {}) => ({
-    ...EMPTY_CLUSTER,
-    validatorCount: 1n,
-    active: true,
-    balance: 10_000_000_000_000_000_000n,
-    ...overrides,
-  });
 
   const setValidSingleLeafRoot = async (
     clusters: any,
@@ -58,11 +44,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     blockNum: number,
     effectiveBalance: number
   ) => {
-    const coder = ethers.AbiCoder.defaultAbiCoder();
-    const innerHash = ethers.keccak256(
-      coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance])
-    );
-    const root = ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
+    const root = computeEBRoot(clusterId, effectiveBalance);
     await clusters.mockSetEBRoot(blockNum, root);
   };
 
@@ -108,16 +90,16 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
 
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR); // baseline + deviation
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR);
     }
 
     const removeTx = await validators.connect(clusterOwner).removeValidator(publicKey, operatorIds, clusterAfterRegister);
     await removeTx.wait();
 
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(0n); // baseline removed
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(0n);
     }
   });
 
@@ -285,7 +267,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     }
     expect(await clusters.getDaoValidatorCount()).to.equal(1n);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
     const removeTx = await clusters.connect(clusterOwner).removeValidator(publicKey, operatorIds, ssvCluster);
     const removeReceipt = await removeTx.wait();
@@ -428,7 +410,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     await clusters.mockRegisterSSVValidator(pk1, operatorIds, clusterOwner.address, ssvCluster);
     await clusters.mockRegisterSSVValidator(pk2, operatorIds, clusterOwner.address, ssvCluster);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     expect(await clusters.getSSVClusterHash(clusterId)).to.not.equal(ethers.ZeroHash);
 
     const removeSsvTx = await clusters.connect(clusterOwner).removeValidator(pk1, operatorIds, ssvCluster);
@@ -475,7 +457,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const ssvCluster = createLegacySSVCluster({ validatorCount: 1n });
     await clusters.mockRegisterSSVValidator(publicKey, operatorIds, clusterOwner.address, ssvCluster);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     await clusters.mockSetClusterVUnits(clusterId, 50_000n);
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(50_000n);
 
@@ -525,8 +507,8 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const removeEthReceipt = await removeEthTx.wait();
     expect(removeSsvReceipt.blockNumber).to.equal(removeEthReceipt.blockNumber);
 
-    const ssvClusterId = getClusterId(clusterOwner.address, ssvOperatorIds);
-    const ethClusterId = getClusterId(clusterOwner.address, ethOperatorIds);
+    const ssvClusterId = computeClusterId(clusterOwner.address, ssvOperatorIds);
+    const ethClusterId = computeClusterId(clusterOwner.address, ethOperatorIds);
     expect(await clusters.getSSVClusterHash(ssvClusterId)).to.not.equal(ethers.ZeroHash);
     expect(await clusters.getClusterHash(ethClusterId)).to.not.equal(ethers.ZeroHash);
 
@@ -611,7 +593,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const receipt2 = await register2.wait();
     const clusterAfter2 = parseClusterFromEvent(clusters, receipt2, Events.VALIDATOR_ADDED);
 
-    const clusterId = getClusterId(await clusterOwner.getAddress(), operatorIds);
+    const clusterId = computeClusterId(await clusterOwner.getAddress(), operatorIds);
     const blockNum = 1;
     const effectiveBalance = 160;
 
@@ -627,17 +609,12 @@ describe("SSVClusters function `removeValidator()`", async () => {
     );
     const updateReceipt = await updateTx.wait();
     const clusterAfterUpdate = parseClusterFromEvent(clusters, updateReceipt, "ClusterBalanceUpdated");
-
-    // EB update to 160 ETH for 2 validators (80 ETH each)
-    // vUnits = ceil(160 * 10000 / 32) = 50000
     const expectedUpdatedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 31n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits);
-    
-    // baseline = 2 validators * 10000 = 20000, deviation = 50000 - 20000 = 30000
     const baselineBeforeRemove = 2n * BPS_DENOMINATOR;
     const deviationAfterUpdate = expectedUpdatedVUnits - baselineBeforeRemove;
-    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviationAfterUpdate); // deviation only
-    expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(expectedUpdatedVUnits); // baseline + deviation
+    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviationAfterUpdate);
+    expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(expectedUpdatedVUnits);
 
     const removeTx = await clusters.connect(clusterOwner).removeValidator(pk1, operatorIds, clusterAfterUpdate);
     const removeReceipt = await removeTx.wait();
@@ -645,13 +622,9 @@ describe("SSVClusters function `removeValidator()`", async () => {
 
     expect(clusterAfterRemove.validatorCount).to.equal(1n);
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedUpdatedVUnits - BPS_DENOMINATOR);
-    
-    // After removing 1 validator: baseline = 1 * 10000 = 10000
-    // Cluster vUnits = 50000 - 10000 = 40000
-    // deviation = 40000 - 10000 = 30000 (unchanged)
     const baselineAfterRemove = 1n * BPS_DENOMINATOR;
     const expectedClusterVUnitsAfterRemove = expectedUpdatedVUnits - BPS_DENOMINATOR;
-    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviationAfterUpdate); // deviation unchanged
+    expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviationAfterUpdate);
     expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(baselineAfterRemove + deviationAfterUpdate);
   });
 
@@ -671,7 +644,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const registerReceipt = await registerTx.wait();
     const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
 
-    const clusterId = getClusterId(await clusterOwner.getAddress(), operatorIds);
+    const clusterId = computeClusterId(await clusterOwner.getAddress(), operatorIds);
     const blockNum = 1;
     const effectiveBalance = 96;
 

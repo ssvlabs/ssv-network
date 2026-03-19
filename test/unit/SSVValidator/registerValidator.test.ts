@@ -1,9 +1,9 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from '../../setup/connection.ts';
-import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
+import { getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
+import { defaultValidatorsFixture } from '../../helpers/fixture-presets.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
-import { makePublicKey, makePublicKeys, createCluster, parseClusterFromEvent } from '../../common/helpers.ts';
+import { setupTestContext, makePublicKey, makePublicKeys, createCluster, parseClusterFromEvent, computeClusterId } from '../../common/helpers.ts';
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_OPERATOR_ETH_FEE, DEFAULT_SHARES, EMPTY_CLUSTER, ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
@@ -20,9 +20,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
   let deployClustersWith13Operators!: ReturnType<typeof getValidatorsHarnessFixture>;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [clusterOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner] } = await setupTestContext());
 
     deployClustersWith7Operators = getValidatorsHarnessFixture(connection, 7);
     deployClustersWith10Operators = getValidatorsHarnessFixture(connection, 10);
@@ -30,13 +28,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
   });
 
   const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
-    return ssvValidatorsHarnessFixture(connection);
-  };
-
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return connection.ethers.keccak256(
-      connection.ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
+    return defaultValidatorsFixture(connection);
   };
 
   it("Registers a new validator, creates new cluster with the expected data and emits correct events", async function () {
@@ -171,11 +163,11 @@ describe("SSVClusters function `registerValidator()`", async () => {
     await tx.wait();
 
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR); // baseline + deviation
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR);
     }
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     expect(await validators.getClusterVUnits(clusterId)).to.equal(0n);
   });
 
@@ -202,11 +194,11 @@ describe("SSVClusters function `registerValidator()`", async () => {
     );
     await registerTx2.wait();
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     expect(await validators.getClusterVUnits(clusterId)).to.equal(0n);
     for (const operatorId of operatorIds) {
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * BPS_DENOMINATOR); // baseline + deviation
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * BPS_DENOMINATOR);
     }
   });
 
@@ -224,7 +216,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
     const registerReceipt = await registerTx.wait();
     const clusterAfterRegister = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const startVUnits = 3n * BPS_DENOMINATOR;
     await validators.mockSetClusterVUnits(clusterId, startVUnits);
 
@@ -239,11 +231,8 @@ describe("SSVClusters function `registerValidator()`", async () => {
 
     expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + BPS_DENOMINATOR);
     for (const operatorId of operatorIds) {
-      // Cluster has 2 validators (baseline = 20000), explicit snapshot = 40000
-      // But operatorEthVUnits is only updated by EB updates, not registration
-      // The deviation in clusterEB.vUnits is implicit until an EB update syncs it
-      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only (not updated on registration)
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * BPS_DENOMINATOR); // baseline only
+      expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * BPS_DENOMINATOR);
     }
   });
 
@@ -469,9 +458,9 @@ describe("SSVClusters function `registerValidator()`", async () => {
     const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
     await expect(validators.bulkRegisterValidator(
-      [makePublicKey(1)], // 1 pk
+      [makePublicKey(1)],
       operatorIds,
-      [], // 0 shares
+      [],
       EMPTY_CLUSTER,
       { value: DEFAULT_ETH_REGISTER_VALUE }
     )).to.be.revertedWithCustomError(validators, Errors.PUBLIC_KEYS_SHARES_LENGTH_MISMATCH);
@@ -507,7 +496,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
 
   it("Is reverted with 'UnsortedOperatorsList' if the list of operator ids is not sorted", async function () {
     const { validators } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
-    const operatorIds = [4n, 3n, 2n, 1n]; // no duplicates, just unsorted
+    const operatorIds = [4n, 3n, 2n, 1n];
 
     await expect(validators.registerValidator(
       makePublicKey(1),
@@ -520,7 +509,7 @@ describe("SSVClusters function `registerValidator()`", async () => {
 
   it("Is reverted with 'OperatorsListNotUnique' if the list of operator ids has duplications", async function () {
     const { validators } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
-    let operatorIds = [1n, 1n, 2n, 4n]; // sorted but has duplicate
+    let operatorIds = [1n, 1n, 2n, 4n];
 
     await expect(validators.registerValidator(
       makePublicKey(1),

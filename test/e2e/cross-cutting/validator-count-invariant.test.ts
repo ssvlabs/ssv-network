@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -10,6 +9,7 @@ import {
   whitelistAddresses,
   parseClusterFromEvent,
   getCurrentClusterState,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
@@ -19,7 +19,7 @@ import {
 import {
   checkValidatorCountConsistency,
   type TrackedCluster,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 import { Events } from "../../common/events.ts";
 
 describe("Cross-Cutting: Validator Count Invariant", () => {
@@ -32,9 +32,7 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
   let operatorOwner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [owner1, owner2, owner3, operatorOwner] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner1, owner2, owner3, operatorOwner] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -45,19 +43,13 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
     it("maintains ethDaoValidatorCount == Σ(active clusters) through register → liquidate → reactivate", async function () {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
-
-      // Register 4 operators with same fee
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [
         owner1.address,
         owner2.address,
         owner3.address,
       ]);
-
-      // Track all clusters for invariant checking
       const clusters: TrackedCluster[] = [];
-
-      // STEP 1: Register first cluster (owner1, 1 validator)
       const tx1 = await network.connect(owner1).registerValidator(
         makePublicKey(1),
         operatorIds,
@@ -74,12 +66,8 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
         validatorCount: 1n,
         active: true,
       });
-
-      // ✓ Invariant: ethDaoValidatorCount = 1
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(1);
-
-      // STEP 2: Register second cluster (owner2, 2 validators, same operators)
       const tx2a = await network.connect(owner2).registerValidator(
         makePublicKey(2),
         operatorIds,
@@ -106,12 +94,8 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
         validatorCount: 2n,
         active: true,
       });
-
-      // ✓ Invariant: ethDaoValidatorCount = 1 + 2 = 3
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(3);
-
-      // STEP 3: Register third cluster (owner3, 1 validator, same operators)
       const tx3 = await network.connect(owner3).registerValidator(
         makePublicKey(4),
         operatorIds,
@@ -128,12 +112,8 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
         validatorCount: 1n,
         active: true,
       });
-
-      // ✓ Invariant: ethDaoValidatorCount = 1 + 2 + 1 = 4
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(4);
-
-      // STEP 4: Liquidate cluster1 by owner (no time/collateral restrictions)
       const cluster1ForLiq = await getCurrentClusterState(
         connection,
         network,
@@ -147,15 +127,9 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
         cluster1ForLiq,
       );
       await txLiq.wait();
-
-      // Mark cluster1 as inactive
       clusters[0].active = false;
-
-      // ✓ Invariant: ethDaoValidatorCount = 2 + 1 = 3 (cluster1 liquidated)
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(3);
-
-      // STEP 5: Liquidate cluster2 by owner as well
       const cluster2Current = await getCurrentClusterState(
         connection,
         network,
@@ -176,15 +150,9 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
         cluster2ForLiq,
       );
       await txLiq2.wait();
-
-      // Mark cluster2 as inactive
       clusters[1].active = false;
-
-      // ✓ Invariant: ethDaoValidatorCount = 1 (only cluster3 active)
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(1);
-
-      // STEP 6: Reactivate cluster1
       const cluster1Liq = await getCurrentClusterState(
         connection,
         network,
@@ -192,7 +160,7 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
         operatorIds,
       );
 
-      expect(cluster1Liq.active).to.equal(false); // Verify it's liquidated
+      expect(cluster1Liq.active).to.equal(false);
 
       const txReact = await network.connect(owner1).reactivate(
         operatorIds,
@@ -200,15 +168,9 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
         { value: DEFAULT_ETH_REGISTER_VALUE },
       );
       await txReact.wait();
-
-      // Mark cluster1 as active again
       clusters[0].active = true;
-
-      // ✓ Invariant: ethDaoValidatorCount = 1 + 1 = 2 (cluster1 + cluster3)
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(2);
-
-      // STEP 7: Reactivate cluster2
       const cluster2Liq = await getCurrentClusterState(
         connection,
         network,
@@ -224,11 +186,7 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
         { value: 2n * DEFAULT_ETH_REGISTER_VALUE },
       );
       await txReact2.wait();
-
-      // Mark cluster2 as active again
       clusters[1].active = true;
-
-      // ✓ Invariant: ethDaoValidatorCount = 1 + 2 + 1 = 4 (all clusters active again)
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(4);
     });
@@ -236,8 +194,6 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
     it("prevents double-counting when operators are shared across clusters", async function () {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);
-
-      // Register 4 operators
       const operatorIds = await registerOperators(network, operatorOwner, 4);
       await whitelistAddresses(network, operatorOwner, operatorIds, [
         owner1.address,
@@ -245,8 +201,6 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
       ]);
 
       const clusters: TrackedCluster[] = [];
-
-      // Create 2 clusters with SAME operators
       await network.connect(owner1).registerValidator(
         makePublicKey(1),
         operatorIds,
@@ -276,22 +230,14 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
         validatorCount: 1n,
         active: true,
       });
-
-      // Verify: ethDaoValidatorCount = 2
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(2);
-
-      // Show that operator counts would incorrectly sum to 8:
       let totalFromOperators = 0n;
       for (const opId of operatorIds) {
         const op = await views.getOperatorById(BigInt(opId));
         totalFromOperators += BigInt(op.validatorCount);
       }
-
-      // Each operator serves 2 validators across both clusters
-      expect(totalFromOperators).to.equal(8n); // 4 operators * 2 validators = 8
-
-      // But ethDaoValidatorCount correctly counts unique validators
+      expect(totalFromOperators).to.equal(8n);
       expect(await views.getNetworkValidatorsCount()).to.equal(2n);
     });
   });

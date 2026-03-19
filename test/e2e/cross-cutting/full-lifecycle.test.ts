@@ -2,7 +2,6 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { ethers } from "ethers";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
@@ -12,6 +11,7 @@ import {
   parseClusterFromEvent,
   generateMerkleForClusterEB,
   getValidOperatorFeeIncrease,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
@@ -29,7 +29,7 @@ import {
   checkETHConservation,
   checkAccumulatorMonotonicity,
   checkCSSVSupplyConsistency,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 describe("Cross-Cutting: Full System Lifecycle", () => {
   let connection: NetworkConnection<"generic">;
@@ -42,8 +42,7 @@ describe("Cross-Cutting: Full System Lifecycle", () => {
   let oracle3: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner, stakerA, oracle1, oracle2, oracle3] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner, stakerA, oracle1, oracle2, oracle3] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
@@ -121,7 +120,7 @@ describe("Cross-Cutting: Full System Lifecycle", () => {
     cluster = parseClusterFromEvent(network, receiptEB, Events.CLUSTER_BALANCE_UPDATED);
     const ebUpdateBlock = receiptEB!.blockNumber;
 
-    const newVUnits = calcVUnits(48n); // 15000
+    const newVUnits = calcVUnits(48n);
     expect(newVUnits).to.equal(15000n);
 
     expect(cluster.balance).to.be.lessThan(deposit);

@@ -2,16 +2,10 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
-import {
-  DECLARE_OPERATOR_FEE_PERIOD,
-  ETH_DEDUCTED_DIGITS,
-  EXECUTE_OPERATOR_FEE_PERIOD,
-  MINIMAL_OPERATOR_ETH_FEE,
-} from "../../common/constants.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
+import { DECLARE_OPERATOR_FEE_PERIOD, DEFAULT_OPERATOR_ETH_FEE, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD, MINIMAL_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGas, trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -24,9 +18,7 @@ describe("SSVOperators function `removeOperator()`", async () => {
   let other: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [owner, other] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner, other] } = await setupTestContext());
   });
 
   const deployOperatorsFixture = async () => ssvOperatorsHarnessFixture(connection);
@@ -76,37 +68,14 @@ describe("SSVOperators function `removeOperator()`", async () => {
     
     await operators.mockSetToken(await token.getAddress());
     await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
-
-    const operatorBefore = await operators.getOperator(1);
-    await operators.mockSetOperator(1, {
-      validatorCount: operatorBefore.validatorCount,
-      fee: 0n,
-      owner: operatorBefore.owner,
-      whitelisted: operatorBefore.whitelisted,
-      snapshot: {
-        block: operatorBefore.ethSnapshot.block,
-        index: 0n,
-        balance: 0n,
-      },
-      ethValidatorCount: operatorBefore.ethValidatorCount,
-      ethFee: operatorBefore.ethFee,
-      ethSnapshot: {
-        block: operatorBefore.ethSnapshot.block,
-        index: operatorBefore.ethSnapshot.index,
-        balance: operatorBefore.ethSnapshot.balance,
-      },
-    });
-
-    // Set SSV balance (mock uses raw storage value, so 100 units)
+    await operators.mockSetOperatorLegacySSV(1, 1n);
     await operators.mockSetOperatorBalances(1, 0n, 100n);
-    
-    // Mint tokens to operators contract
     await token.mint(await operators.getAddress(), ethers.parseEther("1000"));
 
     const before = await token.balanceOf(owner.address);
     await operators.removeOperator(1);
     const after = await token.balanceOf(owner.address);
-    
+
     expect(after).to.be.gt(before);
   });
 
@@ -149,9 +118,7 @@ describe("SSVOperators function `removeOperator()`", async () => {
     expect(op.ethFee).to.equal(0n);
     expect(op.fee).to.equal(0n);
     expect(op.validatorCount).to.equal(0n);
-    // Owner is NOT cleared in current implementation
     expect(op.owner).to.equal(owner.address);
-    // Whitelist IS cleared
     expect(await operators.getOperatorWhitelist(1)).to.equal(ethers.ZeroAddress);
   });
 

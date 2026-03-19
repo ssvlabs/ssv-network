@@ -20,7 +20,7 @@ test-integration:
 
 # Run fork tests against mainnet state (requires MAINNET_ETH_NODE_URL in .env)
 test-forked:
-    NO_GAS_ENFORCE=true RUN_FORK=true npx hardhat test $(find test/test-forked -name "*.test.ts" | xargs)
+    NO_GAS_ENFORCE=true RUN_FORK=true npx hardhat test $(find test/forked -name "*.test.ts" | xargs)
 
 # Run tests with coverage report, then generate HTML report
 coverage:

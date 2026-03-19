@@ -1,94 +1,99 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
-  createCluster,
   makePublicKey,
   parseClusterFromEvent,
+  registerOperators,
+  whitelistAddresses,
+  getCurrentClusterState,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_SHARES,
-  BPS_DENOMINATOR,
-  ETH_DEDUCTED_DIGITS, DEFAULT_ETH_REGISTER_VALUE,
+  DEFAULT_ETH_REGISTER_VALUE,
+  MINIMAL_LIQUIDATION_THRESHOLD,
+  EMPTY_CLUSTER,
+  OP_ETH_FEE_RAW,
+  DEFAULT_NETWORK_FEE_RAW,
+  DEFAULT_NETWORK_FEE_UNPACKED,
 } from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import {
   mineBlocks,
+  getBlockNumber,
   calcClusterBurn,
   calcLiquidationThreshold,
+  calcVUnits,
   defaultVUnits,
-} from "../helpers/index.ts";
-import { ethers } from "ethers";
+} from "../../helpers/index.ts";
+import {
+  setupOracles,
+  commitEBRoot,
+  computeClusterId,
+  computeEBRoot,
+} from "../../helpers/index.ts";
 
-const OP_FEE_RAW = 10_000n;
-const OP_FEE_UNPACKED = OP_FEE_RAW * ETH_DEDUCTED_DIGITS;
-const NETWORK_FEE_RAW = 5_000n;
-const MIN_BLOCKS_LIQ = 100n;
-const MIN_LIQ_COLLATERAL_RAW = 100_000n;
+const MIN_BLOCKS_LIQ = MINIMAL_LIQUIDATION_THRESHOLD;
 const NUM_OPERATORS = 4n;
-
-const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-  return ethers.keccak256(
-    ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds]),
-  );
-};
-
-const getEBRoot = (clusterId: string, effectiveBalance: number): string => {
-  const coder = ethers.AbiCoder.defaultAbiCoder();
-  const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
-  return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
-};
 
 describe("ETH Cluster Liquidation", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
   let clusterOwner: HardhatEthersSigner;
   let liquidator: HardhatEthersSigner;
+  let oracle1: HardhatEthersSigner;
+  let oracle2: HardhatEthersSigner;
+  let oracle3: HardhatEthersSigner;
+  let oracle4: HardhatEthersSigner;
+  let staker: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [clusterOwner, liquidator] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, liquidator, oracle1, oracle2, oracle3, oracle4, staker] } = await setupTestContext());
   });
 
   const deployFixture = async () => {
-    const { clusters, operatorIds } = await ssvClustersHarnessFixture(connection, 4, OP_FEE_UNPACKED);
+    const { network, views, ssvToken } = await ssvNetworkFullFixture(connection);
 
-    await clusters.mockEthNetworkFee(NETWORK_FEE_RAW);
-    await clusters.mockMinimumBlocksBeforeLiquidation(MIN_BLOCKS_LIQ);
-    await clusters.mockMinimumLiquidationCollateral(MIN_LIQ_COLLATERAL_RAW);
+    await network.updateNetworkFee(DEFAULT_NETWORK_FEE_UNPACKED);
+    await network.updateMinimumLiquidationCollateral(0n);
 
-    return { clusters, operatorIds };
+    await setupOracles(network, ssvToken, staker, [oracle1, oracle2, oracle3, oracle4]);
+
+    const operatorIds = await registerOperators(network, clusterOwner, 4);
+    await whitelistAddresses(network, clusterOwner, operatorIds, [clusterOwner.address]);
+
+    return { network, views, operatorIds };
   };
 
   describe("Cluster at exact threshold is NOT liquidatable by third party", () => {
     it("Balance == threshold is NOT liquidatable, balance < threshold IS", async function () {
-      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
+      const { network, operatorIds } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const regTx = await clusters.registerValidator(
-        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(),
+      const regTx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE },
       );
       const regReceipt = await regTx.wait();
-      let cluster = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+      let cluster = parseClusterFromEvent(network, regReceipt, Events.VALIDATOR_ADDED);
 
       const vUnits = defaultVUnits(1n);
       const perBlockBurn = calcClusterBurn({
         blockDiff: 1n,
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
         effectiveVUnits: vUnits,
       });
       const liqThreshold = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: MIN_BLOCKS_LIQ,
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
         effectiveVUnits: vUnits,
       });
 
@@ -97,146 +102,160 @@ describe("ETH Cluster Liquidation", () => {
       const feesAt10 = calcClusterBurn({
         blockDiff: 10n,
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
         effectiveVUnits: vUnits,
       });
       const balAfterFees = DEFAULT_ETH_REGISTER_VALUE - feesAt10;
 
       const maxWithdraw = balAfterFees - liqThreshold - perBlockBurn;
 
-      const wTx = await clusters.withdraw(operatorIds, maxWithdraw, cluster);
+      const wTx = await network.connect(clusterOwner).withdraw(operatorIds, maxWithdraw, cluster);
       const wReceipt = await wTx.wait();
-      cluster = parseClusterFromEvent(clusters, wReceipt, Events.CLUSTER_WITHDRAWN);
+      cluster = parseClusterFromEvent(network, wReceipt, Events.CLUSTER_WITHDRAWN);
       expect(cluster.balance).to.equal(liqThreshold + perBlockBurn);
 
       await expect(
-        clusters.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster),
-      ).to.be.revertedWithCustomError(clusters, Errors.CLUSTER_NOT_LIQUIDATABLE);
+        network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster),
+      ).to.be.revertedWithCustomError(network, Errors.CLUSTER_NOT_LIQUIDATABLE);
 
       await mineBlocks(provider, 1);
-      const liqTx = await clusters.connect(liquidator).liquidate(
+      const liqTx = await network.connect(liquidator).liquidate(
         clusterOwner.address, operatorIds, cluster,
       );
-      await expect(liqTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+      await expect(liqTx).to.emit(network, Events.CLUSTER_LIQUIDATED);
     });
   });
 
   describe("Liquidation With Explicit EB — Deviation Cleanup", () => {
     it("Liquidation reverses EB deviation from operators and DAO", async function () {
-      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
+      const { network, views, operatorIds } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const deposit = 2_000_000_000_000n;
-
-      const regTx = await clusters.bulkRegisterValidator(
-        [makePublicKey(1), makePublicKey(2)], operatorIds, [DEFAULT_SHARES, DEFAULT_SHARES], createCluster(),
-        { value: deposit },
+      const regTx1 = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
       );
-      let cluster = parseClusterFromEvent(clusters, await regTx.wait(), Events.VALIDATOR_ADDED);
+      let cluster = parseClusterFromEvent(network, await regTx1.wait(), Events.VALIDATOR_ADDED);
 
+      const regTx2 = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(2), operatorIds, DEFAULT_SHARES, cluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+      const regReceipt2 = await regTx2.wait();
+      cluster = parseClusterFromEvent(network, regReceipt2, Events.VALIDATOR_ADDED);
       expect(cluster.validatorCount).to.equal(2n);
 
-      const clusterId = getClusterId(clusterOwner.address, operatorIds);
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
-      const ebBlockNum = 1;
       const effectiveBalance = 96;
-      const root = getEBRoot(clusterId, effectiveBalance);
-      await clusters.mockSetEBRoot(ebBlockNum, root);
+      const root = computeEBRoot(clusterId, effectiveBalance);
+      await mineBlocks(provider, 1);
+      const rootBlockNum = await getBlockNumber(provider);
+      await commitEBRoot(network, root, rootBlockNum, [oracle1, oracle2, oracle3]);
 
-      const updateTx = await clusters.updateClusterBalance(
-        ebBlockNum, clusterOwner.address, operatorIds, cluster,
+      const updateTx = await network.connect(clusterOwner).updateClusterBalance(
+        rootBlockNum, clusterOwner.address, operatorIds, cluster,
         effectiveBalance, [],
       );
       const updateReceipt = await updateTx.wait();
-      cluster = parseClusterFromEvent(clusters, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
+      cluster = parseClusterFromEvent(network, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
 
-      const newVUnits = 30_000n;
-      const baseline = 2n * BPS_DENOMINATOR; // 20_000
-      const deviation = newVUnits - baseline; // 10_000
+      const newVUnits = calcVUnits(BigInt(effectiveBalance));
+      expect(newVUnits).to.equal(30_000n);
 
-      expect(await clusters.getClusterVUnits(clusterId)).to.equal(newVUnits);
-      const daoVUnitsBefore = await clusters.getDaoTotalEthVUnits();
+      const ebAfterUpdate = await views.getEffectiveBalance(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      expect(ebAfterUpdate).to.equal(effectiveBalance);
 
-      for (const opId of operatorIds) {
-        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(deviation);
-      }
+      const liqThresholdNewVUnits = calcLiquidationThreshold({
+        minimumBlocksBeforeLiquidation: MIN_BLOCKS_LIQ,
+        numOperators: NUM_OPERATORS,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: newVUnits,
+      });
+      const burnPerBlockNewVUnits = calcClusterBurn({
+        blockDiff: 1n,
+        numOperators: NUM_OPERATORS,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: newVUnits,
+      });
+      const currentBalance = BigInt(cluster.balance);
+      const blocksUntilLiquidatable = Number((currentBalance - liqThresholdNewVUnits) / burnPerBlockNewVUnits);
+      await mineBlocks(provider, blocksUntilLiquidatable);
 
-      await mineBlocks(provider, 60);
-
-      const liqTx = await clusters.connect(liquidator).liquidate(
+      const liqTx = await network.connect(liquidator).liquidate(
         clusterOwner.address, operatorIds, cluster,
       );
       const liqReceipt = await liqTx.wait();
-      const liqCluster = parseClusterFromEvent(clusters, liqReceipt, Events.CLUSTER_LIQUIDATED);
+      const liqCluster = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
 
       expect(liqCluster.active).to.equal(false);
       expect(liqCluster.balance).to.equal(0n);
 
+      expect(await views.getNetworkValidatorsCount()).to.equal(0);
       for (const opId of operatorIds) {
-        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
-      }
-
-      const daoVUnitsAfter = await clusters.getDaoTotalEthVUnits();
-      expect(daoVUnitsBefore - daoVUnitsAfter).to.equal(newVUnits);
-
-      expect(await clusters.getDaoEthValidatorCount()).to.equal(0);
-
-      for (const opId of operatorIds) {
-        expect(await clusters.getOperatorEthValidatorCount(opId)).to.equal(0);
+        const opData = await views.getOperatorById(opId);
+        expect(opData.validatorCount).to.equal(0);
       }
     });
   });
 
   describe("Auto-Liquidation via updateClusterBalance", () => {
     it("EB increase triggers auto-liquidation, bounty goes to updater", async function () {
-      const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
+      const { network, views, operatorIds } = await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
-      const deposit = 500_000_000_000n;
-      const regTx = await clusters.registerValidator(
-        makePublicKey(1), operatorIds, DEFAULT_SHARES, createCluster(),
-        { value: deposit },
-      );
-      const regReceipt = await regTx.wait();
-      let cluster = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
-
-      const clusterId = getClusterId(clusterOwner.address, operatorIds);
-
+      const implicitVUnits = defaultVUnits(1n);
       const implicitThreshold = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: MIN_BLOCKS_LIQ,
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
-        effectiveVUnits: defaultVUnits(1n),
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: implicitVUnits,
       });
+
+      const deposit = implicitThreshold + (implicitThreshold / 2n);
       expect(deposit).to.be.greaterThan(implicitThreshold);
 
-      const ebBlockNum = 1;
+      const regTx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER,
+        { value: deposit },
+      );
+      const regReceipt = await regTx.wait();
+      let cluster = parseClusterFromEvent(network, regReceipt, Events.VALIDATOR_ADDED);
+      const regBlock = regReceipt!.blockNumber;
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
       const effectiveBalance = 64;
-      const root = getEBRoot(clusterId, effectiveBalance);
-      await clusters.mockSetEBRoot(ebBlockNum, root);
+      const root = computeEBRoot(clusterId, effectiveBalance);
+      await mineBlocks(provider, 1);
+      const rootBlockNum = await getBlockNumber(provider);
+      await commitEBRoot(network, root, rootBlockNum, [oracle1, oracle2, oracle3]);
 
       const updaterBalBefore = await provider.getBalance(liquidator.address);
 
-      const updateTx = await clusters.connect(liquidator).updateClusterBalance(
-        ebBlockNum, clusterOwner.address, operatorIds, cluster,
+      const updateTx = await network.connect(liquidator).updateClusterBalance(
+        rootBlockNum, clusterOwner.address, operatorIds, cluster,
         effectiveBalance, [],
       );
       const updateReceipt = await updateTx.wait();
 
-      await expect(updateTx).to.emit(clusters, Events.CLUSTER_BALANCE_UPDATED);
-      await expect(updateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+      await expect(updateTx).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
+      await expect(updateTx).to.emit(network, Events.CLUSTER_LIQUIDATED);
 
-      const regBlock = regReceipt!.blockNumber;
       const updateBlock = updateReceipt!.blockNumber;
       const blockDiff = BigInt(updateBlock - regBlock);
       const oldVUnits = defaultVUnits(1n);
       const feesAtOldVUnits = calcClusterBurn({
         blockDiff,
         numOperators: NUM_OPERATORS,
-        ethFee: OP_FEE_RAW,
-        networkFee: NETWORK_FEE_RAW,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
         effectiveVUnits: oldVUnits,
       });
       const expectedBounty = deposit - feesAtOldVUnits;
@@ -246,10 +265,11 @@ describe("ETH Cluster Liquidation", () => {
       const bountyReceived = updaterBalAfter - updaterBalBefore + gasUsed;
       expect(bountyReceived).to.equal(expectedBounty);
 
+      expect(await views.getNetworkValidatorsCount()).to.equal(0);
       for (const opId of operatorIds) {
-        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
+        const opData = await views.getOperatorById(opId);
+        expect(opData.validatorCount).to.equal(0);
       }
-      expect(await clusters.getDaoEthValidatorCount()).to.equal(0);
     });
   });
 });

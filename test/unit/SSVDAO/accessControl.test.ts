@@ -1,11 +1,11 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { MINIMAL_LIQUIDATION_THRESHOLD } from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 
 describe("SSVDAO governance access control (via SSVNetwork)", async () => {
   let connection: NetworkConnection<"generic">;
@@ -13,8 +13,7 @@ describe("SSVDAO governance access control (via SSVNetwork)", async () => {
   let signers: HardhatEthersSigner[];
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    signers = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers } = await setupTestContext());
   });
 
   const deployFullSSVNetworkFixture = async () => {

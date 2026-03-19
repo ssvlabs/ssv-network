@@ -1,15 +1,13 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvValidatorsHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultValidatorsFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey } from "../../common/helpers.ts";
+import { setupTestContext, createCluster, makePublicKey, computeClusterId } from "../../common/helpers.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
-import { ethers } from "ethers";
 
 describe("SSVClusters function `exitValidator()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -18,19 +16,11 @@ describe("SSVClusters function `exitValidator()`", async () => {
   let clusterOwner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [clusterOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner] } = await setupTestContext());
   });
 
   const deploySSVValidatorsAndPrepareOperatorsFixture = async () => {
-    return ssvValidatorsHarnessFixture(connection);
-  };
-
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
+    return defaultValidatorsFixture(connection);
   };
 
   it("Exits an existing validator and emits the correct event", async function () {
@@ -71,7 +61,7 @@ describe("SSVClusters function `exitValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     await validators.mockSetClusterVUnits(clusterId, 7n * BPS_DENOMINATOR);
 
     const beforeClusterVUnits = await validators.getClusterVUnits(clusterId);
@@ -86,7 +76,7 @@ describe("SSVClusters function `exitValidator()`", async () => {
     expect(afterOperatorVUnits).to.deep.equal(beforeOperatorVUnits);
   });
 
-  it("Is reverted with 'ValidatorDoesNotExist' when validator was not registered", async function () {
+  it("Is reverted with 'IncorrectValidatorStateWithData' when validator was not registered", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -114,7 +104,7 @@ describe("SSVClusters function `exitValidator()`", async () => {
 
     await validators.exitValidator(publicKey, operatorIds);
 
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const validatorDataBeforeSecondExit = await validators.getValidatorData(publicKey, clusterOwner.address);
     const clusterVUnitsBeforeSecondExit = await validators.getClusterVUnits(clusterId);
     const operatorVUnitsBeforeSecondExit = await Promise.all(operatorIds.map((id) => validators.getOperatorEthVUnits(id)));
@@ -145,7 +135,7 @@ describe("SSVClusters function `exitValidator()`", async () => {
     );
 
     const mismatchedOperatorIds = [...operatorIds];
-    mismatchedOperatorIds[0] = mismatchedOperatorIds[0] + 1n; // alter first id
+    mismatchedOperatorIds[0] = mismatchedOperatorIds[0] + 1n;
 
     await expect(validators.exitValidator(
       publicKey,
