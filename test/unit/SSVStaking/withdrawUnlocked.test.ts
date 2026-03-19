@@ -3,6 +3,7 @@ import type { NetworkConnection } from "hardhat/types/network";
 import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext } from "../../common/helpers.ts";
+import { ssvStakingHarnessFixture } from "../../setup/fixtures.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
