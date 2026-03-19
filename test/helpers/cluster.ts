@@ -45,6 +45,7 @@ const EVENT_ABI = [
   'event ValidatorAdded(address indexed owner, uint64[] operatorIds, bytes publicKey, bytes shares, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
   'event ValidatorRemoved(address indexed owner, uint64[] operatorIds, bytes publicKey, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
   'event ClusterMigratedToETH(address indexed owner, uint64[] operatorIds, uint256 ethDeposited, uint256 ssvRefunded, uint32 effectiveBalance, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
+  'event ClusterBalanceUpdated(address indexed owner, uint64[] operatorIds, uint64 indexed blockNum, uint32 effectiveBalance, tuple(uint32, uint64, uint64, bool, uint256) cluster)',
 ] as const;
 
 export function extractEventArgs(contract: any, receipt: any, eventName: string | string[]): any {
