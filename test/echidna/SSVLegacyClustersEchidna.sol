@@ -107,6 +107,10 @@ contract SSVLegacyClustersEchidna is SSVClusters {
     function action_liquidate_ssv() external {
         if (!record.exists || !record.cluster.active) return;
 
+        // Settle harness state to current block so record.cluster.balance
+        // matches what the contract will compute inside liquidateSSV.
+        _syncToCurrentBlock();
+
         uint256 clusterBalance = record.cluster.balance;
         uint256 liquidatorTokenBefore = token.balanceOf(address(liquidator));
         uint256 contractTokenBefore = token.balanceOf(address(this));
@@ -133,7 +137,7 @@ contract SSVLegacyClustersEchidna is SSVClusters {
             uint256 contractTokenAfter = token.balanceOf(address(this));
             uint256 paid = liquidatorTokenAfter - liquidatorTokenBefore;
 
-            if (paid > clusterBalance) {
+            if (paid != clusterBalance) {
                 liquidationPayoutMismatch = true;
             }
             if (contractTokenBefore - contractTokenAfter != paid) {
@@ -235,6 +239,39 @@ contract SSVLegacyClustersEchidna is SSVClusters {
         token.mint(address(this), INITIAL_CLUSTER_BALANCE_SSV);
 
         SSVStorageProtocol.load().daoValidatorCount += VALIDATOR_COUNT;
+    }
+
+    function _syncToCurrentBlock() internal {
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint32 currentBlock = uint32(block.number);
+
+        for (uint256 i; i < clusterOperatorIds.length; ++i) {
+            ISSVNetworkCore.Operator storage op = s.operators[clusterOperatorIds[i]];
+            if (op.snapshot.block == 0 || op.snapshot.block >= currentBlock) continue;
+            uint64 blockDiff = uint64(currentBlock - op.snapshot.block);
+            uint64 blockDiffFee = blockDiff * PackedSSV.unwrap(op.fee);
+            op.snapshot.index += blockDiffFee;
+            op.snapshot.balance = op.snapshot.balance.add(
+                PackedSSV.wrap(blockDiffFee * op.validatorCount)
+            );
+            op.snapshot.block = currentBlock;
+        }
+
+        if (sp.networkFeeIndexBlockNumber < currentBlock) {
+            uint64 netDiff = uint64(currentBlock - sp.networkFeeIndexBlockNumber);
+            sp.networkFeeIndex += netDiff * PackedSSV.unwrap(sp.networkFee);
+            sp.networkFeeIndexBlockNumber = currentBlock;
+        }
+
+        uint64 clusterIndex = _currentSSVClusterIndex();
+        uint64 networkFeeIndex = sp.networkFeeIndex;
+        ISSVNetworkCore.Cluster memory c = record.cluster;
+        ClusterLib.updateBalanceSSV(c, clusterIndex, networkFeeIndex);
+        c.index = clusterIndex;
+        c.networkFeeIndex = networkFeeIndex;
+        record.cluster = c;
+        s.clusters[clusterId] = c.hashClusterData();
     }
 
     function _currentSSVClusterIndex() internal view returns (uint64) {
