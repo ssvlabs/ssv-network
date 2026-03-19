@@ -8,10 +8,10 @@ Source plan:
 Notes:
 - IDs are local-only for this tracking sheet.
 - This tracker was seeded from scenarios marked `NOT COVERED` or `Partially` in the source plan and keeps completed rows for local history.
-- Based on the current source plan, the remaining open backlog is `27` tasks total: `25` `NOT COVERED` and `2` `Partially`.
+- Based on the current source plan, the remaining open backlog is `26` tasks total: `24` `NOT COVERED` and `2` `Partially`.
 - `Plan Ref` uses `<section>.<case>` from `STAKING-TEST-PLAN.md`.
 
-| ID | Plan Ref | Section | Task | Plan Status | Local Status |
+| ID | Plan Ref | Section | Task | Plan Status | Current Status/Progress |
 |---:|---:|---|---|---|---|
 | 1 | 1.13 | Staking | ~~Stake without approval reverts~~ | Covered | Done |
 | 2 | 1.17 | Staking | ~~Stake exactly 1 above minimum~~ | Covered | Done |
@@ -25,7 +25,7 @@ Notes:
 | 10 | 2.18 | Earning Rewards | ~~Rewards unaffected by cooldown increase~~ | Covered | Done |
 | 11 | 2.19 | Earning Rewards | ~~Rewards unaffected by cooldown decrease~~ | Covered | Done |
 | 12 | 2.20 | Earning Rewards | ~~Rewards accrue normally after cooldown change and unstake~~ | Covered | Done |
-| 13 | 2.22 | Earning Rewards | Stake after partial unstake | NOT COVERED | Todo |
+| 13 | 2.22 | Earning Rewards | ~~Stake after partial unstake~~ | Covered | Done |
 | 14 | 2.25 | Earning Rewards | Stake-transfer-stake cycle | NOT COVERED | Todo |
 | 15 | 2.26 | Earning Rewards | Self-transfer doesn't double rewards | Partially | Todo |
 | 16 | 4.7 | Request Unstake | Unstake after cSSV transfer receive | NOT COVERED | Todo |

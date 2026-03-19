@@ -199,6 +199,59 @@ describe("SSVStaking function `stake()`", async () => {
     expect(userIndex).to.equal(accEthPerShare);
   });
 
+  it("Settles rewards correctly when staking again after a partial unstake", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const firstStake = STAKE_AMOUNT;
+    const partialUnstake = STAKE_AMOUNT / 2n;
+    const secondStake = STAKE_AMOUNT / 2n;
+
+    await ssvToken.approve(
+      await staking.getAddress(),
+      firstStake + secondStake,
+    );
+
+    const stake1 = await staking.stake(firstStake);
+    const receipt1 = await stake1.wait();
+
+    await staking.mockSetDaoTotalEthVUnits(10_000n);
+    await staking.mockSetEthNetworkFee(1n);
+
+    await connection.ethers.provider.send("hardhat_mine", ["0xA"]);
+
+    const unstakeTx = await staking.requestUnstake(partialUnstake);
+    const unstakeReceipt = await unstakeTx.wait();
+
+    const phase1Blocks = BigInt(unstakeReceipt.blockNumber - receipt1.blockNumber);
+    const phase1ExpectedRewards = phase1Blocks * ETH_DEDUCTED_DIGITS;
+    expect(await staking.getUserAccrued(staker.address)).to.equal(
+      phase1ExpectedRewards,
+    );
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(
+      firstStake - partialUnstake,
+    );
+
+    await connection.ethers.provider.send("hardhat_mine", ["0xA"]);
+
+    const stake2 = await staking.stake(secondStake);
+    const receipt2 = await stake2.wait();
+
+    const phase2Blocks = BigInt(receipt2.blockNumber - unstakeReceipt.blockNumber);
+    const phase2ExpectedRewards = phase2Blocks * ETH_DEDUCTED_DIGITS;
+    const expectedAccruedAfterRestake =
+      phase1ExpectedRewards + phase2ExpectedRewards;
+
+    expect(await staking.getUserAccrued(staker.address)).to.equal(
+      expectedAccruedAfterRestake,
+    );
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(firstStake);
+
+    const userIndex = await staking.getUserIndex(staker.address);
+    const accEthPerShare = await staking.getAccEthPerShare();
+    expect(userIndex).to.equal(accEthPerShare);
+  });
+
   it("Transfers SSV tokens to the staking contract", async function () {
     const { staking, ssvToken } =
       await networkHelpers.loadFixture(deployStakingFixture);

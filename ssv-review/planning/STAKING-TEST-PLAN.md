@@ -50,7 +50,7 @@ Generated: 2026-03-18
 | 19 | Rewards unaffected by cooldown decrease | Covered | e2e/rewards.ts:748 |
 | 20 | Rewards accrue normally after cooldown change and unstake | Covered | e2e/lifecycle.ts:567 |
 | 21 | Second stake preserves prior rewards | Covered | unit/stake.ts:153 |
-| 22 | Stake after partial unstake | NOT COVERED | |
+| 22 | Stake after partial unstake | Covered | unit/stake.ts:202 |
 | 23 | Late staker doesn't get early rewards | Covered | e2e/lifecycle.ts:249 |
 | 24 | Transfer then claim — sender keeps pre-transfer rewards | Covered | e2e/transfers.ts:55 |
 | 25 | Stake-transfer-stake cycle | NOT COVERED | |
@@ -168,15 +168,15 @@ Generated: 2026-03-18
 | Section | Total | Covered | Partially | Not Covered |
 |---------|-------|---------|-----------|-------------|
 | 1. Staking | 18 | 17 | 0 | 1 |
-| 2. Earning Rewards | 26 | 24 | 1 | 1 |
+| 2. Earning Rewards | 26 | 25 | 1 | 0 |
 | 3. Claim Rewards | 17 | 17 | 0 | 0 |
 | 4. Request Unstake | 25 | 18 | 1 | 6 |
 | 5. Withdraw Unlocked | 16 | 14 | 0 | 2 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
 | 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **99** | **2** | **25** |
+| **Total** | **126** | **100** | **2** | **24** |
 
-**Overall: ~79% covered, ~2% partially covered, ~20% not covered**
+**Overall: ~79% covered, ~2% partially covered, ~19% not covered**
 
 ## Key Gaps
 
