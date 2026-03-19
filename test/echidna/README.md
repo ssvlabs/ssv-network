@@ -107,7 +107,7 @@ test/echidna/
 | `echidna_reactivate_requires_inactive` | Reactivation only from inactive |
 | `echidna_dust_liquidation_reachable` | Dust balances become liquidatable after burn |
 
-## SSVAccountingEchidna (4 Invariants)
+## SSVAccountingEchidna (8 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -115,8 +115,12 @@ test/echidna/
 | `echidna_ssv_conservation` | SSV conservation across clusters/operators/DAO |
 | `echidna_eth_solvency` | ETH solvency for all tracked balances |
 | `echidna_ssv_solvency` | SSV solvency for all tracked balances |
+| `echidna_operator_vunits_matches_clusters` | Per-operator deviation equals sum of cluster deviations containing that operator (C6) |
+| `echidna_migration_one_way` | After migrateClusterToETH: SSV cluster deleted, ETH cluster active (C7) |
+| `echidna_ssv_accrual_no_overflow` | SSV operator balance never decreases during max-param accrual (X5) |
+| `echidna_vunits_deviation_consistent` | daoTotalEthVUnits equals sum of effective vUnits across all active ETH clusters (C5) |
 
-## SSVEdgeCasesEchidna (4 Invariants)
+## SSVEdgeCasesEchidna (7 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -124,6 +128,9 @@ test/echidna/
 | `echidna_reactivation_restores_vunits` | Reactivation restores EB-weighted vUnits |
 | `echidna_validator_spam_safe` | High validator counts do not corrupt snapshots |
 | `echidna_fee_index_overflow_protected` | Fee index overflow paths revert safely |
+| `echidna_eth_accrual_no_overflow` | ETH operator balance never decreases during max-param accrual (X4) |
+| `echidna_intermediate_mul_no_overflow` | `fee * effectiveVUnits` product stays within uint128 for max protocol params (X6) |
+| `echidna_pack_reverts_on_overflow` | Packing a value exceeding uint64 max reverts, never truncates (X7) |
 
 ## SSVValidatorsEchidna (8 Invariants)
 

@@ -116,7 +116,7 @@
 | FUZZ-1 | ~~Strengthen 5 partially-covered echidna invariants~~ | Echidna Invariant Suite | P1 | ✅ Done |
 | FUZZ-2 | Add 16 high-priority new echidna invariants (oracle/EB/fees/liquidation/staking) | Echidna Invariant Suite | P1 | L |
 | FUZZ-3 | Add 8 medium-priority echidna invariants (Merkle proof, operator fee gov, legacy SSV) | Echidna Invariant Suite | P2 | L |
-| FUZZ-4 | Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow) | Echidna Invariant Suite | P2 | XL |
+| FUZZ-4 | ~~Add 6 lower-priority echidna invariants (vUnit aggregation, migration, overflow)~~ | Echidna Invariant Suite | P2 | ✅ Closed |
 | FUZZ-5 | ETH contract balance accounting invariant: `address(this).balance == Σ cluster.balance + Σ operator.ethEarnings + ethDaoBalance + stakingEthPoolBalance` | Echidna Invariant Suite | P1 | M |
 | MAINNET-READINESS-1 | Mainnet playbook ready and send to m-sig | Mainnet Readiness | P0 | M |
 | MAINNET-READINESS-2 | Full mainnet -> staking upgrade flow | Mainnet Readiness | P0 | M |
@@ -3204,7 +3204,7 @@ Add 8 medium-priority invariants requiring more harness setup. Full list in `tes
 ### [FUZZ-4] Add 6 lower-priority echidna invariants (heavy harness)
 - **Type:** Echidna Invariant Suite
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Closed
 - **Owner:** (unassigned)
 - **Timeline:** (empty)
 - **Github Link:** (empty)
@@ -3219,11 +3219,20 @@ Add 6 lower-priority invariants requiring significant harness work. Full list in
 **Overflow/Extreme (3):** ETH accrual no overflow (X4), SSV accrual no overflow (X5), intermediate mul no overflow (X6), pack reverts on overflow (X7)
 
 **Acceptance Criteria:**
-- [ ] All invariants implemented and passing
-- [ ] Delta-block simulator added for overflow testing
-- [ ] Max-parameter configurator added
-- [ ] Per-cluster EB tracking arrays added
-- [ ] Each invariant documented in `test/echidna/README.md`
+- [x] All invariants implemented and passing
+- [x] Delta-block simulator added for overflow testing (`action_probe_max_eth_accrual`, `action_probe_max_ssv_accrual`)
+- [x] Max-parameter configurator added (uses `sp.operatorMaxFee`, `sp.validatorsPerOperatorLimit`)
+- [x] Per-cluster EB tracking arrays already present in `SSVAccountingEchidna` (`ethClusterIds`)
+- [x] Each invariant documented in `test/echidna/README.md`
+
+**Resolution:**
+- C5 (`echidna_vunits_deviation_consistent`): already existed in `SSVAccountingEchidna.sol`
+- C6 (`echidna_operator_vunits_matches_clusters`): added to `SSVAccountingEchidna.sol` — sums cluster deviations per operator and compares to `operatorEthVUnits[opId]`
+- C7 (`echidna_migration_one_way`): added to `SSVAccountingEchidna.sol` — tracks migrated clusters, asserts `s.clusters[cId] == 0` and `s.ethClusters[cId] != 0` after migration
+- X4 (`echidna_eth_accrual_no_overflow`): added to `SSVEdgeCasesEchidna.sol` — `action_probe_max_eth_accrual` sets max fee/validators/EB and advances blocks; invariant checks balance is monotonic
+- X5 (`echidna_ssv_accrual_no_overflow`): added to `SSVAccountingEchidna.sol` — same pattern for SSV
+- X6 (`echidna_intermediate_mul_no_overflow`): added to `SSVEdgeCasesEchidna.sol` — view invariant asserting `maxFee * maxEffectiveVUnits <= type(uint128).max`
+- X7 (`echidna_pack_reverts_on_overflow`): added to `SSVEdgeCasesEchidna.sol` — `action_pack_overflow_check` probes `pack(type(uint256).max)` and asserts it reverts
 
 ---
 
