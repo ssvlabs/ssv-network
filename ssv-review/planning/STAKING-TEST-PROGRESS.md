@@ -8,7 +8,7 @@ Source plan:
 Notes:
 - IDs are local-only for this tracking sheet.
 - This tracker was seeded from scenarios marked `NOT COVERED` or `Partially` in the source plan and keeps completed rows for local history.
-- Based on the current source plan, the remaining open backlog is `23` tasks total: `22` `NOT COVERED` and `1` `Partially`.
+- Based on the current source plan, the remaining open backlog is `15` tasks total: `15` `NOT COVERED`.
 - `Plan Ref` uses `<section>.<case>` from `STAKING-TEST-PLAN.md`.
 
 | ID | Plan Ref | Section | Task | Plan Status | Current Status/Progress |
@@ -29,14 +29,14 @@ Notes:
 | 14 | 2.25 | Earning Rewards | ~~Stake-transfer-stake cycle~~ | Covered | Done |
 | 15 | 2.26 | Earning Rewards | ~~Self-transfer doesn't double rewards~~ | Covered | Done |
 | 16 | 4.7 | Request Unstake | ~~Unstake after cSSV transfer receive~~ | Covered | Done |
-| 17 | 4.10 | Request Unstake | Unstake with no cSSV reverts | Partially | Todo |
-| 18 | 4.14 | Request Unstake | Cooldown duration change affects new requests only | NOT COVERED | Todo |
-| 19 | 4.15 | Request Unstake | Cooldown increase - old request uses old cooldown | NOT COVERED | Todo |
-| 20 | 4.16 | Request Unstake | Cooldown increase - new request uses new cooldown | NOT COVERED | Todo |
-| 21 | 4.17 | Request Unstake | Cooldown decrease - pending not accelerated | NOT COVERED | Todo |
-| 22 | 4.18 | Request Unstake | Cooldown decrease - new request uses shorter | NOT COVERED | Todo |
-| 23 | 5.5 | Withdraw Unlocked | Withdraw long after maturity | NOT COVERED | Todo |
-| 24 | 5.13 | Withdraw Unlocked | cSSV supply unchanged | NOT COVERED | Todo |
+| 17 | 4.10 | Request Unstake | ~~Unstake with no cSSV reverts~~ | Covered | Done |
+| 18 | 4.14 | Request Unstake | ~~Cooldown duration change affects new requests only~~ | Covered | Done |
+| 19 | 4.15 | Request Unstake | ~~Cooldown increase - old request uses old cooldown~~ | Covered | Done |
+| 20 | 4.16 | Request Unstake | ~~Cooldown increase - new request uses new cooldown~~ | Covered | Done |
+| 21 | 4.17 | Request Unstake | ~~Cooldown decrease - pending not accelerated~~ | Covered | Done |
+| 22 | 4.18 | Request Unstake | ~~Cooldown decrease - new request uses shorter~~ | Covered | Done |
+| 23 | 5.5 | Withdraw Unlocked | ~~Withdraw long after maturity~~ | Covered | Done |
+| 24 | 5.13 | Withdraw Unlocked | ~~cSSV supply unchanged~~ | Covered | Done |
 | 25 | 7.1 | Multisig Accounts | Multisig stakes SSV | NOT COVERED | Todo |
 | 26 | 7.2 | Multisig Accounts | Multisig stakes multiple times | NOT COVERED | Todo |
 | 27 | 7.3 | Multisig Accounts | Multisig earns rewards | NOT COVERED | Todo |

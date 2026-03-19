@@ -604,6 +604,44 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       ).to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
     });
 
+    it("Withdraws full amount one year after maturity", async function() {
+      const { network, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.mint(staker.address, STAKE_AMOUNT);
+      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(staker).stake(STAKE_AMOUNT);
+      await network.connect(staker).requestUnstake(STAKE_AMOUNT);
+
+      const oneYear = 365n * 24n * 60n * 60n;
+      await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + oneYear);
+
+      const balanceBefore = await ssvToken.balanceOf(staker.address);
+      const tx = await network.connect(staker).withdrawUnlocked();
+      await expect(tx)
+        .to.emit(network, Events.UNSTAKE_WITHDRAWN)
+        .withArgs(staker.address, STAKE_AMOUNT);
+
+      const balanceAfter = await ssvToken.balanceOf(staker.address);
+      expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
+    });
+
+    it("Does not change cSSV supply on withdrawal", async function() {
+      const { network, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.mint(staker.address, STAKE_AMOUNT);
+      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(staker).stake(STAKE_AMOUNT);
+      await network.connect(staker).requestUnstake(STAKE_AMOUNT);
+
+      await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+
+      const supplyBefore = await cssvToken.totalSupply();
+      await network.connect(staker).withdrawUnlocked();
+      const supplyAfter = await cssvToken.totalSupply();
+
+      expect(supplyAfter).to.equal(supplyBefore);
+    });
+
     it("Cannot withdraw before cooldown expires", async function() {
       const { network, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
@@ -638,6 +676,45 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await expect(
         network.connect(staker).requestUnstake(smallAmount)
       ).to.be.revertedWithCustomError(network, Errors.MAX_REQUESTS_AMOUNT_REACHED);
+    });
+
+    it("Cannot unstake when caller has no cSSV", async function() {
+      const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(
+        network.connect(staker).requestUnstake(1n)
+      ).to.be.revertedWithCustomError(network, Errors.UNSTAKE_AMOUNT_EXCEEDS_BALANCE);
+    });
+
+    it("Cooldown duration change only affects new unstake requests", async function() {
+      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.mint(staker.address, STAKE_AMOUNT);
+      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(staker).stake(STAKE_AMOUNT);
+
+      const firstAmount = STAKE_AMOUNT / 4n;
+      const firstTx = await network.connect(staker).requestUnstake(firstAmount);
+      const firstBlock = await firstTx.getBlock();
+      const expectedFirstUnlock = BigInt(firstBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
+      const requestsBefore: UnstakeRequest[] = await views.pendingUnstake(staker.address);
+      expect(requestsBefore[0].unlockTime).to.equal(expectedFirstUnlock);
+
+      const newCooldown = DEFAULT_UNSTAKE_COOLDOWN * 3n;
+      await network.updateUnstakeCooldownDuration(newCooldown);
+
+      const requestsAfterChange: UnstakeRequest[] = await views.pendingUnstake(staker.address);
+      expect(requestsAfterChange[0].unlockTime).to.equal(expectedFirstUnlock);
+
+      const secondAmount = STAKE_AMOUNT / 4n;
+      const secondTx = await network.connect(staker).requestUnstake(secondAmount);
+      const secondBlock = await secondTx.getBlock();
+      const expectedSecondUnlock = BigInt(secondBlock!.timestamp) + newCooldown;
+
+      const requestsAfterSecond: UnstakeRequest[] = await views.pendingUnstake(staker.address);
+      expect(requestsAfterSecond[0].unlockTime).to.equal(expectedFirstUnlock);
+      expect(requestsAfterSecond[1].unlockTime).to.equal(expectedSecondUnlock);
     });
 
     it("Cannot claim rewards when no rewards accrued", async function() {

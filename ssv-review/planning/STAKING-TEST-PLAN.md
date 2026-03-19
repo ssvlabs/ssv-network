@@ -91,15 +91,15 @@ Generated: 2026-03-18
 | 7 | Unstake after cSSV transfer receive | Covered | unit/requestUnstake.ts:148 |
 | 8 | Unstake zero reverts | Covered | unit/requestUnstake.ts:80, integration/staking.ts:704 |
 | 9 | Unstake more than balance reverts | Covered | unit/requestUnstake.ts:103, integration/staking.ts:692 |
-| 10 | Unstake with no cSSV reverts | Partially | unit/requestUnstake.ts:103 (exceeds balance) |
+| 10 | Unstake with no cSSV reverts | Covered | unit/requestUnstake.ts:110, integration/staking.ts:643 |
 | 11 | Exceed max pending requests | Covered | unit/requestUnstake.ts:89, e2e/edge-cases.ts:222 |
 | 12 | Unlock time is correct | Covered | unit/requestUnstake.ts:60 |
 | 13 | Different requests have different unlock times | Covered | unit/requestUnstake.ts:152 |
-| 14 | Cooldown duration change affects new requests only | NOT COVERED | |
-| 15 | Cooldown increase — old request uses old cooldown | NOT COVERED | |
-| 16 | Cooldown increase — new request uses new cooldown | NOT COVERED | |
-| 17 | Cooldown decrease — pending not accelerated | NOT COVERED | |
-| 18 | Cooldown decrease — new request uses shorter | NOT COVERED | |
+| 14 | Cooldown duration change affects new requests only | Covered | unit/requestUnstake.ts:241, integration/staking.ts:651 |
+| 15 | Cooldown increase — old request uses old cooldown | Covered | unit/requestUnstake.ts:269, unit/withdrawUnlocked.ts:320 |
+| 16 | Cooldown increase — new request uses new cooldown | Covered | unit/requestUnstake.ts:269, unit/withdrawUnlocked.ts:266 |
+| 17 | Cooldown decrease — pending not accelerated | Covered | unit/requestUnstake.ts:294, unit/withdrawUnlocked.ts:242 |
+| 18 | Cooldown decrease — new request uses shorter | Covered | unit/requestUnstake.ts:294 |
 | 19 | cSSV burned immediately | Covered | unit/requestUnstake.ts:33 |
 | 20 | SSV tokens NOT returned yet | Covered | (implicit from withdraw tests) |
 | 21 | Rewards stop accruing on burned portion | Covered | e2e/lifecycle.ts:449 |
@@ -116,7 +116,7 @@ Generated: 2026-03-18
 | 2 | Withdraw multiple matured at once | Covered | unit/withdrawUnlocked.ts:137 |
 | 3 | Withdraw only matured, immature remain | Covered | unit/withdrawUnlocked.ts:177 |
 | 4 | Withdraw at exact unlock time | Covered | unit/withdrawUnlocked.ts:105 |
-| 5 | Withdraw long after maturity | NOT COVERED | |
+| 5 | Withdraw long after maturity | Covered | unit/withdrawUnlocked.ts:226, integration/staking.ts:607 |
 | 6 | Multiple withdraw calls over time | Covered | unit/withdrawUnlocked.ts:221 |
 | 7 | Withdraw after all cSSV burned | Covered | unit/withdrawUnlocked.ts:37 (full unstake then withdraw) |
 | 8 | No requests reverts | Covered | unit/withdrawUnlocked.ts:76, integration/staking.ts:730 |
@@ -124,7 +124,7 @@ Generated: 2026-03-18
 | 10 | Withdraw one block before unlock | Covered | unit/withdrawUnlocked.ts:94 |
 | 11 | SSV returned to user | Covered | unit/withdrawUnlocked.ts:55, integration/staking.ts:172 |
 | 12 | SSV deducted from contract | Covered | unit/withdrawUnlocked.ts:59, integration/staking.ts:173 |
-| 13 | cSSV supply unchanged | NOT COVERED | (explicitly) |
+| 13 | cSSV supply unchanged | Covered | unit/withdrawUnlocked.ts:249, integration/staking.ts:628 |
 | 14 | Two users withdraw independently | Covered | solvencyInvariant.ts:114 |
 | 15 | One user's withdraw doesn't affect another | Covered | unit/withdrawUnlocked.ts:256 |
 | 16 | UnstakedWithdrawn emitted | Covered | unit/withdrawUnlocked.ts:51, integration/staking.ts:166 |
@@ -170,15 +170,14 @@ Generated: 2026-03-18
 | 1. Staking | 18 | 18 | 0 | 0 |
 | 2. Earning Rewards | 26 | 26 | 0 | 0 |
 | 3. Claim Rewards | 17 | 17 | 0 | 0 |
-| 4. Request Unstake | 25 | 19 | 1 | 5 |
-| 5. Withdraw Unlocked | 16 | 14 | 0 | 2 |
+| 4. Request Unstake | 25 | 25 | 0 | 0 |
+| 5. Withdraw Unlocked | 16 | 16 | 0 | 0 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
 | 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **103** | **1** | **22** |
+| **Total** | **126** | **111** | **0** | **15** |
 
-**Overall: ~82% covered, ~1% partially covered, ~17% not covered**
+**Overall: ~88% covered, ~12% not covered**
 
 ## Key Gaps
 
 1. **Multisig tests (15)** — Entirely missing. No tests verify staking operations work from contract wallets.
-2. **Cooldown duration change tests (5)** — No tests verify cooldown changes affect new vs existing unstake requests (4.14-4.18).
