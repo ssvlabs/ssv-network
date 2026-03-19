@@ -130,7 +130,7 @@ describe("SSVNetwork full integration tests", () => {
         0,
         connection.ethers.ZeroAddress,
         true,
-        false
+        true
       ]);
     });
 

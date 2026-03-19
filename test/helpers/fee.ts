@@ -1,6 +1,7 @@
 import { BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS, DEDUCTED_DIGITS, } from "../common/constants.ts";
 
 const DEFAULT_EB_PER_VALIDATOR = 32n;
+const VUNITS_PRECISION = BPS_DENOMINATOR;
 
 export function calcOperatorFeeAccrual(blockDiff: bigint, ethFee: bigint, effectiveVUnits: bigint): bigint {
   return (blockDiff * ethFee * effectiveVUnits) / BPS_DENOMINATOR;

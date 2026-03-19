@@ -526,6 +526,7 @@ describe("SSVDAO function `commitRoot()`", async () => {
       .withArgs(root, blockNum, weight, initialThreshold, 1, oracle1.address);
     expect(await dao.getEBRoot(blockNum)).to.equal(ethers.ZeroHash);
     await dao.mockupdateQuorumBps(5000);
+    const newThreshold = (totalSupply * 5000n) / 10000n;
     const tx2 = await dao.connect(oracle2).commitRoot(root, blockNum);
     await expect(tx2).to.emit(dao, Events.WEIGHTED_ROOT_PROPOSED)
       .withArgs(root, blockNum, weight * 2n, newThreshold, 2, oracle2.address);
