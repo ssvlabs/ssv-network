@@ -8,7 +8,7 @@ Source plan:
 Notes:
 - IDs are local-only for this tracking sheet.
 - This tracker was seeded from scenarios marked `NOT COVERED` or `Partially` in the source plan and keeps completed rows for local history.
-- Based on the current source plan, the remaining open backlog is `15` tasks total: `15` `NOT COVERED`.
+- Based on the current source plan, the remaining open backlog is `0` tasks. All `39` tracked scenarios are done.
 - `Plan Ref` uses `<section>.<case>` from `STAKING-TEST-PLAN.md`.
 
 | ID | Plan Ref | Section | Task | Plan Status | Current Status/Progress |
@@ -37,18 +37,18 @@ Notes:
 | 22 | 4.18 | Request Unstake | ~~Cooldown decrease - new request uses shorter~~ | Covered | Done |
 | 23 | 5.5 | Withdraw Unlocked | ~~Withdraw long after maturity~~ | Covered | Done |
 | 24 | 5.13 | Withdraw Unlocked | ~~cSSV supply unchanged~~ | Covered | Done |
-| 25 | 7.1 | Multisig Accounts | Multisig stakes SSV | NOT COVERED | Todo |
-| 26 | 7.2 | Multisig Accounts | Multisig stakes multiple times | NOT COVERED | Todo |
-| 27 | 7.3 | Multisig Accounts | Multisig earns rewards | NOT COVERED | Todo |
-| 28 | 7.4 | Multisig Accounts | Multisig claims rewards | NOT COVERED | Todo |
-| 29 | 7.5 | Multisig Accounts | Multisig claims with dust | NOT COVERED | Todo |
-| 30 | 7.6 | Multisig Accounts | Multisig transfers cSSV to EOA | NOT COVERED | Todo |
-| 31 | 7.7 | Multisig Accounts | EOA transfers cSSV to multisig | NOT COVERED | Todo |
-| 32 | 7.8 | Multisig Accounts | Multisig transfers cSSV to another multisig | NOT COVERED | Todo |
-| 33 | 7.9 | Multisig Accounts | Multisig requests unstake | NOT COVERED | Todo |
-| 34 | 7.10 | Multisig Accounts | Multisig creates multiple unstake requests | NOT COVERED | Todo |
-| 35 | 7.11 | Multisig Accounts | Multisig requests unstake after earning | NOT COVERED | Todo |
-| 36 | 7.12 | Multisig Accounts | Multisig withdraws unlocked SSV | NOT COVERED | Todo |
-| 37 | 7.13 | Multisig Accounts | Multisig withdraws multiple matured requests | NOT COVERED | Todo |
-| 38 | 7.14 | Multisig Accounts | Multisig complete flow | NOT COVERED | Todo |
-| 39 | 7.15 | Multisig Accounts | Mixed EOA and multisig interaction | NOT COVERED | Todo |
+| 25 | 7.1 | Multisig Accounts | ~~Multisig stakes SSV~~ | Covered | Done |
+| 26 | 7.2 | Multisig Accounts | ~~Multisig stakes multiple times~~ | Covered | Done |
+| 27 | 7.3 | Multisig Accounts | ~~Multisig earns rewards~~ | Covered | Done |
+| 28 | 7.4 | Multisig Accounts | ~~Multisig claims rewards~~ | Covered | Done |
+| 29 | 7.5 | Multisig Accounts | ~~Multisig claims with dust~~ | Covered | Done |
+| 30 | 7.6 | Multisig Accounts | ~~Multisig transfers cSSV to EOA~~ | Covered | Done |
+| 31 | 7.7 | Multisig Accounts | ~~EOA transfers cSSV to multisig~~ | Covered | Done |
+| 32 | 7.8 | Multisig Accounts | ~~Multisig transfers cSSV to another multisig~~ | Covered | Done |
+| 33 | 7.9 | Multisig Accounts | ~~Multisig requests unstake~~ | Covered | Done |
+| 34 | 7.10 | Multisig Accounts | ~~Multisig creates multiple unstake requests~~ | Covered | Done |
+| 35 | 7.11 | Multisig Accounts | ~~Multisig requests unstake after earning~~ | Covered | Done |
+| 36 | 7.12 | Multisig Accounts | ~~Multisig withdraws unlocked SSV~~ | Covered | Done |
+| 37 | 7.13 | Multisig Accounts | ~~Multisig withdraws multiple matured requests~~ | Covered | Done |
+| 38 | 7.14 | Multisig Accounts | ~~Multisig complete flow~~ | Covered | Done |
+| 39 | 7.15 | Multisig Accounts | ~~Mixed EOA and multisig interaction~~ | Covered | Done |

@@ -147,21 +147,21 @@ Generated: 2026-03-18
 
 | # | Test Case | Status | Covered By |
 |---|-----------|--------|------------|
-| 1 | Multisig stakes SSV | NOT COVERED | |
-| 2 | Multisig stakes multiple times | NOT COVERED | |
-| 3 | Multisig earns rewards | NOT COVERED | |
-| 4 | Multisig claims rewards | NOT COVERED | |
-| 5 | Multisig claims with dust | NOT COVERED | |
-| 6 | Multisig transfers cSSV to EOA | NOT COVERED | |
-| 7 | EOA transfers cSSV to multisig | NOT COVERED | |
-| 8 | Multisig transfers cSSV to another multisig | NOT COVERED | |
-| 9 | Multisig requests unstake | NOT COVERED | |
-| 10 | Multisig creates multiple unstake requests | NOT COVERED | |
-| 11 | Multisig requests unstake after earning | NOT COVERED | |
-| 12 | Multisig withdraws unlocked SSV | NOT COVERED | |
-| 13 | Multisig withdraws multiple matured requests | NOT COVERED | |
-| 14 | Multisig complete flow | NOT COVERED | |
-| 15 | Mixed EOA and multisig interaction | NOT COVERED | |
+| 1 | Multisig stakes SSV | Covered | unit/stake.ts:256, integration/staking.ts:735 |
+| 2 | Multisig stakes multiple times | Covered | unit/stake.ts:282, integration/staking.ts:760 |
+| 3 | Multisig earns rewards | Covered | unit/stake.ts:307 |
+| 4 | Multisig claims rewards | Covered | unit/stake.ts:330 |
+| 5 | Multisig claims with dust | Covered | unit/stake.ts:365 |
+| 6 | Multisig transfers cSSV to EOA | Covered | unit/stake.ts:400 |
+| 7 | EOA transfers cSSV to multisig | Covered | unit/stake.ts:423 |
+| 8 | Multisig transfers cSSV to another multisig | Covered | unit/stake.ts:437 |
+| 9 | Multisig requests unstake | Covered | unit/stake.ts:458 |
+| 10 | Multisig creates multiple unstake requests | Covered | unit/stake.ts:489 |
+| 11 | Multisig requests unstake after earning | Covered | unit/stake.ts:524 |
+| 12 | Multisig withdraws unlocked SSV | Covered | unit/stake.ts:550 |
+| 13 | Multisig withdraws multiple matured requests | Covered | unit/stake.ts:576 |
+| 14 | Multisig complete flow | Covered | unit/stake.ts:612 |
+| 15 | Mixed EOA and multisig interaction | Covered | unit/stake.ts:651 |
 
 ## Summary
 
@@ -173,11 +173,7 @@ Generated: 2026-03-18
 | 4. Request Unstake | 25 | 25 | 0 | 0 |
 | 5. Withdraw Unlocked | 16 | 16 | 0 | 0 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
-| 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **111** | **0** | **15** |
+| 7. Multisig | 15 | 15 | 0 | 0 |
+| **Total** | **126** | **126** | **0** | **0** |
 
-**Overall: ~88% covered, ~12% not covered**
-
-## Key Gaps
-
-1. **Multisig tests (15)** — Entirely missing. No tests verify staking operations work from contract wallets.
+**Overall: 100% covered**

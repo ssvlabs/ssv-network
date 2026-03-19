@@ -6,8 +6,9 @@ import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { STAKE_AMOUNT, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { STAKE_AMOUNT, ETH_DEDUCTED_DIGITS, DEFAULT_UNSTAKE_COOLDOWN } from "../../common/constants.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
+import { deployMultisig, multisigExec } from "../../helpers/multisig.ts";
 
 describe("SSVStaking function `stake()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -250,6 +251,438 @@ describe("SSVStaking function `stake()`", async () => {
     const userIndex = await staking.getUserIndex(staker.address);
     const accEthPerShare = await staking.getAccEthPerShare();
     expect(userIndex).to.equal(accEthPerShare);
+  });
+
+  it("Multisig contract stakes SSV tokens", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+
+    const ssvBefore = await ssvToken.balanceOf(multisigAddress);
+    const cssvBefore = await cssvToken.balanceOf(multisigAddress);
+    const contractSsvBefore = await ssvToken.balanceOf(stakingAddress);
+
+    const tx = await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    await expect(tx)
+      .to.emit(staking, Events.STAKED)
+      .withArgs(multisigAddress, STAKE_AMOUNT);
+
+    expect(await ssvToken.balanceOf(multisigAddress)).to.equal(ssvBefore - STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(cssvBefore + STAKE_AMOUNT);
+    expect(await ssvToken.balanceOf(stakingAddress)).to.equal(contractSsvBefore + STAKE_AMOUNT);
+  });
+
+  it("Multisig contract stakes multiple times", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    const totalAmount = STAKE_AMOUNT * 3n;
+    await ssvToken.mint(multisigAddress, totalAmount);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, totalAmount]);
+
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT);
+
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT * 2n);
+
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT * 3n);
+
+    expect(await ssvToken.balanceOf(multisigAddress)).to.equal(0n);
+    expect(await ssvToken.balanceOf(stakingAddress)).to.equal(totalAmount);
+  });
+
+  it("Multisig earns rewards after staking", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    const totalMint = STAKE_AMOUNT * 2n;
+    await ssvToken.mint(multisigAddress, totalMint);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, totalMint]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    const packedReward = 10_000_000_000n;
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(packedReward);
+
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    const accrued = await staking.getUserAccrued(multisigAddress);
+    expect(accrued).to.equal(packedReward * ETH_DEDUCTED_DIGITS);
+  });
+
+  it("Multisig claims ETH rewards", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    const packedReward = 10_000_000_000n;
+    await staking.mockSetStakingEthPoolBalance(packedReward);
+    await staking.mockSetEthDaoBalance(packedReward);
+
+    await staker.sendTransaction({
+      to: stakingAddress,
+      value: connection.ethers.parseEther("1"),
+    });
+
+    await staking.mockSetUserAccrued(multisigAddress, packedReward * ETH_DEDUCTED_DIGITS);
+
+    const ethBefore = await connection.ethers.provider.getBalance(multisigAddress);
+    const tx = await multisigExec(multisig, staking, "claimEthRewards", []);
+
+    const expectedPayout = packedReward * ETH_DEDUCTED_DIGITS;
+    await expect(tx)
+      .to.emit(staking, Events.REWARDS_CLAIMED)
+      .withArgs(multisigAddress, expectedPayout);
+
+    const ethAfter = await connection.ethers.provider.getBalance(multisigAddress);
+    expect(ethAfter - ethBefore).to.equal(expectedPayout);
+  });
+
+  it("Multisig claims with dust — remainder preserved in accrued", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    const accruedWithDust = 123_456_789n;
+    const expectedPayout = accruedWithDust - (accruedWithDust % ETH_DEDUCTED_DIGITS);
+    const expectedDust = accruedWithDust % ETH_DEDUCTED_DIGITS;
+
+    await staking.mockSetStakingEthPoolBalance(100_000_000_000n);
+    await staking.mockSetEthDaoBalance(100_000_000_000n);
+    await staking.mockSetUserAccrued(multisigAddress, accruedWithDust);
+
+    await staker.sendTransaction({
+      to: stakingAddress,
+      value: connection.ethers.parseEther("1"),
+    });
+
+    const tx = await multisigExec(multisig, staking, "claimEthRewards", []);
+
+    await expect(tx)
+      .to.emit(staking, Events.REWARDS_CLAIMED)
+      .withArgs(multisigAddress, expectedPayout);
+
+    const accruedAfter = await staking.getUserAccrued(multisigAddress);
+    expect(accruedAfter).to.equal(expectedDust);
+  });
+
+  it("Multisig transfers cSSV to EOA", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    const transferAmount = STAKE_AMOUNT / 2n;
+    await multisigExec(multisig, cssvToken, "transfer", [other.address, transferAmount]);
+
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT - transferAmount);
+    expect(await cssvToken.balanceOf(other.address)).to.equal(transferAmount);
+  });
+
+  it("EOA transfers cSSV to multisig", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.approve(stakingAddress, STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const transferAmount = STAKE_AMOUNT / 2n;
+    await cssvToken.connect(staker).transfer(multisigAddress, transferAmount);
+
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(STAKE_AMOUNT - transferAmount);
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(transferAmount);
+  });
+
+  it("Multisig transfers cSSV to another multisig", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig1 = await deployMultisig(connection.ethers);
+    const multisig2 = await deployMultisig(connection.ethers);
+    const ms1Address = await multisig1.getAddress();
+    const ms2Address = await multisig2.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(ms1Address, STAKE_AMOUNT);
+    await multisigExec(multisig1, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig1, staking, "stake", [STAKE_AMOUNT]);
+
+    const transferAmount = STAKE_AMOUNT / 2n;
+    await multisigExec(multisig1, cssvToken, "transfer", [ms2Address, transferAmount]);
+
+    expect(await cssvToken.balanceOf(ms1Address)).to.equal(STAKE_AMOUNT - transferAmount);
+    expect(await cssvToken.balanceOf(ms2Address)).to.equal(transferAmount);
+  });
+
+  it("Multisig requests unstake", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    const unstakeAmount = STAKE_AMOUNT / 2n;
+    const tx = await multisigExec(multisig, staking, "requestUnstake", [unstakeAmount]);
+    const block = await connection.ethers.provider.getBlock(tx.blockNumber);
+    const expectedUnlockTime = BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
+    await expect(tx)
+      .to.emit(staking, Events.UNSTAKE_REQUESTED)
+      .withArgs(multisigAddress, unstakeAmount, expectedUnlockTime);
+
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT - unstakeAmount);
+
+    const requestCount = await staking.getWithdrawalRequestsCount(multisigAddress);
+    expect(requestCount).to.equal(1n);
+
+    const [amount, unlockTime] = await staking.getWithdrawalRequest(multisigAddress, 0);
+    expect(amount).to.equal(unstakeAmount);
+    expect(unlockTime).to.equal(expectedUnlockTime);
+  });
+
+  it("Multisig creates multiple unstake requests", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    const amount1 = STAKE_AMOUNT / 4n;
+    const amount2 = STAKE_AMOUNT / 4n;
+    const amount3 = STAKE_AMOUNT / 4n;
+
+    const tx1 = await multisigExec(multisig, staking, "requestUnstake", [amount1]);
+    await networkHelpers.time.increase(100n);
+    const tx2 = await multisigExec(multisig, staking, "requestUnstake", [amount2]);
+    await networkHelpers.time.increase(100n);
+    const tx3 = await multisigExec(multisig, staking, "requestUnstake", [amount3]);
+
+    const requestCount = await staking.getWithdrawalRequestsCount(multisigAddress);
+    expect(requestCount).to.equal(3n);
+
+    const [a1] = await staking.getWithdrawalRequest(multisigAddress, 0);
+    const [a2] = await staking.getWithdrawalRequest(multisigAddress, 1);
+    const [a3] = await staking.getWithdrawalRequest(multisigAddress, 2);
+    expect(a1).to.equal(amount1);
+    expect(a2).to.equal(amount2);
+    expect(a3).to.equal(amount3);
+
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT - amount1 - amount2 - amount3);
+  });
+
+  it("Multisig requests unstake after earning rewards", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    const packedReward = 10_000_000_000n;
+    await staking.mockSetStakingEthPoolBalance(0n);
+    await staking.mockSetEthDaoBalance(packedReward);
+
+    const accruedBefore = await staking.getUserAccrued(multisigAddress);
+    expect(accruedBefore).to.equal(0n);
+
+    await multisigExec(multisig, staking, "requestUnstake", [STAKE_AMOUNT / 2n]);
+
+    const accruedAfter = await staking.getUserAccrued(multisigAddress);
+    expect(accruedAfter).to.equal(packedReward * ETH_DEDUCTED_DIGITS);
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT / 2n);
+  });
+
+  it("Multisig withdraws unlocked SSV", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "requestUnstake", [STAKE_AMOUNT]);
+
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+
+    const ssvBefore = await ssvToken.balanceOf(multisigAddress);
+    const tx = await multisigExec(multisig, staking, "withdrawUnlocked", []);
+
+    await expect(tx)
+      .to.emit(staking, Events.UNSTAKE_WITHDRAWN)
+      .withArgs(multisigAddress, STAKE_AMOUNT);
+
+    expect(await ssvToken.balanceOf(multisigAddress)).to.equal(ssvBefore + STAKE_AMOUNT);
+    expect(await staking.getWithdrawalRequestsCount(multisigAddress)).to.equal(0n);
+  });
+
+  it("Multisig withdraws multiple matured requests", async function () {
+    const { staking, ssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+
+    const amount1 = STAKE_AMOUNT / 4n;
+    const amount2 = STAKE_AMOUNT / 4n;
+    const amount3 = STAKE_AMOUNT / 4n;
+
+    await multisigExec(multisig, staking, "requestUnstake", [amount1]);
+    await multisigExec(multisig, staking, "requestUnstake", [amount2]);
+    await multisigExec(multisig, staking, "requestUnstake", [amount3]);
+
+    expect(await staking.getWithdrawalRequestsCount(multisigAddress)).to.equal(3n);
+
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+
+    const ssvBefore = await ssvToken.balanceOf(multisigAddress);
+    const totalWithdrawn = amount1 + amount2 + amount3;
+    const tx = await multisigExec(multisig, staking, "withdrawUnlocked", []);
+
+    await expect(tx)
+      .to.emit(staking, Events.UNSTAKE_WITHDRAWN)
+      .withArgs(multisigAddress, totalWithdrawn);
+
+    expect(await ssvToken.balanceOf(multisigAddress)).to.equal(ssvBefore + totalWithdrawn);
+    expect(await staking.getWithdrawalRequestsCount(multisigAddress)).to.equal(0n);
+  });
+
+  it("Multisig complete flow: stake -> earn -> claim -> unstake -> withdraw", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+    await multisigExec(multisig, ssvToken, "approve", [stakingAddress, STAKE_AMOUNT]);
+    await multisigExec(multisig, staking, "stake", [STAKE_AMOUNT]);
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT);
+
+    const packedReward = 10_000_000_000n;
+    const rewardWei = packedReward * ETH_DEDUCTED_DIGITS;
+    await staking.mockSetStakingEthPoolBalance(packedReward);
+    await staking.mockSetEthDaoBalance(packedReward);
+    await staking.mockSetUserAccrued(multisigAddress, rewardWei);
+    await staker.sendTransaction({
+      to: stakingAddress,
+      value: connection.ethers.parseEther("1"),
+    });
+
+    const ethBefore = await connection.ethers.provider.getBalance(multisigAddress);
+    await multisigExec(multisig, staking, "claimEthRewards", []);
+    const ethAfter = await connection.ethers.provider.getBalance(multisigAddress);
+    expect(ethAfter - ethBefore).to.equal(rewardWei);
+
+    await multisigExec(multisig, staking, "requestUnstake", [STAKE_AMOUNT]);
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(0n);
+
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+
+    const ssvBefore = await ssvToken.balanceOf(multisigAddress);
+    await multisigExec(multisig, staking, "withdrawUnlocked", []);
+    expect(await ssvToken.balanceOf(multisigAddress)).to.equal(ssvBefore + STAKE_AMOUNT);
+    expect(await staking.getWithdrawalRequestsCount(multisigAddress)).to.equal(0n);
+  });
+
+  it("Mixed EOA and multisig: EOA stakes, transfers cSSV to multisig, multisig claims rewards", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const multisig = await deployMultisig(connection.ethers);
+    const multisigAddress = await multisig.getAddress();
+    const stakingAddress = await staking.getAddress();
+
+    await ssvToken.approve(stakingAddress, STAKE_AMOUNT);
+    await staking.stake(STAKE_AMOUNT);
+
+    const packedReward = 10_000_000_000n;
+    const rewardWei = packedReward * ETH_DEDUCTED_DIGITS;
+    await staking.mockSetStakingEthPoolBalance(packedReward);
+    await staking.mockSetEthDaoBalance(packedReward);
+    await staker.sendTransaction({
+      to: stakingAddress,
+      value: connection.ethers.parseEther("1"),
+    });
+
+    await cssvToken.connect(staker).transfer(multisigAddress, STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(0n);
+
+    await staking.mockSetUserAccrued(multisigAddress, rewardWei);
+
+    const ethBefore = await connection.ethers.provider.getBalance(multisigAddress);
+    const tx = await multisigExec(multisig, staking, "claimEthRewards", []);
+
+    await expect(tx)
+      .to.emit(staking, Events.REWARDS_CLAIMED)
+      .withArgs(multisigAddress, rewardWei);
+
+    const ethAfter = await connection.ethers.provider.getBalance(multisigAddress);
+    expect(ethAfter - ethBefore).to.equal(rewardWei);
   });
 
   it("Transfers SSV tokens to the staking contract", async function () {

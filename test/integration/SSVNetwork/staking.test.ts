@@ -23,6 +23,7 @@ import {
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.js';
+import { deployMultisig, multisigExec } from '../../helpers/multisig.ts';
 
 /**
  * Enhanced Integration Tests for SSVNetwork Staking
@@ -726,6 +727,58 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       await expect(
         network.connect(staker).claimEthRewards()
       ).to.be.revertedWithCustomError(network, Errors.NOTHING_TO_CLAIM);
+    });
+  });
+
+  describe("Multisig Accounts", async function() {
+
+    it("Multisig contract stakes SSV tokens", async function() {
+      const { network, views, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const multisig = await deployMultisig(connection.ethers);
+      const multisigAddress = await multisig.getAddress();
+      const networkAddress = await network.getAddress();
+
+      await ssvToken.mint(multisigAddress, STAKE_AMOUNT);
+      await multisigExec(multisig, ssvToken, "approve", [networkAddress, STAKE_AMOUNT]);
+
+      const ssvBefore = await ssvToken.balanceOf(multisigAddress);
+      const contractSsvBefore = await ssvToken.balanceOf(networkAddress);
+
+      const tx = await multisigExec(multisig, network, "stake", [STAKE_AMOUNT]);
+
+      await expect(tx)
+        .to.emit(network, Events.STAKED)
+        .withArgs(multisigAddress, STAKE_AMOUNT);
+
+      expect(await ssvToken.balanceOf(multisigAddress)).to.equal(ssvBefore - STAKE_AMOUNT);
+      expect(await ssvToken.balanceOf(networkAddress)).to.equal(contractSsvBefore + STAKE_AMOUNT);
+      expect(await cssvToken.balanceOf(multisigAddress)).to.equal(STAKE_AMOUNT);
+      expect(await views.stakedBalanceOf(multisigAddress)).to.equal(STAKE_AMOUNT);
+    });
+
+    it("Multisig stakes multiple times", async function() {
+      const { network, views, ssvToken, cssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      const multisig = await deployMultisig(connection.ethers);
+      const multisigAddress = await multisig.getAddress();
+      const networkAddress = await network.getAddress();
+
+      const totalAmount = STAKE_AMOUNT * 3n;
+      await ssvToken.mint(multisigAddress, totalAmount);
+      await multisigExec(multisig, ssvToken, "approve", [networkAddress, totalAmount]);
+
+      await multisigExec(multisig, network, "stake", [STAKE_AMOUNT]);
+      expect(await views.stakedBalanceOf(multisigAddress)).to.equal(STAKE_AMOUNT);
+
+      await multisigExec(multisig, network, "stake", [STAKE_AMOUNT]);
+      expect(await views.stakedBalanceOf(multisigAddress)).to.equal(STAKE_AMOUNT * 2n);
+
+      await multisigExec(multisig, network, "stake", [STAKE_AMOUNT]);
+      expect(await views.stakedBalanceOf(multisigAddress)).to.equal(STAKE_AMOUNT * 3n);
+
+      expect(await ssvToken.balanceOf(multisigAddress)).to.equal(0n);
+      expect(await cssvToken.balanceOf(multisigAddress)).to.equal(totalAmount);
     });
   });
 });
