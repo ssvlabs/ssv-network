@@ -1,46 +1,54 @@
 # Staking Test Progress
 
-Local tracking sheet for Venimir's `MR-3` staking test slice.
+Local tracking sheet for Venimir's `MR-3` staking test backlog.
 
 Source plan:
 - `ssv-review/planning/STAKING-TEST-PLAN.md`
 
 Notes:
 - IDs are local-only for this tracking sheet.
-- Scope here is `Claim Rewards` and `Withdraw Unlocked`.
+- This tracker includes only scenarios currently marked `NOT COVERED` or `Partially` in the source plan.
+- Based on the current source plan, the remaining backlog is `39` tasks total: `35` `NOT COVERED` and `4` `Partially`.
+- `Plan Ref` uses `<section>.<case>` from `STAKING-TEST-PLAN.md`.
 
-| ID | Section | Task | Status |
-|---:|---|---|---|
-| 1 | Claim Rewards | Basic claim | Todo |
-| 2 | Claim Rewards | Claim multiple times | Todo |
-| 3 | Claim Rewards | Claim after cSSV transfer (sender) | Todo |
-| 4 | Claim Rewards | Claim after partial unstake | Todo |
-| 5 | Claim Rewards | Multiple claims from multiple users | Todo |
-| 6 | Claim Rewards | Claim with no rewards reverts | Todo |
-| 7 | Claim Rewards | Claim when accrued is zero reverts | Todo |
-| 8 | Claim Rewards | Claim twice in same block | Todo |
-| 9 | Claim Rewards | Claim with sub-precision dust reverts | Todo |
-| 10 | Claim Rewards | Payout truncated to `ETH_DEDUCTED_DIGITS` | Todo |
-| 11 | Claim Rewards | Dust forfeited when cSSV balance is zero | Todo |
-| 12 | Claim Rewards | Dust preserved when cSSV balance `> 0` | Todo |
-| 13 | Claim Rewards | Exact precision amount | Todo |
-| 14 | Claim Rewards | `FeesSynced` emitted | Todo |
-| 15 | Claim Rewards | `RewardsSettled` emitted | Todo |
-| 16 | Claim Rewards | `RewardsClaimed` emitted with payout | Todo |
-| 17 | Claim Rewards | `RewardsClaimed` emitted with zero on dust forfeit | Todo |
-| 18 | Withdraw Unlocked | Basic withdraw | Todo |
-| 19 | Withdraw Unlocked | Withdraw multiple matured at once | Todo |
-| 20 | Withdraw Unlocked | Withdraw only matured, immature remain | Todo |
-| 21 | Withdraw Unlocked | Withdraw at exact unlock time | Todo |
-| 22 | Withdraw Unlocked | Withdraw long after maturity | Todo |
-| 23 | Withdraw Unlocked | Multiple withdraw calls over time | Todo |
-| 24 | Withdraw Unlocked | Withdraw after all cSSV burned | Todo |
-| 25 | Withdraw Unlocked | No requests reverts | Todo |
-| 26 | Withdraw Unlocked | All immature reverts | Todo |
-| 27 | Withdraw Unlocked | Withdraw one block before unlock | Todo |
-| 28 | Withdraw Unlocked | SSV returned to user | Todo |
-| 29 | Withdraw Unlocked | SSV deducted from contract | Todo |
-| 30 | Withdraw Unlocked | cSSV supply unchanged | Todo |
-| 31 | Withdraw Unlocked | Two users withdraw independently | Todo |
-| 32 | Withdraw Unlocked | One user's withdraw doesn't affect another | Todo |
-| 33 | Withdraw Unlocked | `UnstakedWithdrawn` emitted | Todo |
+| ID | Plan Ref | Section | Task | Plan Status | Local Status |
+|---:|---:|---|---|---|---|
+| 1 | 1.13 | Staking | Stake without approval reverts | Partially | Todo |
+| 2 | 1.17 | Staking | Stake exactly 1 above minimum | NOT COVERED | Todo |
+| 3 | 2.7 | Earning Rewards | Rewards with 1 wei cSSV | NOT COVERED | Todo |
+| 4 | 2.9 | Earning Rewards | Two equal stakers split 50/50 | Partially | Todo |
+| 5 | 2.11 | Earning Rewards | Three stakers, one unstakes mid-period | NOT COVERED | Todo |
+| 6 | 2.13 | Earning Rewards | Rewards increase after fee raise | NOT COVERED | Todo |
+| 7 | 2.14 | Earning Rewards | Rewards decrease after fee reduction | NOT COVERED | Todo |
+| 8 | 2.15 | Earning Rewards | Rewards stop after fee set to zero | NOT COVERED | Todo |
+| 9 | 2.17 | Earning Rewards | Multiple fee changes across staking period | NOT COVERED | Todo |
+| 10 | 2.18 | Earning Rewards | Rewards unaffected by cooldown increase | NOT COVERED | Todo |
+| 11 | 2.19 | Earning Rewards | Rewards unaffected by cooldown decrease | NOT COVERED | Todo |
+| 12 | 2.20 | Earning Rewards | Rewards accrue normally after cooldown change and unstake | NOT COVERED | Todo |
+| 13 | 2.22 | Earning Rewards | Stake after partial unstake | NOT COVERED | Todo |
+| 14 | 2.25 | Earning Rewards | Stake-transfer-stake cycle | NOT COVERED | Todo |
+| 15 | 2.26 | Earning Rewards | Self-transfer doesn't double rewards | Partially | Todo |
+| 16 | 4.7 | Request Unstake | Unstake after cSSV transfer receive | NOT COVERED | Todo |
+| 17 | 4.10 | Request Unstake | Unstake with no cSSV reverts | Partially | Todo |
+| 18 | 4.14 | Request Unstake | Cooldown duration change affects new requests only | NOT COVERED | Todo |
+| 19 | 4.15 | Request Unstake | Cooldown increase - old request uses old cooldown | NOT COVERED | Todo |
+| 20 | 4.16 | Request Unstake | Cooldown increase - new request uses new cooldown | NOT COVERED | Todo |
+| 21 | 4.17 | Request Unstake | Cooldown decrease - pending not accelerated | NOT COVERED | Todo |
+| 22 | 4.18 | Request Unstake | Cooldown decrease - new request uses shorter | NOT COVERED | Todo |
+| 23 | 5.5 | Withdraw Unlocked | Withdraw long after maturity | NOT COVERED | Todo |
+| 24 | 5.13 | Withdraw Unlocked | cSSV supply unchanged | NOT COVERED | Todo |
+| 25 | 7.1 | Multisig Accounts | Multisig stakes SSV | NOT COVERED | Todo |
+| 26 | 7.2 | Multisig Accounts | Multisig stakes multiple times | NOT COVERED | Todo |
+| 27 | 7.3 | Multisig Accounts | Multisig earns rewards | NOT COVERED | Todo |
+| 28 | 7.4 | Multisig Accounts | Multisig claims rewards | NOT COVERED | Todo |
+| 29 | 7.5 | Multisig Accounts | Multisig claims with dust | NOT COVERED | Todo |
+| 30 | 7.6 | Multisig Accounts | Multisig transfers cSSV to EOA | NOT COVERED | Todo |
+| 31 | 7.7 | Multisig Accounts | EOA transfers cSSV to multisig | NOT COVERED | Todo |
+| 32 | 7.8 | Multisig Accounts | Multisig transfers cSSV to another multisig | NOT COVERED | Todo |
+| 33 | 7.9 | Multisig Accounts | Multisig requests unstake | NOT COVERED | Todo |
+| 34 | 7.10 | Multisig Accounts | Multisig creates multiple unstake requests | NOT COVERED | Todo |
+| 35 | 7.11 | Multisig Accounts | Multisig requests unstake after earning | NOT COVERED | Todo |
+| 36 | 7.12 | Multisig Accounts | Multisig withdraws unlocked SSV | NOT COVERED | Todo |
+| 37 | 7.13 | Multisig Accounts | Multisig withdraws multiple matured requests | NOT COVERED | Todo |
+| 38 | 7.14 | Multisig Accounts | Multisig complete flow | NOT COVERED | Todo |
+| 39 | 7.15 | Multisig Accounts | Mixed EOA and multisig interaction | NOT COVERED | Todo |

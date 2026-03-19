@@ -67,7 +67,7 @@ Generated: 2026-03-18
 | 5 | Multiple claims from multiple users | Covered | unit/claimEthRewards.ts:332, e2e/lifecycle.ts:168 |
 | 6 | Claim with no rewards reverts | Covered | unit/claimEthRewards.ts:151, integration/staking.ts:758 |
 | 7 | Claim when accrued is zero reverts | Covered | unit/claimEthRewards.ts:151 |
-| 8 | Claim twice in same block | NOT COVERED | |
+| 8 | Claim twice in same block | Covered | unit/claimEthRewards.ts:267, e2e/edge-cases.ts:520, forked/fullIntegrationForked.ts:1795, echidna/SSVStakingEchidna.sol:389 |
 | 9 | Claim with sub-precision dust reverts | Covered | unit/claimEthRewards.ts:163 |
 | 10 | Payout truncated to ETH_DEDUCTED_DIGITS | Covered | unit/claimEthRewards.ts:83 |
 | 11 | Dust forfeited when cSSV balance is zero | Covered | unit/claimEthRewards.ts:102, 366, 391 |
@@ -169,14 +169,14 @@ Generated: 2026-03-18
 |---------|-------|---------|-----------|-------------|
 | 1. Staking | 18 | 15 | 1 | 2 |
 | 2. Earning Rewards | 26 | 14 | 2 | 10 |
-| 3. Claim Rewards | 17 | 16 | 0 | 1 |
+| 3. Claim Rewards | 17 | 17 | 0 | 0 |
 | 4. Request Unstake | 25 | 18 | 1 | 6 |
 | 5. Withdraw Unlocked | 16 | 14 | 0 | 2 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
 | 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **86** | **4** | **36** |
+| **Total** | **126** | **87** | **4** | **35** |
 
-**Overall: ~68% covered, ~3% partially covered, ~29% not covered**
+**Overall: ~69% covered, ~3% partially covered, ~28% not covered**
 
 ## Key Gaps
 
@@ -185,4 +185,3 @@ Generated: 2026-03-18
 3. **Cooldown duration change tests (7)** — No tests verify cooldown changes affect new vs existing unstake requests (4.14-4.18, 2.18-2.20).
 4. **Stake-transfer-stake cycle (2.25)** — Not tested.
 5. **Three stakers with mid-period unstake (2.11)** — Missing.
-6. **Claim twice in same block (3.8)** — Not tested.

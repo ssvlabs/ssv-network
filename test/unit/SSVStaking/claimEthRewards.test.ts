@@ -264,6 +264,59 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     await expect(tx2).to.emit(staking, Events.REWARDS_CLAIMED);
   });
 
+  it("Processes only the first claim when two claims are mined in the same block", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeAndAccrueRewards);
+
+    const accruedAmount = 200_000_000n;
+    await staking.mockSetUserAccrued(staker.address, accruedAmount * ETH_DEDUCTED_DIGITS);
+    await staking.mockSetStakingEthPoolBalance(accruedAmount + 10n);
+    await staking.mockSetEthDaoBalance(accruedAmount + 10n);
+
+    const provider = connection.ethers.provider;
+    const startingBalance = await provider.getBalance(staker.address);
+    const pendingNonce = await provider.getTransactionCount(staker.address, "pending");
+    const claimData = staking.interface.encodeFunctionData("claimEthRewards");
+    const stakingAddress = await staking.getAddress();
+
+    await provider.send("evm_setAutomine", [false]);
+
+    try {
+      const firstClaim = await staker.sendTransaction({
+        to: stakingAddress,
+        data: claimData,
+        nonce: pendingNonce,
+        gasLimit: 1_000_000n,
+      });
+      const secondClaim = await staker.sendTransaction({
+        to: stakingAddress,
+        data: claimData,
+        nonce: pendingNonce + 1,
+        gasLimit: 1_000_000n,
+      });
+
+      await provider.send("evm_mine", []);
+
+      const firstReceipt = await firstClaim.wait();
+      const secondReceipt = await provider.getTransactionReceipt(secondClaim.hash);
+
+      expect(firstReceipt!.status).to.equal(1);
+      expect(secondReceipt!.status).to.equal(0);
+
+      const gasUsedFirst = BigInt(firstReceipt!.gasUsed) * BigInt(firstReceipt!.gasPrice);
+      const gasUsedSecond = BigInt(secondReceipt!.gasUsed) * BigInt(secondReceipt!.gasPrice);
+      const balanceAfter = await provider.getBalance(staker.address);
+      expect(balanceAfter + gasUsedFirst + gasUsedSecond - startingBalance).to.equal(
+        accruedAmount * ETH_DEDUCTED_DIGITS
+      );
+
+      expect(await staking.getUserAccrued(staker.address)).to.equal(0n);
+      expect(await staking.getStakingEthPoolBalance()).to.equal(10n);
+      expect(await staking.getEthDaoBalance()).to.equal(10n);
+    } finally {
+      await provider.send("evm_setAutomine", [true]);
+    }
+  });
+
   it("Settles pending rewards before claiming", async function () {
     const { staking, ssvToken } = await defaultStakingFixture(connection);
 
