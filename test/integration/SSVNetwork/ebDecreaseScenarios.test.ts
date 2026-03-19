@@ -18,7 +18,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE,
   STAKE_AMOUNT,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
@@ -187,13 +187,13 @@ describe("TEST-6 Integration: EB decrease via oracle commitRoot pipeline", () =>
     expect(clusterAt32.validatorCount).to.equal(1n);
 
     // Calculate exact expected fees using SPEC.md formula:
-    // fees = ((blocksDelta * (sum(packedOperatorFees) + packedNetworkFee) * vUnits / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS
+    // fees = ((blocksDelta * (sum(packedOperatorFees) + packedNetworkFee) * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS
     // During the 64 ETH period, fees are charged at 20,000 vUnits
     const blocksDelta = BigInt(blockUpdate2 - blockUpdate1);
     const packedOpFee = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
     const packedNetworkFee = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
     const totalPackedFeeRate = (4n * packedOpFee + packedNetworkFee);
-    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+    const expectedFees = ((blocksDelta * totalPackedFeeRate * vUnits64) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
 
     expect(clusterAt32.balance).to.equal(clusterAt64.balance - expectedFees);
   });

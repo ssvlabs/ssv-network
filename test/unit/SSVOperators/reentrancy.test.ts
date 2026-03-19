@@ -87,6 +87,7 @@ describe("SSVOperators reentrancy guard", async () => {
     await token.mint(await operators.getAddress(), connection.ethers.parseEther("100"));
     
     // Set attacker balance in SSVOperators (using raw storage values, so shrunk)
+    await operators.mockSetOperatorLegacySSV(operatorId, 1);
     await operators.mockSetOperatorBalances(Number(operatorId), 0, 5n);
 
     // Withdraw 2 units

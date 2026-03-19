@@ -112,7 +112,7 @@ describe("SSVStaking function `syncFees()`", async () => {
     );
     
     const blocksElapsed = BigInt(receipt.blockNumber - setDaoReceipt!.blockNumber);
-    // earnings = (blocks * fee * vUnits) / VUNITS_PRECISION
+    // earnings = (blocks * fee * vUnits) / BPS_DENOMINATOR
     // vUnits = 10000, PRECISION = 10000 -> factor is 1
     // fee = 500
     // earnings = blocks * 500

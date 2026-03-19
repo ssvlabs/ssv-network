@@ -107,7 +107,7 @@ This prevents running the wrong config against the wrong proxy.
 | `deploy.ts` | `just deploy <env>` | Deploy impls + modules (no proxy upgrade) |
 | `upgrade.ts` | `just upgrade <env>` | Upgrade proxy + attach modules + apply params |
 | `upgrade.ts --fork` | `just upgrade-fork <env>` | Same, on local Anvil fork |
-| `upgrade.ts --verify-only` | `just verify-upgrade <env>` | Read on-chain state, no writes |
+| `verify-post-upgrade-config.ts` | `just verify-upgrade <env>` or `just verify-post-upgrade-config <env>` | Read on-chain state, no writes |
 | `generate-safe-batch.ts` | `just generate-safe-batch <env>` | Encode SAFE multisig batch |
 | `deploy-fresh.ts` | `just deploy-fresh <env>` | Full greenfield deployment |
 | `run-forked-tests.ts` | `just test-fork <env>` | Integration tests against fork |

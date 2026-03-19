@@ -25,7 +25,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE,
-  OPERATOR_MAX_FEE_INCREASE, SMALL_ETH_REGISTER_VALUE, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
+  OPERATOR_FEE_PRECISION, OPERATOR_MAX_FEE_INCREASE, SMALL_ETH_REGISTER_VALUE, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT,
 } from '../common/constants.ts';
 import { Events } from '../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
@@ -132,7 +132,7 @@ describe("SSVNetwork full integration tests", () => {
         0,
         connection.ethers.ZeroAddress,
         true,
-        false // isActive = false: new operators are ETH-only (snapshot.block == 0)
+        true
       ]);
     });
 
@@ -933,6 +933,14 @@ describe("SSVNetwork full integration tests", () => {
       await expect(network.connect(randomUser).updateMaximumOperatorFee(MAXIMUM_OPERATORS_FEE * 2n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
+
+    it("Reverts when new maximum fee is below the configured minimum fee", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.updateMaximumOperatorFee(MINIMAL_OPERATOR_ETH_FEE - OPERATOR_FEE_PRECISION))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_RANGE);
+    });
   });
 
   describe("Function 'updateMinimumOperatorEthFee()'", async function() {
@@ -973,14 +981,22 @@ describe("SSVNetwork full integration tests", () => {
         network.registerOperator(makeOperatorKey(1), raisedMinFee, false)
       ).to.emit(network, Events.OPERATOR_ADDED);
     });
+
+    it("Reverts when new minimum fee exceeds the configured maximum fee", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.updateMinimumOperatorEthFee(MAXIMUM_OPERATORS_FEE + OPERATOR_FEE_PRECISION))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_RANGE);
+    });
   });
 
-  describe("Function 'setUnstakeCooldownDuration()'", async function() {
+  describe("Function 'updateUnstakeCooldownDuration()'", async function() {
     it("Changes cooldown period and emits correct event", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(await network.setUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
+      await expect(await network.updateUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
         .to.emit(network, Events.COOLDOWN_DURATION_UPDATED)
         .withArgs(DEFAULT_UNSTAKE_COOLDOWN + 1n);
 
@@ -991,7 +1007,7 @@ describe("SSVNetwork full integration tests", () => {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.connect(randomUser).setUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
+      await expect(network.connect(randomUser).updateUnstakeCooldownDuration(DEFAULT_UNSTAKE_COOLDOWN + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
   });
@@ -1017,12 +1033,12 @@ describe("SSVNetwork full integration tests", () => {
     });
   });
 
-  describe("Function 'setQuorumBps()'", async function() {
+  describe("Function 'updateQuorumBps()'", async function() {
     it("Changes quorum and emits correct event", async function() {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(await network.setQuorumBps(10000n))
+      await expect(await network.updateQuorumBps(10000n))
         .to.emit(network, Events.QUORUM_UPDATED)
         .withArgs(10000n);
 
@@ -1033,7 +1049,7 @@ describe("SSVNetwork full integration tests", () => {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      await expect(network.connect(randomUser).setQuorumBps(10000n))
+      await expect(network.connect(randomUser).updateQuorumBps(10000n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
   });
@@ -1287,15 +1303,15 @@ describe("SSVNetwork full integration tests", () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
 
-      const tx = await network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n);
+      const tx = await network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE);
       const receipt = await tx.wait();
       await trackGasFromReceipt(receipt, [GasGroup.DAO_UPDATE_OPERATOR_FEE_INCREASE_LIMIT]);
 
       await expect(tx)
         .to.emit(network, Events.OPERATOR_FEE_INCREASE_LIMIT_UPDATED)
-        .withArgs(OPERATOR_MAX_FEE_INCREASE + 1n);
+        .withArgs(OPERATOR_MAX_FEE_INCREASE);
 
-      expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE + 1n);
+      expect(await views.getOperatorFeeIncreaseLimit()).to.be.equal(OPERATOR_MAX_FEE_INCREASE);
     });
 
     it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function() {
@@ -1304,6 +1320,14 @@ describe("SSVNetwork full integration tests", () => {
 
       await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
+    });
+
+    it("Reverts when fee increase limit exceeds 100%", async function() {
+      const { network } =
+        await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await expect(network.updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+        .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_INCREASE_LIMIT);
     });
   });
 
@@ -1575,13 +1599,13 @@ describe("SSVNetwork full integration tests", () => {
       expect(await views.getClusterAssetType(clusterOwner, operatorIds))
         .to.be.equal(CLUSTER_VERSION_ETH);
 
-      // ssv legacy getters
+      // ssv legacy getters revert for ETH clusters
       await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
         .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-      expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
-        .to.be.equal(0);
-      expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
-        .to.be.equal(0);
+      await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+      await expect(views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+        .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
     });
 
     it("Registers a validator for a new ETH cluster using whitelisting contract", async function () {
@@ -2048,10 +2072,10 @@ describe("SSVNetwork full integration tests", () => {
 
         await expect(views.isLiquidatableSSV(clusterOwner.address, operatorIds, expectedCluster))
           .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
-        expect(await views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
-          .to.be.equal(0);
-        expect(await views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
-          .to.be.equal(0);
+        await expect(views.getBurnRateSSV(clusterOwner.address, operatorIds, expectedCluster))
+          .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+        await expect(views.getBalanceSSV(clusterOwner, operatorIds, expectedCluster))
+          .to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
       }
     });
 

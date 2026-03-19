@@ -14,7 +14,7 @@ import {
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   NETWORK_FEE,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import {
@@ -111,7 +111,7 @@ describe("E2E Staking Transfers", () => {
       const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalSupply = amountA;
 
       const phase1Blocks = BigInt(transferBlock - stakeBlock);
@@ -178,7 +178,7 @@ describe("E2E Staking Transfers", () => {
 
       const vUnits = defaultVUnits(1n);
       const maxOneBlockReward =
-        ((PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+        ((PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
       expect(reward).to.be.lessThanOrEqual(maxOneBlockReward);
     });
   });

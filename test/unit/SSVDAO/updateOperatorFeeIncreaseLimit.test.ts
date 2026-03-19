@@ -5,6 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
+import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateOperatorFeeIncreaseLimit()`", async () => {
@@ -90,5 +91,12 @@ describe("SSVDAO function `updateOperatorFeeIncreaseLimit()`", async () => {
 
     const storedLimit = await dao.getOperatorMaxFeeIncrease();
     expect(storedLimit).to.equal(highLimit);
+  });
+
+  it("Reverts when operator fee increase limit exceeds 100%", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    await expect(dao.updateOperatorFeeIncreaseLimit(10001n))
+      .to.be.revertedWithCustomError(dao, Errors.INVALID_OPERATOR_FEE_INCREASE_LIMIT);
   });
 });

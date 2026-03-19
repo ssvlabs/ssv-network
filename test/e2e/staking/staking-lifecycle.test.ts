@@ -14,7 +14,7 @@ import {
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   NETWORK_FEE,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   DEFAULT_UNSTAKE_COOLDOWN,
 } from "../../common/constants.ts";
@@ -99,7 +99,7 @@ describe("E2E Staking Lifecycle", () => {
       const vUnits = defaultVUnits(1n);
       const blockDiff = BigInt(claimBlock - stakeBlock);
 
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalEarningsPacked = earningsPerBlockPacked * blockDiff;
       const totalEarningsWei = totalEarningsPacked * ETH_DEDUCTED_DIGITS;
 
@@ -151,7 +151,7 @@ describe("E2E Staking Lifecycle", () => {
 
       const blockDiff = BigInt(claimBlock - stakeBlock);
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalEarningsPacked = earningsPerBlockPacked * blockDiff;
       const totalEarningsWei = totalEarningsPacked * ETH_DEDUCTED_DIGITS;
 
@@ -220,7 +220,7 @@ describe("E2E Staking Lifecycle", () => {
       const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const phase1Blocks = BigInt(stakeBlockB - stakeBlockA);
       const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;
@@ -305,7 +305,7 @@ describe("E2E Staking Lifecycle", () => {
       const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalSupply = amountA + amountB;
 
       const phase1Blocks = BigInt(stakeBlockB - stakeBlockA);
@@ -436,7 +436,7 @@ describe("E2E Staking Lifecycle", () => {
       const rewardClaimed = BigInt(balAfter) - balBefore + gasUsed;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const blockDiff = BigInt(unstakeBlock - stakeBlock);
       const totalFeesWei = earningsPerBlockPacked * blockDiff * ETH_DEDUCTED_DIGITS;
       const accDelta = calcAccEthPerShareDelta(totalFeesWei, stakeAmount);
@@ -491,7 +491,7 @@ describe("E2E Staking Lifecycle", () => {
       const totalReward = BigInt(balAfter) - balBefore + gasUsed;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const phase1Blocks = BigInt(unstakeBlock - stakeBlock);
       const phase1FeesPacked = earningsPerBlockPacked * phase1Blocks;

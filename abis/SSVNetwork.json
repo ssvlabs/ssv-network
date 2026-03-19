@@ -193,6 +193,21 @@
   },
   {
     "inputs": [],
+    "name": "InsufficientCSSVSupply",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidOperatorFeeIncreaseLimit",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidOperatorFeeRange",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidOperatorIdsLength",
     "type": "error"
   },
@@ -259,11 +274,6 @@
   },
   {
     "inputs": [],
-    "name": "MaxValueExceeded",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "MustUseLatestRoot",
     "type": "error"
   },
@@ -315,11 +325,6 @@
   {
     "inputs": [],
     "name": "OracleAlreadyAssigned",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "OracleHasZeroWeight",
     "type": "error"
   },
   {
@@ -443,6 +448,11 @@
   {
     "inputs": [],
     "name": "ZeroAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroCSSVSupply",
     "type": "error"
   },
   {
@@ -2777,32 +2787,6 @@
   {
     "inputs": [
       {
-        "internalType": "uint16",
-        "name": "quorum",
-        "type": "uint16"
-      }
-    ],
-    "name": "setQuorumBps",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "duration",
-        "type": "uint64"
-      }
-    ],
-    "name": "setUnstakeCooldownDuration",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
@@ -3068,6 +3052,32 @@
       }
     ],
     "name": "updateOperatorFeeIncreaseLimit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "quorum",
+        "type": "uint16"
+      }
+    ],
+    "name": "updateQuorumBps",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "duration",
+        "type": "uint64"
+      }
+    ],
+    "name": "updateUnstakeCooldownDuration",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

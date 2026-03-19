@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture, getClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { ethers } from "ethers";
@@ -132,7 +132,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR); // baseline + deviation
     }
 
     const tx = await clusters.updateClusterBalance(
@@ -157,11 +157,11 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(clusterAfter.active).to.equal(true);
     expect(clusterAfter.validatorCount).to.equal(cluster.validatorCount);
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
     for (const operatorId of operatorIds) {
       // After EB update to 32 ETH (same as baseline), deviation is 0
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR); // baseline + deviation
     }
   });
 
@@ -179,7 +179,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     await clusters.mockSetEBRoot(blockNum, root);
 
     const vUnitsPerValidator = 32n;
-    const newVUnits = ((BigInt(effectiveBalance) * VUNITS_PRECISION) + vUnitsPerValidator - 1n) / vUnitsPerValidator;
+    const newVUnits = ((BigInt(effectiveBalance) * BPS_DENOMINATOR) + vUnitsPerValidator - 1n) / vUnitsPerValidator;
 
     const tx = await clusters.updateClusterBalance(
       blockNum,
@@ -197,7 +197,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(newVUnits);
     for (const operatorId of operatorIds) {
       // EB update to 33 ETH: newVUnits = 10313, baseline = 10000, deviation = 313
-      const deviation = newVUnits - VUNITS_PRECISION;
+      const deviation = newVUnits - BPS_DENOMINATOR;
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(deviation); // deviation only
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(newVUnits); // baseline + deviation
     }
@@ -524,7 +524,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
       []
     )).wait();
 
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(VUNITS_PRECISION);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
     }
@@ -571,7 +571,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(clusterAfter.active).to.equal(false);
     expect(clusterAfter.balance).to.equal(0n);
 
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
 
     expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(operatorVUnitsBefore);
@@ -644,7 +644,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(clusterAfterUpdate.balance).to.equal(0n);
 
     // EB snapshot is updated — this is the ONLY state that changes
-    const expectedVUnits2 = (BigInt(effectiveBalance2) * VUNITS_PRECISION + 32n - 1n) / 32n; // 40000
+    const expectedVUnits2 = (BigInt(effectiveBalance2) * BPS_DENOMINATOR + 32n - 1n) / 32n; // 40000
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits2);
 
     // Operator vUnits are NOT re-incremented — deviation stays at 0 (cleaned up during liquidation)
@@ -758,7 +758,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(clusterAfter.validatorCount).to.equal(2n);
 
     // vUnits = ceil(66 * 10000 / 32) = ceil(20625) = 20625
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
 
     // Operator vUnits should NOT be updated (stays 0 after liquidation cleanup)
@@ -830,7 +830,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(clusterAfterDecrease.balance).to.equal(0n);
 
     // EB snapshot updated to decreased value
-    const expectedVUnits2 = (BigInt(effectiveBalance2) * VUNITS_PRECISION + 32n - 1n) / 32n; // 12500
+    const expectedVUnits2 = (BigInt(effectiveBalance2) * BPS_DENOMINATOR + 32n - 1n) / 32n; // 12500
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits2);
 
     // Operator vUnits unchanged — no accounting corruption from EB decrease
@@ -884,7 +884,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(clusterAfter.balance).to.equal(0n);
 
     // Cluster now has explicit EB tracking (vUnits set in storage)
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n; // ceil(35 * 10000 / 32) = 10938
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 32n - 1n) / 32n; // ceil(35 * 10000 / 32) = 10938
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
 
     // Operator vUnits stay at 0 (liquidated cluster doesn't update operator accounting)
@@ -949,7 +949,7 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     const ebReceipt1 = await ebTx1.wait();
     const clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt1, Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedVUnits = (64n * VUNITS_PRECISION + 32n - 1n) / 32n; // 20000
+    const expectedVUnits = (64n * BPS_DENOMINATOR + 32n - 1n) / 32n; // 20000
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
 
     const removeTx = await clusters.removeValidator(makePublicKey(1), operatorIds, clusterAfterEB);
@@ -1002,8 +1002,8 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
 
     await clusters.updateClusterBalance(blockNum, clusterOwner.address, operatorIds, cluster, effectiveBalance, []);
 
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 32n - 1n) / 32n; // 640,000
-    const expectedDeviation = expectedVUnits - VUNITS_PRECISION; // 630,000
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 32n - 1n) / 32n; // 640,000
+    const expectedDeviation = expectedVUnits - BPS_DENOMINATOR; // 630,000
 
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
     expect(await clusters.getDaoTotalEthVUnits()).to.equal(expectedVUnits);

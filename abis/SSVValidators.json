@@ -188,6 +188,16 @@
   },
   {
     "inputs": [],
+    "name": "InvalidOperatorFeeIncreaseLimit",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidOperatorFeeRange",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidOperatorIdsLength",
     "type": "error"
   },
@@ -245,11 +255,6 @@
   {
     "inputs": [],
     "name": "MaxRequestsAmountReached",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "MaxValueExceeded",
     "type": "error"
   },
   {

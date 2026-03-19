@@ -7,11 +7,11 @@ import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/storage/SSVStorageStaking.sol";
 import "../../contracts/modules/SSVDAO.sol";
+import "../../contracts/interfaces/ICSSVToken.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH, PackedSSV} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETH, PackedSSV, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract DAOUser {
     ISSVDAO public dao;
@@ -42,6 +42,9 @@ contract SSVDAOEchidna is SSVDAO {
     uint64 private constant MAX_FEE_UNITS = 1_000_000;
     uint64 private constant MAX_PERIOD = 1_000_000;
     uint16 private constant MAX_QUORUM_BPS = 10_000;
+    uint256 private constant DUSTY_RAW_SUPPLY = 1_000_000_002;
+    uint256 private constant DUSTY_TRUNCATED_SUPPLY = 1_000_000_000;
+    uint16 private constant DUSTY_QUORUM_BPS = 7_500;
 
     MockToken private token;
 
@@ -51,6 +54,7 @@ contract SSVDAOEchidna is SSVDAO {
     OracleUser private oracle1;
     OracleUser private oracle2;
     OracleUser private oracle3;
+    OracleUser private oracle4;
     OracleUser private candidate1;
     OracleUser private candidate2;
     OracleUser private attacker;
@@ -60,6 +64,13 @@ contract SSVDAOEchidna is SSVDAO {
     bytes32 private lastCommitRoot;
     uint64 private lastCommitBlock;
     OracleUser private lastCommitOracle;
+
+    bytes32 private dustyRoot;
+    uint64 private dustyBlock;
+    uint8 private dustyVoteCount;
+    bool private dustyRoundSeeded;
+    bool private dustyPrematureCommit;
+    bool private belowOracleCountCommitSucceeded;
 
     mapping(bytes32 => mapping(uint32 => bool)) private localVotes;
 
@@ -91,6 +102,7 @@ contract SSVDAOEchidna is SSVDAO {
         oracle1 = new OracleUser(self);
         oracle2 = new OracleUser(self);
         oracle3 = new OracleUser(self);
+        oracle4 = new OracleUser(self);
         candidate1 = new OracleUser(self);
         candidate2 = new OracleUser(self);
         attacker = new OracleUser(self);
@@ -102,8 +114,9 @@ contract SSVDAOEchidna is SSVDAO {
         _mockSetOracle(1, address(oracle1));
         _mockSetOracle(2, address(oracle2));
         _mockSetOracle(3, address(oracle3));
+        _mockSetOracle(4, address(oracle4));
 
-        _mockSetQuorumBps(7500);
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
         _checkpointNetworkFeeIndices();
     }
 
@@ -168,16 +181,16 @@ contract SSVDAOEchidna is SSVDAO {
 
     function action_set_quorum(uint16 quorum) external trackFeeIndexMonotonicity {
         uint16 value = uint16(uint256(quorum) % (MAX_QUORUM_BPS + 1));
-        try this.setQuorumBps(value) {} catch {}
+        try this.updateQuorumBps(value) {} catch {}
     }
 
     function action_set_cooldown(uint64 duration) external trackFeeIndexMonotonicity {
         uint64 value = duration;
-        try this.setUnstakeCooldownDuration(value) {} catch {}
+        try this.updateUnstakeCooldownDuration(value) {} catch {}
     }
 
     function action_replace_oracle(uint8 oracleIdSeed, uint8 newOracleSeed) external trackFeeIndexMonotonicity {
-        uint32 oracleId = uint32(oracleIdSeed % 3) + 1;
+        uint32 oracleId = uint32(uint256(oracleIdSeed) % MAX_DELEGATION_SLOTS) + 1;
         address newOracle = _oracleAddressBySeed(newOracleSeed);
         try this.replaceOracle(oracleId, newOracle) {} catch {}
     }
@@ -261,6 +274,65 @@ contract SSVDAOEchidna is SSVDAO {
         _attemptCommit(lastCommitOracle, lastCommitRoot, lastCommitBlock);
     }
 
+    function action_seed_dusty_commit_round(uint256 seed) external trackFeeIndexMonotonicity {
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+        _setCssvSupply(DUSTY_RAW_SUPPLY);
+
+        dustyRoot = keccak256(abi.encodePacked("dusty-root", seed));
+        dustyBlock = _validBlock(seed);
+        dustyVoteCount = 0;
+        dustyRoundSeeded = true;
+        dustyPrematureCommit = false;
+    }
+
+    function action_commit_root_dusty_shared(uint8 oracleSeed) external trackFeeIndexMonotonicity {
+        if (!dustyRoundSeeded) return;
+
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+
+        OracleUser oracle = _oracleUser(oracleSeed);
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint32 oracleId = s.oracleIdOf[address(oracle)];
+        bytes32 commitmentKey = keccak256(abi.encodePacked(dustyBlock, dustyRoot));
+        bool alreadyVoted = localVotes[commitmentKey][oracleId];
+
+        _attemptCommit(oracle, dustyRoot, dustyBlock);
+
+        if (!alreadyVoted && localVotes[commitmentKey][oracleId]) {
+            unchecked {
+                dustyVoteCount += 1;
+            }
+        }
+
+        if (SSVStorageEB.load().ebRoots[dustyBlock] == dustyRoot && dustyVoteCount < 3) {
+            dustyPrematureCommit = true;
+        }
+    }
+
+    function action_commit_root_below_oracle_count(uint8 oracleSeed, uint8 rawSupplySeed, uint256 seed)
+        external
+        trackFeeIndexMonotonicity
+    {
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+
+        uint256 rawSupply = (uint256(rawSupplySeed) % (MAX_DELEGATION_SLOTS - 1)) + 1;
+        _setCssvSupply(rawSupply);
+
+        OracleUser oracle = _oracleUser(oracleSeed);
+        uint64 blockNum = _validBlock(seed);
+        bytes32 root = keccak256(abi.encodePacked("below-oracle-count", seed, rawSupplySeed));
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint32 oracleId = s.oracleIdOf[address(oracle)];
+        bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, root));
+        bool votedBefore = localVotes[commitmentKey][oracleId];
+
+        _attemptCommit(oracle, root, blockNum);
+
+        if (!votedBefore && localVotes[commitmentKey][oracleId]) {
+            belowOracleCountCommitSucceeded = true;
+        }
+    }
+
     function echidna_network_fee_matches_expected() external view returns (bool) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         if (feeIndexDecreased) return false;
@@ -333,19 +405,49 @@ contract SSVDAOEchidna is SSVDAO {
             SSVStorageEB.load().latestCommittedBlock <= block.number;
     }
 
+    function echidna_commit_root_dust_round_reaches_quorum() external view returns (bool) {
+        if (!dustyRoundSeeded || dustyVoteCount < 3) return true;
+
+        StorageEB storage seb = SSVStorageEB.load();
+        return seb.ebRoots[dustyBlock] == dustyRoot && seb.latestCommittedBlock >= dustyBlock;
+    }
+
+    function echidna_commit_root_dust_round_not_before_threshold() external view returns (bool) {
+        return !dustyPrematureCommit;
+    }
+
+    function echidna_commit_root_dust_round_uses_truncated_supply() external view returns (bool) {
+        if (!dustyRoundSeeded) return true;
+
+        bytes32 commitmentKey = keccak256(abi.encodePacked(dustyBlock, dustyRoot));
+        StorageEB storage seb = SSVStorageEB.load();
+        if (seb.rootCommitments[commitmentKey] == 0) return true;
+
+        return seb.roundFrozenSupply[commitmentKey] == DUSTY_TRUNCATED_SUPPLY;
+    }
+
+    function echidna_commit_root_below_oracle_count_reverts() external view returns (bool) {
+        return !belowOracleCountCommitSucceeded;
+    }
+
     function echidna_oracle_mapping_consistent() external view returns (bool) {
         StorageStaking storage s = SSVStorageStaking.load();
         address addr1 = s.oracles[1];
         address addr2 = s.oracles[2];
         address addr3 = s.oracles[3];
+        address addr4 = s.oracles[4];
 
         if (addr1 != address(0) && s.oracleIdOf[addr1] != 1) return false;
         if (addr2 != address(0) && s.oracleIdOf[addr2] != 2) return false;
         if (addr3 != address(0) && s.oracleIdOf[addr3] != 3) return false;
+        if (addr4 != address(0) && s.oracleIdOf[addr4] != 4) return false;
 
         if (addr1 != address(0) && addr1 == addr2) return false;
         if (addr1 != address(0) && addr1 == addr3) return false;
+        if (addr1 != address(0) && addr1 == addr4) return false;
         if (addr2 != address(0) && addr2 == addr3) return false;
+        if (addr2 != address(0) && addr2 == addr4) return false;
+        if (addr3 != address(0) && addr3 == addr4) return false;
 
         return true;
     }
@@ -394,18 +496,20 @@ contract SSVDAOEchidna is SSVDAO {
     }
 
     function _oracleUser(uint8 seed) internal view returns (OracleUser) {
-        uint8 idx = seed % 3;
+        uint8 idx = uint8(uint256(seed) % MAX_DELEGATION_SLOTS);
         if (idx == 0) return oracle1;
         if (idx == 1) return oracle2;
-        return oracle3;
+        if (idx == 2) return oracle3;
+        return oracle4;
     }
 
     function _oracleAddressBySeed(uint8 seed) internal view returns (address) {
-        uint8 idx = seed % 5;
+        uint8 idx = seed % 6;
         if (idx == 0) return address(oracle1);
         if (idx == 1) return address(oracle2);
         if (idx == 2) return address(oracle3);
-        if (idx == 3) return address(candidate1);
+        if (idx == 3) return address(oracle4);
+        if (idx == 4) return address(candidate1);
         return address(candidate2);
     }
 
@@ -417,6 +521,19 @@ contract SSVDAOEchidna is SSVDAO {
     function _boundShrunk(uint256 seed, uint64 maxValue) internal pure returns (uint64) {
         if (maxValue == 0) return 0;
         return uint64(seed % (uint256(maxValue) + 1));
+    }
+
+    function _setCssvSupply(uint256 targetSupply) internal {
+        ICSSVToken cssv = ICSSVToken(CSSV_ADDRESS);
+        uint256 currentSupply = cssv.totalSupply();
+        if (currentSupply < targetSupply) {
+            cssv.mint(address(this), targetSupply - currentSupply);
+            return;
+        }
+
+        if (currentSupply > targetSupply) {
+            cssv.burn(address(this), currentSupply - targetSupply);
+        }
     }
 
     function _checkpointNetworkFeeIndices() internal {
@@ -460,7 +577,7 @@ contract SSVDAOEchidna is SSVDAO {
         }
     }
 
-    function _mockSetQuorumBps(uint16 quorum) internal {
+    function _mockupdateQuorumBps(uint16 quorum) internal {
         SSVStorageStaking.load().quorumBps = quorum;
     }
 }

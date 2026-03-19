@@ -10,6 +10,7 @@ import {
   resolveDefaultOracleIds,
   resolveProtocolParams,
   resolveCooldownDuration,
+  parseUint,
   requireAddress,
   resolveConfigPath,
   resolveDeployResultPath,
@@ -99,16 +100,18 @@ async function main() {
     "function updateNetworkFee(uint256 fee)",
     "function updateNetworkFeeSSV(uint256 fee)",
     "function updateLiquidationThresholdPeriod(uint64 blocks)",
+    "function updateLiquidationThresholdPeriodSSV(uint64 blocks)",
     "function updateMinBlocksBetweenUpdates(uint32 blocks)",
     "function updateMinimumLiquidationCollateral(uint256 amount)",
     "function updateMinimumLiquidationCollateralSSV(uint256 amount)",
+    "function updateLiquidationThresholdPeriodSSV(uint64 blocks)",
     "function updateDeclareOperatorFeePeriod(uint64 blocks)",
     "function updateExecuteOperatorFeePeriod(uint64 blocks)",
     "function updateOperatorFeeIncreaseLimit(uint64 percentage)",
-    "function updateMaximumOperatorFee(uint64 maxFee)",
+    "function updateMaximumOperatorFee(uint256 maxFee)",
     "function updateMinimumOperatorEthFee(uint256 minFee)",
-    "function setQuorumBps(uint16 quorumBps)",
-    "function setUnstakeCooldownDuration(uint64 blocks)",
+    "function updateQuorumBps(uint16 quorumBps)",
+    "function updateUnstakeCooldownDuration(uint64 blocks)",
     "function replaceOracle(uint32 oracleId, address oracleAddress)",
   ]);
 
@@ -181,6 +184,13 @@ async function main() {
       data: ssvNetworkIface.encodeFunctionData("updateLiquidationThresholdPeriod", [params.liquidationThresholdPeriod]),
     });
   }
+  if (params.liquidationThresholdPeriodSSV !== undefined) {
+    transactions.push({
+      to: ssvNetworkProxy,
+      value: "0",
+      data: ssvNetworkIface.encodeFunctionData("updateLiquidationThresholdPeriodSSV", [params.liquidationThresholdPeriodSSV]),
+    });
+  }
   if (params.minBlocksBetweenUpdates !== undefined) {
     transactions.push({
       to: ssvNetworkProxy,
@@ -245,14 +255,14 @@ async function main() {
     transactions.push({
       to: ssvNetworkProxy,
       value: "0",
-      data: ssvNetworkIface.encodeFunctionData("setQuorumBps", [quorumBps]),
+      data: ssvNetworkIface.encodeFunctionData("updateQuorumBps", [quorumBps]),
     });
   }
   if (params.unstakeCooldownDuration !== undefined) {
     transactions.push({
       to: ssvNetworkProxy,
       value: "0",
-      data: ssvNetworkIface.encodeFunctionData("setUnstakeCooldownDuration", [params.unstakeCooldownDuration]),
+      data: ssvNetworkIface.encodeFunctionData("updateUnstakeCooldownDuration", [params.unstakeCooldownDuration]),
     });
   }
 
@@ -262,6 +272,28 @@ async function main() {
       to: ssvNetworkProxy,
       value: "0",
       data: ssvNetworkIface.encodeFunctionData("replaceOracle", [id, address]),
+    });
+  }
+
+  // ── 6. Initial SSV stake (approve + stake) ──
+  const initialStakeAmount = parseUint(config.initialStakeAmount, "initialStakeAmount");
+  if (initialStakeAmount !== undefined && initialStakeAmount > 0n) {
+    const ssvTokenAddr = requireAddress(config.ssvToken, "ssvToken");
+    const erc20Iface = new Interface([
+      "function approve(address spender, uint256 amount)",
+    ]);
+    const stakingIface = new Interface([
+      "function stake(uint256 amount)",
+    ]);
+    transactions.push({
+      to: ssvTokenAddr,
+      value: "0",
+      data: erc20Iface.encodeFunctionData("approve", [ssvNetworkProxy, initialStakeAmount]),
+    });
+    transactions.push({
+      to: ssvNetworkProxy,
+      value: "0",
+      data: stakingIface.encodeFunctionData("stake", [initialStakeAmount]),
     });
   }
 
