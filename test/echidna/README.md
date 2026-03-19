@@ -27,6 +27,9 @@ echidna test/echidna/SSVEdgeCasesEchidna.sol --contract SSVEdgeCasesEchidna --co
 echidna test/echidna/SSVValidatorsEchidna.sol --contract SSVValidatorsEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVEBProofEchidna.sol --contract SSVEBProofEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVOperatorFeeGovEchidna.sol --contract SSVOperatorFeeGovEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVLegacyClustersEchidna.sol --contract SSVLegacyClustersEchidna --config test/echidna/echidna.yaml
 ```
 
 ## Files
@@ -35,13 +38,16 @@ echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/ec
 test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
-├── SSVOperatorsEchidna.sol           # Operators invariants (19 tests)
+├── SSVOperatorsEchidna.sol           # Operators invariants (20 tests)
 ├── SSVClustersEchidna.sol            # Clusters invariants (9 tests)
 ├── SSVAccountingEchidna.sol          # System accounting invariants (4 tests)
 ├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (4 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
 ├── SSVStakingEchidna.sol             # Staking invariants (12 tests)
 ├── SSVDAOEchidna.sol                 # DAO invariants (17 tests)
+├── SSVEBProofEchidna.sol             # EB proof invariants (3 tests) [FUZZ-3 B6/B7/B8]
+├── SSVOperatorFeeGovEchidna.sol      # Operator fee governance (1 test) [FUZZ-3 B19]
+├── SSVLegacyClustersEchidna.sol      # Legacy SSV cluster liquidation (1 test) [FUZZ-3 B15]
 ├── echidna.yaml
 ├── run-echidna.sh
 └── README.md
@@ -69,7 +75,7 @@ test/echidna/
 | `echidna_attacker_cannot_burn` | Unauthorized burn blocked |
 | `echidna_only_self_is_staking` | Single authorized address |
 
-## SSVOperatorsEchidna (19 Invariants)
+## SSVOperatorsEchidna (20 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -92,6 +98,7 @@ test/echidna/
 | `echidna_owner_only_actions` | Owner-only access enforced |
 | `echidna_remove_cleans_state` | Removal zeroes operator state |
 | `echidna_remove_pays_out` | Removal pays out and reduces holdings |
+| `echidna_declare_fee_from_zero_reverts` | **[FUZZ-3 B17]** Declaring non-zero ETH fee when both fees are 0 reverts |
 
 ## SSVClustersEchidna (9 Invariants)
 
@@ -183,6 +190,36 @@ test/echidna/
 | `echidna_commit_root_dust_round_uses_truncated_supply` | Pending dusty rounds store truncated frozen voting supply |
 | `echidna_commit_root_below_oracle_count_reverts` | Rounds with supply below oracle count always revert with zero weight |
 | `echidna_oracle_mapping_consistent` | Oracle ID mappings remain consistent |
+| `echidna_dao_earnings_matches_formula` | **[FUZZ-3 C4]** ETH DAO earnings matches `daoBalance + blockDelta × fee × vUnits / precision` |
+
+## SSVEBProofEchidna (3 Invariants) — FUZZ-3 B6/B7/B8
+
+Tests `updateClusterBalance` Merkle proof correctness and EB bounds enforcement.
+Setup: single operator (zero fees), 4-validator ETH cluster, single-leaf Merkle tree built in-harness.
+
+| Property | Description |
+|----------|-------------|
+| `echidna_eb_merkle_proof_verified` | **[B6]** A tampered `effectiveBalance` (≠ committed value) is rejected by the proof check |
+| `echidna_eb_bounds_enforced` | **[B7]** `effectiveBalance` outside `[validatorCount×32, validatorCount×2048]` is rejected |
+| `echidna_eb_snapshot_fields_exact` | **[B8]** After a valid update: `vUnits == ebToVUnits(eb)`, `lastRootBlockNum == blockNum`, `lastUpdateBlock == block.number` |
+
+## SSVOperatorFeeGovEchidna (1 Invariant) — FUZZ-3 B19
+
+Tests that `executeOperatorFee` rejects fee-change requests whose `approvalBeginTime` predates the migration.
+Setup: `UPGRADE_TIMESTAMP = 1`; legacy requests are planted directly into storage with `approvalBeginTime = 1`.
+
+| Property | Description |
+|----------|-------------|
+| `echidna_execute_rejects_legacy_declarations` | **[B19]** `executeOperatorFee` always reverts when the stored declaration has `approvalBeginTime ≤ UPGRADE_TIMESTAMP` |
+
+## SSVLegacyClustersEchidna (1 Invariant) — FUZZ-3 B15
+
+Tests that `liquidateSSV` correctly resets legacy SSV cluster state and transfers the SSV balance to the liquidator.
+Setup: two SSV operators with non-zero fees, one active SSV cluster, liquidator == cluster owner (self-liquidation path).
+
+| Property | Description |
+|----------|-------------|
+| `echidna_ssv_liquidation_resets_and_pays` | **[B15]** After `liquidateSSV` succeeds: cluster is inactive with zeroed indexes/balance, and the SSV balance was fully transferred to the liquidator |
 
 ---
 
@@ -263,32 +300,7 @@ Directly testable with current harness patterns. High bug-catching value.
 
 Requires more harness bookkeeping or complex setup (Merkle builder, multi-actor tracking).
 
-#### EB Proof Verification
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_eb_merkle_proof_verified` | Conditional | Successful EB update implies `MerkleProof.verify(proof, root, leaf) == true` for expected leaf encoding | B6 |
-| `echidna_eb_bounds_enforced` | Conditional | Successful EB update has `effectiveBalance` within protocol bounds (min 32 ETH/validator, max 2048 ETH/validator) | B7 |
-| `echidna_eb_snapshot_fields_exact` | Conditional | After successful update: `vUnits == ebToVUnits(effectiveBalance)`, `lastRootBlockNum == blockNum`, `lastUpdateBlock == block.number` | B8 |
-
-#### Operator Fee Governance
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_declare_fee_from_zero_reverts` | Conditional | If operator legacy fee = 0 and ETH fee = 0, declaring non-zero ETH fee reverts (if enforced) | B17 |
-| `echidna_execute_rejects_legacy_declarations` | Conditional | `executeOperatorFee` rejects declarations timestamped before `UPGRADE_TIMESTAMP` | B19 |
-
-#### Legacy SSV
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_ssv_liquidation_resets_and_pays` | Conditional | `liquidateSSV()` success → cluster inactive, indexes zeroed, remaining SSV transferred to liquidator | B15 |
-
-#### DAO Earnings Formula
-
-| Planned Property | Type | Description | Ref |
-|---|---|---|---|
-| `echidna_dao_earnings_matches_formula` | Candidate | `networkTotalEarnings()` equals `daoBalance + (blockDelta * ethNetworkFee * daoTotalEthVUnits / precision)` — catches packing/rounding/checkpoint errors | C4 |
+> **FUZZ-3 complete**: B6, B7, B8 → `SSVEBProofEchidna.sol`; B17 → `SSVOperatorsEchidna.sol`; B19 → `SSVOperatorFeeGovEchidna.sol`; B15 → `SSVLegacyClustersEchidna.sol`; C4 → `SSVDAOEchidna.sol`.
 
 ### Lower Priority — Heavy Harness Required
 

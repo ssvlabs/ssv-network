@@ -195,6 +195,10 @@ contract SSVDAOEchidna is SSVDAO {
         try this.replaceOracle(oracleId, newOracle) {} catch {}
     }
 
+    function action_set_eth_vunits(uint64 vUnitsSeed) external {
+        SSVStorageProtocol.load().daoTotalEthVUnits = vUnitsSeed % 100_001;
+    }
+
     function action_add_earnings(uint256 seed) external trackFeeIndexMonotonicity {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         uint64 currentBalance = PackedSSV.unwrap(sp.daoBalance);
@@ -450,6 +454,27 @@ contract SSVDAOEchidna is SSVDAO {
         if (addr3 != address(0) && addr3 == addr4) return false;
 
         return true;
+    }
+
+    function echidna_dao_earnings_matches_formula() external view returns (bool) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (sp.ethDaoIndexBlockNumber > block.number) return false;
+
+        uint128 blockDelta = uint64(block.number) - sp.ethDaoIndexBlockNumber;
+        uint128 rawFee = PackedETH.unwrap(sp.ethNetworkFee);
+        uint128 vUnits = sp.daoTotalEthVUnits;
+        uint128 rawBalance = PackedETH.unwrap(sp.ethDaoBalance);
+
+        uint128 earningsUnits = (blockDelta * rawFee * vUnits) / BPS_DENOMINATOR;
+
+        if (earningsUnits > type(uint64).max) return true;
+        if (rawBalance + earningsUnits > type(uint64).max) return true;
+
+        uint64 expectedRaw = uint64(rawBalance + earningsUnits);
+        PackedETH libResult = ProtocolLib.networkTotalEarnings(sp);
+
+        return PackedETH.unwrap(libResult) == expectedRaw;
     }
 
     function _attemptCommit(OracleUser oracle, bytes32 root, uint64 blockNum) internal {
