@@ -2,7 +2,7 @@ import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import { ssvNetworkFullForkedFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType, OperatorTuple, UnstakeRequest } from '../../common/types.ts';
-import { calculateInitialBurnRate, getCurrentClusterState, makeArrayOfKeysAndShares, getFeeAboveIncreaseLimit, getValidOperatorFeeIncrease, makeOperatorKey, makePublicKey, registerDefaultCluster, registerOperators, whitelistAddresses, setAccountBalance } from '../../helpers/index.ts';
+import { buildEBMerkleForDefaultClusters, calculateInitialBurnRate, getCurrentClusterState, makeArrayOfKeysAndShares, getFeeAboveIncreaseLimit, getValidOperatorFeeIncrease, makeOperatorKey, makePublicKey, registerDefaultCluster, registerDefaultClusters, registerOperators, setAccountBalance, updateClusterBalancesForDefaultClusters, whitelistAddresses } from '../../helpers/index.ts';
 import { CLUSTER_VERSION_ETH, DECLARE_OPERATOR_FEE_PERIOD, DEFAULT_ETH_EB_PER_VALIDATOR, DEFAULT_ETH_REGISTER_VALUE, DEFAULT_ORACLES_IDS, DEFAULT_SHARES, DEFAULT_UNSTAKE_COOLDOWN, EMPTY_CLUSTER, EXECUTE_OPERATOR_FEE_PERIOD, MAXIMUM_OPERATORS_FEE, MINIMAL_LIQUIDATION_THRESHOLD, MINIMAL_OPERATOR_ETH_FEE, MINIMUM_BLOCKS_BEFORE_LIQUIDATION, MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE, OPERATOR_MAX_FEE_INCREASE, OPERATOR_FEE_PRECISION, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT, } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
@@ -1788,6 +1788,76 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
             await expect(await cssvToken.balanceOf(randomUser.address)).to.be.equal(0);
             await expect(await ssvToken.balanceOf(randomUser.address)).to.be.equal(STAKE_AMOUNT);
             await expect(await views.stakedBalanceOf(randomUser.address)).to.be.equal(0);
+        });
+    });
+
+    describe("Function 'claimEthRewards()'", async function () {
+        it("Processes only the first claim when two claims are mined in the same block", async function () {
+            const { network, views, ssvToken, daoSigner } = await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
+            await ssvToken.connect(randomUser).approve(await network.getAddress(), connection.ethers.MaxUint256);
+            await ssvToken.connect(daoSigner).mint(randomUser.address, STAKE_AMOUNT);
+            await network.connect(randomUser).stake(STAKE_AMOUNT);
+
+            const oracles = (await connection.ethers.getSigners()).slice(10, 14);
+            await network.connect(daoSigner).replaceOracle(1, oracles[0].address);
+            await network.connect(daoSigner).replaceOracle(2, oracles[1].address);
+            await network.connect(daoSigner).replaceOracle(3, oracles[2].address);
+            await network.connect(daoSigner).replaceOracle(4, oracles[3].address);
+
+            const operatorIds = await registerOperators(network, operatorOwner, 4);
+            const clusters = await registerDefaultClusters(connection, network, operatorIds, operatorOwner, 8);
+            const merkleData = buildEBMerkleForDefaultClusters(connection, clusters, 33);
+            const block = await connection.ethers.provider.getBlock("latest");
+            const blockNum = block!.number;
+
+            for (let i = 0; i < 3; i++) {
+                await network.connect(oracles[i]).commitRoot(merkleData.root, blockNum);
+            }
+
+            await updateClusterBalancesForDefaultClusters(network, clusters, merkleData, blockNum, 33);
+
+            const claimableBefore = await views.previewClaimableEth(randomUser.address);
+            expect(claimableBefore).to.be.greaterThan(0n);
+
+            const provider = connection.ethers.provider;
+            const startingBalance = await provider.getBalance(randomUser.address);
+            const pendingNonce = await provider.getTransactionCount(randomUser.address, "pending");
+            const claimData = network.interface.encodeFunctionData("claimEthRewards");
+            const networkAddress = await network.getAddress();
+
+            await provider.send("evm_setAutomine", [false]);
+
+            try {
+                const firstClaim = await randomUser.sendTransaction({
+                    to: networkAddress,
+                    data: claimData,
+                    nonce: pendingNonce,
+                    gasLimit: 1_000_000n,
+                });
+                const secondClaim = await randomUser.sendTransaction({
+                    to: networkAddress,
+                    data: claimData,
+                    nonce: pendingNonce + 1,
+                    gasLimit: 1_000_000n,
+                });
+
+                await provider.send("evm_mine", []);
+
+                const firstReceipt = await firstClaim.wait();
+                const secondReceipt = await secondClaim.wait();
+
+                expect(firstReceipt!.status).to.equal(1);
+                expect(secondReceipt!.status).to.equal(0);
+
+                const firstGasCost = BigInt(firstReceipt!.gasUsed) * BigInt(firstReceipt!.gasPrice);
+                const secondGasCost = BigInt(secondReceipt!.gasUsed) * BigInt(secondReceipt!.gasPrice);
+                const balanceAfter = await provider.getBalance(randomUser.address);
+
+                expect(balanceAfter + firstGasCost + secondGasCost - startingBalance).to.equal(claimableBefore);
+                expect(await views.previewClaimableEth(randomUser.address)).to.equal(0n);
+            } finally {
+                await provider.send("evm_setAutomine", [true]);
+            }
         });
     });
 });
