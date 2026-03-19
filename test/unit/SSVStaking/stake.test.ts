@@ -84,6 +84,20 @@ describe("SSVStaking function `stake()`", async () => {
       .withArgs(staker.address, minAmount);
   });
 
+  it("Accepts a stake amount exactly 1 above the minimum", async function () {
+    const { staking, ssvToken, cssvToken } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    const aboveMinimum = 1_000_000_001n;
+    await ssvToken.approve(await staking.getAddress(), aboveMinimum);
+
+    await expect(staking.stake(aboveMinimum))
+      .to.emit(staking, Events.STAKED)
+      .withArgs(staker.address, aboveMinimum);
+
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(aboveMinimum);
+  });
+
   it("Is reverted with 'StakeTooLow' when staking zero amount", async function () {
     const { staking } =
       await networkHelpers.loadFixture(deployStakingFixture);
@@ -115,6 +129,13 @@ describe("SSVStaking function `stake()`", async () => {
     await ssvToken.approve(await staking.getAddress(), amount - 1n);
 
     await expect(staking.stake(amount)).to.be.revertedWith("ERC20: insufficient allowance");
+  });
+
+  it("Is reverted when staking without approval", async function () {
+    const { staking } =
+      await networkHelpers.loadFixture(deployStakingFixture);
+
+    await expect(staking.stake(STAKE_AMOUNT)).to.be.revertedWith("ERC20: insufficient allowance");
   });
 
   it("Is reverted when token balance is insufficient", async function () {

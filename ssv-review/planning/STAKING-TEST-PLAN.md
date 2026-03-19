@@ -18,11 +18,11 @@ Generated: 2026-03-18
 | 10 | Staked event emitted | Covered | unit/stake.ts:42 |
 | 11 | Stake zero reverts | Covered | unit/stake.ts:88, integration/staking.ts:681, e2e/edge-cases.ts:319 |
 | 12 | Stake below minimum reverts | Covered | unit/stake.ts:98, integration/staking.ts:686, e2e/edge-cases.ts:328 |
-| 13 | Stake without approval reverts | Partially | unit/stake.ts:111 (insufficient allowance), unit/stake.ts:121 (insufficient balance) |
+| 13 | Stake without approval reverts | Covered | unit/stake.ts:120 |
 | 14 | Stake more than balance reverts | Covered | unit/stake.ts:121 |
 | 15 | Insufficient allowance reverts | Covered | unit/stake.ts:111 |
 | 16 | Fees accrued but totalStaked was 0 | Covered | e2e/lifecycle.ts:114, e2e/rewards.ts:445 |
-| 17 | Stake exactly 1 above minimum | NOT COVERED | |
+| 17 | Stake exactly 1 above minimum | Covered | unit/stake.ts:87 |
 | 18 | Reentrancy on stake | Covered | unit/reentrancy.ts (for claimEthRewards; stake uses nonReentrant too) |
 
 ## 2. Earning Rewards (26 test cases)
@@ -167,16 +167,16 @@ Generated: 2026-03-18
 
 | Section | Total | Covered | Partially | Not Covered |
 |---------|-------|---------|-----------|-------------|
-| 1. Staking | 18 | 15 | 1 | 2 |
+| 1. Staking | 18 | 17 | 0 | 1 |
 | 2. Earning Rewards | 26 | 14 | 2 | 10 |
 | 3. Claim Rewards | 17 | 17 | 0 | 0 |
 | 4. Request Unstake | 25 | 18 | 1 | 6 |
 | 5. Withdraw Unlocked | 16 | 14 | 0 | 2 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
 | 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **87** | **4** | **35** |
+| **Total** | **126** | **88** | **3** | **35** |
 
-**Overall: ~69% covered, ~3% partially covered, ~28% not covered**
+**Overall: ~70% covered, ~2% partially covered, ~28% not covered**
 
 ## Key Gaps
 
