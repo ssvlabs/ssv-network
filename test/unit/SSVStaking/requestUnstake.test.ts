@@ -14,9 +14,10 @@ describe("SSVStaking function `requestUnstake()`", async () => {
   let networkHelpers: NetworkHelpersType;
 
   let staker: HardhatEthersSigner;
+  let receiver: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers, signers: [staker] } = await setupTestContext());
+    ({ connection, networkHelpers, signers: [staker, receiver] } = await setupTestContext());
   });
 
   const stakeFirst = async () => {
@@ -142,6 +143,43 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const receiptBlock = await connection.ethers.provider.getBlock(receipt.blockNumber);
     const expectedUnlockTime = BigInt(receiptBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
     expect(storedUnlockTime).to.equal(expectedUnlockTime);
+  });
+
+  it("Allows a receiver to request unstake after receiving cSSV by transfer", async function () {
+    const { staking, cssvToken } = await networkHelpers.loadFixture(stakeFirst);
+
+    const receivedAmount = STAKE_AMOUNT / 2n;
+    await cssvToken.connect(staker).transfer(receiver.address, receivedAmount);
+
+    expect(await cssvToken.balanceOf(receiver.address)).to.equal(receivedAmount);
+
+    const cssvSupplyBefore = await cssvToken.totalSupply();
+    const receipt = await trackGas(
+      staking.connect(receiver).requestUnstake(receivedAmount),
+      [GasGroup.REQUEST_UNSTAKE]
+    );
+    const block = await connection.ethers.provider.getBlock(receipt.blockNumber);
+    const expectedUnlockTime = BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
+    await expect(receipt)
+      .to.emit(staking, Events.UNSTAKE_REQUESTED)
+      .withArgs(receiver.address, receivedAmount, expectedUnlockTime);
+
+    expect(await cssvToken.balanceOf(receiver.address)).to.equal(0n);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(
+      STAKE_AMOUNT - receivedAmount,
+    );
+    expect(await cssvToken.totalSupply()).to.equal(cssvSupplyBefore - receivedAmount);
+
+    const requestCount = await staking.getWithdrawalRequestsCount(receiver.address);
+    expect(requestCount).to.equal(1n);
+
+    const [amount, unlockTime] = await staking.getWithdrawalRequest(
+      receiver.address,
+      0,
+    );
+    expect(amount).to.equal(receivedAmount);
+    expect(unlockTime).to.equal(expectedUnlockTime);
   });
 
   it("Allows multiple sequential unstake requests with different unlock times", async function () {

@@ -88,7 +88,7 @@ Generated: 2026-03-18
 | 4 | Multiple unstake requests | Covered | unit/requestUnstake.ts:152, integration/staking.ts:628 |
 | 5 | Settles rewards before burn | Covered | unit/requestUnstake.ts:211, e2e/lifecycle.ts:395 |
 | 6 | Rewards still claimable after full unstake | Covered | e2e/lifecycle.ts:395 |
-| 7 | Unstake after cSSV transfer receive | NOT COVERED | |
+| 7 | Unstake after cSSV transfer receive | Covered | unit/requestUnstake.ts:148 |
 | 8 | Unstake zero reverts | Covered | unit/requestUnstake.ts:80, integration/staking.ts:704 |
 | 9 | Unstake more than balance reverts | Covered | unit/requestUnstake.ts:103, integration/staking.ts:692 |
 | 10 | Unstake with no cSSV reverts | Partially | unit/requestUnstake.ts:103 (exceeds balance) |
@@ -170,13 +170,13 @@ Generated: 2026-03-18
 | 1. Staking | 18 | 18 | 0 | 0 |
 | 2. Earning Rewards | 26 | 26 | 0 | 0 |
 | 3. Claim Rewards | 17 | 17 | 0 | 0 |
-| 4. Request Unstake | 25 | 18 | 1 | 6 |
+| 4. Request Unstake | 25 | 19 | 1 | 5 |
 | 5. Withdraw Unlocked | 16 | 14 | 0 | 2 |
 | 6. SyncFees | 9 | 9 | 0 | 0 |
 | 7. Multisig | 15 | 0 | 0 | 15 |
-| **Total** | **126** | **102** | **1** | **23** |
+| **Total** | **126** | **103** | **1** | **22** |
 
-**Overall: ~81% covered, ~1% partially covered, ~18% not covered**
+**Overall: ~82% covered, ~1% partially covered, ~17% not covered**
 
 ## Key Gaps
 
