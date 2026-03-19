@@ -744,6 +744,149 @@ describe("E2E Staking Rewards", () => {
     });
   });
 
+  describe("Cooldown Decrease → Same Staking Rewards", () => {
+    it("Staking rewards stay unchanged after updateUnstakeCooldownDuration decreases cooldown", async function () {
+      const { network, views, ssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+      ]);
+
+      const stakeAmount = 10n * PRECISION;
+      await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
+      await ssvToken
+        .connect(stakerA)
+        .approve(await network.getAddress(), stakeAmount);
+      await network.connect(stakerA).stake(stakeAmount);
+
+      const registerTx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+      const registerBlock = await getTxBlock(registerTx);
+
+      const initialNetworkFee = await views.getNetworkFee();
+      const currentCooldown = await views.cooldownDuration();
+      const reducedCooldown = currentCooldown / 2n;
+      const vUnits = defaultVUnits(1n);
+      const packedFee = initialNetworkFee / ETH_DEDUCTED_DIGITS;
+
+      const baselineSyncTx = await network.connect(stakerA).syncFees();
+      const baselineSyncBlock = await getTxBlock(baselineSyncTx);
+      const baselineSyncReceipt = await baselineSyncTx.wait();
+      const baselineFeesLog = baselineSyncReceipt!.logs.find((log: any) => {
+        try {
+          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
+        } catch {
+          return false;
+        }
+      });
+      const baselineFees = baselineFeesLog
+        ? BigInt(network.interface.parseLog(baselineFeesLog)!.args[0])
+        : 0n;
+      const baselineExpectedFees =
+        ((packedFee * vUnits) / BPS_DENOMINATOR) *
+        BigInt(baselineSyncBlock - registerBlock) *
+        ETH_DEDUCTED_DIGITS;
+      expect(baselineFees).to.equal(baselineExpectedFees);
+
+      const phase1StartBlock = baselineSyncBlock;
+      await mineBlocks(provider, 100);
+
+      const syncTx1 = await network.connect(stakerA).syncFees();
+      const syncBlock1 = await getTxBlock(syncTx1);
+      const syncReceipt1 = await syncTx1.wait();
+      const fees1Log = syncReceipt1!.logs.find((log: any) => {
+        try {
+          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
+        } catch {
+          return false;
+        }
+      });
+      const newFeesPhase1 = fees1Log
+        ? BigInt(network.interface.parseLog(fees1Log)!.args[0])
+        : 0n;
+
+      const phase1Blocks = BigInt(syncBlock1 - phase1StartBlock);
+      const phase1ExpectedFees =
+        ((packedFee * vUnits) / BPS_DENOMINATOR) *
+        phase1Blocks *
+        ETH_DEDUCTED_DIGITS;
+      expect(newFeesPhase1).to.equal(phase1ExpectedFees);
+
+      const updateTx = await network.updateUnstakeCooldownDuration(
+        reducedCooldown,
+      );
+      await expect(updateTx)
+        .to.emit(network, Events.COOLDOWN_DURATION_UPDATED)
+        .withArgs(reducedCooldown);
+
+      const settleSyncTx = await network.connect(stakerA).syncFees();
+      const settleSyncBlock = await getTxBlock(settleSyncTx);
+      const settleSyncReceipt = await settleSyncTx.wait();
+      const settleFeesLog = settleSyncReceipt!.logs.find((log: any) => {
+        try {
+          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
+        } catch {
+          return false;
+        }
+      });
+      const transitionFees = settleFeesLog
+        ? BigInt(network.interface.parseLog(settleFeesLog)!.args[0])
+        : 0n;
+      const transitionExpectedFees =
+        ((packedFee * vUnits) / BPS_DENOMINATOR) *
+        BigInt(settleSyncBlock - syncBlock1) *
+        ETH_DEDUCTED_DIGITS;
+      expect(transitionFees).to.equal(transitionExpectedFees);
+      expect(await views.cooldownDuration()).to.equal(reducedCooldown);
+
+      const phase2StartBlock = settleSyncBlock;
+      await mineBlocks(provider, 100);
+
+      const syncTx2 = await network.connect(stakerA).syncFees();
+      const syncBlock2 = await getTxBlock(syncTx2);
+      const syncReceipt2 = await syncTx2.wait();
+      const fees2Log = syncReceipt2!.logs.find((log: any) => {
+        try {
+          return network.interface.parseLog(log)?.name === Events.FEES_SYNCED;
+        } catch {
+          return false;
+        }
+      });
+      const newFeesPhase2 = fees2Log
+        ? BigInt(network.interface.parseLog(fees2Log)!.args[0])
+        : 0n;
+
+      const phase2Blocks = BigInt(syncBlock2 - phase2StartBlock);
+      const phase2ExpectedFees =
+        ((packedFee * vUnits) / BPS_DENOMINATOR) *
+        phase2Blocks *
+        ETH_DEDUCTED_DIGITS;
+      expect(newFeesPhase2).to.equal(phase2ExpectedFees);
+      expect(newFeesPhase2).to.equal(newFeesPhase1);
+
+      const totalExpectedRewards =
+        baselineExpectedFees +
+        phase1ExpectedFees +
+        transitionExpectedFees +
+        phase2ExpectedFees;
+      const totalExpectedAccEthPerShare = calcAccEthPerShareDelta(
+        totalExpectedRewards,
+        stakeAmount,
+      );
+      expect(await views.accEthPerShare()).to.equal(totalExpectedAccEthPerShare);
+      expect(
+        calcStakingReward(stakeAmount, totalExpectedAccEthPerShare, 0n),
+      ).to.equal(totalExpectedRewards);
+    });
+  });
+
   describe("EB Increase → Higher Network Fees → More Staking Rewards", () => {
     it("Staking rewards double after EB update doubles vUnits", async function () {
       const { network, views, ssvToken, cssvToken } =

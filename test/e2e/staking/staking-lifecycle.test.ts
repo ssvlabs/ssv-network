@@ -564,6 +564,89 @@ describe("E2E Staking Lifecycle", () => {
       expect(rewardClaimed).to.equal(expectedPayout);
     });
 
+    it("Cooldown changes do not alter reward accrual before and after requestUnstake", async function () {
+      const { network, views, ssvToken, cssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+      ]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const stakeAmount = 10n * PRECISION;
+      const unstakeAmount = 5n * PRECISION;
+      const remainingBalance = stakeAmount - unstakeAmount;
+
+      await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
+      await ssvToken
+        .connect(stakerA)
+        .approve(await network.getAddress(), stakeAmount);
+
+      const stakeBlock = await getTxBlock(
+        await network.connect(stakerA).stake(stakeAmount),
+      );
+
+      await mineBlocks(provider, 50);
+
+      const updatedCooldown = DEFAULT_UNSTAKE_COOLDOWN * 2n;
+      const cooldownUpdateTx =
+        await network.updateUnstakeCooldownDuration(updatedCooldown);
+
+      await expect(cooldownUpdateTx)
+        .to.emit(network, Events.COOLDOWN_DURATION_UPDATED)
+        .withArgs(updatedCooldown);
+      expect(await views.cooldownDuration()).to.equal(updatedCooldown);
+
+      await mineBlocks(provider, 50);
+
+      const unstakeBlock = await getTxBlock(
+        await network.connect(stakerA).requestUnstake(unstakeAmount),
+      );
+
+      expect(await cssvToken.balanceOf(stakerA.address)).to.equal(
+        remainingBalance,
+      );
+
+      await mineBlocks(provider, 50);
+
+      const balBefore = await provider.getBalance(stakerA.address);
+      const claimTx = await network.connect(stakerA).claimEthRewards();
+      const claimReceipt = await claimTx.wait();
+      const claimBlock = claimReceipt!.blockNumber;
+      const gasUsed = claimReceipt!.gasUsed * claimReceipt!.gasPrice;
+      const balAfter = await provider.getBalance(stakerA.address);
+
+      const rewardClaimed = BigInt(balAfter) - balBefore + gasUsed;
+
+      const vUnits = defaultVUnits(1n);
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
+
+      const phase1Blocks = BigInt(unstakeBlock - stakeBlock);
+      const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;
+      const acc1 = calcAccEthPerShareDelta(phase1FeesWei, stakeAmount);
+      const reward1 = calcStakingReward(stakeAmount, acc1, 0n);
+
+      const phase2Blocks = BigInt(claimBlock - unstakeBlock);
+      const phase2FeesWei = earningsPerBlockPacked * phase2Blocks * ETH_DEDUCTED_DIGITS;
+      const acc2 = calcAccEthPerShareDelta(phase2FeesWei, remainingBalance);
+      const reward2 = calcStakingReward(remainingBalance, acc2, 0n);
+
+      const expectedTotal = reward1 + reward2;
+      const expectedPayout =
+        expectedTotal - (expectedTotal % ETH_DEDUCTED_DIGITS);
+
+      expect(reward2).to.be.greaterThan(0n);
+      expect(rewardClaimed).to.equal(expectedPayout);
+    });
+
     it("Burned cSSV stops earning rewards immediately", async function () {
       const { network, ssvToken } =
         await networkHelpers.loadFixture(deployFixture);
