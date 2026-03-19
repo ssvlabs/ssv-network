@@ -83,7 +83,7 @@
 | TEST-28 | ~~Uncomment SSV reentrancy test assertions~~ | Unit Test Completeness | P0 | ✅ Closed (Addressed in PR #454) |
 | TEST-29 | ~~Add contract ETH balance delta assertions to deposit tests~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-30 | ~~Resolve TODO comments with deferred assertions~~ | Unit Test Completeness~~ | P1 | ✅ Done |
-| TEST-31 | Expand onCSSVTransfer test coverage | Unit Test Completeness | P1 | S |
+| TEST-31 | ~~Expand onCSSVTransfer test coverage~~ | Unit Test Completeness | P1 | ✅ Done |
 | TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
 | TEST-34 | ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~ | Unit Test Completeness | P1 | ✅ Done |
@@ -2182,6 +2182,13 @@ Added direct coverage in `test/unit/SSVStaking/withdrawUnlocked.test.ts` under `
 
 Both tests create a pending unstake request first, then update cooldown via the staking harness (`mockSetCooldownDuration`) to simulate DAO-config changes. They verify previously stored `unlockTime` remains unchanged and withdrawal eligibility still follows the original request timestamp.
 Validation run: `npx hardhat test test/unit/SSVStaking/withdrawUnlocked.test.ts` (13 passing).
+
+**Resolution:**
+Added direct coverage for cooldown-change behavior on existing pending unstake requests in staking unit tests:
+- cooldown reduction after request creation does not unlock existing request early
+- cooldown increase after request creation preserves original unlock time
+
+This matches the `test(staking): cover cooldown updates on pending unstake requests` change and validates that `unlockTime` is fixed at request creation.
 
 **Acceptance Criteria:**
 - [x] Test: User requests unstake, DAO reduces cooldown → can user withdraw earlier?
