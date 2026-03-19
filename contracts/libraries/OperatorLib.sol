@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../interfaces/ISSVNetworkCore.sol";
+import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
 import {StorageData} from "./storage/SSVStorage.sol";
 import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
-import {PackedETH, PackedSSV, DEFAULT_OPERATOR_ETH_FEE, PACKED_ETH_ZERO, PACKED_SSV_ZERO} from "../libraries/SSVCoreTypes.sol";
+import {PackedETH, PackedSSV, DEFAULT_OPERATOR_ETH_FEE, PACKED_ETH_ZERO, PACKED_SSV_ZERO, BPS_DENOMINATOR, _safeUint64} from "../libraries/SSVCoreTypes.sol";
 import {PackedETHLib, PackedSSVLib} from "../libraries/SSVPackedLib.sol";
-import "./storage/SSVStorageEB.sol";
-
-import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
+import {StorageEB, SSVStorageEB} from "./storage/SSVStorageEB.sol";
+import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
+import {ISSVOperators} from "../interfaces/ISSVOperators.sol";
 
 /**
  * @title SSV Operator Library
@@ -59,14 +59,14 @@ library OperatorLib {
 
         // Deviation-only model: effectiveVUnits = baseline + storedDeviation
         // storedDeviation = operatorEthVUnits (only non-default EB contributions)
-        // baseline = ethValidatorCount * VUNITS_PRECISION
+        // baseline = ethValidatorCount * BPS_DENOMINATOR
         uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
-        uint64 effectiveVUnits = storedDeviation + (uint64(operator.ethValidatorCount) * VUNITS_PRECISION);
+        uint64 effectiveVUnits = storedDeviation + (uint64(operator.ethValidatorCount) * BPS_DENOMINATOR);
 
         operator.ethSnapshot.index += blockDiffEthFee;
         if (effectiveVUnits != 0 && blockDiffEthFee != 0) {
-            uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
-            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
+            uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
+            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(_safeUint64(delta)));
         }
         operator.ethSnapshot.block = currentBlock;
     }
@@ -86,34 +86,14 @@ library OperatorLib {
 
         // Deviation-only model: effectiveVUnits = baseline + storedDeviation
         uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
-        uint64 effectiveVUnits = storedDeviation + (uint64(operator.ethValidatorCount) * VUNITS_PRECISION);
+        uint64 effectiveVUnits = storedDeviation + (uint64(operator.ethValidatorCount) * BPS_DENOMINATOR);
 
         operator.ethSnapshot.index += blockDiffEthFee;
         if (effectiveVUnits != 0 && blockDiffEthFee != 0) {
-            uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
-            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
+            uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
+            operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(_safeUint64(delta)));
         }
         operator.ethSnapshot.block = currentBlock;
-    }
-
-    /**
-     * @notice Updates both ETH and SSV operator snapshots
-     * @param operator Operator data
-     * @param operatorId Operator ID
-     */
-    function updateSnapshots(ISSVNetworkCore.Operator memory operator, uint64 operatorId) internal view {
-        updateSnapshot(operator, operatorId);
-        updateSnapshotSSV(operator);
-    }
-
-    /**
-     * @notice Updates both stored ETH and SSV operator snapshots
-     * @param operator Operator storage reference
-     * @param operatorId Operator ID
-     */
-    function updateSnapshotsSt(ISSVNetworkCore.Operator storage operator, uint64 operatorId) internal {
-        updateSnapshotSt(operator, operatorId);
-        updateSnapshotStSSV(operator);
     }
 
     /**
@@ -139,14 +119,14 @@ library OperatorLib {
      * @notice Ensures ETH defaults for operator
      * @param operator Operator storage reference
      */
-    function ensureETHDefaults(ISSVNetworkCore.Operator storage operator) internal {
-        if(operator.ethSnapshot.block == 0){
-            if (operator.ethSnapshot.block == 0) {
-                operator.ethSnapshot.block = uint32(block.number);
-                operator.ethSnapshot.balance = PACKED_ETH_ZERO;
-            }
+    function ensureETHDefaults(ISSVNetworkCore.Operator storage operator, uint64 operatorId) internal {
+        if (operator.ethSnapshot.block == 0) {
+            operator.ethSnapshot.block = uint32(block.number);
+            operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+
             if (operator.ethFee.eq(PACKED_ETH_ZERO) && operator.fee.neq(PACKED_SSV_ZERO)) {
                 operator.ethFee = defaultOperatorEthFee();
+                emit ISSVOperators.OperatorFeeExecuted(operator.owner, operatorId, block.number, DEFAULT_OPERATOR_ETH_FEE);
             }
         }
         // we don't want to revert here because this will block the migration flow
@@ -197,7 +177,7 @@ library OperatorLib {
             ISSVNetworkCore.Operator storage operatorSt = s.operators[operatorId];
             ensureOperatorExist(operatorSt);
 
-            ensureETHDefaults(operatorSt);
+            ensureETHDefaults(operatorSt, operatorId);
             ISSVNetworkCore.Operator memory operator = operatorSt;
             // check if the pending operator is whitelisted (must be backward compatible)
             if (operator.whitelisted) {
@@ -302,9 +282,9 @@ library OperatorLib {
     ) internal returns (uint64 cumulativeIndex, uint64 cumulativeFee) {
         uint256 operatorsLength = operatorIds.length;
         uint32 currentBlock = uint32(block.number);
-        bool hasDeviation = sp.daoTotalEthVUnits != uint64(sp.ethDaoValidatorCount) * VUNITS_PRECISION;
+        bool hasDeviation = sp.daoTotalEthVUnits != uint64(sp.ethDaoValidatorCount) * BPS_DENOMINATOR;
 
-        for (uint256 i; i < operatorsLength; ) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
@@ -317,14 +297,14 @@ library OperatorLib {
 
                     if (hasDeviation) {
                         uint64 storedDeviation = seb.operatorEthVUnits[operatorId];
-                        effectiveVUnits = storedDeviation + (uint64(operator.ethValidatorCount) * VUNITS_PRECISION);
+                        effectiveVUnits = storedDeviation + (uint64(operator.ethValidatorCount) * BPS_DENOMINATOR);
                     } else {
-                        effectiveVUnits = uint64(operator.ethValidatorCount) * VUNITS_PRECISION;
+                        effectiveVUnits = uint64(operator.ethValidatorCount) * BPS_DENOMINATOR;
                     }
 
                     if (effectiveVUnits != 0) {
-                        uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / VUNITS_PRECISION;
-                        operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(uint64(delta)));
+                        uint128 delta = (uint128(blockDiffEthFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
+                        operator.ethSnapshot.balance = operator.ethSnapshot.balance.add(PackedETH.wrap(_safeUint64(delta)));
                     }
                 }
                 operator.ethSnapshot.block = currentBlock;
@@ -346,10 +326,6 @@ library OperatorLib {
                 cumulativeFee += PackedETH.unwrap(operator.ethFee);
             }
             cumulativeIndex += operator.ethSnapshot.index;
-
-            unchecked {
-                ++i;
-            }
         }
     }
 
@@ -376,23 +352,20 @@ library OperatorLib {
             uint64 operatorId = operatorIds[i];
             ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
 
-            // skip removed operators
+            if (operator.snapshot.block != 0) {
+                updateSnapshotStSSV(operator);
+                if (!isClusterLiquidated) {
+                    operator.validatorCount -= validatorCount;
+                }
+            }
+            cumulativeIndexSSV += operator.snapshot.index;
+
             if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
                 continue;
             }
-
-            // update SSV snapshot before validator count changes
-            updateSnapshotStSSV(operator);
-            cumulativeIndexSSV += operator.snapshot.index;
-
-            // update SSV validator count for both new ETH-initialized and existing ETH-initialized operators
-            if (!isClusterLiquidated) {
-                operator.validatorCount -= validatorCount;
-            }
-
             if (operator.ethSnapshot.block == 0) {
                 // first-time ETH usage or migration
-                ensureETHDefaults(operator);
+                ensureETHDefaults(operator, operatorId);
 
             } else {
                 // already ETH operator

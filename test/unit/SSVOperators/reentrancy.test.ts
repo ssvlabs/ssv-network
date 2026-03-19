@@ -87,6 +87,7 @@ describe("SSVOperators reentrancy guard", async () => {
     await token.mint(await operators.getAddress(), connection.ethers.parseEther("100"));
     
     // Set attacker balance in SSVOperators (using raw storage values, so shrunk)
+    await operators.mockSetOperatorLegacySSV(operatorId, 1);
     await operators.mockSetOperatorBalances(Number(operatorId), 0, 5n);
 
     // Withdraw 2 units
@@ -98,12 +99,11 @@ describe("SSVOperators reentrancy guard", async () => {
     
     // Trigger withdraw
     await attacker.triggerWithdraw(withdrawAmount);
-/*
+
     expect(await attacker.reentered()).to.equal(true);
     expect(await attacker.reenterSucceeded()).to.equal(false);
 
     const operatorAfter = await operators.getOperator(operatorId);
-    expect(operatorAfter.snapshot.balance).to.equal(3n); // 5 - 2 = 3. Reentry of 1 failed.
-    */
+    expect(operatorAfter.snapshot.balance).to.equal(3n);
   });
 });

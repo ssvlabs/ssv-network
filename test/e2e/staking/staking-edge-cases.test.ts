@@ -16,7 +16,7 @@ import {
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   NETWORK_FEE,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   DEFAULT_UNSTAKE_COOLDOWN,
 } from "../../common/constants.ts";
@@ -97,7 +97,7 @@ describe("E2E Staking Edge Cases", () => {
 
       const postStakeBlocks = BigInt(claimBlock - stakeBlock);
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const expectedFeesPacked = earningsPerBlockPacked * postStakeBlocks;
       const expectedFeesWei = expectedFeesPacked * ETH_DEDUCTED_DIGITS;
 
@@ -188,7 +188,7 @@ describe("E2E Staking Edge Cases", () => {
       let totalClaimed = 0n;
       let lastClaimBlock = stakeBlock;
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       let cumulativeAcc = 0n;
 
       for (let i = 0; i < 3; i++) {
@@ -316,13 +316,13 @@ describe("E2E Staking Edge Cases", () => {
   });
 
   describe("MINIMAL_STAKING_AMOUNT", () => {
-    it("Should revert with ZeroAmount for stake(0)", async function () {
+    it("Should revert with StakeTooLow for stake(0)", async function () {
       const { network } =
         await networkHelpers.loadFixture(deployFixture);
 
       await expect(
         network.connect(stakerA).stake(0n),
-      ).to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+      ).to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
     it("Should revert with StakeTooLow for amount below minimum", async function () {
@@ -402,7 +402,7 @@ describe("E2E Staking Edge Cases", () => {
       const accEthPerShare = BigInt(parsed!.args[1]);
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const blockDiff = BigInt(syncBlock - stakeBlock);
       const expectedFeesWei = earningsPerBlockPacked * blockDiff * ETH_DEDUCTED_DIGITS;
       const expectedAcc = calcAccEthPerShareDelta(expectedFeesWei, stakeAmount);
@@ -500,7 +500,7 @@ describe("E2E Staking Edge Cases", () => {
       const reward = BigInt(balAfter) - balBefore + gasUsed;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const phase1Blocks = BigInt(unstakeBlock - stakeBlock);
       const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;

@@ -475,10 +475,10 @@ abstract contract SSVNetworkUpgrade is
         );
     }
 
-    function setQuorumBps(uint16 quorum) external override onlyOwner {
+    function updateQuorumBps(uint16 quorum) external override onlyOwner {
         _delegateCall(
             SSVStorage.load().ssvContracts[SSVModules.SSV_DAO],
-            abi.encodeWithSignature("setQuorumBps(uint16)", quorum)
+            abi.encodeWithSignature("updateQuorumBps(uint16)", quorum)
         );
     }
 

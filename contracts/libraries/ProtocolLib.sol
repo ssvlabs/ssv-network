@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../interfaces/ISSVNetworkCore.sol";
-import {PackedSSV, PackedETH} from "../libraries/SSVCoreTypes.sol";
+import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
+import {PackedSSV, PackedETH, BPS_DENOMINATOR, _safeUint64} from "../libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
 import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
-import {VUNITS_PRECISION} from "./storage/SSVStorageEB.sol";
 
 /**
  * @title SSV Protocol Library
@@ -86,8 +85,8 @@ library ProtocolLib {
         uint128 units = sp.daoTotalEthVUnits;
         uint128 idx = uint64(block.number) - sp.ethDaoIndexBlockNumber;
 
-        uint128 earningsUnits = (idx * PackedETH.unwrap(sp.ethNetworkFee) * units) / VUNITS_PRECISION;
-        return sp.ethDaoBalance.add(PackedETH.wrap(uint64(earningsUnits)));
+        uint128 earningsUnits = (idx * PackedETH.unwrap(sp.ethNetworkFee) * units) / BPS_DENOMINATOR;
+        return sp.ethDaoBalance.add(PackedETH.wrap(_safeUint64(earningsUnits)));
     }
 
     /**
@@ -107,7 +106,7 @@ library ProtocolLib {
      */
     function updateDAO(StorageProtocol storage sp, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
         updateDAOEarnings(sp);
-        uint64 vUnitsDelta = uint64(deltaValidatorCount) * VUNITS_PRECISION;
+        uint64 vUnitsDelta = uint64(deltaValidatorCount) * BPS_DENOMINATOR;
         if (!increaseValidatorCount) {
             sp.ethDaoValidatorCount -= deltaValidatorCount;
             sp.daoTotalEthVUnits -= vUnitsDelta;

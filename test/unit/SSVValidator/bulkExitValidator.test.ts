@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, makePublicKeys } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -73,7 +73,7 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
     );
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    await validators.mockSetClusterVUnits(clusterId, 9n * VUNITS_PRECISION);
+    await validators.mockSetClusterVUnits(clusterId, 9n * BPS_DENOMINATOR);
 
     const beforeClusterVUnits = await validators.getClusterVUnits(clusterId);
     const beforeOperatorVUnits = await Promise.all(operatorIds.map((id) => validators.getOperatorEthVUnits(id)));
@@ -177,7 +177,7 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
   });
 
-  it("Is reverted with 'IncorrectValidatorStateWithData' when any validator is not registered", async function () {
+  it("Is reverted with 'ValidatorDoesNotExist' when any validator is not registered", async function () {
     const { validators, operatorIds } =
       await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
@@ -193,7 +193,7 @@ describe("SSVClusters function `bulkExitValidator()`", async () => {
     await expect(validators.bulkExitValidator(
       publicKeys,
       operatorIds
-    )).to.be.revertedWithCustomError(validators, Errors.INCORRECT_VALIDATOR_STATE_WITH_DATA).withArgs(publicKeys[1]);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_DOES_NOT_EXIST);
   });
 
   it("Is reverted with 'IncorrectValidatorStateWithData' when operator ids do not match stored validators", async function () {

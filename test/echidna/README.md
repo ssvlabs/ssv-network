@@ -44,7 +44,7 @@ test/echidna/
 ├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (4 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
 ├── SSVStakingEchidna.sol             # Staking invariants (12 tests)
-├── SSVDAOEchidna.sol                 # DAO invariants (14 tests)
+├── SSVDAOEchidna.sol                 # DAO invariants (17 tests)
 ├── SSVEBProofEchidna.sol             # EB proof invariants (3 tests) [FUZZ-3 B6/B7/B8]
 ├── SSVOperatorFeeGovEchidna.sol      # Operator fee governance (1 test) [FUZZ-3 B19]
 ├── SSVLegacyClustersEchidna.sol      # Legacy SSV cluster liquidation (1 test) [FUZZ-3 B15]
@@ -114,7 +114,7 @@ test/echidna/
 | `echidna_reactivate_requires_inactive` | Reactivation only from inactive |
 | `echidna_dust_liquidation_reachable` | Dust balances become liquidatable after burn |
 
-## SSVAccountingEchidna (4 Invariants)
+## SSVAccountingEchidna (8 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -122,8 +122,12 @@ test/echidna/
 | `echidna_ssv_conservation` | SSV conservation across clusters/operators/DAO |
 | `echidna_eth_solvency` | ETH solvency for all tracked balances |
 | `echidna_ssv_solvency` | SSV solvency for all tracked balances |
+| `echidna_operator_vunits_matches_clusters` | Per-operator deviation equals sum of cluster deviations containing that operator (C6) |
+| `echidna_migration_one_way` | After migrateClusterToETH: SSV cluster deleted, ETH cluster active (C7) |
+| `echidna_ssv_accrual_no_overflow` | SSV operator balance never decreases during max-param accrual (X5) |
+| `echidna_vunits_deviation_consistent` | daoTotalEthVUnits equals sum of effective vUnits across all active ETH clusters (C5) |
 
-## SSVEdgeCasesEchidna (4 Invariants)
+## SSVEdgeCasesEchidna (7 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -131,6 +135,9 @@ test/echidna/
 | `echidna_reactivation_restores_vunits` | Reactivation restores EB-weighted vUnits |
 | `echidna_validator_spam_safe` | High validator counts do not corrupt snapshots |
 | `echidna_fee_index_overflow_protected` | Fee index overflow paths revert safely |
+| `echidna_eth_accrual_no_overflow` | ETH operator balance never decreases during max-param accrual (X4) |
+| `echidna_intermediate_mul_no_overflow` | `fee * effectiveVUnits` product stays within uint128 for max protocol params (X6) |
+| `echidna_pack_reverts_on_overflow` | Packing a value exceeding uint64 max reverts, never truncates (X7) |
 
 ## SSVValidatorsEchidna (8 Invariants)
 
@@ -162,7 +169,7 @@ test/echidna/
 | `echidna_accrued_within_pool` | Accrued rewards stay within pool balance |
 | `echidna_oracle_weights_match_supply` | Oracle weights sum equals cSSV supply |
 
-## SSVDAOEchidna (14 Invariants)
+## SSVDAOEchidna (17 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -178,6 +185,10 @@ test/echidna/
 | `echidna_commit_root_not_future` | Commit block is not in the future |
 | `echidna_commit_root_not_stale` | Commit block is newer than last committed |
 | `echidna_committed_block_monotonic` | Latest committed block is monotonic |
+| `echidna_commit_root_dust_round_reaches_quorum` | Shared-root dusty round still commits on the third vote at 75% quorum |
+| `echidna_commit_root_dust_round_not_before_threshold` | Dusty shared-root round cannot commit before the third unique vote |
+| `echidna_commit_root_dust_round_uses_truncated_supply` | Pending dusty rounds store truncated frozen voting supply |
+| `echidna_commit_root_below_oracle_count_reverts` | Rounds with supply below oracle count always revert with zero weight |
 | `echidna_oracle_mapping_consistent` | Oracle ID mappings remain consistent |
 | `echidna_dao_earnings_matches_formula` | **[FUZZ-3 C4]** ETH DAO earnings matches `daoBalance + blockDelta × fee × vUnits / precision` |
 
@@ -214,7 +225,7 @@ Setup: two SSV operators with non-zero fees, one active SSV cluster, liquidator 
 
 ## Planned Invariants (Not Yet Implemented)
 
-Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the 73 existing invariants above. Only invariants that are **not already covered** are listed below. Grouped by priority.
+Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the 77 existing invariants above. Only invariants that are **not already covered** are listed below. Grouped by priority.
 
 ### Strengthen Existing (partial coverage → full)
 
@@ -266,6 +277,7 @@ Directly testable with current harness patterns. High bug-catching value.
 
 | Planned Property | Type | Description | Ref |
 |---|---|---|---|
+| `echidna_eb_update_requires_latest_root` | Conditional | `updateClusterBalance(blockNum, ...)` with non-latest committed root must always revert (SSV-17 latest-root-only rule) | SSV-17 |
 | `echidna_eb_update_requires_root` | Conditional | `updateClusterBalance(blockNum, ...)` succeeds only if `ebRoots[blockNum] != 0` | B3 |
 | `echidna_eb_update_frequency` | Conditional | Same cluster cannot update twice within `minBlocksBetweenUpdates` — second update reverts | B4 |
 | `echidna_eb_update_staleness` | Conditional | Successful update requires `blockNum > lastRootBlockNum` for that cluster | B5 |
@@ -303,8 +315,11 @@ Significant implementation effort. Requires custom delta-block simulators, per-c
 
 #### Migration
 
-| Planned Property | Type | Description | Ref |
+| Property | Type | Description | Ref |
 |---|---|---|---|
+| `echidna_migration_removed_refund_exact` | Implemented | On successful SSV→ETH migration, refunded SSV must equal settlement computed with full cumulative SSV index (including removed operators' frozen `snapshot.index`) | BUG-14 |
+| `echidna_migration_removed_operator_not_eth_initialized` | Implemented | Operators removed before migration (`snapshot.block == 0 && ethSnapshot.block == 0`) must remain excluded from ETH initialization and ETH validator-count updates | BUG-14 |
+| `echidna_removed_operator_state_and_frozen_index_preserved` | Implemented | Removed operators must keep zeroed snapshot blocks while preserving frozen `snapshot.index` across subsequent actions | BUG-14 |
 | `echidna_migration_one_way` | Candidate | After `migrateClusterToETH`: ETH mode active, SSV balance returned, legacy operations revert — catches partial migration / stuck funds | C7 |
 
 #### Overflow / Extreme Value

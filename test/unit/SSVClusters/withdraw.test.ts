@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -146,14 +146,18 @@ describe("SSVClusters function `withdraw()`", async () => {
     const withdrawReceipt = await withdrawTx.wait();
     const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
 
-    const units = clusterBeforeWithdraw.validatorCount * VUNITS_PRECISION;
+    const units = clusterBeforeWithdraw.validatorCount * BPS_DENOMINATOR;
     const idxOp = clusterAfterWithdraw.index - clusterBeforeWithdraw.index;
     const idxNet = maxUint64 - clusterBeforeWithdraw.networkFeeIndex;
-    const usageUnits = (idxOp * units) / VUNITS_PRECISION + (idxNet * units) / VUNITS_PRECISION;
+    const usageUnits = (idxOp * units) / BPS_DENOMINATOR + (idxNet * units) / BPS_DENOMINATOR;
     const wrappedUsageUnits = usageUnits & maxUint64;
+    const overflowUnits = usageUnits >> 64n;
+    const expectedUsageFromWrapped = wrappedUsageUnits + (overflowUnits << 64n);
+    const expectedBalanceIfUint64Truncated = clusterBeforeWithdraw.balance - wrappedUsageUnits * 100_000n;
 
-    expect(usageUnits).to.be.greaterThan(maxUint64);
-    expect(wrappedUsageUnits * 100_000n).to.be.lessThan(clusterBeforeWithdraw.balance);
+    expect(overflowUnits).to.equal(1n);
+    expect(usageUnits).to.equal(expectedUsageFromWrapped);
+    expect(expectedBalanceIfUint64Truncated).to.not.equal(clusterAfterWithdraw.balance);
     expect(clusterAfterWithdraw.balance).to.equal(0n);
   });
 
@@ -361,6 +365,26 @@ describe("SSVClusters function `withdraw()`", async () => {
     expect(clusterAfterWithdraw.balance).to.equal(0n);
   });
 
+  it("Cluster balance becomes 0 when accumulated fees exceed the remaining balance (no underflow)", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockMinimumBlocksBeforeLiquidation(0n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+    await clusters.mockEthNetworkFee(0n);
+
+    const cluster = await registerCluster(clusters, operatorIds);
+
+    const indexToDrainBalance = DEFAULT_ETH_REGISTER_VALUE / ETH_DEDUCTED_DIGITS + 1n;
+    await clusters.mockCurrentNetworkFeeIndex(indexToDrainBalance);
+
+    const withdrawTx = await clusters.withdraw(operatorIds, 0n, cluster);
+    const withdrawReceipt: any = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+  });
+
   it("Withdraws from a liquidated cluster after explicit EB update", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
@@ -406,5 +430,34 @@ describe("SSVClusters function `withdraw()`", async () => {
     expect(clusterAfterWithdraw.active).to.equal(false);
     expect(clusterAfterWithdraw.validatorCount).to.equal(clusterAfterEB.validatorCount);
     expect(clusterAfterWithdraw.balance).to.equal(0n);
+  });
+
+  it("Zero-validator cluster allows full balance withdrawal without fee deduction", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersWithLowFeesFixture);
+
+    await clusters.mockEthNetworkFee(100_000n);
+
+    const publicKey = makePublicKey(1);
+    const registerTx = await clusters.registerValidator(
+      publicKey, operatorIds, DEFAULT_SHARES, createCluster(), { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const registerReceipt = await registerTx.wait();
+    const clusterAfterRegister = parseClusterFromEvent(clusters, registerReceipt, Events.VALIDATOR_ADDED);
+
+    const removeTx = await clusters.removeValidator(publicKey, operatorIds, clusterAfterRegister);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+
+    await networkHelpers.mine(100);
+
+    const fullBalance = clusterAfterRemove.balance;
+    const withdrawTx = await clusters.withdraw(operatorIds, fullBalance, clusterAfterRemove);
+    const withdrawReceipt = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+    expect(clusterAfterWithdraw.balance).to.equal(0n);
+    expect(clusterAfterWithdraw.active).to.equal(true);
   });
 });

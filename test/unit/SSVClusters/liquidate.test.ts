@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { getClustersHarnessFixture, ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -184,7 +184,7 @@ describe("SSVClusters function `liquidate()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(VUNITS_PRECISION); // baseline + deviation
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(BPS_DENOMINATOR); // baseline + deviation
     }
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
@@ -237,15 +237,15 @@ describe("SSVClusters function `liquidate()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION); // baseline + deviation
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * BPS_DENOMINATOR); // baseline + deviation
     }
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
     // Set explicit snapshot to 5 validators worth (more than 3 validators baseline)
     // EB floor is 32 ETH per validator, so vUnits >= baseline always
     // 5 * 10000 = 50000 vUnits, baseline = 3 * 10000 = 30000, deviation = 20000
-    const explicitVUnits = 5n * VUNITS_PRECISION;
-    const baseline = 3n * VUNITS_PRECISION;
+    const explicitVUnits = 5n * BPS_DENOMINATOR;
+    const baseline = 3n * BPS_DENOMINATOR;
     const deviation = explicitVUnits - baseline;
     await clusters.mockSetClusterVUnits(clusterId, explicitVUnits);
     // Also mock the operatorEthVUnits and daoTotalEthVUnits to be consistent (as if EB update happened)

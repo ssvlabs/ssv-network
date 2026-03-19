@@ -5,7 +5,7 @@ import { getTestConnection } from '../../setup/connection.ts';
 import { ssvValidatorsHarnessFixture, getValidatorsHarnessFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType } from '../../common/types.ts';
 import { createCluster, makePublicKey, makePublicKeys, parseClusterFromEvent } from '../../common/helpers.ts';
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, VUNITS_PRECISION } from '../../common/constants.ts';
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import { Errors } from '../../common/errors.ts';
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -55,8 +55,23 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       { value: DEFAULT_ETH_REGISTER_VALUE }
     );
 
-    // todo check args with pre-calculated cluster
-    await expect(tx).to.emit(validators, Events.VALIDATOR_ADDED);
+    const expectedCluster = [
+      2n,
+      0n,
+      0n,
+      true,
+      DEFAULT_ETH_REGISTER_VALUE,
+    ];
+
+    await expect(tx)
+      .to.emit(validators, Events.VALIDATOR_ADDED)
+      .withArgs(
+        clusterOwner.address,
+        operatorIds,
+        publicKeys[0],
+        shares[0],
+        expectedCluster
+      );
   });
 
   it("Updates operatorEthVUnits even when cluster EB snapshot is not set", async function () {
@@ -77,7 +92,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * VUNITS_PRECISION); // baseline + deviation
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(2n * BPS_DENOMINATOR); // baseline + deviation
     }
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
@@ -99,7 +114,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
     const existingCluster = parseClusterFromEvent(validators, registerReceipt, Events.VALIDATOR_ADDED);
 
     const clusterId = getClusterId(clusterOwner.address, operatorIds);
-    const startVUnits = 5n * VUNITS_PRECISION;
+    const startVUnits = 5n * BPS_DENOMINATOR;
     await validators.mockSetClusterVUnits(clusterId, startVUnits);
 
     const publicKeys = [makePublicKey(1), makePublicKey(2)];
@@ -114,13 +129,13 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
     );
     await tx.wait();
 
-    expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + 2n * VUNITS_PRECISION);
+    expect(await validators.getClusterVUnits(clusterId)).to.equal(startVUnits + 2n * BPS_DENOMINATOR);
     for (const operatorId of operatorIds) {
       // Cluster has 3 validators (baseline = 30000), explicit snapshot = 70000
       // But operatorEthVUnits is only updated by EB updates, not registration
       // The deviation in clusterEB.vUnits is implicit until an EB update syncs it
       expect(await validators.getOperatorEthVUnits(operatorId)).to.equal(0n); // deviation only (not updated on registration)
-      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * VUNITS_PRECISION); // baseline only
+      expect(await validators.getEffectiveOperatorVUnits(operatorId)).to.equal(3n * BPS_DENOMINATOR); // baseline only
     }
   });
 
@@ -355,7 +370,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
     )).to.be.revertedWithCustomError(validators, Errors.PUBLIC_KEYS_SHARES_LENGTH_MISMATCH);
   });
 
-  it("Is reverted with 'ValidatorAlreadyExistsWithData' if trying to register already existing key", async function () {
+  it("Is reverted with 'ValidatorAlreadyRegistered' if trying to register already existing key", async function () {
     const { validators, operatorIds } = await networkHelpers.loadFixture(deploySSVValidatorsAndPrepareOperatorsFixture);
 
     const publicKey = makePublicKey(1);
@@ -366,7 +381,7 @@ describe("SSVClusters function `bulkRegisterValidator()`", async () => {
       [DEFAULT_SHARES, DEFAULT_SHARES],
       createCluster(),
       { value: DEFAULT_ETH_REGISTER_VALUE }
-    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_EXISTS_WITH_DATA).withArgs(publicKey);
+    )).to.be.revertedWithCustomError(validators, Errors.VALIDATOR_ALREADY_REGISTERED).withArgs(publicKey, clusterOwner.address);
   });
 
   it("Is reverted with 'InvalidOperatorIdsLength' if the length is not allowed one for clusters", async function () {

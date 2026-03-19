@@ -2,21 +2,17 @@
 pragma solidity 0.8.24;
 
 import {ISSVClusters} from "../interfaces/ISSVClusters.sol";
-import "../libraries/ClusterLib.sol";
-import "../libraries/OperatorLib.sol";
-import "../libraries/ProtocolLib.sol";
-import "../libraries/CoreLib.sol";
-import "../libraries/ValidatorLib.sol";
-import {PackedETH, VERSION_ETH, VERSION_SSV} from "../libraries/SSVCoreTypes.sol";
-import {ETH_DEDUCTED_DIGITS} from "../libraries/SSVPackedLib.sol";
+import {ClusterLib} from "../libraries/ClusterLib.sol";
+import {OperatorLib} from "../libraries/OperatorLib.sol";
+import {ProtocolLib} from "../libraries/ProtocolLib.sol";
+import {CoreLib} from "../libraries/CoreLib.sol";
+import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, ETH_DEDUCTED_DIGITS, DEFAULT_EB_PER_VALIDATOR, MAX_EB_PER_VALIDATOR, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
 import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
 import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
 import {
     SSVStorageEB,
     StorageEB,
-    ClusterEBSnapshot,
-    VUNITS_PRECISION,
-    MAX_EB_PER_VALIDATOR
+    ClusterEBSnapshot
 } from "../libraries/storage/SSVStorageEB.sol";
 
 
@@ -133,7 +129,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     function reactivate(
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external payable override {
+    ) external payable override nonReentrant {
         StorageData storage s = SSVStorage.load();
 
         (bytes32 hashedCluster, uint8 version) = cluster.validateHashedCluster(msg.sender, operatorIds, s);
@@ -144,7 +140,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         StorageEB storage seb = SSVStorageEB.load();
 
         uint64 vUnitsCluster = seb.clusterEB[hashedCluster].vUnits;
-        uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+        uint64 baselineVUnits = uint64(cluster.validatorCount) * BPS_DENOMINATOR;
         uint64 effectiveVUnits = vUnitsCluster > 0 ? vUnitsCluster : baselineVUnits;
         uint64 clusterDeviation = vUnitsCluster > baselineVUnits ? vUnitsCluster - baselineVUnits : 0;
 
@@ -221,7 +217,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
             {
                 uint256 operatorsLength = operatorIds.length;
                 for (uint256 i; i < operatorsLength; ++i) {
-                    Operator storage operator = SSVStorage.load().operators[operatorIds[i]];
+                    Operator storage operator = s.operators[operatorIds[i]];
                     clusterIndex +=
                         operator.ethSnapshot.index +
                         (uint64(block.number) - operator.ethSnapshot.block) *
@@ -299,7 +295,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
                 sp.minimumLiquidationCollateral
             )
         ) {
-            revert ISSVNetworkCore.InsufficientBalance();
+            revert InsufficientBalance();
         }
 
         s.ethClusters[hashedCluster] = cluster.hashClusterData();
@@ -312,7 +308,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         // Only add deviation if cluster has explicit EB tracking
         uint64 vUnitsCluster = ebSnapshot.vUnits;
         if (vUnitsCluster > 0) {
-            uint64 baseline = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            uint64 baseline = uint64(cluster.validatorCount) * BPS_DENOMINATOR;
             
             // DAO deviation accounting
             if (vUnitsCluster > baseline) {
@@ -333,7 +329,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         // For event emission, compute effective balance
         uint64 effectiveVUnits = vUnitsCluster > 0 
             ? vUnitsCluster 
-            : uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            : uint64(cluster.validatorCount) * BPS_DENOMINATOR;
         uint32 effectiveBalance = ClusterLib.vUnitsToEB(effectiveVUnits);
 
         if (ssvClusterBalance != 0) {
@@ -391,20 +387,19 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         if (ctx.version == VERSION_ETH) {
             // ETH clusters: full accounting flow
             uint64 storedVUnits = seb.clusterEB[clusterId].vUnits;
-            uint64 effectiveOldVUnits = storedVUnits;
-            if (effectiveOldVUnits == 0) {
-                effectiveOldVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            if (storedVUnits == 0) {
+                storedVUnits = uint64(cluster.validatorCount) * BPS_DENOMINATOR;
             }
 
             uint64 burnRate;
             if (cluster.active) {
-                burnRate = _applyClusterFeeUpdates(operatorIds, cluster, effectiveOldVUnits, s, sp);
+                burnRate = _applyClusterFeeUpdates(operatorIds, cluster, storedVUnits, s, sp);
             }
 
             // Apply new vUnits BEFORE liquidation check so auto-liquidation
-            if (cluster.active && newVUnits != effectiveOldVUnits) {
-                _updateOperatorVUnits(operatorIds, seb, effectiveOldVUnits, newVUnits);
-                sp.updateDAOEthVUnits(effectiveOldVUnits, newVUnits);
+            if (cluster.active && newVUnits != storedVUnits) {
+                _updateOperatorVUnits(operatorIds, seb, storedVUnits, newVUnits);
+                sp.updateDAOEthVUnits(storedVUnits, newVUnits);
             }
             _updateEBSnapshot(seb, clusterId, ctx.blockNum, newVUnits);
 
@@ -437,6 +432,10 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
     }
 
     function _verifyEBStaleness(UpdateCtx memory ctx, bytes32 clusterId, StorageEB storage seb) internal view {
+        if (ctx.blockNum != seb.latestCommittedBlock) {
+            revert MustUseLatestRoot();
+        }
+
         ClusterEBSnapshot storage ebSnapshot = seb.clusterEB[clusterId];
         if (ebSnapshot.lastRootBlockNum != 0 && ctx.blockNum <= ebSnapshot.lastRootBlockNum) {
             revert StaleUpdate();
@@ -475,8 +474,8 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         uint128 idxNet = currentNetworkFeeIndex - cluster.networkFeeIndex;
         uint128 idxOp = clusterIndex - cluster.index;
 
-        uint128 networkFeeUnits = (idxNet * units) / VUNITS_PRECISION;
-        uint128 operatorFeeUnits = (idxOp * units) / VUNITS_PRECISION;
+        uint128 networkFeeUnits = (idxNet * units) / BPS_DENOMINATOR;
+        uint128 operatorFeeUnits = (idxOp * units) / BPS_DENOMINATOR;
         uint256 totalFees = (uint256(networkFeeUnits) + uint256(operatorFeeUnits)) * ETH_DEDUCTED_DIGITS;
 
         // Update indexes
@@ -503,13 +502,10 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         uint64 deltaAbs = deltaPositive ? newVUnits - storedVUnits : storedVUnits - newVUnits;
 
         uint256 operatorsLength = operatorIds.length;
-        for (uint256 i; i < operatorsLength; ) {
+        for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
             if (deltaPositive) seb.operatorEthVUnits[operatorId] += deltaAbs;
             else seb.operatorEthVUnits[operatorId] -= deltaAbs;
-            unchecked {
-                ++i;
-            }
         }
     }
 
@@ -571,7 +567,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         // Deviation-only model: only subtract deviation from operatorEthVUnits
         // Baseline is removed via ethValidatorCount decrement (in updateClusterOperators above)
         if (vUnitsCluster > 0) {
-            uint64 baselineVUnits = uint64(cluster.validatorCount) * VUNITS_PRECISION;
+            uint64 baselineVUnits = uint64(cluster.validatorCount) * BPS_DENOMINATOR;
 
             // DAO deviation accounting
             if (vUnitsCluster != baselineVUnits) {

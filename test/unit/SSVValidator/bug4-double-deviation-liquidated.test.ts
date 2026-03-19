@@ -5,7 +5,7 @@ import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_SHARES, VUNITS_PRECISION } from "../../common/constants.ts";
+import { DEFAULT_SHARES, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
 
@@ -85,8 +85,8 @@ describe("BUG-4: Double deviation cleanup on liquidated cluster validator remova
     );
     const clusterAfterEB = parseClusterFromEvent(clusters, await ebTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedVUnits = (BigInt(effectiveBalance) * VUNITS_PRECISION + 31n) / 32n;
-    const baselineVUnits = 3n * VUNITS_PRECISION;
+    const expectedVUnits = (BigInt(effectiveBalance) * BPS_DENOMINATOR + 31n) / 32n;
+    const baselineVUnits = 3n * BPS_DENOMINATOR;
     const deviation = expectedVUnits - baselineVUnits;
 
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
@@ -112,7 +112,7 @@ describe("BUG-4: Double deviation cleanup on liquidated cluster validator remova
 
     // After liquidation: deviation was cleaned up by _executeLiquidation
     // The new EB (2048) produced different vUnits, so deviation changed
-    const vUnitsAt2048 = (2048n * VUNITS_PRECISION + 31n) / 32n; // 640000
+    const vUnitsAt2048 = (2048n * BPS_DENOMINATOR + 31n) / 32n; // 640000
     const deviationAt2048 = vUnitsAt2048 - baselineVUnits; // 640000 - 30000 = 610000
 
     // After liquidation, deviation was subtracted from operator/DAO
@@ -230,8 +230,8 @@ describe("BUG-4: Double deviation cleanup on liquidated cluster validator remova
     );
     const clusterAfterEB = parseClusterFromEvent(clusters, await ebTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedVUnits = (96n * VUNITS_PRECISION + 31n) / 32n;
-    const deviation = expectedVUnits - VUNITS_PRECISION;
+    const expectedVUnits = (96n * BPS_DENOMINATOR + 31n) / 32n;
+    const deviation = expectedVUnits - BPS_DENOMINATOR;
 
     expect(await clusters.getOperatorEthVUnits(operatorIds[0])).to.equal(deviation);
 

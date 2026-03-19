@@ -18,7 +18,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   NETWORK_FEE,
   ETH_DEDUCTED_DIGITS,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
 } from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
@@ -295,8 +295,8 @@ describe("Operator Edge Cases", () => {
         + 3n * (removeValBlock - regBlock) * packedFee;
       const netIndexDelta = (removeValBlock - regBlock) * packedNetworkFee;
 
-      const opFeeUnits = (opIndexDelta * vUnits) / VUNITS_PRECISION;
-      const netFeeUnits = (netIndexDelta * vUnits) / VUNITS_PRECISION;
+      const opFeeUnits = (opIndexDelta * vUnits) / BPS_DENOMINATOR;
+      const netFeeUnits = (netIndexDelta * vUnits) / BPS_DENOMINATOR;
       const totalBurn = (opFeeUnits + netFeeUnits) * ETH_DEDUCTED_DIGITS;
       const expectedBalance = DEFAULT_ETH_REGISTER_VALUE - totalBurn;
 
@@ -391,8 +391,8 @@ describe("Operator Edge Cases", () => {
 
       const netIndexDelta = (viewBlock - regBlock) * packedNetworkFee;
 
-      const opFeeUnits = (clusterIndexDelta * vUnits) / VUNITS_PRECISION;
-      const netFeeUnits = (netIndexDelta * vUnits) / VUNITS_PRECISION;
+      const opFeeUnits = (clusterIndexDelta * vUnits) / BPS_DENOMINATOR;
+      const netFeeUnits = (netIndexDelta * vUnits) / BPS_DENOMINATOR;
       const totalBurn = (opFeeUnits + netFeeUnits) * ETH_DEDUCTED_DIGITS;
       const expectedBalance = DEFAULT_ETH_REGISTER_VALUE - totalBurn;
 

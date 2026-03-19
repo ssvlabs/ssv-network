@@ -13,7 +13,7 @@ import {
   DEFAULT_SHARES,
   DEDUCTED_DIGITS,
   ETH_DEDUCTED_DIGITS,
-  VUNITS_PRECISION, DEFAULT_ETH_REGISTER_VALUE,
+  BPS_DENOMINATOR, DEFAULT_ETH_REGISTER_VALUE,
 } from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -392,7 +392,7 @@ describe("Migration SSV → ETH", () => {
 
       const blocksSinceMigration = BigInt(regBlock - migrateBlock);
       const vUnits = defaultVUnits(2n); // 20_000 (2 validators at registration)
-      const netFeeUnits = (blocksSinceMigration * NETWORK_FEE_ETH_RAW * vUnits) / VUNITS_PRECISION;
+      const netFeeUnits = (blocksSinceMigration * NETWORK_FEE_ETH_RAW * vUnits) / BPS_DENOMINATOR;
       const expectedFees = netFeeUnits * ETH_DEDUCTED_DIGITS;
       const expectedBalance = DEFAULT_ETH_REGISTER_VALUE - expectedFees;
 
