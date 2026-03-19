@@ -97,7 +97,7 @@ contract SSVStakingEchidna is SSVStaking {
 
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint256 private constant MAX_STAKE = 1_000_000 ether;
-    uint256 private constant PRECISION = 1e18;
+    uint256 private constant ACCRUAL_PRECISION = 1e18;
     // Mirror SSVStaking.MAX_PENDING_REQUESTS to avoid harness-only false negatives.
     uint256 private constant MAX_PENDING_REQUESTS = 2000;
 
@@ -287,12 +287,12 @@ contract SSVStakingEchidna is SSVStaking {
 
             uint256 fromPending;
             if (fromBalanceBefore != 0 && accAfter > fromIdxBefore) {
-                fromPending = (fromBalanceBefore * (accAfter - fromIdxBefore)) / PRECISION;
+                fromPending = (fromBalanceBefore * (accAfter - fromIdxBefore)) / ACCRUAL_PRECISION;
             }
 
             uint256 toPending;
             if (toBalanceBefore != 0 && accAfter > toIdxBefore) {
-                toPending = (toBalanceBefore * (accAfter - toIdxBefore)) / PRECISION;
+                toPending = (toBalanceBefore * (accAfter - toIdxBefore)) / ACCRUAL_PRECISION;
             }
 
             uint256 expectedFromAccrued = fromAccruedBefore + fromPending;

@@ -79,8 +79,8 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     uint8 private constant MAX_CLUSTERS = 6;
     uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
     uint256 private constant MAX_STAKE = 1_000_000 ether;
-    PackedETH private constant DEFAULT_OPERATOR_ETH_FEE = PackedETH.wrap(1);
-    PackedETH private constant DEFAULT_NETWORK_ETH_FEE = PackedETH.wrap(1);
+    PackedETH private constant HARNESS_DEFAULT_OPERATOR_ETH_FEE = PackedETH.wrap(1);
+    PackedETH private constant HARNESS_DEFAULT_NETWORK_ETH_FEE = PackedETH.wrap(1);
     uint64 private constant MIN_BLOCKS_BEFORE_LIQUIDATION = 2;
     uint32 private constant MAX_ADVANCE_BLOCKS = 8;
     uint32 private constant MIN_BLOCKS_BETWEEN_UPDATES = 2;
@@ -513,7 +513,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         ISSVNetworkCore.Cluster memory beforeCluster = record.cluster;
         uint64 oldVUnits = ebBefore.vUnits;
         if (oldVUnits == 0) {
-            oldVUnits = uint64(beforeCluster.validatorCount) * VUNITS_PRECISION;
+            oldVUnits = uint64(beforeCluster.validatorCount) * BPS_DENOMINATOR;
         }
         uint64 newVUnits = ClusterLib.ebToVUnits(effectiveBalance);
 
@@ -523,8 +523,8 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         uint128 idxOp = uint128(clusterIndex - beforeCluster.index);
         uint128 idxNet = uint128(networkFeeIndex - beforeCluster.networkFeeIndex);
-        uint128 operatorFeeUnitsOld = (idxOp * uint128(oldVUnits)) / VUNITS_PRECISION;
-        uint128 networkFeeUnitsOld = (idxNet * uint128(oldVUnits)) / VUNITS_PRECISION;
+        uint128 operatorFeeUnitsOld = (idxOp * uint128(oldVUnits)) / BPS_DENOMINATOR;
+        uint128 networkFeeUnitsOld = (idxNet * uint128(oldVUnits)) / BPS_DENOMINATOR;
         uint256 totalFeesOld = (uint256(operatorFeeUnitsOld) + uint256(networkFeeUnitsOld)) * ETH_DEDUCTED_DIGITS;
 
         ISSVNetworkCore.Cluster memory expectedCluster = beforeCluster;
@@ -560,8 +560,8 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             }
 
             if (!shouldLiquidate && newVUnits != oldVUnits) {
-                uint128 operatorFeeUnitsNew = (idxOp * uint128(newVUnits)) / VUNITS_PRECISION;
-                uint128 networkFeeUnitsNew = (idxNet * uint128(newVUnits)) / VUNITS_PRECISION;
+                uint128 operatorFeeUnitsNew = (idxOp * uint128(newVUnits)) / BPS_DENOMINATOR;
+                uint128 networkFeeUnitsNew = (idxNet * uint128(newVUnits)) / BPS_DENOMINATOR;
                 uint256 totalFeesNew =
                     (uint256(operatorFeeUnitsNew) + uint256(networkFeeUnitsNew)) * ETH_DEDUCTED_DIGITS;
                 if (totalFeesNew != totalFeesOld) {
@@ -803,7 +803,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     function _initProtocolDefaults() internal {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.validatorsPerOperatorLimit = 1000;
-        sp.ethNetworkFee = DEFAULT_NETWORK_ETH_FEE;
+        sp.ethNetworkFee = HARNESS_DEFAULT_NETWORK_ETH_FEE;
         sp.ethNetworkFeeIndex = 0;
         sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
         sp.ethDaoIndexBlockNumber = uint32(block.number);
@@ -832,7 +832,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: PACKED_SSV_ZERO}),
             whitelisted: false,
             ethValidatorCount: 0,
-            ethFee: DEFAULT_OPERATOR_ETH_FEE,
+            ethFee: HARNESS_DEFAULT_OPERATOR_ETH_FEE,
             ethSnapshot: ISSVNetworkCore.EthSnapshot({block: uint32(block.number), index: 0, balance: PACKED_ETH_ZERO})
         });
         s.operatorsPKs[keccak256(abi.encodePacked(pk))] = id;
@@ -848,21 +848,21 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
     function _operatorIdsForKey(uint8 key) internal view returns (uint64[] memory) {
         if (key == 0) {
-            uint64[] memory ids = new uint64[](1);
-            ids[0] = op1;
-            return ids;
+            uint64[] memory singleOperatorIds = new uint64[](1);
+            singleOperatorIds[0] = op1;
+            return singleOperatorIds;
         }
         if (key == 1) {
-            uint64[] memory ids = new uint64[](2);
-            ids[0] = op1;
-            ids[1] = op2;
-            return ids;
+            uint64[] memory twoOperatorIds = new uint64[](2);
+            twoOperatorIds[0] = op1;
+            twoOperatorIds[1] = op2;
+            return twoOperatorIds;
         }
-        uint64[] memory ids = new uint64[](3);
-        ids[0] = op1;
-        ids[1] = op2;
-        ids[2] = op3;
-        return ids;
+        uint64[] memory threeOperatorIds = new uint64[](3);
+        threeOperatorIds[0] = op1;
+        threeOperatorIds[1] = op2;
+        threeOperatorIds[2] = op3;
+        return threeOperatorIds;
     }
 
     function _pickClusterId(uint256 seed) internal view returns (bytes32) {
