@@ -12,7 +12,6 @@ const envValue = (name: string): string | undefined => {
 const localForkRpcUrl = "http://127.0.0.1:8545";
 const localForkChainId = 31337;
 const mainnetRpcUrl =
-  envValue("MAINNET_ETH_NODE_URL") ??
   envValue("MAINNET_RPC_URL") ??
   configVariable("MAINNET_RPC_URL");
 

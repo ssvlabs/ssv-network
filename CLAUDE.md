@@ -21,7 +21,7 @@ just build                     # Compile contracts (force recompile)
 just test                      # Run all tests
 just test-unit                 # Run unit tests only (test/unit/)
 just test-integration          # Run integration tests only (test/integration/)
-just test-forked               # Run fork tests (requires MAINNET_ETH_NODE_URL in .env)
+just test-forked               # Run fork tests (requires MAINNET_RPC_URL in .env)
 just coverage                  # Generate coverage report + HTML output
 ```
 

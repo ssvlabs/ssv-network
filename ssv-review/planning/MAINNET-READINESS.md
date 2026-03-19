@@ -3064,7 +3064,7 @@ Update `.env.example` with v2.0.0 parameter names and values.
 
 **Resolution:**
 Updated `.env.example` to reflect the current v2.0.0 workflow:
-- added the actual runtime env vars used by Hardhat and deployment scripts (`MAINNET_ETH_NODE_URL`, per-network RPC URLs, private keys, token overrides, `ETHERSCAN_KEY`)
+- added the actual runtime env vars used by Hardhat and deployment scripts (`MAINNET_RPC_URL`, per-network RPC URLs, private keys, token overrides, `ETHERSCAN_KEY`)
 - added fork/test overrides used by the fork runner and test helpers (`FORK_*`, `DEFAULT_ORACLE_IDS`, gas/test toggles)
 - added a commented v2.0.0 protocol reference block with current ETH-era defaults (`NETWORK_FEE_ETH`, `MIN_OPERATOR_ETH_FEE`, `MAX_OPERATOR_ETH_FEE`, `DEFAULT_OPERATOR_ETH_FEE`, liquidation/cooldown/quorum values)
 

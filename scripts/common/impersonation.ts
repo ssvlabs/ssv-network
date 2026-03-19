@@ -81,6 +81,6 @@ export function resolveRpcUrl(targetNetwork: string): string | undefined {
   const isLocalNetwork = targetNetwork === "local" || targetNetwork.endsWith("_local");
   if (isLocalNetwork) return "http://127.0.0.1:8545";
   if (targetNetwork === "hoodi") return process.env.HOODI_RPC_URL;
-  if (targetNetwork === "mainnet") return process.env.MAINNET_ETH_NODE_URL ?? process.env.MAINNET_RPC_URL;
+  if (targetNetwork === "mainnet") return process.env.MAINNET_RPC_URL;
   return undefined;
 }
