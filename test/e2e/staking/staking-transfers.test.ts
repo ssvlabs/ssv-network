@@ -401,6 +401,72 @@ describe("E2E Staking Transfers", () => {
       expect(await cssvToken.balanceOf(stakerA.address)).to.equal(stakeAmount);
     });
 
+    it("Self-transfer keeps reward accrual equal to uninterrupted staking", async function () {
+      const { network, ssvToken, cssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+      ]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const stakeAmount = 10n * PRECISION;
+      const selfTransferAmount = 5n * PRECISION;
+      await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
+      await ssvToken
+        .connect(stakerA)
+        .approve(await network.getAddress(), stakeAmount);
+
+      const stakeBlock = await getTxBlock(
+        await network.connect(stakerA).stake(stakeAmount),
+      );
+
+      await mineBlocks(provider, 50);
+
+      const selfTransferBlock = await getTxBlock(
+        await cssvToken
+          .connect(stakerA)
+          .transfer(stakerA.address, selfTransferAmount),
+      );
+
+      expect(await cssvToken.balanceOf(stakerA.address)).to.equal(stakeAmount);
+
+      await mineBlocks(provider, 50);
+
+      const balBefore = await provider.getBalance(stakerA.address);
+      const claimTx = await network.connect(stakerA).claimEthRewards();
+      const claimReceipt = await claimTx.wait();
+      const claimBlock = claimReceipt!.blockNumber;
+      const gasUsed = claimReceipt!.gasUsed * claimReceipt!.gasPrice;
+      const balAfter = await provider.getBalance(stakerA.address);
+      const reward = BigInt(balAfter) - balBefore + gasUsed;
+
+      const vUnits = defaultVUnits(1n);
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
+
+      const phase1Blocks = BigInt(selfTransferBlock - stakeBlock);
+      const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;
+      const acc1 = calcAccEthPerShareDelta(phase1FeesWei, stakeAmount);
+
+      const phase2Blocks = BigInt(claimBlock - selfTransferBlock);
+      const phase2FeesWei = earningsPerBlockPacked * phase2Blocks * ETH_DEDUCTED_DIGITS;
+      const acc2 = calcAccEthPerShareDelta(phase2FeesWei, stakeAmount);
+
+      const expectedReward = calcStakingReward(stakeAmount, acc1 + acc2, 0n);
+      const expectedPayout =
+        expectedReward - (expectedReward % ETH_DEDUCTED_DIGITS);
+
+      expect(reward).to.equal(expectedPayout);
+    });
+
     it("Zero-amount transfer does not trigger onCSSVTransfer — amount == 0", async function () {
       const { network, ssvToken, cssvToken } =
         await networkHelpers.loadFixture(deployFixture);

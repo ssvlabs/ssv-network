@@ -8,7 +8,7 @@ Source plan:
 Notes:
 - IDs are local-only for this tracking sheet.
 - This tracker was seeded from scenarios marked `NOT COVERED` or `Partially` in the source plan and keeps completed rows for local history.
-- Based on the current source plan, the remaining open backlog is `25` tasks total: `23` `NOT COVERED` and `2` `Partially`.
+- Based on the current source plan, the remaining open backlog is `24` tasks total: `23` `NOT COVERED` and `1` `Partially`.
 - `Plan Ref` uses `<section>.<case>` from `STAKING-TEST-PLAN.md`.
 
 | ID | Plan Ref | Section | Task | Plan Status | Current Status/Progress |
@@ -27,7 +27,7 @@ Notes:
 | 12 | 2.20 | Earning Rewards | ~~Rewards accrue normally after cooldown change and unstake~~ | Covered | Done |
 | 13 | 2.22 | Earning Rewards | ~~Stake after partial unstake~~ | Covered | Done |
 | 14 | 2.25 | Earning Rewards | ~~Stake-transfer-stake cycle~~ | Covered | Done |
-| 15 | 2.26 | Earning Rewards | Self-transfer doesn't double rewards | Partially | Todo |
+| 15 | 2.26 | Earning Rewards | ~~Self-transfer doesn't double rewards~~ | Covered | Done |
 | 16 | 4.7 | Request Unstake | Unstake after cSSV transfer receive | NOT COVERED | Todo |
 | 17 | 4.10 | Request Unstake | Unstake with no cSSV reverts | Partially | Todo |
 | 18 | 4.14 | Request Unstake | Cooldown duration change affects new requests only | NOT COVERED | Todo |
