@@ -39,12 +39,12 @@ test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
 ├── SSVOperatorsEchidna.sol           # Operators invariants (20 tests)
-├── SSVClustersEchidna.sol            # Clusters invariants (9 tests)
-├── SSVAccountingEchidna.sol          # System accounting invariants (4 tests)
-├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (4 tests)
+├── SSVClustersEchidna.sol            # Clusters invariants (18 tests)
+├── SSVAccountingEchidna.sol          # System accounting invariants (8 tests)
+├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (7 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
-├── SSVStakingEchidna.sol             # Staking invariants (12 tests)
-├── SSVDAOEchidna.sol                 # DAO invariants (17 tests)
+├── SSVStakingEchidna.sol             # Staking invariants (15 tests)
+├── SSVDAOEchidna.sol                 # DAO invariants (23 tests)
 ├── SSVEBProofEchidna.sol             # EB proof invariants (3 tests) [FUZZ-3 B6/B7/B8]
 ├── SSVOperatorFeeGovEchidna.sol      # Operator fee governance (1 test) [FUZZ-3 B19]
 ├── SSVLegacyClustersEchidna.sol      # Legacy SSV cluster liquidation (1 test) [FUZZ-3 B15]
@@ -100,7 +100,9 @@ test/echidna/
 | `echidna_remove_pays_out` | Removal pays out and reduces holdings |
 | `echidna_declare_fee_from_zero_reverts` | **[FUZZ-3 B17]** Declaring non-zero ETH fee when both fees are 0 reverts |
 
-## SSVClustersEchidna (9 Invariants)
+## SSVClustersEchidna (18 Invariants)
+
+This harness also instantiates staking claimants and operator owners so `echidna_eth_balance_accounting` is exercised through `claimEthRewards` and `withdrawOperatorEarnings`, not only cluster flows.
 
 | Property | Description |
 |----------|-------------|
@@ -113,6 +115,15 @@ test/echidna/
 | `echidna_liquidation_cleans_state` | Liquidation zeroes cluster and pays out |
 | `echidna_reactivate_requires_inactive` | Reactivation only from inactive |
 | `echidna_dust_liquidation_reachable` | Dust balances become liquidatable after burn |
+| `echidna_eb_snapshot_block_lte_current` | EB snapshot update block never exceeds current block |
+| `echidna_eb_snapshot_root_monotonic` | Cluster EB root block number never decreases |
+| `echidna_eb_update_requires_root` | EB update cannot succeed without a committed root |
+| `echidna_eb_update_frequency` | EB update frequency limit is enforced |
+| `echidna_eb_update_staleness` | EB updates reject stale root block numbers |
+| `echidna_fee_index_current_after_settle` | Cluster fee indices settle to current protocol indices |
+| `echidna_fee_uses_old_vunits_on_eb_change` | Fee settlement on EB change uses pre-update vUnits |
+| `echidna_liquidation_clears_eb_snapshot` | Liquidation clears EB snapshot vUnits |
+| `echidna_eth_balance_accounting` | ETH balance covers cluster, operator, DAO, and staking liabilities |
 
 ## SSVAccountingEchidna (8 Invariants)
 
@@ -152,7 +163,7 @@ test/echidna/
 | `echidna_owner_only_remove` | Only owner can remove validators |
 | `echidna_owner_only_exit` | Only owner can exit validators |
 
-## SSVStakingEchidna (12 Invariants)
+## SSVStakingEchidna (15 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -162,14 +173,17 @@ test/echidna/
 | `echidna_invalid_unstake_reverts` | Invalid unstake requests are rejected |
 | `echidna_invalid_withdraw_reverts` | Withdraw with no unlocked balance is rejected |
 | `echidna_cssv_supply_matches_users` | cSSV supply matches tracked user balances |
+| `echidna_cssv_supply_lte_ssv_backing` | cSSV supply never exceeds SSV backing |
 | `echidna_ssv_balance_matches_staked_plus_pending` | Contract SSV balance equals staked plus pending |
 | `echidna_pool_matches_dao_balance` | ETH pool balance matches DAO balance |
 | `echidna_pending_requests_bounded` | Withdrawal request count stays within bounds |
 | `echidna_user_index_leq_acc` | User index never exceeds global accumulator |
 | `echidna_accrued_within_pool` | Accrued rewards stay within pool balance |
-| `echidna_oracle_weights_match_supply` | Oracle weights sum equals cSSV supply |
+| `echidna_cssv_transfer_settles_both` | cSSV transfer settles sender and receiver reward indices |
+| `echidna_claim_payout_precision` | Claimed ETH payout always respects packing precision |
+| `echidna_no_free_rewards_on_transfer` | Transfers cannot move already-accrued rewards between users |
 
-## SSVDAOEchidna (17 Invariants)
+## SSVDAOEchidna (23 Invariants)
 
 | Property | Description |
 |----------|-------------|
@@ -190,6 +204,11 @@ test/echidna/
 | `echidna_commit_root_dust_round_uses_truncated_supply` | Pending dusty rounds store truncated frozen voting supply |
 | `echidna_commit_root_below_oracle_count_reverts` | Rounds with supply below oracle count always revert with zero weight |
 | `echidna_oracle_mapping_consistent` | Oracle ID mappings remain consistent |
+| `echidna_finalized_weight_cleared` | Finalized commitment keys clear accumulated weight |
+| `echidna_commitment_weight_lte_supply` | Commitment weight never exceeds cSSV total supply |
+| `echidna_finalization_implies_quorum` | Root finalization only happens at/above quorum threshold |
+| `echidna_dao_earnings_monotonic` | Gross DAO earnings do not decrease over time |
+| `echidna_dao_index_block_lte_current` | DAO index block numbers never exceed current block |
 | `echidna_dao_earnings_matches_formula` | **[FUZZ-3 C4]** ETH DAO earnings matches `daoBalance + blockDelta × fee × vUnits / precision` |
 
 ## SSVEBProofEchidna (3 Invariants) — FUZZ-3 B6/B7/B8
@@ -223,7 +242,7 @@ Setup: two SSV operators with non-zero fees, one active SSV cluster, liquidator 
 
 ---
 
-## Planned Invariants (Not Yet Implemented)
+## Planned Invariants (Remaining)
 
 Evaluated from `ssv-review/planning/SSVNetwork — Enrich Invariant Suite.md` against the 77 existing invariants above. Only invariants that are **not already covered** are listed below. Grouped by priority.
 
