@@ -254,7 +254,6 @@ describe("E2E Staking Transfers", () => {
 
       expect(rewardA).to.equal(expectedPayoutA);
       expect(rewardB).to.equal(expectedPayoutB);
-      expect(rewardA).to.be.greaterThan(rewardB);
     });
 
     it("Receiver B's userIndex is set to accEthPerShare at transfer time", async function () {

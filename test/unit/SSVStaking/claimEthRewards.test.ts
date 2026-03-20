@@ -333,12 +333,14 @@ describe("SSVStaking function `claimEthRewards()`", async () => {
     await staking.mockSetEthDaoBalance(newFees);
 
     const userIndexBefore = await staking.getUserIndex(staker.address);
+    const expectedIndexDelta =
+      (newFees * ETH_DEDUCTED_DIGITS * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
     const tx = await staking.claimEthRewards();
 
     await expect(tx).to.emit(staking, Events.REWARDS_CLAIMED);
 
     const userIndexAfter = await staking.getUserIndex(staker.address);
-    expect(userIndexAfter).to.be.greaterThan(userIndexBefore);
+    expect(userIndexAfter).to.equal(userIndexBefore + expectedIndexDelta);
   });
 
   it("Does not affect other users' accrued balances", async function () {

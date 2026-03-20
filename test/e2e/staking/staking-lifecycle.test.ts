@@ -360,7 +360,6 @@ describe("E2E Staking Lifecycle", () => {
       expect(rewardB).to.equal(expectedPayoutB);
       expect(rewardC).to.equal(expectedPayoutC);
       expect(rewardB).to.equal(rewardC);
-      expect(rewardB).to.be.greaterThan(rewardA);
     });
   });
 
@@ -445,7 +444,6 @@ describe("E2E Staking Lifecycle", () => {
       const expectedRewardB = calcStakingReward(amountB, acc2 + acc3, 0n);
       const expectedPayoutB = expectedRewardB - (expectedRewardB % ETH_DEDUCTED_DIGITS);
       expect(rewardB).to.equal(expectedPayoutB);
-      expect(rewardA).to.be.greaterThan(rewardB);
     });
   });
 
@@ -643,7 +641,6 @@ describe("E2E Staking Lifecycle", () => {
       const expectedPayout =
         expectedTotal - (expectedTotal % ETH_DEDUCTED_DIGITS);
 
-      expect(reward2).to.be.greaterThan(0n);
       expect(rewardClaimed).to.equal(expectedPayout);
     });
 

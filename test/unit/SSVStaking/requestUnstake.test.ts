@@ -6,7 +6,11 @@ import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { STAKE_AMOUNT, DEFAULT_UNSTAKE_COOLDOWN } from "../../common/constants.ts";
+import {
+  STAKE_AMOUNT,
+  DEFAULT_UNSTAKE_COOLDOWN,
+  ETH_DEDUCTED_DIGITS,
+} from "../../common/constants.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `requestUnstake()`", async () => {
@@ -147,7 +151,6 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const [storedAmount, storedUnlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
 
     expect(storedAmount).to.equal(unstakeAmount);
-    expect(storedUnlockTime).to.be.greaterThan(0n);
 
     const receiptBlock = await connection.ethers.provider.getBlock(receipt.blockNumber);
     const expectedUnlockTime = BigInt(receiptBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
@@ -216,7 +219,6 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     expect(unlock1).to.equal(expectedUnlock1);
     expect(amount2).to.equal(secondAmount);
     expect(unlock2).to.equal(expectedUnlock2);
-    expect(unlock2).to.be.greaterThan(unlock1);
     const cssvBalance = await cssvToken.balanceOf(staker.address);
     expect(cssvBalance).to.equal(STAKE_AMOUNT - firstAmount - secondAmount);
   });
@@ -324,6 +326,10 @@ describe("SSVStaking function `requestUnstake()`", async () => {
 
     const userIndexBefore = await staking.getUserIndex(staker.address);
     const accruedBefore = await staking.getUserAccrued(staker.address);
+    const expectedIndexDelta =
+      (newFees * ETH_DEDUCTED_DIGITS * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
+    const expectedAccruedDelta =
+      (STAKE_AMOUNT * expectedIndexDelta) / 1_000_000_000_000_000_000n;
 
     await trackGas(
       staking.requestUnstake(STAKE_AMOUNT / 2n),
@@ -332,7 +338,7 @@ describe("SSVStaking function `requestUnstake()`", async () => {
 
     const userIndexAfter = await staking.getUserIndex(staker.address);
     const accruedAfter = await staking.getUserAccrued(staker.address);
-    expect(userIndexAfter).to.be.greaterThan(userIndexBefore);
-    expect(accruedAfter).to.be.greaterThan(accruedBefore);
+    expect(userIndexAfter).to.equal(userIndexBefore + expectedIndexDelta);
+    expect(accruedAfter).to.equal(accruedBefore + expectedAccruedDelta);
   });
 });

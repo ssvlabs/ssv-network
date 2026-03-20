@@ -198,7 +198,8 @@ describe("E2E Staking Rewards", () => {
         phase2Blocks *
         ETH_DEDUCTED_DIGITS;
       expect(newFeesPhase2).to.equal(phase2ExpectedFees);
-      expect(newFeesPhase2).to.be.greaterThan(newFeesPhase1);
+      expect(phase2Blocks).to.equal(phase1Blocks);
+      expect(newFeesPhase2).to.equal(newFeesPhase1 * 2n);
     });
   });
 
@@ -290,7 +291,8 @@ describe("E2E Staking Rewards", () => {
         phase2Blocks *
         ETH_DEDUCTED_DIGITS;
       expect(newFeesPhase2).to.equal(phase2ExpectedFees);
-      expect(newFeesPhase2).to.be.lessThan(newFeesPhase1);
+      expect(phase2Blocks).to.equal(phase1Blocks);
+      expect(newFeesPhase1).to.equal(newFeesPhase2 * 2n);
     });
   });
 
@@ -366,7 +368,7 @@ describe("E2E Staking Rewards", () => {
         phase1Blocks *
         ETH_DEDUCTED_DIGITS;
       expect(newFeesPhase1).to.equal(phase1ExpectedFees);
-      expect(newFeesPhase1).to.be.greaterThan(0n);
+      expect(newFeesPhase1).to.not.equal(0n);
 
       await network.updateNetworkFee(0n);
 
@@ -592,7 +594,8 @@ describe("E2E Staking Rewards", () => {
         totalExpectedRewards,
         stakeAmount,
       );
-      expect(newFeesPhase2).to.be.greaterThan(newFeesPhase1);
+      expect(phase2Blocks).to.equal(phase1Blocks);
+      expect(newFeesPhase2).to.equal(newFeesPhase1 * 2n);
       expect(newFeesPhase3).to.equal(newFeesPhase1);
       expect(await views.accEthPerShare()).to.equal(totalExpectedAccEthPerShare);
       expect(
