@@ -223,6 +223,44 @@ describe("SSVStaking function `withdrawUnlocked()`", async () => {
     expect(requestCountFinal).to.equal(0n);
   });
 
+  it("Withdraws full amount one year after maturity", async function () {
+    const { staking, ssvToken } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
+
+    const oneYear = 365n * 24n * 60n * 60n;
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + oneYear);
+
+    const balanceBefore = await ssvToken.balanceOf(staker.address);
+    const tx = await trackGas(
+      staking.withdrawUnlocked(),
+      [GasGroup.WITHDRAW_UNSTAKE]
+    );
+
+    await expect(tx)
+      .to.emit(staking, Events.UNSTAKE_WITHDRAWN)
+      .withArgs(staker.address, STAKE_AMOUNT);
+
+    const balanceAfter = await ssvToken.balanceOf(staker.address);
+    expect(balanceAfter - balanceBefore).to.equal(STAKE_AMOUNT);
+
+    const requestCount = await staking.getWithdrawalRequestsCount(staker.address);
+    expect(requestCount).to.equal(0n);
+  });
+
+  it("Does not change cSSV supply on withdrawal", async function () {
+    const { staking, cssvToken } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
+
+    await networkHelpers.time.increase(DEFAULT_UNSTAKE_COOLDOWN + 1n);
+
+    const supplyBefore = await cssvToken.totalSupply();
+    await trackGas(
+      staking.withdrawUnlocked(),
+      [GasGroup.WITHDRAW_UNSTAKE]
+    );
+    const supplyAfter = await cssvToken.totalSupply();
+
+    expect(supplyAfter).to.equal(supplyBefore);
+  });
+
   it("Does not allow one user to withdraw another user's tokens", async function () {
     const { staking, ssvToken } = await networkHelpers.loadFixture(stakeAndRequestUnstake);
     const [, otherUser] = await connection.ethers.getSigners();

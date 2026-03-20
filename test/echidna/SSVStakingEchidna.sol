@@ -119,6 +119,7 @@ contract SSVStakingEchidna is SSVStaking {
     bool private userIndexSettleMismatch;
     bool private transferSettleMismatch;
     bool private claimDeltaMismatch;
+    bool private secondSameBlockClaimPaid;
     bool private claimPayoutPrecisionMismatch;
     bool private freeRewardsOnTransferDetected;
     bool private payoutAccountingOverflow;
@@ -256,6 +257,19 @@ contract SSVStakingEchidna is SSVStaking {
 
             _addPaidOut(payout);
             _checkSettledUser(address(user));
+
+            uint64 midPool = afterPool;
+            uint64 midDao = afterDao;
+            uint256 midUserBalance = afterUserBalance;
+
+            try user.claim() {
+                uint64 finalPool = PackedETH.unwrap(s.stakingEthPoolBalance);
+                uint64 finalDao = PackedETH.unwrap(sp.ethDaoBalance);
+                uint256 finalUserBalance = address(user).balance;
+                if (finalPool != midPool || finalDao != midDao || finalUserBalance != midUserBalance) {
+                    secondSameBlockClaimPaid = true;
+                }
+            } catch {}
         } catch {}
     }
 
@@ -409,6 +423,10 @@ contract SSVStakingEchidna is SSVStaking {
     function echidna_pool_matches_dao_balance() external view returns (bool) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         return !claimDeltaMismatch && SSVStorageStaking.load().stakingEthPoolBalance.eq(sp.ethDaoBalance);
+    }
+
+    function echidna_claim_twice_same_block_no_second_payout() external view returns (bool) {
+        return !secondSameBlockClaimPaid;
     }
 
     function echidna_pending_requests_bounded() external view returns (bool) {

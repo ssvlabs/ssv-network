@@ -81,6 +81,8 @@ export function generateMerkleForClusterEB(connection: any, entries: {
       const siblingIdx = isLeft ? idx + 1 : idx - 1;
       if (siblingIdx < layers[level].length) {
         proof.push(layers[level][siblingIdx]);
+      } else {
+        proof.push(layers[level][idx]);
       }
       idx = Math.floor(idx / 2);
     }

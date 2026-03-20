@@ -516,5 +516,97 @@ describe("E2E Staking Edge Cases", () => {
       expect(reward).to.equal(expectedPayout);
       expect(reward % ETH_DEDUCTED_DIGITS).to.equal(0n);
     });
+
+    it("Claiming twice in the same block only pays once", async function () {
+      const { network, ssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+      ]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const stakeAmount = 10n * PRECISION;
+      await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
+      await ssvToken
+        .connect(stakerA)
+        .approve(await network.getAddress(), stakeAmount);
+      const stakeBlock = await getTxBlock(
+        await network.connect(stakerA).stake(stakeAmount),
+      );
+
+      await mineBlocks(provider, 100);
+
+      const balBefore = await provider.getBalance(stakerA.address);
+      const baseNonce = await provider.getTransactionCount(
+        stakerA.address,
+        "pending",
+      );
+      const networkAddress = await network.getAddress();
+      const claimRewardsData =
+        network.interface.encodeFunctionData("claimEthRewards");
+
+      await provider.send("evm_setAutomine", [false]);
+
+      let firstClaimTx;
+      let secondClaimTx;
+      let firstReceipt;
+      let secondReceipt;
+
+      try {
+        firstClaimTx = await stakerA.sendTransaction({
+          to: networkAddress,
+          data: claimRewardsData,
+          gasLimit: 1_000_000n,
+          nonce: baseNonce,
+        });
+        secondClaimTx = await stakerA.sendTransaction({
+          to: networkAddress,
+          data: claimRewardsData,
+          gasLimit: 1_000_000n,
+          nonce: baseNonce + 1,
+        });
+
+        await provider.send("evm_mine", []);
+
+        firstReceipt = await firstClaimTx.wait();
+        secondReceipt = await secondClaimTx.wait().catch((error: any) => {
+          return error.receipt;
+        });
+      } finally {
+        await provider.send("evm_setAutomine", [true]);
+      }
+
+      const balAfter = await provider.getBalance(stakerA.address);
+      const gasUsedFirst = firstReceipt!.gasUsed * firstReceipt!.gasPrice;
+      const gasUsedSecond = secondReceipt!.gasUsed * secondReceipt!.gasPrice;
+      const rewardPaid =
+        BigInt(balAfter) - balBefore + gasUsedFirst + gasUsedSecond;
+
+      const claimBlock = firstReceipt!.blockNumber;
+      const vUnits = defaultVUnits(1n);
+      const earningsPerBlockPacked =
+        (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
+      const blockDiff = BigInt(claimBlock - stakeBlock);
+      const totalEarningsWei =
+        earningsPerBlockPacked * blockDiff * ETH_DEDUCTED_DIGITS;
+      const accDelta = calcAccEthPerShareDelta(totalEarningsWei, stakeAmount);
+      const expectedReward = calcStakingReward(stakeAmount, accDelta, 0n);
+      const expectedPayout =
+        expectedReward - (expectedReward % ETH_DEDUCTED_DIGITS);
+
+      expect(firstReceipt!.status).to.equal(1);
+      expect(secondReceipt!.status).to.equal(0);
+      expect(firstReceipt!.blockNumber).to.equal(secondReceipt!.blockNumber);
+      expect(rewardPaid).to.equal(expectedPayout);
+    });
   });
 });

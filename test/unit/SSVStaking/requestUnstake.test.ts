@@ -6,7 +6,11 @@ import { setupTestContext } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { STAKE_AMOUNT, DEFAULT_UNSTAKE_COOLDOWN } from "../../common/constants.ts";
+import {
+  STAKE_AMOUNT,
+  DEFAULT_UNSTAKE_COOLDOWN,
+  ETH_DEDUCTED_DIGITS,
+} from "../../common/constants.ts";
 import { trackGas, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVStaking function `requestUnstake()`", async () => {
@@ -14,9 +18,10 @@ describe("SSVStaking function `requestUnstake()`", async () => {
   let networkHelpers: NetworkHelpersType;
 
   let staker: HardhatEthersSigner;
+  let receiver: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers, signers: [staker] } = await setupTestContext());
+    ({ connection, networkHelpers, signers: [staker, receiver] } = await setupTestContext());
   });
 
   const stakeFirst = async () => {
@@ -106,6 +111,15 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     );
   });
 
+  it("Is reverted with 'UnstakeAmountExceedsBalance' when caller has no cSSV", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeFirst);
+
+    await expect(staking.connect(receiver).requestUnstake(1n)).to.be.revertedWithCustomError(
+      staking,
+      Errors.UNSTAKE_AMOUNT_EXCEEDS_BALANCE
+    );
+  });
+
   it("Allows unstaking full balance", async function () {
     const { staking, cssvToken } = await networkHelpers.loadFixture(stakeFirst);
 
@@ -137,11 +151,47 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     const [storedAmount, storedUnlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
 
     expect(storedAmount).to.equal(unstakeAmount);
-    expect(storedUnlockTime).to.be.greaterThan(0n);
 
     const receiptBlock = await connection.ethers.provider.getBlock(receipt.blockNumber);
     const expectedUnlockTime = BigInt(receiptBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
     expect(storedUnlockTime).to.equal(expectedUnlockTime);
+  });
+
+  it("Allows a receiver to request unstake after receiving cSSV by transfer", async function () {
+    const { staking, cssvToken } = await networkHelpers.loadFixture(stakeFirst);
+
+    const receivedAmount = STAKE_AMOUNT / 2n;
+    await cssvToken.connect(staker).transfer(receiver.address, receivedAmount);
+
+    expect(await cssvToken.balanceOf(receiver.address)).to.equal(receivedAmount);
+
+    const cssvSupplyBefore = await cssvToken.totalSupply();
+    const receipt = await trackGas(
+      staking.connect(receiver).requestUnstake(receivedAmount),
+      [GasGroup.REQUEST_UNSTAKE]
+    );
+    const block = await connection.ethers.provider.getBlock(receipt.blockNumber);
+    const expectedUnlockTime = BigInt(block!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
+    await expect(receipt)
+      .to.emit(staking, Events.UNSTAKE_REQUESTED)
+      .withArgs(receiver.address, receivedAmount, expectedUnlockTime);
+
+    expect(await cssvToken.balanceOf(receiver.address)).to.equal(0n);
+    expect(await cssvToken.balanceOf(staker.address)).to.equal(
+      STAKE_AMOUNT - receivedAmount,
+    );
+    expect(await cssvToken.totalSupply()).to.equal(cssvSupplyBefore - receivedAmount);
+
+    const requestCount = await staking.getWithdrawalRequestsCount(receiver.address);
+    expect(requestCount).to.equal(1n);
+
+    const [amount, unlockTime] = await staking.getWithdrawalRequest(
+      receiver.address,
+      0,
+    );
+    expect(amount).to.equal(receivedAmount);
+    expect(unlockTime).to.equal(expectedUnlockTime);
   });
 
   it("Allows multiple sequential unstake requests with different unlock times", async function () {
@@ -169,7 +219,6 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     expect(unlock1).to.equal(expectedUnlock1);
     expect(amount2).to.equal(secondAmount);
     expect(unlock2).to.equal(expectedUnlock2);
-    expect(unlock2).to.be.greaterThan(unlock1);
     const cssvBalance = await cssvToken.balanceOf(staker.address);
     expect(cssvBalance).to.equal(STAKE_AMOUNT - firstAmount - secondAmount);
   });
@@ -191,6 +240,84 @@ describe("SSVStaking function `requestUnstake()`", async () => {
     expect(unlockTime).to.not.equal(incorrectFromBlockNumber);
   });
 
+  it("Cooldown duration change only affects new requests, not existing ones", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeFirst);
+
+    const firstAmount = STAKE_AMOUNT / 4n;
+    const firstTx = await staking.requestUnstake(firstAmount);
+    const firstReceipt = await firstTx.wait();
+    const firstBlock = await connection.ethers.provider.getBlock(firstReceipt!.blockNumber);
+    const expectedFirstUnlock = BigInt(firstBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
+    const [, firstUnlockTime] = await staking.getWithdrawalRequest(staker.address, 0);
+    expect(firstUnlockTime).to.equal(expectedFirstUnlock);
+
+    const newCooldown = DEFAULT_UNSTAKE_COOLDOWN * 3n;
+    await staking.mockSetCooldownDuration(newCooldown);
+
+    const [, firstUnlockAfterChange] = await staking.getWithdrawalRequest(staker.address, 0);
+    expect(firstUnlockAfterChange).to.equal(expectedFirstUnlock);
+
+    const secondAmount = STAKE_AMOUNT / 4n;
+    const secondTx = await staking.requestUnstake(secondAmount);
+    const secondReceipt = await secondTx.wait();
+    const secondBlock = await connection.ethers.provider.getBlock(secondReceipt!.blockNumber);
+    const expectedSecondUnlock = BigInt(secondBlock!.timestamp) + newCooldown;
+
+    const [, secondUnlockTime] = await staking.getWithdrawalRequest(staker.address, 1);
+    expect(secondUnlockTime).to.equal(expectedSecondUnlock);
+  });
+
+  it("Cooldown increase: old request keeps original unlock, new request uses increased cooldown", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeFirst);
+
+    const firstAmount = STAKE_AMOUNT / 4n;
+    const firstTx = await staking.requestUnstake(firstAmount);
+    const firstReceipt = await firstTx.wait();
+    const firstBlock = await connection.ethers.provider.getBlock(firstReceipt!.blockNumber);
+    const expectedFirstUnlock = BigInt(firstBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
+    const increasedCooldown = DEFAULT_UNSTAKE_COOLDOWN * 5n;
+    await staking.mockSetCooldownDuration(increasedCooldown);
+
+    const [, firstUnlockAfterIncrease] = await staking.getWithdrawalRequest(staker.address, 0);
+    expect(firstUnlockAfterIncrease).to.equal(expectedFirstUnlock);
+
+    const secondAmount = STAKE_AMOUNT / 4n;
+    const secondTx = await staking.requestUnstake(secondAmount);
+    const secondReceipt = await secondTx.wait();
+    const secondBlock = await connection.ethers.provider.getBlock(secondReceipt!.blockNumber);
+    const expectedSecondUnlock = BigInt(secondBlock!.timestamp) + increasedCooldown;
+
+    const [, secondUnlockTime] = await staking.getWithdrawalRequest(staker.address, 1);
+    expect(secondUnlockTime).to.equal(expectedSecondUnlock);
+  });
+
+  it("Cooldown decrease: pending request not accelerated, new request uses shorter cooldown", async function () {
+    const { staking } = await networkHelpers.loadFixture(stakeFirst);
+
+    const firstAmount = STAKE_AMOUNT / 4n;
+    const firstTx = await staking.requestUnstake(firstAmount);
+    const firstReceipt = await firstTx.wait();
+    const firstBlock = await connection.ethers.provider.getBlock(firstReceipt!.blockNumber);
+    const expectedFirstUnlock = BigInt(firstBlock!.timestamp) + DEFAULT_UNSTAKE_COOLDOWN;
+
+    const shorterCooldown = DEFAULT_UNSTAKE_COOLDOWN / 4n;
+    await staking.mockSetCooldownDuration(shorterCooldown);
+
+    const [, firstUnlockAfterDecrease] = await staking.getWithdrawalRequest(staker.address, 0);
+    expect(firstUnlockAfterDecrease).to.equal(expectedFirstUnlock);
+
+    const secondAmount = STAKE_AMOUNT / 4n;
+    const secondTx = await staking.requestUnstake(secondAmount);
+    const secondReceipt = await secondTx.wait();
+    const secondBlock = await connection.ethers.provider.getBlock(secondReceipt!.blockNumber);
+    const expectedSecondUnlock = BigInt(secondBlock!.timestamp) + shorterCooldown;
+
+    const [, secondUnlockTime] = await staking.getWithdrawalRequest(staker.address, 1);
+    expect(secondUnlockTime).to.equal(expectedSecondUnlock);
+  });
+
   it("Settles pending rewards before unstaking when fees have accrued", async function () {
     const { staking, cssvToken } = await networkHelpers.loadFixture(stakeFirst);
     const newFees = 1_000_000_000n;
@@ -199,6 +326,10 @@ describe("SSVStaking function `requestUnstake()`", async () => {
 
     const userIndexBefore = await staking.getUserIndex(staker.address);
     const accruedBefore = await staking.getUserAccrued(staker.address);
+    const expectedIndexDelta =
+      (newFees * ETH_DEDUCTED_DIGITS * 1_000_000_000_000_000_000n) / STAKE_AMOUNT;
+    const expectedAccruedDelta =
+      (STAKE_AMOUNT * expectedIndexDelta) / 1_000_000_000_000_000_000n;
 
     await trackGas(
       staking.requestUnstake(STAKE_AMOUNT / 2n),
@@ -207,7 +338,7 @@ describe("SSVStaking function `requestUnstake()`", async () => {
 
     const userIndexAfter = await staking.getUserIndex(staker.address);
     const accruedAfter = await staking.getUserAccrued(staker.address);
-    expect(userIndexAfter).to.be.greaterThan(userIndexBefore);
-    expect(accruedAfter).to.be.greaterThan(accruedBefore);
+    expect(userIndexAfter).to.equal(userIndexBefore + expectedIndexDelta);
+    expect(accruedAfter).to.equal(accruedBefore + expectedAccruedDelta);
   });
 });
