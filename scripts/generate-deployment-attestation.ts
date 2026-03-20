@@ -208,6 +208,19 @@ async function main() {
   await writeFile(outputPath, `${JSON.stringify(attestation, null, 2)}\n`, "utf8");
   console.log(`\nAttestation written to: ${outputPath}`);
 
+  // Compute file hashes for committee verification
+  const attestationContent = await readFile(outputPath, "utf8");
+  const attestationFileHash = keccak256(new TextEncoder().encode(attestationContent));
+
+  const batchPath = join(resolveEnvDir(envFlag), "multisig-batch.json");
+  let batchFileHash: string | null = null;
+  try {
+    const batchContent = await readFile(batchPath, "utf8");
+    batchFileHash = keccak256(new TextEncoder().encode(batchContent));
+  } catch {
+    console.warn(`Warning: ${batchPath} not found — run 'just generate-safe-batch' first to include its hash.`);
+  }
+
   // Print human-readable summary
   console.log("\n" + "=".repeat(80));
   console.log("SSV Network Deployment Attestation");
@@ -246,6 +259,13 @@ async function main() {
   console.log("-".repeat(80));
   for (const [id, addr] of Object.entries(oracles)) {
     console.log(`  Oracle ${id}: ${addr}`);
+  }
+  console.log("");
+  console.log("File Hashes (keccak256 — for committee verification):");
+  console.log("-".repeat(80));
+  console.log(`  deployment-attestation.json: ${attestationFileHash}`);
+  if (batchFileHash) {
+    console.log(`  multisig-batch.json:         ${batchFileHash}`);
   }
   console.log("=".repeat(80));
 }
