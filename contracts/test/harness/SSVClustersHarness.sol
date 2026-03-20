@@ -339,6 +339,19 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         operator.ethSnapshot.balance = PACKED_ETH_ZERO;
     }
 
+    function mockSetOperatorFeeChangeRequest(
+        uint64 operatorId,
+        uint64 fee,
+        uint64 approvalBeginTime,
+        uint64 approvalEndTime
+    ) external {
+        SSVStorage.load().operatorFeeChangeRequests[operatorId] = ISSVNetworkCore.OperatorFeeChangeRequest(
+            fee,
+            approvalBeginTime,
+            approvalEndTime
+        );
+    }
+
     function mockSetToken(address token) external {
         SSVStorage.load().token = IERC20(token);
     }
