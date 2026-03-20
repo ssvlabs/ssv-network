@@ -637,6 +637,9 @@ describe("E2E Staking Lifecycle", () => {
       const acc2 = calcAccEthPerShareDelta(phase2FeesWei, remainingBalance);
       const reward2 = calcStakingReward(remainingBalance, acc2, 0n);
 
+      expect(phase1Blocks).to.equal(102n);
+      expect(phase2Blocks).to.equal(51n);
+
       const expectedTotal = reward1 + reward2;
       const expectedPayout =
         expectedTotal - (expectedTotal % ETH_DEDUCTED_DIGITS);
