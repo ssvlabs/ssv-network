@@ -218,8 +218,10 @@ contract SSVDAOEchidna is SSVDAO {
         try this.replaceOracle(oracleId, newOracle) {} catch {}
     }
 
-    function action_set_eth_vunits(uint64 vUnitsSeed) external {
-        SSVStorageProtocol.load().daoTotalEthVUnits = vUnitsSeed % 100_001;
+    function action_set_eth_vunits(uint64 vUnitsSeed) external trackFeeIndexMonotonicity {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        sp.updateDAOEarnings();
+        sp.daoTotalEthVUnits = vUnitsSeed % 100_001;
     }
 
     function action_add_earnings(uint256 seed) external trackFeeIndexMonotonicity {
@@ -323,6 +325,7 @@ contract SSVDAOEchidna is SSVDAO {
         if (!dustyRoundSeeded) return;
 
         _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+        _setCssvSupply(DUSTY_RAW_SUPPLY);
 
         OracleUser oracle = _oracleUser(oracleSeed);
         StorageStaking storage s = SSVStorageStaking.load();
@@ -505,10 +508,14 @@ contract SSVDAOEchidna is SSVDAO {
         if (commitmentWeightOverSupply) return false;
 
         StorageEB storage seb = SSVStorageEB.load();
-        uint256 totalSupply = IERC20(CSSV_ADDRESS).totalSupply();
         uint256 count = touchedCommitmentKeys.length;
         for (uint256 i; i < count; ++i) {
-            if (seb.rootCommitments[touchedCommitmentKeys[i]] > totalSupply) return false;
+            bytes32 key = touchedCommitmentKeys[i];
+            uint256 committedWeight = seb.rootCommitments[key];
+            if (committedWeight == 0) continue;
+
+            uint256 frozenSupply = seb.roundFrozenSupply[key];
+            if (frozenSupply == 0 || committedWeight > frozenSupply) return false;
         }
         return true;
     }
@@ -557,9 +564,14 @@ contract SSVDAOEchidna is SSVDAO {
         bool alreadyVoted = localVotes[commitmentKey][oracleId];
 
         uint64 latestBefore = seb.latestCommittedBlock;
-        uint256 totalSupply = IERC20(CSSV_ADDRESS).totalSupply();
-        uint256 threshold = (totalSupply * s.quorumBps) / BPS_DENOMINATOR;
-        uint256 weight = totalSupply / s.defaultOracleIds.length;
+        uint256 currentSupply = IERC20(CSSV_ADDRESS).totalSupply();
+        uint256 oracleCount = s.defaultOracleIds.length;
+        uint256 frozenSupply = seb.roundFrozenSupply[commitmentKey];
+        if (frozenSupply == 0) {
+            frozenSupply = currentSupply - (currentSupply % oracleCount);
+        }
+        uint256 threshold = (frozenSupply * s.quorumBps) / BPS_DENOMINATOR;
+        uint256 weight = frozenSupply / oracleCount;
         uint256 beforeWeight = seb.rootCommitments[commitmentKey];
 
         if (!touchedCommitmentKeyExists[commitmentKey]) {
@@ -577,12 +589,15 @@ contract SSVDAOEchidna is SSVDAO {
 
             localVotes[commitmentKey][oracleId] = true;
 
-            if (seb.rootCommitments[commitmentKey] > IERC20(CSSV_ADDRESS).totalSupply()) {
+            uint256 committedWeight = seb.rootCommitments[commitmentKey];
+            uint256 frozenSupplyAfter = seb.roundFrozenSupply[commitmentKey];
+
+            if (committedWeight != 0 && (frozenSupplyAfter == 0 || committedWeight > frozenSupplyAfter)) {
                 commitmentWeightOverSupply = true;
             }
 
             if (seb.ebRoots[blockNum] == root && root != bytes32(0)) {
-                if (seb.rootCommitments[commitmentKey] != 0) {
+                if (committedWeight != 0) {
                     finalizedWeightNotCleared = true;
                 }
                 if (beforeWeight + weight < threshold) {
@@ -662,8 +677,30 @@ contract SSVDAOEchidna is SSVDAO {
         }
 
         if (currentSupply > targetSupply) {
-            cssv.burn(address(this), currentSupply - targetSupply);
+            uint256 remaining = currentSupply - targetSupply;
+            remaining = _burnCssv(cssv, address(this), remaining);
+            remaining = _burnCssv(cssv, address(user1), remaining);
+            remaining = _burnCssv(cssv, address(user2), remaining);
+            remaining = _burnCssv(cssv, address(oracle1), remaining);
+            remaining = _burnCssv(cssv, address(oracle2), remaining);
+            remaining = _burnCssv(cssv, address(oracle3), remaining);
+            remaining = _burnCssv(cssv, address(oracle4), remaining);
+
+            if (remaining != 0) {
+                revert("cssv supply rebalance incomplete");
+            }
         }
+    }
+
+    function _burnCssv(ICSSVToken cssv, address holder, uint256 remaining) internal returns (uint256) {
+        if (remaining == 0) return 0;
+
+        uint256 balance = IERC20(CSSV_ADDRESS).balanceOf(holder);
+        if (balance == 0) return remaining;
+
+        uint256 burnAmount = balance < remaining ? balance : remaining;
+        cssv.burn(holder, burnAmount);
+        return remaining - burnAmount;
     }
 
     function _checkpointNetworkFeeIndices() internal {

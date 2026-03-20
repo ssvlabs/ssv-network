@@ -209,8 +209,8 @@ This harness also instantiates staking claimants and operator owners so `echidna
 | `echidna_commit_root_below_oracle_count_reverts` | Rounds with supply below oracle count always revert with zero weight |
 | `echidna_oracle_mapping_consistent` | Oracle ID mappings remain consistent |
 | `echidna_finalized_weight_cleared` | Finalized commitment keys clear accumulated weight |
-| `echidna_commitment_weight_lte_supply` | Commitment weight never exceeds cSSV total supply |
-| `echidna_finalization_implies_quorum` | Root finalization only happens at/above quorum threshold |
+| `echidna_commitment_weight_lte_supply` | Commitment weight never exceeds the round's frozen voting supply |
+| `echidna_finalization_implies_quorum` | Root finalization only happens at/above the quorum threshold for the round's frozen voting supply |
 | `echidna_dao_earnings_monotonic` | Gross DAO earnings do not decrease over time |
 | `echidna_dao_index_block_lte_current` | DAO index block numbers never exceed current block |
 | `echidna_dao_earnings_matches_formula` | **[FUZZ-3 C4]** ETH DAO earnings matches `daoBalance + blockDelta × fee × vUnits / precision` |
@@ -282,8 +282,8 @@ Directly testable with current harness patterns. High bug-catching value.
 | Planned Property | Type | Description | Ref |
 |---|---|---|---|
 | `echidna_finalized_weight_cleared` | Always | If `ebRoots[blockNum] == root != 0`, then `rootCommitments[key] == 0` — prevents re-finalization | A4 |
-| `echidna_commitment_weight_lte_supply` | Always | For each tracked `commitmentKey`, `rootCommitments[key] <= cSSV.totalSupply()` — catches quorum overflow | A5 |
-| `echidna_finalization_implies_quorum` | Conditional | At finalization time, accumulated weight >= `threshold(totalSupply, quorumBps)` — catches quorum bypass | B1 |
+| `echidna_commitment_weight_lte_supply` | Always | For each tracked `commitmentKey`, `rootCommitments[key] <= roundFrozenSupply[key]` while the round is pending — catches quorum overflow | A5 |
+| `echidna_finalization_implies_quorum` | Conditional | At finalization time, accumulated weight >= `threshold(roundFrozenSupply[key], quorumBps)` — catches quorum bypass | B1 |
 
 #### DAO Accounting
 
