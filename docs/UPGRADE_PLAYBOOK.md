@@ -174,6 +174,8 @@ cast keccak $(cast code <address> --rpc-url $MAINNET_RPC_URL)
 
 The expected values should be derived from the locally compiled artifacts in `artifacts/build-info/` or by running the same command against the staging deployment. Include the full attestation JSON in the delivery to the committee.
 
+The script also prints the `keccak256` file hashes of `deployment-attestation.json` and `multisig-batch.json` (if already generated). The committee should verify these hashes match the files they received to confirm nothing was modified after generation.
+
 ## Step 2: Generate the SAFE Batch
 
 After the implementation deployment is complete, SSV Labs runs:
