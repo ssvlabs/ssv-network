@@ -10,16 +10,37 @@ on:
   workflow_dispatch:
 
 jobs:
+  discover-contracts:
+    runs-on: ubuntu-latest
+    outputs:
+      contracts: ${{ steps.discover.outputs.contracts }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Discover Echidna harnesses
+        id: discover
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          contracts = sorted(path.stem for path in Path("test/echidna").glob("*Echidna.sol"))
+          if not contracts:
+              raise SystemExit("No Echidna harnesses found under test/echidna")
+
+          print(f"contracts={json.dumps(contracts)}")
+          PY
+
   echidna:
+    needs: discover-contracts
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        contract:
-          - SSVClustersEchidna
-          - SSVOperatorsEchidna
-          - SSVAccountingEchidna
-          - SSVEdgeCasesEchidna
+        contract: ${{ fromJSON(needs.discover-contracts.outputs.contracts) }}
 
     steps:
       - name: Checkout repository
