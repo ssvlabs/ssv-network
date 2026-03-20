@@ -178,18 +178,19 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         if (available != 0) {
             uint256 minRequired = _minimumActiveClusterBalance(operatorIds, validatorCount);
             if (minRequired != 0 && minRequired <= available) {
-                active = true;
-                balance = minRequired;
-                clusterIndex = _currentClusterIndex(operatorIds);
-                networkFeeIndex = ProtocolLib.currentNetworkFeeIndex(SSVStorageProtocol.load());
-
                 StorageData storage s = SSVStorage.load();
                 StorageProtocol storage sp = SSVStorageProtocol.load();
                 uint256 count = operatorIds.length;
                 for (uint256 i; i < count; ++i) {
+                    OperatorLib.updateSnapshotSt(s.operators[operatorIds[i]], operatorIds[i]);
                     s.operators[operatorIds[i]].ethValidatorCount += validatorCount;
                 }
                 sp.updateDAO(true, validatorCount);
+
+                active = true;
+                balance = minRequired;
+                clusterIndex = _currentClusterIndex(operatorIds);
+                networkFeeIndex = ProtocolLib.currentNetworkFeeIndex(sp);
             }
         }
 
