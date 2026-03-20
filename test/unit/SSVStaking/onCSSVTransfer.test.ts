@@ -5,6 +5,7 @@ import { defaultStakingFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
+import { Events } from "../../common/events.ts";
 
 const PRECISION = 10n ** 18n;
 const MIN_STAKE = 1_000_000_000n;
@@ -77,7 +78,7 @@ describe("SSVStaking function `onCSSVTransfer()`", async () => {
     await cssvToken.mint(staker.address, stakerBalance);
     await cssvToken.mint(receiver.address, receiverBalance);
 
-    await staking.connect(cssvSigner).onCSSVTransfer(
+    const tx = await staking.connect(cssvSigner).onCSSVTransfer(
       staker.address,
       receiver.address,
       1n
@@ -92,6 +93,13 @@ describe("SSVStaking function `onCSSVTransfer()`", async () => {
     const receiverIndex = await staking.getUserIndex(receiver.address);
     expect(stakerIndex).to.equal(accEthPerShare);
     expect(receiverIndex).to.equal(accEthPerShare);
+
+    await expect(tx)
+      .to.emit(staking, Events.REWARDS_SETTLED)
+      .withArgs(staker.address, stakerBalance, stakerBalance, accEthPerShare);
+    await expect(tx)
+      .to.emit(staking, Events.REWARDS_SETTLED)
+      .withArgs(receiver.address, receiverBalance, receiverBalance, accEthPerShare);
   });
 
   it("Distributes rewards proportionally across 3 stakers with different balances", async function () {
