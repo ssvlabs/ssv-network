@@ -88,7 +88,7 @@
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
 | TEST-34 | ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~ | Unit Test Completeness | P1 | ✅ Done |
 | ITEST-1 | ~~`commitRoot` → `updateClusterBalance` E2E flow~~ | Integration / E2E Tests | P1 | ✅ Closed |
-| ITEST-2 | Migration with multiple EB updates E2E | Integration / E2E Tests | P1 | M |
+| ITEST-2 | ~~Migration with multiple EB updates E2E~~ | Integration / E2E Tests | P1 | ✅ Closed |
 | DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
 | DEPLOY-2 | Verify `liquidationThresholdPeriod` config vs spec mismatch | Deployment & Scripts | P1 | S |
 | DEPLOY-3 | ~~Verify `ethNetworkFee` rounding in config~~ | Deployment & Scripts | P2 | ✅ Closed (negligible) |
@@ -2770,13 +2770,13 @@ Unit tests for `commitRoot` and `updateClusterBalance` exist separately but no t
 
 ---
 
-### [ITEST-2] Migration with multiple EB updates E2E
+### [ITEST-2] ~~Migration with multiple EB updates E2E~~
 - **Type:** Integration / E2E Tests
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
-- **Github Link:** (empty)
+- **Status:** ✅ **CLOSED**
+- **Owner:** Test coverage update
+- **Timeline:** Completed 2026-03-03
+- **Github Link:** [test/integration/SSVNetwork/migrationMultipleEBUpdates.test.ts](../test/integration/SSVNetwork/migrationMultipleEBUpdates.test.ts)
 
 **Requirement:**
 Test migration of a cluster that has had multiple EB updates, verifying the latest snapshot is used.
@@ -2785,8 +2785,14 @@ Test migration of a cluster that has had multiple EB updates, verifying the late
 Migration with EB snapshot is tested but edge cases with multiple prior EB updates are not.
 
 **Acceptance Criteria:**
-- [ ] Test: Migrate cluster that has had multiple EB updates → verify latest snapshot used
-- [ ] Test: Migrate cluster where EB was set and then validators were added → verify vUnits calculated correctly
+- [x] Test: Migrate cluster that has had multiple EB updates → verify latest snapshot used
+- [x] Test: Migrate cluster where EB was set and then validators were added → verify vUnits calculated correctly
+
+**Implementation Summary:**
+1. Added dedicated ITEST-2 suite: [migrationMultipleEBUpdates.test.ts](../test/integration/SSVNetwork/migrationMultipleEBUpdates.test.ts).
+2. Added scenario for multiple pre-migration EB updates (`64 -> 96`) and verified migration uses the latest EB snapshot in `ClusterMigratedToETH`.
+3. Added scenario where EB is set, validator count is increased, and EB is updated again before migration; verified migrated vUnits/effective balance are calculated from the latest post-addition snapshot.
+4. Added exact-value assertions for `daoTotalEthVUnits`, per-operator vUnits, and migrated cluster state.
 
 **Agent Instructions:**
 1. Read `test/unit/SSVClusters/migrateClusterToETH.test.ts`.
@@ -2795,8 +2801,8 @@ Migration with EB snapshot is tested but edge cases with multiple prior EB updat
 4. Run `npm run test:integration`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Migration after multiple EB updates
-- [ ] Sub-task 2: Migration after EB set + validators added
+- [x] Sub-task 1: Migration after multiple EB updates
+- [x] Sub-task 2: Migration after EB set + validators added
 
 ---
 
